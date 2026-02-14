@@ -371,12 +371,24 @@ export function useTaskMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+  const reorderGroups = useMutation({
+    mutationFn: async (items: { id: string; position: number }[]) => {
+      const promises = items.map(({ id, position }) =>
+        supabase.from("task_groups").update({ position }).eq("id", id)
+      );
+      const results = await Promise.all(promises);
+      const err = results.find(r => r.error);
+      if (err?.error) throw err.error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, removeGroupMember, grantTagAccess,
-    reorderTasks,
+    reorderTasks, reorderGroups,
   };
 }

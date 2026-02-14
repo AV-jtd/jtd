@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings,
+  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 const EMOJI_OPTIONS = ["📁", "🚀", "💡", "🎯", "📊", "🔧", "📝", "🎨", "🏠", "💼", "📚", "⭐", "🔥", "💎", "🌊", "🌿"];
 const COLOR_OPTIONS = [
@@ -32,7 +38,7 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess, reorderGroups } = useTaskMutations();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
@@ -72,6 +78,21 @@ export default function AppSidebar({
       return next;
     });
   };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleGroupDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = rootGroups.findIndex(g => g.id === active.id);
+    const newIndex = rootGroups.findIndex(g => g.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(rootGroups, oldIndex, newIndex);
+    reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
+  }, [rootGroups, reorderGroups]);
 
   const handleAddGroup = (parentId?: string | null) => {
     if (newGroupName.trim()) {
@@ -132,8 +153,17 @@ export default function AppSidebar({
     const isExpanded = expandedGroups.has(group.id);
     const isRoot = depth === 0;
 
+    const {
+      attributes, listeners, setNodeRef, transform, transition, isDragging,
+    } = useSortable({ id: group.id, disabled: !isRoot });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
     return (
-      <div>
+      <div ref={setNodeRef} style={style} className={isDragging ? "opacity-70 z-50 relative" : ""}>
         <div className="group">
           <button
             onClick={() => { onGroupChange(group.id); onViewChange("group"); onTagFilter(null); }}
@@ -146,6 +176,17 @@ export default function AppSidebar({
             )}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
           >
+            {/* Drag handle */}
+            {isRoot && (
+              <span
+                {...attributes}
+                {...listeners}
+                className="shrink-0 text-sidebar-fg/30 hover:text-sidebar-fg/60 cursor-grab active:cursor-grabbing touch-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </span>
+            )}
             {/* Expand toggle */}
             {isRoot && (
               <span
@@ -326,9 +367,13 @@ export default function AppSidebar({
           </button>
           {showGroups && (
             <div className="space-y-0.5 mt-1">
-              {rootGroups.map((g) => (
-                <GroupItem key={g.id} group={g} />
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd} modifiers={[restrictToVerticalAxis]}>
+                <SortableContext items={rootGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+                  {rootGroups.map((g) => (
+                    <GroupItem key={g.id} group={g} />
+                  ))}
+                </SortableContext>
+              </DndContext>
               {showNewGroup && !newSubgroupParentId && (
                 <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
                   <input
