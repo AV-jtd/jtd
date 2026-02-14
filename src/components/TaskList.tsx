@@ -28,7 +28,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
     important: { title: "Важные", icon: Star },
     today: { title: "На сегодня", icon: CalendarDays },
     assigned: { title: "Делегированные", icon: Users },
-    group: { title: activeGroup?.name || "Группа", icon: List },
+    group: { title: activeGroup?.name || "Проект", icon: List },
   };
 
   const view = viewTitles[activeView] || viewTitles.all;

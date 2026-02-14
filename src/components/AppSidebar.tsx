@@ -112,7 +112,7 @@ export default function AppSidebar({
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
           >
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            Группы
+            Проекты
             <button
               onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); }}
               className="ml-auto hover:text-sidebar-fg"
@@ -175,7 +175,7 @@ export default function AppSidebar({
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onBlur={() => { if (!newGroupName.trim()) setShowNewGroup(false); }}
-                    placeholder="Название группы..."
+                    placeholder="Название проекта..."
                     className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
                 </form>
