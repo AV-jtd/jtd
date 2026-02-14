@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -410,6 +410,12 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
             </form>
+          </div>
+
+          {/* Created at */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1">
+            <Clock className="h-3 w-3" />
+            Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
           </div>
         </div>
       )}
