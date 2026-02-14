@@ -5,16 +5,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import TeamSection from "@/components/TeamSection";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function Settings() {
   const { user, loading } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -199,6 +201,34 @@ export default function Settings() {
                 </div>
               </div>
             </div>
+
+            {/* Push notifications */}
+            {pushSupported && (
+              <div className="border-t border-border pt-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-medium">Push-уведомления</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Получайте уведомления о дедлайнах и назначенных задачах, даже когда приложение закрыто.
+                </p>
+                <Button
+                  variant={pushSubscribed ? "outline" : "default"}
+                  onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
+                  disabled={pushLoading}
+                  className="w-full"
+                >
+                  {pushLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : pushSubscribed ? (
+                    <BellOff className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Bell className="mr-2 h-4 w-4" />
+                  )}
+                  {pushSubscribed ? "Отключить уведомления" : "Включить уведомления"}
+                </Button>
+              </div>
+            )}
 
             {/* Teams section */}
             <div className="border-t border-border pt-6">
