@@ -120,6 +120,15 @@ export function useTaskMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  const renameGroup = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from("task_groups").update({ name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+    onError: (e) => toast.error(e.message),
+  });
+
   const deleteGroup = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("task_groups").delete().eq("id", id);
@@ -229,6 +238,15 @@ export function useTaskMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  const renameTag = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from("tags").update({ name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tags"] }),
+    onError: (e) => toast.error(e.message),
+  });
+
   const deleteTag = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("tags").delete().eq("id", id);
@@ -330,10 +348,10 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, deleteGroup,
+    addGroup, renameGroup, deleteGroup,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask,
-    addTag, deleteTag, addTaskTag, removeTaskTag,
+    addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, removeGroupMember, grantTagAccess,
   };
 }
