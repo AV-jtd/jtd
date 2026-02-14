@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import TaskList from "@/components/TaskList";
+import CalendarView from "@/components/CalendarView";
 import { Loader2 } from "lucide-react";
 
 export default function Index() {
@@ -31,11 +32,15 @@ export default function Index() {
         activeTagFilter={activeTagFilter}
         onTagFilter={setActiveTagFilter}
       />
-      <TaskList
-        activeView={activeView}
-        activeGroupId={activeGroupId}
-        activeTagFilter={activeTagFilter}
-      />
+      {activeView === "calendar" ? (
+        <CalendarView />
+      ) : (
+        <TaskList
+          activeView={activeView}
+          activeGroupId={activeGroupId}
+          activeTagFilter={activeTagFilter}
+        />
+      )}
     </div>
   );
 }
