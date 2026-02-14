@@ -74,8 +74,8 @@ export default function TaskItem({ task }: TaskItemProps) {
 
   return (
     <div className={cn(
-      "group bg-card rounded-lg border border-border shadow-sm transition-all hover:shadow-md animate-fade-in",
-      task.is_completed && "opacity-60"
+      "group bg-card rounded-xl border border-border transition-all duration-200",
+      task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5"
     )}>
       <div className="flex items-start gap-3 p-3.5">
         {/* Checkbox */}
@@ -330,12 +330,22 @@ export default function TaskItem({ task }: TaskItemProps) {
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3 w-3" /> Срок
             </p>
-            <input
-              type="date"
-              value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-              onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-              className="text-xs bg-transparent outline-none border border-border rounded px-2 py-1"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+                onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
+                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+              />
+              {task.deadline && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Subtasks in detail view */}

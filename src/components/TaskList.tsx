@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
-import { Plus, List, Star, CalendarDays, Users, Loader2 } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { isToday, parseISO } from "date-fns";
+import { isToday, parseISO, format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { pluralizeRu } from "@/lib/pluralize";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 interface TaskListProps {
   activeView: string;
@@ -20,19 +24,20 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
   const { data: groups = [] } = useTaskGroups();
   const { addTask } = useTaskMutations();
   const [newTitle, setNewTitle] = useState("");
-  const [newDeadline, setNewDeadline] = useState("");
+  const [newDeadline, setNewDeadline] = useState<Date | undefined>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
-  const viewTitles: Record<string, { title: string; icon: React.ElementType }> = {
-    all: { title: "Все задачи", icon: List },
-    important: { title: "Важные", icon: Star },
-    today: { title: "На сегодня", icon: CalendarDays },
-    assigned: { title: "Делегированные", icon: Users },
-    group: { title: activeGroup?.name || "Проект", icon: List },
+  const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
+    all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
+    important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
+    today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
+    assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
+    group: { title: activeGroup?.name || "Проект", icon: List, emptyTitle: "Проект пуст", emptyDesc: "Добавьте задачи в этот проект" },
   };
 
-  const view = viewTitles[activeView] || viewTitles.all;
+  const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
   let filteredTasks = tasks;
@@ -44,15 +49,18 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
     filteredTasks = tasks.filter(t => t.assigned_to);
   }
 
+  const activeTasks = filteredTasks.filter(t => !t.is_completed);
+  const completedTasks = filteredTasks.filter(t => t.is_completed);
+
   const handleAddTask = () => {
     if (newTitle.trim()) {
       addTask.mutate({
         title: newTitle.trim(),
         group_id: activeView === "group" ? activeGroupId : null,
-        deadline: newDeadline || null,
+        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : null,
       });
       setNewTitle("");
-      setNewDeadline("");
+      setNewDeadline(undefined);
     }
   };
 
@@ -60,58 +68,99 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
     <main className="flex-1 overflow-y-auto scrollbar-thin">
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <Icon className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">{view.title}</h1>
-          <span className="text-sm text-muted-foreground ml-auto">
-            {pluralizeRu(filteredTasks.filter(t => !t.is_completed).length, "задача", "задачи", "задач")}
-          </span>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold text-foreground leading-tight">{view.title}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {pluralizeRu(activeTasks.length, "задача", "задачи", "задач")}
+            </p>
+          </div>
         </div>
 
         {/* Add task */}
         <form
           onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
-          className="flex items-center gap-3 mb-6 bg-card rounded-lg border border-border p-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
+          className="flex items-center gap-3 mb-6 bg-card rounded-xl border border-border p-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
         >
           <button
             type="submit"
             disabled={!newTitle.trim()}
-            className="mt-0.5 h-5 w-5 rounded-full border-2 border-primary/40 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-30 disabled:hover:border-primary/40 disabled:hover:bg-transparent"
+            className="h-6 w-6 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
           >
-            <Plus className="h-3 w-3 text-primary" />
+            <Plus className="h-3.5 w-3.5 text-primary" />
           </button>
           <Input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Добавить задачу... (Enter для добавления)"
-            className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm"
+            placeholder="Добавить задачу..."
+            className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
           />
-          <input
-            type="date"
-            value={newDeadline}
-            onChange={(e) => setNewDeadline(e.target.value)}
-            className="text-xs text-muted-foreground bg-transparent outline-none border border-border rounded px-2 py-1 shrink-0"
-          />
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors shrink-0",
+                  newDeadline
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                )}
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={newDeadline}
+                onSelect={(date) => { setNewDeadline(date); setCalendarOpen(false); }}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </form>
 
         {/* Task list */}
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
+            <p className="text-sm text-muted-foreground">Загрузка...</p>
           </div>
         ) : filteredTasks.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-              <Icon className="h-8 w-8 text-muted-foreground" />
+          <div className="text-center py-20">
+            <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-5">
+              <Inbox className="h-10 w-10 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground">Нет задач</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">Добавьте первую задачу выше</p>
+            <p className="text-base font-medium text-muted-foreground">{view.emptyTitle}</p>
+            <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredTasks.map(task => (
-              <TaskItem key={task.id} task={task} />
+          <div className="space-y-1.5">
+            {/* Active tasks */}
+            {activeTasks.map((task, i) => (
+              <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
+                <TaskItem task={task} />
+              </div>
             ))}
+
+            {/* Completed tasks */}
+            {completedTasks.length > 0 && (
+              <div className="pt-4">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
+                  Выполнено · {completedTasks.length}
+                </p>
+                <div className="space-y-1.5">
+                  {completedTasks.map(task => (
+                    <TaskItem key={task.id} task={task} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
