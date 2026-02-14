@@ -27,7 +27,7 @@ export default function Index() {
   if (!user) return <Navigate to="/auth" replace />;
 
   const handleNavAction = () => {
-    if (isMobile) setSidebarOpen(false);
+    // No auto-close on mobile — user controls sidebar manually
   };
 
   const handleToggleTag = (id: string) => {
