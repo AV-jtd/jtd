@@ -28,13 +28,13 @@ export default function SubordinatesView() {
             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
               <Users className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold text-foreground">Подчинённые</h1>
+            <h1 className="text-xl font-semibold text-foreground">Команда</h1>
           </div>
           <div className="text-center py-20">
             <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-5">
               <Users className="h-10 w-10 text-muted-foreground/40" />
             </div>
-            <p className="text-base font-medium text-muted-foreground">Нет подчинённых</p>
+            <p className="text-base font-medium text-muted-foreground">Команда пуста</p>
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">
               Создайте команду в настройках и пригласите участников по коду
             </p>
@@ -71,7 +71,7 @@ export default function SubordinatesView() {
             <Users className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-foreground leading-tight">Подчинённые</h1>
+            <h1 className="text-xl font-semibold text-foreground leading-tight">Команда</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {members.length} чел. · {totalTasks} задач
             </p>
