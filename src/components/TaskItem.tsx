@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import ConfirmDelete from "@/components/ConfirmDelete";
 
 interface TaskItemProps {
   task: Task;
@@ -23,6 +25,8 @@ export default function TaskItem({ task }: TaskItemProps) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [assignEmail, setAssignEmail] = useState("");
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
@@ -51,6 +55,14 @@ export default function TaskItem({ task }: TaskItemProps) {
       updateTask.mutate({ id: task.id, title: editTitle.trim() });
     }
     setEditing(false);
+  };
+
+  const handleSaveDescription = () => {
+    const newDesc = descriptionDraft.trim() || null;
+    if (newDesc !== (task.description || null)) {
+      updateTask.mutate({ id: task.id, description: newDesc } as any);
+    }
+    setEditingDescription(false);
   };
 
   const handleAssign = () => {
@@ -93,13 +105,14 @@ export default function TaskItem({ task }: TaskItemProps) {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={handleSaveTitle}
-                onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveTitle(); if (e.key === "Escape") setEditing(false); }}
                 className="flex-1 bg-transparent outline-none text-sm font-medium"
               />
             ) : (
               <span
                 onDoubleClick={() => { setEditing(true); setEditTitle(task.title); }}
                 className={cn("text-sm font-medium cursor-pointer", task.is_completed && "line-through text-muted-foreground")}
+                title="Двойной клик для редактирования"
               >
                 {task.title}
               </span>
@@ -110,6 +123,11 @@ export default function TaskItem({ task }: TaskItemProps) {
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {subtasks.length > 0 && (
               <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} подзадач</span>
+            )}
+            {task.description && !detailsOpen && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <FileText className="h-3 w-3" />
+              </span>
             )}
             {task.deadline && (
               <span className={cn(
@@ -197,18 +215,46 @@ export default function TaskItem({ task }: TaskItemProps) {
             <Star className={cn("h-4 w-4", task.is_important && "fill-current")} />
           </button>
 
-          <button
-            onClick={() => deleteTask.mutate(task.id)}
-            className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <ConfirmDelete title="Удалить задачу?" description="Задача и все подзадачи будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
+            <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </ConfirmDelete>
         </div>
       </div>
 
       {/* Expandable details panel */}
       {detailsOpen && (
         <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
+          {/* Description */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <FileText className="h-3 w-3" /> Описание
+            </p>
+            {editingDescription ? (
+              <div className="space-y-1.5">
+                <Textarea
+                  autoFocus
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  placeholder="Добавьте описание..."
+                  className="text-sm min-h-[60px] resize-none"
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleSaveDescription} className="text-xs text-primary hover:text-primary/80">Сохранить</button>
+                  <button onClick={() => { setEditingDescription(false); setDescriptionDraft(task.description || ""); }} className="text-xs text-muted-foreground hover:text-foreground">Отмена</button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => { setEditingDescription(true); setDescriptionDraft(task.description || ""); }}
+                className="text-sm text-foreground/80 cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5 min-h-[32px] transition-colors"
+              >
+                {task.description || <span className="text-muted-foreground italic">Нажмите чтобы добавить описание...</span>}
+              </div>
+            )}
+          </div>
+
           {/* Assignee */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">

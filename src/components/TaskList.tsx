@@ -4,6 +4,7 @@ import TaskItem from "./TaskItem";
 import { Plus, List, Star, CalendarDays, Users, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO } from "date-fns";
+import { pluralizeRu } from "@/lib/pluralize";
 
 interface TaskListProps {
   activeView: string;
@@ -63,7 +64,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
           <Icon className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-semibold text-foreground">{view.title}</h1>
           <span className="text-sm text-muted-foreground ml-auto">
-            {filteredTasks.filter(t => !t.is_completed).length} задач
+            {pluralizeRu(filteredTasks.filter(t => !t.is_completed).length, "задача", "задачи", "задач")}
           </span>
         </div>
 

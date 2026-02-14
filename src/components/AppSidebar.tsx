@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import ConfirmDelete from "@/components/ConfirmDelete";
 
 interface AppSidebarProps {
   activeView: string;
@@ -23,7 +24,7 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, deleteGroup, addTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
   const [newGroupName, setNewGroupName] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [showGroups, setShowGroups] = useState(true);
@@ -32,6 +33,10 @@ export default function AppSidebar({
   const [showNewTag, setShowNewTag] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [tagShareEmail, setTagShareEmail] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState("");
 
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
@@ -77,6 +82,20 @@ export default function AppSidebar({
     }
   };
 
+  const handleSaveGroupName = (id: string) => {
+    if (editingGroupName.trim()) {
+      renameGroup.mutate({ id, name: editingGroupName.trim() });
+    }
+    setEditingGroupId(null);
+  };
+
+  const handleSaveTagName = (id: string) => {
+    if (editingTagName.trim()) {
+      renameTag.mutate({ id, name: editingTagName.trim() });
+    }
+    setEditingTagId(null);
+  };
+
   return (
     <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full shrink-0">
       {/* Header */}
@@ -105,7 +124,7 @@ export default function AppSidebar({
           </button>
         ))}
 
-        {/* Groups section */}
+        {/* Projects section */}
         <div className="pt-4">
           <button
             onClick={() => setShowGroups(!showGroups)}
@@ -134,7 +153,24 @@ export default function AppSidebar({
                     )}
                   >
                     <div className="h-3 w-3 rounded" style={{ backgroundColor: g.color || undefined }} />
-                    <span className="truncate flex-1 text-left">{g.name}</span>
+                    {editingGroupId === g.id ? (
+                      <input
+                        autoFocus
+                        value={editingGroupName}
+                        onChange={(e) => setEditingGroupName(e.target.value)}
+                        onBlur={() => handleSaveGroupName(g.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveGroupName(g.id); if (e.key === "Escape") setEditingGroupId(null); }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+                      />
+                    ) : (
+                      <span
+                        className="truncate flex-1 text-left"
+                        onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(g.id); setEditingGroupName(g.name); }}
+                      >
+                        {g.name}
+                      </span>
+                    )}
                     <div className="flex items-center gap-0.5 shrink-0">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -160,10 +196,14 @@ export default function AppSidebar({
                           </form>
                         </PopoverContent>
                       </Popover>
-                      <Trash2
-                        className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0 cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); deleteGroup.mutate(g.id); }}
-                      />
+                      <ConfirmDelete title="Удалить проект?" description="Все задачи проекта останутся, но потеряют привязку." onConfirm={() => deleteGroup.mutate(g.id)}>
+                        <span
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </span>
+                      </ConfirmDelete>
                     </div>
                   </button>
                 </div>
@@ -213,7 +253,24 @@ export default function AppSidebar({
                     )}
                   >
                     <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
-                    <span className="truncate flex-1 text-left">{t.name}</span>
+                    {editingTagId === t.id ? (
+                      <input
+                        autoFocus
+                        value={editingTagName}
+                        onChange={(e) => setEditingTagName(e.target.value)}
+                        onBlur={() => handleSaveTagName(t.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveTagName(t.id); if (e.key === "Escape") setEditingTagId(null); }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+                      />
+                    ) : (
+                      <span
+                        className="truncate flex-1 text-left"
+                        onDoubleClick={(e) => { e.stopPropagation(); setEditingTagId(t.id); setEditingTagName(t.name); }}
+                      >
+                        {t.name}
+                      </span>
+                    )}
                     <div className="flex items-center gap-0.5 shrink-0">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -239,10 +296,14 @@ export default function AppSidebar({
                           </form>
                         </PopoverContent>
                       </Popover>
-                      <Trash2
-                        className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0 cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); deleteTag.mutate(t.id); }}
-                      />
+                      <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
+                        <span
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </span>
+                      </ConfirmDelete>
                     </div>
                   </button>
                 </div>
