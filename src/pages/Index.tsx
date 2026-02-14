@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import TaskList from "@/components/TaskList";
 import CalendarView from "@/components/CalendarView";
+import SubordinatesView from "@/components/SubordinatesView";
 import { Loader2, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -72,6 +73,8 @@ export default function Index() {
         )}
         {activeView === "calendar" ? (
           <CalendarView />
+        ) : activeView === "subordinates" ? (
+          <SubordinatesView />
         ) : (
           <TaskList
             activeView={activeView}
