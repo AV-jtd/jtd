@@ -71,36 +71,36 @@
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 8%;
+    --card: 222 47% 9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 8%;
+    --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
 
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 32% 17%;
+    --secondary: 217 32% 14%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 217 32% 14%;
+    --muted-foreground: 215 20% 55%;
 
-    --accent: 217 32% 17%;
+    --accent: 217 32% 14%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
+    --border: 217 32% 14%;
+    --input: 217 32% 18%;
     --ring: 212 26% 83%;
 
-    --sidebar-bg: 222 47% 8%;
+    --sidebar-bg: 222 47% 7%;
     --sidebar-fg: 210 40% 98%;
-    --sidebar-hover: 222 47% 12%;
+    --sidebar-hover: 222 47% 11%;
     --sidebar-active: 217 91% 60%;
-    --sidebar-muted: 215 20% 65%;
+    --sidebar-muted: 215 20% 55%;
   }
 }
 
@@ -110,7 +110,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
@@ -130,7 +130,11 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
+    background-color: hsl(var(--muted-foreground) / 0.3);
     border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 }

@@ -280,12 +280,14 @@ export default function AppSidebar({
   }
 
   return (
-    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full shrink-0">
+    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full shrink-0 border-r border-sidebar-fg/5">
       {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <CheckSquare className="h-6 w-6" />
-          <span className="text-xl font-semibold">TaskFlow</span>
+          <div className="h-8 w-8 rounded-lg bg-sidebar-fg/15 flex items-center justify-center">
+            <CheckSquare className="h-4.5 w-4.5" />
+          </div>
+          <span className="text-lg font-bold tracking-tight">TaskFlow</span>
         </div>
       </div>
 
@@ -296,13 +298,13 @@ export default function AppSidebar({
             key={item.id}
             onClick={() => { onViewChange(item.id); onGroupChange(null); onTagFilter(null); }}
             className={cn(
-              "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
               activeView === item.id && !activeGroupId
-                ? "bg-sidebar-active text-sidebar-fg"
-                : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+                ? "bg-sidebar-fg/15 text-sidebar-fg shadow-sm"
+                : "text-sidebar-fg/70 hover:bg-sidebar-fg/10 hover:text-sidebar-fg"
             )}
           >
-            <item.icon className="h-4.5 w-4.5" />
+            <item.icon className="h-4 w-4" />
             {item.label}
           </button>
         ))}
@@ -440,16 +442,16 @@ export default function AppSidebar({
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-sidebar-fg/10">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div className="h-8 w-8 rounded-full bg-sidebar-hover flex items-center justify-center text-sm font-medium">
+      <div className="p-3 border-t border-sidebar-fg/8">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-fg/5 transition-colors">
+          <div className="h-8 w-8 rounded-full bg-sidebar-fg/15 flex items-center justify-center text-sm font-semibold">
             {user?.email?.[0]?.toUpperCase()}
           </div>
-          <span className="text-sm truncate flex-1">{user?.email}</span>
-          <Link to="/settings" className="text-sidebar-fg/60 hover:text-sidebar-fg">
+          <span className="text-sm truncate flex-1 text-sidebar-fg/80">{user?.email}</span>
+          <Link to="/settings" className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
             <Settings className="h-4 w-4" />
           </Link>
-          <button onClick={signOut} className="text-sidebar-fg/60 hover:text-sidebar-fg">
+          <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
