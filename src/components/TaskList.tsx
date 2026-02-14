@@ -28,13 +28,13 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers" ;
 interface TaskListProps {
   activeView: string;
   activeGroupId: string | null;
-  activeTagFilter: string | null;
+  activeTagFilters: string[];
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilter }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
-    activeTagFilter
+    activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
   const { addTask, reorderTasks } = useTaskMutations();

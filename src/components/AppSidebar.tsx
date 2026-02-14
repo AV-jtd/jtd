@@ -28,12 +28,13 @@ interface AppSidebarProps {
   onViewChange: (view: string) => void;
   activeGroupId: string | null;
   onGroupChange: (id: string | null) => void;
-  activeTagFilter: string | null;
-  onTagFilter: (id: string | null) => void;
+  activeTagFilters: string[];
+  onToggleTag: (id: string) => void;
+  onClearTags: () => void;
 }
 
 export default function AppSidebar({
-  activeView, onViewChange, activeGroupId, onGroupChange, activeTagFilter, onTagFilter,
+  activeView, onViewChange, activeGroupId, onGroupChange, activeTagFilters, onToggleTag, onClearTags,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
@@ -166,7 +167,7 @@ export default function AppSidebar({
       <div ref={setNodeRef} style={style} className={isDragging ? "opacity-70 z-50 relative" : ""}>
         <div className="group">
           <button
-            onClick={() => { onGroupChange(group.id); onViewChange("group"); onTagFilter(null); }}
+            onClick={() => { onGroupChange(group.id); onViewChange("group"); onClearTags(); }}
             className={cn(
               "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
               depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
@@ -337,7 +338,7 @@ export default function AppSidebar({
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => { onViewChange(item.id); onGroupChange(null); onTagFilter(null); }}
+            onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
             className={cn(
               "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
               activeView === item.id && !activeGroupId
@@ -415,10 +416,10 @@ export default function AppSidebar({
               {tags.map((t) => (
                 <div key={t.id} className="group">
                   <button
-                    onClick={() => { onTagFilter(activeTagFilter === t.id ? null : t.id); onViewChange("all"); onGroupChange(null); }}
+                    onClick={() => onToggleTag(t.id)}
                     className={cn(
                       "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
-                      activeTagFilter === t.id
+                      activeTagFilters.includes(t.id)
                         ? "bg-sidebar-active text-sidebar-fg"
                         : "text-sidebar-fg/80 hover:bg-sidebar-hover"
                     )}

@@ -12,7 +12,7 @@ export default function Index() {
   const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState("all");
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -30,13 +30,23 @@ export default function Index() {
     if (isMobile) setSidebarOpen(false);
   };
 
+  const handleToggleTag = (id: string) => {
+    setActiveTagFilters(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    );
+    setActiveView("all");
+    setActiveGroupId(null);
+    handleNavAction();
+  };
+
   const sidebarProps = {
     activeView,
     onViewChange: (v: string) => { setActiveView(v); handleNavAction(); },
     activeGroupId,
     onGroupChange: (id: string | null) => { setActiveGroupId(id); handleNavAction(); },
-    activeTagFilter,
-    onTagFilter: (id: string | null) => { setActiveTagFilter(id); handleNavAction(); },
+    activeTagFilters,
+    onToggleTag: handleToggleTag,
+    onClearTags: () => setActiveTagFilters([]),
   };
 
   return (
@@ -66,7 +76,7 @@ export default function Index() {
           <TaskList
             activeView={activeView}
             activeGroupId={activeGroupId}
-            activeTagFilter={activeTagFilter}
+            activeTagFilters={activeTagFilters}
           />
         )}
       </div>
