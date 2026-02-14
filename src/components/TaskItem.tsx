@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -161,13 +161,19 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 <FileText className="h-3 w-3" />
               </span>
             )}
-            {task.deadline && (
+             {task.deadline && (
               <span className={cn(
                 "text-xs flex items-center gap-1",
                 deadlineOverdue ? "text-destructive" : "text-muted-foreground"
               )}>
                 <Calendar className="h-3 w-3" />
                 {formatDeadline(task.deadline)}
+              </span>
+            )}
+            {(task as any).recurrence && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Repeat className="h-3 w-3" />
+                {{ daily: "Ежедневно", weekly: "Еженедельно", monthly: "Ежемесячно", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
               </span>
             )}
             {task.assigned_to && (
@@ -372,6 +378,34 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               {task.deadline && (
                 <button
                   onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Recurrence */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Repeat className="h-3 w-3" /> Повтор
+            </p>
+            <div className="flex items-center gap-2">
+              <select
+                value={(task as any).recurrence || ""}
+                onChange={(e) => updateTask.mutate({ id: task.id, recurrence: e.target.value || null } as any)}
+                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+              >
+                <option value="">Без повтора</option>
+                <option value="daily">Ежедневно</option>
+                <option value="weekly">Еженедельно</option>
+                <option value="monthly">Ежемесячно</option>
+                <option value="yearly">Ежегодно</option>
+              </select>
+              {(task as any).recurrence && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, recurrence: null } as any)}
                   className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />

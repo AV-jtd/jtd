@@ -1,10 +1,35 @@
+import { useState } from "react";
 import { useSubordinateTasks } from "@/hooks/useTeams";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import TaskItem from "./TaskItem";
-import { Users, Loader2, BarChart3, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Users, Loader2, BarChart3, CheckCircle2, Clock, AlertTriangle, Plus } from "lucide-react";
 import { isToday, parseISO, isPast } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export default function SubordinatesView() {
   const { data, isLoading } = useSubordinateTasks();
+  const qc = useQueryClient();
+  const [newTaskTitles, setNewTaskTitles] = useState<Record<string, string>>({});
+
+  const handleAddTaskForMember = async (memberId: string) => {
+    const title = newTaskTitles[memberId]?.trim();
+    if (!title) return;
+    const { error } = await supabase.from("tasks").insert({
+      title,
+      user_id: memberId,
+      assigned_to: memberId,
+    } as any);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setNewTaskTitles(prev => ({ ...prev, [memberId]: "" }));
+      qc.invalidateQueries({ queryKey: ["subordinate_tasks"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Задача создана");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -130,6 +155,28 @@ export default function SubordinatesView() {
                     </div>
                     <p className="text-[10px] text-muted-foreground text-right mt-0.5">{completionRate}%</p>
                   </div>
+                </div>
+
+                {/* Add task for member */}
+                <div className="px-3 py-2 border-b border-border">
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); handleAddTaskForMember(member.id); }}
+                    className="flex items-center gap-2"
+                  >
+                    <button
+                      type="submit"
+                      disabled={!newTaskTitles[member.id]?.trim()}
+                      className="h-5 w-5 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+                    >
+                      <Plus className="h-3 w-3 text-primary" />
+                    </button>
+                    <Input
+                      value={newTaskTitles[member.id] || ""}
+                      onChange={(e) => setNewTaskTitles(prev => ({ ...prev, [member.id]: e.target.value }))}
+                      placeholder="Новая задача для участника..."
+                      className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
+                    />
+                  </form>
                 </div>
 
                 {/* Member tasks */}

@@ -5,6 +5,8 @@ import AppSidebar from "@/components/AppSidebar";
 import TaskList from "@/components/TaskList";
 import CalendarView from "@/components/CalendarView";
 import SubordinatesView from "@/components/SubordinatesView";
+import DashboardView from "@/components/DashboardView";
+import ArchiveView from "@/components/ArchiveView";
 import { Loader2, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -75,6 +77,10 @@ export default function Index() {
           <CalendarView />
         ) : activeView === "subordinates" ? (
           <SubordinatesView />
+        ) : activeView === "dashboard" ? (
+          <DashboardView />
+        ) : activeView === "archive" ? (
+          <ArchiveView />
         ) : (
           <TaskList
             activeView={activeView}

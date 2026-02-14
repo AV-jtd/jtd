@@ -8,6 +8,9 @@ export type Task = Tables<"tasks"> & {
   subtasks?: Tables<"subtasks">[];
   task_tags?: { tag_id: string }[];
   tags?: Tables<"tags">[];
+  recurrence?: string | null;
+  recurrence_end_date?: string | null;
+  parent_recurring_id?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;
@@ -202,11 +205,54 @@ export function useTaskMutations() {
 
   const toggleTask = useMutation({
     mutationFn: async ({ id, is_completed }: { id: string; is_completed: boolean }) => {
+      // Get full task to check recurrence
+      const { data: taskData } = await supabase.from("tasks").select("*").eq("id", id).single();
+      
       const { error } = await supabase.from("tasks").update({
         is_completed,
         completed_at: is_completed ? new Date().toISOString() : null,
       }).eq("id", id);
       if (error) throw error;
+
+      // Auto-create next recurring task
+      if (is_completed && taskData && (taskData as any).recurrence) {
+        const rec = (taskData as any).recurrence as string;
+        const now = new Date();
+        let nextDeadline: Date | null = null;
+        
+        if (taskData.deadline) {
+          const d = new Date(taskData.deadline);
+          if (rec === "daily") d.setDate(d.getDate() + 1);
+          else if (rec === "weekly") d.setDate(d.getDate() + 7);
+          else if (rec === "monthly") d.setMonth(d.getMonth() + 1);
+          else if (rec === "yearly") d.setFullYear(d.getFullYear() + 1);
+          nextDeadline = d;
+        } else {
+          if (rec === "daily") now.setDate(now.getDate() + 1);
+          else if (rec === "weekly") now.setDate(now.getDate() + 7);
+          else if (rec === "monthly") now.setMonth(now.getMonth() + 1);
+          else if (rec === "yearly") now.setFullYear(now.getFullYear() + 1);
+          nextDeadline = now;
+        }
+
+        const endDate = (taskData as any).recurrence_end_date;
+        if (endDate && nextDeadline && nextDeadline > new Date(endDate)) {
+          // Past end date, don't create next
+        } else {
+          await supabase.from("tasks").insert({
+            title: taskData.title,
+            description: taskData.description,
+            group_id: taskData.group_id,
+            user_id: taskData.user_id,
+            is_important: taskData.is_important,
+            deadline: nextDeadline?.toISOString() || null,
+            assigned_to: taskData.assigned_to,
+            recurrence: rec,
+            recurrence_end_date: endDate,
+            parent_recurring_id: (taskData as any).parent_recurring_id || id,
+          } as any);
+        }
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
