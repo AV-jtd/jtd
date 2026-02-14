@@ -50,6 +50,7 @@ export default function AppSidebar({
     { id: "important", icon: Star, label: "Важные" },
     { id: "today", icon: CalendarDays, label: "На сегодня" },
     { id: "assigned", icon: Users, label: "Делегированные" },
+    { id: "calendar", icon: CalendarDays, label: "Календарь" },
   ];
 
   const handleAddGroup = () => {
