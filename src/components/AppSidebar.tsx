@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations } from "@/hooks/useTasks";
+import { Link } from "react-router-dom";
 import {
-  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2,
+  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -332,6 +333,9 @@ export default function AppSidebar({
             {user?.email?.[0]?.toUpperCase()}
           </div>
           <span className="text-sm truncate flex-1">{user?.email}</span>
+          <Link to="/settings" className="text-sidebar-fg/60 hover:text-sidebar-fg">
+            <Settings className="h-4 w-4" />
+          </Link>
           <button onClick={signOut} className="text-sidebar-fg/60 hover:text-sidebar-fg">
             <LogOut className="h-4 w-4" />
           </button>
