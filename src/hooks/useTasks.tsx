@@ -29,10 +29,10 @@ export function useTaskGroups() {
   });
 }
 
-export function useTasks(groupId?: string | null, filterTag?: string | null) {
+export function useTasks(groupId?: string | null, filterTags?: string[] | null) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["tasks", user?.id, groupId, filterTag],
+    queryKey: ["tasks", user?.id, groupId, filterTags],
     queryFn: async () => {
       let query = supabase
         .from("tasks")
@@ -50,9 +50,11 @@ export function useTasks(groupId?: string | null, filterTag?: string | null) {
 
       let tasks = data as Task[];
 
-      if (filterTag) {
+      if (filterTags && filterTags.length > 0) {
         tasks = tasks.filter(t =>
-          t.task_tags?.some(tt => tt.tag_id === filterTag)
+          filterTags.every(tagId =>
+            t.task_tags?.some(tt => tt.tag_id === tagId)
+          )
         );
       }
 
