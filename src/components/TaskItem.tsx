@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -10,12 +10,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface TaskItemProps {
   task: Task;
+  sortable?: boolean;
 }
 
-export default function TaskItem({ task }: TaskItemProps) {
+export default function TaskItem({ task, sortable }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const [expanded, setExpanded] = useState(false);
@@ -33,6 +36,15 @@ export default function TaskItem({ task }: TaskItemProps) {
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, disabled: !sortable });
 
   const formatDeadline = (deadline: string) => {
     const date = parseISO(deadline);
@@ -72,12 +84,32 @@ export default function TaskItem({ task }: TaskItemProps) {
     }
   };
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
-    <div className={cn(
-      "group bg-card rounded-xl border border-border transition-all duration-200",
-      task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5"
-    )}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group bg-card rounded-xl border border-border transition-all duration-200",
+        task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
+        isDragging && "opacity-70 shadow-lg z-50 relative"
+      )}
+    >
       <div className="flex items-start gap-3 p-3.5">
+        {/* Drag handle */}
+        {sortable && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-1 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         {/* Checkbox */}
         <button
           onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}

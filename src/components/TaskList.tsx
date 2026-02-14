@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox } from "lucide-react";
@@ -9,6 +9,21 @@ import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers" ;
 
 interface TaskListProps {
   activeView: string;
@@ -22,7 +37,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
     activeTagFilter
   );
   const { data: groups = [] } = useTaskGroups();
-  const { addTask } = useTaskMutations();
+  const { addTask, reorderTasks } = useTaskMutations();
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -51,6 +66,21 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
 
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
   const completedTasks = filteredTasks.filter(t => t.is_completed);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = activeTasks.findIndex(t => t.id === active.id);
+    const newIndex = activeTasks.findIndex(t => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(activeTasks, oldIndex, newIndex);
+    reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
+  }, [activeTasks, reorderTasks]);
 
   const handleAddTask = () => {
     if (newTitle.trim()) {
@@ -142,11 +172,15 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
         ) : (
           <div className="space-y-1.5">
             {/* Active tasks */}
-            {activeTasks.map((task, i) => (
-              <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
-                <TaskItem task={task} />
-              </div>
-            ))}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
+              <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                {activeTasks.map((task, i) => (
+                  <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
+                    <TaskItem task={task} sortable />
+                  </div>
+                ))}
+              </SortableContext>
+            </DndContext>
 
             {/* Completed tasks */}
             {completedTasks.length > 0 && (
