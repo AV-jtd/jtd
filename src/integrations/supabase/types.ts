@@ -253,7 +253,10 @@ export type Database = {
           id: string
           is_completed: boolean
           is_important: boolean
+          parent_recurring_id: string | null
           position: number
+          recurrence: string | null
+          recurrence_end_date: string | null
           title: string
           updated_at: string
           user_id: string
@@ -268,7 +271,10 @@ export type Database = {
           id?: string
           is_completed?: boolean
           is_important?: boolean
+          parent_recurring_id?: string | null
           position?: number
+          recurrence?: string | null
+          recurrence_end_date?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -283,7 +289,10 @@ export type Database = {
           id?: string
           is_completed?: boolean
           is_important?: boolean
+          parent_recurring_id?: string | null
           position?: number
+          recurrence?: string | null
+          recurrence_end_date?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -294,6 +303,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_recurring_id_fkey"
+            columns: ["parent_recurring_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
