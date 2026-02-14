@@ -169,6 +169,7 @@ export type Database = {
           id: string
           linked_tag_id: string | null
           name: string
+          parent_id: string | null
           position: number
           user_id: string
         }
@@ -179,6 +180,7 @@ export type Database = {
           id?: string
           linked_tag_id?: string | null
           name: string
+          parent_id?: string | null
           position?: number
           user_id: string
         }
@@ -189,6 +191,7 @@ export type Database = {
           id?: string
           linked_tag_id?: string | null
           name?: string
+          parent_id?: string | null
           position?: number
           user_id?: string
         }
@@ -198,6 +201,13 @@ export type Database = {
             columns: ["linked_tag_id"]
             isOneToOne: false
             referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_groups_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
             referencedColumns: ["id"]
           },
         ]
