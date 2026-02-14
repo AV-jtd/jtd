@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import TeamSection from "@/components/TeamSection";
 
 export default function Settings() {
   const { user, loading } = useAuth();
@@ -197,6 +198,11 @@ export default function Settings() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Teams section */}
+            <div className="border-t border-border pt-6">
+              <TeamSection />
             </div>
           </div>
         )}
