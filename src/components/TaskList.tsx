@@ -72,11 +72,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilter }:
           onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
           className="flex items-center gap-3 mb-6 bg-card rounded-lg border border-border p-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
         >
-          <Plus className="h-5 w-5 text-primary shrink-0" />
+          <button
+            type="submit"
+            disabled={!newTitle.trim()}
+            className="mt-0.5 h-5 w-5 rounded-full border-2 border-primary/40 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-30 disabled:hover:border-primary/40 disabled:hover:bg-transparent"
+          >
+            <Plus className="h-3 w-3 text-primary" />
+          </button>
           <Input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Добавить задачу..."
+            placeholder="Добавить задачу... (Enter для добавления)"
             className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm"
           />
           <input
