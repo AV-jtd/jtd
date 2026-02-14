@@ -352,84 +352,43 @@ function parseDeadline(text: string): { date: Date | null; cleaned: string } {
   let cleaned = text;
   let date: Date | null = null;
 
-  // "сегодня"
-  const todayMatch = cleaned.match(/\bсегодня\b/i);
-  if (todayMatch) {
-    date = new Date(now);
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(todayMatch[0], "");
-    return { date, cleaned };
-  }
+  // Use non-word-boundary approach for Cyrillic (regex \b doesn't work with Unicode)
+  const patterns: [RegExp, (m: RegExpMatchArray) => Date][] = [
+    [/(?:^|\s)сегодня(?:\s|$)/i, () => {
+      const d = new Date(now); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(?:^|\s)завтра(?:\s|$)/i, () => {
+      const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(?:^|\s)послезавтра(?:\s|$)/i, () => {
+      const d = new Date(now); d.setDate(d.getDate() + 2); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(?:^|\s)через\s+(\d+)\s+(?:день|дня|дней)(?:\s|$)/i, (m) => {
+      const d = new Date(now); d.setDate(d.getDate() + parseInt(m[1])); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(?:^|\s)через\s+неделю(?:\s|$)/i, () => {
+      const d = new Date(now); d.setDate(d.getDate() + 7); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(?:^|\s)через\s+месяц(?:\s|$)/i, () => {
+      const d = new Date(now); d.setMonth(d.getMonth() + 1); d.setHours(23, 59, 0, 0); return d;
+    }],
+    [/(\d{1,2})\.(\d{1,2})\.(\d{4})/, (m) => {
+      return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]), 23, 59);
+    }],
+    [/(\d{1,2})\.(\d{1,2})(?!\.\d)/, (m) => {
+      const d = new Date(now.getFullYear(), parseInt(m[2]) - 1, parseInt(m[1]), 23, 59);
+      if (d < now) d.setFullYear(d.getFullYear() + 1);
+      return d;
+    }],
+  ];
 
-  // "завтра"
-  const tomorrowMatch = cleaned.match(/\bзавтра\b/i);
-  if (tomorrowMatch) {
-    date = new Date(now);
-    date.setDate(date.getDate() + 1);
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(tomorrowMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // "послезавтра"
-  const dayAfterMatch = cleaned.match(/\bпослезавтра\b/i);
-  if (dayAfterMatch) {
-    date = new Date(now);
-    date.setDate(date.getDate() + 2);
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(dayAfterMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // "через N дней/дня/день"
-  const inDaysMatch = cleaned.match(/\bчерез\s+(\d+)\s+(?:день|дня|дней)\b/i);
-  if (inDaysMatch) {
-    date = new Date(now);
-    date.setDate(date.getDate() + parseInt(inDaysMatch[1]));
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(inDaysMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // "через неделю"
-  const inWeekMatch = cleaned.match(/\bчерез\s+неделю\b/i);
-  if (inWeekMatch) {
-    date = new Date(now);
-    date.setDate(date.getDate() + 7);
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(inWeekMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // "через месяц"
-  const inMonthMatch = cleaned.match(/\bчерез\s+месяц\b/i);
-  if (inMonthMatch) {
-    date = new Date(now);
-    date.setMonth(date.getMonth() + 1);
-    date.setHours(23, 59, 0, 0);
-    cleaned = cleaned.replace(inMonthMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // DD.MM.YYYY
-  const fullDateMatch = cleaned.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
-  if (fullDateMatch) {
-    date = new Date(parseInt(fullDateMatch[3]), parseInt(fullDateMatch[2]) - 1, parseInt(fullDateMatch[1]), 23, 59);
-    cleaned = cleaned.replace(fullDateMatch[0], "");
-    return { date, cleaned };
-  }
-
-  // DD.MM (current year, or next year if date passed)
-  const shortDateMatch = cleaned.match(/\b(\d{1,2})\.(\d{1,2})\b/);
-  if (shortDateMatch) {
-    const day = parseInt(shortDateMatch[1]);
-    const month = parseInt(shortDateMatch[2]) - 1;
-    date = new Date(now.getFullYear(), month, day, 23, 59);
-    if (date < now) {
-      date.setFullYear(date.getFullYear() + 1);
+  for (const [regex, handler] of patterns) {
+    const match = cleaned.match(regex);
+    if (match) {
+      date = handler(match);
+      cleaned = cleaned.replace(match[0], " ");
+      return { date, cleaned };
     }
-    cleaned = cleaned.replace(shortDateMatch[0], "");
-    return { date, cleaned };
   }
 
   return { date: null, cleaned };
