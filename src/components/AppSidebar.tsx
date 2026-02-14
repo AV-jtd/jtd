@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTaskMutations } from "@/hooks/useTasks";
+import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
   CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings,
@@ -9,6 +9,13 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
+
+const EMOJI_OPTIONS = ["📁", "🚀", "💡", "🎯", "📊", "🔧", "📝", "🎨", "🏠", "💼", "📚", "⭐", "🔥", "💎", "🌊", "🌿"];
+const COLOR_OPTIONS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6",
+  "#ef4444", "#ec4899", "#06b6d4", "#84cc16",
+  "#f97316", "#6366f1", "#14b8a6", "#a855f7",
+];
 
 interface AppSidebarProps {
   activeView: string;
@@ -25,19 +32,20 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
   const [newGroupName, setNewGroupName] = useState("");
+  const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [showGroups, setShowGroups] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showNewGroup, setShowNewGroup] = useState(false);
-  const [showNewTag, setShowNewTag] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [tagShareEmail, setTagShareEmail] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
@@ -53,11 +61,24 @@ export default function AppSidebar({
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
   ];
 
-  const handleAddGroup = () => {
+  // Separate root groups and subgroups
+  const rootGroups = groups.filter(g => !g.parent_id);
+  const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
+
+  const toggleExpand = (id: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAddGroup = (parentId?: string | null) => {
     if (newGroupName.trim()) {
-      addGroup.mutate(newGroupName.trim());
+      addGroup.mutate({ name: newGroupName.trim(), parent_id: parentId || null });
       setNewGroupName("");
       setShowNewGroup(false);
+      setNewSubgroupParentId(null);
     }
   };
 
@@ -66,7 +87,6 @@ export default function AppSidebar({
       const color = tagColors[tags.length % tagColors.length];
       addTag.mutate({ name: newTagName.trim(), color });
       setNewTagName("");
-      setShowNewTag(false);
     }
   };
 
@@ -97,6 +117,167 @@ export default function AppSidebar({
     }
     setEditingTagId(null);
   };
+
+  function GroupIcon({ group }: { group: TaskGroup }) {
+    // Show emoji if set, otherwise show color dot
+    if (group.icon && group.icon !== "list") {
+      return <span className="text-sm leading-none">{group.icon}</span>;
+    }
+    return <div className="h-3 w-3 rounded" style={{ backgroundColor: group.color || "#3b82f6" }} />;
+  }
+
+  function GroupItem({ group, depth = 0 }: { group: TaskGroup; depth?: number }) {
+    const children = getChildren(group.id);
+    const hasChildren = children.length > 0;
+    const isExpanded = expandedGroups.has(group.id);
+    const isRoot = depth === 0;
+
+    return (
+      <div>
+        <div className="group">
+          <button
+            onClick={() => { onGroupChange(group.id); onViewChange("group"); onTagFilter(null); }}
+            className={cn(
+              "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
+              depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
+              activeGroupId === group.id
+                ? "bg-sidebar-active text-sidebar-fg"
+                : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+            )}
+            style={{ paddingLeft: `${12 + depth * 16}px` }}
+          >
+            {/* Expand toggle */}
+            {isRoot && (
+              <span
+                onClick={(e) => { e.stopPropagation(); toggleExpand(group.id); }}
+                className="shrink-0 cursor-pointer text-sidebar-fg/50 hover:text-sidebar-fg/80"
+              >
+                {hasChildren || true ? (
+                  isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                ) : <span className="w-3" />}
+              </span>
+            )}
+
+            {/* Icon/Emoji with picker */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <span onClick={(e) => e.stopPropagation()} className="shrink-0 cursor-pointer hover:opacity-80">
+                  <GroupIcon group={group} />
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Эмодзи</p>
+                <div className="grid grid-cols-8 gap-1 mb-3">
+                  {EMOJI_OPTIONS.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: emoji })}
+                      className={cn("p-1 rounded hover:bg-accent text-sm", group.icon === emoji && "bg-accent ring-1 ring-primary")}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: "list" })}
+                    className="p-1 rounded hover:bg-accent text-xs text-muted-foreground col-span-2"
+                  >
+                    Убрать
+                  </button>
+                </div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Цвет</p>
+                <div className="grid grid-cols-6 gap-1.5">
+                  {COLOR_OPTIONS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => updateGroupAppearance.mutate({ id: group.id, color: c, icon: group.icon === "list" ? "list" : undefined })}
+                      className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110", group.color === c && "ring-2 ring-primary ring-offset-1 ring-offset-background")}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Name */}
+            {editingGroupId === group.id ? (
+              <input
+                autoFocus
+                value={editingGroupName}
+                onChange={(e) => setEditingGroupName(e.target.value)}
+                onBlur={() => handleSaveGroupName(group.id)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveGroupName(group.id); if (e.key === "Escape") setEditingGroupId(null); }}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+              />
+            ) : (
+              <span
+                className="truncate flex-1 text-left"
+                onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+              >
+                {group.name}
+              </span>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              {isRoot && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
+                  className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  title="Добавить подпроект"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </span>
+              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Пригласить участника</p>
+                  <form onSubmit={(e) => { e.preventDefault(); handleInvite(group.id); }} className="flex gap-2">
+                    <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
+                    <button type="submit" disabled={!inviteEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Добавить</button>
+                  </form>
+                </PopoverContent>
+              </Popover>
+              <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </span>
+              </ConfirmDelete>
+            </div>
+          </button>
+        </div>
+
+        {/* Children / subgroups */}
+        {isRoot && isExpanded && (
+          <div className="space-y-0.5">
+            {children.map(child => (
+              <GroupItem key={child.id} group={child} depth={1} />
+            ))}
+            {newSubgroupParentId === group.id && (
+              <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
+                <input
+                  autoFocus
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onBlur={() => { if (!newGroupName.trim()) setNewSubgroupParentId(null); }}
+                  placeholder="Подпроект..."
+                  className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                />
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full shrink-0">
@@ -135,7 +316,7 @@ export default function AppSidebar({
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Проекты
             <button
-              onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); }}
+              onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); setNewSubgroupParentId(null); }}
               className="ml-auto hover:text-sidebar-fg"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -143,74 +324,10 @@ export default function AppSidebar({
           </button>
           {showGroups && (
             <div className="space-y-0.5 mt-1">
-              {groups.map((g) => (
-                <div key={g.id} className="group">
-                  <button
-                    onClick={() => { onGroupChange(g.id); onViewChange("group"); onTagFilter(null); }}
-                    className={cn(
-                      "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
-                      activeGroupId === g.id
-                        ? "bg-sidebar-active text-sidebar-fg"
-                        : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-                    )}
-                  >
-                    <div className="h-3 w-3 rounded" style={{ backgroundColor: g.color || undefined }} />
-                    {editingGroupId === g.id ? (
-                      <input
-                        autoFocus
-                        value={editingGroupName}
-                        onChange={(e) => setEditingGroupName(e.target.value)}
-                        onBlur={() => handleSaveGroupName(g.id)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveGroupName(g.id); if (e.key === "Escape") setEditingGroupId(null); }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
-                      />
-                    ) : (
-                      <span
-                        className="truncate flex-1 text-left"
-                        onDoubleClick={(e) => { e.stopPropagation(); setEditingGroupId(g.id); setEditingGroupName(g.name); }}
-                      >
-                        {g.name}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <span
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                          >
-                            <UserPlus className="h-3.5 w-3.5" />
-                          </span>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Пригласить участника</p>
-                          <form onSubmit={(e) => { e.preventDefault(); handleInvite(g.id); }} className="flex gap-2">
-                            <Input
-                              value={inviteEmail}
-                              onChange={(e) => setInviteEmail(e.target.value)}
-                              placeholder="Email..."
-                              className="h-7 text-xs"
-                            />
-                            <button type="submit" disabled={!inviteEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">
-                              Добавить
-                            </button>
-                          </form>
-                        </PopoverContent>
-                      </Popover>
-                      <ConfirmDelete title="Удалить проект?" description="Все задачи проекта останутся, но потеряют привязку." onConfirm={() => deleteGroup.mutate(g.id)}>
-                        <span
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </span>
-                      </ConfirmDelete>
-                    </div>
-                  </button>
-                </div>
+              {rootGroups.map((g) => (
+                <GroupItem key={g.id} group={g} />
               ))}
-              {showNewGroup && (
+              {showNewGroup && !newSubgroupParentId && (
                 <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
                   <input
                     autoFocus
@@ -235,10 +352,15 @@ export default function AppSidebar({
             {showTags ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Тэги
             <button
-              onClick={(e) => { e.stopPropagation(); setShowNewTag(true); }}
+              onClick={(e) => { e.stopPropagation(); }}
               className="ml-auto hover:text-sidebar-fg"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" onClick={() => {
+                const color = tagColors[tags.length % tagColors.length];
+                // Show inline form instead
+                setEditingTagId("__new__");
+                setEditingTagName("");
+              }} />
             </button>
           </button>
           {showTags && (
@@ -286,23 +408,13 @@ export default function AppSidebar({
                         <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
                           <p className="text-xs font-medium text-muted-foreground mb-2">Дать доступ к тэгу</p>
                           <form onSubmit={(e) => { e.preventDefault(); handleShareTag(t.id); }} className="flex gap-2">
-                            <Input
-                              value={tagShareEmail}
-                              onChange={(e) => setTagShareEmail(e.target.value)}
-                              placeholder="Email..."
-                              className="h-7 text-xs"
-                            />
-                            <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">
-                              Дать
-                            </button>
+                            <Input value={tagShareEmail} onChange={(e) => setTagShareEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
+                            <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Дать</button>
                           </form>
                         </PopoverContent>
                       </Popover>
                       <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
-                        <span
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                        >
+                        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                           <Trash2 className="h-3.5 w-3.5" />
                         </span>
                       </ConfirmDelete>
@@ -310,13 +422,13 @@ export default function AppSidebar({
                   </button>
                 </div>
               ))}
-              {showNewTag && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); }} className="px-3 py-1">
+              {editingTagId === "__new__" && (
+                <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); setEditingTagId(null); }} className="px-3 py-1">
                   <input
                     autoFocus
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
-                    onBlur={() => { if (!newTagName.trim()) setShowNewTag(false); }}
+                    onBlur={() => { if (!newTagName.trim()) setEditingTagId(null); }}
                     placeholder="Название тэга..."
                     className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />

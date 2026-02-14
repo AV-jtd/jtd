@@ -9,7 +9,7 @@ export type Task = Tables<"tasks"> & {
   task_tags?: { tag_id: string }[];
   tags?: Tables<"tags">[];
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;
 export type Subtask = Tables<"subtasks">;
 
@@ -96,7 +96,7 @@ export function useTaskMutations() {
   const { user } = useAuth();
 
   const addGroup = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, parent_id }: { name: string; parent_id?: string | null }) => {
       // 1. Create tag first
       const { data: tagData, error: tagError } = await supabase
         .from("tags")
@@ -105,11 +105,12 @@ export function useTaskMutations() {
         .single();
       if (tagError) throw tagError;
 
-      // 2. Create group with linked_tag_id
+      // 2. Create group with linked_tag_id and optional parent_id
       const { error } = await supabase.from("task_groups").insert({
         name,
         user_id: user!.id,
         linked_tag_id: tagData.id,
+        parent_id: parent_id || null,
       } as any);
       if (error) throw error;
     },
@@ -118,6 +119,17 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["tags"] });
     },
     onError: (e) => toast.error(e.message),
+  });
+
+  const updateGroupAppearance = useMutation({
+    mutationFn: async ({ id, icon, color }: { id: string; icon?: string | null; color?: string | null }) => {
+      const updates: Record<string, any> = {};
+      if (icon !== undefined) updates.icon = icon;
+      if (color !== undefined) updates.color = color;
+      const { error } = await supabase.from("task_groups").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
   const renameGroup = useMutation({
@@ -348,7 +360,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
