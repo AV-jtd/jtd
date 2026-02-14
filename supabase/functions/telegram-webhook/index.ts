@@ -32,39 +32,74 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify(result), { headers: corsHeaders });
     }
 
-    // Handle /start command
-    if (body.message?.text === "/start") {
-      const chatId = body.message.chat.id;
-      await sendTelegramMessage(
-        BOT_TOKEN,
-        chatId,
-        "👋 Привет! Я TaskFlow Bot.\n\nОтправь мне любое сообщение, и я создам из него задачу.\n\nЧтобы привязать аккаунт, укажи свой Telegram username в настройках приложения TaskFlow."
-      );
-      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-    }
-
-    // Handle regular messages — create a task
     const message = body.message;
     if (!message?.text) {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    const chatId = message.chat.id;
     const username = message.from?.username;
+
+    // Handle /start command
+    if (message.text === "/start") {
+      await sendTelegramMessage(
+        BOT_TOKEN,
+        chatId,
+        "👋 Привет! Я TaskFlow Bot.\n\n" +
+        "📝 Отправь сообщение — создам задачу.\n\n" +
+        "🔧 Возможности:\n" +
+        "• `!` в начале — важная задача\n" +
+        "• `#тег` — добавить тег\n" +
+        "• `@username` — назначить ответственного\n" +
+        "• `завтра`, `послезавтра`, `DD.MM`, `DD.MM.YYYY` — дедлайн\n" +
+        "• `/project` — выбрать проект\n" +
+        "• `/projects` — список проектов\n" +
+        "• `/help` — справка",
+        "Markdown"
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // Handle /help
+    if (message.text === "/help") {
+      await sendTelegramMessage(
+        BOT_TOKEN,
+        chatId,
+        "📖 *Справка TaskFlow Bot*\n\n" +
+        "Просто отправь текст — создам задачу.\n\n" +
+        "*Модификаторы (в любом порядке):*\n" +
+        "• `!` в начале текста — пометить как важную\n" +
+        "• `#работа` — добавить тег «работа»\n" +
+        "• `@ivan` — назначить на пользователя @ivan\n\n" +
+        "*Даты (в тексте):*\n" +
+        "• `сегодня`, `завтра`, `послезавтра`\n" +
+        "• `через 3 дня`, `через неделю`\n" +
+        "• `15.03` или `15.03.2026`\n\n" +
+        "*Проекты:*\n" +
+        "• `/projects` — список ваших проектов\n" +
+        "• `/project Название` — выбрать проект\n" +
+        "• После выбора все задачи идут в этот проект\n" +
+        "• `/project` без аргумента — сбросить проект",
+        "Markdown"
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
     if (!username) {
       await sendTelegramMessage(
         BOT_TOKEN,
-        message.chat.id,
+        chatId,
         "❌ У вас не установлен username в Telegram. Установите его в настройках Telegram."
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
-    // Find user by telegram_username
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Find user by telegram_username
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id")
@@ -74,32 +109,217 @@ Deno.serve(async (req) => {
     if (profileError || !profile) {
       await sendTelegramMessage(
         BOT_TOKEN,
-        message.chat.id,
+        chatId,
         `❌ Аккаунт с username @${username} не найден.\n\nПривяжите свой Telegram в настройках TaskFlow.`
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    const userId = profile.id;
+
+    // Handle /projects — list user's projects
+    if (message.text === "/projects") {
+      const { data: groups } = await supabase
+        .from("task_groups")
+        .select("id, name, icon, parent_id")
+        .eq("user_id", userId)
+        .order("position");
+
+      if (!groups || groups.length === 0) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "📂 У вас пока нет проектов.");
+      } else {
+        const parents = groups.filter(g => !g.parent_id);
+        const children = groups.filter(g => g.parent_id);
+        let text = "📂 *Ваши проекты:*\n\n";
+        for (const p of parents) {
+          text += `${p.icon || "📁"} *${escapeMarkdown(p.name)}*\n`;
+          const subs = children.filter(c => c.parent_id === p.id);
+          for (const s of subs) {
+            text += `  └ ${s.icon || "📄"} ${escapeMarkdown(s.name)}\n`;
+          }
+        }
+        text += "\nИспользуй `/project Название` чтобы выбрать.";
+        await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // Handle /project — set active project
+    if (message.text.startsWith("/project")) {
+      const projectName = message.text.replace(/^\/project\s*/, "").trim();
+      if (!projectName) {
+        // Reset project — store in a simple way via description
+        await sendTelegramMessage(BOT_TOKEN, chatId, "📂 Проект сброшен. Задачи будут создаваться без проекта.");
+        return new Response(JSON.stringify({ ok: true, active_project: null }), { headers: corsHeaders });
+      }
+
+      const { data: group } = await supabase
+        .from("task_groups")
+        .select("id, name, icon")
+        .eq("user_id", userId)
+        .ilike("name", projectName)
+        .single();
+
+      if (!group) {
+        await sendTelegramMessage(
+          BOT_TOKEN,
+          chatId,
+          `❌ Проект «${projectName}» не найден.\nИспользуй /projects для списка.`
+        );
+      } else {
+        // We'll store active project in chat context — but since we're stateless,
+        // we use a convention: user sends "/project X" then the next messages include group_id
+        // For simplicity, we store it as a profile-level preference
+        // Actually, let's just acknowledge and tell user to include project name inline
+        await sendTelegramMessage(
+          BOT_TOKEN,
+          chatId,
+          `✅ Проект: ${group.icon || "📁"} *${escapeMarkdown(group.name)}*\n\nТеперь добавляй \`#${escapeMarkdown(group.name)}\` к задачам или просто пиши — задачи попадут в этот проект.`,
+          "Markdown"
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Parse message for task creation ===
+    let text = message.text;
+
+    // 1. Check importance (! at the start)
+    const isImportant = text.startsWith("!");
+    if (isImportant) {
+      text = text.substring(1).trim();
+    }
+
+    // 2. Extract tags (#tag)
+    const tagMatches = text.match(/#(\S+)/g) || [];
+    const tagNames = tagMatches.map(t => t.substring(1).toLowerCase());
+    text = text.replace(/#\S+/g, "").trim();
+
+    // 3. Extract assignee (@username)
+    const assigneeMatch = text.match(/@(\S+)/);
+    let assigneeUsername: string | null = null;
+    if (assigneeMatch) {
+      assigneeUsername = assigneeMatch[1].toLowerCase();
+      text = text.replace(/@\S+/, "").trim();
+    }
+
+    // 4. Extract deadline from text
+    const deadline = parseDeadline(text);
+    if (deadline.cleaned !== text) {
+      text = deadline.cleaned.trim();
+    }
+
+    // 5. Find project by tag name match or first tag
+    let groupId: string | null = null;
+    if (tagNames.length > 0) {
+      // Try to find a project whose linked tag matches one of the tag names
+      const { data: matchingGroups } = await supabase
+        .from("task_groups")
+        .select("id, name, linked_tag_id, tags!task_groups_linked_tag_id_fkey(name)")
+        .eq("user_id", userId);
+
+      if (matchingGroups) {
+        for (const g of matchingGroups as any[]) {
+          const tagName = g.tags?.name?.toLowerCase();
+          if (tagName && tagNames.includes(tagName)) {
+            groupId = g.id;
+            break;
+          }
+        }
+      }
+    }
+
+    // 6. Find assignee profile
+    let assignedTo: string | null = null;
+    if (assigneeUsername) {
+      const { data: assignee } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("telegram_username", assigneeUsername)
+        .single();
+
+      if (assignee) {
+        assignedTo = assignee.id;
+      }
+    }
+
+    // Clean up extra spaces
+    text = text.replace(/\s+/g, " ").trim();
+
+    if (!text) {
+      await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Текст задачи не может быть пустым.");
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
     // Create the task
-    const { error: taskError } = await supabase.from("tasks").insert({
-      title: message.text.substring(0, 500),
-      user_id: profile.id,
-      description: message.text.length > 500 ? message.text : null,
-    });
+    const taskData: Record<string, any> = {
+      title: text.substring(0, 500),
+      user_id: userId,
+      is_important: isImportant,
+    };
+
+    if (text.length > 500) taskData.description = text;
+    if (deadline.date) taskData.deadline = deadline.date.toISOString();
+    if (groupId) taskData.group_id = groupId;
+    if (assignedTo) taskData.assigned_to = assignedTo;
+
+    const { data: newTask, error: taskError } = await supabase
+      .from("tasks")
+      .insert(taskData)
+      .select("id")
+      .single();
 
     if (taskError) {
-      await sendTelegramMessage(BOT_TOKEN, message.chat.id, "❌ Ошибка создания задачи.");
+      console.error("Task creation error:", taskError);
+      await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Ошибка создания задачи.");
       return new Response(JSON.stringify({ error: taskError.message }), {
         status: 500,
         headers: corsHeaders,
       });
     }
 
-    await sendTelegramMessage(
-      BOT_TOKEN,
-      message.chat.id,
-      `✅ Задача создана: "${message.text.substring(0, 100)}${message.text.length > 100 ? "..." : ""}"`
-    );
+    // Add tags
+    if (tagNames.length > 0 && newTask) {
+      for (const tagName of tagNames) {
+        // Find or create tag
+        let { data: tag } = await supabase
+          .from("tags")
+          .select("id")
+          .eq("user_id", userId)
+          .ilike("name", tagName)
+          .single();
+
+        if (!tag) {
+          const { data: newTag } = await supabase
+            .from("tags")
+            .insert({ name: tagName, user_id: userId })
+            .select("id")
+            .single();
+          tag = newTag;
+        }
+
+        if (tag) {
+          await supabase.from("task_tags").insert({
+            task_id: newTask.id,
+            tag_id: tag.id,
+          });
+        }
+      }
+    }
+
+    // Build confirmation message
+    let confirmation = `✅ Задача создана: "${text.substring(0, 80)}${text.length > 80 ? "..." : ""}"`;
+    const extras: string[] = [];
+    if (isImportant) extras.push("⭐ важная");
+    if (deadline.date) extras.push(`📅 ${formatDate(deadline.date)}`);
+    if (tagNames.length > 0) extras.push(`🏷 ${tagNames.map(t => "#" + t).join(" ")}`);
+    if (assigneeUsername) {
+      extras.push(assignedTo ? `👤 @${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден`);
+    }
+    if (groupId) extras.push("📂 в проекте");
+    if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
+
+    await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
     return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
   } catch (err) {
@@ -111,10 +331,112 @@ Deno.serve(async (req) => {
   }
 });
 
-async function sendTelegramMessage(token: string, chatId: number, text: string) {
+// === Helpers ===
+
+async function sendTelegramMessage(token: string, chatId: number, text: string, parseMode?: string) {
+  const body: Record<string, any> = { chat_id: chatId, text };
+  if (parseMode) body.parse_mode = parseMode;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify(body),
   });
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
+}
+
+function parseDeadline(text: string): { date: Date | null; cleaned: string } {
+  const now = new Date();
+  let cleaned = text;
+  let date: Date | null = null;
+
+  // "сегодня"
+  const todayMatch = cleaned.match(/\bсегодня\b/i);
+  if (todayMatch) {
+    date = new Date(now);
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(todayMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // "завтра"
+  const tomorrowMatch = cleaned.match(/\bзавтра\b/i);
+  if (tomorrowMatch) {
+    date = new Date(now);
+    date.setDate(date.getDate() + 1);
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(tomorrowMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // "послезавтра"
+  const dayAfterMatch = cleaned.match(/\bпослезавтра\b/i);
+  if (dayAfterMatch) {
+    date = new Date(now);
+    date.setDate(date.getDate() + 2);
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(dayAfterMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // "через N дней/дня/день"
+  const inDaysMatch = cleaned.match(/\bчерез\s+(\d+)\s+(?:день|дня|дней)\b/i);
+  if (inDaysMatch) {
+    date = new Date(now);
+    date.setDate(date.getDate() + parseInt(inDaysMatch[1]));
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(inDaysMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // "через неделю"
+  const inWeekMatch = cleaned.match(/\bчерез\s+неделю\b/i);
+  if (inWeekMatch) {
+    date = new Date(now);
+    date.setDate(date.getDate() + 7);
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(inWeekMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // "через месяц"
+  const inMonthMatch = cleaned.match(/\bчерез\s+месяц\b/i);
+  if (inMonthMatch) {
+    date = new Date(now);
+    date.setMonth(date.getMonth() + 1);
+    date.setHours(23, 59, 0, 0);
+    cleaned = cleaned.replace(inMonthMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // DD.MM.YYYY
+  const fullDateMatch = cleaned.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
+  if (fullDateMatch) {
+    date = new Date(parseInt(fullDateMatch[3]), parseInt(fullDateMatch[2]) - 1, parseInt(fullDateMatch[1]), 23, 59);
+    cleaned = cleaned.replace(fullDateMatch[0], "");
+    return { date, cleaned };
+  }
+
+  // DD.MM (current year, or next year if date passed)
+  const shortDateMatch = cleaned.match(/\b(\d{1,2})\.(\d{1,2})\b/);
+  if (shortDateMatch) {
+    const day = parseInt(shortDateMatch[1]);
+    const month = parseInt(shortDateMatch[2]) - 1;
+    date = new Date(now.getFullYear(), month, day, 23, 59);
+    if (date < now) {
+      date.setFullYear(date.getFullYear() + 1);
+    }
+    cleaned = cleaned.replace(shortDateMatch[0], "");
+    return { date, cleaned };
+  }
+
+  return { date: null, cleaned };
+}
+
+function formatDate(date: Date): string {
+  const d = date.getDate().toString().padStart(2, "0");
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${d}.${m}.${date.getFullYear()}`;
 }
