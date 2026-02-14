@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations } from "@/hooks/useTasks";
 import {
-  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight,
+  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 
 interface AppSidebarProps {
   activeView: string;
@@ -21,13 +23,15 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, deleteGroup, addTag, deleteTag } = useTaskMutations();
+  const { addGroup, deleteGroup, addTag, deleteTag, addGroupMember, grantTagAccess } = useTaskMutations();
   const [newGroupName, setNewGroupName] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [showGroups, setShowGroups] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [showNewTag, setShowNewTag] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [tagShareEmail, setTagShareEmail] = useState("");
 
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
@@ -56,6 +60,20 @@ export default function AppSidebar({
       addTag.mutate({ name: newTagName.trim(), color });
       setNewTagName("");
       setShowNewTag(false);
+    }
+  };
+
+  const handleInvite = (groupId: string) => {
+    if (inviteEmail.trim()) {
+      addGroupMember.mutate({ group_id: groupId, user_email: inviteEmail.trim() });
+      setInviteEmail("");
+    }
+  };
+
+  const handleShareTag = (tagId: string) => {
+    if (tagShareEmail.trim()) {
+      grantTagAccess.mutate({ tag_id: tagId, user_email: tagShareEmail.trim() });
+      setTagShareEmail("");
     }
   };
 
@@ -105,23 +123,50 @@ export default function AppSidebar({
           {showGroups && (
             <div className="space-y-0.5 mt-1">
               {groups.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => { onGroupChange(g.id); onViewChange("group"); onTagFilter(null); }}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors group",
-                    activeGroupId === g.id
-                      ? "bg-sidebar-active text-sidebar-fg"
-                      : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-                  )}
-                >
-                  <div className="h-3 w-3 rounded" style={{ backgroundColor: g.color || undefined }} />
-                  <span className="truncate flex-1 text-left">{g.name}</span>
-                  <Trash2
-                    className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0"
-                    onClick={(e) => { e.stopPropagation(); deleteGroup.mutate(g.id); }}
-                  />
-                </button>
+                <div key={g.id} className="group">
+                  <button
+                    onClick={() => { onGroupChange(g.id); onViewChange("group"); onTagFilter(null); }}
+                    className={cn(
+                      "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
+                      activeGroupId === g.id
+                        ? "bg-sidebar-active text-sidebar-fg"
+                        : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+                    )}
+                  >
+                    <div className="h-3 w-3 rounded" style={{ backgroundColor: g.color || undefined }} />
+                    <span className="truncate flex-1 text-left">{g.name}</span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <span
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                          >
+                            <UserPlus className="h-3.5 w-3.5" />
+                          </span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Пригласить участника</p>
+                          <form onSubmit={(e) => { e.preventDefault(); handleInvite(g.id); }} className="flex gap-2">
+                            <Input
+                              value={inviteEmail}
+                              onChange={(e) => setInviteEmail(e.target.value)}
+                              placeholder="Email..."
+                              className="h-7 text-xs"
+                            />
+                            <button type="submit" disabled={!inviteEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">
+                              Добавить
+                            </button>
+                          </form>
+                        </PopoverContent>
+                      </Popover>
+                      <Trash2
+                        className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); deleteGroup.mutate(g.id); }}
+                      />
+                    </div>
+                  </button>
+                </div>
               ))}
               {showNewGroup && (
                 <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
@@ -157,23 +202,50 @@ export default function AppSidebar({
           {showTags && (
             <div className="space-y-0.5 mt-1">
               {tags.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => { onTagFilter(activeTagFilter === t.id ? null : t.id); onViewChange("all"); onGroupChange(null); }}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors group",
-                    activeTagFilter === t.id
-                      ? "bg-sidebar-active text-sidebar-fg"
-                      : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-                  )}
-                >
-                  <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
-                  <span className="truncate flex-1 text-left">{t.name}</span>
-                  <Trash2
-                    className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0"
-                    onClick={(e) => { e.stopPropagation(); deleteTag.mutate(t.id); }}
-                  />
-                </button>
+                <div key={t.id} className="group">
+                  <button
+                    onClick={() => { onTagFilter(activeTagFilter === t.id ? null : t.id); onViewChange("all"); onGroupChange(null); }}
+                    className={cn(
+                      "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
+                      activeTagFilter === t.id
+                        ? "bg-sidebar-active text-sidebar-fg"
+                        : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+                    )}
+                  >
+                    <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
+                    <span className="truncate flex-1 text-left">{t.name}</span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <span
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Дать доступ к тэгу</p>
+                          <form onSubmit={(e) => { e.preventDefault(); handleShareTag(t.id); }} className="flex gap-2">
+                            <Input
+                              value={tagShareEmail}
+                              onChange={(e) => setTagShareEmail(e.target.value)}
+                              placeholder="Email..."
+                              className="h-7 text-xs"
+                            />
+                            <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">
+                              Дать
+                            </button>
+                          </form>
+                        </PopoverContent>
+                      </Popover>
+                      <Trash2
+                        className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 shrink-0 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); deleteTag.mutate(t.id); }}
+                      />
+                    </div>
+                  </button>
+                </div>
               ))}
               {showNewTag && (
                 <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); }} className="px-3 py-1">

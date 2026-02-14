@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 
 interface TaskItemProps {
   task: Task;
@@ -16,10 +17,12 @@ export default function TaskItem({ task }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const [expanded, setExpanded] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
+  const [assignEmail, setAssignEmail] = useState("");
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
@@ -48,6 +51,13 @@ export default function TaskItem({ task }: TaskItemProps) {
       updateTask.mutate({ id: task.id, title: editTitle.trim() });
     }
     setEditing(false);
+  };
+
+  const handleAssign = () => {
+    if (assignEmail.trim()) {
+      updateTask.mutate({ id: task.id, assigned_to: assignEmail.trim() } as any);
+      setAssignEmail("");
+    }
   };
 
   return (
@@ -89,7 +99,7 @@ export default function TaskItem({ task }: TaskItemProps) {
             ) : (
               <span
                 onDoubleClick={() => { setEditing(true); setEditTitle(task.title); }}
-                className={cn("text-sm font-medium", task.is_completed && "line-through text-muted-foreground")}
+                className={cn("text-sm font-medium cursor-pointer", task.is_completed && "line-through text-muted-foreground")}
               >
                 {task.title}
               </span>
@@ -108,6 +118,12 @@ export default function TaskItem({ task }: TaskItemProps) {
               )}>
                 <Calendar className="h-3 w-3" />
                 {formatDeadline(task.deadline)}
+              </span>
+            )}
+            {task.assigned_to && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <UserPlus className="h-3 w-3" />
+                Делегировано
               </span>
             )}
             {taskTags.map(tag => (
@@ -131,6 +147,18 @@ export default function TaskItem({ task }: TaskItemProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setDetailsOpen(!detailsOpen)}
+            className={cn(
+              "p-1.5 transition-all",
+              detailsOpen
+                ? "text-primary"
+                : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+            )}
+          >
+            <Expand className="h-3.5 w-3.5" />
+          </button>
+
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
@@ -178,8 +206,128 @@ export default function TaskItem({ task }: TaskItemProps) {
         </div>
       </div>
 
-      {/* Subtasks */}
-      {expanded && (
+      {/* Expandable details panel */}
+      {detailsOpen && (
+        <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
+          {/* Assignee */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <UserPlus className="h-3 w-3" /> Ответственный
+            </p>
+            {task.assigned_to ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-foreground">{task.assigned_to}</span>
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, assigned_to: null })}
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={(e) => { e.preventDefault(); handleAssign(); }} className="flex gap-2">
+                <Input
+                  value={assignEmail}
+                  onChange={(e) => setAssignEmail(e.target.value)}
+                  placeholder="ID пользователя..."
+                  className="h-7 text-xs"
+                />
+                <button type="submit" disabled={!assignEmail.trim()} className="text-xs text-primary hover:text-primary/80 disabled:opacity-30">
+                  Назначить
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Tag className="h-3 w-3" /> Тэги
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {taskTags.map(tag => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
+                  style={{ backgroundColor: `${tag.color}20`, color: tag.color || undefined }}
+                >
+                  {tag.name}
+                  <X className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100" onClick={() => removeTaskTag.mutate({ task_id: task.id, tag_id: tag.id })} />
+                </span>
+              ))}
+              {availableTags.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                      <Plus className="h-2.5 w-2.5" /> Тэг
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-2" side="bottom">
+                    {availableTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => addTaskTag.mutate({ task_id: task.id, tag_id: tag.id })}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                      >
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || undefined }} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          </div>
+
+          {/* Deadline */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="h-3 w-3" /> Срок
+            </p>
+            <input
+              type="date"
+              value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+              onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
+              className="text-xs bg-transparent outline-none border border-border rounded px-2 py-1"
+            />
+          </div>
+
+          {/* Subtasks in detail view */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Check className="h-3 w-3" /> Подзадачи
+            </p>
+            {subtasks.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-2.5 group/sub py-0.5">
+                <button
+                  onClick={() => toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed })}
+                  className={cn(
+                    "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
+                    sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
+                  )}
+                >
+                  {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                </button>
+                <span className={cn("text-sm flex-1", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
+                <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <form onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }} className="flex items-center gap-2">
+              <input
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                placeholder="Новая подзадача..."
+                className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
+              />
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Subtasks (compact, when not using details panel) */}
+      {!detailsOpen && expanded && (
         <div className="px-3.5 pb-3 ml-8 space-y-1">
           {subtasks.map((sub) => (
             <div key={sub.id} className="flex items-center gap-2.5 group/sub py-1">
@@ -187,29 +335,19 @@ export default function TaskItem({ task }: TaskItemProps) {
                 onClick={() => toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed })}
                 className={cn(
                   "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
-                  sub.is_completed
-                    ? "bg-primary border-primary"
-                    : "border-muted-foreground/40 hover:border-primary"
+                  sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
                 )}
               >
                 {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
               </button>
-              <span className={cn("text-sm flex-1", sub.is_completed && "line-through text-muted-foreground")}>
-                {sub.title}
-              </span>
-              <button
-                onClick={() => deleteSubtask.mutate(sub.id)}
-                className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive"
-              >
+              <span className={cn("text-sm flex-1", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
+              <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive">
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>
           ))}
           {showAddSubtask ? (
-            <form
-              onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }}
-              className="flex items-center gap-2"
-            >
+            <form onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }} className="flex items-center gap-2">
               <input
                 autoFocus
                 value={newSubtask}
@@ -220,10 +358,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               />
             </form>
           ) : (
-            <button
-              onClick={() => setShowAddSubtask(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary py-1"
-            >
+            <button onClick={() => setShowAddSubtask(true)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary py-1">
               <Plus className="h-3 w-3" /> Подзадача
             </button>
           )}
