@@ -4,13 +4,17 @@ import { Navigate } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import TaskList from "@/components/TaskList";
 import CalendarView from "@/components/CalendarView";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default function Index() {
   const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState("all");
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   if (loading) {
     return (
@@ -22,25 +26,50 @@ export default function Index() {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  const handleNavAction = () => {
+    if (isMobile) setSidebarOpen(false);
+  };
+
+  const sidebarProps = {
+    activeView,
+    onViewChange: (v: string) => { setActiveView(v); handleNavAction(); },
+    activeGroupId,
+    onGroupChange: (id: string | null) => { setActiveGroupId(id); handleNavAction(); },
+    activeTagFilter,
+    onTagFilter: (id: string | null) => { setActiveTagFilter(id); handleNavAction(); },
+  };
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <AppSidebar
-        activeView={activeView}
-        onViewChange={setActiveView}
-        activeGroupId={activeGroupId}
-        onGroupChange={setActiveGroupId}
-        activeTagFilter={activeTagFilter}
-        onTagFilter={setActiveTagFilter}
-      />
-      {activeView === "calendar" ? (
-        <CalendarView />
+      {isMobile ? (
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="p-0 w-72 bg-sidebar-bg border-sidebar-fg/5">
+            <AppSidebar {...sidebarProps} />
+          </SheetContent>
+        </Sheet>
       ) : (
-        <TaskList
-          activeView={activeView}
-          activeGroupId={activeGroupId}
-          activeTagFilter={activeTagFilter}
-        />
+        <AppSidebar {...sidebarProps} />
       )}
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {isMobile && (
+          <header className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+            <button onClick={() => setSidebarOpen(true)} className="p-1.5 -ml-1 rounded-lg hover:bg-muted transition-colors">
+              <Menu className="h-5 w-5 text-foreground" />
+            </button>
+            <span className="text-base font-semibold text-foreground">TaskFlow</span>
+          </header>
+        )}
+        {activeView === "calendar" ? (
+          <CalendarView />
+        ) : (
+          <TaskList
+            activeView={activeView}
+            activeGroupId={activeGroupId}
+            activeTagFilter={activeTagFilter}
+          />
+        )}
+      </div>
     </div>
   );
 }
