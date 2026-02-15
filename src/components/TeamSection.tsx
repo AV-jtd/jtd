@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Plus, Copy, Trash2, LogIn, Crown, User, Check, UserPlus, Shield } from "lucide-react";
+import { Users, Plus, Copy, Trash2, LogIn, Crown, User, Check, UserPlus, Shield, Send } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ export default function TeamSection() {
 
   // Invite form state
   const [inviteValue, setInviteValue] = useState("");
-  const [inviteType, setInviteType] = useState<"email" | "user_id">("email");
+  const [inviteType, setInviteType] = useState<"email" | "user_id" | "telegram">("email");
   const [inviteRole, setInviteRole] = useState<"member" | "manager">("member");
 
   const { data: members = [] } = useTeamMembers(selectedTeamId);
@@ -65,6 +65,7 @@ export default function TeamSection() {
         teamId,
         email: inviteType === "email" ? inviteValue.trim() : undefined,
         userId: inviteType === "user_id" ? inviteValue.trim() : undefined,
+        telegram: inviteType === "telegram" ? inviteValue.trim() : undefined,
         role: inviteRole,
       },
       {
@@ -181,20 +182,25 @@ export default function TeamSection() {
                         <div className="flex gap-2 flex-wrap">
                           <Select
                             value={inviteType}
-                            onValueChange={(v) => setInviteType(v as "email" | "user_id")}
+                            onValueChange={(v) => setInviteType(v as "email" | "user_id" | "telegram")}
                           >
-                            <SelectTrigger className="w-[100px] h-8 text-xs">
+                            <SelectTrigger className="w-[110px] h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="telegram">Telegram</SelectItem>
                               <SelectItem value="user_id">User ID</SelectItem>
                             </SelectContent>
                           </Select>
                           <Input
                             value={inviteValue}
                             onChange={(e) => setInviteValue(e.target.value)}
-                            placeholder={inviteType === "email" ? "email@example.com" : "UUID пользователя"}
+                            placeholder={
+                              inviteType === "email" ? "email@example.com" :
+                              inviteType === "telegram" ? "@username" :
+                              "UUID пользователя"
+                            }
                             className="flex-1 h-8 text-xs min-w-[140px]"
                           />
                           <Select

@@ -166,12 +166,13 @@ export function useTeamMutations() {
   });
 
   const inviteMember = useMutation({
-    mutationFn: async (params: { teamId: string; email?: string; userId?: string; role: string }) => {
+    mutationFn: async (params: { teamId: string; email?: string; userId?: string; telegram?: string; role: string }) => {
       const { data, error } = await supabase.functions.invoke("invite-member", {
         body: {
           team_id: params.teamId,
           email: params.email,
           user_id: params.userId,
+          telegram: params.telegram,
           role: params.role,
         },
       });
