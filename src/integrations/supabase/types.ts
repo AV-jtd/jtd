@@ -446,6 +446,10 @@ export type Database = {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
       }
+      is_supervisor_of_user: {
+        Args: { _supervisor_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_task_owner: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean

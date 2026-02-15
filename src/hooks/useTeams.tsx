@@ -47,7 +47,6 @@ export function useTeamMembers(teamId: string | null) {
         .eq("team_id", teamId!);
       if (error) throw error;
 
-      // Fetch profiles for each member
       const userIds = (data as any[]).map((m: any) => m.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
@@ -68,18 +67,20 @@ export function useSubordinateTasks() {
   return useQuery({
     queryKey: ["subordinate_tasks", user?.id],
     queryFn: async () => {
-      // Get all teams where user is director
+      // Get all teams where user is director or manager
       const { data: memberships } = await supabase
         .from("team_members" as any)
         .select("team_id, role")
-        .eq("user_id", user!.id)
-        .eq("role", "director");
+        .eq("user_id", user!.id);
 
-      if (!memberships?.length) return { members: [], tasks: [] };
+      const supervisorTeams = (memberships as any[] || []).filter(
+        (m: any) => m.role === "director" || m.role === "manager"
+      );
 
-      const teamIds = (memberships as any[]).map((m: any) => m.team_id);
+      if (!supervisorTeams.length) return { members: [], tasks: [] };
 
-      // Get subordinate members
+      const teamIds = supervisorTeams.map((m: any) => m.team_id);
+
       const { data: subordinates } = await supabase
         .from("team_members" as any)
         .select("user_id, team_id")
@@ -90,12 +91,10 @@ export function useSubordinateTasks() {
 
       const subUserIds = [...new Set((subordinates as any[]).map((s: any) => s.user_id))];
 
-      // Fetch profiles
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, display_name, email");
 
-      // Tasks are fetched via RLS — the director policy grants SELECT
       const { data: tasks } = await supabase
         .from("tasks")
         .select("*, subtasks(*), task_tags(tag_id)")
@@ -117,7 +116,6 @@ export function useTeamMutations() {
 
   const createTeam = useMutation({
     mutationFn: async (name: string) => {
-      // Create team
       const { data: team, error } = await supabase
         .from("teams" as any)
         .insert({ name, created_by: user!.id } as any)
@@ -125,7 +123,6 @@ export function useTeamMutations() {
         .single();
       if (error) throw error;
 
-      // Add self as director
       const { error: memberError } = await supabase
         .from("team_members" as any)
         .insert({
@@ -168,6 +165,38 @@ export function useTeamMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  const inviteMember = useMutation({
+    mutationFn: async (params: { teamId: string; email?: string; userId?: string; role: string }) => {
+      const { data, error } = await supabase.functions.invoke("invite-member", {
+        body: {
+          team_id: params.teamId,
+          email: params.email,
+          user_id: params.userId,
+          role: params.role,
+        },
+      });
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          const body = await error.context.json();
+          if (body?.error) throw new Error(body.error);
+        }
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["team_members"] });
+      qc.invalidateQueries({ queryKey: ["subordinate_tasks"] });
+      if (data.updated) {
+        toast.success(`Роль обновлена для ${data.name}`);
+      } else {
+        toast.success(`${data.name} добавлен в команду`);
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const removeMember = useMutation({
     mutationFn: async ({ teamId, memberId }: { teamId: string; memberId: string }) => {
       const { error } = await supabase
@@ -196,5 +225,5 @@ export function useTeamMutations() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { createTeam, joinTeam, removeMember, deleteTeam };
+  return { createTeam, joinTeam, inviteMember, removeMember, deleteTeam };
 }
