@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
@@ -19,6 +19,7 @@ export default function Settings() {
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [workEmail, setWorkEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [customHue, setCustomHue] = useState(accentColor);
@@ -27,13 +28,14 @@ export default function Settings() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("display_name, telegram_username")
+      .select("display_name, telegram_username, work_email")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
         if (data) {
           setDisplayName(data.display_name || "");
           setTelegramUsername((data as any).telegram_username || "");
+          setWorkEmail((data as any).work_email || "");
         }
         setLoadingProfile(false);
       });
@@ -58,6 +60,7 @@ export default function Settings() {
       .update({
         display_name: displayName.trim() || null,
         telegram_username: cleanUsername || null,
+        work_email: workEmail.trim() || null,
       } as any)
       .eq("id", user.id);
 
@@ -104,6 +107,23 @@ export default function Settings() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Ваше имя"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="workEmail" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Рабочий email
+                </Label>
+                <Input
+                  id="workEmail"
+                  type="email"
+                  value={workEmail}
+                  onChange={(e) => setWorkEmail(e.target.value)}
+                  placeholder="work@company.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Добавьте рабочий email, чтобы создавать задачи с обоих адресов.
+                </p>
               </div>
 
               <div className="space-y-2">
