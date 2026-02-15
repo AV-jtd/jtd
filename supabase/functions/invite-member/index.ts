@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { team_id, email, user_id, role } = await req.json();
+    const { team_id, email, user_id, telegram, role } = await req.json();
 
     if (!team_id) {
       return new Response(JSON.stringify({ error: "Укажите team_id" }), {
@@ -43,8 +43,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!email && !user_id) {
-      return new Response(JSON.stringify({ error: "Укажите email или user_id" }), {
+    if (!email && !user_id && !telegram) {
+      return new Response(JSON.stringify({ error: "Укажите email, user_id или telegram" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     let targetUserId = user_id;
     let targetName = "";
 
-    if (email && !user_id) {
+    if (email && !user_id && !telegram) {
       const { data: profile } = await admin
         .from("profiles")
         .select("id, display_name")
@@ -88,6 +88,22 @@ Deno.serve(async (req) => {
       }
       targetUserId = profile.id;
       targetName = profile.display_name || email;
+    } else if (telegram && !user_id) {
+      const username = telegram.trim().replace(/^@/, "");
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("id, display_name")
+        .eq("telegram_username", username)
+        .single();
+
+      if (!profile) {
+        return new Response(JSON.stringify({ error: "Пользователь с таким Telegram не найден" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      targetUserId = profile.id;
+      targetName = profile.display_name || `@${username}`;
     } else if (user_id) {
       const { data: profile } = await admin
         .from("profiles")
