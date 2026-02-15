@@ -21,31 +21,20 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 
-    // Setup webhook command — skip secret validation (requires bot token knowledge)
+    // Setup webhook command
     if (body.action === "setup_webhook") {
       const webhookUrl = `https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/telegram-webhook`;
-      const params = new URLSearchParams({ url: webhookUrl });
-      if (WEBHOOK_SECRET) {
-        params.set("secret_token", WEBHOOK_SECRET);
-      }
       const res = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?${params.toString()}`
+        `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: webhookUrl }),
+        }
       );
       const result = await res.json();
       return new Response(JSON.stringify(result), { headers: corsHeaders });
-    }
-
-    // Validate Telegram webhook secret token for all other requests
-    if (WEBHOOK_SECRET) {
-      const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-      if (secretHeader !== WEBHOOK_SECRET) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 403,
-          headers: corsHeaders,
-        });
-      }
     }
 
     const message = body.message;
