@@ -1,22 +1,46 @@
 import { useState } from "react";
-import { useTeams, useTeamMembers, useTeamMutations, useSubordinateTasks } from "@/hooks/useTeams";
+import { useTeams, useTeamMembers, useTeamMutations } from "@/hooks/useTeams";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Users, Plus, Copy, Trash2, LogIn, Crown, User, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, Plus, Copy, Trash2, LogIn, Crown, User, Check, UserPlus, Shield } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { cn } from "@/lib/utils";
 
+const ROLE_LABELS: Record<string, string> = {
+  director: "Директор",
+  manager: "Менеджер",
+  member: "Участник",
+};
+
+const ROLE_ICONS: Record<string, typeof Crown> = {
+  director: Crown,
+  manager: Shield,
+  member: User,
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  director: "text-amber-500",
+  manager: "text-blue-500",
+  member: "text-muted-foreground",
+};
+
 export default function TeamSection() {
   const { user } = useAuth();
   const { data: teams = [] } = useTeams();
-  const { createTeam, joinTeam, deleteTeam, removeMember } = useTeamMutations();
+  const { createTeam, joinTeam, deleteTeam, removeMember, inviteMember } = useTeamMutations();
   const [newTeamName, setNewTeamName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Invite form state
+  const [inviteValue, setInviteValue] = useState("");
+  const [inviteType, setInviteType] = useState<"email" | "user_id">("email");
+  const [inviteRole, setInviteRole] = useState<"member" | "manager">("member");
 
   const { data: members = [] } = useTeamMembers(selectedTeamId);
 
@@ -32,6 +56,21 @@ export default function TeamSection() {
       joinTeam.mutate(joinCode.trim());
       setJoinCode("");
     }
+  };
+
+  const handleInvite = (teamId: string) => {
+    if (!inviteValue.trim()) return;
+    inviteMember.mutate(
+      {
+        teamId,
+        email: inviteType === "email" ? inviteValue.trim() : undefined,
+        userId: inviteType === "user_id" ? inviteValue.trim() : undefined,
+        role: inviteRole,
+      },
+      {
+        onSuccess: () => setInviteValue(""),
+      }
+    );
   };
 
   const copyCode = (code: string) => {
@@ -129,33 +168,89 @@ export default function TeamSection() {
                   )}
                 </div>
 
-                {/* Members */}
-                {selectedTeamId === team.id && members.length > 0 && (
-                  <div className="mt-3 space-y-1.5 border-t border-border pt-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Участники</p>
-                    {members.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 text-sm py-1">
-                        {m.role === "director" ? (
-                          <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                        ) : (
-                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        )}
-                        <span className="truncate flex-1">
-                          {m.profile?.display_name || m.profile?.email || "Пользователь"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {m.role === "director" ? "Директор" : "Участник"}
-                        </span>
-                        {isDirector(team.id) && m.user_id !== user?.id && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeMember.mutate({ teamId: team.id, memberId: m.user_id }); }}
-                            className="p-0.5 text-muted-foreground hover:text-destructive"
+                {/* Expanded content */}
+                {selectedTeamId === team.id && (
+                  <div className="mt-3 space-y-3 border-t border-border pt-3" onClick={(e) => e.stopPropagation()}>
+                    {/* Invite form (director only) */}
+                    {isDirector(team.id) && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <UserPlus className="h-3.5 w-3.5" />
+                          Пригласить участника
+                        </p>
+                        <div className="flex gap-2 flex-wrap">
+                          <Select
+                            value={inviteType}
+                            onValueChange={(v) => setInviteType(v as "email" | "user_id")}
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
+                            <SelectTrigger className="w-[100px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="user_id">User ID</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={inviteValue}
+                            onChange={(e) => setInviteValue(e.target.value)}
+                            placeholder={inviteType === "email" ? "email@example.com" : "UUID пользователя"}
+                            className="flex-1 h-8 text-xs min-w-[140px]"
+                          />
+                          <Select
+                            value={inviteRole}
+                            onValueChange={(v) => setInviteRole(v as "member" | "manager")}
+                          >
+                            <SelectTrigger className="w-[120px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="member">Участник</SelectItem>
+                              <SelectItem value="manager">Менеджер</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs"
+                            disabled={!inviteValue.trim() || inviteMember.isPending}
+                            onClick={() => handleInvite(team.id)}
+                          >
+                            <UserPlus className="h-3.5 w-3.5 mr-1" />
+                            Добавить
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Members list */}
+                    {members.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Участники</p>
+                        {members.map((m) => {
+                          const RoleIcon = ROLE_ICONS[m.role] || User;
+                          const roleColor = ROLE_COLORS[m.role] || "text-muted-foreground";
+                          return (
+                            <div key={m.id} className="flex items-center gap-2 text-sm py-1">
+                              <RoleIcon className={cn("h-3.5 w-3.5 shrink-0", roleColor)} />
+                              <span className="truncate flex-1">
+                                {m.profile?.display_name || m.profile?.email || "Пользователь"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {ROLE_LABELS[m.role] || m.role}
+                              </span>
+                              {isDirector(team.id) && m.user_id !== user?.id && (
+                                <button
+                                  onClick={() => removeMember.mutate({ teamId: team.id, memberId: m.user_id })}
+                                  className="p-0.5 text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
