@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckSquare, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Auth() {
@@ -52,8 +52,10 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <CheckSquare className="h-12 w-12 text-primary-foreground" />
-            <h1 className="text-4xl font-bold text-primary-foreground">TaskFlow</h1>
+            <div className="h-14 w-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
+              <span className="text-2xl font-black text-primary-foreground leading-none">✓</span>
+            </div>
+            <h1 className="text-4xl font-bold text-primary-foreground">Just<span className="opacity-90">TODO</span>it</h1>
           </div>
           <p className="text-lg text-primary-foreground/80">
             Организуйте задачи, управляйте проектами и делегируйте работу в одном месте.
@@ -65,8 +67,10 @@ export default function Auth() {
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <CheckSquare className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">TaskFlow</h1>
+            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Just<span className="text-primary">TODO</span>it</h1>
           </div>
 
           <h2 className="text-2xl font-semibold text-foreground mb-2">

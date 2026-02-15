@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  CheckSquare, List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -329,10 +329,10 @@ export default function AppSidebar({
       {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-sidebar-fg/15 flex items-center justify-center">
-            <CheckSquare className="h-4.5 w-4.5" />
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
           </div>
-          <span className="text-lg font-bold tracking-tight">TaskFlow</span>
+          <span className="text-lg font-bold tracking-tight">Just<span className="text-primary">TODO</span>it</span>
         </div>
       </div>
 

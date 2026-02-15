@@ -41,8 +41,8 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: "Задачи — менеджер задач",
-        short_name: "Задачи",
+        name: "JustTODOit — менеджер задач",
+        short_name: "JustTODOit",
         description: "Управляйте задачами, проектами и тегами",
         theme_color: "#3b82f6",
         background_color: "#f8fafc",
