@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
 
@@ -149,7 +150,13 @@ export function useTeamMutations() {
       const { data, error } = await supabase.functions.invoke("join-team", {
         body: { invite_code: inviteCode },
       });
-      if (error) throw error;
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          const body = await error.context.json();
+          if (body?.error) throw new Error(body.error);
+        }
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
