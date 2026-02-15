@@ -423,7 +423,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vapid_public_keys: {
+        Row: {
+          id: number | null
+          public_key: string | null
+        }
+        Insert: {
+          id?: number | null
+          public_key?: string | null
+        }
+        Update: {
+          id?: number | null
+          public_key?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_tag_access: {
