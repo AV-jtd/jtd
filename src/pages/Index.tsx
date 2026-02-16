@@ -17,6 +17,7 @@ export default function Index() {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const isMobile = useIsMobile();
 
   if (loading) {
@@ -50,6 +51,8 @@ export default function Index() {
     activeTagFilters,
     onToggleTag: handleToggleTag,
     onClearTags: () => setActiveTagFilters([]),
+    projectDetailOpen,
+    onToggleProjectDetail: () => setProjectDetailOpen(prev => !prev),
   };
 
   return (
@@ -86,6 +89,8 @@ export default function Index() {
             activeView={activeView}
             activeGroupId={activeGroupId}
             activeTagFilters={activeTagFilters}
+            projectDetailOpen={projectDetailOpen}
+            onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
           />
         )}
       </div>

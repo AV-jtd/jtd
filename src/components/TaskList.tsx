@@ -30,9 +30,11 @@ interface TaskListProps {
   activeView: string;
   activeGroupId: string | null;
   activeTagFilters: string[];
+  projectDetailOpen: boolean;
+  onToggleProjectDetail: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -42,7 +44,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters }
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [projectDetailOpen, setProjectDetailOpen] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -112,7 +113,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters }
           </div>
           {activeView === "group" && activeGroup && (
             <button
-              onClick={() => setProjectDetailOpen(!projectDetailOpen)}
+              onClick={onToggleProjectDetail}
               className={cn(
                 "p-2 rounded-lg transition-all",
                 projectDetailOpen
