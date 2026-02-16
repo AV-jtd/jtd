@@ -52,8 +52,8 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="h-14 w-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
-              <span className="text-2xl font-black text-primary-foreground leading-none">✓</span>
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#4a8c2e] to-[#d4a843] flex items-center justify-center">
+              <span className="text-2xl font-black text-white leading-none">✓</span>
             </div>
             <h1 className="text-4xl font-bold text-primary-foreground">Just<span className="opacity-90">TODO</span>it</h1>
           </div>
@@ -67,10 +67,10 @@ export default function Auth() {
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#4a8c2e] to-[#d4a843] flex items-center justify-center">
+              <span className="text-sm font-black text-white leading-none">✓</span>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Just<span className="text-primary">TODO</span>it</h1>
+            <h1 className="text-2xl font-bold" style={{ color: '#5c3d2e' }}>Just<span style={{ color: '#4a8c2e' }}>TODO</span>it</h1>
           </div>
 
           <h2 className="text-2xl font-semibold text-foreground mb-2">

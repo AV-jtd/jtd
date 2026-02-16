@@ -339,10 +339,10 @@ export default function AppSidebar({
       {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#4a8c2e] to-[#d4a843] flex items-center justify-center">
+            <span className="text-sm font-black text-white leading-none">✓</span>
           </div>
-          <span className="text-lg font-bold tracking-tight">Just<span className="text-primary">TODO</span>it</span>
+          <span className="text-lg font-bold tracking-tight" style={{ color: '#5c3d2e' }}>Just<span style={{ color: '#4a8c2e' }}>TODO</span>it</span>
         </div>
       </div>
 
