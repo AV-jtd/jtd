@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox } from "lucide-react";
+import ProjectDetailPanel from "./ProjectDetailPanel";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -41,6 +42,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters }
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [projectDetailOpen, setProjectDetailOpen] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -108,7 +110,26 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters }
               {pluralizeRu(activeTasks.length, "задача", "задачи", "задач")}
             </p>
           </div>
+          {activeView === "group" && activeGroup && (
+            <button
+              onClick={() => setProjectDetailOpen(!projectDetailOpen)}
+              className={cn(
+                "p-2 rounded-lg transition-all",
+                projectDetailOpen
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Карточка проекта"
+            >
+              <Expand className="h-4 w-4" />
+            </button>
+          )}
         </div>
+
+        {/* Project detail panel */}
+        {activeView === "group" && activeGroup && projectDetailOpen && (
+          <ProjectDetailPanel group={activeGroup} />
+        )}
 
         {/* Add task */}
         <form
