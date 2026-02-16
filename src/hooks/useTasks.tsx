@@ -375,6 +375,18 @@ export function useTaskMutations() {
         throw new Error("user_id is required");
       }
 
+      // Check if already a member
+      const { data: existing } = await supabase
+        .from("group_members")
+        .select("id")
+        .eq("group_id", group_id)
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error("Пользователь уже в проекте");
+      }
+
       const { error } = await supabase.from("group_members").insert({
         group_id,
         user_id: targetUserId,
