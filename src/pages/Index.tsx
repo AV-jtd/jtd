@@ -74,7 +74,7 @@ export default function Index() {
             <button onClick={() => setSidebarOpen(true)} className="p-1.5 -ml-1 rounded-lg hover:bg-muted transition-colors">
               <Menu className="h-5 w-5 text-foreground" />
             </button>
-            <span className="text-base font-semibold text-foreground">Just<span className="text-primary">TODO</span>it</span>
+            <span className="text-base font-semibold" style={{ color: '#5c3d2e' }}>Just<span style={{ color: '#4a8c2e' }}>TODO</span>it</span>
           </header>
         )}
         {activeView === "calendar" ? (
