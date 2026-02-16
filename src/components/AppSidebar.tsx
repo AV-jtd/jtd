@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,10 +31,12 @@ interface AppSidebarProps {
   activeTagFilters: string[];
   onToggleTag: (id: string) => void;
   onClearTags: () => void;
+  projectDetailOpen: boolean;
+  onToggleProjectDetail: () => void;
 }
 
 export default function AppSidebar({
-  activeView, onViewChange, activeGroupId, onGroupChange, activeTagFilters, onToggleTag, onClearTags,
+  activeView, onViewChange, activeGroupId, onGroupChange, activeTagFilters, onToggleTag, onClearTags, projectDetailOpen, onToggleProjectDetail,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
@@ -291,6 +293,13 @@ export default function AppSidebar({
                   </form>
                 </PopoverContent>
               </Popover>
+              <span
+                onClick={(e) => { e.stopPropagation(); onGroupChange(group.id); onViewChange("group"); onClearTags(); onToggleProjectDetail(); }}
+                className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                title="Карточка проекта"
+              >
+                <Expand className="h-3.5 w-3.5" />
+              </span>
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
                 <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                   <Trash2 className="h-3.5 w-3.5" />
