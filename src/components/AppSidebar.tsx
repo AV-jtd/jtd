@@ -39,7 +39,7 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, grantTagAccess, reorderGroups } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMemberByEmail, grantTagAccess, reorderGroups } = useTaskMutations();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
@@ -117,7 +117,7 @@ export default function AppSidebar({
 
   const handleInvite = (groupId: string) => {
     if (inviteEmail.trim()) {
-      addGroupMember.mutate({ group_id: groupId, user_email: inviteEmail.trim() });
+      addGroupMemberByEmail.mutate({ group_id: groupId, user_email: inviteEmail.trim() });
       setInviteEmail("");
     }
   };

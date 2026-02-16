@@ -20,6 +20,7 @@ export type Database = {
           group_id: string
           id: string
           invited_by: string
+          role: string
           user_id: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           group_id: string
           id?: string
           invited_by: string
+          role?: string
           user_id: string
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           group_id?: string
           id?: string
           invited_by?: string
+          role?: string
           user_id?: string
         }
         Relationships: [
@@ -195,6 +198,7 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          description: string | null
           icon: string | null
           id: string
           linked_tag_id: string | null
@@ -206,6 +210,7 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           linked_tag_id?: string | null
@@ -217,6 +222,7 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           linked_tag_id?: string | null

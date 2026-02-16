@@ -119,11 +119,11 @@ export function useGroupMembers(groupId: string | null) {
     queryKey: ["group_members", groupId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("group_members" as any)
+        .from("group_members")
         .select("*")
         .eq("group_id", groupId!);
       if (error) throw error;
-      return data as any[];
+      return data as { id: string; group_id: string; user_id: string; role: string; invited_by: string; created_at: string }[];
     },
     enabled: !!user && !!groupId,
   });
@@ -368,19 +368,18 @@ export function useTaskMutations() {
   });
 
   const addGroupMember = useMutation({
-    mutationFn: async ({ group_id, user_email }: { group_id: string; user_email: string }) => {
-      // Find user by email in profiles
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", user_email)
-        .single();
-      if (profileError) throw new Error("Пользователь не найден");
+    mutationFn: async ({ group_id, user_id: memberId, role = "participant" }: { group_id: string; user_id?: string; user_email?: string; role?: string }) => {
+      let targetUserId = memberId;
+      
+      if (!targetUserId) {
+        throw new Error("user_id is required");
+      }
 
-      const { error } = await supabase.from("group_members" as any).insert({
+      const { error } = await supabase.from("group_members").insert({
         group_id,
-        user_id: profile.id,
+        user_id: targetUserId,
         invited_by: user!.id,
+        role,
       });
       if (error) throw error;
 
@@ -391,9 +390,47 @@ export function useTaskMutations() {
         .eq("id", group_id)
         .single();
       
-      if (group && (group as any).linked_tag_id) {
-        await supabase.from("tag_access" as any).insert({
-          tag_id: (group as any).linked_tag_id,
+      if (group && group.linked_tag_id) {
+        await supabase.from("tag_access").insert({
+          tag_id: group.linked_tag_id,
+          user_id: targetUserId,
+          granted_by: user!.id,
+        });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["group_members"] });
+      toast.success("Участник добавлен");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const addGroupMemberByEmail = useMutation({
+    mutationFn: async ({ group_id, user_email, role = "participant" }: { group_id: string; user_email: string; role?: string }) => {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", user_email)
+        .single();
+      if (profileError) throw new Error("Пользователь не найден");
+
+      const { error } = await supabase.from("group_members").insert({
+        group_id,
+        user_id: profile.id,
+        invited_by: user!.id,
+        role,
+      });
+      if (error) throw error;
+
+      const { data: group } = await supabase
+        .from("task_groups")
+        .select("*")
+        .eq("id", group_id)
+        .single();
+      
+      if (group && group.linked_tag_id) {
+        await supabase.from("tag_access").insert({
+          tag_id: group.linked_tag_id,
           user_id: profile.id,
           granted_by: user!.id,
         });
@@ -409,13 +446,21 @@ export function useTaskMutations() {
   const removeGroupMember = useMutation({
     mutationFn: async ({ group_id, member_user_id }: { group_id: string; member_user_id: string }) => {
       const { error } = await supabase
-        .from("group_members" as any)
+        .from("group_members")
         .delete()
         .eq("group_id", group_id)
         .eq("user_id", member_user_id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["group_members"] }),
+  });
+
+  const updateGroupDescription = useMutation({
+    mutationFn: async ({ id, description }: { id: string; description: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ description } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
   const grantTagAccess = useMutation({
@@ -506,11 +551,11 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
-    addGroupMember, removeGroupMember, grantTagAccess,
+    addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
     reorderTasks, reorderGroups,
     addParticipant, removeParticipant,
   };
