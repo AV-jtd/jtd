@@ -7,6 +7,7 @@ import CalendarView from "@/components/CalendarView";
 import SubordinatesView from "@/components/SubordinatesView";
 import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
+import CommunityView from "@/components/CommunityView";
 import { Loader2, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -80,6 +81,8 @@ export default function Index() {
           <CalendarView />
         ) : activeView === "subordinates" ? (
           <SubordinatesView />
+        ) : activeView === "community" ? (
+          <CommunityView />
         ) : activeView === "dashboard" ? (
           <DashboardView />
         ) : activeView === "archive" ? (
