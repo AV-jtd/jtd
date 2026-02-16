@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -68,6 +68,7 @@ export default function AppSidebar({
     { id: "today", icon: CalendarDays, label: "На сегодня" },
     { id: "assigned", icon: Users, label: "Делегированные" },
     { id: "subordinates", icon: UsersRound, label: "Команда" },
+    { id: "community", icon: Globe, label: "Сообщество" },
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
     { id: "dashboard", icon: BarChart3, label: "Дашборд" },
     { id: "archive", icon: Archive, label: "Архив" },
