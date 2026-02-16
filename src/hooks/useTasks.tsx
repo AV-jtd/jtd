@@ -15,6 +15,8 @@ export type Task = Tables<"tasks"> & {
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;
 export type Subtask = Tables<"subtasks">;
+export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
+export type Profile = { id: string; display_name: string | null; email: string | null };
 
 export function useTaskGroups() {
   const { user } = useAuth();
@@ -77,6 +79,37 @@ export function useTags() {
       return data as Tag[];
     },
     enabled: !!user,
+  });
+}
+
+export function useAvailableUsers() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["available_users", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, email");
+      if (error) throw error;
+      return (data || []) as Profile[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useTaskParticipants(taskId: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["task_participants", taskId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_participants" as any)
+        .select("*")
+        .eq("task_id", taskId!);
+      if (error) throw error;
+      return (data || []) as unknown as TaskParticipant[];
+    },
+    enabled: !!user && !!taskId,
   });
 }
 
@@ -431,6 +464,47 @@ export function useTaskMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  const addParticipant = useMutation({
+    mutationFn: async ({ task_id, user_id, role }: { task_id: string; user_id: string; role: string }) => {
+      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id, role });
+      if (error) throw error;
+      // If role is assignee, also update task.assigned_to for backward compat
+      if (role === "assignee") {
+        await supabase.from("tasks").update({ assigned_to: user_id }).eq("id", task_id);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task_participants"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const removeParticipant = useMutation({
+    mutationFn: async ({ task_id, user_id }: { task_id: string; user_id: string }) => {
+      const { error } = await supabase
+        .from("task_participants" as any)
+        .delete()
+        .eq("task_id", task_id)
+        .eq("user_id", user_id);
+      if (error) throw error;
+      // If this was the assignee, clear assigned_to
+      const { data: remaining } = await supabase
+        .from("task_participants" as any)
+        .select("*")
+        .eq("task_id", task_id)
+        .eq("role", "assignee");
+      if (!remaining || remaining.length === 0) {
+        await supabase.from("tasks").update({ assigned_to: null }).eq("id", task_id);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task_participants"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -438,5 +512,6 @@ export function useTaskMutations() {
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, removeGroupMember, grantTagAccess,
     reorderTasks, reorderGroups,
+    addParticipant, removeParticipant,
   };
 }

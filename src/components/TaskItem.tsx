@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Task, Subtask, useTaskMutations, useTags } from "@/hooks/useTasks";
+import { useState, useMemo } from "react";
+import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, Profile } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -19,15 +19,18 @@ interface TaskItemProps {
 }
 
 export default function TaskItem({ task, sortable }: TaskItemProps) {
-  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag } = useTaskMutations();
+  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
+  const { data: availableUsers = [] } = useAvailableUsers();
+  const { data: participants = [] } = useTaskParticipants(task.id);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [assignEmail, setAssignEmail] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
 
@@ -77,13 +80,20 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
     setEditingDescription(false);
   };
 
-  const handleAssign = () => {
-    if (assignEmail.trim()) {
-      updateTask.mutate({ id: task.id, assigned_to: assignEmail.trim() } as any);
-      setAssignEmail("");
-    }
-  };
+  const filteredUsers = useMemo(() => {
+    const participantIds = participants.map(p => p.user_id);
+    return availableUsers.filter(u => {
+      if (participantIds.includes(u.id)) return false;
+      if (!userSearch.trim()) return true;
+      const q = userSearch.toLowerCase();
+      return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
+    });
+  }, [availableUsers, participants, userSearch]);
 
+  const getProfileName = (userId: string) => {
+    const p = availableUsers.find(u => u.id === userId);
+    return p?.display_name || p?.email || userId.slice(0, 8);
+  };
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -176,10 +186,10 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 {{ daily: "Ежедневно", weekly: "Еженедельно", monthly: "Ежемесячно", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
               </span>
             )}
-            {task.assigned_to && (
+            {participants.length > 0 && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                <UserPlus className="h-3 w-3" />
-                Делегировано
+                <Users className="h-3 w-3" />
+                {participants.map(p => getProfileName(p.user_id)).join(", ")}
               </span>
             )}
             {taskTags.map(tag => (
@@ -293,34 +303,108 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             )}
           </div>
 
-          {/* Assignee */}
+          {/* Assignee & Participants */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <UserPlus className="h-3 w-3" /> Ответственный
             </p>
-            {task.assigned_to ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-foreground">{task.assigned_to}</span>
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, assigned_to: null })}
-                  className="text-xs text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={(e) => { e.preventDefault(); handleAssign(); }} className="flex gap-2">
-                <Input
-                  value={assignEmail}
-                  onChange={(e) => setAssignEmail(e.target.value)}
-                  placeholder="ID пользователя..."
-                  className="h-7 text-xs"
-                />
-                <button type="submit" disabled={!assignEmail.trim()} className="text-xs text-primary hover:text-primary/80 disabled:opacity-30">
-                  Назначить
-                </button>
-              </form>
-            )}
+            {(() => {
+              const assignee = participants.find(p => p.role === "assignee");
+              return assignee ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-foreground">{getProfileName(assignee.user_id)}</span>
+                  <button
+                    onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Popover open={userPickerOpen === "assignee"} onOpenChange={(open) => { setUserPickerOpen(open ? "assignee" : null); setUserSearch(""); }}>
+                  <PopoverTrigger asChild>
+                    <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                      <Plus className="h-2.5 w-2.5" /> Назначить
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" side="bottom">
+                    <Input
+                      autoFocus
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Поиск по имени..."
+                      className="h-7 text-xs mb-2"
+                    />
+                    <div className="max-h-40 overflow-y-auto space-y-0.5">
+                      {filteredUsers.length === 0 && (
+                        <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+                      )}
+                      {filteredUsers.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" }); setUserPickerOpen(null); setUserSearch(""); }}
+                          className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
+                        >
+                          <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
+                          <span className="text-xs text-muted-foreground">{u.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              );
+            })()}
+          </div>
+
+          {/* Participants */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Users className="h-3 w-3" /> Участники
+            </p>
+            <div className="space-y-1">
+              {participants.filter(p => p.role === "participant").map(p => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <span className="text-sm text-foreground">{getProfileName(p.user_id)}</span>
+                  <button
+                    onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: p.user_id })}
+                    className="text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <Popover open={userPickerOpen === "participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "participant" : null); setUserSearch(""); }}>
+                <PopoverTrigger asChild>
+                  <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                    <Plus className="h-2.5 w-2.5" /> Участник
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" side="bottom">
+                  <Input
+                    autoFocus
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Поиск по имени..."
+                    className="h-7 text-xs mb-2"
+                  />
+                  <div className="max-h-40 overflow-y-auto space-y-0.5">
+                    {filteredUsers.length === 0 && (
+                      <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+                    )}
+                    {filteredUsers.map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" }); setUserPickerOpen(null); setUserSearch(""); }}
+                        className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
+                      >
+                        <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
+                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           {/* Tags */}
