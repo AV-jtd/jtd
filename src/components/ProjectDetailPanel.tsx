@@ -32,7 +32,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       if (memberIds.includes(u.id)) return false;
       if (!userSearch.trim()) return true;
       const q = userSearch.toLowerCase();
-      return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
+      return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.telegram_username?.toLowerCase().includes(q));
     });
   }, [availableUsers, members, userSearch]);
 
@@ -68,7 +68,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
             className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
           >
             <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-            <span className="text-xs text-muted-foreground">{u.email}</span>
+            <span className="text-xs text-muted-foreground">{u.email}{u.telegram_username ? ` · @${u.telegram_username}` : ""}</span>
           </button>
         ))}
       </div>

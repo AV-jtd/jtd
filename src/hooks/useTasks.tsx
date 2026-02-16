@@ -16,7 +16,7 @@ export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null;
 export type Tag = Tables<"tags">;
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
-export type Profile = { id: string; display_name: string | null; email: string | null };
+export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
 
 export function useTaskGroups() {
   const { user } = useAuth();
@@ -89,7 +89,7 @@ export function useAvailableUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, email");
+        .select("id, display_name, email, telegram_username");
       if (error) throw error;
       return (data || []) as Profile[];
     },
