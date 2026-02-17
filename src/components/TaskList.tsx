@@ -48,12 +48,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
-  const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
-    all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
-    important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
-    today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
-    assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
-    group: { title: activeGroup?.name || "Проект", icon: List, emptyTitle: "Проект пуст", emptyDesc: "Добавьте задачи в этот проект" },
+  const viewConfig: Record<string, { title: string; icon: React.ElementType; emoji: string; emptyTitle: string; emptyEmoji: string; emptyDesc: string }> = {
+    all: { title: "Все задачи", icon: List, emoji: "📋", emptyTitle: "Список пуст", emptyEmoji: "📭", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
+    important: { title: "Важные", icon: Star, emoji: "⭐", emptyTitle: "Нет важных задач", emptyEmoji: "✨", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
+    today: { title: "На сегодня", icon: CalendarDays, emoji: "☀️", emptyTitle: "На сегодня ничего", emptyEmoji: "🌤️", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
+    assigned: { title: "Делегированные", icon: Users, emoji: "📤", emptyTitle: "Нет делегированных", emptyEmoji: "🤝", emptyDesc: "Назначьте задачу другому пользователю" },
+    group: { title: activeGroup?.name || "Проект", icon: List, emoji: activeGroup?.icon && activeGroup.icon !== "list" ? activeGroup.icon : "📁", emptyTitle: "Проект пуст", emptyEmoji: "🗂️", emptyDesc: "Добавьте задачи в этот проект" },
   };
 
   const view = viewConfig[activeView] || viewConfig.all;
@@ -107,8 +107,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
+            {view.emoji}
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-semibold text-foreground leading-tight">{view.title}</h1>
@@ -140,10 +140,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         {/* Priority filter */}
         <div className="flex items-center gap-1.5 mb-4 flex-wrap">
           {[
-            { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
-            { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
-            { value: 3, label: "P3", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
-            { value: 4, label: "P4", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
+            { value: 1, label: "P1", emoji: "🔴", color: "text-red-500 border-red-500/40 bg-red-500/10" },
+            { value: 2, label: "P2", emoji: "🟠", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
+            { value: 3, label: "P3", emoji: "🟡", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
+            { value: 4, label: "P4", emoji: "🔵", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
           ].map(p => (
             <button
               key={p.value}
@@ -155,8 +155,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
               )}
             >
-              <Flag className="h-3 w-3" />
-              {p.label}
+              {p.emoji} {p.label}
             </button>
           ))}
           {priorityFilter !== null && (
@@ -222,8 +221,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center py-20">
-            <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-5">
-              <Inbox className="h-10 w-10 text-muted-foreground/40" />
+            <div className="text-5xl mb-4 mx-auto">
+              {view.emptyEmoji}
             </div>
             <p className="text-base font-medium text-muted-foreground">{view.emptyTitle}</p>
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
@@ -245,7 +244,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             {completedTasks.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
-                  Выполнено · {completedTasks.length}
+                  ✅ Выполнено · {completedTasks.length}
                 </p>
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
