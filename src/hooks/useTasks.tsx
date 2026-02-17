@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { Tables, TablesInsert } from "@/integrations/supabase/types";
@@ -21,6 +22,25 @@ export type Profile = { id: string; display_name: string | null; email: string |
 
 export function useTaskGroups() {
   const { user } = useAuth();
+  const qc = useQueryClient();
+
+  // Subscribe to group_members changes so added users see projects instantly
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('group_members_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_members', filter: `user_id=eq.${user.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["task_groups"] });
+          qc.invalidateQueries({ queryKey: ["group_members"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, qc]);
+
   return useQuery({
     queryKey: ["task_groups", user?.id],
     queryFn: async () => {
@@ -32,6 +52,8 @@ export function useTaskGroups() {
       return data as TaskGroup[];
     },
     enabled: !!user,
+    staleTime: 1000 * 30, // 30 seconds for groups (shorter to catch membership changes)
+    refetchOnWindowFocus: 'always',
   });
 }
 
