@@ -516,6 +516,14 @@ export type Database = {
       }
     }
     Functions: {
+      debug_user_visible_groups: {
+        Args: { _user_id: string }
+        Returns: {
+          group_id: string
+          group_name: string
+          parent_id: string
+        }[]
+      }
       has_tag_access: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
