@@ -20,10 +20,10 @@ interface TaskItemProps {
 }
 
 const PRIORITIES = [
-  { value: 1, label: "P1 — Критический", emoji: "🔴", color: "text-red-500", bgColor: "bg-red-500/10", dotColor: "bg-red-500" },
-  { value: 2, label: "P2 — Высокий", emoji: "🟠", color: "text-orange-500", bgColor: "bg-orange-500/10", dotColor: "bg-orange-500" },
-  { value: 3, label: "P3 — Средний", emoji: "🟡", color: "text-yellow-500", bgColor: "bg-yellow-500/10", dotColor: "bg-yellow-500" },
-  { value: 4, label: "P4 — Низкий", emoji: "🔵", color: "text-blue-400", bgColor: "bg-blue-400/10", dotColor: "bg-blue-400" },
+  { value: 1, label: "P1 — Критический", color: "text-red-500", bgColor: "bg-red-500/10", dotColor: "bg-red-500" },
+  { value: 2, label: "P2 — Высокий", color: "text-orange-500", bgColor: "bg-orange-500/10", dotColor: "bg-orange-500" },
+  { value: 3, label: "P3 — Средний", color: "text-yellow-500", bgColor: "bg-yellow-500/10", dotColor: "bg-yellow-500" },
+  { value: 4, label: "P4 — Низкий", color: "text-blue-400", bgColor: "bg-blue-400/10", dotColor: "bg-blue-400" },
 ] as const;
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
@@ -204,7 +204,8 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               const p = getPriority((task as any).priority);
               return p ? (
                 <span className={cn("text-xs flex items-center gap-1 font-medium", p.color)}>
-                  {p.emoji} P{p.value}
+                  <Flag className="h-3 w-3" />
+                  P{p.value}
                 </span>
               ) : null;
             })()}
@@ -586,7 +587,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                         : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                     )}
                   >
-                    {p.emoji} P{p.value}
+                    P{p.value}
                   </button>
                 );
               })}

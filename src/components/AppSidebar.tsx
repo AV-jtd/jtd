@@ -66,15 +66,15 @@ export default function AppSidebar({
   ];
 
   const menuItems = [
-    { id: "all", icon: List, label: "Все задачи", emoji: "📋" },
-    { id: "important", icon: Star, label: "Важные", emoji: "⭐" },
-    { id: "today", icon: CalendarDays, label: "На сегодня", emoji: "☀️" },
-    { id: "assigned", icon: Users, label: "Делегированные", emoji: "📤" },
-    { id: "subordinates", icon: UsersRound, label: "Команда", emoji: "👥" },
-    { id: "community", icon: Globe, label: "Сообщество", emoji: "🌍" },
-    { id: "calendar", icon: CalendarDays, label: "Календарь", emoji: "📅" },
-    { id: "dashboard", icon: BarChart3, label: "Дашборд", emoji: "📊" },
-    { id: "archive", icon: Archive, label: "Архив", emoji: "🗄️" },
+    { id: "all", icon: List, label: "Все задачи" },
+    { id: "important", icon: Star, label: "Важные" },
+    { id: "today", icon: CalendarDays, label: "На сегодня" },
+    { id: "assigned", icon: Users, label: "Делегированные" },
+    { id: "subordinates", icon: UsersRound, label: "Команда" },
+    { id: "community", icon: Globe, label: "Сообщество" },
+    { id: "calendar", icon: CalendarDays, label: "Календарь" },
+    { id: "dashboard", icon: BarChart3, label: "Дашборд" },
+    { id: "archive", icon: Archive, label: "Архив" },
   ];
 
   // Separate root groups and subgroups
@@ -392,7 +392,7 @@ export default function AppSidebar({
                 : "text-sidebar-fg/70 hover:bg-sidebar-fg/10 hover:text-sidebar-fg"
             )}
           >
-            <span className="text-base leading-none">{item.emoji}</span>
+            <item.icon className="h-4 w-4" />
             {item.label}
           </button>
         ))}
@@ -404,7 +404,7 @@ export default function AppSidebar({
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
           >
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            📂 Проекты
+            Проекты
             <button
               onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); setNewSubgroupParentId(null); }}
               className="ml-auto hover:text-sidebar-fg"
@@ -445,7 +445,7 @@ export default function AppSidebar({
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
           >
             {showTags ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            🏷️ Тэги
+            Тэги
             <button
               onClick={(e) => { e.stopPropagation(); }}
               className="ml-auto hover:text-sidebar-fg"

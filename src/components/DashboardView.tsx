@@ -42,8 +42,8 @@ export default function DashboardView() {
     <main className="flex-1 overflow-y-auto scrollbar-thin">
       <div className="max-w-2xl mx-auto px-6 py-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
-            📊
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+            <BarChart3 className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground leading-tight">Дашборд</h1>
@@ -53,23 +53,23 @@ export default function DashboardView() {
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20 p-3 text-center">
-            <span className="text-2xl block mb-1">🎯</span>
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <TrendingUp className="h-5 w-5 text-primary mx-auto mb-1" />
             <p className="text-lg font-semibold">{completionRate}%</p>
             <p className="text-xs text-muted-foreground">Выполнение</p>
           </div>
-          <div className="bg-gradient-to-br from-success/10 to-success/5 rounded-xl border border-success/20 p-3 text-center">
-            <span className="text-2xl block mb-1">✅</span>
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mb-1" />
             <p className="text-lg font-semibold">{completed}</p>
             <p className="text-xs text-muted-foreground">Выполнено</p>
           </div>
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20 p-3 text-center">
-            <span className="text-2xl block mb-1">⏳</span>
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <Clock className="h-5 w-5 text-blue-500 mx-auto mb-1" />
             <p className="text-lg font-semibold">{active}</p>
             <p className="text-xs text-muted-foreground">В работе</p>
           </div>
-          <div className="bg-gradient-to-br from-destructive/10 to-destructive/5 rounded-xl border border-destructive/20 p-3 text-center">
-            <span className="text-2xl block mb-1">🔥</span>
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <AlertTriangle className="h-5 w-5 text-red-500 mx-auto mb-1" />
             <p className="text-lg font-semibold">{overdue}</p>
             <p className="text-xs text-muted-foreground">Просрочено</p>
           </div>
@@ -77,7 +77,7 @@ export default function DashboardView() {
 
         {/* Chart */}
         <div className="bg-card rounded-xl border border-border p-4">
-          <p className="text-sm font-medium text-foreground mb-4">📈 Активность за 14 дней</p>
+          <p className="text-sm font-medium text-foreground mb-4">Активность за 14 дней</p>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barGap={2}>
