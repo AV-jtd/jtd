@@ -162,7 +162,7 @@ export default function AppSidebar({
     }
     setEditingTagId(null);
   };
-  function HueSlider({ group, updateGroupAppearance }: { group: TaskGroup; updateGroupAppearance: any }) {
+  function HueSlider({ group, updateGroupAppearance, onDone }: { group: TaskGroup; updateGroupAppearance: any; onDone: () => void }) {
     const [hue, setHue] = useState(() => {
       const match = group.color?.match(/hsl\((\d+)/);
       return match ? parseInt(match[1]) : 220;
@@ -175,8 +175,8 @@ export default function AppSidebar({
           max="360"
           value={hue}
           onChange={(e) => setHue(parseInt(e.target.value))}
-          onPointerUp={() => updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined })}
-          onMouseUp={() => updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined })}
+          onPointerUp={() => { updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined }); onDone(); }}
+          onMouseUp={() => { updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined }); onDone(); }}
           className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
           style={{
             background: "linear-gradient(to right, hsl(0,70%,50%), hsl(60,70%,50%), hsl(120,70%,50%), hsl(180,70%,50%), hsl(240,70%,50%), hsl(300,70%,50%), hsl(360,70%,50%))",
@@ -274,7 +274,7 @@ export default function AppSidebar({
                   {EMOJI_CATEGORIES[emojiTab].emojis.map(emoji => (
                     <button
                       key={emoji}
-                      onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: emoji })}
+                      onClick={() => { updateGroupAppearance.mutate({ id: group.id, icon: emoji }); setEmojiPickerGroupId(null); }}
                       className={cn("p-1 rounded hover:bg-accent text-sm", group.icon === emoji && "bg-accent ring-1 ring-primary")}
                     >
                       {emoji}
@@ -282,7 +282,7 @@ export default function AppSidebar({
                   ))}
                 </div>
                 <button
-                  onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: "list" })}
+                  onClick={() => { updateGroupAppearance.mutate({ id: group.id, icon: "list" }); setEmojiPickerGroupId(null); }}
                   className="text-xs text-muted-foreground hover:text-foreground mb-3 block"
                 >
                   Убрать эмодзи
@@ -292,14 +292,14 @@ export default function AppSidebar({
                   {COLOR_PRESETS.map(p => (
                     <button
                       key={p.hue}
-                      onClick={() => updateGroupAppearance.mutate({ id: group.id, color: `hsl(${p.hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined })}
+                      onClick={() => { updateGroupAppearance.mutate({ id: group.id, color: `hsl(${p.hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined }); setEmojiPickerGroupId(null); }}
                       className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110 border border-border/50")}
                       style={{ backgroundColor: `hsl(${p.hue}, 70%, 50%)` }}
                       title={p.label}
                     />
                   ))}
                 </div>
-                <HueSlider group={group} updateGroupAppearance={updateGroupAppearance} />
+                <HueSlider group={group} updateGroupAppearance={updateGroupAppearance} onDone={() => setEmojiPickerGroupId(null)} />
               </PopoverContent>
             </Popover>
 
