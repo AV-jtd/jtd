@@ -1,0 +1,2 @@
+ALTER TABLE public.task_participants DROP CONSTRAINT task_participants_role_check;
+ALTER TABLE public.task_participants ADD CONSTRAINT task_participants_role_check CHECK (role = ANY (ARRAY['assignee'::text, 'participant'::text, 'creator'::text]));
