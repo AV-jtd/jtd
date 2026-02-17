@@ -532,6 +532,10 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      is_parent_of_member_group: {
+        Args: { _parent_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_subgroup_owner: {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
