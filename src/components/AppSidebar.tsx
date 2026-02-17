@@ -190,7 +190,7 @@ export default function AppSidebar({
     );
   }
 
-
+  function GroupIcon({ group }: { group: TaskGroup }) {
     // Show emoji if set, otherwise show color dot
     if (group.icon && group.icon !== "list") {
       return <span className="text-sm leading-none">{group.icon}</span>;
