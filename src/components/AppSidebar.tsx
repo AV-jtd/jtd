@@ -229,7 +229,7 @@ export default function AppSidebar({
                   <GroupIcon group={group} />
                 </span>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+              <PopoverContent className="w-64 p-3" side="right" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Эмодзи</p>
                 <div className="flex gap-1 mb-2 flex-wrap">
                   {EMOJI_CATEGORIES.map((cat, i) => (
