@@ -202,11 +202,12 @@ export function useTaskMutations() {
       if (error) throw error;
 
       // Auto-add creator as participant
-      await supabase.from("task_participants").insert({
+      const { error: partError } = await supabase.from("task_participants").insert({
         task_id: taskData.id,
         user_id: user!.id,
         role: "creator",
       });
+      if (partError) console.error("Failed to add creator as participant:", partError);
 
       // Auto-tag: if task is in a group with a linked tag, add that tag
       if (task.group_id) {
