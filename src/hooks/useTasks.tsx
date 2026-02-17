@@ -190,7 +190,20 @@ export function useTaskMutations() {
       const { error } = await supabase.from("task_groups").update(updates).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+    onMutate: async ({ id, icon, color }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const prev = qc.getQueryData<TaskGroup[]>(["task_groups"]);
+      if (prev) {
+        qc.setQueryData<TaskGroup[]>(["task_groups"], prev.map(g =>
+          g.id === id ? { ...g, ...(icon !== undefined ? { icon } : {}), ...(color !== undefined ? { color } : {}) } : g
+        ));
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) qc.setQueryData(["task_groups"], context.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
   const renameGroup = useMutation({
