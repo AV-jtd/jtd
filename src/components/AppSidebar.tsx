@@ -253,6 +253,7 @@ export default function AppSidebar({
             {editingGroupId === group.id ? (
               <input
                 autoFocus
+                enterKeyHint="done"
                 value={editingGroupName}
                 onChange={(e) => setEditingGroupName(e.target.value)}
                 onBlur={() => handleSaveGroupName(group.id)}
@@ -474,6 +475,7 @@ export default function AppSidebar({
                     {editingTagId === t.id ? (
                       <input
                         autoFocus
+                        enterKeyHint="done"
                         value={editingTagName}
                         onChange={(e) => setEditingTagName(e.target.value)}
                         onBlur={() => handleSaveTagName(t.id)}
@@ -520,9 +522,10 @@ export default function AppSidebar({
                 <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); setEditingTagId(null); }} className="px-3 py-1">
                   <input
                     autoFocus
+                    enterKeyHint="done"
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
-                    onBlur={() => { if (!newTagName.trim()) setEditingTagId(null); }}
+                    onBlur={() => { setTimeout(() => { if (!newTagName.trim()) setEditingTagId(null); }, 150); }}
                     placeholder="Название тэга..."
                     className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
