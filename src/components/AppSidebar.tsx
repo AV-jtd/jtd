@@ -16,11 +16,26 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
-const EMOJI_OPTIONS = ["📁", "🚀", "💡", "🎯", "📊", "🔧", "📝", "🎨", "🏠", "💼", "📚", "⭐", "🔥", "💎", "🌊", "🌿"];
+const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
+  { label: "Работа", emojis: ["📁", "💼", "📊", "📈", "📋", "🗂️", "📑", "🏢", "💻", "⚙️", "🔧", "🛠️", "📝", "✏️", "📌", "🗓️"] },
+  { label: "Идеи", emojis: ["💡", "🚀", "🎯", "⭐", "✨", "💎", "🔮", "🧩", "🎲", "🏆", "🥇", "🎖️", "🧠", "💭", "❓", "🔑"] },
+  { label: "Природа", emojis: ["🌿", "🌊", "🌸", "🌻", "🍀", "🌈", "☀️", "🌙", "⛰️", "🌍", "🔥", "❄️", "🌾", "🍂", "🌵", "🌴"] },
+  { label: "Жизнь", emojis: ["🏠", "🎨", "🎵", "📚", "🎬", "📷", "🎮", "🏋️", "🧘", "🍕", "☕", "🎂", "❤️", "😊", "🐱", "🐶"] },
+  { label: "Символы", emojis: ["✅", "❌", "⚡", "🔒", "🔔", "📣", "💬", "🏷️", "🚩", "♻️", "⏳", "🎁", "📦", "🧪", "🔬", "🌐"] },
+];
 const COLOR_OPTIONS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ef4444", "#ec4899", "#06b6d4", "#84cc16",
-  "#f97316", "#6366f1", "#14b8a6", "#a855f7",
+  "#3b82f6", "#2563eb", "#1d4ed8",
+  "#10b981", "#059669", "#047857",
+  "#f59e0b", "#d97706", "#b45309",
+  "#8b5cf6", "#7c3aed", "#6d28d9",
+  "#ef4444", "#dc2626", "#b91c1c",
+  "#ec4899", "#db2777", "#be185d",
+  "#06b6d4", "#0891b2", "#0e7490",
+  "#84cc16", "#65a30d", "#4d7c0f",
+  "#f97316", "#ea580c", "#c2410c",
+  "#6366f1", "#4f46e5", "#4338ca",
+  "#14b8a6", "#0d9488", "#0f766e",
+  "#a855f7", "#9333ea", "#7e22ce",
 ];
 
 interface AppSidebarProps {
@@ -58,6 +73,7 @@ export default function AppSidebar({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [memberSearch, setMemberSearch] = useState("");
   const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
+  const [emojiTab, setEmojiTab] = useState(0);
 
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
@@ -216,10 +232,21 @@ export default function AppSidebar({
                   <GroupIcon group={group} />
                 </span>
               </PopoverTrigger>
-              <PopoverContent className="w-52 p-3" side="right" onClick={(e) => e.stopPropagation()}>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Эмодзи</p>
-                <div className="grid grid-cols-8 gap-1 mb-3">
-                  {EMOJI_OPTIONS.map(emoji => (
+              <PopoverContent className="w-64 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Эмодзи</p>
+                <div className="flex gap-1 mb-2 flex-wrap">
+                  {EMOJI_CATEGORIES.map((cat, i) => (
+                    <button
+                      key={cat.label}
+                      onClick={() => setEmojiTab(i)}
+                      className={cn("text-[10px] px-1.5 py-0.5 rounded-full transition-colors", emojiTab === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-8 gap-0.5 mb-2">
+                  {EMOJI_CATEGORIES[emojiTab].emojis.map(emoji => (
                     <button
                       key={emoji}
                       onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: emoji })}
@@ -228,15 +255,15 @@ export default function AppSidebar({
                       {emoji}
                     </button>
                   ))}
-                  <button
-                    onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: "list" })}
-                    className="p-1 rounded hover:bg-accent text-xs text-muted-foreground col-span-2"
-                  >
-                    Убрать
-                  </button>
                 </div>
+                <button
+                  onClick={() => updateGroupAppearance.mutate({ id: group.id, icon: "list" })}
+                  className="text-xs text-muted-foreground hover:text-foreground mb-3 block"
+                >
+                  Убрать эмодзи
+                </button>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Цвет</p>
-                <div className="grid grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-9 gap-1">
                   {COLOR_OPTIONS.map(c => (
                     <button
                       key={c}
