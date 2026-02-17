@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, Profile } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -23,6 +23,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
+  const { data: allGroups = [] } = useTaskGroups();
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
@@ -444,6 +445,53 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                   </PopoverContent>
                 </Popover>
               )}
+            </div>
+          </div>
+
+          {/* Project */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <FolderOpen className="h-3 w-3" /> Проект
+            </p>
+            <div className="flex items-center gap-2">
+              {task.group_id ? (
+                <>
+                  <span className="text-sm text-foreground">
+                    {allGroups.find(g => g.id === task.group_id)?.name || "Неизвестный проект"}
+                  </span>
+                  <button
+                    onClick={() => updateTask.mutate({ id: task.id, group_id: null })}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </>
+              ) : null}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                    <Plus className="h-2.5 w-2.5" /> {task.group_id ? "Изменить" : "Назначить"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" side="bottom">
+                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
+                    {allGroups.filter(g => g.id !== task.group_id).map(g => (
+                      <button
+                        key={g.id}
+                        onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                      >
+                        <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                        {g.name}
+                      </button>
+                    ))}
+                    {allGroups.filter(g => g.id !== task.group_id).length === 0 && (
+                      <p className="text-xs text-muted-foreground px-2 py-1">Нет проектов</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

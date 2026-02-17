@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X } from "lucide-react";
+import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, Profile } from "@/hooks/useTasks";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +10,8 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent } = useTaskMutations();
+  const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
   const [editingDescription, setEditingDescription] = useState(false);
@@ -104,6 +105,53 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
             {(group as any).description || <span className="text-muted-foreground italic">Нажмите чтобы добавить описание...</span>}
           </div>
         )}
+      </div>
+
+      {/* Parent Project */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <FolderOpen className="h-3 w-3" /> Родительский проект
+        </p>
+        <div className="flex items-center gap-2">
+          {group.parent_id ? (
+            <>
+              <span className="text-sm text-foreground">
+                {allGroups.find(g => g.id === group.parent_id)?.name || "Неизвестный проект"}
+              </span>
+              <button
+                onClick={() => updateGroupParent.mutate({ id: group.id, parent_id: null })}
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </>
+          ) : null}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                <Plus className="h-2.5 w-2.5" /> {group.parent_id ? "Изменить" : "Назначить"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" side="bottom">
+              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
+                {allGroups.filter(g => g.id !== group.id && !g.parent_id).map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => updateGroupParent.mutate({ id: group.id, parent_id: g.id })}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                    {g.name}
+                  </button>
+                ))}
+                {allGroups.filter(g => g.id !== group.id && !g.parent_id).length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">Нет проектов</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Assignee */}
