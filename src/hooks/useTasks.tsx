@@ -475,6 +475,14 @@ export function useTaskMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  const updateGroupParent = useMutation({
+    mutationFn: async ({ id, parent_id }: { id: string; parent_id: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ parent_id }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
   const grantTagAccess = useMutation({
     mutationFn: async ({ tag_id, user_email }: { tag_id: string; user_email: string }) => {
       const { data: profile, error: profileError } = await supabase
@@ -563,7 +571,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
