@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -44,6 +44,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -65,6 +66,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
   } else if (activeView === "assigned") {
     filteredTasks = tasks.filter(t => t.assigned_to);
+  }
+
+  if (priorityFilter !== null) {
+    filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
   }
 
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
@@ -132,7 +137,38 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           <ProjectDetailPanel group={activeGroup} />
         )}
 
-        {/* Add task */}
+        {/* Priority filter */}
+        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+          {[
+            { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
+            { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
+            { value: 3, label: "P3", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
+            { value: 4, label: "P4", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
+          ].map(p => (
+            <button
+              key={p.value}
+              onClick={() => setPriorityFilter(prev => prev === p.value ? null : p.value)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                priorityFilter === p.value
+                  ? p.color
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+              )}
+            >
+              <Flag className="h-3 w-3" />
+              {p.label}
+            </button>
+          ))}
+          {priorityFilter !== null && (
+            <button
+              onClick={() => setPriorityFilter(null)}
+              className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> Сбросить
+            </button>
+          )}
+        </div>
+
         <form
           onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
           className="flex items-center gap-3 mb-6 bg-card rounded-xl border border-border p-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
