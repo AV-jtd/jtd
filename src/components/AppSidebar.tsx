@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTaskMutations, TaskGroup } from "@/hooks/useTasks";
+import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe,
@@ -41,7 +41,8 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMemberByEmail, grantTagAccess, reorderGroups } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups } = useTaskMutations();
+  const { data: availableUsers = [] } = useAvailableUsers();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
@@ -55,6 +56,8 @@ export default function AppSidebar({
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
 
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
@@ -277,7 +280,7 @@ export default function AppSidebar({
                   <Plus className="h-3.5 w-3.5" />
                 </span>
               )}
-              <Popover>
+              <Popover open={memberPickerGroupId === group.id} onOpenChange={(open) => { setMemberPickerGroupId(open ? group.id : null); setMemberSearch(""); }}>
                 <PopoverTrigger asChild>
                   <span
                     onClick={(e) => e.stopPropagation()}
@@ -286,12 +289,40 @@ export default function AppSidebar({
                     <UserPlus className="h-3.5 w-3.5" />
                   </span>
                 </PopoverTrigger>
-                <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Пригласить участника</p>
-                  <form onSubmit={(e) => { e.preventDefault(); handleInvite(group.id); }} className="flex gap-2">
-                    <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
-                    <button type="submit" disabled={!inviteEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Добавить</button>
-                  </form>
+                <PopoverContent className="w-56 p-2" side="right" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">Добавить участника</p>
+                  <Input
+                    autoFocus
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Поиск по имени..."
+                    className="h-7 text-xs mb-2"
+                  />
+                  <div className="max-h-40 overflow-y-auto space-y-0.5">
+                    {(() => {
+                      const filtered = availableUsers.filter(u => {
+                        if (!memberSearch.trim()) return true;
+                        const q = memberSearch.toLowerCase();
+                        return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.telegram_username?.toLowerCase().includes(q));
+                      });
+                      return filtered.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+                      ) : filtered.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => {
+                            addGroupMember.mutate({ group_id: group.id, user_id: u.id, role: "participant" });
+                            setMemberPickerGroupId(null);
+                            setMemberSearch("");
+                          }}
+                          className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
+                        >
+                          <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
+                          <span className="text-xs text-muted-foreground">{u.email}{u.telegram_username ? ` · @${u.telegram_username}` : ""}</span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
                 </PopoverContent>
               </Popover>
               <span
