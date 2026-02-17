@@ -385,7 +385,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               <Users className="h-3 w-3" /> Участники
             </p>
             <div className="space-y-1">
-              {participants.filter(p => p.role === "participant").map(p => (
+              {participants.filter(p => p.role === "participant" || p.role === "creator").map(p => (
                 <div key={p.id} className="flex items-center gap-2">
                   <span className="text-sm text-foreground">{getProfileName(p.user_id)}</span>
                   <button
