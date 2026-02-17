@@ -148,6 +148,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Добавить задачу..."
+            enterKeyHint="done"
             className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
           />
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>

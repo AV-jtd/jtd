@@ -351,9 +351,10 @@ export default function AppSidebar({
               <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
                 <input
                   autoFocus
+                  enterKeyHint="done"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  onBlur={() => { if (!newGroupName.trim()) setNewSubgroupParentId(null); }}
+                  onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setNewSubgroupParentId(null); }, 150); }}
                   placeholder="Подпроект..."
                   className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                 />
@@ -423,9 +424,10 @@ export default function AppSidebar({
                 <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
                   <input
                     autoFocus
+                    enterKeyHint="done"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
-                    onBlur={() => { if (!newGroupName.trim()) setShowNewGroup(false); }}
+                    onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setShowNewGroup(false); }, 150); }}
                     placeholder="Название проекта..."
                     className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
