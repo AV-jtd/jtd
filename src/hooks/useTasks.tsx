@@ -11,6 +11,7 @@ export type Task = Tables<"tasks"> & {
   recurrence?: string | null;
   recurrence_end_date?: string | null;
   parent_recurring_id?: string | null;
+  priority?: number | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;

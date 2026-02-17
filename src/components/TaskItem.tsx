@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
+import { useTaskComments, useCommentMutations } from "@/hooks/useComments";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -17,6 +18,15 @@ interface TaskItemProps {
   task: Task;
   sortable?: boolean;
 }
+
+const PRIORITIES = [
+  { value: 1, label: "P1 — Критический", color: "text-red-500", bgColor: "bg-red-500/10", dotColor: "bg-red-500" },
+  { value: 2, label: "P2 — Высокий", color: "text-orange-500", bgColor: "bg-orange-500/10", dotColor: "bg-orange-500" },
+  { value: 3, label: "P3 — Средний", color: "text-yellow-500", bgColor: "bg-yellow-500/10", dotColor: "bg-yellow-500" },
+  { value: 4, label: "P4 — Низкий", color: "text-blue-400", bgColor: "bg-blue-400/10", dotColor: "bg-blue-400" },
+] as const;
+
+const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 export default function TaskItem({ task, sortable }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
@@ -34,6 +44,9 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
+  const [newComment, setNewComment] = useState("");
+  const { data: comments = [] } = useTaskComments(detailsOpen ? task.id : null);
+  const { addComment, deleteComment } = useCommentMutations();
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
@@ -187,6 +200,15 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 {{ daily: "Ежедневно", weekly: "Еженедельно", monthly: "Ежемесячно", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
               </span>
             )}
+            {(() => {
+              const p = getPriority((task as any).priority);
+              return p ? (
+                <span className={cn("text-xs flex items-center gap-1 font-medium", p.color)}>
+                  <Flag className="h-3 w-3" />
+                  P{p.value}
+                </span>
+              ) : null;
+            })()}
             {participants.length > 0 && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Users className="h-3 w-3" />
@@ -546,6 +568,32 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             </div>
           </div>
 
+          {/* Priority */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Flag className="h-3 w-3" /> Приоритет
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {PRIORITIES.map(p => {
+                const isActive = (task as any).priority === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    onClick={() => updateTask.mutate({ id: task.id, priority: isActive ? null : p.value } as any)}
+                    className={cn(
+                      "text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
+                      isActive
+                        ? `${p.bgColor} ${p.color} border-current`
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    )}
+                  >
+                    P{p.value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Subtasks in detail view */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
@@ -575,6 +623,55 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 placeholder="Новая подзадача..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
+            </form>
+          </div>
+
+          {/* Comments */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <MessageCircle className="h-3 w-3" /> Комментарии {comments.length > 0 && `(${comments.length})`}
+            </p>
+            {comments.map(c => (
+              <div key={c.id} className="flex gap-2 group/comment">
+                <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0 mt-0.5">
+                  {getProfileName(c.user_id)[0]?.toUpperCase() || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">{getProfileName(c.user_id)}</span>
+                    <span className="text-[10px] text-muted-foreground">{format(parseISO(c.created_at), "d MMM, HH:mm", { locale: ru })}</span>
+                  </div>
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">{c.content}</p>
+                </div>
+                <button
+                  onClick={() => deleteComment.mutate({ id: c.id, task_id: task.id })}
+                  className="text-muted-foreground opacity-0 group-hover/comment:opacity-100 hover:text-destructive shrink-0 mt-1"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newComment.trim()) {
+                  addComment.mutate({ task_id: task.id, content: newComment.trim() });
+                  setNewComment("");
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Написать комментарий..."
+                className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
+              />
+              {newComment.trim() && (
+                <button type="submit" className="text-primary hover:text-primary/80 shrink-0">
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              )}
             </form>
           </div>
 
