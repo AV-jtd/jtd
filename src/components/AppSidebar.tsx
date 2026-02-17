@@ -235,7 +235,7 @@ export default function AppSidebar({
                   {EMOJI_CATEGORIES.map((cat, i) => (
                     <button
                       key={cat.label}
-                      onClick={() => setEmojiTab(i)}
+                      onClick={(e) => { e.stopPropagation(); setEmojiTab(i); }}
                       className={cn("text-[10px] px-1.5 py-0.5 rounded-full transition-colors", emojiTab === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
                     >
                       {cat.label}
