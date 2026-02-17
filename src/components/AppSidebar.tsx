@@ -23,19 +23,16 @@ const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
   { label: "Жизнь", emojis: ["🏠", "🎨", "🎵", "📚", "🎬", "📷", "🎮", "🏋️", "🧘", "🍕", "☕", "🎂", "❤️", "😊", "🐱", "🐶"] },
   { label: "Символы", emojis: ["✅", "❌", "⚡", "🔒", "🔔", "📣", "💬", "🏷️", "🚩", "♻️", "⏳", "🎁", "📦", "🧪", "🔬", "🌐"] },
 ];
-const COLOR_OPTIONS = [
-  "#3b82f6", "#2563eb", "#1d4ed8",
-  "#10b981", "#059669", "#047857",
-  "#f59e0b", "#d97706", "#b45309",
-  "#8b5cf6", "#7c3aed", "#6d28d9",
-  "#ef4444", "#dc2626", "#b91c1c",
-  "#ec4899", "#db2777", "#be185d",
-  "#06b6d4", "#0891b2", "#0e7490",
-  "#84cc16", "#65a30d", "#4d7c0f",
-  "#f97316", "#ea580c", "#c2410c",
-  "#6366f1", "#4f46e5", "#4338ca",
-  "#14b8a6", "#0d9488", "#0f766e",
-  "#a855f7", "#9333ea", "#7e22ce",
+const COLOR_PRESETS = [
+  { hue: 220, label: "Синий" },
+  { hue: 160, label: "Зелёный" },
+  { hue: 40, label: "Жёлтый" },
+  { hue: 270, label: "Фиолет" },
+  { hue: 0, label: "Красный" },
+  { hue: 330, label: "Розовый" },
+  { hue: 190, label: "Голубой" },
+  { hue: 90, label: "Лайм" },
+  { hue: 25, label: "Оранж" },
 ];
 
 interface AppSidebarProps {
@@ -263,15 +260,36 @@ export default function AppSidebar({
                   Убрать эмодзи
                 </button>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Цвет</p>
-                <div className="grid grid-cols-9 gap-1">
-                  {COLOR_OPTIONS.map(c => (
+                <div className="flex gap-1 mb-2 flex-wrap">
+                  {COLOR_PRESETS.map(p => (
                     <button
-                      key={c}
-                      onClick={() => updateGroupAppearance.mutate({ id: group.id, color: c, icon: group.icon === "list" ? "list" : undefined })}
-                      className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110", group.color === c && "ring-2 ring-primary ring-offset-1 ring-offset-background")}
-                      style={{ backgroundColor: c }}
+                      key={p.hue}
+                      onClick={() => updateGroupAppearance.mutate({ id: group.id, color: `hsl(${p.hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined })}
+                      className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110 border border-border/50")}
+                      style={{ backgroundColor: `hsl(${p.hue}, 70%, 50%)` }}
+                      title={p.label}
                     />
                   ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    defaultValue="220"
+                    onChange={(e) => {
+                      const hue = e.target.value;
+                      updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined });
+                    }}
+                    className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: "linear-gradient(to right, hsl(0,70%,50%), hsl(60,70%,50%), hsl(120,70%,50%), hsl(180,70%,50%), hsl(240,70%,50%), hsl(300,70%,50%), hsl(360,70%,50%))",
+                    }}
+                  />
+                  <div
+                    className="h-5 w-5 rounded-full border border-border shrink-0"
+                    style={{ backgroundColor: group.color || "#3b82f6" }}
+                  />
                 </div>
               </PopoverContent>
             </Popover>
