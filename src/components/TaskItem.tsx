@@ -675,10 +675,11 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             </form>
           </div>
 
-          {/* Created at */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1">
+          {/* Created at + creator */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1 flex-wrap">
             <Clock className="h-3 w-3" />
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
+            <span>· создал: {getProfileName(task.user_id)}</span>
           </div>
         </div>
       )}
