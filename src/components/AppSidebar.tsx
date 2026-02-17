@@ -70,6 +70,7 @@ export default function AppSidebar({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [memberSearch, setMemberSearch] = useState("");
   const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
+  const [emojiPickerGroupId, setEmojiPickerGroupId] = useState<string | null>(null);
   const [emojiTab, setEmojiTab] = useState(0);
 
   const tagColors = [
@@ -223,13 +224,13 @@ export default function AppSidebar({
             )}
 
             {/* Icon/Emoji with picker */}
-            <Popover>
+            <Popover open={emojiPickerGroupId === group.id} onOpenChange={(open) => { if (!open) setEmojiPickerGroupId(null); else setEmojiPickerGroupId(group.id); }}>
               <PopoverTrigger asChild>
                 <span onClick={(e) => e.stopPropagation()} className="shrink-0 cursor-pointer hover:opacity-80">
                   <GroupIcon group={group} />
                 </span>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" side="right" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
+              <PopoverContent className="w-64 p-3" side="right" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onFocusOutside={(e) => e.preventDefault()}>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Эмодзи</p>
                 <div className="flex gap-1 mb-2 flex-wrap">
                   {EMOJI_CATEGORIES.map((cat, i) => (
