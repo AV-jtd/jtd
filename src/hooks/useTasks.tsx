@@ -201,6 +201,13 @@ export function useTaskMutations() {
       }).select().single();
       if (error) throw error;
 
+      // Auto-add creator as participant
+      await supabase.from("task_participants").insert({
+        task_id: taskData.id,
+        user_id: user!.id,
+        role: "creator",
+      });
+
       // Auto-tag: if task is in a group with a linked tag, add that tag
       if (task.group_id) {
         const { data: group } = await supabase
