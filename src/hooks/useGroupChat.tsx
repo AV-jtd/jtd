@@ -25,12 +25,26 @@ export function useGroupMessages(groupId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("group_messages" as any)
-        .select("*, profile:profiles!group_messages_user_id_fkey(display_name, email, telegram_username)")
+        .select("*")
         .eq("group_id", groupId!)
         .order("created_at", { ascending: true })
         .limit(200);
       if (error) throw error;
-      return (data || []) as unknown as GroupMessage[];
+      // Fetch profiles for all unique user_ids
+      const msgs = (data || []) as unknown as GroupMessage[];
+      const userIds = [...new Set(msgs.map(m => m.user_id))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, display_name, email, telegram_username")
+          .in("id", userIds);
+        const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+        msgs.forEach(m => {
+          const p = profileMap.get(m.user_id);
+          if (p) m.profile = { display_name: p.display_name, email: p.email, telegram_username: p.telegram_username };
+        });
+      }
+      return msgs;
     },
     enabled: !!user && !!groupId,
   });
