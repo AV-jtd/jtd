@@ -143,15 +143,70 @@ export default function AppSidebar({
     useSensor(KeyboardSensor)
   );
 
-  const handleGroupDragEnd = useCallback((event: DragEndEvent) => {
+  const handleProjectDragStart = useCallback((event: DragStartEvent) => {
+    setDraggingProjectId(event.active.id as string);
+  }, []);
+
+  const handleProjectDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) { setDragOverFolderId(null); return; }
+    const overId = over.id as string;
+    // Check if over a folder droppable
+    if (overId.startsWith("folder:")) {
+      setDragOverFolderId(overId.replace("folder:", ""));
+    } else if (overId === "ungrouped-drop") {
+      setDragOverFolderId("__ungrouped__");
+    } else {
+      setDragOverFolderId(null);
+    }
+  }, []);
+
+  const handleProjectDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = rootGroups.findIndex(g => g.id === active.id);
-    const newIndex = rootGroups.findIndex(g => g.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(rootGroups, oldIndex, newIndex);
-    reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
-  }, [rootGroups, reorderGroups]);
+    setDraggingProjectId(null);
+    setDragOverFolderId(null);
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Dropped on a folder
+    if (overId.startsWith("folder:")) {
+      const folderId = overId.replace("folder:", "");
+      const currentFolder = groupFolderMap.get(activeId);
+      if (currentFolder !== folderId) {
+        moveProjectToFolder.mutate({ group_id: activeId, folder_id: folderId });
+      }
+      return;
+    }
+
+    // Dropped on ungrouped zone
+    if (overId === "ungrouped-drop") {
+      if (groupFolderMap.has(activeId)) {
+        moveProjectToFolder.mutate({ group_id: activeId, folder_id: null });
+      }
+      return;
+    }
+
+    // Dropped on another project — reorder within ungrouped or move to same folder
+    const overProject = rootGroups.find(g => g.id === overId);
+    if (!overProject) return;
+    const overFolder = groupFolderMap.get(overId) || null;
+    const activeFolder = groupFolderMap.get(activeId) || null;
+
+    if (activeFolder !== overFolder) {
+      // Move to the target's folder
+      moveProjectToFolder.mutate({ group_id: activeId, folder_id: overFolder });
+    } else if (!activeFolder) {
+      // Reorder within ungrouped
+      const oldIndex = ungroupedProjects.findIndex(g => g.id === activeId);
+      const newIndex = ungroupedProjects.findIndex(g => g.id === overId);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
+        reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
+      }
+    }
+  }, [rootGroups, ungroupedProjects, groupFolderMap, reorderGroups, moveProjectToFolder]);
 
   const handleAddGroup = (parentId?: string | null) => {
     if (newGroupName.trim()) {
