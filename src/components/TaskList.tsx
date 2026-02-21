@@ -284,7 +284,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 </p>
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
-                    <TaskItem key={task.id} task={task} />
+                    <TaskItem key={task.id} task={task} initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} />
                   ))}
                 </div>
               </div>
