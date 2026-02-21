@@ -9,10 +9,12 @@ import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
 import ProjectChat from "@/components/ProjectChat";
+import MessengerPanel from "@/components/MessengerPanel";
 import { useTaskGroups } from "@/hooks/useTasks";
-import { Loader2, Menu } from "lucide-react";
+import { Loader2, Menu, MessageCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 export default function Index() {
   const { user, loading } = useAuth();
