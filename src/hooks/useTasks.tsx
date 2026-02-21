@@ -396,6 +396,7 @@ export function useTaskMutations() {
         group_id: task.group_id || null,
         user_id: user!.id,
         deadline: task.deadline || null,
+        original_deadline: task.deadline || null,
         is_completed: false,
         is_important: false,
         position: 0,
