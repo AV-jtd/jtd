@@ -24,9 +24,7 @@ export default function CommunityView() {
     if (!search.trim()) return others;
     const q = search.toLowerCase();
     return others.filter(u =>
-      u.display_name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.telegram_username?.toLowerCase().includes(q)
+      u.display_name?.toLowerCase().includes(q)
     );
   }, [allUsers, user?.id, search]);
 
