@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
-import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useTasks, useTaskMutations, useTaskGroups, useTags } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
@@ -12,6 +12,7 @@ import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import ConfirmDelete from "@/components/ConfirmDelete";
 import {
   DndContext,
   closestCenter,
@@ -26,7 +27,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers" ;
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 interface TaskListProps {
   activeView: string;
@@ -49,13 +50,86 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
-  const { addTask, reorderTasks } = useTaskMutations();
+  const { data: allTags = [] } = useTags();
+  const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
 
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const batchMode = selectedIds.size > 0;
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const activeGroup = groups.find(g => g.id === activeGroupId);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if (e.key === "Escape") {
+        if (batchMode) {
+          setSelectedIds(new Set());
+          e.preventDefault();
+          return;
+        }
+        if (isInput) {
+          (target as HTMLInputElement).blur();
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (isInput) return;
+
+      if (e.key === "n" || e.key === "N" || e.key === "т" || e.key === "Т") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [batchMode]);
+
+  // Clear selection when view changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeView, activeGroupId]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    const allIds = activeTasks.map(t => t.id);
+    setSelectedIds(new Set(allIds));
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const handleBatchDelete = useCallback(() => {
+    selectedIds.forEach(id => deleteTask.mutate(id));
+    setSelectedIds(new Set());
+  }, [selectedIds, deleteTask]);
+
+  const handleBatchMove = useCallback((groupId: string | null) => {
+    selectedIds.forEach(id => updateTask.mutate({ id, group_id: groupId }));
+    setSelectedIds(new Set());
+  }, [selectedIds, updateTask]);
+
+  const handleBatchTag = useCallback((tagId: string) => {
+    selectedIds.forEach(id => addTaskTag.mutate({ task_id: id, tag_id: tagId }));
+    setSelectedIds(new Set());
+  }, [selectedIds, addTaskTag]);
 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
@@ -81,7 +155,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   } else if (activeView === "deferred") {
     filteredTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
   } else {
-    // Hide deferred tasks from all other views
     filteredTasks = filteredTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
   }
 
@@ -131,6 +204,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <h1 className="text-xl font-semibold text-foreground leading-tight">{view.title}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {pluralizeRu(activeTasks.length, "задача", "задачи", "задач")}
+              {!batchMode && (
+                <span className="hidden sm:inline text-muted-foreground/40 ml-2">
+                  N — новая · Esc — закрыть
+                </span>
+              )}
             </p>
           </div>
           {activeView === "group" && activeGroup && (
@@ -177,42 +255,134 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           )}
         </div>
 
+        {/* Batch actions toolbar */}
+        {batchMode && (
+          <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
+            <button
+              onClick={clearSelection}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Снять выделение (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-medium text-foreground">
+              {pluralizeRu(selectedIds.size, "задача", "задачи", "задач")}
+            </span>
+            <button
+              onClick={selectAll}
+              className="text-xs text-primary hover:text-primary/80 transition-colors ml-1"
+            >
+              Выбрать все
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Move to group */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors">
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  Переместить
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2 bg-popover border-border z-50" side="bottom">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">В проект</p>
+                <button
+                  onClick={() => handleBatchMove(null)}
+                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                >
+                  Без проекта
+                </button>
+                {groups.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => handleBatchMove(g.id)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Add tag */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors">
+                  <Tag className="h-3.5 w-3.5" />
+                  Тэг
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2 bg-popover border-border z-50" side="bottom">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Добавить тэг</p>
+                {allTags.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
+                )}
+                {allTags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => handleBatchTag(tag.id)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || undefined }} />
+                    {tag.name}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Batch delete */}
+            <ConfirmDelete
+              title={`Удалить ${pluralizeRu(selectedIds.size, "задачу", "задачи", "задач")}?`}
+              description="Все выбранные задачи и их подзадачи будут удалены безвозвратно."
+              onConfirm={handleBatchDelete}
+            >
+              <button className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors">
+                <Trash2 className="h-3.5 w-3.5" />
+                Удалить
+              </button>
+            </ConfirmDelete>
+          </div>
+        )}
+
         {/* Project detail panel */}
         {activeView === "group" && activeGroup && projectDetailOpen && (
           <ProjectDetailPanel group={activeGroup} />
         )}
 
         {/* Priority filter */}
-        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-          {[
-            { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
-            { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
-            { value: 3, label: "P3", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
-            { value: 4, label: "P4", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
-          ].map(p => (
-            <button
-              key={p.value}
-              onClick={() => setPriorityFilter(prev => prev === p.value ? null : p.value)}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
-                priorityFilter === p.value
-                  ? p.color
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-              )}
-            >
-              <Flag className="h-3 w-3" />
-              {p.label}
-            </button>
-          ))}
-          {priorityFilter !== null && (
-            <button
-              onClick={() => setPriorityFilter(null)}
-              className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              <X className="h-3 w-3" /> Сбросить
-            </button>
-          )}
-        </div>
+        {!batchMode && (
+          <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+            {[
+              { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
+              { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
+              { value: 3, label: "P3", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
+              { value: 4, label: "P4", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
+            ].map(p => (
+              <button
+                key={p.value}
+                onClick={() => setPriorityFilter(prev => prev === p.value ? null : p.value)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                  priorityFilter === p.value
+                    ? p.color
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                )}
+              >
+                <Flag className="h-3 w-3" />
+                {p.label}
+              </button>
+            ))}
+            {priorityFilter !== null && (
+              <button
+                onClick={() => setPriorityFilter(null)}
+                className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Сбросить
+              </button>
+            )}
+          </div>
+        )}
 
         <form
           onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
@@ -226,9 +396,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <Plus className="h-3.5 w-3.5 text-primary" />
           </button>
           <Input
+            ref={inputRef}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Добавить задачу..."
+            placeholder="Добавить задачу...  (N)"
             enterKeyHint="done"
             className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
           />
@@ -291,7 +462,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
                   <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
-                    <TaskItem task={task} sortable initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} onTagClick={onTagClick} />
+                    <TaskItem
+                      task={task}
+                      sortable={!batchMode}
+                      initialOpen={task.id === highlightTaskId}
+                      onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                      onTagClick={onTagClick}
+                      selectable={batchMode}
+                      selected={selectedIds.has(task.id)}
+                      onToggleSelect={() => toggleSelect(task.id)}
+                      onLongPress={() => toggleSelect(task.id)}
+                    />
                   </div>
                 ))}
               </SortableContext>
@@ -305,7 +486,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 </p>
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
-                    <TaskItem key={task.id} task={task} initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} onTagClick={onTagClick} />
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      initialOpen={task.id === highlightTaskId}
+                      onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                      onTagClick={onTagClick}
+                      selectable={batchMode}
+                      selected={selectedIds.has(task.id)}
+                      onToggleSelect={() => toggleSelect(task.id)}
+                      onLongPress={() => toggleSelect(task.id)}
+                    />
                   ))}
                 </div>
               </div>
