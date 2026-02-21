@@ -565,6 +565,18 @@ export function useTaskMutations() {
           } as any);
         }
       }
+
+      // Notify participants on task completion
+      if (is_completed && taskData) {
+        const { data: participants } = await supabase
+          .from("task_participants")
+          .select("user_id")
+          .eq("task_id", id);
+        const targetIds = (participants || []).map((p: any) => p.user_id);
+        if (targetIds.length > 0) {
+          notifyEvent("task_completed", taskData.title, targetIds);
+        }
+      }
     },
     onMutate: async ({ id, is_completed }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
