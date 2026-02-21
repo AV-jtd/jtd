@@ -52,8 +52,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const taskRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
+
+  useEffect(() => {
+    if (highlightTaskId && taskRefs.current[highlightTaskId]) {
+      taskRefs.current[highlightTaskId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const timer = setTimeout(() => onClearHighlight?.(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTaskId]);
 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
