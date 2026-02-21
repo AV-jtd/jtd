@@ -410,6 +410,7 @@ export function useTaskMutations() {
         recurrence_end_date: null,
         parent_recurring_id: null,
         priority: null,
+        deferred_until: null,
         subtasks: [],
         task_tags: [],
       };
