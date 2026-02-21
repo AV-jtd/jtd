@@ -277,6 +277,69 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             <Expand className="h-3.5 w-3.5" />
           </button>
 
+          {/* Quick add participant */}
+          <Popover open={userPickerOpen === "quick-participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-participant" : null); setUserSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
+                <UserPlus className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" side="left">
+              <Input
+                autoFocus
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Поиск по имени..."
+                className="h-7 text-xs mb-2"
+              />
+              <div className="max-h-40 overflow-y-auto space-y-0.5">
+                {filteredUsers.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+                )}
+                {filteredUsers.map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" }); setUserPickerOpen(null); setUserSearch(""); }}
+                    className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
+                  >
+                    <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
+                    <span className="text-xs text-muted-foreground">{u.email}</span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Quick set deadline */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "p-1.5 transition-opacity",
+                task.deadline ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+              )}>
+                <Calendar className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="left">
+              <p className="text-xs font-medium text-muted-foreground px-1 pb-1.5">Срок</p>
+              <input
+                type="date"
+                autoFocus
+                value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+                onChange={(e) => { updateTask.mutate({ id: task.id, deadline: e.target.value || null }); }}
+                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+              />
+              {task.deadline && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
+                  className="mt-1.5 text-xs text-destructive hover:underline w-full text-left px-1"
+                >
+                  Убрать срок
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
