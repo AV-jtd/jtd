@@ -717,7 +717,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             </form>
           ) : (
             <button onClick={() => setShowAddSubtask(true)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary py-1">
-              <Plus className="h-3 w-3" /> Подзадача
+              <Plus className="h-3 w-3" /> Шаг
             </button>
           )}
         </div>
