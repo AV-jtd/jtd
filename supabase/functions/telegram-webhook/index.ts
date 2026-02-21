@@ -209,12 +209,31 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, active_project: null }), { headers: corsHeaders });
       }
 
-      const { data: group } = await supabase
+      // Search in owned projects first
+      let { data: group } = await supabase
         .from("task_groups")
         .select("id, name, icon")
         .eq("user_id", userId)
         .ilike("name", projectName)
         .single();
+
+      // If not found, search in member projects
+      if (!group) {
+        const { data: membership } = await supabase
+          .from("group_members")
+          .select("group_id")
+          .eq("user_id", userId);
+
+        if (membership && membership.length > 0) {
+          const { data: memberGroup } = await supabase
+            .from("task_groups")
+            .select("id, name, icon")
+            .in("id", membership.map(m => m.group_id))
+            .ilike("name", projectName)
+            .single();
+          group = memberGroup;
+        }
+      }
 
       if (!group) {
         await sendTelegramMessage(
