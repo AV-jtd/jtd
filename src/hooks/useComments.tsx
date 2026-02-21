@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
@@ -14,6 +15,25 @@ export type TaskComment = {
 
 export function useTaskComments(taskId: string | null) {
   const { user } = useAuth();
+  const qc = useQueryClient();
+
+  // Real-time subscription for live chat
+  useEffect(() => {
+    if (!user || !taskId) return;
+    const channel = supabase
+      .channel(`task-comments-${taskId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "task_comments",
+        filter: `task_id=eq.${taskId}`,
+      }, () => {
+        qc.invalidateQueries({ queryKey: ["task_comments", taskId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, taskId, qc]);
+
   return useQuery({
     queryKey: ["task_comments", taskId],
     queryFn: async () => {
