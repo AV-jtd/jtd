@@ -392,6 +392,18 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  // --- Notification helper (fire-and-forget) ---
+  const notifyEvent = async (event: string, taskTitle: string, targetUserIds: string[]) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+      supabase.functions.invoke("notify-event", {
+        body: { event, taskTitle, targetUserIds },
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
+      }).catch(() => {});
+    } catch {}
+  };
+
   // ========== TASKS ==========
 
   const addTask = useMutation({
