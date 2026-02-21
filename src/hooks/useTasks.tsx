@@ -392,6 +392,18 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  // --- Notification helper (fire-and-forget) ---
+  const notifyEvent = async (event: string, taskTitle: string, targetUserIds: string[]) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+      supabase.functions.invoke("notify-event", {
+        body: { event, taskTitle, targetUserIds },
+        headers: { Authorization: `Bearer ${session.session.access_token}` },
+      }).catch(() => {});
+    } catch {}
+  };
+
   // ========== TASKS ==========
 
   const addTask = useMutation({
@@ -463,6 +475,12 @@ export function useTaskMutations() {
     mutationFn: async ({ id, ...updates }: { id: string } & Partial<TablesInsert<"tasks">>) => {
       const { error } = await supabase.from("tasks").update(updates).eq("id", id);
       if (error) throw error;
+
+      // Notify on assignment
+      if (updates.assigned_to && updates.assigned_to !== user?.id) {
+        const { data: taskData } = await supabase.from("tasks").select("title").eq("id", id).single();
+        notifyEvent("task_assigned", taskData?.title || "", [updates.assigned_to as string]);
+      }
     },
     onMutate: async ({ id, ...updates }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
@@ -545,6 +563,18 @@ export function useTaskMutations() {
             recurrence_end_date: endDate,
             parent_recurring_id: (taskData as any).parent_recurring_id || id,
           } as any);
+        }
+      }
+
+      // Notify participants on task completion
+      if (is_completed && taskData) {
+        const { data: participants } = await supabase
+          .from("task_participants")
+          .select("user_id")
+          .eq("task_id", id);
+        const targetIds = (participants || []).map((p: any) => p.user_id);
+        if (targetIds.length > 0) {
+          notifyEvent("task_completed", taskData.title, targetIds);
         }
       }
     },

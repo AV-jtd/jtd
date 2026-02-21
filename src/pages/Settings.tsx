@@ -12,11 +12,14 @@ import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import TeamSection from "@/components/TeamSection";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
   const { user, loading } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
+  const { prefs, updatePrefs } = useNotificationPreferences();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [workEmail, setWorkEmail] = useState("");
@@ -222,33 +225,72 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Push notifications */}
-            {pushSupported && (
-              <div className="border-t border-border pt-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-medium">Push-уведомления</h2>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Получайте уведомления о дедлайнах и назначенных задачах, даже когда приложение закрыто.
-                </p>
-                <Button
-                  variant={pushSubscribed ? "outline" : "default"}
-                  onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
-                  disabled={pushLoading}
-                  className="w-full"
-                >
-                  {pushLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : pushSubscribed ? (
-                    <BellOff className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Bell className="mr-2 h-4 w-4" />
-                  )}
-                  {pushSubscribed ? "Отключить уведомления" : "Включить уведомления"}
-                </Button>
+            {/* Notifications */}
+            <div className="border-t border-border pt-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-medium">Уведомления</h2>
               </div>
-            )}
+
+              {/* Push subscribe toggle */}
+              {pushSupported && (
+                <div className="space-y-3">
+                  <Button
+                    variant={pushSubscribed ? "outline" : "default"}
+                    onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
+                    disabled={pushLoading}
+                    className="w-full"
+                  >
+                    {pushLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : pushSubscribed ? (
+                      <BellOff className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Bell className="mr-2 h-4 w-4" />
+                    )}
+                    {pushSubscribed ? "Отключить Web Push" : "Включить Web Push"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Event toggles */}
+              {prefs && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-3">События для Web Push</p>
+                  {([
+                    { key: "push_task_assigned", label: "Назначение задачи" },
+                    { key: "push_task_completed", label: "Завершение задачи (где участник)" },
+                    { key: "push_task_commented", label: "Новый комментарий к задаче" },
+                    { key: "push_deadline_approaching", label: "Приближение дедлайна" },
+                    { key: "push_added_to_group", label: "Добавление в проект" },
+                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
+                    <div key={item.key} className="flex items-center justify-between py-2">
+                      <span className="text-sm">{item.label}</span>
+                      <Switch
+                        checked={!!prefs[item.key]}
+                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
+                      />
+                    </div>
+                  ))}
+
+                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
+                  {([
+                    { key: "telegram_task_assigned", label: "Назначение задачи" },
+                    { key: "telegram_task_completed", label: "Завершение задачи (где участник)" },
+                    { key: "telegram_task_commented", label: "Новый комментарий к задаче" },
+                    { key: "telegram_deadline_approaching", label: "Приближение дедлайна" },
+                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
+                    <div key={item.key} className="flex items-center justify-between py-2">
+                      <span className="text-sm">{item.label}</span>
+                      <Switch
+                        checked={!!prefs[item.key]}
+                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Teams section */}
             <div className="border-t border-border pt-6">
