@@ -774,6 +774,48 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             </div>
           </div>
 
+          {/* Important */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Star className="h-3 w-3" /> Важность
+            </p>
+            <button
+              onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
+                task.is_important
+                  ? "bg-warning/10 text-warning border-warning/30"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              )}
+            >
+              <Star className={cn("h-3 w-3", task.is_important && "fill-current")} />
+              {task.is_important ? "Важная задача" : "Сделать важной"}
+            </button>
+          </div>
+
+          {/* Deferred until */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Clock className="h-3 w-3" /> Отложить до
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
+                onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
+                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+              />
+              {task.deferred_until && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Subtasks in detail view */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
