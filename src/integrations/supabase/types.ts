@@ -103,6 +103,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          telegram_chat_id: number | null
           telegram_username: string | null
           work_email: string | null
         }
@@ -111,6 +112,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          telegram_chat_id?: number | null
           telegram_username?: string | null
           work_email?: string | null
         }
@@ -119,6 +121,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          telegram_chat_id?: number | null
           telegram_username?: string | null
           work_email?: string | null
         }
