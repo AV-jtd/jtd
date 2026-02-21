@@ -4,8 +4,10 @@ import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -15,6 +17,11 @@ export default function Auth() {
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuth();
+
+  // 2FA OTP state
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
 
   if (loading) {
     return (
@@ -38,12 +45,44 @@ export default function Auth() {
         toast.success("Проверьте email для подтверждения регистрации!");
       }
     } else {
+      // Step 1: verify password
       const { error } = await signIn(email, password);
       if (error) {
         toast.error(error.message);
+      } else {
+        // Password correct — sign out and send OTP for 2FA
+        await supabase.auth.signOut();
+        const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+        if (otpError) {
+          toast.error("Ошибка отправки кода: " + otpError.message);
+        } else {
+          setOtpEmail(email);
+          setOtpStep(true);
+          toast.success("Код подтверждения отправлен на " + email);
+        }
       }
     }
     setSubmitting(false);
+  };
+
+  const handleOtpVerify = async () => {
+    if (otpCode.length !== 6) return;
+    setSubmitting(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: otpEmail,
+      token: otpCode,
+      type: "email",
+    });
+    if (error) {
+      toast.error("Неверный код: " + error.message);
+    }
+    setSubmitting(false);
+  };
+
+  const handleBackToLogin = () => {
+    setOtpStep(false);
+    setOtpCode("");
+    setOtpEmail("");
   };
 
   return (
@@ -73,64 +112,97 @@ export default function Auth() {
             <h1 className="text-2xl font-bold text-foreground">Just<span className="text-primary">TODO</span>it</h1>
           </div>
 
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
-            {isSignUp ? "Создать аккаунт" : "Добро пожаловать!"}
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {isSignUp ? "Заполните данные для регистрации" : "Войдите в свой аккаунт"}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Имя</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Ваше имя"
-                  required
-                />
+          {otpStep ? (
+            // OTP verification step
+            <div>
+              <button onClick={handleBackToLogin} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+                <ArrowLeft className="h-4 w-4" />
+                Назад
+              </button>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Подтверждение входа</h2>
+              <p className="text-muted-foreground mb-6">
+                Введите 6-значный код, отправленный на <span className="font-medium text-foreground">{otpEmail}</span>
+              </p>
+              <div className="flex justify-center mb-6">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                required
-              />
+              <Button onClick={handleOtpVerify} className="w-full" disabled={submitting || otpCode.length !== 6}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Подтвердить
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignUp ? "Зарегистрироваться" : "Войти"}
-            </Button>
-          </form>
+          ) : (
+            // Login / Signup form
+            <>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">
+                {isSignUp ? "Создать аккаунт" : "Добро пожаловать!"}
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                {isSignUp ? "Заполните данные для регистрации" : "Войдите в свой аккаунт"}
+              </p>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {isSignUp ? "Уже есть аккаунт?" : "Нет аккаунта?"}{" "}
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary hover:underline font-medium"
-            >
-              {isSignUp ? "Войти" : "Зарегистрироваться"}
-            </button>
-          </p>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName">Имя</Label>
+                    <Input
+                      id="displayName"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Ваше имя"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Пароль</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSignUp ? "Зарегистрироваться" : "Войти"}
+                </Button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                {isSignUp ? "Уже есть аккаунт?" : "Нет аккаунта?"}{" "}
+                <button
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {isSignUp ? "Войти" : "Зарегистрироваться"}
+                </button>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
