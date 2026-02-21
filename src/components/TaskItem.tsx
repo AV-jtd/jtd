@@ -286,7 +286,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             <Star className={cn("h-4 w-4", task.is_important && "fill-current")} />
           </button>
 
-          <ConfirmDelete title="Удалить задачу?" description="Задача и все подзадачи будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
+          <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
             <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
