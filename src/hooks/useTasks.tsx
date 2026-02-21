@@ -856,12 +856,17 @@ export function useTaskMutations() {
   // ========== PARTICIPANTS ==========
 
   const addParticipant = useMutation({
-    mutationFn: async ({ task_id, user_id, role }: { task_id: string; user_id: string; role: string }) => {
-      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id, role });
+    mutationFn: async ({ task_id, user_id: participantUserId, role }: { task_id: string; user_id: string; role: string }) => {
+      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id: participantUserId, role });
       if (error) throw error;
       if (role === "assignee") {
-        await supabase.from("tasks").update({ assigned_to: user_id }).eq("id", task_id);
+        await supabase.from("tasks").update({ assigned_to: participantUserId }).eq("id", task_id);
       }
+
+      // Notify participant
+      const { data: taskData } = await supabase.from("tasks").select("title").eq("id", task_id).single();
+      const event = role === "assignee" ? "task_assigned" : "task_participant_added";
+      notifyEvent(event, taskData?.title || "", [participantUserId]);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); },
     onError: (e) => toast.error(e.message),
