@@ -100,7 +100,7 @@ export default function Index() {
               <CalendarView onNavigateToTask={(taskId) => {
                 setActiveView("all");
                 setActiveGroupId(null);
-                // TODO: could scroll to / highlight the specific task
+                setHighlightTaskId(taskId);
               }} />
             ) : activeView === "subordinates" ? (
               <SubordinatesView />
