@@ -8,6 +8,8 @@ import SubordinatesView from "@/components/SubordinatesView";
 import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
+import ProjectChat from "@/components/ProjectChat";
+import { useTaskGroups } from "@/hooks/useTasks";
 import { Loader2, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -19,7 +21,9 @@ export default function Index() {
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { data: groups = [] } = useTaskGroups();
 
   if (loading) {
     return (
@@ -88,13 +92,26 @@ export default function Index() {
         ) : activeView === "archive" ? (
           <ArchiveView />
         ) : (
-          <TaskList
-            activeView={activeView}
-            activeGroupId={activeGroupId}
-            activeTagFilters={activeTagFilters}
-            projectDetailOpen={projectDetailOpen}
-            onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
-          />
+          <div className="flex flex-1 min-w-0">
+            <TaskList
+              activeView={activeView}
+              activeGroupId={activeGroupId}
+              activeTagFilters={activeTagFilters}
+              projectDetailOpen={projectDetailOpen}
+              onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
+              chatOpen={chatOpen}
+              onToggleChat={() => setChatOpen(prev => !prev)}
+            />
+            {chatOpen && activeGroupId && activeView === "group" && (
+              <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
+                <ProjectChat
+                  groupId={activeGroupId}
+                  groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
+                  onClose={() => setChatOpen(false)}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

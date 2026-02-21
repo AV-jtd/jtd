@@ -2,7 +2,8 @@ import { useState, useCallback } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X } from "lucide-react";
+import ProjectChat from "./ProjectChat";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -32,9 +33,11 @@ interface TaskListProps {
   activeTagFilters: string[];
   projectDetailOpen: boolean;
   onToggleProjectDetail: () => void;
+  chatOpen?: boolean;
+  onToggleChat?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -117,18 +120,32 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             </p>
           </div>
           {activeView === "group" && activeGroup && (
-            <button
-              onClick={onToggleProjectDetail}
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                projectDetailOpen
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Карточка проекта"
-            >
-              <Expand className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onToggleChat}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  chatOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Чат проекта"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onToggleProjectDetail}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  projectDetailOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Карточка проекта"
+              >
+                <Expand className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
