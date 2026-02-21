@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers } from "@/hooks/useTasks";
+import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock,
