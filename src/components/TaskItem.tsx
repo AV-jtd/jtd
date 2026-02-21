@@ -190,6 +190,20 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               )}>
                 <Calendar className="h-3 w-3" />
                 {formatDeadline(task.deadline)}
+                {(() => {
+                  const orig = (task as any).original_deadline;
+                  if (!orig || orig === task.deadline) return null;
+                  const drift = differenceInDays(parseISO(task.deadline), parseISO(orig));
+                  if (drift === 0) return null;
+                  return (
+                    <span className={cn(
+                      "text-[10px] font-medium ml-0.5",
+                      drift > 0 ? "text-orange-500" : "text-emerald-500"
+                    )}>
+                      {drift > 0 ? `+${drift}д` : `${drift}д`}
+                    </span>
+                  );
+                })()}
               </span>
             )}
             {(task as any).recurrence && (
