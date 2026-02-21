@@ -823,6 +823,10 @@ export function useTaskMutations() {
       });
       if (error) throw error;
 
+      // Notify: added to group
+      const { data: groupInfo } = await supabase.from("task_groups").select("name").eq("id", group_id).single();
+      notifyEvent("added_to_group", groupInfo?.name || "Проект", [profile.id]);
+
       const { data: group } = await supabase.from("task_groups").select("*").eq("id", group_id).single();
       if (group && group.linked_tag_id) {
         await supabase.from("tag_access").insert({ tag_id: group.linked_tag_id, user_id: profile.id, granted_by: user!.id });
