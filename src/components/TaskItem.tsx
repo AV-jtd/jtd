@@ -19,6 +19,7 @@ interface TaskItemProps {
   sortable?: boolean;
   initialOpen?: boolean;
   onOpened?: () => void;
+  onTagClick?: (tagId: string) => void;
 }
 
 const PRIORITIES = [
@@ -30,7 +31,7 @@ const PRIORITIES = [
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable, initialOpen, onOpened }: TaskItemProps) {
+export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -253,17 +254,14 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             {taskTags.map(tag => (
               <span
                 key={tag.id}
-                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full"
+                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
                 style={{
                   backgroundColor: `${tag.color}20`,
                   color: tag.color || undefined,
                 }}
+                onClick={(e) => { e.stopPropagation(); onTagClick?.(tag.id); }}
               >
                 {tag.name}
-                <X
-                  className="h-2.5 w-2.5 cursor-pointer opacity-60 hover:opacity-100"
-                  onClick={() => removeTaskTag.mutate({ task_id: task.id, tag_id: tag.id })}
-                />
               </span>
             ))}
           </div>
