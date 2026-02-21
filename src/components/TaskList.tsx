@@ -3,7 +3,8 @@ import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -260,9 +261,20 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* Task list */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-            <p className="text-sm text-muted-foreground">Загрузка...</p>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 bg-card rounded-xl border border-border p-3">
+                <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-[70%]" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-3 w-12" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-6 rounded-md shrink-0" />
+              </div>
+            ))}
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center py-20">
