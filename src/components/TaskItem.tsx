@@ -320,19 +320,39 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                 <Calendar className="h-3.5 w-3.5" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-2" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-1 pb-1.5">Срок</p>
-              <input
-                type="date"
-                autoFocus
-                value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                onChange={(e) => { updateTask.mutate({ id: task.id, deadline: e.target.value || null }); }}
-                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-              />
+            <PopoverContent className="w-40 p-1.5" side="left">
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
+              {[
+                { label: "Сегодня", days: 0 },
+                { label: "Завтра", days: 1 },
+                { label: "Через 3 дня", days: 3 },
+                { label: "Через неделю", days: 7 },
+              ].map(opt => {
+                const d = new Date();
+                d.setDate(d.getDate() + opt.days);
+                const val = format(d, "yyyy-MM-dd");
+                return (
+                  <button
+                    key={opt.days}
+                    onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <div className="border-t border-border mt-1 pt-1">
+                <input
+                  type="date"
+                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
+                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
+                />
+              </div>
               {task.deadline && (
                 <button
                   onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="mt-1.5 text-xs text-destructive hover:underline w-full text-left px-1"
+                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
                 >
                   Убрать срок
                 </button>
