@@ -270,7 +270,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-0.5 sm:gap-1 shrink-0">
           {/* Expand - always visible */}
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
