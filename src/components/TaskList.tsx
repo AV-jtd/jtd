@@ -301,6 +301,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     <div key={task.id} ref={el => { taskRefs.current[task.id] = el; }} className={cn("rounded-lg transition-all duration-500", highlightTaskId === task.id && "ring-2 ring-primary ring-offset-2 ring-offset-background")}>
                       <TaskItem task={task} />
                     </div>
+                  ))}
                 </div>
               </div>
             )}
