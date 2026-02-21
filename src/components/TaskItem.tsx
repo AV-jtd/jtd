@@ -697,26 +697,40 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             </div>
           </div>
 
-          {/* Deadline */}
+          {/* Dates: Deadline + Deferred */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3 w-3" /> Срок
+              <Calendar className="h-3 w-3" /> Даты
             </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-              />
-              {task.deadline && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
+                <input
+                  type="date"
+                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
+                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                />
+                {task.deadline && (
+                  <button onClick={() => updateTask.mutate({ id: task.id, deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
+                <input
+                  type="date"
+                  value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
+                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
+                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                />
+                {task.deferred_until && (
+                  <button onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -738,17 +752,14 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                 <option value="yearly">Ежегодно</option>
               </select>
               {(task as any).recurrence && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, recurrence: null } as any)}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
+                <button onClick={() => updateTask.mutate({ id: task.id, recurrence: null } as any)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Priority */}
+          {/* Priority + Important star */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Flag className="h-3 w-3" /> Приоритет
@@ -771,52 +782,22 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                   </button>
                 );
               })}
+              <button
+                onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+                className={cn(
+                  "p-1 rounded-lg border transition-all",
+                  task.is_important
+                    ? "text-warning border-warning/30 bg-warning/10"
+                    : "border-border text-muted-foreground hover:text-warning hover:border-warning/30"
+                )}
+                title={task.is_important ? "Убрать важность" : "Сделать важной"}
+              >
+                <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
+              </button>
             </div>
           </div>
 
-          {/* Important */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Star className="h-3 w-3" /> Важность
-            </p>
-            <button
-              onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
-              className={cn(
-                "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
-                task.is_important
-                  ? "bg-warning/10 text-warning border-warning/30"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              )}
-            >
-              <Star className={cn("h-3 w-3", task.is_important && "fill-current")} />
-              {task.is_important ? "Важная задача" : "Сделать важной"}
-            </button>
-          </div>
-
-          {/* Deferred until */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3 w-3" /> Отложить до
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
-                onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
-                className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-              />
-              {task.deferred_until && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Subtasks in detail view */}
+          {/* Subtasks */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Check className="h-3 w-3" /> Шаги
@@ -856,7 +837,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             </form>
           </div>
 
-          {/* Chat (comments) */}
+          {/* Chat */}
           <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
 
           {/* Created at + creator */}
