@@ -22,6 +22,7 @@ export default function Settings() {
   const { prefs, updatePrefs } = useNotificationPreferences();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [workEmail, setWorkEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
