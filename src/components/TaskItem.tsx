@@ -318,7 +318,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </Popover>
           </div>
 
-          {/* Quick set deadline */}
+          {/* Quick set deadline - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
@@ -367,6 +368,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               )}
             </PopoverContent>
           </Popover>
+          </div>
 
           {/* Quick set deferred */}
           <Popover>
