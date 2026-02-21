@@ -20,6 +20,10 @@ interface TaskItemProps {
   initialOpen?: boolean;
   onOpened?: () => void;
   onTagClick?: (tagId: string) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onLongPress?: () => void;
 }
 
 const PRIORITIES = [
@@ -44,7 +48,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick }: TaskItemProps) {
+export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -126,14 +130,35 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
       ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       className={cn(
-        "group bg-card rounded-xl border border-border transition-all duration-200",
+        "group bg-card rounded-xl border transition-all duration-200",
+        selected ? "border-primary/40 bg-primary/5" : "border-border",
         task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
         isDragging && "opacity-70 shadow-lg z-50 relative"
       )}
+      onContextMenu={(e) => {
+        if (onLongPress && !selectable) {
+          e.preventDefault();
+          onLongPress();
+        }
+      }}
     >
       <div className="flex items-start gap-3 p-3.5">
+        {/* Selection checkbox */}
+        {selectable && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
+            className={cn(
+              "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-all",
+              selected
+                ? "bg-primary border-primary"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+          </button>
+        )}
         {/* Drag handle */}
-        {sortable && (
+        {sortable && !selectable && (
           <button
             {...attributes}
             {...listeners}
@@ -143,17 +168,19 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
           </button>
         )}
         {/* Checkbox */}
-        <button
-          onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
-          className={cn(
-            "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-            task.is_completed
-              ? "bg-primary border-primary animate-check-bounce"
-              : "border-muted-foreground/40 hover:border-primary"
-          )}
-        >
-          {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
-        </button>
+        {!selectable && (
+          <button
+            onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
+            className={cn(
+              "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+              task.is_completed
+                ? "bg-primary border-primary animate-check-bounce"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+          </button>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
