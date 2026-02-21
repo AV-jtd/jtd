@@ -9,8 +9,11 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
+import GroupIcon from "@/components/sidebar/GroupIcon";
+import HueSlider from "@/components/sidebar/HueSlider";
+import { DroppableFolder, DroppableUngrouped } from "@/components/sidebar/SidebarDroppables";
 import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragOverEvent, DragStartEvent, useDroppable, DragOverlay,
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
