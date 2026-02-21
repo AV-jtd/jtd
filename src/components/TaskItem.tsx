@@ -234,7 +234,14 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             {participants.length > 0 && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Users className="h-3 w-3" />
-                {participants.map(p => getProfileName(p.user_id)).join(", ")}
+                {participants.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ", "}
+                    <span className={p.role === "assignee" ? "text-primary font-semibold" : ""}>
+                      {getProfileName(p.user_id)}
+                    </span>
+                  </span>
+                ))}
               </span>
             )}
             {taskTags.map(tag => (
