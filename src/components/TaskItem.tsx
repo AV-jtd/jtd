@@ -142,10 +142,23 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
         }
       }}
     >
-    >
       <div className="flex items-start gap-3 p-3.5">
+        {/* Selection checkbox */}
+        {selectable && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
+            className={cn(
+              "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-all",
+              selected
+                ? "bg-primary border-primary"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+          </button>
+        )}
         {/* Drag handle */}
-        {sortable && (
+        {sortable && !selectable && (
           <button
             {...attributes}
             {...listeners}
@@ -155,17 +168,19 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
           </button>
         )}
         {/* Checkbox */}
-        <button
-          onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
-          className={cn(
-            "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-            task.is_completed
-              ? "bg-primary border-primary animate-check-bounce"
-              : "border-muted-foreground/40 hover:border-primary"
-          )}
-        >
-          {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
-        </button>
+        {!selectable && (
+          <button
+            onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
+            className={cn(
+              "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+              task.is_completed
+                ? "bg-primary border-primary animate-check-bounce"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+          </button>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
