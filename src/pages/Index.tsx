@@ -24,6 +24,7 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [messengerOpen, setMessengerOpen] = useState(false);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
 
