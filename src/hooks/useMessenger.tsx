@@ -114,7 +114,7 @@ export function useThreads() {
           .from("profiles")
           .select("id, display_name, email")
           .in("id", authorIds);
-        const profileMap = new Map((profiles || []).map(p => [p.id, p.display_name || p.email || ""]));
+        const profileMap = new Map((profiles || []).map(p => [p.id, p.display_name || ""]));
 
         (tasks || []).forEach((t) => {
           const info = taskMap.get(t.id);
