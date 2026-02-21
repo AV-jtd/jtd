@@ -370,7 +370,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </Popover>
           </div>
 
-          {/* Quick set deferred */}
+          {/* Quick set deferred - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
@@ -419,7 +420,10 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               )}
             </PopoverContent>
           </Popover>
+          </div>
 
+          {/* Quick add tag - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
@@ -445,6 +449,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               </div>
             </PopoverContent>
           </Popover>
+          </div>
 
           <button
             onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
