@@ -103,6 +103,31 @@ export default function AppSidebar({
   const rootGroups = groups.filter(g => !g.parent_id);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
 
+  // Folder grouping: map group_id -> folder_id
+  const groupFolderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    folderItems.forEach(fi => map.set(fi.group_id, fi.folder_id));
+    return map;
+  }, [folderItems]);
+
+  const getGroupsInFolder = (folderId: string) => rootGroups.filter(g => groupFolderMap.get(g.id) === folderId);
+  const ungroupedProjects = rootGroups.filter(g => !groupFolderMap.has(g.id));
+
+  const toggleFolderExpand = (id: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSaveFolderName = (id: string) => {
+    if (editingFolderName.trim()) {
+      renameProjectFolder.mutate({ id, name: editingFolderName.trim() });
+    }
+    setEditingFolderId(null);
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
