@@ -103,7 +103,7 @@ function UserCard({
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 hover:bg-accent/30 transition-colors">
       {/* Avatar */}
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-        {profile.display_name?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || "?"}
+        {profile.display_name?.[0]?.toUpperCase() || "?"}
       </div>
 
       {/* Info */}

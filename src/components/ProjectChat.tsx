@@ -24,7 +24,7 @@ function formatMsgDate(dateStr: string) {
 }
 
 function getAuthorName(msg: GroupMessage) {
-  return msg.profile?.display_name || msg.profile?.email || "Аноним";
+  return msg.profile?.display_name || "Аноним";
 }
 
 export default function ProjectChat({ groupId, groupName, onClose, embedded }: ProjectChatProps) {
