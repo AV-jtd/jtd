@@ -281,11 +281,28 @@ export default function AppSidebar({
   }
 
   function GroupIcon({ group }: { group: TaskGroup }) {
-    // Show emoji if set, otherwise show color dot
     if (group.icon && group.icon !== "list") {
       return <span className="text-sm leading-none">{group.icon}</span>;
     }
     return <div className="h-3 w-3 rounded" style={{ backgroundColor: group.color || "#3b82f6" }} />;
+  }
+
+  function DroppableFolder({ id, isOver, children }: { id: string; isOver: boolean; children: React.ReactNode }) {
+    const { setNodeRef } = useDroppable({ id: `folder:${id}` });
+    return (
+      <div ref={setNodeRef} className={cn("rounded-lg transition-colors", isOver && "bg-primary/10 ring-1 ring-primary/30")}>
+        {children}
+      </div>
+    );
+  }
+
+  function DroppableUngrouped({ isOver, children }: { isOver: boolean; children: React.ReactNode }) {
+    const { setNodeRef } = useDroppable({ id: "ungrouped-drop" });
+    return (
+      <div ref={setNodeRef} className={cn("rounded-lg transition-colors min-h-[8px]", isOver && "bg-primary/10 ring-1 ring-primary/30")}>
+        {children}
+      </div>
+    );
   }
 
   function GroupItem({ group, depth = 0 }: { group: TaskGroup; depth?: number }) {
