@@ -253,58 +253,7 @@ export default function AppSidebar({
     }
     setEditingTagId(null);
   };
-  function HueSlider({ group, updateGroupAppearance, onDone }: { group: TaskGroup; updateGroupAppearance: any; onDone: () => void }) {
-    const [hue, setHue] = useState(() => {
-      const match = group.color?.match(/hsl\((\d+)/);
-      return match ? parseInt(match[1]) : 220;
-    });
-    return (
-      <div className="flex items-center gap-2">
-        <input
-          type="range"
-          min="0"
-          max="360"
-          value={hue}
-          onChange={(e) => setHue(parseInt(e.target.value))}
-          onPointerUp={() => { updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined }); onDone(); }}
-          onMouseUp={() => { updateGroupAppearance.mutate({ id: group.id, color: `hsl(${hue}, 70%, 50%)`, icon: group.icon === "list" ? "list" : undefined }); onDone(); }}
-          className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
-          style={{
-            background: "linear-gradient(to right, hsl(0,70%,50%), hsl(60,70%,50%), hsl(120,70%,50%), hsl(180,70%,50%), hsl(240,70%,50%), hsl(300,70%,50%), hsl(360,70%,50%))",
-          }}
-        />
-        <div
-          className="h-5 w-5 rounded-full border border-border shrink-0"
-          style={{ backgroundColor: `hsl(${hue}, 70%, 50%)` }}
-        />
-      </div>
-    );
-  }
-
-  function GroupIcon({ group }: { group: TaskGroup }) {
-    if (group.icon && group.icon !== "list") {
-      return <span className="text-sm leading-none">{group.icon}</span>;
-    }
-    return <div className="h-3 w-3 rounded" style={{ backgroundColor: group.color || "#3b82f6" }} />;
-  }
-
-  function DroppableFolder({ id, isOver, children }: { id: string; isOver: boolean; children: React.ReactNode }) {
-    const { setNodeRef } = useDroppable({ id: `folder:${id}` });
-    return (
-      <div ref={setNodeRef} className={cn("rounded-lg transition-colors", isOver && "bg-primary/10 ring-1 ring-primary/30")}>
-        {children}
-      </div>
-    );
-  }
-
-  function DroppableUngrouped({ isOver, children }: { isOver: boolean; children: React.ReactNode }) {
-    const { setNodeRef } = useDroppable({ id: "ungrouped-drop" });
-    return (
-      <div ref={setNodeRef} className={cn("rounded-lg transition-colors min-h-[8px]", isOver && "bg-primary/10 ring-1 ring-primary/30")}>
-        {children}
-      </div>
-    );
-  }
+  // HueSlider, GroupIcon, DroppableFolder, DroppableUngrouped are now in separate files
 
   function GroupItem({ group, depth = 0 }: { group: TaskGroup; depth?: number }) {
     const children = getChildren(group.id);
