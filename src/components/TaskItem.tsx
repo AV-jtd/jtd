@@ -123,7 +123,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       className={cn(
         "group bg-card rounded-xl border border-border transition-all duration-200",
