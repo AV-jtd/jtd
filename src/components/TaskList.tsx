@@ -37,6 +37,8 @@ interface TaskListProps {
   onToggleChat?: () => void;
   messengerOpen?: boolean;
   onToggleMessenger?: () => void;
+  highlightTaskId?: string | null;
+  onHighlightClear?: () => void;
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger }: TaskListProps) {
