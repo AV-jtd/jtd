@@ -403,7 +403,7 @@ export default function AppSidebar({
               <GroupItem key={child.id} group={child} depth={1} />
             ))}
             {newSubgroupParentId === group.id && (
-              <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
+              <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1 flex items-center gap-1.5" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
                 <input
                   autoFocus
                   enterKeyHint="done"
@@ -411,8 +411,11 @@ export default function AppSidebar({
                   onChange={(e) => setNewGroupName(e.target.value)}
                   onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setNewSubgroupParentId(null); }, 150); }}
                   placeholder="Подпроект..."
-                  className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                  className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                 />
+                <button type="submit" disabled={!newGroupName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                  <Send className="h-3.5 w-3.5" />
+                </button>
               </form>
             )}
           </div>
