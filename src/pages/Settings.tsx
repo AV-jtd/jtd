@@ -32,7 +32,7 @@ export default function Settings() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("display_name, telegram_username, work_email")
+      .select("display_name, telegram_username, work_email, username")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
