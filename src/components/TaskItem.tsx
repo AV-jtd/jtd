@@ -45,8 +45,6 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const [newComment, setNewComment] = useState("");
-  const { data: comments = [] } = useTaskComments(detailsOpen ? task.id : null);
-  const { addComment, deleteComment } = useCommentMutations();
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
