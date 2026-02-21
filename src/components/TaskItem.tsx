@@ -620,7 +620,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               <input
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
-                placeholder="Новая подзадача..."
+                placeholder="Новый шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
             </form>
