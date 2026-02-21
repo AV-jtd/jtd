@@ -711,7 +711,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
                 onBlur={() => { if (!newSubtask.trim()) setShowAddSubtask(false); }}
-                placeholder="Подзадача..."
+                placeholder="Шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
             </form>
