@@ -62,6 +62,8 @@ Deno.serve(async (req) => {
       task_commented: "push_task_commented",
       deadline_approaching: "push_deadline_approaching",
       added_to_group: "push_added_to_group",
+      task_participant_added: "push_task_participant_added",
+      new_task_in_group: "push_new_task_in_group",
     };
 
     const prefColumn = pushPrefKey[event];
@@ -93,6 +95,8 @@ Deno.serve(async (req) => {
       task_commented: `${senderName} прокомментировал задачу`,
       deadline_approaching: "Приближается дедлайн",
       added_to_group: `${senderName} добавил вас в проект`,
+      task_participant_added: `${senderName} добавил вас в задачу`,
+      new_task_in_group: `${senderName} создал задачу в проекте`,
     };
     const title = titles[event] || "Уведомление";
     const body = taskTitle || "";
