@@ -131,27 +131,70 @@ Deno.serve(async (req) => {
       .update({ telegram_chat_id: chatId })
       .eq("id", userId);
 
-    // Handle /projects — list user's projects
+    // Handle /projects — list user's projects (owned + member)
     if (message.text === "/projects") {
-      const { data: groups } = await supabase
+      // Get owned projects
+      const { data: ownedGroups } = await supabase
         .from("task_groups")
         .select("id, name, icon, parent_id")
         .eq("user_id", userId)
         .order("position");
 
-      if (!groups || groups.length === 0) {
+      // Get member projects
+      const { data: memberships } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", userId);
+
+      const memberGroupIds = (memberships || []).map(m => m.group_id);
+      const ownedIds = new Set((ownedGroups || []).map(g => g.id));
+      // Filter out groups user already owns
+      const memberOnlyIds = memberGroupIds.filter(id => !ownedIds.has(id));
+
+      let memberGroups: { id: string; name: string; icon: string | null; parent_id: string | null }[] = [];
+      if (memberOnlyIds.length > 0) {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("id, name, icon, parent_id")
+          .in("id", memberOnlyIds)
+          .order("position");
+        memberGroups = data || [];
+      }
+
+      const allGroups = [...(ownedGroups || []), ...memberGroups];
+      if (allGroups.length === 0) {
         await sendTelegramMessage(BOT_TOKEN, chatId, "📂 У вас пока нет проектов.");
       } else {
-        const parents = groups.filter(g => !g.parent_id);
-        const children = groups.filter(g => g.parent_id);
-        let text = "📂 *Ваши проекты:*\n\n";
-        for (const p of parents) {
-          text += `${p.icon || "📁"} *${escapeMarkdown(p.name)}*\n`;
-          const subs = children.filter(c => c.parent_id === p.id);
-          for (const s of subs) {
-            text += `  └ ${s.icon || "📄"} ${escapeMarkdown(s.name)}\n`;
+        let text = "";
+
+        // Own projects
+        if (ownedGroups && ownedGroups.length > 0) {
+          text += "📂 *Мои проекты:*\n\n";
+          const parents = ownedGroups.filter(g => !g.parent_id);
+          const children = ownedGroups.filter(g => g.parent_id);
+          for (const p of parents) {
+            text += `${p.icon || "📁"} *${escapeMarkdown(p.name)}*\n`;
+            const subs = children.filter(c => c.parent_id === p.id);
+            for (const s of subs) {
+              text += `  └ ${s.icon || "📄"} ${escapeMarkdown(s.name)}\n`;
+            }
           }
         }
+
+        // Member projects
+        if (memberGroups.length > 0) {
+          text += "\n👥 *Участник:*\n\n";
+          const parents = memberGroups.filter(g => !g.parent_id);
+          const children = memberGroups.filter(g => g.parent_id);
+          for (const p of parents) {
+            text += `${p.icon || "📁"} *${escapeMarkdown(p.name)}*\n`;
+            const subs = children.filter(c => c.parent_id === p.id);
+            for (const s of subs) {
+              text += `  └ ${s.icon || "📄"} ${escapeMarkdown(s.name)}\n`;
+            }
+          }
+        }
+
         text += "\nИспользуй `/project Название` чтобы выбрать.";
         await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
       }
@@ -166,12 +209,31 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, active_project: null }), { headers: corsHeaders });
       }
 
-      const { data: group } = await supabase
+      // Search in owned projects first
+      let { data: group } = await supabase
         .from("task_groups")
         .select("id, name, icon")
         .eq("user_id", userId)
         .ilike("name", projectName)
         .single();
+
+      // If not found, search in member projects
+      if (!group) {
+        const { data: membership } = await supabase
+          .from("group_members")
+          .select("group_id")
+          .eq("user_id", userId);
+
+        if (membership && membership.length > 0) {
+          const { data: memberGroup } = await supabase
+            .from("task_groups")
+            .select("id, name, icon")
+            .in("id", membership.map(m => m.group_id))
+            .ilike("name", projectName)
+            .single();
+          group = memberGroup;
+        }
+      }
 
       if (!group) {
         await sendTelegramMessage(
@@ -204,19 +266,34 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      // Try to find project by matching the beginning of the text
-      const { data: userGroups } = await supabase
+      // Try to find project by matching the beginning of the text (owned + member)
+      const { data: ownedGroups } = await supabase
         .from("task_groups")
         .select("id, name, icon")
-        .eq("user_id", userId)
-        .order("position");
+        .eq("user_id", userId);
 
+      const { data: memberships } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", userId);
+
+      let memberGroups: { id: string; name: string; icon: string | null }[] = [];
+      const ownedIds = new Set((ownedGroups || []).map(g => g.id));
+      const memberOnlyIds = (memberships || []).map(m => m.group_id).filter(id => !ownedIds.has(id));
+      if (memberOnlyIds.length > 0) {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("id, name, icon")
+          .in("id", memberOnlyIds);
+        memberGroups = data || [];
+      }
+
+      const allGroups = [...(ownedGroups || []), ...memberGroups];
       let matchedGroup: { id: string; name: string; icon: string | null } | null = null;
       let chatMessage = "";
 
-      if (userGroups) {
-        // Sort by name length descending to match longest name first
-        const sorted = [...userGroups].sort((a, b) => b.name.length - a.name.length);
+      if (allGroups.length > 0) {
+        const sorted = [...allGroups].sort((a, b) => b.name.length - a.name.length);
         for (const g of sorted) {
           if (parts.toLowerCase().startsWith(g.name.toLowerCase())) {
             matchedGroup = g;
