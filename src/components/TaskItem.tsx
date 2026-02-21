@@ -178,7 +178,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {subtasks.length > 0 && (
-              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} подзадач</span>
+              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} шагов</span>
             )}
             {task.description && !detailsOpen && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
