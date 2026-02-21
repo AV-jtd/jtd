@@ -103,13 +103,18 @@ export type Database = {
           id: string
           push_added_to_group: boolean
           push_deadline_approaching: boolean
+          push_new_task_in_group: boolean
           push_task_assigned: boolean
           push_task_commented: boolean
           push_task_completed: boolean
+          push_task_participant_added: boolean
+          telegram_added_to_group: boolean
           telegram_deadline_approaching: boolean
+          telegram_new_task_in_group: boolean
           telegram_task_assigned: boolean
           telegram_task_commented: boolean
           telegram_task_completed: boolean
+          telegram_task_participant_added: boolean
           updated_at: string
           user_id: string
         }
@@ -118,13 +123,18 @@ export type Database = {
           id?: string
           push_added_to_group?: boolean
           push_deadline_approaching?: boolean
+          push_new_task_in_group?: boolean
           push_task_assigned?: boolean
           push_task_commented?: boolean
           push_task_completed?: boolean
+          push_task_participant_added?: boolean
+          telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
+          telegram_new_task_in_group?: boolean
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
           telegram_task_completed?: boolean
+          telegram_task_participant_added?: boolean
           updated_at?: string
           user_id: string
         }
@@ -133,13 +143,18 @@ export type Database = {
           id?: string
           push_added_to_group?: boolean
           push_deadline_approaching?: boolean
+          push_new_task_in_group?: boolean
           push_task_assigned?: boolean
           push_task_commented?: boolean
           push_task_completed?: boolean
+          push_task_participant_added?: boolean
+          telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
+          telegram_new_task_in_group?: boolean
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
           telegram_task_completed?: boolean
+          telegram_task_participant_added?: boolean
           updated_at?: string
           user_id?: string
         }
