@@ -220,18 +220,37 @@ export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
     const days = eachDayOfInterval({ start, end: endOfWeek(currentDate, { weekStartsOn: 1 }) });
 
     return (
-      <div className="grid grid-cols-7 gap-2">
-        {days.map(d => (
-          <div key={d.toISOString()}>
-            <div className={cn(
-              "text-center text-xs font-medium py-1 mb-1",
-              isToday(d) ? "text-primary font-bold" : "text-muted-foreground"
+      <div className="space-y-2">
+        {days.map(d => {
+          const dayTasks = tasksOnDate(d);
+          return (
+            <div key={d.toISOString()} className={cn(
+              "flex gap-3 p-2 rounded-lg border border-border/50",
+              isToday(d) && "bg-primary/5 border-primary/30"
             )}>
-              {format(d, "EEE d", { locale: ru })}
+              <div className={cn(
+                "w-16 shrink-0 text-center py-1",
+                isToday(d) ? "text-primary font-bold" : "text-muted-foreground"
+              )}>
+                <div className="text-xs">{format(d, "EEE", { locale: ru })}</div>
+                <div className="text-lg font-semibold">{format(d, "d")}</div>
+              </div>
+              <div className="flex-1 min-w-0 flex flex-wrap gap-1 items-start py-1">
+                {dayTasks.length === 0 ? (
+                  <span className="text-xs text-muted-foreground italic">—</span>
+                ) : (
+                  dayTasks.map(t => <TaskBadge key={t.id} task={t} />)
+                )}
+              </div>
+              <button
+                onClick={() => { setAddingDate(format(d, "yyyy-MM-dd")); }}
+                className="shrink-0 self-center p-1 rounded hover:bg-accent/50 text-muted-foreground opacity-0 hover:opacity-100 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <DayCell date={d} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
