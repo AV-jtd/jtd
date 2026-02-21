@@ -436,6 +436,16 @@ export function useTaskMutations() {
             tag_id: (group as any).linked_tag_id,
           });
         }
+
+        // Notify group members about new task
+        const { data: members } = await supabase
+          .from("group_members")
+          .select("user_id")
+          .eq("group_id", task.group_id);
+        const memberIds = (members || []).map((m: any) => m.user_id);
+        if (memberIds.length > 0) {
+          notifyEvent("new_task_in_group", task.title, memberIds);
+        }
       }
     },
     onMutate: async (task) => {
