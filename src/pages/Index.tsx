@@ -23,11 +23,7 @@ export default function Index() {
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const isMobile = useIsMobile();
-  const { data: groups = [] } = (() => {
-    // import inline to get groups for chat panel name
-    const { useTaskGroups } = require("@/hooks/useTasks");
-    return useTaskGroups();
-  })();
+  const { data: groups = [] } = useTaskGroups();
 
   if (loading) {
     return (
