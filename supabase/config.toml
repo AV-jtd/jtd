@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-chat-telegram]
 verify_jwt = false
+
+[functions.telegram-2fa]
+verify_jwt = false
