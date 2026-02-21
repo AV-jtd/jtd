@@ -664,7 +664,27 @@ export default function AppSidebar({
                           <span onClick={() => toggleFolderExpand(folder.id)} className="shrink-0">
                             {isFolderExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                           </span>
-                          <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <span onClick={(e) => e.stopPropagation()} className="shrink-0 cursor-pointer hover:opacity-80">
+                                <FolderOpen className="h-3.5 w-3.5" style={{ color: folder.color || "#6366f1" }} />
+                              </span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                              <p className="text-xs font-medium text-muted-foreground mb-2">Цвет папки</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {COLOR_PRESETS.map(p => (
+                                  <button
+                                    key={p.hue}
+                                    onClick={() => updateFolderColor.mutate({ id: folder.id, color: `hsl(${p.hue}, 70%, 50%)` })}
+                                    className={cn("h-5 w-5 rounded-full transition-transform hover:scale-110 border border-border/50")}
+                                    style={{ backgroundColor: `hsl(${p.hue}, 70%, 50%)` }}
+                                    title={p.label}
+                                  />
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                           {editingFolderId === folder.id ? (
                             <input
                               autoFocus
