@@ -672,6 +672,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               <input
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
+                enterKeyHint="done"
                 placeholder="Написать комментарий..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
