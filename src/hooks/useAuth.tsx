@@ -34,8 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, displayName: string, telegramUsername?: string) => {
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -43,6 +43,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: window.location.origin,
       },
     });
+    
+    // If signup succeeded and we have a telegram username, update the profile
+    if (!error && signUpData?.user && telegramUsername) {
+      const cleanUsername = telegramUsername.replace(/^@/, "").toLowerCase().trim();
+      if (cleanUsername) {
+        await supabase
+          .from("profiles")
+          .update({ telegram_username: cleanUsername } as any)
+          .eq("id", signUpData.user.id);
+      }
+    }
+    
     return { error: error as Error | null };
   };
 
