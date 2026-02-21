@@ -3,7 +3,7 @@ import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
