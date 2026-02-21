@@ -43,7 +43,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [userSearch, setUserSearch] = useState("");
-  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
+  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const itemRef = useRef<HTMLDivElement>(null);
