@@ -418,7 +418,45 @@ export default function AppSidebar({
                 title="Карточка проекта"
               >
                 <Expand className="h-3.5 w-3.5" />
-              </span>
+               </span>
+              {/* Move to folder */}
+              {isRoot && folders.length > 0 && (
+                <Popover open={folderPickerGroupId === group.id} onOpenChange={(open) => setFolderPickerGroupId(open ? group.id : null)}>
+                  <PopoverTrigger asChild>
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                      title="Переместить в папку"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-44 p-1.5" side="right" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Папка</p>
+                    {groupFolderMap.has(group.id) && (
+                      <button
+                        onClick={() => { moveProjectToFolder.mutate({ group_id: group.id, folder_id: null }); setFolderPickerGroupId(null); }}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        Без папки
+                      </button>
+                    )}
+                    {folders.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => { moveProjectToFolder.mutate({ group_id: group.id, folder_id: f.id }); setFolderPickerGroupId(null); }}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
+                          groupFolderMap.get(group.id) === f.id && "bg-muted text-primary font-medium"
+                        )}
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                        {f.name}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
                 <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                   <Trash2 className="h-3.5 w-3.5" />
