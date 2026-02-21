@@ -620,9 +620,17 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               <input
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
+                enterKeyHint="done"
                 placeholder="Новый шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
+              <button
+                type="submit"
+                disabled={!newSubtask.trim()}
+                className="h-5 w-5 rounded-full border border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+              >
+                <Plus className="h-3 w-3 text-primary" />
+              </button>
             </form>
           </div>
 
