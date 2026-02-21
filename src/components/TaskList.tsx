@@ -39,7 +39,7 @@ interface TaskListProps {
   onToggleMessenger?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
