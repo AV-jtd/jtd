@@ -68,10 +68,50 @@ export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
     { id: "year", label: "Год" },
   ];
 
+  const isOverdue = (t: { deadline?: string | null; is_completed: boolean }) =>
+    !t.is_completed && t.deadline && isBefore(parseISO(t.deadline), startOfDay(new Date()));
+
+  const getDrift = (t: { deadline?: string | null; original_deadline?: string | null }) => {
+    if (!t.deadline || !t.original_deadline) return null;
+    const d = differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+    return d !== 0 ? d : null;
+  };
+
+  const TaskBadge = ({ task, compact = false }: { task: any; compact?: boolean }) => {
+    const overdue = isOverdue(task);
+    const drift = getDrift(task);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onNavigateToTask?.(task.id); }}
+        className={cn(
+          "text-[10px] leading-tight px-1 py-0.5 rounded truncate w-full text-left flex items-center gap-0.5 cursor-pointer hover:opacity-80 transition-opacity",
+          task.is_completed
+            ? "bg-muted text-muted-foreground line-through"
+            : overdue
+              ? "bg-destructive/15 text-destructive font-medium"
+              : task.is_important
+                ? "bg-destructive/10 text-destructive"
+                : "bg-primary/10 text-primary"
+        )}
+      >
+        <span className="truncate flex-1">{task.title}</span>
+        {drift !== null && !compact && (
+          <span className={cn(
+            "text-[8px] font-bold shrink-0 ml-0.5",
+            drift > 0 ? "text-orange-500" : "text-emerald-500"
+          )}>
+            {drift > 0 ? `+${drift}` : drift}д
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const DayCell = ({ date, compact = false }: { date: Date; compact?: boolean }) => {
     const dayTasks = tasksOnDate(date);
     const dateStr = format(date, "yyyy-MM-dd");
     const isCurrentMonth = isSameMonth(date, currentDate);
+    const maxShow = compact ? 2 : 3;
 
     return (
       <Popover open={addingDate === dateStr} onOpenChange={(o) => { if (!o) setAddingDate(null); }}>
@@ -92,24 +132,12 @@ export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
               {format(date, "d")}
             </span>
             <div className="w-full space-y-0.5 overflow-hidden flex-1">
-              {dayTasks.slice(0, compact ? 2 : 3).map(t => (
-                <div
-                  key={t.id}
-                  className={cn(
-                    "text-[10px] leading-tight px-1 py-0.5 rounded truncate",
-                    t.is_completed
-                      ? "bg-muted text-muted-foreground line-through"
-                      : t.is_important
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-primary/10 text-primary"
-                  )}
-                >
-                  {t.title}
-                </div>
+              {dayTasks.slice(0, maxShow).map(t => (
+                <TaskBadge key={t.id} task={t} compact={compact} />
               ))}
-              {dayTasks.length > (compact ? 2 : 3) && (
+              {dayTasks.length > maxShow && (
                 <span className="text-[9px] text-muted-foreground px-1">
-                  +{dayTasks.length - (compact ? 2 : 3)}
+                  +{dayTasks.length - maxShow}
                 </span>
               )}
             </div>
@@ -134,11 +162,31 @@ export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
           </form>
           {dayTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border space-y-1">
-              {dayTasks.map(t => (
-                <div key={t.id} className={cn("text-xs px-1 py-0.5 rounded", t.is_completed && "line-through text-muted-foreground")}>
-                  {t.title}
-                </div>
-              ))}
+              {dayTasks.map(t => {
+                const overdue = isOverdue(t);
+                const drift = getDrift(t);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigateToTask?.(t.id)}
+                    className={cn(
+                      "text-xs px-1 py-0.5 rounded w-full text-left flex items-center gap-1 hover:bg-accent/50 cursor-pointer transition-colors",
+                      t.is_completed && "line-through text-muted-foreground",
+                      overdue && !t.is_completed && "text-destructive"
+                    )}
+                  >
+                    <span className="truncate flex-1">{t.title}</span>
+                    {drift !== null && (
+                      <span className={cn(
+                        "text-[10px] font-bold shrink-0",
+                        drift > 0 ? "text-orange-500" : "text-emerald-500"
+                      )}>
+                        {drift > 0 ? `+${drift}` : drift}д
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </PopoverContent>
