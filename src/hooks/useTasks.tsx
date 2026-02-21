@@ -209,6 +209,42 @@ export function useGroupMembers(groupId: string | null) {
   });
 }
 
+// --- Project Folders ---
+
+export function useProjectFolders() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["project_folders", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_folders" as any)
+        .select("*")
+        .order("position");
+      if (error) throw error;
+      return (data || []) as unknown as ProjectFolder[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useProjectFolderItems() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["project_folder_items", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_folder_items" as any)
+        .select("*")
+        .order("position");
+      if (error) throw error;
+      return (data || []) as unknown as ProjectFolderItem[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30,
+  });
+}
+
 // --- Mutations with optimistic updates ---
 
 export function useTaskMutations() {
