@@ -122,6 +122,8 @@ export default function Index() {
                   onToggleChat={() => setChatOpen(prev => !prev)}
                   messengerOpen={messengerOpen}
                   onToggleMessenger={() => setMessengerOpen(prev => !prev)}
+                  highlightTaskId={highlightTaskId}
+                  onHighlightClear={() => setHighlightTaskId(null)}
                 />
                 {chatOpen && activeGroupId && activeView === "group" && (
                   <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
