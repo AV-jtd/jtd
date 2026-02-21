@@ -111,20 +111,6 @@ function UserCard({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{profile.display_name || "Без имени"}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {profile.email && (
-            <span className="flex items-center gap-1 truncate">
-              <Mail className="h-3 w-3 shrink-0" />
-              {profile.email}
-            </span>
-          )}
-          {profile.telegram_username && (
-            <span className="flex items-center gap-1">
-              <AtSign className="h-3 w-3 shrink-0" />
-              {profile.telegram_username}
-            </span>
-          )}
-        </div>
       </div>
 
       {/* Actions */}
