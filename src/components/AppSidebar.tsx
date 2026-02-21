@@ -476,7 +476,7 @@ export default function AppSidebar({
                 </SortableContext>
               </DndContext>
               {showNewGroup && !newSubgroupParentId && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
+                <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1 flex items-center gap-1.5">
                   <input
                     autoFocus
                     enterKeyHint="done"
@@ -484,8 +484,11 @@ export default function AppSidebar({
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setShowNewGroup(false); }, 150); }}
                     placeholder="Название проекта..."
-                    className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                    className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
+                  <button type="submit" disabled={!newGroupName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
                 </form>
               )}
             </div>
