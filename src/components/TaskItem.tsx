@@ -19,6 +19,7 @@ interface TaskItemProps {
   sortable?: boolean;
   initialOpen?: boolean;
   onOpened?: () => void;
+  onTagClick?: (tagId: string) => void;
 }
 
 const PRIORITIES = [
