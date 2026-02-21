@@ -12,6 +12,8 @@ import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import TeamSection from "@/components/TeamSection";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
   const { user, loading } = useAuth();
