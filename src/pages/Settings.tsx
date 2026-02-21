@@ -66,6 +66,7 @@ export default function Settings() {
         display_name: displayName.trim() || null,
         telegram_username: cleanUsername || null,
         work_email: workEmail.trim() || null,
+        username: username.trim() || null,
       } as any)
       .eq("id", user.id);
 
