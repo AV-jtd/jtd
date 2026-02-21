@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers } from "@/hooks/useTasks";
+import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -53,7 +53,9 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups } = useTaskMutations();
+  const { data: folders = [] } = useProjectFolders();
+  const { data: folderItems = [] } = useProjectFolderItems();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups, addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
@@ -72,7 +74,12 @@ export default function AppSidebar({
   const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
   const [emojiPickerGroupId, setEmojiPickerGroupId] = useState<string | null>(null);
   const [emojiTab, setEmojiTab] = useState(0);
-
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderPickerGroupId, setFolderPickerGroupId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
@@ -95,6 +102,31 @@ export default function AppSidebar({
   // Separate root groups and subgroups
   const rootGroups = groups.filter(g => !g.parent_id);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
+
+  // Folder grouping: map group_id -> folder_id
+  const groupFolderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    folderItems.forEach(fi => map.set(fi.group_id, fi.folder_id));
+    return map;
+  }, [folderItems]);
+
+  const getGroupsInFolder = (folderId: string) => rootGroups.filter(g => groupFolderMap.get(g.id) === folderId);
+  const ungroupedProjects = rootGroups.filter(g => !groupFolderMap.has(g.id));
+
+  const toggleFolderExpand = (id: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSaveFolderName = (id: string) => {
+    if (editingFolderName.trim()) {
+      renameProjectFolder.mutate({ id, name: editingFolderName.trim() });
+    }
+    setEditingFolderId(null);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedGroups(prev => {
@@ -386,7 +418,45 @@ export default function AppSidebar({
                 title="Карточка проекта"
               >
                 <Expand className="h-3.5 w-3.5" />
-              </span>
+               </span>
+              {/* Move to folder */}
+              {isRoot && folders.length > 0 && (
+                <Popover open={folderPickerGroupId === group.id} onOpenChange={(open) => setFolderPickerGroupId(open ? group.id : null)}>
+                  <PopoverTrigger asChild>
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                      title="Переместить в папку"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-44 p-1.5" side="right" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Папка</p>
+                    {groupFolderMap.has(group.id) && (
+                      <button
+                        onClick={() => { moveProjectToFolder.mutate({ group_id: group.id, folder_id: null }); setFolderPickerGroupId(null); }}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        Без папки
+                      </button>
+                    )}
+                    {folders.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => { moveProjectToFolder.mutate({ group_id: group.id, folder_id: f.id }); setFolderPickerGroupId(null); }}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
+                          groupFolderMap.get(group.id) === f.id && "bg-muted text-primary font-medium"
+                        )}
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                        {f.name}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
                 <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -462,18 +532,97 @@ export default function AppSidebar({
           >
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Проекты
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); setNewSubgroupParentId(null); }}
-              className="ml-auto hover:text-sidebar-fg"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
+            <span className="ml-auto flex items-center gap-1">
+              <span
+                onClick={(e) => { e.stopPropagation(); setShowNewFolder(true); }}
+                className="hover:text-sidebar-fg"
+                title="Новая папка"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+              </span>
+              <span
+                onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); setNewSubgroupParentId(null); }}
+                className="hover:text-sidebar-fg"
+                title="Новый проект"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </span>
+            </span>
           </button>
           {showGroups && (
             <div className="space-y-0.5 mt-1">
+              {/* New folder form */}
+              {showNewFolder && (
+                <form onSubmit={(e) => { e.preventDefault(); if (newFolderName.trim()) { addProjectFolder.mutate({ name: newFolderName.trim() }); setNewFolderName(""); setShowNewFolder(false); } }} className="px-3 py-1 flex items-center gap-1.5">
+                  <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
+                  <input
+                    autoFocus
+                    enterKeyHint="done"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onBlur={() => { setTimeout(() => { if (!newFolderName.trim()) setShowNewFolder(false); }, 150); }}
+                    placeholder="Название папки..."
+                    className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                  />
+                  <button type="submit" disabled={!newFolderName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+              )}
+
+              {/* Folders with projects */}
+              {folders.map(folder => {
+                const folderProjects = getGroupsInFolder(folder.id);
+                const isFolderExpanded = expandedFolders.has(folder.id);
+                return (
+                  <div key={folder.id}>
+                    <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors">
+                      <span onClick={() => toggleFolderExpand(folder.id)} className="shrink-0">
+                        {isFolderExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      </span>
+                      <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
+                      {editingFolderId === folder.id ? (
+                        <input
+                          autoFocus
+                          enterKeyHint="done"
+                          value={editingFolderName}
+                          onChange={(e) => setEditingFolderName(e.target.value)}
+                          onBlur={() => handleSaveFolderName(folder.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveFolderName(folder.id); if (e.key === "Escape") setEditingFolderId(null); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+                        />
+                      ) : (
+                        <span
+                          className="truncate flex-1 text-left"
+                          onClick={() => toggleFolderExpand(folder.id)}
+                          onDoubleClick={(e) => { e.stopPropagation(); setEditingFolderId(folder.id); setEditingFolderName(folder.name); }}
+                        >
+                          {folder.name}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-sidebar-fg/40">{folderProjects.length}</span>
+                      <ConfirmDelete title="Удалить папку?" description="Проекты останутся, но потеряют привязку к папке." onConfirm={() => deleteProjectFolder.mutate(folder.id)}>
+                        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                          <Trash2 className="h-3 w-3" />
+                        </span>
+                      </ConfirmDelete>
+                    </div>
+                    {isFolderExpanded && (
+                      <div className="space-y-0.5">
+                        {folderProjects.map(g => (
+                          <GroupItem key={g.id} group={g} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Ungrouped projects (not in any folder) */}
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd} modifiers={[restrictToVerticalAxis]}>
-                <SortableContext items={rootGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-                  {rootGroups.map((g) => (
+                <SortableContext items={ungroupedProjects.map(g => g.id)} strategy={verticalListSortingStrategy}>
+                  {ungroupedProjects.map((g) => (
                     <GroupItem key={g.id} group={g} />
                   ))}
                 </SortableContext>

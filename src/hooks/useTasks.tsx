@@ -21,6 +21,8 @@ export type Tag = Tables<"tags">;
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
 export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
+export type ProjectFolder = { id: string; user_id: string; name: string; color: string | null; icon: string | null; position: number; created_at: string };
+export type ProjectFolderItem = { id: string; folder_id: string; group_id: string; user_id: string; position: number; created_at: string };
 
 // --- Optimistic update helpers ---
 
@@ -204,6 +206,42 @@ export function useGroupMembers(groupId: string | null) {
       return data as { id: string; group_id: string; user_id: string; role: string; invited_by: string; created_at: string }[];
     },
     enabled: !!user && !!groupId,
+  });
+}
+
+// --- Project Folders ---
+
+export function useProjectFolders() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["project_folders", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_folders" as any)
+        .select("*")
+        .order("position");
+      if (error) throw error;
+      return (data || []) as unknown as ProjectFolder[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useProjectFolderItems() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["project_folder_items", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_folder_items" as any)
+        .select("*")
+        .order("position");
+      if (error) throw error;
+      return (data || []) as unknown as ProjectFolderItem[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30,
   });
 }
 
@@ -807,6 +845,53 @@ export function useTaskMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  // ========== PROJECT FOLDERS ==========
+
+  const addProjectFolder = useMutation({
+    mutationFn: async ({ name }: { name: string }) => {
+      const { data: existing } = await supabase.from("project_folders" as any).select("position").order("position", { ascending: false }).limit(1);
+      const maxPos = (existing as any)?.[0]?.position ?? -1;
+      const { error } = await supabase.from("project_folders" as any).insert({ name, user_id: user!.id, position: maxPos + 1 });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["project_folders"] }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const renameProjectFolder = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from("project_folders" as any).update({ name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project_folders"] }),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteProjectFolder = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("project_folders" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["project_folders"] }); qc.invalidateQueries({ queryKey: ["project_folder_items"] }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const moveProjectToFolder = useMutation({
+    mutationFn: async ({ group_id, folder_id }: { group_id: string; folder_id: string | null }) => {
+      // Remove existing mapping
+      await supabase.from("project_folder_items" as any).delete().eq("group_id", group_id).eq("user_id", user!.id);
+      // If folder_id provided, add new mapping
+      if (folder_id) {
+        const { data: existing } = await supabase.from("project_folder_items" as any).select("position").eq("folder_id", folder_id).order("position", { ascending: false }).limit(1);
+        const maxPos = (existing as any)?.[0]?.position ?? -1;
+        const { error } = await supabase.from("project_folder_items" as any).insert({ folder_id, group_id, user_id: user!.id, position: maxPos + 1 });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project_folder_items"] }),
+    onError: (e) => toast.error(e.message),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -815,5 +900,6 @@ export function useTaskMutations() {
     addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
     reorderTasks, reorderGroups,
     addParticipant, removeParticipant,
+    addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder,
   };
 }
