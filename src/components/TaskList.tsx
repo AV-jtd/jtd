@@ -149,6 +149,20 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               </button>
             </div>
           )}
+          {(!activeGroup || activeView !== "group") && (
+            <button
+              onClick={onToggleMessenger}
+              className={cn(
+                "p-2 rounded-lg transition-all",
+                messengerOpen
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Сообщения"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Project detail panel */}
