@@ -216,6 +216,12 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                 })()}
               </span>
             )}
+            {task.deferred_until && new Date(task.deferred_until) > new Date() && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                до {format(parseISO(task.deferred_until), "d MMM", { locale: ru })}
+              </span>
+            )}
             {(task as any).recurrence && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Repeat className="h-3 w-3" />
