@@ -67,6 +67,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
+  const now = new Date();
+
   let filteredTasks = tasks;
   if (activeView === "important") {
     filteredTasks = tasks.filter(t => t.is_important);
@@ -74,6 +76,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
   } else if (activeView === "assigned") {
     filteredTasks = tasks.filter(t => t.assigned_to);
+  } else if (activeView === "deferred") {
+    filteredTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
+  } else {
+    // Hide deferred tasks from all other views
+    filteredTasks = filteredTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
   }
 
   if (priorityFilter !== null) {

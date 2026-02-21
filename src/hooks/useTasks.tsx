@@ -14,6 +14,7 @@ export type Task = Tables<"tasks"> & {
   parent_recurring_id?: string | null;
   priority?: number | null;
   original_deadline?: string | null;
+  deferred_until?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;
