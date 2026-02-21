@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
         "• `/projects` — список ваших проектов\n" +
         "• `/project Название` — выбрать проект\n" +
         "• После выбора все задачи идут в этот проект\n" +
-        "• `/project` без аргумента — сбросить проект",
+        "• `/project` без аргумента — сбросить проект\n\n" +
+        "*Чат проекта:*\n" +
+        "• `/chat Название Сообщение` — отправить в чат проекта",
         "Markdown"
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
