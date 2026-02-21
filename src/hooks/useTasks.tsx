@@ -505,18 +505,27 @@ export function useTaskMutations() {
         const now = new Date();
         let nextDeadline: Date | null = null;
         
+        const addRecurrence = (d: Date, r: string) => {
+          if (r === "daily") d.setDate(d.getDate() + 1);
+          else if (r === "weekdays") {
+            d.setDate(d.getDate() + 1);
+            while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+          }
+          else if (r === "every2days") d.setDate(d.getDate() + 2);
+          else if (r === "every3days") d.setDate(d.getDate() + 3);
+          else if (r === "weekly") d.setDate(d.getDate() + 7);
+          else if (r === "biweekly") d.setDate(d.getDate() + 14);
+          else if (r === "monthly") d.setMonth(d.getMonth() + 1);
+          else if (r === "quarterly") d.setMonth(d.getMonth() + 3);
+          else if (r === "semiannually") d.setMonth(d.getMonth() + 6);
+          else if (r === "yearly") d.setFullYear(d.getFullYear() + 1);
+        };
         if (taskData.deadline) {
           const d = new Date(taskData.deadline);
-          if (rec === "daily") d.setDate(d.getDate() + 1);
-          else if (rec === "weekly") d.setDate(d.getDate() + 7);
-          else if (rec === "monthly") d.setMonth(d.getMonth() + 1);
-          else if (rec === "yearly") d.setFullYear(d.getFullYear() + 1);
+          addRecurrence(d, rec);
           nextDeadline = d;
         } else {
-          if (rec === "daily") now.setDate(now.getDate() + 1);
-          else if (rec === "weekly") now.setDate(now.getDate() + 7);
-          else if (rec === "monthly") now.setMonth(now.getMonth() + 1);
-          else if (rec === "yearly") now.setFullYear(now.getFullYear() + 1);
+          addRecurrence(now, rec);
           nextDeadline = now;
         }
 

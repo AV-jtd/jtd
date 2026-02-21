@@ -745,8 +745,14 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
               >
                 <option value="">Без повтора</option>
                 <option value="daily">Ежедневно</option>
+                <option value="weekdays">По будням (Пн-Пт)</option>
+                <option value="every2days">Каждые 2 дня</option>
+                <option value="every3days">Каждые 3 дня</option>
                 <option value="weekly">Еженедельно</option>
+                <option value="biweekly">Каждые 2 недели</option>
                 <option value="monthly">Ежемесячно</option>
+                <option value="quarterly">Ежеквартально</option>
+                <option value="semiannually">Каждые 6 месяцев</option>
                 <option value="yearly">Ежегодно</option>
               </select>
               {(task as any).recurrence && (
