@@ -597,7 +597,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
           {/* Subtasks in detail view */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Check className="h-3 w-3" /> Подзадачи
+              <Check className="h-3 w-3" /> Шаги
             </p>
             {subtasks.map((sub) => (
               <div key={sub.id} className="flex items-center gap-2.5 group/sub py-0.5">
