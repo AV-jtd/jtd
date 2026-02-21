@@ -53,7 +53,9 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups } = useTaskMutations();
+  const { data: folders = [] } = useProjectFolders();
+  const { data: folderItems = [] } = useProjectFolderItems();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups, addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
