@@ -17,6 +17,8 @@ import { CSS } from "@dnd-kit/utilities";
 interface TaskItemProps {
   task: Task;
   sortable?: boolean;
+  initialOpen?: boolean;
+  onOpened?: () => void;
 }
 
 const PRIORITIES = [
