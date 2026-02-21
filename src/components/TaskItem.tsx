@@ -318,6 +318,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </Popover>
           </div>
 
+
           {/* Quick set deadline - hidden on mobile */}
           <div className="hidden sm:block">
           <Popover>
