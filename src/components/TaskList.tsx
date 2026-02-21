@@ -3,7 +3,7 @@ import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, Loader2, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -60,11 +60,14 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
     assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
+    deferred: { title: "Отложенные", icon: Clock, emptyTitle: "Нет отложенных", emptyDesc: "Установите дату начала, чтобы отложить задачу" },
     group: { title: activeGroup?.name || "Проект", icon: List, emptyTitle: "Проект пуст", emptyDesc: "Добавьте задачи в этот проект" },
   };
 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
+
+  const now = new Date();
 
   let filteredTasks = tasks;
   if (activeView === "important") {
@@ -73,6 +76,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
   } else if (activeView === "assigned") {
     filteredTasks = tasks.filter(t => t.assigned_to);
+  } else if (activeView === "deferred") {
+    filteredTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
+  } else {
+    // Hide deferred tasks from all other views
+    filteredTasks = filteredTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
   }
 
   if (priorityFilter !== null) {

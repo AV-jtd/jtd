@@ -216,6 +216,12 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                 })()}
               </span>
             )}
+            {task.deferred_until && new Date(task.deferred_until) > new Date() && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                до {format(parseISO(task.deferred_until), "d MMM", { locale: ru })}
+              </span>
+            )}
             {(task as any).recurrence && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Repeat className="h-3 w-3" />
@@ -354,6 +360,56 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                   className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
                 >
                   Убрать срок
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+
+          {/* Quick set deferred */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "p-1.5 transition-opacity",
+                task.deferred_until ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+              )}>
+                <Clock className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-40 p-1.5" side="left">
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Отложить до</p>
+              {[
+                { label: "Завтра", days: 1 },
+                { label: "Через 3 дня", days: 3 },
+                { label: "Через неделю", days: 7 },
+                { label: "Через месяц", days: 30 },
+              ].map(opt => {
+                const d = new Date();
+                d.setDate(d.getDate() + opt.days);
+                const val = format(d, "yyyy-MM-dd");
+                return (
+                  <button
+                    key={opt.days}
+                    onClick={() => updateTask.mutate({ id: task.id, deferred_until: val } as any)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <div className="border-t border-border mt-1 pt-1">
+                <input
+                  type="date"
+                  value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
+                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
+                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
+                />
+              </div>
+              {task.deferred_until && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)}
+                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
+                >
+                  Убрать откладывание
                 </button>
               )}
             </PopoverContent>
