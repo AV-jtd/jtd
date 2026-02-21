@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
 import {
@@ -17,6 +17,8 @@ import { CSS } from "@dnd-kit/utilities";
 interface TaskItemProps {
   task: Task;
   sortable?: boolean;
+  initialOpen?: boolean;
+  onOpened?: () => void;
 }
 
 const PRIORITIES = [
@@ -28,14 +30,14 @@ const PRIORITIES = [
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable }: TaskItemProps) {
+export default function TaskItem({ task, sortable, initialOpen, onOpened }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
   const [expanded, setExpanded] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -44,7 +46,15 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
-  
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialOpen && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      onOpened?.();
+    }
+  }, [initialOpen]);
+
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
@@ -113,7 +123,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       className={cn(
         "group bg-card rounded-xl border border-border transition-all duration-200",

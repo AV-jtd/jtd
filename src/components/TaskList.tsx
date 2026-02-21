@@ -37,9 +37,11 @@ interface TaskListProps {
   onToggleChat?: () => void;
   messengerOpen?: boolean;
   onToggleMessenger?: () => void;
+  highlightTaskId?: string | null;
+  onHighlightClear?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -268,7 +270,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
                   <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
-                    <TaskItem task={task} sortable />
+                    <TaskItem task={task} sortable initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} />
                   </div>
                 ))}
               </SortableContext>
@@ -282,7 +284,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 </p>
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
-                    <TaskItem key={task.id} task={task} />
+                    <TaskItem key={task.id} task={task} initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} />
                   ))}
                 </div>
               </div>
