@@ -316,6 +316,43 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
           </Popover>
           </div>
 
+          {/* Quick assign responsible (🪄) */}
+          <div>
+          <Popover open={userPickerOpen === "quick-assignee"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-assignee" : null); setUserSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "p-1.5 transition-opacity",
+                task.assigned_to ? "text-primary hover:text-primary/80" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+              )} title="Назначить ответственного">
+                <Wand2 className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" side="left">
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">🪄 Назначить ответственного</p>
+              <Input
+                autoFocus
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Кому поручить?"
+                className="h-7 text-xs mb-2"
+              />
+              <div className="max-h-40 overflow-y-auto space-y-0.5">
+                {filteredUsers.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">Никого нет 🤷</p>
+                )}
+                {filteredUsers.map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" }); setUserPickerOpen(null); setUserSearch(""); }}
+                    className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
+                  >
+                    <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          </div>
 
           {/* Quick set deadline */}
           <div>
