@@ -178,7 +178,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {subtasks.length > 0 && (
-              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} подзадач</span>
+              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} шагов</span>
             )}
             {task.description && !detailsOpen && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
@@ -286,7 +286,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             <Star className={cn("h-4 w-4", task.is_important && "fill-current")} />
           </button>
 
-          <ConfirmDelete title="Удалить задачу?" description="Задача и все подзадачи будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
+          <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
             <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -597,7 +597,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
           {/* Subtasks in detail view */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Check className="h-3 w-3" /> Подзадачи
+              <Check className="h-3 w-3" /> Шаги
             </p>
             {subtasks.map((sub) => (
               <div key={sub.id} className="flex items-center gap-2.5 group/sub py-0.5">
@@ -620,7 +620,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
               <input
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
-                placeholder="Новая подзадача..."
+                placeholder="Новый шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
             </form>
@@ -711,13 +711,13 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
                 onBlur={() => { if (!newSubtask.trim()) setShowAddSubtask(false); }}
-                placeholder="Подзадача..."
+                placeholder="Шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
             </form>
           ) : (
             <button onClick={() => setShowAddSubtask(true)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary py-1">
-              <Plus className="h-3 w-3" /> Подзадача
+              <Plus className="h-3 w-3" /> Шаг
             </button>
           )}
         </div>
