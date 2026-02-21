@@ -436,6 +436,16 @@ export function useTaskMutations() {
             tag_id: (group as any).linked_tag_id,
           });
         }
+
+        // Notify group members about new task
+        const { data: members } = await supabase
+          .from("group_members")
+          .select("user_id")
+          .eq("group_id", task.group_id);
+        const memberIds = (members || []).map((m: any) => m.user_id);
+        if (memberIds.length > 0) {
+          notifyEvent("new_task_in_group", task.title, memberIds);
+        }
       }
     },
     onMutate: async (task) => {
@@ -799,6 +809,10 @@ export function useTaskMutations() {
       });
       if (error) throw error;
 
+      // Notify: added to group
+      const { data: groupInfo } = await supabase.from("task_groups").select("name").eq("id", group_id).single();
+      notifyEvent("added_to_group", groupInfo?.name || "Проект", [targetUserId]);
+
       const { data: group } = await supabase.from("task_groups").select("*").eq("id", group_id).single();
       if (group && group.linked_tag_id) {
         await supabase.from("tag_access").insert({ tag_id: group.linked_tag_id, user_id: targetUserId, granted_by: user!.id });
@@ -818,6 +832,10 @@ export function useTaskMutations() {
         group_id, user_id: profile.id, invited_by: user!.id, role,
       });
       if (error) throw error;
+
+      // Notify: added to group
+      const { data: groupInfo } = await supabase.from("task_groups").select("name").eq("id", group_id).single();
+      notifyEvent("added_to_group", groupInfo?.name || "Проект", [profile.id]);
 
       const { data: group } = await supabase.from("task_groups").select("*").eq("id", group_id).single();
       if (group && group.linked_tag_id) {
@@ -848,12 +866,17 @@ export function useTaskMutations() {
   // ========== PARTICIPANTS ==========
 
   const addParticipant = useMutation({
-    mutationFn: async ({ task_id, user_id, role }: { task_id: string; user_id: string; role: string }) => {
-      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id, role });
+    mutationFn: async ({ task_id, user_id: participantUserId, role }: { task_id: string; user_id: string; role: string }) => {
+      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id: participantUserId, role });
       if (error) throw error;
       if (role === "assignee") {
-        await supabase.from("tasks").update({ assigned_to: user_id }).eq("id", task_id);
+        await supabase.from("tasks").update({ assigned_to: participantUserId }).eq("id", task_id);
       }
+
+      // Notify participant
+      const { data: taskData } = await supabase.from("tasks").select("title").eq("id", task_id).single();
+      const event = role === "assignee" ? "task_assigned" : "task_participant_added";
+      notifyEvent(event, taskData?.title || "", [participantUserId]);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); },
     onError: (e) => toast.error(e.message),
