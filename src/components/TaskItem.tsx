@@ -427,7 +427,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               const assignee = participants.find(p => p.role === "assignee");
               return assignee ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-foreground">{getProfileName(assignee.user_id)}</span>
+                  <span className="text-sm text-primary font-semibold">{getProfileName(assignee.user_id)}</span>
                   <button
                     onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
                     className="text-xs text-muted-foreground hover:text-destructive"
