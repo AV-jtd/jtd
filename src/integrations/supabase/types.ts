@@ -97,6 +97,54 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          push_added_to_group: boolean
+          push_deadline_approaching: boolean
+          push_task_assigned: boolean
+          push_task_commented: boolean
+          push_task_completed: boolean
+          telegram_deadline_approaching: boolean
+          telegram_task_assigned: boolean
+          telegram_task_commented: boolean
+          telegram_task_completed: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          push_added_to_group?: boolean
+          push_deadline_approaching?: boolean
+          push_task_assigned?: boolean
+          push_task_commented?: boolean
+          push_task_completed?: boolean
+          telegram_deadline_approaching?: boolean
+          telegram_task_assigned?: boolean
+          telegram_task_commented?: boolean
+          telegram_task_completed?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          push_added_to_group?: boolean
+          push_deadline_approaching?: boolean
+          push_task_assigned?: boolean
+          push_task_commented?: boolean
+          push_task_completed?: boolean
+          telegram_deadline_approaching?: boolean
+          telegram_task_assigned?: boolean
+          telegram_task_commented?: boolean
+          telegram_task_completed?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
