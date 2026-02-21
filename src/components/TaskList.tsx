@@ -120,18 +120,32 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             </p>
           </div>
           {activeView === "group" && activeGroup && (
-            <button
-              onClick={onToggleProjectDetail}
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                projectDetailOpen
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Карточка проекта"
-            >
-              <Expand className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onToggleChat}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  chatOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Чат проекта"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onToggleProjectDetail}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  projectDetailOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Карточка проекта"
+              >
+                <Expand className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
