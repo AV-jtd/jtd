@@ -92,7 +92,7 @@ export default function Index() {
         ) : activeView === "archive" ? (
           <ArchiveView />
         ) : (
-          <div className="flex flex-1 min-w-0">
+          <div className="flex flex-1 min-w-0 overflow-hidden">
             <TaskList
               activeView={activeView}
               activeGroupId={activeGroupId}
