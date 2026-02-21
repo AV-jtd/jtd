@@ -12,6 +12,8 @@ interface ProjectChatProps {
   groupId: string;
   groupName: string;
   onClose: () => void;
+  /** When true, hides the header (used inside MessengerPanel) */
+  embedded?: boolean;
 }
 
 function formatMsgDate(dateStr: string) {
