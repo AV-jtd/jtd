@@ -451,23 +451,27 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </Popover>
           </div>
 
+          {/* Star - hidden on mobile, visible if important */}
           <button
             onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
             className={cn(
               "p-1.5 transition-all",
               task.is_important
                 ? "text-warning"
-                : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-warning"
+                : "hidden sm:block text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-warning"
             )}
           >
             <Star className={cn("h-4 w-4", task.is_important && "fill-current")} />
           </button>
 
+          {/* Delete - hidden on mobile */}
+          <div className="hidden sm:block">
           <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
             <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </ConfirmDelete>
+          </div>
         </div>
       </div>
 
