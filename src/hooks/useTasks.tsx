@@ -98,6 +98,20 @@ export function useTaskGroups() {
 
 export function useTasks(groupId?: string | null, filterTags?: string[] | null) {
   const { user } = useAuth();
+  const qc = useQueryClient();
+
+  // Real-time: auto-refresh when subtasks change (other participants)
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("subtasks-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "subtasks" }, () => {
+        qc.invalidateQueries({ queryKey: ["tasks"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, qc]);
+
   return useQuery({
     queryKey: ["tasks", user?.id, groupId, filterTags],
     queryFn: async () => {
