@@ -153,7 +153,6 @@ Deno.serve(async (req) => {
     if (message.text.startsWith("/project")) {
       const projectName = message.text.replace(/^\/project\s*/, "").trim();
       if (!projectName) {
-        // Reset project — store in a simple way via description
         await sendTelegramMessage(BOT_TOKEN, chatId, "📂 Проект сброшен. Задачи будут создаваться без проекта.");
         return new Response(JSON.stringify({ ok: true, active_project: null }), { headers: corsHeaders });
       }
@@ -172,14 +171,79 @@ Deno.serve(async (req) => {
           `❌ Проект «${projectName}» не найден.\nИспользуй /projects для списка.`
         );
       } else {
-        // We'll store active project in chat context — but since we're stateless,
-        // we use a convention: user sends "/project X" then the next messages include group_id
-        // For simplicity, we store it as a profile-level preference
-        // Actually, let's just acknowledge and tell user to include project name inline
         await sendTelegramMessage(
           BOT_TOKEN,
           chatId,
           `✅ Проект: ${group.icon || "📁"} *${escapeMarkdown(group.name)}*\n\nТеперь добавляй \`#${escapeMarkdown(group.name)}\` к задачам или просто пиши — задачи попадут в этот проект.`,
+          "Markdown"
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // Handle /chat — send message to project chat
+    if (message.text.startsWith("/chat")) {
+      const parts = message.text.replace(/^\/chat\s*/, "").trim();
+      const firstSpace = parts.indexOf(" ");
+      if (firstSpace === -1 || !parts.trim()) {
+        await sendTelegramMessage(
+          BOT_TOKEN,
+          chatId,
+          "💬 Формат: `/chat Название проекта Сообщение`\n\nПример: `/chat Работа Привет всем!`",
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Try to find project by matching the beginning of the text
+      const { data: userGroups } = await supabase
+        .from("task_groups")
+        .select("id, name, icon")
+        .eq("user_id", userId)
+        .order("position");
+
+      let matchedGroup: { id: string; name: string; icon: string | null } | null = null;
+      let chatMessage = "";
+
+      if (userGroups) {
+        // Sort by name length descending to match longest name first
+        const sorted = [...userGroups].sort((a, b) => b.name.length - a.name.length);
+        for (const g of sorted) {
+          if (parts.toLowerCase().startsWith(g.name.toLowerCase())) {
+            matchedGroup = g;
+            chatMessage = parts.substring(g.name.length).trim();
+            break;
+          }
+        }
+      }
+
+      if (!matchedGroup || !chatMessage) {
+        await sendTelegramMessage(
+          BOT_TOKEN,
+          chatId,
+          "❌ Не удалось определить проект или сообщение пустое.\nИспользуй `/projects` для списка.",
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      const { error: msgError } = await supabase
+        .from("group_messages")
+        .insert({
+          group_id: matchedGroup.id,
+          user_id: userId,
+          content: chatMessage,
+          source: "telegram",
+        });
+
+      if (msgError) {
+        console.error("Chat message error:", msgError);
+        await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось отправить сообщение в чат.");
+      } else {
+        await sendTelegramMessage(
+          BOT_TOKEN,
+          chatId,
+          `💬 Сообщение отправлено в ${matchedGroup.icon || "📁"} *${escapeMarkdown(matchedGroup.name)}*`,
           "Markdown"
         );
       }
