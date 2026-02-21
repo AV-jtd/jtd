@@ -270,7 +270,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          {/* Expand - always visible */}
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className={cn(
@@ -283,7 +284,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             <Expand className="h-3.5 w-3.5" />
           </button>
 
-          {/* Quick add participant */}
+          {/* Quick add participant - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover open={userPickerOpen === "quick-participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-participant" : null); setUserSearch(""); }}>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
@@ -314,8 +316,10 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               </div>
             </PopoverContent>
           </Popover>
+          </div>
 
-          {/* Quick set deadline */}
+          {/* Quick set deadline - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
@@ -364,8 +368,10 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               )}
             </PopoverContent>
           </Popover>
+          </div>
 
-          {/* Quick set deferred */}
+          {/* Quick set deferred - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
@@ -414,7 +420,10 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               )}
             </PopoverContent>
           </Popover>
+          </div>
 
+          {/* Quick add tag - hidden on mobile */}
+          <div className="hidden sm:block">
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
@@ -440,24 +449,29 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
               </div>
             </PopoverContent>
           </Popover>
+          </div>
 
+          {/* Star - hidden on mobile, visible if important */}
           <button
             onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
             className={cn(
               "p-1.5 transition-all",
               task.is_important
                 ? "text-warning"
-                : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-warning"
+                : "hidden sm:block text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-warning"
             )}
           >
             <Star className={cn("h-4 w-4", task.is_important && "fill-current")} />
           </button>
 
+          {/* Delete - hidden on mobile */}
+          <div className="hidden sm:block">
           <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
             <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </ConfirmDelete>
+          </div>
         </div>
       </div>
 
