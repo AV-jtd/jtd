@@ -279,7 +279,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
                   <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
-                    <TaskItem task={task} sortable initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} />
+                    <TaskItem task={task} sortable initialOpen={task.id === highlightTaskId} onOpened={task.id === highlightTaskId ? onHighlightClear : undefined} onTagClick={onTagClick} />
                   </div>
                 ))}
               </SortableContext>
