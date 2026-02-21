@@ -46,7 +46,15 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
-  
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialOpen && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      onOpened?.();
+    }
+  }, [initialOpen]);
+
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
