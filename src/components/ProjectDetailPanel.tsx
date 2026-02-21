@@ -33,7 +33,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       if (memberIds.includes(u.id)) return false;
       if (!userSearch.trim()) return true;
       const q = userSearch.toLowerCase();
-      return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.telegram_username?.toLowerCase().includes(q));
+      return u.display_name?.toLowerCase().includes(q);
     });
   }, [availableUsers, members, userSearch]);
 
