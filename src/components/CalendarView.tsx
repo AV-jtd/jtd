@@ -2,10 +2,10 @@ import { useState, useMemo } from "react";
 import { useTasks, useTaskMutations } from "@/hooks/useTasks";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, isSameMonth, isSameDay, isToday,
+  eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore,
   addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
   addYears, subYears, startOfYear, endOfYear, eachMonthOfInterval,
-  parseISO, startOfDay,
+  parseISO, startOfDay, differenceInDays,
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from "lucide-react";
@@ -18,7 +18,11 @@ import {
 
 type ViewMode = "day" | "week" | "month" | "year";
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  onNavigateToTask?: (taskId: string) => void;
+}
+
+export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
   const { data: tasks = [] } = useTasks();
   const { addTask } = useTaskMutations();
   const [currentDate, setCurrentDate] = useState(new Date());
