@@ -44,7 +44,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
-  const [newComment, setNewComment] = useState("");
+  
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
