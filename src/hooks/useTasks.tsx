@@ -892,6 +892,15 @@ export function useTaskMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  const updateFolderColor = useMutation({
+    mutationFn: async ({ id, color }: { id: string; color: string }) => {
+      const { error } = await supabase.from("project_folders" as any).update({ color }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project_folders"] }),
+    onError: (e) => toast.error(e.message),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -900,6 +909,6 @@ export function useTaskMutations() {
     addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
     reorderTasks, reorderGroups,
     addParticipant, removeParticipant,
-    addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder,
+    addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
   };
 }
