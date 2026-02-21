@@ -12,6 +12,8 @@ interface ProjectChatProps {
   groupId: string;
   groupName: string;
   onClose: () => void;
+  /** When true, hides the header (used inside MessengerPanel) */
+  embedded?: boolean;
 }
 
 function formatMsgDate(dateStr: string) {
@@ -25,7 +27,7 @@ function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || msg.profile?.email || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
@@ -66,17 +68,19 @@ export default function ProjectChat({ groupId, groupName, onClose }: ProjectChat
   };
 
   return (
-    <div className="flex flex-col h-full bg-card border-l border-border">
+    <div className={cn("flex flex-col h-full", !embedded && "bg-card border-l border-border")}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <MessageCircle className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-sm font-semibold text-foreground truncate">{groupName}</span>
+      {!embedded && (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <MessageCircle className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-semibold text-foreground truncate">{groupName}</span>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-3">

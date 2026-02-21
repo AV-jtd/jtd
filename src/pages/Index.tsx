@@ -9,10 +9,12 @@ import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
 import ProjectChat from "@/components/ProjectChat";
+import MessengerPanel from "@/components/MessengerPanel";
 import { useTaskGroups } from "@/hooks/useTasks";
-import { Loader2, Menu } from "lucide-react";
+import { Loader2, Menu, MessageCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -22,6 +24,7 @@ export default function Index() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [messengerOpen, setMessengerOpen] = useState(false);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
 
@@ -78,41 +81,63 @@ export default function Index() {
             <button onClick={() => setSidebarOpen(true)} className="p-1.5 -ml-1 rounded-lg hover:bg-muted transition-colors">
               <Menu className="h-5 w-5 text-foreground" />
             </button>
-            <span className="text-base font-semibold text-foreground">Just<span className="text-primary">TODO</span>it</span>
+            <span className="text-base font-semibold text-foreground flex-1">Just<span className="text-primary">TODO</span>it</span>
+            <button
+              onClick={() => setMessengerOpen(prev => !prev)}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                messengerOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <MessageCircle className="h-5 w-5" />
+            </button>
           </header>
         )}
-        {activeView === "calendar" ? (
-          <CalendarView />
-        ) : activeView === "subordinates" ? (
-          <SubordinatesView />
-        ) : activeView === "community" ? (
-          <CommunityView />
-        ) : activeView === "dashboard" ? (
-          <DashboardView />
-        ) : activeView === "archive" ? (
-          <ArchiveView />
-        ) : (
-          <div className="flex flex-1 min-w-0 overflow-hidden">
-            <TaskList
-              activeView={activeView}
-              activeGroupId={activeGroupId}
-              activeTagFilters={activeTagFilters}
-              projectDetailOpen={projectDetailOpen}
-              onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
-              chatOpen={chatOpen}
-              onToggleChat={() => setChatOpen(prev => !prev)}
-            />
-            {chatOpen && activeGroupId && activeView === "group" && (
-              <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
-                <ProjectChat
-                  groupId={activeGroupId}
-                  groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
-                  onClose={() => setChatOpen(false)}
+        <div className="flex flex-1 min-w-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {activeView === "calendar" ? (
+              <CalendarView />
+            ) : activeView === "subordinates" ? (
+              <SubordinatesView />
+            ) : activeView === "community" ? (
+              <CommunityView />
+            ) : activeView === "dashboard" ? (
+              <DashboardView />
+            ) : activeView === "archive" ? (
+              <ArchiveView />
+            ) : (
+              <div className="flex flex-1 min-w-0 overflow-hidden">
+                <TaskList
+                  activeView={activeView}
+                  activeGroupId={activeGroupId}
+                  activeTagFilters={activeTagFilters}
+                  projectDetailOpen={projectDetailOpen}
+                  onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
+                  chatOpen={chatOpen}
+                  onToggleChat={() => setChatOpen(prev => !prev)}
+                  messengerOpen={messengerOpen}
+                  onToggleMessenger={() => setMessengerOpen(prev => !prev)}
                 />
+                {chatOpen && activeGroupId && activeView === "group" && (
+                  <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
+                    <ProjectChat
+                      groupId={activeGroupId}
+                      groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
+                      onClose={() => setChatOpen(false)}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+
+          {/* Messenger panel */}
+          {messengerOpen && (
+            <div className="w-96 shrink-0 h-full animate-fade-in">
+              <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

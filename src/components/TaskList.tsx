@@ -35,9 +35,11 @@ interface TaskListProps {
   onToggleProjectDetail: () => void;
   chatOpen?: boolean;
   onToggleChat?: () => void;
+  messengerOpen?: boolean;
+  onToggleMessenger?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -146,6 +148,20 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 <Expand className="h-4 w-4" />
               </button>
             </div>
+          )}
+          {(!activeGroup || activeView !== "group") && (
+            <button
+              onClick={onToggleMessenger}
+              className={cn(
+                "p-2 rounded-lg transition-all",
+                messengerOpen
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Сообщения"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
           )}
         </div>
 
