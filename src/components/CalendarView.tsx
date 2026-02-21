@@ -283,18 +283,34 @@ export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
             <p className="text-sm text-muted-foreground text-center py-8">Нет задач на этот день</p>
           ) : (
             <div className="space-y-2">
-              {dayTasks.map(t => (
-                <div key={t.id} className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md border",
-                  t.is_completed ? "bg-muted/50 line-through text-muted-foreground" : "bg-card"
-                )}>
-                  <div className={cn(
-                    "h-2 w-2 rounded-full shrink-0",
-                    t.is_important ? "bg-destructive" : "bg-primary"
-                  )} />
-                  <span className="text-sm">{t.title}</span>
-                </div>
-              ))}
+              {dayTasks.map(t => {
+                const overdue = isOverdue(t);
+                const drift = getDrift(t);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigateToTask?.(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md border w-full text-left hover:bg-accent/30 transition-colors cursor-pointer",
+                      t.is_completed ? "bg-muted/50 line-through text-muted-foreground" : overdue ? "border-destructive/30 bg-destructive/5" : "bg-card"
+                    )}
+                  >
+                    <div className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      overdue ? "bg-destructive" : t.is_important ? "bg-destructive" : "bg-primary"
+                    )} />
+                    <span className="text-sm flex-1 truncate">{t.title}</span>
+                    {drift !== null && (
+                      <span className={cn(
+                        "text-[10px] font-bold shrink-0",
+                        drift > 0 ? "text-orange-500" : "text-emerald-500"
+                      )}>
+                        {drift > 0 ? `+${drift}` : drift}д
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
