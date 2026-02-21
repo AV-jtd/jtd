@@ -266,19 +266,34 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      // Try to find project by matching the beginning of the text
-      const { data: userGroups } = await supabase
+      // Try to find project by matching the beginning of the text (owned + member)
+      const { data: ownedGroups } = await supabase
         .from("task_groups")
         .select("id, name, icon")
-        .eq("user_id", userId)
-        .order("position");
+        .eq("user_id", userId);
 
+      const { data: memberships } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", userId);
+
+      let memberGroups: { id: string; name: string; icon: string | null }[] = [];
+      const ownedIds = new Set((ownedGroups || []).map(g => g.id));
+      const memberOnlyIds = (memberships || []).map(m => m.group_id).filter(id => !ownedIds.has(id));
+      if (memberOnlyIds.length > 0) {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("id, name, icon")
+          .in("id", memberOnlyIds);
+        memberGroups = data || [];
+      }
+
+      const allGroups = [...(ownedGroups || []), ...memberGroups];
       let matchedGroup: { id: string; name: string; icon: string | null } | null = null;
       let chatMessage = "";
 
-      if (userGroups) {
-        // Sort by name length descending to match longest name first
-        const sorted = [...userGroups].sort((a, b) => b.name.length - a.name.length);
+      if (allGroups.length > 0) {
+        const sorted = [...allGroups].sort((a, b) => b.name.length - a.name.length);
         for (const g of sorted) {
           if (parts.toLowerCase().startsWith(g.name.toLowerCase())) {
             matchedGroup = g;
