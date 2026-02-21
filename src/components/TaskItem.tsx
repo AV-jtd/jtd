@@ -319,8 +319,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </div>
 
 
-          {/* Quick set deadline - hidden on mobile */}
-          <div className="hidden sm:block">
+          {/* Quick set deadline */}
+          <div>
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
