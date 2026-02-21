@@ -19,6 +19,7 @@ export default function Settings() {
   const { user, loading } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
+  const { prefs, updatePrefs } = useNotificationPreferences();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [workEmail, setWorkEmail] = useState("");
