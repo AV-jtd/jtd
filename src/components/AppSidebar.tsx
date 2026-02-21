@@ -359,7 +359,7 @@ export default function AppSidebar({
                     />
                   ))}
                 </div>
-                <HueSlider group={group} updateGroupAppearance={updateGroupAppearance} onDone={() => setEmojiPickerGroupId(null)} />
+                <HueSlider group={group} onColorChange={(id, color) => updateGroupAppearance.mutate({ id, color, icon: group.icon === "list" ? "list" : undefined })} onDone={() => setEmojiPickerGroupId(null)} />
               </PopoverContent>
             </Popover>
 
