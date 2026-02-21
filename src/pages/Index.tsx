@@ -25,7 +25,6 @@ export default function Index() {
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
-  const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
 
@@ -100,7 +99,7 @@ export default function Index() {
               <CalendarView onNavigateToTask={(taskId) => {
                 setActiveView("all");
                 setActiveGroupId(null);
-                setHighlightTaskId(taskId);
+                // TODO: could scroll to / highlight the specific task
               }} />
             ) : activeView === "subordinates" ? (
               <SubordinatesView />
@@ -122,8 +121,6 @@ export default function Index() {
                   onToggleChat={() => setChatOpen(prev => !prev)}
                   messengerOpen={messengerOpen}
                   onToggleMessenger={() => setMessengerOpen(prev => !prev)}
-                  highlightTaskId={highlightTaskId}
-                  onClearHighlight={() => setHighlightTaskId(null)}
                 />
                 {chatOpen && activeGroupId && activeView === "group" && (
                   <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
