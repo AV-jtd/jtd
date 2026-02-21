@@ -303,7 +303,6 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
                     className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
                   >
                     <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                    <span className="text-xs text-muted-foreground">{u.email}</span>
                   </button>
                 ))}
               </div>
