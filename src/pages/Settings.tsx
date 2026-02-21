@@ -258,11 +258,13 @@ export default function Settings() {
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground mb-3">События для Web Push</p>
                   {([
-                    { key: "push_task_assigned", label: "Назначение задачи" },
+                    { key: "push_task_assigned", label: "Назначен ответственным" },
+                    { key: "push_task_participant_added", label: "Добавлен участником в задачу" },
                     { key: "push_task_completed", label: "Завершение задачи (где участник)" },
                     { key: "push_task_commented", label: "Новый комментарий к задаче" },
+                    { key: "push_added_to_group", label: "Добавление в проект/подпроект" },
+                    { key: "push_new_task_in_group", label: "Новая задача в моём проекте" },
                     { key: "push_deadline_approaching", label: "Приближение дедлайна" },
-                    { key: "push_added_to_group", label: "Добавление в проект" },
                   ] as { key: keyof typeof prefs; label: string }[]).map(item => (
                     <div key={item.key} className="flex items-center justify-between py-2">
                       <span className="text-sm">{item.label}</span>
@@ -275,9 +277,12 @@ export default function Settings() {
 
                   <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
                   {([
-                    { key: "telegram_task_assigned", label: "Назначение задачи" },
+                    { key: "telegram_task_assigned", label: "Назначен ответственным" },
+                    { key: "telegram_task_participant_added", label: "Добавлен участником в задачу" },
                     { key: "telegram_task_completed", label: "Завершение задачи (где участник)" },
                     { key: "telegram_task_commented", label: "Новый комментарий к задаче" },
+                    { key: "telegram_added_to_group", label: "Добавление в проект/подпроект" },
+                    { key: "telegram_new_task_in_group", label: "Новая задача в моём проекте" },
                     { key: "telegram_deadline_approaching", label: "Приближение дедлайна" },
                   ] as { key: keyof typeof prefs; label: string }[]).map(item => (
                     <div key={item.key} className="flex items-center justify-between py-2">
