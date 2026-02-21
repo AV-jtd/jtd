@@ -5,7 +5,7 @@ import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
+import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
