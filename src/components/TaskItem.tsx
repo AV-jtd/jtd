@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
+import UserPicker from "@/components/UserPicker";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2,
 } from "lucide-react";
@@ -8,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { useSortable } from "@dnd-kit/sortable";
@@ -29,6 +29,19 @@ const PRIORITIES = [
   { value: 4, label: "P4 — Низкий", color: "text-blue-400", bgColor: "bg-blue-400/10", dotColor: "bg-blue-400" },
 ] as const;
 
+const RECURRENCE_LABELS: Record<string, string> = {
+  daily: "Ежедневно",
+  weekdays: "По будням",
+  every2days: "Каждые 2 дня",
+  every3days: "Каждые 3 дня",
+  weekly: "Еженедельно",
+  biweekly: "Каждые 2 недели",
+  monthly: "Ежемесячно",
+  quarterly: "Ежеквартально",
+  semiannually: "Каждые 6 мес.",
+  yearly: "Ежегодно",
+};
+
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick }: TaskItemProps) {
@@ -43,7 +56,6 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [userSearch, setUserSearch] = useState("");
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
@@ -56,20 +68,16 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
     }
   }, [initialOpen]);
 
-
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
 
+  const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
+
   const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: task.id, disabled: !sortable });
 
   const formatDeadline = (deadline: string) => {
@@ -98,25 +106,16 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const handleSaveDescription = () => {
     const newDesc = descriptionDraft.trim() || null;
     if (newDesc !== (task.description || null)) {
-      updateTask.mutate({ id: task.id, description: newDesc } as any);
+      updateTask.mutate({ id: task.id, description: newDesc });
     }
     setEditingDescription(false);
   };
-
-  const filteredUsers = useMemo(() => {
-    const participantIds = participants.map(p => p.user_id);
-    return availableUsers.filter(u => {
-      if (participantIds.includes(u.id)) return false;
-      if (!userSearch.trim()) return true;
-      const q = userSearch.toLowerCase();
-      return u.display_name?.toLowerCase().includes(q);
-    });
-  }, [availableUsers, participants, userSearch]);
 
   const getProfileName = (userId: string) => {
     const p = availableUsers.find(u => u.id === userId);
     return p?.display_name || userId.slice(0, 8);
   };
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -194,7 +193,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 <FileText className="h-3 w-3" />
               </span>
             )}
-             {task.deadline && (
+            {task.deadline && (
               <span className={cn(
                 "text-xs flex items-center gap-1",
                 deadlineOverdue ? "text-destructive" : "text-muted-foreground"
@@ -202,7 +201,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 <Calendar className="h-3 w-3" />
                 {formatDeadline(task.deadline)}
                 {(() => {
-                  const orig = (task as any).original_deadline;
+                  const orig = task.original_deadline;
                   if (!orig || orig === task.deadline) return null;
                   const drift = differenceInDays(parseISO(task.deadline), parseISO(orig));
                   if (drift === 0) return null;
@@ -223,14 +222,14 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 до {format(parseISO(task.deferred_until), "d MMM", { locale: ru })}
               </span>
             )}
-            {(task as any).recurrence && (
+            {task.recurrence && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Repeat className="h-3 w-3" />
-                {{ daily: "Ежедневно", weekdays: "По будням", every2days: "Каждые 2 дня", every3days: "Каждые 3 дня", weekly: "Еженедельно", biweekly: "Каждые 2 недели", monthly: "Ежемесячно", quarterly: "Ежеквартально", semiannually: "Каждые 6 мес.", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
+                {RECURRENCE_LABELS[task.recurrence] || task.recurrence}
               </span>
             )}
             {(() => {
-              const p = getPriority((task as any).priority);
+              const p = getPriority(task.priority);
               return p ? (
                 <span className={cn("text-xs flex items-center gap-1 font-medium", p.color)}>
                   <Flag className="h-3 w-3" />
@@ -255,10 +254,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
               <span
                 key={tag.id}
                 className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-                style={{
-                  backgroundColor: `${tag.color}20`,
-                  color: tag.color || undefined,
-                }}
+                style={{ backgroundColor: `${tag.color}20`, color: tag.color || undefined }}
                 onClick={(e) => { e.stopPropagation(); onTagClick?.(tag.id); }}
               >
                 {tag.name}
@@ -269,7 +265,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
 
         {/* Actions */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-0.5 sm:gap-1 shrink-0">
-          {/* Expand - always visible */}
+          {/* Expand */}
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className={cn(
@@ -284,210 +280,175 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
 
           {/* Quick add participant */}
           <div>
-          <Popover open={userPickerOpen === "quick-participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-participant" : null); setUserSearch(""); }}>
-            <PopoverTrigger asChild>
-              <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
-                <UserPlus className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2" side="left">
-              <Input
-                autoFocus
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Поиск по имени..."
-                className="h-7 text-xs mb-2"
-              />
-              <div className="max-h-40 overflow-y-auto space-y-0.5">
-                {filteredUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
-                )}
-                {filteredUsers.map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" }); setUserPickerOpen(null); setUserSearch(""); }}
-                    className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
-                  >
-                    <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+            <UserPicker
+              users={availableUsers}
+              excludeIds={participantIds}
+              open={userPickerOpen === "quick-participant"}
+              onOpenChange={(open) => setUserPickerOpen(open ? "quick-participant" : null)}
+              onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+              trigger={
+                <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
+                  <UserPlus className="h-3.5 w-3.5" />
+                </button>
+              }
+            />
           </div>
 
-          {/* Quick assign responsible (🪄) */}
+          {/* Quick assign responsible */}
           <div>
-          <Popover open={userPickerOpen === "quick-assignee"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-assignee" : null); setUserSearch(""); }}>
-            <PopoverTrigger asChild>
-              <button className={cn(
-                "p-1.5 transition-opacity",
-                task.assigned_to ? "text-primary hover:text-primary/80" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-              )} title="Назначить ответственного">
-                <Wand2 className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">🪄 Назначить ответственного</p>
-              <Input
-                autoFocus
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Кому поручить?"
-                className="h-7 text-xs mb-2"
-              />
-              <div className="max-h-40 overflow-y-auto space-y-0.5">
-                {filteredUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground px-2 py-1">Никого нет 🤷</p>
-                )}
-                {filteredUsers.map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" }); setUserPickerOpen(null); setUserSearch(""); }}
-                    className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
-                  >
-                    <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+            <UserPicker
+              users={availableUsers}
+              excludeIds={participantIds}
+              title="🪄 Назначить ответственного"
+              placeholder="Кому поручить?"
+              open={userPickerOpen === "quick-assignee"}
+              onOpenChange={(open) => setUserPickerOpen(open ? "quick-assignee" : null)}
+              onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}
+              trigger={
+                <button className={cn(
+                  "p-1.5 transition-opacity",
+                  task.assigned_to ? "text-primary hover:text-primary/80" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+                )} title="Назначить ответственного">
+                  <Wand2 className="h-3.5 w-3.5" />
+                </button>
+              }
+            />
           </div>
 
           {/* Quick set deadline */}
           <div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className={cn(
-                "p-1.5 transition-opacity",
-                task.deadline ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-              )}>
-                <Calendar className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1.5" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
-              {[
-                { label: "Сегодня", days: 0 },
-                { label: "Завтра", days: 1 },
-                { label: "Через 3 дня", days: 3 },
-                { label: "Через неделю", days: 7 },
-              ].map(opt => {
-                const d = new Date();
-                d.setDate(d.getDate() + opt.days);
-                const val = format(d, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={opt.days}
-                    onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-              <div className="border-t border-border mt-1 pt-1">
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
-                />
-              </div>
-              {task.deadline && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
-                >
-                  Убрать срок
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "p-1.5 transition-opacity",
+                  task.deadline ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+                )}>
+                  <Calendar className="h-3.5 w-3.5" />
                 </button>
-              )}
-            </PopoverContent>
-          </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-40 p-1.5" side="left">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
+                {[
+                  { label: "Сегодня", days: 0 },
+                  { label: "Завтра", days: 1 },
+                  { label: "Через 3 дня", days: 3 },
+                  { label: "Через неделю", days: 7 },
+                ].map(opt => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + opt.days);
+                  const val = format(d, "yyyy-MM-dd");
+                  return (
+                    <button
+                      key={opt.days}
+                      onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <div className="border-t border-border mt-1 pt-1">
+                  <input
+                    type="date"
+                    value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+                    onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
+                    className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
+                  />
+                </div>
+                {task.deadline && (
+                  <button
+                    onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
+                    className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
+                  >
+                    Убрать срок
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Quick set deferred - hidden on mobile */}
           <div className="hidden sm:block">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className={cn(
-                "p-1.5 transition-opacity",
-                task.deferred_until ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
-              )}>
-                <Clock className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1.5" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Отложить до</p>
-              {[
-                { label: "Завтра", days: 1 },
-                { label: "Через 3 дня", days: 3 },
-                { label: "Через неделю", days: 7 },
-                { label: "Через месяц", days: 30 },
-              ].map(opt => {
-                const d = new Date();
-                d.setDate(d.getDate() + opt.days);
-                const val = format(d, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={opt.days}
-                    onClick={() => updateTask.mutate({ id: task.id, deferred_until: val } as any)}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-              <div className="border-t border-border mt-1 pt-1">
-                <input
-                  type="date"
-                  value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
-                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
-                />
-              </div>
-              {task.deferred_until && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)}
-                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
-                >
-                  Убрать откладывание
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "p-1.5 transition-opacity",
+                  task.deferred_until ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+                )}>
+                  <Clock className="h-3.5 w-3.5" />
                 </button>
-              )}
-            </PopoverContent>
-          </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-40 p-1.5" side="left">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Отложить до</p>
+                {[
+                  { label: "Завтра", days: 1 },
+                  { label: "Через 3 дня", days: 3 },
+                  { label: "Через неделю", days: 7 },
+                  { label: "Через месяц", days: 30 },
+                ].map(opt => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + opt.days);
+                  const val = format(d, "yyyy-MM-dd");
+                  return (
+                    <button
+                      key={opt.days}
+                      onClick={() => updateTask.mutate({ id: task.id, deferred_until: val })}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <div className="border-t border-border mt-1 pt-1">
+                  <input
+                    type="date"
+                    value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
+                    onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null })}
+                    className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
+                  />
+                </div>
+                {task.deferred_until && (
+                  <button
+                    onClick={() => updateTask.mutate({ id: task.id, deferred_until: null })}
+                    className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
+                  >
+                    Убрать откладывание
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Quick add tag - hidden on mobile */}
           <div className="hidden sm:block">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
-                <Tag className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" side="left">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Добавить тэг</p>
-                {availableTags.length === 0 && (
-                  <p className="text-xs text-muted-foreground px-2 py-1">Нет доступных тэгов</p>
-                )}
-                {availableTags.map(tag => (
-                  <button
-                    key={tag.id}
-                    onClick={() => addTaskTag.mutate({ task_id: task.id, tag_id: tag.id })}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || undefined }} />
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
+                  <Tag className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="left">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">Добавить тэг</p>
+                  {availableTags.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">Нет доступных тэгов</p>
+                  )}
+                  {availableTags.map(tag => (
+                    <button
+                      key={tag.id}
+                      onClick={() => addTaskTag.mutate({ task_id: task.id, tag_id: tag.id })}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                    >
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || undefined }} />
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          {/* Star - hidden on mobile, visible if important */}
+          {/* Star */}
           <button
             onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
             className={cn(
@@ -502,11 +463,11 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
 
           {/* Delete - hidden on mobile */}
           <div className="hidden sm:block">
-          <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
-            <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </ConfirmDelete>
+            <ConfirmDelete title="Удалить задачу?" description="Задача и все шаги будут удалены." onConfirm={() => deleteTask.mutate(task.id)}>
+              <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </ConfirmDelete>
           </div>
         </div>
       </div>
@@ -543,7 +504,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             )}
           </div>
 
-          {/* Assignee & Participants */}
+          {/* Assignee */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <UserPlus className="h-3 w-3" /> Ответственный
@@ -561,36 +522,19 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   </button>
                 </div>
               ) : (
-                <Popover open={userPickerOpen === "assignee"} onOpenChange={(open) => { setUserPickerOpen(open ? "assignee" : null); setUserSearch(""); }}>
-                  <PopoverTrigger asChild>
+                <UserPicker
+                  users={availableUsers}
+                  excludeIds={participantIds}
+                  open={userPickerOpen === "assignee"}
+                  onOpenChange={(open) => setUserPickerOpen(open ? "assignee" : null)}
+                  onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}
+                  side="bottom"
+                  trigger={
                     <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                       <Plus className="h-2.5 w-2.5" /> Назначить
                     </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" side="bottom">
-                    <Input
-                      autoFocus
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                      placeholder="Поиск по имени..."
-                      className="h-7 text-xs mb-2"
-                    />
-                    <div className="max-h-40 overflow-y-auto space-y-0.5">
-                      {filteredUsers.length === 0 && (
-                        <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
-                      )}
-                      {filteredUsers.map(u => (
-                        <button
-                          key={u.id}
-                          onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" }); setUserPickerOpen(null); setUserSearch(""); }}
-                          className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
-                        >
-                          <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  }
+                />
               );
             })()}
           </div>
@@ -612,36 +556,19 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   </button>
                 </div>
               ))}
-              <Popover open={userPickerOpen === "participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "participant" : null); setUserSearch(""); }}>
-                <PopoverTrigger asChild>
+              <UserPicker
+                users={availableUsers}
+                excludeIds={participantIds}
+                open={userPickerOpen === "participant"}
+                onOpenChange={(open) => setUserPickerOpen(open ? "participant" : null)}
+                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                side="bottom"
+                trigger={
                   <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                     <Plus className="h-2.5 w-2.5" /> Участник
                   </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-2" side="bottom">
-                  <Input
-                    autoFocus
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    placeholder="Поиск по имени..."
-                    className="h-7 text-xs mb-2"
-                  />
-                  <div className="max-h-40 overflow-y-auto space-y-0.5">
-                    {filteredUsers.length === 0 && (
-                      <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
-                    )}
-                    {filteredUsers.map(u => (
-                      <button
-                        key={u.id}
-                        onClick={() => { addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" }); setUserPickerOpen(null); setUserSearch(""); }}
-                        className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
-                      >
-                        <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                }
+              />
             </div>
           </div>
 
@@ -732,7 +659,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             </div>
           </div>
 
-          {/* Dates: Deadline + Deferred */}
+          {/* Dates */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3 w-3" /> Даты
@@ -757,11 +684,11 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 <input
                   type="date"
                   value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null } as any)}
+                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null })}
                   className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
                 />
                 {task.deferred_until && (
-                  <button onClick={() => updateTask.mutate({ id: task.id, deferred_until: null } as any)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <button onClick={() => updateTask.mutate({ id: task.id, deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -776,8 +703,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             </p>
             <div className="flex items-center gap-2">
               <select
-                value={(task as any).recurrence || ""}
-                onChange={(e) => updateTask.mutate({ id: task.id, recurrence: e.target.value || null } as any)}
+                value={task.recurrence || ""}
+                onChange={(e) => updateTask.mutate({ id: task.id, recurrence: e.target.value || null })}
                 className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
               >
                 <option value="">Без повтора</option>
@@ -792,26 +719,26 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 <option value="semiannually">Каждые 6 месяцев</option>
                 <option value="yearly">Ежегодно</option>
               </select>
-              {(task as any).recurrence && (
-                <button onClick={() => updateTask.mutate({ id: task.id, recurrence: null } as any)} className="text-muted-foreground hover:text-destructive transition-colors">
+              {task.recurrence && (
+                <button onClick={() => updateTask.mutate({ id: task.id, recurrence: null })} className="text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Priority + Important star */}
+          {/* Priority */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Flag className="h-3 w-3" /> Приоритет
             </p>
             <div className="flex items-center gap-1.5 flex-wrap">
               {PRIORITIES.map(p => {
-                const isActive = (task as any).priority === p.value;
+                const isActive = task.priority === p.value;
                 return (
                   <button
                     key={p.value}
-                    onClick={() => updateTask.mutate({ id: task.id, priority: isActive ? null : p.value } as any)}
+                    onClick={() => updateTask.mutate({ id: task.id, priority: isActive ? null : p.value })}
                     className={cn(
                       "text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
                       isActive
@@ -881,7 +808,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
           {/* Chat */}
           <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
 
-          {/* Created at + creator */}
+          {/* Created at */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1 flex-wrap">
             <Clock className="h-3 w-3" />
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
@@ -890,7 +817,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
         </div>
       )}
 
-      {/* Subtasks (compact, when not using details panel) */}
+      {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
         <div className="px-3.5 pb-3 ml-8 space-y-1">
           {subtasks.map((sub) => (
