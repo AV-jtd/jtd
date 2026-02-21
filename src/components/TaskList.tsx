@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTasks, useTaskMutations, useTaskGroups } from "@/hooks/useTasks";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
@@ -37,9 +37,11 @@ interface TaskListProps {
   onToggleChat?: () => void;
   messengerOpen?: boolean;
   onToggleMessenger?: () => void;
+  highlightTaskId?: string | null;
+  onClearHighlight?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onClearHighlight }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -50,8 +52,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const taskRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
+
+  useEffect(() => {
+    if (highlightTaskId && taskRefs.current[highlightTaskId]) {
+      taskRefs.current[highlightTaskId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const timer = setTimeout(() => onClearHighlight?.(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTaskId]);
 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
@@ -267,7 +278,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
-                  <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
+                  <div
+                    key={task.id}
+                    ref={el => { taskRefs.current[task.id] = el; }}
+                    style={{ animationDelay: `${i * 30}ms` }}
+                    className={cn("animate-fade-in rounded-lg transition-all duration-500", highlightTaskId === task.id && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                  >
                     <TaskItem task={task} sortable />
                   </div>
                 ))}
@@ -282,7 +298,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 </p>
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
-                    <TaskItem key={task.id} task={task} />
+                    <div key={task.id} ref={el => { taskRefs.current[task.id] = el; }} className={cn("rounded-lg transition-all duration-500", highlightTaskId === task.id && "ring-2 ring-primary ring-offset-2 ring-offset-background")}>
+                      <TaskItem task={task} />
+                    </div>
                   ))}
                 </div>
               </div>
