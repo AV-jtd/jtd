@@ -168,6 +168,7 @@ export type Database = {
           id: string
           telegram_chat_id: number | null
           telegram_username: string | null
+          username: string | null
           work_email: string | null
         }
         Insert: {
@@ -177,6 +178,7 @@ export type Database = {
           id: string
           telegram_chat_id?: number | null
           telegram_username?: string | null
+          username?: string | null
           work_email?: string | null
         }
         Update: {
@@ -186,6 +188,7 @@ export type Database = {
           id?: string
           telegram_chat_id?: number | null
           telegram_username?: string | null
+          username?: string | null
           work_email?: string | null
         }
         Relationships: []
@@ -665,6 +668,36 @@ export type Database = {
           id?: string
           invite_code?: string
           name?: string
+        }
+        Relationships: []
+      }
+      telegram_2fa_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          telegram_username: string
+          verified: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          telegram_username: string
+          verified?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          telegram_username?: string
+          verified?: boolean
         }
         Relationships: []
       }
