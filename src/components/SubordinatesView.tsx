@@ -135,10 +135,10 @@ export default function SubordinatesView() {
                 {/* Member header */}
                 <div className="px-4 py-3 border-b border-border flex items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                    {(member.display_name || member.email || "?")[0].toUpperCase()}
+                    {(member.display_name || "?")[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{member.display_name || member.email}</p>
+                    <p className="text-sm font-medium truncate">{member.display_name || "Без имени"}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>{member.total} задач</span>
                       <span className="text-green-600">{member.completed} ✓</span>

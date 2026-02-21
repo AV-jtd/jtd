@@ -195,7 +195,7 @@ function TaskChatFull({ taskId, taskTitle, availableUsers }: { taskId: string; t
 
   const getProfileName = (userId: string) => {
     const p = availableUsers.find(u => u.id === userId);
-    return p?.display_name || p?.email || userId.slice(0, 8);
+    return p?.display_name || userId.slice(0, 8);
   };
 
   const handleSend = () => {

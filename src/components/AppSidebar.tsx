@@ -358,7 +358,7 @@ export default function AppSidebar({
                       const filtered = availableUsers.filter(u => {
                         if (!memberSearch.trim()) return true;
                         const q = memberSearch.toLowerCase();
-                        return (u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.telegram_username?.toLowerCase().includes(q));
+                        return u.display_name?.toLowerCase().includes(q);
                       });
                       return filtered.length === 0 ? (
                         <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
@@ -372,8 +372,7 @@ export default function AppSidebar({
                           }}
                           className="flex flex-col w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors"
                         >
-                          <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
-                          <span className="text-xs text-muted-foreground">{u.email}{u.telegram_username ? ` · @${u.telegram_username}` : ""}</span>
+                           <span className="text-sm font-medium">{u.display_name || "Без имени"}</span>
                         </button>
                       ));
                     })()}
