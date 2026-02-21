@@ -676,11 +676,9 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
                 placeholder="Написать комментарий..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
-              {newComment.trim() && (
-                <button type="submit" className="text-primary hover:text-primary/80 shrink-0">
-                  <Send className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button type="submit" disabled={!newComment.trim()} className="text-primary hover:text-primary/80 shrink-0 disabled:opacity-20 transition-opacity">
+                <Send className="h-3.5 w-3.5" />
+              </button>
             </form>
           </div>
 

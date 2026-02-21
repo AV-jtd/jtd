@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -403,7 +403,7 @@ export default function AppSidebar({
               <GroupItem key={child.id} group={child} depth={1} />
             ))}
             {newSubgroupParentId === group.id && (
-              <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
+              <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(group.id); }} className="py-1 flex items-center gap-1.5" style={{ paddingLeft: `${28 + 16}px`, paddingRight: 12 }}>
                 <input
                   autoFocus
                   enterKeyHint="done"
@@ -411,8 +411,11 @@ export default function AppSidebar({
                   onChange={(e) => setNewGroupName(e.target.value)}
                   onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setNewSubgroupParentId(null); }, 150); }}
                   placeholder="Подпроект..."
-                  className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                  className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                 />
+                <button type="submit" disabled={!newGroupName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                  <Send className="h-3.5 w-3.5" />
+                </button>
               </form>
             )}
           </div>
@@ -476,7 +479,7 @@ export default function AppSidebar({
                 </SortableContext>
               </DndContext>
               {showNewGroup && !newSubgroupParentId && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1">
+                <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1 flex items-center gap-1.5">
                   <input
                     autoFocus
                     enterKeyHint="done"
@@ -484,8 +487,11 @@ export default function AppSidebar({
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onBlur={() => { setTimeout(() => { if (!newGroupName.trim()) setShowNewGroup(false); }, 150); }}
                     placeholder="Название проекта..."
-                    className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                    className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
+                  <button type="submit" disabled={!newGroupName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
                 </form>
               )}
             </div>
@@ -573,7 +579,7 @@ export default function AppSidebar({
                 </div>
               ))}
               {editingTagId === "__new__" && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); setEditingTagId(null); }} className="px-3 py-1">
+                <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); setEditingTagId(null); }} className="px-3 py-1 flex items-center gap-1.5">
                   <input
                     autoFocus
                     enterKeyHint="done"
@@ -581,8 +587,11 @@ export default function AppSidebar({
                     onChange={(e) => setNewTagName(e.target.value)}
                     onBlur={() => { setTimeout(() => { if (!newTagName.trim()) setEditingTagId(null); }, 150); }}
                     placeholder="Название тэга..."
-                    className="w-full bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                    className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
+                  <button type="submit" disabled={!newTagName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
                 </form>
               )}
             </div>
