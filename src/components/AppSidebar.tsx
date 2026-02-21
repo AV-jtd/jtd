@@ -74,7 +74,12 @@ export default function AppSidebar({
   const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
   const [emojiPickerGroupId, setEmojiPickerGroupId] = useState<string | null>(null);
   const [emojiTab, setEmojiTab] = useState(0);
-
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderPickerGroupId, setFolderPickerGroupId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
