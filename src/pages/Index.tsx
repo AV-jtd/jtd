@@ -124,6 +124,7 @@ export default function Index() {
                   onToggleMessenger={() => setMessengerOpen(prev => !prev)}
                   highlightTaskId={highlightTaskId}
                   onHighlightClear={() => setHighlightTaskId(null)}
+                  onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
                 />
                 {chatOpen && activeGroupId && activeView === "group" && (
                   <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
