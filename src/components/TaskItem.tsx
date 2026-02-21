@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
-import { useTaskComments, useCommentMutations } from "@/hooks/useComments";
+import TaskChat from "@/components/TaskChat";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Send,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO } from "date-fns";
@@ -44,9 +44,7 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
-  const [newComment, setNewComment] = useState("");
-  const { data: comments = [] } = useTaskComments(detailsOpen ? task.id : null);
-  const { addComment, deleteComment } = useCommentMutations();
+  
 
   const subtasks = task.subtasks || [];
   const completedSubs = subtasks.filter(s => s.is_completed).length;
@@ -634,53 +632,8 @@ export default function TaskItem({ task, sortable }: TaskItemProps) {
             </form>
           </div>
 
-          {/* Comments */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <MessageCircle className="h-3 w-3" /> Комментарии {comments.length > 0 && `(${comments.length})`}
-            </p>
-            {comments.map(c => (
-              <div key={c.id} className="flex gap-2 group/comment">
-                <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0 mt-0.5">
-                  {getProfileName(c.user_id)[0]?.toUpperCase() || "?"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium">{getProfileName(c.user_id)}</span>
-                    <span className="text-[10px] text-muted-foreground">{format(parseISO(c.created_at), "d MMM, HH:mm", { locale: ru })}</span>
-                  </div>
-                  <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">{c.content}</p>
-                </div>
-                <button
-                  onClick={() => deleteComment.mutate({ id: c.id, task_id: task.id })}
-                  className="text-muted-foreground opacity-0 group-hover/comment:opacity-100 hover:text-destructive shrink-0 mt-1"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (newComment.trim()) {
-                  addComment.mutate({ task_id: task.id, content: newComment.trim() });
-                  setNewComment("");
-                }
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                enterKeyHint="done"
-                placeholder="Написать комментарий..."
-                className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
-              />
-              <button type="submit" disabled={!newComment.trim()} className="text-primary hover:text-primary/80 shrink-0 disabled:opacity-20 transition-opacity">
-                <Send className="h-3.5 w-3.5" />
-              </button>
-            </form>
-          </div>
+          {/* Chat (comments) */}
+          <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
 
           {/* Created at + creator */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1 flex-wrap">
