@@ -56,7 +56,7 @@ export default function Index() {
     activeView,
     onViewChange: (v: string) => { setActiveView(v); handleNavAction(); },
     activeGroupId,
-    onGroupChange: (id: string | null) => { setActiveGroupId(id); setActiveView(id ? "group" : "all"); handleNavAction(); },
+    onGroupChange: (id: string | null) => { setActiveGroupId(id); if (id) setActiveView("group"); handleNavAction(); },
     activeTagFilters,
     onToggleTag: handleToggleTag,
     onClearTags: () => setActiveTagFilters([]),
