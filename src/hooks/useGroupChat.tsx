@@ -83,6 +83,12 @@ export function useGroupChatMutations() {
         source: "web",
       });
       if (error) throw error;
+
+      // Fire-and-forget: notify Telegram users
+      const senderName = user!.user_metadata?.display_name || user!.email || "Аноним";
+      supabase.functions.invoke("send-chat-telegram", {
+        body: { group_id, content, sender_name: senderName, sender_user_id: user!.id },
+      }).catch(e => console.warn("Telegram notify failed:", e));
     },
     onMutate: async ({ group_id, content, reply_to }) => {
       await qc.cancelQueries({ queryKey: ["group_messages", group_id] });

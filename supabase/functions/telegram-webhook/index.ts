@@ -125,6 +125,12 @@ Deno.serve(async (req) => {
 
     const userId = profile.id;
 
+    // Save telegram chat_id for reverse sync
+    await supabase
+      .from("profiles")
+      .update({ telegram_chat_id: chatId })
+      .eq("id", userId);
+
     // Handle /projects — list user's projects
     if (message.text === "/projects") {
       const { data: groups } = await supabase
