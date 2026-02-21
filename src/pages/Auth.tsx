@@ -73,7 +73,7 @@ export default function Auth() {
       }
 
       // Code verified — now sign up
-      const { error: signUpError } = await signUp(email, password, displayName);
+      const { error: signUpError } = await signUp(email, password, displayName, telegramUsername);
       if (signUpError) {
         toast.error(signUpError.message);
         setSubmitting(false);
