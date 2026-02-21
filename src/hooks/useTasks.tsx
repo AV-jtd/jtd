@@ -13,6 +13,7 @@ export type Task = Tables<"tasks"> & {
   recurrence_end_date?: string | null;
   parent_recurring_id?: string | null;
   priority?: number | null;
+  original_deadline?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags">;
@@ -395,6 +396,7 @@ export function useTaskMutations() {
         group_id: task.group_id || null,
         user_id: user!.id,
         deadline: task.deadline || null,
+        original_deadline: task.deadline || null,
         is_completed: false,
         is_important: false,
         position: 0,

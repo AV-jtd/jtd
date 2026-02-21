@@ -407,6 +407,7 @@ export type Database = {
           id: string
           is_completed: boolean
           is_important: boolean
+          original_deadline: string | null
           parent_recurring_id: string | null
           position: number
           priority: number | null
@@ -426,6 +427,7 @@ export type Database = {
           id?: string
           is_completed?: boolean
           is_important?: boolean
+          original_deadline?: string | null
           parent_recurring_id?: string | null
           position?: number
           priority?: number | null
@@ -445,6 +447,7 @@ export type Database = {
           id?: string
           is_completed?: boolean
           is_important?: boolean
+          original_deadline?: string | null
           parent_recurring_id?: string | null
           position?: number
           priority?: number | null
