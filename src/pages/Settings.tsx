@@ -113,6 +113,24 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="username">Никнейм</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
+                    placeholder="my_nickname"
+                    className="pl-7"
+                    maxLength={30}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Уникальный ник — только латиница, цифры и подчёркивание.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="workEmail" className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Рабочий email

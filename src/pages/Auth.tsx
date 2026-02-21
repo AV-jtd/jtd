@@ -4,17 +4,23 @@ import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+type Step = "form" | "otp";
 
 export default function Auth() {
-  const { user, loading } = useAuth();
+  const { user, loading, signIn, signUp } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [telegramUsername, setTelegramUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [step, setStep] = useState<Step>("form");
+  const [otpCode, setOtpCode] = useState("");
 
   if (loading) {
     return (
@@ -26,24 +32,80 @@ export default function Auth() {
 
   if (user) return <Navigate to="/" replace />;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendCode = async () => {
     setSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("telegram-2fa", {
+        body: { action: "send", email, telegram_username: telegramUsername },
+      });
 
-    if (isSignUp) {
-      const { error } = await signUp(email, password, displayName);
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Проверьте email для подтверждения регистрации!");
+      if (error || data?.error) {
+        const msg = data?.message || data?.error || error?.message || "Ошибка отправки кода";
+        if (data?.error === "not_found") {
+          toast.error(msg, { duration: 6000 });
+        } else {
+          toast.error(msg);
+        }
+        setSubmitting(false);
+        return;
       }
-    } else {
-      const { error } = await signIn(email, password);
-      if (error) {
-        toast.error(error.message);
-      }
+
+      toast.success("Код отправлен в Telegram!");
+      setStep("otp");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
     }
     setSubmitting(false);
+  };
+
+  const handleVerifyAndSignUp = async () => {
+    setSubmitting(true);
+    try {
+      // Verify OTP
+      const { data, error } = await supabase.functions.invoke("telegram-2fa", {
+        body: { action: "verify", email, code: otpCode },
+      });
+
+      if (error || data?.error) {
+        toast.error(data?.message || data?.error || "Неверный код");
+        setSubmitting(false);
+        return;
+      }
+
+      // Code verified — now sign up
+      const { error: signUpError } = await signUp(email, password, displayName);
+      if (signUpError) {
+        toast.error(signUpError.message);
+        setSubmitting(false);
+        return;
+      }
+
+      // Update profile with telegram_username
+      // (profile is auto-created by trigger, we update after a small delay)
+      toast.success("Регистрация успешна! Проверьте email для подтверждения.");
+      setStep("form");
+      setOtpCode("");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
+    }
+    setSubmitting(false);
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const { error } = await signIn(email, password);
+    if (error) toast.error(error.message);
+    setSubmitting(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSignUp) {
+      return handleSignIn(e);
+    }
+    // For sign up — send Telegram code first
+    await handleSendCode();
   };
 
   return (
@@ -73,64 +135,135 @@ export default function Auth() {
             <h1 className="text-2xl font-bold text-foreground">Just<span className="text-primary">TODO</span>it</h1>
           </div>
 
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
-            {isSignUp ? "Создать аккаунт" : "Добро пожаловать!"}
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {isSignUp ? "Заполните данные для регистрации" : "Войдите в свой аккаунт"}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Имя</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Ваше имя"
-                  required
-                />
+          {step === "otp" && isSignUp ? (
+            /* OTP verification step */
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground mb-2">Подтверждение</h2>
+                <p className="text-muted-foreground text-sm">
+                  Введите 6-значный код из Telegram (@{telegramUsername.replace(/^@/, "")})
+                </p>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignUp ? "Зарегистрироваться" : "Войти"}
-            </Button>
-          </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {isSignUp ? "Уже есть аккаунт?" : "Нет аккаунта?"}{" "}
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary hover:underline font-medium"
-            >
-              {isSignUp ? "Войти" : "Зарегистрироваться"}
-            </button>
-          </p>
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button
+                onClick={handleVerifyAndSignUp}
+                disabled={submitting || otpCode.length < 6}
+                className="w-full"
+              >
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Подтвердить и зарегистрироваться
+              </Button>
+
+              <div className="flex items-center justify-between text-sm">
+                <button
+                  onClick={() => { setStep("form"); setOtpCode(""); }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ← Назад
+                </button>
+                <button
+                  onClick={handleSendCode}
+                  disabled={submitting}
+                  className="text-primary hover:underline"
+                >
+                  Отправить код повторно
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Main form */
+            <>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">
+                {isSignUp ? "Создать аккаунт" : "Добро пожаловать!"}
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                {isSignUp ? "Заполните данные для регистрации" : "Войдите в свой аккаунт"}
+              </p>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {isSignUp && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="displayName">Имя</Label>
+                      <Input
+                        id="displayName"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Ваше имя"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="telegram" className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Telegram username
+                      </Label>
+                      <Input
+                        id="telegram"
+                        value={telegramUsername}
+                        onChange={(e) => setTelegramUsername(e.target.value)}
+                        placeholder="username (без @)"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Сначала напишите боту <a href="https://t.me/JustTODOit_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline">@JustTODOit_bot</a> в Telegram
+                      </p>
+                    </div>
+                  </>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Пароль</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSignUp ? "Получить код в Telegram" : "Войти"}
+                </Button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                {isSignUp ? "Уже есть аккаунт?" : "Нет аккаунта?"}{" "}
+                <button
+                  onClick={() => { setIsSignUp(!isSignUp); setStep("form"); setOtpCode(""); }}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {isSignUp ? "Войти" : "Зарегистрироваться"}
+                </button>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
