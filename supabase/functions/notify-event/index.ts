@@ -112,8 +112,8 @@ Deno.serve(async (req) => {
 
     for (const targetUserId of filteredTargets) {
       const userPrefs = allPrefs?.find((p: any) => p.user_id === targetUserId);
-      // Default to true for push_task_assigned and push_task_completed if no prefs exist
-      const defaultEnabled = event === "task_assigned" || event === "task_completed";
+      // Default enabled for assigned, completed, participant_added, added_to_group
+      const defaultEnabled = ["task_assigned", "task_completed", "task_participant_added", "added_to_group"].includes(event);
       const pushEnabled = userPrefs ? !!(userPrefs as any)[prefColumn] : defaultEnabled;
 
       if (pushEnabled && vapid) {
