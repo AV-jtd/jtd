@@ -96,7 +96,17 @@ export default function Index() {
         <div className="flex flex-1 min-w-0 overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {activeView === "calendar" ? (
-              <CalendarView />
+              <CalendarView
+                onNavigateToTask={(task) => {
+                  if (task.group_id) {
+                    setActiveGroupId(task.group_id);
+                    setActiveView("group");
+                  } else {
+                    setActiveGroupId(null);
+                    setActiveView("all");
+                  }
+                }}
+              />
             ) : activeView === "subordinates" ? (
               <SubordinatesView />
             ) : activeView === "community" ? (
