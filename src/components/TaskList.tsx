@@ -33,6 +33,8 @@ interface TaskListProps {
   activeTagFilters: string[];
   projectDetailOpen: boolean;
   onToggleProjectDetail: () => void;
+  chatOpen?: boolean;
+  onToggleChat?: () => void;
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail }: TaskListProps) {
