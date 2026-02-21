@@ -270,7 +270,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-0.5 sm:gap-1 shrink-0">
           {/* Expand - always visible */}
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
@@ -284,8 +284,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
             <Expand className="h-3.5 w-3.5" />
           </button>
 
-          {/* Quick add participant - hidden on mobile */}
-          <div className="hidden sm:block">
+          {/* Quick add participant */}
+          <div>
           <Popover open={userPickerOpen === "quick-participant"} onOpenChange={(open) => { setUserPickerOpen(open ? "quick-participant" : null); setUserSearch(""); }}>
             <PopoverTrigger asChild>
               <button className="p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity">
@@ -318,8 +318,9 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened }: Task
           </Popover>
           </div>
 
-          {/* Quick set deadline - hidden on mobile */}
-          <div className="hidden sm:block">
+
+          {/* Quick set deadline */}
+          <div>
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
