@@ -226,7 +226,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             {(task as any).recurrence && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Repeat className="h-3 w-3" />
-                {{ daily: "Ежедневно", weekly: "Еженедельно", monthly: "Ежемесячно", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
+                {{ daily: "Ежедневно", weekdays: "По будням", every2days: "Каждые 2 дня", every3days: "Каждые 3 дня", weekly: "Еженедельно", biweekly: "Каждые 2 недели", monthly: "Ежемесячно", quarterly: "Ежеквартально", semiannually: "Каждые 6 мес.", yearly: "Ежегодно" }[(task as any).recurrence] || (task as any).recurrence}
               </span>
             )}
             {(() => {
