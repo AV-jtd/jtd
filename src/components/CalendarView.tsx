@@ -2,10 +2,10 @@ import { useState, useMemo } from "react";
 import { useTasks, useTaskMutations } from "@/hooks/useTasks";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, isSameMonth, isSameDay, isToday,
+  eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore,
   addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
   addYears, subYears, startOfYear, endOfYear, eachMonthOfInterval,
-  parseISO, startOfDay,
+  parseISO, startOfDay, differenceInDays,
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from "lucide-react";
@@ -18,7 +18,11 @@ import {
 
 type ViewMode = "day" | "week" | "month" | "year";
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  onNavigateToTask?: (taskId: string) => void;
+}
+
+export default function CalendarView({ onNavigateToTask }: CalendarViewProps) {
   const { data: tasks = [] } = useTasks();
   const { addTask } = useTaskMutations();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -64,10 +68,50 @@ export default function CalendarView() {
     { id: "year", label: "Год" },
   ];
 
+  const isOverdue = (t: { deadline?: string | null; is_completed: boolean }) =>
+    !t.is_completed && t.deadline && isBefore(parseISO(t.deadline), startOfDay(new Date()));
+
+  const getDrift = (t: { deadline?: string | null; original_deadline?: string | null }) => {
+    if (!t.deadline || !t.original_deadline) return null;
+    const d = differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+    return d !== 0 ? d : null;
+  };
+
+  const TaskBadge = ({ task, compact = false }: { task: any; compact?: boolean }) => {
+    const overdue = isOverdue(task);
+    const drift = getDrift(task);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onNavigateToTask?.(task.id); }}
+        className={cn(
+          "text-[10px] leading-tight px-1 py-0.5 rounded truncate w-full text-left flex items-center gap-0.5 cursor-pointer hover:opacity-80 transition-opacity",
+          task.is_completed
+            ? "bg-muted text-muted-foreground line-through"
+            : overdue
+              ? "bg-destructive/15 text-destructive font-medium"
+              : task.is_important
+                ? "bg-destructive/10 text-destructive"
+                : "bg-primary/10 text-primary"
+        )}
+      >
+        <span className="truncate flex-1">{task.title}</span>
+        {drift !== null && !compact && (
+          <span className={cn(
+            "text-[8px] font-bold shrink-0 ml-0.5",
+            drift > 0 ? "text-orange-500" : "text-emerald-500"
+          )}>
+            {drift > 0 ? `+${drift}` : drift}д
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const DayCell = ({ date, compact = false }: { date: Date; compact?: boolean }) => {
     const dayTasks = tasksOnDate(date);
     const dateStr = format(date, "yyyy-MM-dd");
     const isCurrentMonth = isSameMonth(date, currentDate);
+    const maxShow = compact ? 2 : 3;
 
     return (
       <Popover open={addingDate === dateStr} onOpenChange={(o) => { if (!o) setAddingDate(null); }}>
@@ -88,24 +132,12 @@ export default function CalendarView() {
               {format(date, "d")}
             </span>
             <div className="w-full space-y-0.5 overflow-hidden flex-1">
-              {dayTasks.slice(0, compact ? 2 : 3).map(t => (
-                <div
-                  key={t.id}
-                  className={cn(
-                    "text-[10px] leading-tight px-1 py-0.5 rounded truncate",
-                    t.is_completed
-                      ? "bg-muted text-muted-foreground line-through"
-                      : t.is_important
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-primary/10 text-primary"
-                  )}
-                >
-                  {t.title}
-                </div>
+              {dayTasks.slice(0, maxShow).map(t => (
+                <TaskBadge key={t.id} task={t} compact={compact} />
               ))}
-              {dayTasks.length > (compact ? 2 : 3) && (
+              {dayTasks.length > maxShow && (
                 <span className="text-[9px] text-muted-foreground px-1">
-                  +{dayTasks.length - (compact ? 2 : 3)}
+                  +{dayTasks.length - maxShow}
                 </span>
               )}
             </div>
@@ -130,11 +162,31 @@ export default function CalendarView() {
           </form>
           {dayTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border space-y-1">
-              {dayTasks.map(t => (
-                <div key={t.id} className={cn("text-xs px-1 py-0.5 rounded", t.is_completed && "line-through text-muted-foreground")}>
-                  {t.title}
-                </div>
-              ))}
+              {dayTasks.map(t => {
+                const overdue = isOverdue(t);
+                const drift = getDrift(t);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigateToTask?.(t.id)}
+                    className={cn(
+                      "text-xs px-1 py-0.5 rounded w-full text-left flex items-center gap-1 hover:bg-accent/50 cursor-pointer transition-colors",
+                      t.is_completed && "line-through text-muted-foreground",
+                      overdue && !t.is_completed && "text-destructive"
+                    )}
+                  >
+                    <span className="truncate flex-1">{t.title}</span>
+                    {drift !== null && (
+                      <span className={cn(
+                        "text-[10px] font-bold shrink-0",
+                        drift > 0 ? "text-orange-500" : "text-emerald-500"
+                      )}>
+                        {drift > 0 ? `+${drift}` : drift}д
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </PopoverContent>
@@ -168,18 +220,37 @@ export default function CalendarView() {
     const days = eachDayOfInterval({ start, end: endOfWeek(currentDate, { weekStartsOn: 1 }) });
 
     return (
-      <div className="grid grid-cols-7 gap-2">
-        {days.map(d => (
-          <div key={d.toISOString()}>
-            <div className={cn(
-              "text-center text-xs font-medium py-1 mb-1",
-              isToday(d) ? "text-primary font-bold" : "text-muted-foreground"
+      <div className="space-y-2">
+        {days.map(d => {
+          const dayTasks = tasksOnDate(d);
+          return (
+            <div key={d.toISOString()} className={cn(
+              "flex gap-3 p-2 rounded-lg border border-border/50",
+              isToday(d) && "bg-primary/5 border-primary/30"
             )}>
-              {format(d, "EEE d", { locale: ru })}
+              <div className={cn(
+                "w-16 shrink-0 text-center py-1",
+                isToday(d) ? "text-primary font-bold" : "text-muted-foreground"
+              )}>
+                <div className="text-xs">{format(d, "EEE", { locale: ru })}</div>
+                <div className="text-lg font-semibold">{format(d, "d")}</div>
+              </div>
+              <div className="flex-1 min-w-0 flex flex-wrap gap-1 items-start py-1">
+                {dayTasks.length === 0 ? (
+                  <span className="text-xs text-muted-foreground italic">—</span>
+                ) : (
+                  dayTasks.map(t => <TaskBadge key={t.id} task={t} />)
+                )}
+              </div>
+              <button
+                onClick={() => { setAddingDate(format(d, "yyyy-MM-dd")); }}
+                className="shrink-0 self-center p-1 rounded hover:bg-accent/50 text-muted-foreground opacity-0 hover:opacity-100 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <DayCell date={d} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -212,18 +283,34 @@ export default function CalendarView() {
             <p className="text-sm text-muted-foreground text-center py-8">Нет задач на этот день</p>
           ) : (
             <div className="space-y-2">
-              {dayTasks.map(t => (
-                <div key={t.id} className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md border",
-                  t.is_completed ? "bg-muted/50 line-through text-muted-foreground" : "bg-card"
-                )}>
-                  <div className={cn(
-                    "h-2 w-2 rounded-full shrink-0",
-                    t.is_important ? "bg-destructive" : "bg-primary"
-                  )} />
-                  <span className="text-sm">{t.title}</span>
-                </div>
-              ))}
+              {dayTasks.map(t => {
+                const overdue = isOverdue(t);
+                const drift = getDrift(t);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigateToTask?.(t.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md border w-full text-left hover:bg-accent/30 transition-colors cursor-pointer",
+                      t.is_completed ? "bg-muted/50 line-through text-muted-foreground" : overdue ? "border-destructive/30 bg-destructive/5" : "bg-card"
+                    )}
+                  >
+                    <div className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      overdue ? "bg-destructive" : t.is_important ? "bg-destructive" : "bg-primary"
+                    )} />
+                    <span className="text-sm flex-1 truncate">{t.title}</span>
+                    {drift !== null && (
+                      <span className={cn(
+                        "text-[10px] font-bold shrink-0",
+                        drift > 0 ? "text-orange-500" : "text-emerald-500"
+                      )}>
+                        {drift > 0 ? `+${drift}` : drift}д
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
