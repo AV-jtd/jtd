@@ -30,14 +30,14 @@ const PRIORITIES = [
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable }: TaskItemProps) {
+export default function TaskItem({ task, sortable, initialOpen, onOpened }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
   const [expanded, setExpanded] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
