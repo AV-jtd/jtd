@@ -278,7 +278,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
-                  <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
+                  <div
+                    key={task.id}
+                    ref={el => { taskRefs.current[task.id] = el; }}
+                    style={{ animationDelay: `${i * 30}ms` }}
+                    className={cn("animate-fade-in rounded-lg transition-all duration-500", highlightTaskId === task.id && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                  >
                     <TaskItem task={task} sortable />
                   </div>
                 ))}
