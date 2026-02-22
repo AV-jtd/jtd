@@ -107,7 +107,11 @@ export default function Index() {
             ) : activeView === "community" ? (
               <CommunityView />
             ) : activeView === "dashboard" ? (
-              <DashboardView />
+              <DashboardView onNavigateToTask={(taskId) => {
+                setActiveView("all");
+                setActiveGroupId(null);
+                setHighlightTaskId(taskId);
+              }} />
             ) : activeView === "archive" ? (
               <ArchiveView />
             ) : (
