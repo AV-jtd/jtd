@@ -569,7 +569,7 @@ export default function AppSidebar({
                   <span
                     onClick={(e) => e.stopPropagation()}
                     className="hover:text-sidebar-fg"
-                    title="Импорт проекта из CSV"
+                    title="Импорт проекта из Excel"
                   >
                     <Download className="h-3.5 w-3.5" />
                   </span>
