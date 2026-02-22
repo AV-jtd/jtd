@@ -571,7 +571,7 @@ export default function AppSidebar({
                     className="hover:text-sidebar-fg"
                     title="Импорт проекта из CSV"
                   >
-                    <Upload className="h-3.5 w-3.5" />
+                    <Download className="h-3.5 w-3.5" />
                   </span>
                 }
               />
