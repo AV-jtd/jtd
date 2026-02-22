@@ -35,7 +35,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
     if (!preview || !user) return;
     setImporting(true);
     try {
-      const result = await importCsvToProject(user.id, preview.rows, targetGroupId);
+      const result = await importRowsToProject(user.id, preview.rows, targetGroupId);
       setDone(true);
       toast.success(`Импортировано ${result.taskCount} задач`);
       qc.invalidateQueries({ queryKey: ["tasks"] });
