@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Loader2, CheckCircle2 } from "lucide-react";
-import { parseCsvForPreview, importCsvToProject, ImportPreview } from "@/lib/projectCsv";
+import { parseExcelForPreview, importRowsToProject, ImportPreview } from "@/lib/projectExcel";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
