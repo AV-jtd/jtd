@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Upload,
 } from "lucide-react";
-import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
