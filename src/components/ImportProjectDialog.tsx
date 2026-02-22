@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Loader2, CheckCircle2 } from "lucide-react";
-import { parseCsvForPreview, importCsvToProject, ImportPreview } from "@/lib/projectCsv";
+import { parseExcelForPreview, importRowsToProject, ImportPreview } from "@/lib/projectExcel";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,8 +24,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
 
   const handleFile = async (file: File) => {
     try {
-      const text = await file.text();
-      const p = parseCsvForPreview(text);
+      const p = await parseExcelForPreview(file);
       setPreview(p);
     } catch (e: any) {
       toast.error("Ошибка чтения файла: " + e.message);
@@ -36,7 +35,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
     if (!preview || !user) return;
     setImporting(true);
     try {
-      const result = await importCsvToProject(user.id, preview.rows, targetGroupId);
+      const result = await importRowsToProject(user.id, preview.rows, targetGroupId);
       setDone(true);
       toast.success(`Импортировано ${result.taskCount} задач`);
       qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -72,18 +71,18 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base">Импорт проекта из CSV</DialogTitle>
+          <DialogTitle className="text-base">Импорт проекта из Excel</DialogTitle>
         </DialogHeader>
 
         {!preview && !done && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Загрузите CSV-файл с проектом. Формат: type, project, subproject, title, description, deadline, priority, status, tags, subtasks.
+              Загрузите Excel-файл (.xlsx) с проектом. Колонки: Тип, Проект, Подпроект, Задача, Описание, Дедлайн, Приоритет, Статус, Теги, Подзадачи.
             </p>
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt"
+              accept=".xlsx,.xls"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];

@@ -4,7 +4,7 @@ import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload } from
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
 
@@ -224,22 +224,22 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           <button
             onClick={async () => {
               try {
-                const csv = await exportProjectToCsv(group.id);
-                downloadCsv(csv, `${group.name}.csv`);
-                toast.success("CSV экспортирован");
+                const blob = await exportProjectToExcel(group.id);
+                downloadExcel(blob, `${group.name}.xlsx`);
+                toast.success("Excel экспортирован");
               } catch (err: any) {
                 toast.error("Ошибка экспорта: " + err.message);
               }
             }}
             className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
           >
-            <Upload className="h-3 w-3" /> Экспорт CSV
+            <Upload className="h-3 w-3" /> Экспорт Excel
           </button>
           <ImportProjectDialog
             targetGroupId={group.id}
             trigger={
               <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
-                <Download className="h-3 w-3" /> Импорт CSV
+                <Download className="h-3 w-3" /> Импорт Excel
               </button>
             }
           />
