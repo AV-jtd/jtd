@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+import ImportProjectDialog from "@/components/ImportProjectDialog";
+import { toast } from "sonner";
 
 interface ProjectDetailPanelProps {
   group: TaskGroup;
