@@ -71,7 +71,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base">Импорт проекта из CSV</DialogTitle>
+          <DialogTitle className="text-base">Импорт проекта из Excel</DialogTitle>
         </DialogHeader>
 
         {!preview && !done && (
