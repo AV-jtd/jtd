@@ -77,7 +77,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
         {!preview && !done && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Загрузите CSV-файл с проектом. Формат: type, project, subproject, title, description, deadline, priority, status, tags, subtasks.
+              Загрузите Excel-файл (.xlsx) с проектом. Колонки: Тип, Проект, Подпроект, Задача, Описание, Дедлайн, Приоритет, Статус, Теги, Подзадачи.
             </p>
             <input
               ref={fileRef}
