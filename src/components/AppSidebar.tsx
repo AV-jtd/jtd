@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Upload,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download,
 } from "lucide-react";
 
 import ImportProjectDialog from "@/components/ImportProjectDialog";
