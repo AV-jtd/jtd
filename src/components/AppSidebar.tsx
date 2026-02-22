@@ -3,8 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Upload,
 } from "lucide-react";
+import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+import ImportProjectDialog from "@/components/ImportProjectDialog";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
