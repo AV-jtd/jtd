@@ -4,7 +4,7 @@ import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload } from
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
 
