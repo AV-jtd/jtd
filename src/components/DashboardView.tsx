@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
-import { useTasks, useTaskGroups, useAvailableUsers, Task, TaskGroup, Profile } from "@/hooks/useTasks";
+import { useTasks, useTaskGroups, useAvailableUsers, useTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
-  ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X, Users
+  ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon
 } from "lucide-react";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, parseISO } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
 type FilterStatus = "all" | TimingStatus;
@@ -33,6 +36,7 @@ interface ProjectStats {
 function getTimingStatus(tasks: Task[]): TimingStatus {
   const activeTasks = tasks.filter(t => !t.is_completed);
   if (activeTasks.length === 0 && tasks.length > 0) return "completed";
+  if (activeTasks.length === 0) return "on-track";
   const now = new Date();
   const hasOverdue = activeTasks.some(t => t.deadline && new Date(t.deadline) < now);
   if (hasOverdue) return "overdue";
@@ -68,12 +72,33 @@ function getStatusBadgeVariant(status: TimingStatus) {
   }
 }
 
-function buildProjectStats(group: TaskGroup, allTasks: Task[], allGroups: TaskGroup[]): ProjectStats {
-  const tasks = allTasks.filter(t => t.group_id === group.id);
-  const childGroups = allGroups.filter(g => g.parent_id === group.id);
-  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups));
+function buildProjectStats(
+  group: TaskGroup,
+  allTasks: Task[],
+  allGroups: TaskGroup[],
+  filterAssignees?: string[],
+  filterTagIds?: string[],
+): ProjectStats {
+  let tasks = allTasks.filter(t => t.group_id === group.id);
 
-  // Include subtask counts from subprojects in totals
+  // Apply assignee filter
+  if (filterAssignees && filterAssignees.length > 0) {
+    tasks = tasks.filter(t =>
+      (t.assigned_to && filterAssignees.includes(t.assigned_to)) ||
+      filterAssignees.includes(t.user_id)
+    );
+  }
+
+  // Apply tag filter
+  if (filterTagIds && filterTagIds.length > 0) {
+    tasks = tasks.filter(t =>
+      filterTagIds.some(tagId => t.task_tags?.some(tt => tt.tag_id === tagId))
+    );
+  }
+
+  const childGroups = allGroups.filter(g => g.parent_id === group.id);
+  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups, filterAssignees, filterTagIds));
+
   const allProjectTasks = [...tasks, ...subprojects.flatMap(sp => sp.tasks)];
   const total = allProjectTasks.length;
   const completed = allProjectTasks.filter(t => t.is_completed).length;
@@ -152,7 +177,6 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
       expanded && "shadow-md",
       level > 0 && "border-dashed"
     )}>
-      {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
@@ -203,10 +227,8 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
         </div>
       </button>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="border-t border-border px-4 pb-4 pt-3 space-y-4 animate-fade-in">
-          {/* Subprojects */}
           {stats.subprojects.length > 0 && (
             <Section title="Подпроекты" count={stats.subprojects.length}>
               <div className="space-y-2">
@@ -217,7 +239,6 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             </Section>
           )}
 
-          {/* Overdue tasks */}
           {stats.overdueTasks.length > 0 && (
             <Section title="Просроченные" count={stats.overdueTasks.length} variant="destructive">
               <div className="space-y-1">
@@ -228,7 +249,6 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             </Section>
           )}
 
-          {/* Upcoming deadlines */}
           {stats.upcomingTasks.length > 0 && (
             <Section title="Ближайшие дедлайны" count={stats.upcomingTasks.length}>
               <div className="space-y-1">
@@ -239,7 +259,6 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             </Section>
           )}
 
-          {/* Deadline drift */}
           {stats.driftTasks.length > 0 && (
             <Section title="Deadline Drift" count={stats.driftTasks.length} variant="warning">
               <div className="space-y-1">
@@ -250,7 +269,11 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             </Section>
           )}
 
-          {stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.length === 0 && (
+          {stats.total === 0 && stats.subprojects.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-2">Нет задач в проекте</p>
+          )}
+
+          {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
         </div>
@@ -311,57 +334,173 @@ function TaskRow({ task, onClick, userName, variant, drift }: {
   );
 }
 
+// --- Multi-select filter popover ---
+function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, renderItem }: {
+  label: string;
+  icon: any;
+  items: { id: string; label: string; color?: string | null }[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  renderItem?: (item: { id: string; label: string; color?: string | null }) => React.ReactNode;
+}) {
+  const hasSelection = selectedIds.length > 0;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+          hasSelection
+            ? "bg-primary/10 text-primary border-primary/30"
+            : "bg-card text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
+        )}>
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+          {hasSelection && (
+            <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px] font-bold ml-0.5">
+              {selectedIds.length}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="max-h-56 overflow-y-auto space-y-0.5">
+          {items.length === 0 && (
+            <p className="text-xs text-muted-foreground px-2 py-1">Пусто</p>
+          )}
+          {items.map(item => (
+            <button
+              key={item.id}
+              onClick={() => onToggle(item.id)}
+              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted transition-colors text-left"
+            >
+              <Checkbox
+                checked={selectedIds.includes(item.id)}
+                className="h-3.5 w-3.5"
+              />
+              {renderItem ? renderItem(item) : (
+                <span className="text-xs truncate">{item.label}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        {hasSelection && (
+          <button
+            onClick={() => selectedIds.forEach(id => onToggle(id))}
+            className="w-full mt-1 pt-1 border-t border-border text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Сбросить
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // --- Filter buttons ---
-const FILTER_OPTIONS: { value: FilterStatus; label: string; icon?: any }[] = [
+const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
   { value: "all", label: "Все" },
-  { value: "overdue", label: "Просрочено", icon: AlertTriangle },
-  { value: "at-risk", label: "Drift", icon: ArrowRightLeft },
-  { value: "on-track", label: "В графике", icon: CheckCircle2 },
-  { value: "completed", label: "Завершено", icon: CheckCircle2 },
+  { value: "overdue", label: "Просрочено" },
+  { value: "at-risk", label: "Drift" },
+  { value: "on-track", label: "В графике" },
+  { value: "completed", label: "Завершено" },
 ];
 
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
+  const { data: tags = [] } = useTags();
   const [filter, setFilter] = useState<FilterStatus>("all");
-  const [expandedAll, setExpandedAll] = useState(false);
+
+  // "Build Dashboard" filters
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   const isLoading = tasksLoading || groupsLoading;
 
-  // Build stats for root projects only
+  const toggleInArray = (arr: string[], id: string) =>
+    arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
+
+  // Get all root groups (no parent_id) - show ALL, not just those with tasks
+  const rootGroups = useMemo(() => groups.filter(g => !g.parent_id), [groups]);
+
+  // Project items for multi-select
+  const projectItems = useMemo(() =>
+    rootGroups.map(g => ({ id: g.id, label: g.name, color: g.color })),
+    [rootGroups]
+  );
+
+  // Unique assignees from tasks
+  const assigneeItems = useMemo(() => {
+    const ids = new Set<string>();
+    tasks.forEach(t => {
+      if (t.assigned_to) ids.add(t.assigned_to);
+      ids.add(t.user_id);
+    });
+    return Array.from(ids)
+      .map(id => {
+        const u = users.find(u => u.id === id);
+        return { id, label: u?.display_name || "Без имени" };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [tasks, users]);
+
+  // Tag items
+  const tagItems = useMemo(() =>
+    tags.map(t => ({ id: t.id, label: t.name, color: t.color })),
+    [tags]
+  );
+
+  const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0;
+
+  // Build stats
   const projectStats = useMemo(() => {
-    const rootGroups = groups.filter(g => !g.parent_id);
-    return rootGroups
-      .map(g => buildProjectStats(g, tasks, groups))
-      .filter(s => s.total > 0) // only projects with tasks
+    const baseGroups = selectedProjectIds.length > 0
+      ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
+      : rootGroups;
+
+    return baseGroups
+      .map(g => buildProjectStats(
+        g, tasks, groups,
+        selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
+        selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      ))
       .sort((a, b) => {
-        // Overdue first, then at-risk, on-track, completed
         const order: Record<TimingStatus, number> = { overdue: 0, "at-risk": 1, "on-track": 2, completed: 3 };
         return order[a.timingStatus] - order[b.timingStatus];
       });
-  }, [groups, tasks]);
+  }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return projectStats;
     return projectStats.filter(s => s.timingStatus === filter);
   }, [projectStats, filter]);
 
-  // Summary numbers
+  // Summary
   const summary = useMemo(() => {
     const totalProjects = projectStats.length;
     const overdueProjects = projectStats.filter(s => s.timingStatus === "overdue").length;
     const atRiskProjects = projectStats.filter(s => s.timingStatus === "at-risk").length;
     const now = new Date();
     const weekFromNow = addDays(startOfDay(now), 7);
-    const tasksThisWeek = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
-    const totalCompleted = tasks.filter(t => t.is_completed).length;
-    const completionRate = tasks.length > 0 ? Math.round((totalCompleted / tasks.length) * 100) : 0;
+
+    const relevantTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
+    const uniqueTasks = Array.from(new Map(relevantTasks.map(t => [t.id, t])).values());
+    const tasksThisWeek = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
+    const totalCompleted = uniqueTasks.filter(t => t.is_completed).length;
+    const completionRate = uniqueTasks.length > 0 ? Math.round((totalCompleted / uniqueTasks.length) * 100) : 0;
     return { totalProjects, overdueProjects, atRiskProjects, tasksThisWeek, completionRate };
-  }, [projectStats, tasks]);
+  }, [projectStats]);
 
   const handleNavigateToTask = (taskId: string) => {
     onNavigateToTaskProp?.(taskId);
+  };
+
+  const clearAllCustomFilters = () => {
+    setSelectedProjectIds([]);
+    setSelectedAssigneeIds([]);
+    setSelectedTagIds([]);
   };
 
   if (isLoading) {
@@ -383,9 +522,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <BarChart3 className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов с задачами</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов</p>
           </div>
         </div>
 
@@ -397,7 +536,65 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           <SummaryCard icon={ArrowRightLeft} value={summary.atRiskProjects} label="С отклонениями" color="bg-amber-500" />
         </div>
 
-        {/* Filters */}
+        {/* Build Dashboard — multi-select filters */}
+        <div className="bg-card rounded-xl border border-border p-3 mb-4">
+          <div className="flex items-center gap-2 mb-2.5">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Построить дашборд</span>
+            {hasCustomFilters && (
+              <button
+                onClick={clearAllCustomFilters}
+                className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                <X className="h-3 w-3" />
+                Сбросить
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MultiSelectFilter
+              label="Проекты"
+              icon={FolderOpen}
+              items={projectItems}
+              selectedIds={selectedProjectIds}
+              onToggle={(id) => setSelectedProjectIds(prev => toggleInArray(prev, id))}
+              renderItem={(item) => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="h-3 w-3 rounded shrink-0"
+                    style={{ backgroundColor: item.color || "hsl(var(--primary))" }}
+                  />
+                  <span className="text-xs truncate">{item.label}</span>
+                </div>
+              )}
+            />
+            <MultiSelectFilter
+              label="Ответственный"
+              icon={User}
+              items={assigneeItems}
+              selectedIds={selectedAssigneeIds}
+              onToggle={(id) => setSelectedAssigneeIds(prev => toggleInArray(prev, id))}
+            />
+            <MultiSelectFilter
+              label="Теги"
+              icon={TagIcon}
+              items={tagItems}
+              selectedIds={selectedTagIds}
+              onToggle={(id) => setSelectedTagIds(prev => toggleInArray(prev, id))}
+              renderItem={(item) => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: item.color || "#6366f1" }}
+                  />
+                  <span className="text-xs truncate">{item.label}</span>
+                </div>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Status filters */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {FILTER_OPTIONS.map(opt => (
@@ -425,7 +622,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground">
-              {filter === "all" ? "Нет проектов с задачами" : "Нет проектов с таким статусом"}
+              {filter === "all" ? "Нет проектов" : "Нет проектов с таким статусом"}
             </div>
           ) : (
             filtered.map(stats => (
