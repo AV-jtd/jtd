@@ -82,7 +82,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt"
+              accept=".xlsx,.xls"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
