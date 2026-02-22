@@ -24,8 +24,7 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
 
   const handleFile = async (file: File) => {
     try {
-      const text = await file.text();
-      const p = parseCsvForPreview(text);
+      const p = await parseExcelForPreview(file);
       setPreview(p);
     } catch (e: any) {
       toast.error("Ошибка чтения файла: " + e.message);
