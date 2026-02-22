@@ -148,13 +148,13 @@ function buildProjectStats(
 // --- Summary Card ---
 function SummaryCard({ icon: Icon, value, label, color }: { icon: any; value: number | string; label: string; color: string }) {
   return (
-    <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+    <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3 overflow-hidden">
       <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", color)}>
         <Icon className="h-4.5 w-4.5 text-white" />
       </div>
-      <div>
-        <p className="text-lg font-bold leading-tight">{value}</p>
-        <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-bold leading-tight truncate">{value}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight truncate">{label}</p>
       </div>
     </div>
   );
