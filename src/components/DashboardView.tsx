@@ -320,7 +320,7 @@ const FILTER_OPTIONS: { value: FilterStatus; label: string; icon?: any }[] = [
   { value: "completed", label: "Завершено", icon: CheckCircle2 },
 ];
 
-export default function DashboardView() {
+export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
