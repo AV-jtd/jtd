@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload } from "lucide-react";
+import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
@@ -316,6 +317,18 @@ export default function Settings() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Import/Export */}
+            <div className="border-t border-border pt-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Download className="h-5 w-5 text-primary" />
+                Импорт / Экспорт
+              </h2>
+              <p className="text-sm text-muted-foreground mb-3">
+                Импортируйте проект из CSV-файла. Экспорт доступен в контекстном меню проекта в сайдбаре.
+              </p>
+              <ImportProjectDialog />
             </div>
 
             {/* Teams section */}
