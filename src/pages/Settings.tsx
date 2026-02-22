@@ -326,7 +326,7 @@ export default function Settings() {
                 Импорт / Экспорт
               </h2>
               <p className="text-sm text-muted-foreground mb-3">
-                Импортируйте проект из CSV-файла. Экспорт доступен в контекстном меню проекта в сайдбаре.
+                Импортируйте проект из Excel-файла (.xlsx). Экспорт доступен в контекстном меню проекта в сайдбаре.
               </p>
               <ImportProjectDialog />
             </div>
