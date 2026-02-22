@@ -406,10 +406,10 @@ const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
 ];
 
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
-  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
-  const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
-  const { data: users = [] } = useAvailableUsers();
-  const { data: tags = [] } = useTags();
+  const { data: tasks = [], isLoading: tasksLoading, isFetching: tasksFetching } = useTasks();
+  const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
+  const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
+  const { data: tags = [], isLoading: tagsLoading } = useTags();
   const [filter, setFilter] = useState<FilterStatus>("all");
 
   // "Build Dashboard" filters
@@ -417,7 +417,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  const isLoading = tasksLoading || groupsLoading;
+  const isLoading = tasksLoading || groupsLoading || usersLoading || tagsLoading;
 
   const toggleInArray = (arr: string[], id: string) =>
     arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
