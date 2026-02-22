@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+import ImportProjectDialog from "@/components/ImportProjectDialog";
+import { toast } from "sonner";
 
 interface ProjectDetailPanelProps {
   group: TaskGroup;
@@ -210,6 +213,36 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
               <UserPicker role="participant" onClose={() => setUserPickerOpen(null)} />
             </PopoverContent>
           </Popover>
+        </div>
+      </div>
+      {/* Import / Export */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <Download className="h-3 w-3" /> Импорт / Экспорт
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const csv = await exportProjectToCsv(group.id);
+                downloadCsv(csv, `${group.name}.csv`);
+                toast.success("CSV экспортирован");
+              } catch (err: any) {
+                toast.error("Ошибка экспорта: " + err.message);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          >
+            <Download className="h-3 w-3" /> Экспорт CSV
+          </button>
+          <ImportProjectDialog
+            targetGroupId={group.id}
+            trigger={
+              <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                <Upload className="h-3 w-3" /> Импорт CSV
+              </button>
+            }
+          />
         </div>
       </div>
     </div>

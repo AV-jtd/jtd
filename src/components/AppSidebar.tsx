@@ -3,9 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Upload,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Upload,
 } from "lucide-react";
-import { exportProjectToCsv, downloadCsv } from "@/lib/projectCsv";
+
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -487,34 +487,7 @@ export default function AppSidebar({
                   </PopoverContent>
                 </Popover>
               )}
-              <span
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    const csv = await exportProjectToCsv(group.id);
-                    downloadCsv(csv, `${group.name}.csv`);
-                    toast.success("CSV экспортирован");
-                  } catch (err: any) {
-                    toast.error("Ошибка экспорта: " + err.message);
-                  }
-                }}
-                className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                title="Экспорт CSV"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </span>
-              <ImportProjectDialog
-                targetGroupId={group.id}
-                trigger={
-                  <span
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                    title="Импорт CSV"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                  </span>
-                }
-              />
+              
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
                 <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -591,6 +564,17 @@ export default function AppSidebar({
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Проекты
             <span className="ml-auto flex items-center gap-1">
+              <ImportProjectDialog
+                trigger={
+                  <span
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-sidebar-fg"
+                    title="Импорт проекта из CSV"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                  </span>
+                }
+              />
               <span
                 onClick={(e) => { e.stopPropagation(); setShowNewFolder(true); }}
                 className="hover:text-sidebar-fg"
