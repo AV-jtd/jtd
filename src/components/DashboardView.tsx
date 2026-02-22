@@ -361,8 +361,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   }, [projectStats, tasks]);
 
   const handleNavigateToTask = (taskId: string) => {
-    // For now just scroll highlight - could emit event to parent
-    console.log("Navigate to task:", taskId);
+    onNavigateToTaskProp?.(taskId);
   };
 
   if (isLoading) {
