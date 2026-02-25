@@ -38,15 +38,30 @@ Deno.serve(async (req) => {
 
       const cleanUsername = telegram_username.replace(/^@/, "").toLowerCase().trim();
 
-      // Find user's telegram_chat_id by username
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("telegram_chat_id")
+      // Find telegram chat_id — first check telegram_bot_chats (for new users),
+      // then fall back to profiles (for existing users)
+      let chatIdValue: number | null = null;
+
+      const { data: botChat } = await supabase
+        .from("telegram_bot_chats")
+        .select("chat_id")
         .eq("telegram_username", cleanUsername)
-        .not("telegram_chat_id", "is", null)
         .maybeSingle();
 
-      if (!profile?.telegram_chat_id) {
+      if (botChat?.chat_id) {
+        chatIdValue = botChat.chat_id;
+      } else {
+        // Fallback: check profiles table for existing users
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("telegram_chat_id")
+          .eq("telegram_username", cleanUsername)
+          .not("telegram_chat_id", "is", null)
+          .maybeSingle();
+        chatIdValue = profile?.telegram_chat_id ?? null;
+      }
+
+      if (!chatIdValue) {
         return new Response(JSON.stringify({
           error: "not_found",
           message: "Сначала напишите боту @JustTODOit_bot в Telegram, чтобы привязать аккаунт",
@@ -81,7 +96,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: profile.telegram_chat_id,
+          chat_id: chatIdValue,
           text,
           parse_mode: "Markdown",
         }),

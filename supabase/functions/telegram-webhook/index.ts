@@ -47,6 +47,20 @@ Deno.serve(async (req) => {
 
     // Handle /start command
     if (message.text === "/start") {
+      // Save username → chat_id mapping for 2FA (before profile exists)
+      if (username) {
+        const supabaseEarly = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await supabaseEarly
+          .from("telegram_bot_chats")
+          .upsert(
+            { telegram_username: username.toLowerCase(), chat_id: chatId, updated_at: new Date().toISOString() },
+            { onConflict: "telegram_username" }
+          );
+      }
+
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
