@@ -527,7 +527,7 @@ export default function AppSidebar({
   }
 
   return (
-    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full shrink-0 border-r border-sidebar-fg/5 max-md:border-r-0">
+    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-sidebar-fg/5 max-md:border-r-0">
       {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
@@ -539,7 +539,7 @@ export default function AppSidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
+      <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
         {menuItems.map((item) => (
           <button
             key={item.id}
