@@ -196,7 +196,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   };
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin">
+    <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -464,7 +464,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
-                  <div key={task.id} style={{ animationDelay: `${i * 30}ms` }} className="animate-fade-in">
+                  <div key={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
                     <TaskItem
                       task={task}
                       sortable={!batchMode}

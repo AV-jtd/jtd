@@ -130,7 +130,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
       ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       className={cn(
-        "group bg-card rounded-xl border transition-all duration-200",
+        "group bg-card rounded-xl border transition-[border-color,opacity] duration-200 will-change-auto",
         selected ? "border-primary/40 bg-primary/5" : "border-border",
         task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
         isDragging && "opacity-70 shadow-lg z-50 relative"
