@@ -394,9 +394,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           <button
             type="submit"
             disabled={!newTitle.trim()}
-            className="h-6 w-6 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+            className="h-8 w-8 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
           >
-            <Plus className="h-3.5 w-3.5 text-primary" />
+            <Plus className="h-4 w-4 text-primary" />
           </button>
           <Input
             ref={inputRef}

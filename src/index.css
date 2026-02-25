@@ -116,8 +116,9 @@
   }
 
   /* Prevent iOS Safari tap highlight and smooth touch */
-  button, a, [role="button"] {
+  button, a, [role="button"], [type="submit"] {
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   /* Fix iOS Safari rubber-banding conflicts */
