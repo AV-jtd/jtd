@@ -112,6 +112,29 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent iOS Safari tap highlight and smooth touch */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Fix iOS Safari rubber-banding conflicts */
+  .overflow-y-auto, .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Touch device optimizations - no hover effects that cause sticky states on iOS */
+@media (hover: none) and (pointer: coarse) {
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 0 !important;
+  }
+
+  .hover\:shadow-md:hover {
+    box-shadow: none !important;
   }
 }
 
