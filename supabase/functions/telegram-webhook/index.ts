@@ -250,10 +250,35 @@ Deno.serve(async (req) => {
       }
 
       if (!group) {
+        // Fuzzy search for similar project names
+        const { data: allUserGroups } = await supabase
+          .from("task_groups")
+          .select("name, icon")
+          .eq("user_id", userId);
+
+        const allNames = (allUserGroups || []).map(g => g);
+        // Also check member groups
+        if (membership && membership.length > 0) {
+          const { data: mGroups } = await supabase
+            .from("task_groups")
+            .select("name, icon")
+            .in("id", membership.map(m => m.group_id));
+          if (mGroups) allNames.push(...mGroups);
+        }
+
+        const suggestions = allNames
+          .filter(g => fuzzyMatch(projectName, g.name))
+          .slice(0, 3);
+
+        let hint = "";
+        if (suggestions.length > 0) {
+          hint = `\n💡 Возможно: ${suggestions.map(s => `${s.icon || "📁"} ${s.name}`).join(", ")}`;
+        }
+
         await sendTelegramMessage(
           BOT_TOKEN,
           chatId,
-          `❌ Проект «${projectName}» не найден.\nИспользуй /projects для списка.`
+          `❌ Проект «${projectName}» не найден.${hint}\nИспользуй /projects для списка.`
         );
       } else {
         await sendTelegramMessage(
@@ -398,8 +423,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Find assignee profile
+    // 6. Find assignee profile (with fuzzy fallback)
     let assignedTo: string | null = null;
+    let assigneeFuzzyHint = "";
     if (assigneeUsername) {
       const { data: assignee } = await supabase
         .from("profiles")
@@ -409,6 +435,30 @@ Deno.serve(async (req) => {
 
       if (assignee) {
         assignedTo = assignee.id;
+      } else {
+        // Fuzzy search: find similar usernames from team members
+        const { data: teamMembers } = await supabase
+          .from("team_members")
+          .select("user_id")
+          .in("team_id", (await supabase.from("team_members").select("team_id").eq("user_id", userId)).data?.map(t => t.team_id) || []);
+
+        if (teamMembers && teamMembers.length > 0) {
+          const memberIds = [...new Set(teamMembers.map(m => m.user_id))];
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("telegram_username, display_name")
+            .in("id", memberIds)
+            .not("telegram_username", "is", null);
+
+          if (profiles && profiles.length > 0) {
+            const suggestions = profiles
+              .filter(p => p.telegram_username && fuzzyMatch(assigneeUsername, p.telegram_username))
+              .slice(0, 3);
+            if (suggestions.length > 0) {
+              assigneeFuzzyHint = `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username} (${s.display_name || ""})`).join(", ")}`;
+            }
+          }
+        }
       }
     }
 
@@ -483,7 +533,11 @@ Deno.serve(async (req) => {
     if (deadline.date) extras.push(`📅 ${formatDate(deadline.date)}`);
     if (tagNames.length > 0) extras.push(`🏷 ${tagNames.map(t => "#" + t).join(" ")}`);
     if (assigneeUsername) {
-      extras.push(assignedTo ? `👤 @${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден`);
+      if (assignedTo) {
+        extras.push(`👤 @${assigneeUsername}`);
+      } else {
+        extras.push(`⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
+      }
     }
     if (groupId) extras.push("📂 в проекте");
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
@@ -514,6 +568,35 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
 
 function escapeMarkdown(text: string): string {
   return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
+}
+
+function fuzzyMatch(query: string, candidate: string): boolean {
+  const q = query.toLowerCase();
+  const c = candidate.toLowerCase();
+  if (c === q) return false; // exact match handled elsewhere
+  // Check if one contains the other
+  if (c.includes(q) || q.includes(c)) return true;
+  // Levenshtein distance <= 2 for short strings
+  if (q.length <= 12 && c.length <= 20) {
+    return levenshtein(q, c) <= 2;
+  }
+  // First 3 chars match
+  return q.length >= 3 && c.startsWith(q.substring(0, 3));
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
 }
 
 function parseDeadline(text: string): { date: Date | null; cleaned: string } {
