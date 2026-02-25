@@ -126,6 +126,18 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
+
+  /* iOS: allow vertical pan inside long sidebar button lists */
+  .ios-sidebar-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+
+  .ios-sidebar-scroll button,
+  .ios-sidebar-scroll [role="button"] {
+    touch-action: pan-y;
+  }
 }
 
 /* Touch device optimizations - no hover effects that cause sticky states on iOS */
