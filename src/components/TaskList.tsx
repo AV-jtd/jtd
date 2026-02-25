@@ -133,6 +133,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
+    inbox: { title: "Входящие", icon: Inbox, emptyTitle: "Входящие пусты", emptyDesc: "Задачи без проекта попадают сюда" },
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
     assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
@@ -146,7 +147,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const now = new Date();
 
   let filteredTasks = tasks;
-  if (activeView === "important") {
+  if (activeView === "inbox") {
+    filteredTasks = tasks.filter(t => !t.group_id);
+  } else if (activeView === "important") {
     filteredTasks = tasks.filter(t => t.is_important);
   } else if (activeView === "today") {
     filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
