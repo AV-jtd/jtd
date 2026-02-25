@@ -701,6 +701,30 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_bot_chats: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          telegram_username: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          telegram_username: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          telegram_username?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vapid_keys: {
         Row: {
           created_at: string
