@@ -196,6 +196,19 @@ export default function Auth() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {isSignUp && (
                   <>
+                    {/* Step-by-step guide */}
+                    <div className="rounded-lg border border-border bg-muted/50 p-4 mb-2 space-y-3">
+                      <p className="text-sm font-medium text-foreground">Как зарегистрироваться:</p>
+                      <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
+                        <li>
+                          Откройте <a href="https://t.me/JustTODOit_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@JustTODOit_bot</a> в Telegram и нажмите <span className="font-medium text-foreground">/start</span>
+                        </li>
+                        <li>Заполните форму ниже — укажите имя, Telegram username, email и пароль</li>
+                        <li>Нажмите «Получить код в Telegram» — бот пришлёт 6-значный код</li>
+                        <li>Введите код — регистрация завершена!</li>
+                      </ol>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="displayName">Имя</Label>
                       <Input
@@ -218,9 +231,6 @@ export default function Auth() {
                         placeholder="username (без @)"
                         required
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Сначала напишите боту <a href="https://t.me/JustTODOit_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline">@JustTODOit_bot</a> в Telegram
-                      </p>
                     </div>
                   </>
                 )}
