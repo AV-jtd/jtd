@@ -147,14 +147,16 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
         {selectable && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
-            className={cn(
-              "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-all",
+            className="-m-2 p-2 touch-manipulation"
+          >
+            <span className={cn(
+              "h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-all",
               selected
                 ? "bg-primary border-primary"
                 : "border-muted-foreground/40 hover:border-primary"
-            )}
-          >
-            {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+            )}>
+              {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+            </span>
           </button>
         )}
         {/* Drag handle */}
@@ -170,15 +172,19 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
         {/* Checkbox */}
         {!selectable && (
           <button
-            onClick={() => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
+            onClick={(e) => { e.stopPropagation(); toggleTask.mutate({ id: task.id, is_completed: !task.is_completed }); }}
             className={cn(
-              "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+              "-m-2 p-2 touch-manipulation",
+            )}
+          >
+            <span className={cn(
+              "h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
               task.is_completed
                 ? "bg-primary border-primary animate-check-bounce"
                 : "border-muted-foreground/40 hover:border-primary"
-            )}
-          >
-            {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+            )}>
+              {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+            </span>
           </button>
         )}
 
@@ -739,14 +745,16 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             </p>
             {subtasks.map((sub) => (
               <div key={sub.id} className="flex items-center gap-2.5 group/sub py-0.5">
-                <button
-                  onClick={() => toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed })}
-                  className={cn(
+              <button
+                  onClick={(e) => { e.stopPropagation(); toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed }); }}
+                  className="-m-2 p-2 touch-manipulation"
+                >
+                  <span className={cn(
                     "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
                     sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-                  )}
-                >
-                  {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                  )}>
+                    {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                  </span>
                 </button>
                 <span className={cn("text-sm flex-1", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
                 <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive">
@@ -765,9 +773,9 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
               <button
                 type="submit"
                 disabled={!newSubtask.trim()}
-                className="h-5 w-5 rounded-full border border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+                className="h-8 w-8 rounded-full border border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
               >
-                <Plus className="h-3 w-3 text-primary" />
+                <Plus className="h-3.5 w-3.5 text-primary" />
               </button>
             </form>
           </div>
@@ -790,13 +798,15 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
           {subtasks.map((sub) => (
             <div key={sub.id} className="flex items-center gap-2.5 group/sub py-1">
               <button
-                onClick={() => toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed })}
-                className={cn(
+                onClick={(e) => { e.stopPropagation(); toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed }); }}
+                className="-m-2 p-2 touch-manipulation"
+              >
+                <span className={cn(
                   "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
                   sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-                )}
-              >
-                {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                )}>
+                  {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                </span>
               </button>
               <span className={cn("text-sm flex-1", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
               <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive">
@@ -811,16 +821,16 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 enterKeyHint="done"
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
-                onBlur={() => { setTimeout(() => { if (!newSubtask.trim()) setShowAddSubtask(false); }, 150); }}
+                onBlur={() => { setTimeout(() => { if (!newSubtask.trim()) setShowAddSubtask(false); }, 400); }}
                 placeholder="Шаг..."
                 className="flex-1 text-sm bg-transparent outline-none border-b border-border py-1"
               />
               <button
                 type="submit"
                 disabled={!newSubtask.trim()}
-                className="h-5 w-5 rounded-full border border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+                className="h-8 w-8 rounded-full border border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
               >
-                <Plus className="h-3 w-3 text-primary" />
+                <Plus className="h-3.5 w-3.5 text-primary" />
               </button>
             </form>
           ) : (
