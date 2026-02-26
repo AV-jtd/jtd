@@ -289,11 +289,11 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
               const group = allGroups.find(g => g.id === task.group_id);
               return group ? (
                 <span
-                  className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: `${group.color || '#3b82f6'}20`, color: group.color || '#3b82f6' }}
+                  className="inline-flex items-center gap-1 text-xs font-medium cursor-pointer hover:opacity-70 transition-opacity"
+                  style={{ color: group.color || '#3b82f6' }}
                   onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
                 >
-                  <span className="text-[10px]">{group.icon || '📁'}</span>
+                  <span className="text-[11px]">{group.icon || '📁'}</span>
                   {group.name}
                 </span>
               ) : null;
