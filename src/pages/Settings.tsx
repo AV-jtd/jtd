@@ -344,3 +344,95 @@ export default function Settings() {
     </div>
   );
 }
+
+function CalendarSubscription({ userId }: { userId: string }) {
+  const [calUrl, setCalUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  useEffect(() => {
+    supabase
+      .from("calendar_tokens")
+      .select("token")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.token) {
+          setCalUrl(`https://${projectId}.supabase.co/functions/v1/calendar-feed?token=${data.token}`);
+        }
+      });
+  }, [userId, projectId]);
+
+  const generate = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("calendar_tokens")
+      .upsert({ user_id: userId } as any, { onConflict: "user_id" })
+      .select("token")
+      .single();
+
+    if (error) {
+      toast.error("Не удалось создать ссылку");
+    } else if (data) {
+      setCalUrl(`https://${projectId}.supabase.co/functions/v1/calendar-feed?token=${data.token}`);
+      toast.success("Ссылка создана");
+    }
+    setLoading(false);
+  };
+
+  const regenerate = async () => {
+    setLoading(true);
+    // Delete and recreate to get a new token
+    await supabase.from("calendar_tokens").delete().eq("user_id", userId);
+    await generate();
+  };
+
+  const copyUrl = async () => {
+    if (!calUrl) return;
+    await navigator.clipboard.writeText(calUrl);
+    setCopied(true);
+    toast.success("Ссылка скопирована");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="border-t border-border pt-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <CalendarSync className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-medium">Подписка на календарь</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Добавьте ссылку в Google Calendar, Outlook или Apple Calendar — дедлайны задач будут автоматически синхронизироваться.
+      </p>
+
+      {calUrl ? (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Input value={calUrl} readOnly className="text-xs font-mono" />
+            <Button variant="outline" size="icon" onClick={copyUrl} className="shrink-0">
+              {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={regenerate} disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}
+              Пересоздать ссылку
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>📌 <strong>Google Calendar:</strong> Настройки → Добавить по URL → вставить ссылку</p>
+            <p>📌 <strong>Outlook:</strong> Добавить календарь → Из интернета → вставить ссылку</p>
+            <p>📌 <strong>Apple Calendar:</strong> Файл → Подписка → вставить ссылку</p>
+          </div>
+        </div>
+      ) : (
+        <Button onClick={generate} disabled={loading}>
+          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarSync className="mr-2 h-4 w-4" />}
+          Создать ссылку подписки
+        </Button>
+      )}
+    </div>
+  );
+}
