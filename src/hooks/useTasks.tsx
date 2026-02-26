@@ -669,7 +669,7 @@ export function useTaskMutations() {
     onMutate: async ({ task_id, title }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
       const snap = snapshotTasks(qc);
-      const newSubtask: Subtask = { id: tempId(), task_id, title, is_completed: false, position: 0, created_at: new Date().toISOString() };
+      const newSubtask: Subtask = { id: tempId(), task_id, title, is_completed: false, position: 0, created_at: new Date().toISOString(), deadline: null, assigned_to: null };
       updateAllTaskCaches(qc, (tasks) =>
         tasks.map(t => t.id === task_id ? { ...t, subtasks: [...(t.subtasks || []), newSubtask] } : t)
       );
