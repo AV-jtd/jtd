@@ -69,6 +69,76 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ...result, commands_registered: true }), { headers: corsHeaders });
     }
 
+    // === Handle inline button callbacks ===
+    const callbackQuery = body.callback_query;
+    if (callbackQuery) {
+      const cbData = callbackQuery.data || "";
+      const cbChatId = callbackQuery.message?.chat?.id;
+      const cbMessageId = callbackQuery.message?.message_id;
+      const cbUsername = callbackQuery.from?.username;
+
+      if (!cbUsername || !cbChatId) {
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Ошибка");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      const supabaseCb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: cbProfile } = await supabaseCb
+        .from("profiles")
+        .select("id")
+        .eq("telegram_username", cbUsername.toLowerCase())
+        .single();
+
+      if (!cbProfile) {
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Вы не зарегистрированы");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "done:<task_id>"
+      if (cbData.startsWith("done:")) {
+        const taskId = cbData.substring(5);
+        const { data: task } = await supabaseCb
+          .from("tasks")
+          .select("id, title")
+          .eq("id", taskId)
+          .eq("is_completed", false)
+          .single();
+
+        if (!task) {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Задача не найдена или уже выполнена");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("tasks").update({ is_completed: true, completed_at: new Date().toISOString() }).eq("id", taskId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `✅ ${task.title.substring(0, 40)}`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, `✅ Выполнено: "${escapeMarkdown(task.title.substring(0, 60))}" (@${cbUsername})`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "assign:<task_id>"
+      if (cbData.startsWith("assign:")) {
+        const taskId = cbData.substring(7);
+        const { data: task } = await supabaseCb
+          .from("tasks")
+          .select("id, title")
+          .eq("id", taskId)
+          .single();
+
+        if (!task) {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Задача не найдена");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("tasks").update({ assigned_to: cbProfile.id }).eq("id", taskId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `👤 Назначено на вас`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, `👤 "${escapeMarkdown(task.title.substring(0, 60))}" → @${cbUsername}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "🤷");
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
     const message = body.message;
     if (!message?.text) {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
