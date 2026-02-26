@@ -71,7 +71,8 @@ Deno.serve(async (req) => {
           "🔗 `/link Название проекта` — привязать чат к проекту\n" +
           "📝 `/task Текст @ответственный !срок` — создать задачу\n" +
           "📋 `/tasks` — список открытых задач\n" +
-          "✅ `/done` (ответом на задачу) — выполнить\n" +
+          "✅ `/done 1` — выполнить задачу по номеру\n" +
+          "👤 `/assign 1 @user` — назначить ответственного\n" +
           "👤 `/my` — мои задачи",
           "Markdown"
         );
@@ -352,6 +353,77 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      // === /assign — assign user to existing task ===
+      if (command === "assign") {
+        // Format: /assign 1 @username
+        const assignMatch = args.match(/^(\d+)\s+@(\S+)/);
+        if (!assignMatch) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "👤 Формат: `/assign 1 @username` (номер задачи из /tasks)", "Markdown");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const taskNum = parseInt(assignMatch[1]);
+        const targetUsername = assignMatch[2].toLowerCase();
+
+        // Get task list (same order as /tasks)
+        const { data: tasksList } = await supabase
+          .from("tasks")
+          .select("id, title, assigned_to")
+          .eq("group_id", groupId)
+          .eq("is_completed", false)
+          .order("position")
+          .limit(20);
+
+        if (!tasksList || taskNum < 1 || taskNum > tasksList.length) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, `❌ Задача #${taskNum} не найдена. Используй /tasks`);
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const targetTask = tasksList[taskNum - 1];
+
+        // Find assignee among group members
+        const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
+        const { data: assigneeProfile } = await supabase
+          .from("profiles")
+          .select("id, display_name, telegram_username")
+          .eq("telegram_username", targetUsername)
+          .in("id", memberIds)
+          .single();
+
+        if (!assigneeProfile) {
+          // Fuzzy suggestions
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("telegram_username, display_name")
+            .in("id", memberIds)
+            .not("telegram_username", "is", null);
+          const suggestions = (profiles || [])
+            .filter(p => p.telegram_username && fuzzyMatch(targetUsername, p.telegram_username))
+            .slice(0, 3);
+          const hint = suggestions.length > 0
+            ? `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username}`).join(", ")}`
+            : "";
+          await sendTelegramMessage(BOT_TOKEN, chatId, `❌ @${targetUsername} не найден среди участников проекта.${hint}`);
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const { error: assignError } = await supabase
+          .from("tasks")
+          .update({ assigned_to: assigneeProfile.id })
+          .eq("id", targetTask.id);
+
+        if (assignError) {
+          console.error("Assign error:", assignError);
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось назначить ответственного.");
+        } else {
+          await sendTelegramMessage(
+            BOT_TOKEN, chatId,
+            `✅ Задача "${escapeMarkdown(targetTask.title.substring(0, 60))}" → 👤 @${assigneeProfile.telegram_username || assigneeProfile.display_name}`
+          );
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       // === /my — my tasks in this project ===
       if (command === "my") {
         const { data: tasks } = await supabase
@@ -403,6 +475,7 @@ Deno.serve(async (req) => {
           "📝 `/task Текст @user !срок` — создать задачу\n" +
           "📋 `/tasks` — открытые задачи\n" +
           "✅ `/done 1` — выполнить задачу по номеру\n" +
+          "👤 `/assign 1 @user` — назначить ответственного\n" +
           "👤 `/my` — мои задачи\n" +
           "📂 `/projects` — список проектов\n\n" +
           "*В тексте задачи:*\n" +
