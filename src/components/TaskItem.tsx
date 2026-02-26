@@ -20,6 +20,7 @@ interface TaskItemProps {
   initialOpen?: boolean;
   onOpened?: () => void;
   onTagClick?: (tagId: string) => void;
+  onProjectClick?: (groupId: string) => void;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -48,7 +49,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -288,8 +289,9 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
               const group = allGroups.find(g => g.id === task.group_id);
               return group ? (
                 <span
-                  className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full"
+                  className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: `${group.color || '#3b82f6'}20`, color: group.color || '#3b82f6' }}
+                  onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
                 >
                   <span className="text-[10px]">{group.icon || '📁'}</span>
                   {group.name}

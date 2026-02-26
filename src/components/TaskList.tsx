@@ -42,9 +42,10 @@ interface TaskListProps {
   highlightTaskId?: string | null;
   onHighlightClear?: () => void;
   onTagClick?: (tagId: string) => void;
+  onProjectClick?: (groupId: string) => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick }: TaskListProps) {
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -471,6 +472,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                       onTagClick={onTagClick}
+                      onProjectClick={onProjectClick}
                       selectable={batchMode}
                       selected={selectedIds.has(task.id)}
                       onToggleSelect={() => toggleSelect(task.id)}
@@ -495,6 +497,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                       onTagClick={onTagClick}
+                      onProjectClick={onProjectClick}
                       selectable={batchMode}
                       selected={selectedIds.has(task.id)}
                       onToggleSelect={() => toggleSelect(task.id)}

@@ -129,6 +129,7 @@ export default function Index() {
                   highlightTaskId={highlightTaskId}
                   onHighlightClear={() => setHighlightTaskId(null)}
                   onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
+                  onProjectClick={(groupId) => { setActiveGroupId(groupId); setActiveView("group"); setActiveTagFilters([]); }}
                 />
                 {chatOpen && activeGroupId && activeView === "group" && (
                   <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
