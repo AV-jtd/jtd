@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.telegram-2fa]
 verify_jwt = false
+
+[functions.calendar-feed]
+verify_jwt = false
