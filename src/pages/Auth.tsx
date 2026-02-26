@@ -117,7 +117,7 @@ export default function Auth() {
             <div className="h-14 w-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
               <span className="text-2xl font-black text-primary-foreground leading-none">✓</span>
             </div>
-            <h1 className="text-4xl font-bold text-primary-foreground">Just<span className="bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent">TODO</span>it</h1>
+            <h1 className="text-4xl font-bold text-primary-foreground">Just<span className="bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent todo-glow">TODO</span>it</h1>
           </div>
           <p className="text-lg text-primary-foreground/80">
             Организуйте задачи, управляйте проектами и делегируйте работу в одном месте.
