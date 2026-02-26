@@ -761,6 +761,44 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_group_chats: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          linked_by: string
+          telegram_chat_id: number
+          telegram_chat_title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          linked_by: string
+          telegram_chat_id: number
+          telegram_chat_title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          linked_by?: string
+          telegram_chat_id?: number
+          telegram_chat_title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_group_chats_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vapid_keys: {
         Row: {
           created_at: string
