@@ -377,9 +377,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           <ProjectDetailPanel group={activeGroup} />
         )}
 
-        {/* Priority filter */}
+        {/* Filters */}
         {!batchMode && (
           <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+            {/* Priority filters */}
             {[
               { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
               { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
@@ -400,9 +401,99 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 {p.label}
               </button>
             ))}
-            {priorityFilter !== null && (
+
+            {/* Assignee filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                    assigneeFilter !== null
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                  )}
+                >
+                  <User className="h-3 w-3" />
+                  {assigneeFilter === null
+                    ? "Ответственный"
+                    : assigneeFilter === "me"
+                      ? "Мои"
+                      : assigneeFilter === "unassigned"
+                        ? "Без ответственного"
+                        : availableUsers.find(u => u.id === assigneeFilter)?.display_name || "Пользователь"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Ответственный</p>
+                <button
+                  onClick={() => setAssigneeFilter(prev => prev === "me" ? null : "me")}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "me" && "bg-primary/10 text-primary")}
+                >
+                  Назначены мне
+                </button>
+                <button
+                  onClick={() => setAssigneeFilter(prev => prev === "unassigned" ? null : "unassigned")}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "unassigned" && "bg-primary/10 text-primary")}
+                >
+                  Без ответственного
+                </button>
+                {availableUsers.filter(u => u.id !== user?.id).map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => setAssigneeFilter(prev => prev === u.id ? null : u.id)}
+                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", assigneeFilter === u.id && "bg-primary/10 text-primary")}
+                  >
+                    {u.display_name || u.email || "—"}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Project filter */}
+            {activeView !== "group" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                      projectFilter !== null
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                    )}
+                  >
+                    <Layers className="h-3 w-3" />
+                    {projectFilter === null
+                      ? "Проект"
+                      : projectFilter === "none"
+                        ? "Без проекта"
+                        : groups.find(g => g.id === projectFilter)?.name || "Проект"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">Проект</p>
+                  <button
+                    onClick={() => setProjectFilter(prev => prev === "none" ? null : "none")}
+                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground", projectFilter === "none" && "bg-primary/10 text-primary")}
+                  >
+                    Без проекта
+                  </button>
+                  {groups.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => setProjectFilter(prev => prev === g.id ? null : g.id)}
+                      className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === g.id && "bg-primary/10 text-primary")}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Reset */}
+            {(priorityFilter !== null || assigneeFilter !== null || projectFilter !== null) && (
               <button
-                onClick={() => setPriorityFilter(null)}
+                onClick={() => { setPriorityFilter(null); setAssigneeFilter(null); setProjectFilter(null); }}
                 className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
               >
                 <X className="h-3 w-3" /> Сбросить
