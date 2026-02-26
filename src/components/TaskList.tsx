@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useTasks, useTaskMutations, useTaskGroups, useTags } from "@/hooks/useTasks";
+import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
@@ -46,17 +47,21 @@ interface TaskListProps {
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick }: TaskListProps) {
+  const { user } = useAuth();
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useTags();
+  const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
+  const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -164,6 +169,24 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   if (priorityFilter !== null) {
     filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+  }
+
+  if (assigneeFilter !== null) {
+    if (assigneeFilter === "me") {
+      filteredTasks = filteredTasks.filter(t => t.assigned_to === user?.id);
+    } else if (assigneeFilter === "unassigned") {
+      filteredTasks = filteredTasks.filter(t => !t.assigned_to);
+    } else {
+      filteredTasks = filteredTasks.filter(t => t.assigned_to === assigneeFilter);
+    }
+  }
+
+  if (projectFilter !== null) {
+    if (projectFilter === "none") {
+      filteredTasks = filteredTasks.filter(t => !t.group_id);
+    } else {
+      filteredTasks = filteredTasks.filter(t => t.group_id === projectFilter);
+    }
   }
 
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
@@ -354,9 +377,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           <ProjectDetailPanel group={activeGroup} />
         )}
 
-        {/* Priority filter */}
+        {/* Filters */}
         {!batchMode && (
           <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+            {/* Priority filters */}
             {[
               { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
               { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
@@ -377,9 +401,99 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 {p.label}
               </button>
             ))}
-            {priorityFilter !== null && (
+
+            {/* Assignee filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                    assigneeFilter !== null
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                  )}
+                >
+                  <User className="h-3 w-3" />
+                  {assigneeFilter === null
+                    ? "Ответственный"
+                    : assigneeFilter === "me"
+                      ? "Мои"
+                      : assigneeFilter === "unassigned"
+                        ? "Без ответственного"
+                        : availableUsers.find(u => u.id === assigneeFilter)?.display_name || "Пользователь"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Ответственный</p>
+                <button
+                  onClick={() => setAssigneeFilter(prev => prev === "me" ? null : "me")}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "me" && "bg-primary/10 text-primary")}
+                >
+                  Назначены мне
+                </button>
+                <button
+                  onClick={() => setAssigneeFilter(prev => prev === "unassigned" ? null : "unassigned")}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "unassigned" && "bg-primary/10 text-primary")}
+                >
+                  Без ответственного
+                </button>
+                {availableUsers.filter(u => u.id !== user?.id).map(u => (
+                  <button
+                    key={u.id}
+                    onClick={() => setAssigneeFilter(prev => prev === u.id ? null : u.id)}
+                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", assigneeFilter === u.id && "bg-primary/10 text-primary")}
+                  >
+                    {u.display_name || u.email || "—"}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Project filter */}
+            {activeView !== "group" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+                      projectFilter !== null
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                    )}
+                  >
+                    <Layers className="h-3 w-3" />
+                    {projectFilter === null
+                      ? "Проект"
+                      : projectFilter === "none"
+                        ? "Без проекта"
+                        : groups.find(g => g.id === projectFilter)?.name || "Проект"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">Проект</p>
+                  <button
+                    onClick={() => setProjectFilter(prev => prev === "none" ? null : "none")}
+                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground", projectFilter === "none" && "bg-primary/10 text-primary")}
+                  >
+                    Без проекта
+                  </button>
+                  {groups.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => setProjectFilter(prev => prev === g.id ? null : g.id)}
+                      className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === g.id && "bg-primary/10 text-primary")}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Reset */}
+            {(priorityFilter !== null || assigneeFilter !== null || projectFilter !== null) && (
               <button
-                onClick={() => setPriorityFilter(null)}
+                onClick={() => { setPriorityFilter(null); setAssigneeFilter(null); setProjectFilter(null); }}
                 className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
               >
                 <X className="h-3 w-3" /> Сбросить
