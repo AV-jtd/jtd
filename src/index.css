@@ -179,4 +179,18 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.5);
   }
+
+  .todo-glow {
+    animation: todo-pulse 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.3));
+  }
+
+  @keyframes todo-pulse {
+    0%, 100% {
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.3));
+    }
+    50% {
+      filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.5));
+    }
+  }
 }
