@@ -472,6 +472,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                       onTagClick={onTagClick}
+                      onProjectClick={onProjectClick}
                       selectable={batchMode}
                       selected={selectedIds.has(task.id)}
                       onToggleSelect={() => toggleSelect(task.id)}
