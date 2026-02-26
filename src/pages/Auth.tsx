@@ -132,7 +132,7 @@ export default function Auth() {
             <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Just<span className="text-primary">TODO</span>it</h1>
+            <h1 className="text-2xl font-bold text-foreground">Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it</h1>
           </div>
 
           {step === "otp" && isSignUp ? (
