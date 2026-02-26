@@ -34,7 +34,39 @@ Deno.serve(async (req) => {
         }
       );
       const result = await res.json();
-      return new Response(JSON.stringify(result), { headers: corsHeaders });
+
+      // Register bot command menus
+      const privateCommands = [
+        { command: "help", description: "📖 Справка" },
+        { command: "projects", description: "📂 Список проектов" },
+        { command: "project", description: "📁 Выбрать проект" },
+        { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
+      ];
+      const groupCommands = [
+        { command: "link", description: "🔗 Привязать чат к проекту" },
+        { command: "task", description: "📝 Создать задачу" },
+        { command: "tasks", description: "📋 Список открытых задач" },
+        { command: "done", description: "✅ Выполнить задачу" },
+        { command: "assign", description: "👤 Назначить ответственного" },
+        { command: "my", description: "🙋 Мои задачи" },
+        { command: "projects", description: "📂 Список проектов" },
+        { command: "help", description: "📖 Справка" },
+      ];
+
+      // Set commands for private chats
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands: privateCommands, scope: { type: "all_private_chats" } }),
+      });
+      // Set commands for group chats
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands: groupCommands, scope: { type: "all_group_chats" } }),
+      });
+
+      return new Response(JSON.stringify({ ...result, commands_registered: true }), { headers: corsHeaders });
     }
 
     const message = body.message;
