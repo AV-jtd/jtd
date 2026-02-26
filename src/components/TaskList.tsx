@@ -42,6 +42,7 @@ interface TaskListProps {
   highlightTaskId?: string | null;
   onHighlightClear?: () => void;
   onTagClick?: (tagId: string) => void;
+  onProjectClick?: (groupId: string) => void;
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick }: TaskListProps) {
