@@ -20,6 +20,7 @@ interface TaskItemProps {
   initialOpen?: boolean;
   onOpened?: () => void;
   onTagClick?: (tagId: string) => void;
+  onProjectClick?: (groupId: string) => void;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
