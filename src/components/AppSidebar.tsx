@@ -393,7 +393,7 @@ export default function AppSidebar({
               {isRoot && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
-                  className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                   title="Добавить подпроект"
                 >
                   <Plus className="h-3.5 w-3.5" />
