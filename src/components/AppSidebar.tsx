@@ -534,7 +534,7 @@ export default function AppSidebar({
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
           </div>
-          <span className="text-lg font-bold tracking-tight">Just<span className="text-primary">TODO</span>it</span>
+          <span className="text-lg font-bold tracking-tight">Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it</span>
         </div>
       </div>
 
