@@ -209,6 +209,24 @@ export function useGroupMembers(groupId: string | null) {
   });
 }
 
+// --- Group Tags ---
+
+export function useGroupTags(groupId: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["group_tags", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_tags" as any)
+        .select("tag_id")
+        .eq("group_id", groupId!) as { data: { tag_id: string }[] | null; error: any };
+      if (error) throw error;
+      return (data || []) as { tag_id: string }[];
+    },
+    enabled: !!user && !!groupId,
+  });
+}
+
 // --- Project Folders ---
 
 export function useProjectFolders() {
@@ -963,6 +981,34 @@ export function useTaskMutations() {
     onError: (e) => toast.error(e.message),
   });
 
+  // ========== GROUP TAGS ==========
+
+  const addGroupTag = useMutation({
+    mutationFn: async ({ group_id, tag_id }: { group_id: string; tag_id: string }) => {
+      const { error } = await supabase.from("group_tags" as any).insert({ group_id, tag_id });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["group_tags", vars.group_id] }),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const removeGroupTag = useMutation({
+    mutationFn: async ({ group_id, tag_id }: { group_id: string; tag_id: string }) => {
+      const { error } = await supabase.from("group_tags" as any).delete().eq("group_id", group_id).eq("tag_id", tag_id);
+      if (error) throw error;
+    },
+    onMutate: async ({ group_id, tag_id }) => {
+      await qc.cancelQueries({ queryKey: ["group_tags", group_id] });
+      const prev = qc.getQueryData<{ tag_id: string }[]>(["group_tags", group_id]);
+      qc.setQueryData(["group_tags", group_id], (old: { tag_id: string }[] | undefined) =>
+        old?.filter(gt => gt.tag_id !== tag_id)
+      );
+      return { prev, group_id };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(["group_tags", ctx.group_id], ctx.prev); },
+    onSettled: (_d, _e, vars) => qc.invalidateQueries({ queryKey: ["group_tags", vars.group_id] }),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -972,5 +1018,6 @@ export function useTaskMutations() {
     reorderTasks, reorderGroups,
     addParticipant, removeParticipant,
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
+    addGroupTag, removeGroupTag,
   };
 }
