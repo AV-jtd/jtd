@@ -319,6 +319,9 @@ export default function Settings() {
               )}
             </div>
 
+            {/* Calendar Subscription */}
+            <CalendarSubscription userId={user.id} />
+
             {/* Import/Export */}
             <div className="border-t border-border pt-6">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
