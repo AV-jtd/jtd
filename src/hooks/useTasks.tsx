@@ -716,6 +716,26 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+  const updateSubtask = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; deadline?: string | null; assigned_to?: string | null }) => {
+      const { error } = await supabase.from("subtasks").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, ...updates }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => ({
+          ...t,
+          subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s),
+        }))
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
   // ========== TAGS ==========
 
   const addTag = useMutation({
