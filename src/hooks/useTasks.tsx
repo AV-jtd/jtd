@@ -219,7 +219,7 @@ export function useGroupTags(groupId: string | null) {
       const { data, error } = await supabase
         .from("group_tags" as any)
         .select("tag_id")
-        .eq("group_id", groupId!);
+        .eq("group_id", groupId!) as { data: { tag_id: string }[] | null; error: any };
       if (error) throw error;
       return (data || []) as { tag_id: string }[];
     },
