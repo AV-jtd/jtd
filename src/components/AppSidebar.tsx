@@ -389,11 +389,11 @@ export default function AppSidebar({
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-0.5 shrink-0 touch-visible">
+            <div className={cn("flex items-center gap-0.5 shrink-0", activeGroupId === group.id ? "opacity-60" : "")}>
               {isRoot && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
-                  className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                   title="Добавить подпроект"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -403,7 +403,7 @@ export default function AppSidebar({
                 <PopoverTrigger asChild>
                   <span
                     onClick={(e) => e.stopPropagation()}
-                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                    className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                   >
                     <UserPlus className="h-3.5 w-3.5" />
                   </span>
@@ -445,7 +445,7 @@ export default function AppSidebar({
               </Popover>
               <span
                 onClick={(e) => { e.stopPropagation(); onGroupChange(group.id); onViewChange("group"); onClearTags(); onToggleProjectDetail(); }}
-                className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                 title="Карточка проекта"
               >
                 <Expand className="h-3.5 w-3.5" />
@@ -456,7 +456,7 @@ export default function AppSidebar({
                   <PopoverTrigger asChild>
                     <span
                       onClick={(e) => e.stopPropagation()}
-                      className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                      className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                       title="Переместить в папку"
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
@@ -490,7 +490,7 @@ export default function AppSidebar({
               )}
               
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
-                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                <span onClick={(e) => e.stopPropagation()} className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </span>
               </ConfirmDelete>
