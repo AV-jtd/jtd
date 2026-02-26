@@ -445,7 +445,7 @@ export default function AppSidebar({
               </Popover>
               <span
                 onClick={(e) => { e.stopPropagation(); onGroupChange(group.id); onViewChange("group"); onClearTags(); onToggleProjectDetail(); }}
-                className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
                 title="Карточка проекта"
               >
                 <Expand className="h-3.5 w-3.5" />
