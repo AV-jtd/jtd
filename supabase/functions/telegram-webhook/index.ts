@@ -34,7 +34,109 @@ Deno.serve(async (req) => {
         }
       );
       const result = await res.json();
-      return new Response(JSON.stringify(result), { headers: corsHeaders });
+
+      // Register bot command menus
+      const privateCommands = [
+        { command: "help", description: "📖 Справка" },
+        { command: "projects", description: "📂 Список проектов" },
+        { command: "project", description: "📁 Выбрать проект" },
+        { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
+      ];
+      const groupCommands = [
+        { command: "link", description: "🔗 Привязать чат к проекту" },
+        { command: "task", description: "📝 Создать задачу" },
+        { command: "tasks", description: "📋 Список открытых задач" },
+        { command: "done", description: "✅ Выполнить задачу" },
+        { command: "assign", description: "👤 Назначить ответственного" },
+        { command: "my", description: "🙋 Мои задачи" },
+        { command: "projects", description: "📂 Список проектов" },
+        { command: "help", description: "📖 Справка" },
+      ];
+
+      // Set commands for private chats
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands: privateCommands, scope: { type: "all_private_chats" } }),
+      });
+      // Set commands for group chats
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commands: groupCommands, scope: { type: "all_group_chats" } }),
+      });
+
+      return new Response(JSON.stringify({ ...result, commands_registered: true }), { headers: corsHeaders });
+    }
+
+    // === Handle inline button callbacks ===
+    const callbackQuery = body.callback_query;
+    if (callbackQuery) {
+      const cbData = callbackQuery.data || "";
+      const cbChatId = callbackQuery.message?.chat?.id;
+      const cbMessageId = callbackQuery.message?.message_id;
+      const cbUsername = callbackQuery.from?.username;
+
+      if (!cbUsername || !cbChatId) {
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Ошибка");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      const supabaseCb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: cbProfile } = await supabaseCb
+        .from("profiles")
+        .select("id")
+        .eq("telegram_username", cbUsername.toLowerCase())
+        .single();
+
+      if (!cbProfile) {
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Вы не зарегистрированы");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "done:<task_id>"
+      if (cbData.startsWith("done:")) {
+        const taskId = cbData.substring(5);
+        const { data: task } = await supabaseCb
+          .from("tasks")
+          .select("id, title")
+          .eq("id", taskId)
+          .eq("is_completed", false)
+          .single();
+
+        if (!task) {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Задача не найдена или уже выполнена");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("tasks").update({ is_completed: true, completed_at: new Date().toISOString() }).eq("id", taskId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `✅ ${task.title.substring(0, 40)}`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, `✅ Выполнено: "${escapeMarkdown(task.title.substring(0, 60))}" (@${cbUsername})`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "assign:<task_id>"
+      if (cbData.startsWith("assign:")) {
+        const taskId = cbData.substring(7);
+        const { data: task } = await supabaseCb
+          .from("tasks")
+          .select("id, title")
+          .eq("id", taskId)
+          .single();
+
+        if (!task) {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Задача не найдена");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("tasks").update({ assigned_to: cbProfile.id }).eq("id", taskId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `👤 Назначено на вас`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, `👤 "${escapeMarkdown(task.title.substring(0, 60))}" → @${cbUsername}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "🤷");
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
     const message = body.message;
@@ -306,14 +408,20 @@ Deno.serve(async (req) => {
         }
 
         let text = `📋 *${escapeMarkdown(linkedGroup.name)}* — задачи:\n\n`;
+        const inlineKeyboard: any[][] = [];
         tasks.forEach((t, i) => {
           const imp = t.is_important ? "⭐ " : "";
           const dl = t.deadline ? ` 📅 ${formatDate(new Date(t.deadline))}` : "";
           const assignee = t.assigned_to && profileMap.get(t.assigned_to) ? ` 👤 ${profileMap.get(t.assigned_to)}` : "";
           text += `${i + 1}. ${imp}${escapeMarkdown(t.title.substring(0, 60))}${dl}${assignee}\n`;
+          // Add inline buttons row for each task
+          inlineKeyboard.push([
+            { text: `✅ ${i + 1}`, callback_data: `done:${t.id}` },
+            { text: `👤 ${i + 1} Взять`, callback_data: `assign:${t.id}` },
+          ]);
         });
 
-        await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
+        await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId, text, inlineKeyboard, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -1008,6 +1116,28 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+async function sendTelegramMessageWithKeyboard(token: string, chatId: number, text: string, inlineKeyboard: any[][], parseMode?: string) {
+  const body: Record<string, any> = {
+    chat_id: chatId,
+    text,
+    reply_markup: { inline_keyboard: inlineKeyboard },
+  };
+  if (parseMode) body.parse_mode = parseMode;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function answerCallbackQuery(token: string, callbackQueryId: string, text: string) {
+  await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
   });
 }
 
