@@ -171,6 +171,24 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
   }
 
+  if (assigneeFilter !== null) {
+    if (assigneeFilter === "me") {
+      filteredTasks = filteredTasks.filter(t => t.assigned_to === user?.id);
+    } else if (assigneeFilter === "unassigned") {
+      filteredTasks = filteredTasks.filter(t => !t.assigned_to);
+    } else {
+      filteredTasks = filteredTasks.filter(t => t.assigned_to === assigneeFilter);
+    }
+  }
+
+  if (projectFilter !== null) {
+    if (projectFilter === "none") {
+      filteredTasks = filteredTasks.filter(t => !t.group_id);
+    } else {
+      filteredTasks = filteredTasks.filter(t => t.group_id === projectFilter);
+    }
+  }
+
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
   const completedTasks = filteredTasks.filter(t => t.is_completed);
 
