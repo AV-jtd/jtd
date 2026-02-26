@@ -97,6 +97,36 @@ export type Database = {
           },
         ]
       }
+      group_tags: {
+        Row: {
+          group_id: string
+          tag_id: string
+        }
+        Insert: {
+          group_id: string
+          tag_id: string
+        }
+        Update: {
+          group_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_tags_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
