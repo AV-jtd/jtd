@@ -209,6 +209,24 @@ export function useGroupMembers(groupId: string | null) {
   });
 }
 
+// --- Group Tags ---
+
+export function useGroupTags(groupId: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["group_tags", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_tags" as any)
+        .select("tag_id")
+        .eq("group_id", groupId!);
+      if (error) throw error;
+      return (data || []) as { tag_id: string }[];
+    },
+    enabled: !!user && !!groupId,
+  });
+}
+
 // --- Project Folders ---
 
 export function useProjectFolders() {
