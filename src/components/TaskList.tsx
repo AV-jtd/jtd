@@ -47,17 +47,21 @@ interface TaskListProps {
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick }: TaskListProps) {
+  const { user } = useAuth();
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useTags();
+  const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
+  const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
