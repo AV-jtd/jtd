@@ -268,6 +268,7 @@ export default function AppSidebar({
     const hasChildren = children.length > 0;
     const isExpanded = expandedGroups.has(group.id);
     const isRoot = depth === 0;
+    const isTouchActive = tappedGroupId === group.id;
 
     const {
       attributes, listeners, setNodeRef, transform, transition, isDragging,
