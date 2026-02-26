@@ -312,7 +312,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
         </div>
 
         {/* Actions — 3×2 grid on hover */}
-        <div className="grid grid-cols-3 gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        <div className="grid grid-cols-3 gap-0.5 shrink-0 touch-visible opacity-0 group-hover:opacity-100 transition-opacity"
              style={{ width: 'auto' }}>
           {/* Row 1: Expand, Participant, Assignee */}
           <button
