@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload } from "lucide-react";
+import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, Profile } from "@/hooks/useTasks";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,14 +13,18 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
+  const { data: allTags = [] } = useTags();
+  const { data: groupTags = [] } = useGroupTags(group.id);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState((group as any).description || "");
   const [userSearch, setUserSearch] = useState("");
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
 
   const handleSaveDescription = () => {
     const newDesc = descriptionDraft.trim() || null;
@@ -47,6 +51,15 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
 
   const assignee = members.find(m => m.role === "assignee");
   const participantMembers = members.filter(m => m.role === "participant");
+
+  const groupTagIds = groupTags.map(gt => gt.tag_id);
+  const linkedTagId = group.linked_tag_id;
+  const assignedTags = allTags.filter(t => groupTagIds.includes(t.id));
+  const availableTags = allTags.filter(t => !groupTagIds.includes(t.id) && t.id !== linkedTagId);
+  const filteredAvailableTags = availableTags.filter(t => {
+    if (!tagSearch.trim()) return true;
+    return t.name.toLowerCase().includes(tagSearch.toLowerCase());
+  });
 
   const UserPicker = ({ role, onClose }: { role: "assignee" | "participant"; onClose: () => void }) => (
     <>
@@ -107,6 +120,68 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
             {(group as any).description || <span className="text-muted-foreground italic">Нажмите чтобы добавить описание...</span>}
           </div>
         )}
+      </div>
+
+      {/* Tags */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <Tag className="h-3 w-3" /> Тэги
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {assignedTags.map(tag => (
+            <span
+              key={tag.id}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{ backgroundColor: (tag.color || '#6366f1') + '22', color: tag.color || '#6366f1' }}
+            >
+              {tag.name}
+              <button
+                onClick={() => removeGroupTag.mutate({ group_id: group.id, tag_id: tag.id })}
+                className="hover:opacity-70 transition-opacity"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+          <Popover open={tagPickerOpen} onOpenChange={(open) => { setTagPickerOpen(open); setTagSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                <Plus className="h-2.5 w-2.5" /> Тэг
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" side="bottom">
+              <Input
+                autoFocus
+                value={tagSearch}
+                onChange={(e) => setTagSearch(e.target.value)}
+                placeholder="Поиск тэга..."
+                className="h-7 text-xs mb-2"
+              />
+              <div className="max-h-40 overflow-y-auto space-y-0.5">
+                {filteredAvailableTags.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">Нет доступных тэгов</p>
+                )}
+                {filteredAvailableTags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      addGroupTag.mutate({ group_id: group.id, tag_id: tag.id });
+                      setTagPickerOpen(false);
+                      setTagSearch("");
+                    }}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: tag.color || '#6366f1' }}
+                    />
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Parent Project */}
