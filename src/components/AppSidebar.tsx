@@ -283,7 +283,16 @@ export default function AppSidebar({
       <div ref={setNodeRef} style={style} className={isDragging ? "opacity-70 z-50 relative" : ""}>
         <div className="group">
           <button
-            onClick={() => { onGroupChange(group.id); onViewChange("group"); onClearTags(); }}
+            onClick={() => {
+              // On touch devices, first tap toggles actions, second tap navigates
+              const isTouch = !window.matchMedia("(hover: hover)").matches;
+              if (isTouch && tappedGroupId !== group.id) {
+                setTappedGroupId(group.id);
+                return;
+              }
+              setTappedGroupId(null);
+              onGroupChange(group.id); onViewChange("group"); onClearTags();
+            }}
             className={cn(
               "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
               depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
