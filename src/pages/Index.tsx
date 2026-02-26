@@ -82,7 +82,7 @@ export default function Index() {
             <button onClick={() => setSidebarOpen(true)} className="p-1.5 -ml-1 rounded-lg hover:bg-muted transition-colors">
               <Menu className="h-5 w-5 text-foreground" />
             </button>
-            <span className="text-base font-semibold text-foreground flex-1">Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it</span>
+            <span className="text-base font-semibold text-foreground flex-1">Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent todo-glow">TODO</span>it</span>
             <button
               onClick={() => setMessengerOpen(prev => !prev)}
               className={cn(
