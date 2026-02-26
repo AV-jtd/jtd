@@ -690,7 +690,7 @@ export default function AppSidebar({
                           )}
                           <span className="text-[10px] text-sidebar-fg/40">{folderProjects.length}</span>
                           <ConfirmDelete title="Удалить папку?" description="Проекты останутся, но потеряют привязку к папке." onConfirm={() => deleteProjectFolder.mutate(folder.id)}>
-                            <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                            <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                               <Trash2 className="h-3 w-3" />
                             </span>
                           </ConfirmDelete>
