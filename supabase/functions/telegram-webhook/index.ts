@@ -1119,6 +1119,28 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
   });
 }
 
+async function sendTelegramMessageWithKeyboard(token: string, chatId: number, text: string, inlineKeyboard: any[][], parseMode?: string) {
+  const body: Record<string, any> = {
+    chat_id: chatId,
+    text,
+    reply_markup: { inline_keyboard: inlineKeyboard },
+  };
+  if (parseMode) body.parse_mode = parseMode;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function answerCallbackQuery(token: string, callbackQueryId: string, text: string) {
+  await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+  });
+}
+
 function escapeMarkdown(text: string): string {
   return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
 }
