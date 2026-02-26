@@ -142,11 +142,13 @@
 
 /* Touch device optimizations - no hover effects that cause sticky states on iOS */
 @media (hover: none) and (pointer: coarse) {
-  .group:hover .group-hover\:opacity-100:not(.touch-visible) {
+  .group:hover .group-hover\:opacity-100:not(.touch-visible),
+  .group:hover .group-hover\:opacity-60:not(.touch-visible) {
     opacity: 0 !important;
   }
 
-  .group:hover .group-hover\:opacity-100.touch-visible {
+  .group:hover .group-hover\:opacity-100.touch-visible,
+  .group:hover .touch-visible .group-hover\:opacity-60 {
     opacity: 0.6 !important;
   }
 

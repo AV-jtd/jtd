@@ -389,7 +389,7 @@ export default function AppSidebar({
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0 touch-visible">
               {isRoot && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
