@@ -778,7 +778,7 @@ export default function AppSidebar({
                         <PopoverTrigger asChild>
                           <span
                             onClick={(e) => e.stopPropagation()}
-                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                            className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
                           >
                             <Share2 className="h-3.5 w-3.5" />
                           </span>
