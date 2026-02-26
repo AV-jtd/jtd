@@ -408,14 +408,20 @@ Deno.serve(async (req) => {
         }
 
         let text = `📋 *${escapeMarkdown(linkedGroup.name)}* — задачи:\n\n`;
+        const inlineKeyboard: any[][] = [];
         tasks.forEach((t, i) => {
           const imp = t.is_important ? "⭐ " : "";
           const dl = t.deadline ? ` 📅 ${formatDate(new Date(t.deadline))}` : "";
           const assignee = t.assigned_to && profileMap.get(t.assigned_to) ? ` 👤 ${profileMap.get(t.assigned_to)}` : "";
           text += `${i + 1}. ${imp}${escapeMarkdown(t.title.substring(0, 60))}${dl}${assignee}\n`;
+          // Add inline buttons row for each task
+          inlineKeyboard.push([
+            { text: `✅ ${i + 1}`, callback_data: `done:${t.id}` },
+            { text: `👤 ${i + 1} Взять`, callback_data: `assign:${t.id}` },
+          ]);
         });
 
-        await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
+        await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId, text, inlineKeyboard, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
