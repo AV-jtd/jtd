@@ -89,6 +89,7 @@ export default function AppSidebar({
   const [folderPickerGroupId, setFolderPickerGroupId] = useState<string | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [tappedGroupId, setTappedGroupId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
@@ -267,6 +268,7 @@ export default function AppSidebar({
     const hasChildren = children.length > 0;
     const isExpanded = expandedGroups.has(group.id);
     const isRoot = depth === 0;
+    const isTouchActive = tappedGroupId === group.id;
 
     const {
       attributes, listeners, setNodeRef, transform, transition, isDragging,
@@ -281,7 +283,16 @@ export default function AppSidebar({
       <div ref={setNodeRef} style={style} className={isDragging ? "opacity-70 z-50 relative" : ""}>
         <div className="group">
           <button
-            onClick={() => { onGroupChange(group.id); onViewChange("group"); onClearTags(); }}
+            onClick={() => {
+              // On touch devices, first tap toggles actions, second tap navigates
+              const isTouch = !window.matchMedia("(hover: hover)").matches;
+              if (isTouch && tappedGroupId !== group.id) {
+                setTappedGroupId(group.id);
+                return;
+              }
+              setTappedGroupId(null);
+              onGroupChange(group.id); onViewChange("group"); onClearTags();
+            }}
             className={cn(
               "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
               depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
@@ -389,11 +400,15 @@ export default function AppSidebar({
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className={cn(
+              "flex items-center gap-0.5 shrink-0 transition-opacity",
+              "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
+              isTouchActive ? "opacity-100" : "[@media(hover:none)]:opacity-0"
+            )}>
               {isRoot && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
-                   className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  className="p-0.5 opacity-60 hover:!opacity-100 cursor-pointer"
                   title="Добавить подпроект"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -403,7 +418,7 @@ export default function AppSidebar({
                 <PopoverTrigger asChild>
                   <span
                     onClick={(e) => e.stopPropagation()}
-                    className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                    className="p-0.5 opacity-60 hover:!opacity-100 cursor-pointer"
                   >
                     <UserPlus className="h-3.5 w-3.5" />
                   </span>
@@ -445,7 +460,7 @@ export default function AppSidebar({
               </Popover>
               <span
                 onClick={(e) => { e.stopPropagation(); onGroupChange(group.id); onViewChange("group"); onClearTags(); onToggleProjectDetail(); }}
-                className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                className="p-0.5 opacity-60 hover:!opacity-100 cursor-pointer"
                 title="Карточка проекта"
               >
                 <Expand className="h-3.5 w-3.5" />
@@ -456,7 +471,7 @@ export default function AppSidebar({
                   <PopoverTrigger asChild>
                     <span
                       onClick={(e) => e.stopPropagation()}
-                      className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                      className="p-0.5 opacity-60 hover:!opacity-100 cursor-pointer"
                       title="Переместить в папку"
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
@@ -490,7 +505,7 @@ export default function AppSidebar({
               )}
               
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
-                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-60 hover:!opacity-100 cursor-pointer">
                   <Trash2 className="h-3.5 w-3.5" />
                 </span>
               </ConfirmDelete>
@@ -675,7 +690,7 @@ export default function AppSidebar({
                           )}
                           <span className="text-[10px] text-sidebar-fg/40">{folderProjects.length}</span>
                           <ConfirmDelete title="Удалить папку?" description="Проекты останутся, но потеряют привязку к папке." onConfirm={() => deleteProjectFolder.mutate(folder.id)}>
-                            <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                            <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                               <Trash2 className="h-3 w-3" />
                             </span>
                           </ConfirmDelete>
@@ -778,7 +793,7 @@ export default function AppSidebar({
                         <PopoverTrigger asChild>
                           <span
                             onClick={(e) => e.stopPropagation()}
-                            className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
                           >
                             <Share2 className="h-3.5 w-3.5" />
                           </span>
@@ -792,7 +807,7 @@ export default function AppSidebar({
                         </PopoverContent>
                       </Popover>
                       <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
-                        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
                           <Trash2 className="h-3.5 w-3.5" />
                         </span>
                       </ConfirmDelete>
