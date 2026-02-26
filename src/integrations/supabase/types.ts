@@ -324,7 +324,9 @@ export type Database = {
       }
       subtasks: {
         Row: {
+          assigned_to: string | null
           created_at: string
+          deadline: string | null
           id: string
           is_completed: boolean
           position: number
@@ -332,7 +334,9 @@ export type Database = {
           title: string
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
+          deadline?: string | null
           id?: string
           is_completed?: boolean
           position?: number
@@ -340,7 +344,9 @@ export type Database = {
           title: string
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
+          deadline?: string | null
           id?: string
           is_completed?: boolean
           position?: number

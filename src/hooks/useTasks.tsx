@@ -669,7 +669,7 @@ export function useTaskMutations() {
     onMutate: async ({ task_id, title }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
       const snap = snapshotTasks(qc);
-      const newSubtask: Subtask = { id: tempId(), task_id, title, is_completed: false, position: 0, created_at: new Date().toISOString() };
+      const newSubtask: Subtask = { id: tempId(), task_id, title, is_completed: false, position: 0, created_at: new Date().toISOString(), deadline: null, assigned_to: null };
       updateAllTaskCaches(qc, (tasks) =>
         tasks.map(t => t.id === task_id ? { ...t, subtasks: [...(t.subtasks || []), newSubtask] } : t)
       );
@@ -709,6 +709,26 @@ export function useTaskMutations() {
       const snap = snapshotTasks(qc);
       updateAllTaskCaches(qc, (tasks) =>
         tasks.map(t => ({ ...t, subtasks: t.subtasks?.filter(s => s.id !== id) }))
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  const updateSubtask = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; deadline?: string | null; assigned_to?: string | null }) => {
+      const { error } = await supabase.from("subtasks").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, ...updates }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => ({
+          ...t,
+          subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s),
+        }))
       );
       return { snap };
     },
@@ -1012,7 +1032,7 @@ export function useTaskMutations() {
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
-    addSubtask, toggleSubtask, deleteSubtask,
+    addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
     reorderTasks, reorderGroups,
