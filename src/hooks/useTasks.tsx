@@ -17,12 +17,13 @@ export type Task = Tables<"tasks"> & {
   deferred_until?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
-export type Tag = Tables<"tags">;
+export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
 export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
 export type ProjectFolder = { id: string; user_id: string; name: string; color: string | null; icon: string | null; position: number; created_at: string };
 export type ProjectFolderItem = { id: string; folder_id: string; group_id: string; user_id: string; position: number; created_at: string };
+export type TagCategory = { id: string; name: string; color: string | null; position: number; user_id: string; created_at: string };
 
 // --- Optimistic update helpers ---
 
@@ -157,6 +158,19 @@ export function useTags() {
       const { data, error } = await supabase.from("tags").select("*").order("name");
       if (error) throw error;
       return data as Tag[];
+    },
+    enabled: !!user,
+  });
+}
+
+export function useTagCategories() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["tag_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tag_categories" as any).select("*").order("position");
+      if (error) throw error;
+      return (data || []) as unknown as TagCategory[];
     },
     enabled: !!user,
   });
@@ -739,14 +753,14 @@ export function useTaskMutations() {
   // ========== TAGS ==========
 
   const addTag = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
-      const { error } = await supabase.from("tags").insert({ name, color, user_id: user!.id });
+    mutationFn: async ({ name, color, category_id }: { name: string; color?: string; category_id?: string | null }) => {
+      const { error } = await supabase.from("tags").insert({ name, color, user_id: user!.id, category_id: category_id || null } as any);
       if (error) throw error;
     },
-    onMutate: async ({ name, color }) => {
+    onMutate: async ({ name, color, category_id }) => {
       await qc.cancelQueries({ queryKey: ["tags"] });
       const prev = qc.getQueryData<Tag[]>(["tags", user?.id]);
-      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString() };
+      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString(), category_id: category_id || null };
       qc.setQueryData<Tag[]>(["tags", user?.id], (old) => old ? [...old, optimistic].sort((a, b) => a.name.localeCompare(b.name)) : [optimistic]);
       return { prev };
     },
@@ -1029,6 +1043,49 @@ export function useTaskMutations() {
     onSettled: (_d, _e, vars) => qc.invalidateQueries({ queryKey: ["group_tags", vars.group_id] }),
   });
 
+  // ========== TAG CATEGORIES ==========
+
+  const addTagCategory = useMutation({
+    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
+      const { data: existing } = await supabase.from("tag_categories" as any).select("position").order("position", { ascending: false }).limit(1);
+      const pos = ((existing as any)?.[0]?.position ?? -1) + 1;
+      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos });
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),
+  });
+
+  const renameTagCategory = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from("tag_categories" as any).update({ name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),
+  });
+
+  const deleteTagCategory = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tag_categories" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["tag_categories"] }); qc.invalidateQueries({ queryKey: ["tags"] }); },
+  });
+
+  const updateTagCategory = useMutation({
+    mutationFn: async ({ tag_id, category_id }: { tag_id: string; category_id: string | null }) => {
+      const { error } = await supabase.from("tags").update({ category_id } as any).eq("id", tag_id);
+      if (error) throw error;
+    },
+    onMutate: async ({ tag_id, category_id }) => {
+      await qc.cancelQueries({ queryKey: ["tags"] });
+      const prev = qc.getQueryData<Tag[]>(["tags", user?.id]);
+      qc.setQueryData<Tag[]>(["tags", user?.id], (old) => old?.map(t => t.id === tag_id ? { ...t, category_id } : t));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(["tags", user?.id], ctx.prev); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tags"] }),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -1039,5 +1096,6 @@ export function useTaskMutations() {
     addParticipant, removeParticipant,
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
     addGroupTag, removeGroupTag,
+    addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory,
   };
 }

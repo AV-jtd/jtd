@@ -416,12 +416,13 @@ export type Database = {
           },
         ]
       }
-      tags: {
+      tag_categories: {
         Row: {
           color: string | null
           created_at: string
           id: string
           name: string
+          position: number
           user_id: string
         }
         Insert: {
@@ -429,6 +430,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          position?: number
           user_id: string
         }
         Update: {
@@ -436,9 +438,45 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          position?: number
           user_id?: string
         }
         Relationships: []
+      }
+      tags: {
+        Row: {
+          category_id: string | null
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "tag_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_comments: {
         Row: {

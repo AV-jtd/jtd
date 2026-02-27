@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
+import { useTaskGroups, useTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link } from "react-router-dom";
 import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox,
@@ -60,9 +60,10 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
+  const { data: tagCategories = [] } = useTagCategories();
   const { data: folders = [] } = useProjectFolders();
   const { data: folderItems = [] } = useProjectFolderItems();
-  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups, addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor } = useTaskMutations();
+  const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups, addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor, addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
@@ -89,6 +90,12 @@ export default function AppSidebar({
   const [folderPickerGroupId, setFolderPickerGroupId] = useState<string | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["__uncategorized__"]));
+  const [newTagCategoryId, setNewTagCategoryId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
@@ -225,12 +232,36 @@ export default function AppSidebar({
     }
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = (categoryId?: string | null) => {
     if (newTagName.trim()) {
       const color = tagColors[tags.length % tagColors.length];
-      addTag.mutate({ name: newTagName.trim(), color });
+      addTag.mutate({ name: newTagName.trim(), color, category_id: categoryId || null });
       setNewTagName("");
+      setNewTagCategoryId(null);
     }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      addTagCategory.mutate({ name: newCategoryName.trim() });
+      setNewCategoryName("");
+      setShowNewCategory(false);
+    }
+  };
+
+  const handleSaveCategoryName = (id: string) => {
+    if (editingCategoryName.trim()) {
+      renameTagCategory.mutate({ id, name: editingCategoryName.trim() });
+    }
+    setEditingCategoryId(null);
+  };
+
+  const toggleCategory = (catId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId); else next.add(catId);
+      return next;
+    });
   };
 
   const handleInvite = (groupId: string) => {
@@ -526,6 +557,86 @@ export default function AppSidebar({
     );
   }
 
+  const renderTagItem = (t: typeof tags[number]) => (
+    <div key={t.id} className="group">
+      <button
+        onClick={() => onToggleTag(t.id)}
+        className={cn(
+          "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
+          activeTagFilters.includes(t.id)
+            ? "bg-sidebar-active text-sidebar-fg"
+            : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+        )}
+      >
+        <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
+        {editingTagId === t.id ? (
+          <input
+            autoFocus
+            enterKeyHint="done"
+            value={editingTagName}
+            onChange={(e) => setEditingTagName(e.target.value)}
+            onBlur={() => handleSaveTagName(t.id)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSaveTagName(t.id); if (e.key === "Escape") setEditingTagId(null); }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+          />
+        ) : (
+          <span
+            className="truncate flex-1 text-left"
+            onDoubleClick={(e) => { e.stopPropagation(); setEditingTagId(t.id); setEditingTagName(t.name); }}
+          >
+            {t.name}
+          </span>
+        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {t.user_id === user?.id && (
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Дать доступ к тэгу</p>
+                  <form onSubmit={(e) => { e.preventDefault(); handleShareTag(t.id); }} className="flex gap-2">
+                    <Input value={tagShareEmail} onChange={(e) => setTagShareEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
+                    <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Дать</button>
+                  </form>
+                </PopoverContent>
+              </Popover>
+              <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </span>
+              </ConfirmDelete>
+            </>
+          )}
+        </div>
+      </button>
+    </div>
+  );
+
+  const renderNewTagForm = (categoryId: string | null) => (
+    <form onSubmit={(e) => { e.preventDefault(); handleAddTag(categoryId); setEditingTagId(null); }} className="px-3 py-1 flex items-center gap-1.5">
+      <input
+        autoFocus
+        enterKeyHint="done"
+        value={newTagName}
+        onChange={(e) => setNewTagName(e.target.value)}
+        onBlur={() => { setTimeout(() => { if (!newTagName.trim()) { setEditingTagId(null); setNewTagCategoryId(null); } }, 150); }}
+        placeholder="Название тэга..."
+        className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+      />
+      <button type="submit" disabled={!newTagName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+        <Send className="h-3.5 w-3.5" />
+      </button>
+    </form>
+  );
+
   return (
     <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-sidebar-fg/5 max-md:border-r-0">
       {/* Header */}
@@ -728,94 +839,128 @@ export default function AppSidebar({
           >
             {showTags ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Тэги
-            <button
-              onClick={(e) => { e.stopPropagation(); }}
-              className="ml-auto hover:text-sidebar-fg"
-            >
-              <Plus className="h-3.5 w-3.5" onClick={() => {
-                const color = tagColors[tags.length % tagColors.length];
-                // Show inline form instead
-                setEditingTagId("__new__");
-                setEditingTagName("");
-              }} />
-            </button>
+            <div className="ml-auto flex items-center gap-1">
+              <span
+                onClick={(e) => { e.stopPropagation(); setShowNewCategory(true); }}
+                className="hover:text-sidebar-fg"
+                title="Новая категория"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+              </span>
+              <span
+                onClick={(e) => { e.stopPropagation(); setEditingTagId("__new__"); setNewTagCategoryId(null); setNewTagName(""); }}
+                className="hover:text-sidebar-fg"
+                title="Новый тэг"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </span>
+            </div>
           </button>
           {showTags && (
-            <div className="space-y-0.5 mt-1">
-              {tags.map((t) => (
-                <div key={t.id} className="group">
-                  <button
-                    onClick={() => onToggleTag(t.id)}
-                    className={cn(
-                      "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
-                      activeTagFilters.includes(t.id)
-                        ? "bg-sidebar-active text-sidebar-fg"
-                        : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-                    )}
-                  >
-                    <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
-                    {editingTagId === t.id ? (
-                      <input
-                        autoFocus
-                        enterKeyHint="done"
-                        value={editingTagName}
-                        onChange={(e) => setEditingTagName(e.target.value)}
-                        onBlur={() => handleSaveTagName(t.id)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveTagName(t.id); if (e.key === "Escape") setEditingTagId(null); }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
-                      />
-                    ) : (
-                      <span
-                        className="truncate flex-1 text-left"
-                        onDoubleClick={(e) => { e.stopPropagation(); setEditingTagId(t.id); setEditingTagName(t.name); }}
-                      >
-                        {t.name}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <span
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                          </span>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Дать доступ к тэгу</p>
-                          <form onSubmit={(e) => { e.preventDefault(); handleShareTag(t.id); }} className="flex gap-2">
-                            <Input value={tagShareEmail} onChange={(e) => setTagShareEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
-                            <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Дать</button>
-                          </form>
-                        </PopoverContent>
-                      </Popover>
-                      <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
-                        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </span>
-                      </ConfirmDelete>
-                    </div>
-                  </button>
-                </div>
-              ))}
-              {editingTagId === "__new__" && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAddTag(); setEditingTagId(null); }} className="px-3 py-1 flex items-center gap-1.5">
+            <div className="space-y-1 mt-1">
+              {/* New category form */}
+              {showNewCategory && (
+                <form onSubmit={(e) => { e.preventDefault(); handleAddCategory(); }} className="px-3 py-1 flex items-center gap-1.5">
+                  <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
                   <input
                     autoFocus
-                    enterKeyHint="done"
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    onBlur={() => { setTimeout(() => { if (!newTagName.trim()) setEditingTagId(null); }, 150); }}
-                    placeholder="Название тэга..."
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onBlur={() => { setTimeout(() => { if (!newCategoryName.trim()) setShowNewCategory(false); }, 150); }}
+                    placeholder="Категория..."
                     className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
-                  <button type="submit" disabled={!newTagName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                  <button type="submit" disabled={!newCategoryName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
                     <Send className="h-3.5 w-3.5" />
                   </button>
                 </form>
               )}
+
+              {/* Categories with tags */}
+              {tagCategories.map((cat) => {
+                const catTags = tags.filter(t => (t as any).category_id === cat.id);
+                const isExpanded = expandedCategories.has(cat.id);
+                return (
+                  <div key={cat.id}>
+                    <div className="group flex items-center">
+                      <button
+                        onClick={() => toggleCategory(cat.id)}
+                        className="flex items-center gap-2 flex-1 px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
+                      >
+                        {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        {editingCategoryId === cat.id ? (
+                          <input
+                            autoFocus
+                            value={editingCategoryName}
+                            onChange={(e) => setEditingCategoryName(e.target.value)}
+                            onBlur={() => handleSaveCategoryName(cat.id)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveCategoryName(cat.id); if (e.key === "Escape") setEditingCategoryId(null); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-xs text-sidebar-fg outline-none min-w-0"
+                          />
+                        ) : (
+                          <span
+                            className="truncate flex-1 text-left"
+                            onDoubleClick={(e) => { e.stopPropagation(); setEditingCategoryId(cat.id); setEditingCategoryName(cat.name); }}
+                          >
+                            {cat.name}
+                          </span>
+                        )}
+                        <span className="text-sidebar-fg/40 text-xs">{catTags.length}</span>
+                      </button>
+                      <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                        <span
+                          onClick={(e) => { e.stopPropagation(); setEditingTagId("__new__"); setNewTagCategoryId(cat.id); setNewTagName(""); }}
+                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60"
+                          title="Добавить тэг в категорию"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </span>
+                        {cat.user_id === user?.id && (
+                          <ConfirmDelete title="Удалить категорию?" description="Тэги останутся, но потеряют привязку." onConfirm={() => deleteTagCategory.mutate(cat.id)}>
+                            <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60">
+                              <Trash2 className="h-3 w-3" />
+                            </span>
+                          </ConfirmDelete>
+                        )}
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="space-y-0.5 ml-2">
+                        {catTags.map((t) => renderTagItem(t))}
+                        {editingTagId === "__new__" && newTagCategoryId === cat.id && renderNewTagForm(cat.id)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Uncategorized tags */}
+              {(() => {
+                const uncategorized = tags.filter(t => !(t as any).category_id);
+                if (uncategorized.length === 0 && editingTagId !== "__new__") return null;
+                const isExpanded = expandedCategories.has("__uncategorized__");
+                return (
+                  <div>
+                    {tagCategories.length > 0 && (
+                      <button
+                        onClick={() => toggleCategory("__uncategorized__")}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
+                      >
+                        {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        <span className="truncate flex-1 text-left">Без категории</span>
+                        <span className="text-sidebar-fg/40 text-xs">{uncategorized.length}</span>
+                      </button>
+                    )}
+                    {(isExpanded || tagCategories.length === 0) && (
+                      <div className={cn("space-y-0.5", tagCategories.length > 0 && "ml-2")}>
+                        {uncategorized.map((t) => renderTagItem(t))}
+                        {editingTagId === "__new__" && !newTagCategoryId && renderNewTagForm(null)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
