@@ -747,7 +747,7 @@ export function useTaskMutations() {
     onMutate: async ({ name, color }) => {
       await qc.cancelQueries({ queryKey: ["tags"] });
       const prev = qc.getQueryData<Tag[]>(["tags", user?.id]);
-      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString() };
+      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString(), category_id: null };
       qc.setQueryData<Tag[]>(["tags", user?.id], (old) => old ? [...old, optimistic].sort((a, b) => a.name.localeCompare(b.name)) : [optimistic]);
       return { prev };
     },
