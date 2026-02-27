@@ -557,6 +557,86 @@ export default function AppSidebar({
     );
   }
 
+  const renderTagItem = (t: typeof tags[number]) => (
+    <div key={t.id} className="group">
+      <button
+        onClick={() => onToggleTag(t.id)}
+        className={cn(
+          "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
+          activeTagFilters.includes(t.id)
+            ? "bg-sidebar-active text-sidebar-fg"
+            : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+        )}
+      >
+        <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
+        {editingTagId === t.id ? (
+          <input
+            autoFocus
+            enterKeyHint="done"
+            value={editingTagName}
+            onChange={(e) => setEditingTagName(e.target.value)}
+            onBlur={() => handleSaveTagName(t.id)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSaveTagName(t.id); if (e.key === "Escape") setEditingTagId(null); }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 bg-sidebar-hover/50 rounded px-1.5 py-0.5 text-sm text-sidebar-fg outline-none min-w-0"
+          />
+        ) : (
+          <span
+            className="truncate flex-1 text-left"
+            onDoubleClick={(e) => { e.stopPropagation(); setEditingTagId(t.id); setEditingTagName(t.name); }}
+          >
+            {t.name}
+          </span>
+        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {t.user_id === user?.id && (
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" side="right" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Дать доступ к тэгу</p>
+                  <form onSubmit={(e) => { e.preventDefault(); handleShareTag(t.id); }} className="flex gap-2">
+                    <Input value={tagShareEmail} onChange={(e) => setTagShareEmail(e.target.value)} placeholder="Email..." className="h-7 text-xs" />
+                    <button type="submit" disabled={!tagShareEmail.trim()} className="text-xs text-primary hover:text-primary/80 whitespace-nowrap disabled:opacity-30">Дать</button>
+                  </form>
+                </PopoverContent>
+              </Popover>
+              <ConfirmDelete title="Удалить тэг?" description="Тэг будет снят со всех задач." onConfirm={() => deleteTag.mutate(t.id)}>
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </span>
+              </ConfirmDelete>
+            </>
+          )}
+        </div>
+      </button>
+    </div>
+  );
+
+  const renderNewTagForm = (categoryId: string | null) => (
+    <form onSubmit={(e) => { e.preventDefault(); handleAddTag(categoryId); setEditingTagId(null); }} className="px-3 py-1 flex items-center gap-1.5">
+      <input
+        autoFocus
+        enterKeyHint="done"
+        value={newTagName}
+        onChange={(e) => setNewTagName(e.target.value)}
+        onBlur={() => { setTimeout(() => { if (!newTagName.trim()) { setEditingTagId(null); setNewTagCategoryId(null); } }, 150); }}
+        placeholder="Название тэга..."
+        className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+      />
+      <button type="submit" disabled={!newTagName.trim()} className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+        <Send className="h-3.5 w-3.5" />
+      </button>
+    </form>
+  );
+
   return (
     <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-sidebar-fg/5 max-md:border-r-0">
       {/* Header */}
