@@ -232,12 +232,36 @@ export default function AppSidebar({
     }
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = (categoryId?: string | null) => {
     if (newTagName.trim()) {
       const color = tagColors[tags.length % tagColors.length];
-      addTag.mutate({ name: newTagName.trim(), color });
+      addTag.mutate({ name: newTagName.trim(), color, category_id: categoryId || null });
       setNewTagName("");
+      setNewTagCategoryId(null);
     }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      addTagCategory.mutate({ name: newCategoryName.trim() });
+      setNewCategoryName("");
+      setShowNewCategory(false);
+    }
+  };
+
+  const handleSaveCategoryName = (id: string) => {
+    if (editingCategoryName.trim()) {
+      renameTagCategory.mutate({ id, name: editingCategoryName.trim() });
+    }
+    setEditingCategoryId(null);
+  };
+
+  const toggleCategory = (catId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId); else next.add(catId);
+      return next;
+    });
   };
 
   const handleInvite = (groupId: string) => {
