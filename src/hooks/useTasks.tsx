@@ -753,14 +753,14 @@ export function useTaskMutations() {
   // ========== TAGS ==========
 
   const addTag = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
-      const { error } = await supabase.from("tags").insert({ name, color, user_id: user!.id });
+    mutationFn: async ({ name, color, category_id }: { name: string; color?: string; category_id?: string | null }) => {
+      const { error } = await supabase.from("tags").insert({ name, color, user_id: user!.id, category_id: category_id || null } as any);
       if (error) throw error;
     },
-    onMutate: async ({ name, color }) => {
+    onMutate: async ({ name, color, category_id }) => {
       await qc.cancelQueries({ queryKey: ["tags"] });
       const prev = qc.getQueryData<Tag[]>(["tags", user?.id]);
-      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString(), category_id: null };
+      const optimistic: Tag = { id: tempId(), name, color: color || "#6366f1", user_id: user!.id, created_at: new Date().toISOString(), category_id: category_id || null };
       qc.setQueryData<Tag[]>(["tags", user?.id], (old) => old ? [...old, optimistic].sort((a, b) => a.name.localeCompare(b.name)) : [optimistic]);
       return { prev };
     },
