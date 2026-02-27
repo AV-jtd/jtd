@@ -17,12 +17,13 @@ export type Task = Tables<"tasks"> & {
   deferred_until?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
-export type Tag = Tables<"tags">;
+export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
 export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
 export type ProjectFolder = { id: string; user_id: string; name: string; color: string | null; icon: string | null; position: number; created_at: string };
 export type ProjectFolderItem = { id: string; folder_id: string; group_id: string; user_id: string; position: number; created_at: string };
+export type TagCategory = { id: string; name: string; color: string | null; position: number; user_id: string; created_at: string };
 
 // --- Optimistic update helpers ---
 
