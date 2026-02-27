@@ -1043,6 +1043,49 @@ export function useTaskMutations() {
     onSettled: (_d, _e, vars) => qc.invalidateQueries({ queryKey: ["group_tags", vars.group_id] }),
   });
 
+  // ========== TAG CATEGORIES ==========
+
+  const addTagCategory = useMutation({
+    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
+      const { data: existing } = await supabase.from("tag_categories" as any).select("position").order("position", { ascending: false }).limit(1);
+      const pos = ((existing as any)?.[0]?.position ?? -1) + 1;
+      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos });
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),
+  });
+
+  const renameTagCategory = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from("tag_categories" as any).update({ name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),
+  });
+
+  const deleteTagCategory = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tag_categories" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ["tag_categories"] }); qc.invalidateQueries({ queryKey: ["tags"] }); },
+  });
+
+  const updateTagCategory = useMutation({
+    mutationFn: async ({ tag_id, category_id }: { tag_id: string; category_id: string | null }) => {
+      const { error } = await supabase.from("tags").update({ category_id } as any).eq("id", tag_id);
+      if (error) throw error;
+    },
+    onMutate: async ({ tag_id, category_id }) => {
+      await qc.cancelQueries({ queryKey: ["tags"] });
+      const prev = qc.getQueryData<Tag[]>(["tags", user?.id]);
+      qc.setQueryData<Tag[]>(["tags", user?.id], (old) => old?.map(t => t.id === tag_id ? { ...t, category_id } : t));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(["tags", user?.id], ctx.prev); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tags"] }),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
@@ -1053,5 +1096,6 @@ export function useTaskMutations() {
     addParticipant, removeParticipant,
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
     addGroupTag, removeGroupTag,
+    addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory,
   };
 }
