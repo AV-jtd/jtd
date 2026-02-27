@@ -35,25 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, displayName: string, telegramUsername?: string) => {
+    const cleanUsername = telegramUsername?.replace(/^@/, "").toLowerCase().trim() || undefined;
     const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: displayName, telegram_username: cleanUsername },
         emailRedirectTo: window.location.origin,
       },
     });
-    
-    // If signup succeeded and we have a telegram username, update the profile
-    if (!error && signUpData?.user && telegramUsername) {
-      const cleanUsername = telegramUsername.replace(/^@/, "").toLowerCase().trim();
-      if (cleanUsername) {
-        await supabase
-          .from("profiles")
-          .update({ telegram_username: cleanUsername } as any)
-          .eq("id", signUpData.user.id);
-      }
-    }
     
     return { error: error as Error | null };
   };
