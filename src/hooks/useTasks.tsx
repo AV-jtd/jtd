@@ -163,6 +163,19 @@ export function useTags() {
   });
 }
 
+export function useTagCategories() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["tag_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tag_categories" as any).select("*").order("position");
+      if (error) throw error;
+      return (data || []) as unknown as TagCategory[];
+    },
+    enabled: !!user,
+  });
+}
+
 export function useAvailableUsers() {
   const { user } = useAuth();
   return useQuery({
