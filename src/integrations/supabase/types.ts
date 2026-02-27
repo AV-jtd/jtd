@@ -946,6 +946,7 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
