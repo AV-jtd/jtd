@@ -137,7 +137,7 @@ export default function CrmBoard() {
       if (!user) return null;
       const { data } = await supabase
         .from("task_groups")
-        .select("id, name")
+        .select("id, name, linked_tag_id")
         .ilike("name", "%новые клиенты%")
         .limit(1)
         .single();
