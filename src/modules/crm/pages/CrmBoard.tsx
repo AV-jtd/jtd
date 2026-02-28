@@ -281,15 +281,36 @@ export default function CrmBoard() {
     },
   });
 
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((t) => {
+        const name = t.client?.name || t.title;
+        return name.toLowerCase().includes(q);
+      });
+    }
+    if (filterTagIds.length > 0) {
+      result = result.filter((t) => {
+        const taskTagIds = (t.task_tags || []).map((tt) => tt.tag_id);
+        return filterTagIds.every((fid) => taskTagIds.includes(fid));
+      });
+    }
+    if (filterGroupIds.length > 0) {
+      result = result.filter((t) => t.group_id && filterGroupIds.includes(t.group_id));
+    }
+    return result;
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds]);
+
   const columns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       const stage = getTaskStage(task.subtasks);
       if (stage === "done") continue;
       if (grouped[stage]) grouped[stage].push(task);
     }
     return grouped;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
