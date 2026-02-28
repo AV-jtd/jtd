@@ -524,7 +524,7 @@ export default function AppSidebar({
               )}
               
               <ConfirmDelete title="Удалить проект?" description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."} onConfirm={() => deleteGroup.mutate(group.id)}>
-                <span onClick={(e) => e.stopPropagation()} className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}>
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100">
                   <Trash2 className="h-3.5 w-3.5" />
                 </span>
               </ConfirmDelete>
