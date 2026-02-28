@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
