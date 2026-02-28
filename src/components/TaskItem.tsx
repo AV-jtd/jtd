@@ -436,7 +436,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             </PopoverContent>
           </Popover>
 
-          <Popover>
+          <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
               <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Тэг">
                 <Tag className="h-3.5 w-3.5" />
@@ -453,11 +453,40 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   autoFocus
                 />
                 <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {/* AI Suggestions */}
+                  {!tagSearch && suggestedTagIds.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-primary" /> ИИ-рекомендации
+                      </p>
+                      {availableTags
+                        .filter(t => suggestedTagIds.includes(t.id))
+                        .map(tag => (
+                          <button
+                            key={`ai-${tag.id}`}
+                            onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
+                          >
+                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
+                            <span className="truncate">{tag.name}</span>
+                            <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
+                          </button>
+                        ))}
+                      <div className="border-t border-border my-1" />
+                    </>
+                  )}
+                  {!tagSearch && loadingSuggestions && (
+                    <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
+                    </p>
+                  )}
+                  {/* All tags */}
                   {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
                     <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
                   )}
                   {availableTags
                     .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                     .map(tag => (
                       <button
                         key={tag.id}
