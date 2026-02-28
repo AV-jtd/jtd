@@ -2,7 +2,9 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskMutations } from "@/hooks/useTasks";
+import { useTaskMutations, type Task } from "@/hooks/useTasks";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import {
   Loader2,
   User,
