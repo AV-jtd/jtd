@@ -423,11 +423,11 @@ export default function AppSidebar({
             )}
 
             {/* Actions */}
-            <div className={cn("flex items-center gap-0.5 shrink-0", activeGroupId === group.id ? "opacity-60" : "")}>
+            <div className={cn("items-center gap-0.5 shrink-0", activeGroupId === group.id ? "flex opacity-60" : "hidden group-hover:flex")}>
               {isRoot && (
                 <span
                   onClick={(e) => { e.stopPropagation(); setNewSubgroupParentId(group.id); setExpandedGroups(prev => new Set(prev).add(group.id)); }}
-                  className={cn("p-0.5 cursor-pointer", activeGroupId === group.id ? "opacity-100" : "opacity-0 group-hover:opacity-60 hover:!opacity-100")}
+                  className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
                   title="Добавить подпроект"
                 >
                   <Plus className="h-3.5 w-3.5" />
