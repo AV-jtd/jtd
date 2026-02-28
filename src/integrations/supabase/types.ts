@@ -635,7 +635,9 @@ export type Database = {
           dependency_type: string
           id: string
           lag_days: number
+          predecessor_entity_type: string
           predecessor_id: string
+          successor_entity_type: string
           successor_id: string
         }
         Insert: {
@@ -644,7 +646,9 @@ export type Database = {
           dependency_type?: string
           id?: string
           lag_days?: number
+          predecessor_entity_type?: string
           predecessor_id: string
+          successor_entity_type?: string
           successor_id: string
         }
         Update: {
@@ -653,25 +657,12 @@ export type Database = {
           dependency_type?: string
           id?: string
           lag_days?: number
+          predecessor_entity_type?: string
           predecessor_id?: string
+          successor_entity_type?: string
           successor_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "task_dependencies_predecessor_id_fkey"
-            columns: ["predecessor_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_dependencies_successor_id_fkey"
-            columns: ["successor_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       task_groups: {
         Row: {
