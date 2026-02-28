@@ -571,6 +571,7 @@ export default function AppSidebar({
       <div className="flex items-center">
         <GripVertical className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40 cursor-grab text-sidebar-fg/50 mr-0.5" />
         <button
+          draggable={false}
           onClick={() => onToggleTag(t.id)}
           className={cn(
             "flex items-center gap-3 flex-1 px-2 py-2 rounded-lg text-sm transition-colors",
