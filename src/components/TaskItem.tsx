@@ -64,6 +64,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
+  const [tagSearch, setTagSearch] = useState("");
   const itemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
