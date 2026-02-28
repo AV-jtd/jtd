@@ -703,7 +703,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const color = row.project.color || "#3b82f6";
                       return (
                         <div
-                          className="absolute top-3 rounded-sm h-2 opacity-40"
+                          className="absolute top-3.5 rounded-sm h-3 opacity-50"
                           style={{ left, width, backgroundColor: color }}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
