@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
