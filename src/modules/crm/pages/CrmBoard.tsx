@@ -414,6 +414,7 @@ function DroppableColumn({
   groupById,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   stage: (typeof CRM_STAGES)[number];
   tasks: CrmTask[];
@@ -423,6 +424,7 @@ function DroppableColumn({
   groupById: Map<string, CrmGroup>;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
+  onCardClick: (taskId: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: stage.key });
 
