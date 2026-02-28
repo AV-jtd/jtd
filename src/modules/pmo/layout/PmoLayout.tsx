@@ -84,8 +84,8 @@ export default function PmoLayout() {
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">
-        {activeView === "portfolio" && <PortfolioPlaceholder />}
-        {activeView === "gantt" && <GanttPlaceholder initialProjectId={initialProject} />}
+        {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
+        {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
         {activeView === "milestones" && <MilestonesPlaceholder />}
         {activeView === "resources" && <ResourcesPlaceholder />}
         {activeView === "reports" && <ReportsPlaceholder />}
