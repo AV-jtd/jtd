@@ -61,7 +61,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
   const [newClientName, setNewClientName] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
   const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
 
