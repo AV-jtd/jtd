@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import {
@@ -8,10 +8,11 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Folder } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Folder, Minus, Plus } from "lucide-react";
 
 type Scale = "day" | "week" | "month";
 
+const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 
 export default function GanttView() {
@@ -20,6 +21,65 @@ export default function GanttView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const lastPinchDistRef = useRef<number | null>(null);
+
+  // Zoom in/out helpers
+  const zoomIn = useCallback(() => {
+    setScale(prev => {
+      const idx = SCALE_ORDER.indexOf(prev);
+      return idx < SCALE_ORDER.length - 1 ? SCALE_ORDER[idx + 1] : prev;
+    });
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setScale(prev => {
+      const idx = SCALE_ORDER.indexOf(prev);
+      return idx > 0 ? SCALE_ORDER[idx - 1] : prev;
+    });
+  }, []);
+
+  // Pinch-to-zoom on the timeline area
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDistRef.current = Math.hypot(dx, dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastPinchDistRef.current !== null) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const delta = dist - lastPinchDistRef.current;
+
+        if (Math.abs(delta) > 40) {
+          if (delta > 0) zoomIn(); else zoomOut();
+          lastPinchDistRef.current = dist;
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      lastPinchDistRef.current = null;
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [zoomIn, zoomOut]);
 
   // Build rows: project headers + tasks with deadlines or created_at
   const rows = useMemo(() => {
@@ -173,6 +233,26 @@ export default function GanttView() {
             </button>
           ))}
         </div>
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* Zoom buttons */}
+        <button
+          onClick={zoomOut}
+          disabled={scale === "month"}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Уменьшить масштаб"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={zoomIn}
+          disabled={scale === "day"}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Увеличить масштаб"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
 
         <div className="h-4 w-px bg-border" />
 
