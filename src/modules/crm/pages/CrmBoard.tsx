@@ -566,6 +566,7 @@ function DroppableColumn({
   crmGroupId,
   crmLinkedTagId,
   crmGroupNameNormalized,
+  onToggleComplete,
   onToggleImportant,
   onCardClick,
 }: {
