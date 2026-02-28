@@ -241,9 +241,9 @@ export default function AppSidebar({
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = (parentId?: string | null) => {
     if (newCategoryName.trim()) {
-      addTagCategory.mutate({ name: newCategoryName.trim() });
+      addTagCategory.mutate({ name: newCategoryName.trim(), parent_id: parentId || null });
       setNewCategoryName("");
       setShowNewCategory(false);
     }
