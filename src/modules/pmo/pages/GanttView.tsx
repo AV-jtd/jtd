@@ -624,6 +624,12 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           onToggleTask={(id, completed) => {
             toggleTask.mutate({ id, is_completed: completed });
           }}
+          onUpdateSubtask={(id, updates) => {
+            updateSubtask.mutate({ id, ...updates });
+          }}
+          onToggleSubtask={(id, completed) => {
+            toggleSubtask.mutate({ id, is_completed: completed });
+          }}
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
           filterAssignee={filterAssignee}
