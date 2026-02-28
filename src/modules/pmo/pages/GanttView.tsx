@@ -707,7 +707,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
               {/* Rows */}
               {rows.map((row, i) => {
-                const dimmed = filterAssignee && row.type === "task" && row.task?.assigned_to !== filterAssignee;
+                const dimmed = filterAssignee && (
+                  (row.type === "task" && row.task?.assigned_to !== filterAssignee) ||
+                  (row.type === "subtask" && row.subtask?.assigned_to !== filterAssignee)
+                );
 
                 return (
                   <div
