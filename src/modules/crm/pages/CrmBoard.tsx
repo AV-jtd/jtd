@@ -599,9 +599,17 @@ export default function CrmBoard() {
                 groupById={groupById}
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
+                crmGroups={crmGroups}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
+                onCreateTask={(title, groupId) => {
+                  addTask.mutate({ title, group_id: groupId, task_type: "crm", client_name: title }, {
+                    onSuccess: () => {
+                      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+                    },
+                  });
+                }}
               />
             ))}
           </div>
