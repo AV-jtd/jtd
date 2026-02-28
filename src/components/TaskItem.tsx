@@ -596,17 +596,29 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                       <Plus className="h-2.5 w-2.5" /> Тэг
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-40 p-2" side="bottom">
-                    {availableTags.map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => addTaskTag.mutate({ task_id: task.id, tag_id: tag.id })}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                      >
-                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tag.color || undefined }} />
-                        {tag.name}
-                      </button>
-                    ))}
+                  <PopoverContent className="w-56 p-2" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <input
+                      type="text"
+                      placeholder="Найти тэг..."
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground mb-1"
+                      autoFocus
+                    />
+                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      {availableTags
+                        .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                        .map(tag => (
+                          <button
+                            key={tag.id}
+                            onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                          >
+                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
+                            <span className="truncate">{tag.name}</span>
+                          </button>
+                        ))}
+                    </div>
                   </PopoverContent>
                 </Popover>
               )}
