@@ -530,7 +530,7 @@ export default function CrmBoard() {
             <CrmCard
               task={activeTask}
               tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null))}
-              group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
+              group={activeTask.group_id && activeTask.group_id !== crmGroupId ? groupById.get(activeTask.group_id) || null : null}
               isDragging
               onToggleComplete={() => {}}
               onToggleImportant={() => {}}
