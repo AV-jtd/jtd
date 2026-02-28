@@ -1046,10 +1046,10 @@ export function useTaskMutations() {
   // ========== TAG CATEGORIES ==========
 
   const addTagCategory = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
+    mutationFn: async ({ name, color, parent_id }: { name: string; color?: string; parent_id?: string | null }) => {
       const { data: existing } = await supabase.from("tag_categories" as any).select("position").order("position", { ascending: false }).limit(1);
       const pos = ((existing as any)?.[0]?.position ?? -1) + 1;
-      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos });
+      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos, parent_id: parent_id || null });
       if (error) throw error;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),
