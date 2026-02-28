@@ -97,6 +97,8 @@ export default function AppSidebar({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["__uncategorized__"]));
   const [newTagCategoryId, setNewTagCategoryId] = useState<string | null>(null);
   const [newSubcategoryParentId, setNewSubcategoryParentId] = useState<string | null>(null);
+  const [draggingTagId, setDraggingTagId] = useState<string | null>(null);
+  const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
@@ -559,17 +561,25 @@ export default function AppSidebar({
   }
 
   const renderTagItem = (t: typeof tags[number]) => (
-    <div key={t.id} className="group">
-      <button
-        onClick={() => onToggleTag(t.id)}
-        className={cn(
-          "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
-          activeTagFilters.includes(t.id)
-            ? "bg-sidebar-active text-sidebar-fg"
-            : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-        )}
-      >
-        <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
+    <div
+      key={t.id}
+      className={cn("group", draggingTagId === t.id && "opacity-40")}
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData("tag-id", t.id); setDraggingTagId(t.id); }}
+      onDragEnd={() => { setDraggingTagId(null); setDragOverCategoryId(null); }}
+    >
+      <div className="flex items-center">
+        <GripVertical className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40 cursor-grab text-sidebar-fg/50 mr-0.5" />
+        <button
+          onClick={() => onToggleTag(t.id)}
+          className={cn(
+            "flex items-center gap-3 flex-1 px-2 py-2 rounded-lg text-sm transition-colors",
+            activeTagFilters.includes(t.id)
+              ? "bg-sidebar-active text-sidebar-fg"
+              : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+          )}
+        >
+          <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
         {editingTagId === t.id ? (
           <input
             autoFocus
@@ -617,7 +627,8 @@ export default function AppSidebar({
             </>
           )}
         </div>
-      </button>
+        </button>
+      </div>
     </div>
   );
 
@@ -884,7 +895,17 @@ export default function AppSidebar({
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
                   <div key={cat.id}>
-                    <div className="group flex items-center">
+                    <div
+                      className={cn("group flex items-center", dragOverCategoryId === cat.id && "bg-primary/10 rounded-lg")}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCategoryId(cat.id); }}
+                      onDragLeave={() => setDragOverCategoryId(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const tagId = e.dataTransfer.getData("tag-id");
+                        if (tagId) { updateTagCategory.mutate({ tag_id: tagId, category_id: cat.id }); }
+                        setDragOverCategoryId(null); setDraggingTagId(null);
+                      }}
+                    >
                       <button
                         onClick={() => toggleCategory(cat.id)}
                         className="flex items-center gap-2 flex-1 px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
@@ -960,7 +981,17 @@ export default function AppSidebar({
                           const isSubExpanded = expandedCategories.has(subcat.id);
                           return (
                             <div key={subcat.id}>
-                              <div className="group flex items-center">
+                              <div
+                                className={cn("group flex items-center", dragOverCategoryId === subcat.id && "bg-primary/10 rounded-lg")}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverCategoryId(subcat.id); }}
+                                onDragLeave={() => setDragOverCategoryId(null)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  const tagId = e.dataTransfer.getData("tag-id");
+                                  if (tagId) { updateTagCategory.mutate({ tag_id: tagId, category_id: subcat.id }); }
+                                  setDragOverCategoryId(null); setDraggingTagId(null);
+                                }}
+                              >
                                 <button
                                   onClick={() => toggleCategory(subcat.id)}
                                   className="flex items-center gap-1.5 flex-1 px-2 py-1 text-xs text-sidebar-fg/60 hover:text-sidebar-fg/80 transition-colors"
@@ -1032,7 +1063,15 @@ export default function AppSidebar({
                     {tagCategories.length > 0 && (
                       <button
                         onClick={() => toggleCategory("__uncategorized__")}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
+                        className={cn("flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors", dragOverCategoryId === "__uncategorized__" && "bg-primary/10 rounded-lg")}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverCategoryId("__uncategorized__"); }}
+                        onDragLeave={() => setDragOverCategoryId(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const tagId = e.dataTransfer.getData("tag-id");
+                          if (tagId) { updateTagCategory.mutate({ tag_id: tagId, category_id: null }); }
+                          setDragOverCategoryId(null); setDraggingTagId(null);
+                        }}
                       >
                         {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                         <span className="truncate flex-1 text-left">Без категории</span>
