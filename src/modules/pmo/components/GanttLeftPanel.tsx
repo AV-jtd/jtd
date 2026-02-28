@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { type Task, type TaskGroup, useAvailableUsers } from "@/hooks/useTasks";
+import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
 import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User } from "lucide-react";
