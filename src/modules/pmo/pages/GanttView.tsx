@@ -860,6 +860,42 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       );
                     })()}
 
+                    {/* Subtask bar */}
+                    {row.type === "subtask" && row.subtask && row.subtask.deadline && (() => {
+                      const st = row.subtask!;
+                      const parentTask = row.parentTask;
+                      const stStart = startOfDay(parseISO(st.created_at));
+                      const stEnd = startOfDay(parseISO(st.deadline));
+                      const barStart = stStart < stEnd ? stStart : stEnd;
+                      const barEnd = stStart < stEnd ? stEnd : addDays(stStart, 1);
+                      const startOffset = differenceInCalendarDays(barStart, timelineStart);
+                      const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
+                      const left = (startOffset / totalDays) * totalWidth;
+                      const width = Math.max((duration / totalDays) * totalWidth, 6);
+                      const color = row.project.color || "#3b82f6";
+                      const isOverdue = st.deadline && isPast(parseISO(st.deadline)) && !st.is_completed;
+
+                      return (
+                        <div
+                          className={cn(
+                            "absolute top-2.5 rounded-[3px] h-4 opacity-60",
+                            st.is_completed && "opacity-30"
+                          )}
+                          style={{
+                            left,
+                            width,
+                            backgroundColor: isOverdue ? "hsl(var(--destructive))" : color,
+                            minWidth: 6,
+                          }}
+                          title={`${st.title}${st.deadline ? ` → ${format(parseISO(st.deadline), "d MMM", { locale: ru })}` : ""}`}
+                        >
+                          {st.is_completed && (
+                            <div className="absolute inset-0 rounded-[3px] bg-white/30" />
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Milestone diamond */}
                     {row.type === "milestone" && row.milestone && (() => {
                       const x = getMilestoneX(row.milestone!);
