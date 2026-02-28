@@ -608,6 +608,8 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       if (task.task_type === 'crm') {
         qc.invalidateQueries({ queryKey: ["tags"] });
+        qc.invalidateQueries({ queryKey: ["tag_categories"] });
+        qc.invalidateQueries({ queryKey: ["task_groups"] });
         qc.invalidateQueries({ queryKey: ["clients"] });
       }
     },
