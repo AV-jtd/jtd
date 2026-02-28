@@ -917,6 +917,15 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                               className="text-xs text-left px-2 py-1 rounded hover:bg-muted text-destructive transition-colors">Убрать срок</button>
                           )}
                         </div>
+                        <CalendarPicker
+                          mode="single"
+                          selected={sub.deadline ? parseISO(sub.deadline) : undefined}
+                          onSelect={(date) => {
+                            if (date) { date.setHours(23, 59, 59, 0); updateSubtask.mutate({ id: sub.id, deadline: date.toISOString() }); }
+                          }}
+                          className="p-2 pointer-events-auto"
+                          locale={ru}
+                        />
                       </PopoverContent>
                     </Popover>
                     {/* Assignee */}
