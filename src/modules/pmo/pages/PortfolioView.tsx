@@ -100,6 +100,15 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   )}
                 </div>
                 <HealthDot status={healthColor} />
+                {onOpenGantt && (
+                  <span
+                    className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => onOpenGantt(project.id)}
+                    title="Открыть Гант"
+                  >
+                    <GanttChart className="h-3.5 w-3.5" />
+                  </span>
+                )}
               </div>
 
               {/* Progress bar */}
