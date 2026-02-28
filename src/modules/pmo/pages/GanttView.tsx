@@ -251,6 +251,34 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           <span className="hidden sm:inline">Веха</span>
         </button>
 
+        <div className="h-4 w-px bg-border" />
+
+        {/* Add project */}
+        {showNewProject ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (newProjectName.trim()) { addGroup.mutate({ name: newProjectName.trim() }); setNewProjectName(""); setShowNewProject(false); } }}
+            className="flex items-center gap-1"
+          >
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              onBlur={() => { if (!newProjectName.trim()) setShowNewProject(false); }}
+              onKeyDown={e => { if (e.key === "Escape") { setShowNewProject(false); setNewProjectName(""); } }}
+              placeholder="Имя проекта..."
+              className="h-6 w-32 text-xs bg-muted border-0 rounded px-2 text-foreground outline-none"
+            />
+          </form>
+        ) : (
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <FolderPlus className="h-3 w-3" />
+            <span className="hidden sm:inline">Проект</span>
+          </button>
+        )}
+
         <span className="text-xs text-muted-foreground ml-auto">
           {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
         </span>
