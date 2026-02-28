@@ -58,6 +58,7 @@ export default function AppSidebar({
   activeView, onViewChange, activeGroupId, onGroupChange, activeTagFilters, onToggleTag, onClearTags, projectDetailOpen, onToggleProjectDetail,
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
+  const navigateTo = useNavigate();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
   const { data: tagCategories = [] } = useTagCategories();
