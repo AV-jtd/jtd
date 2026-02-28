@@ -16,6 +16,36 @@ interface PortfolioViewProps {
 export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
+  const { data: allTags = [] } = useTags();
+  const { user } = useAuth();
+
+  // Fetch all group_tags in one query
+  const { data: allGroupTags = [] } = useQuery({
+    queryKey: ["all_group_tags"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_tags" as any)
+        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const tagMap = useMemo(() => {
+    const m = new Map<string, { name: string; color: string | null }>();
+    for (const t of allTags) m.set(t.id, { name: t.name, color: t.color });
+    return m;
+  }, [allTags]);
+
+  const groupTagsMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const gt of allGroupTags) {
+      if (!m.has(gt.group_id)) m.set(gt.group_id, []);
+      m.get(gt.group_id)!.push(gt.tag_id);
+    }
+    return m;
+  }, [allGroupTags]);
 
   const rootProjects = useMemo(
     () => groups.filter((g) => !g.parent_id).sort((a, b) => a.position - b.position),
