@@ -9,7 +9,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 
 type Scale = "day" | "week" | "month";
