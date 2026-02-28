@@ -110,6 +110,7 @@ export default function CrmBoard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
+  const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
