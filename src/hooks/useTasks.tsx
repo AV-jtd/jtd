@@ -442,28 +442,63 @@ export function useTaskMutations() {
     mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; task_type?: string; client_name?: string }) => {
       const taskType = task.task_type || 'standard';
       let clientId: string | null = null;
+      let resolvedGroupId = task.group_id || null;
 
       // For CRM tasks, create client + tag in "Клиенты" category
       if (taskType === 'crm' && task.client_name?.trim()) {
+        const clientNameTrimmed = task.client_name.trim();
+
         // Find "Клиенты" subcategory (under "CRM / Продажи")
         const { data: categories } = await supabase.from("tag_categories").select("*");
         const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id);
         const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id);
 
-        // Create tag with client name
-        const { data: tagData } = await supabase.from("tags").insert({
-          name: task.client_name.trim(),
-          user_id: user!.id,
-          color: '#ef4444',
-          category_id: clientsCat?.id || null,
-        }).select().single();
+        // Case-insensitive tag lookup to avoid duplicates
+        const { data: existingTags } = await supabase.from("tags").select("*").eq("user_id", user!.id);
+        const existingTag = (existingTags || []).find(
+          (t: any) => t.name.toLowerCase() === clientNameTrimmed.toLowerCase() && t.category_id === (clientsCat?.id || null)
+        );
+
+        let tagId: string;
+        if (existingTag) {
+          tagId = existingTag.id;
+        } else {
+          const { data: tagData } = await supabase.from("tags").insert({
+            name: clientNameTrimmed,
+            user_id: user!.id,
+            color: '#ef4444',
+            category_id: clientsCat?.id || null,
+          }).select().single();
+          tagId = tagData?.id || '';
+        }
+
+        // Auto-find or create "Новые клиенты" project
+        if (!resolvedGroupId) {
+          const { data: allGroups } = await supabase.from("task_groups").select("*").eq("user_id", user!.id);
+          const ncProject = (allGroups || []).find(
+            (g: any) => g.name.toLowerCase() === 'новые клиенты' && !g.parent_id
+          );
+          if (ncProject) {
+            resolvedGroupId = ncProject.id;
+          } else {
+            // Create the project
+            const { data: newProject } = await supabase.from("task_groups").insert({
+              name: 'Новые клиенты',
+              user_id: user!.id,
+              icon: '🤝',
+              color: '#ef4444',
+              project_type: 'crm',
+            } as any).select().single();
+            resolvedGroupId = (newProject as any)?.id || null;
+          }
+        }
 
         // Create client record
         const { data: clientData } = await supabase.from("clients").insert({
-          name: task.client_name.trim(),
+          name: clientNameTrimmed,
           user_id: user!.id,
-          group_id: task.group_id || null,
-          tag_id: tagData?.id || null,
+          group_id: resolvedGroupId,
+          tag_id: tagId,
         } as any).select().single();
 
         clientId = (clientData as any)?.id || null;
@@ -471,7 +506,7 @@ export function useTaskMutations() {
 
       const { data: taskData, error } = await supabase.from("tasks").insert({
         title: task.title,
-        group_id: task.group_id || null,
+        group_id: resolvedGroupId,
         user_id: user!.id,
         deadline: task.deadline || null,
         task_type: taskType,
