@@ -161,8 +161,18 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       if (daysDelta !== 0) {
         const oldDeadline = parseISO(dragState.originalDeadline);
         const newDeadline = addDays(oldDeadline, daysDelta);
+        const taskUpdates: any = { id: dragState.taskId, deadline: newDeadline.toISOString() };
         
-        updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
+        // When moving the whole bar, also shift start_at
+        if (dragState.side === "move") {
+          const movedTask = allTasks.find(t => t.id === dragState.taskId);
+          if (movedTask) {
+            const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
+            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+          }
+        }
+        
+        updateTask.mutate(taskUpdates);
 
         // Cascading: push forward dependent tasks
         if (daysDelta > 0 && allDependencies.length > 0) {
@@ -1093,6 +1103,46 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 predecessor_entity_type: depDialogState.predecessorEntityType,
                 successor_entity_type: depDialogState.successorEntityType,
               });
+
+              // Auto-set successor's start_at and deadline based on predecessor's end date
+              if (type === "FS") {
+                let predEndDate: Date | null = null;
+                if (depDialogState.predecessorEntityType === "task") {
+                  const predTask = allTasks.find(t => t.id === depDialogState.predecessorId);
+                  if (predTask?.deadline) predEndDate = parseISO(predTask.deadline);
+                } else if (depDialogState.predecessorEntityType === "milestone") {
+                  const predMs = allMilestones.find(m => m.id === depDialogState.predecessorId);
+                  if (predMs) predEndDate = parseISO(predMs.planned_date);
+                } else if (depDialogState.predecessorEntityType === "project") {
+                  const gTasks = allTasks.filter(t => t.group_id === depDialogState.predecessorId);
+                  const latest = gTasks.reduce((max, t) => {
+                    const d = t.deadline || t.created_at;
+                    return d > max ? d : max;
+                  }, "");
+                  if (latest) predEndDate = parseISO(latest);
+                }
+
+                if (predEndDate) {
+                  const newStart = addDays(predEndDate, Math.max(lagDays, 1));
+
+                  if (depDialogState.successorEntityType === "task") {
+                    const succTask = allTasks.find(t => t.id === depDialogState.successorId);
+                    if (succTask) {
+                      const oldStart = succTask.start_at ? parseISO(succTask.start_at) : parseISO(succTask.created_at);
+                      const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
+                      if (succTask.deadline) {
+                        const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
+                        updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
+                      } else {
+                        updates.deadline = addDays(newStart, 1).toISOString();
+                      }
+                      updateTask.mutate(updates);
+                    }
+                  } else if (depDialogState.successorEntityType === "milestone") {
+                    updateMilestone.mutate({ id: depDialogState.successorId, planned_date: newStart.toISOString() });
+                  }
+                }
+              }
             }
           }
           setDepDialogState(null);
