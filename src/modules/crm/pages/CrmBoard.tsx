@@ -222,7 +222,7 @@ export default function CrmBoard() {
     queryKey: ["crm-groups", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from("task_groups").select("id, name, icon, color");
+      const { data, error } = await supabase.from("task_groups").select("id, name, icon, color, linked_tag_id");
       if (error) throw error;
       return (data || []) as CrmGroup[];
     },
