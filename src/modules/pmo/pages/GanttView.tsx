@@ -256,7 +256,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         {/* Add project */}
         {showNewProject ? (
           <form
-            onSubmit={(e) => { e.preventDefault(); if (newProjectName.trim()) { addGroup.mutate({ name: newProjectName.trim() }); setNewProjectName(""); setShowNewProject(false); } }}
+            onSubmit={(e) => { e.preventDefault(); if (newProjectName.trim()) { addGroup.mutate({ name: newProjectName.trim() }, { onSuccess: (data: any) => { if (data?.id) setSelectedProjectId(data.id); } }); setNewProjectName(""); setShowNewProject(false); } }}
             className="flex items-center gap-1"
           >
             <input
