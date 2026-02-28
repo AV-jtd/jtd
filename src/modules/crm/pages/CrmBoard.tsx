@@ -807,10 +807,11 @@ function CrmCard({
           </div>
         )}
         {task.assignee && (
-          <div className="flex items-center gap-1 ml-auto">
-            <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium text-primary">
-              {(task.assignee.display_name || task.assignee.email || "?").charAt(0).toUpperCase()}
-            </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <User className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+              {task.assignee.display_name || task.assignee.email || "?"}
+            </span>
           </div>
         )}
       </div>
