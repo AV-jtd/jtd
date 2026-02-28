@@ -49,7 +49,9 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     // From group_tags table
     for (const gt of allGroupTags) {
       if (!m.has(gt.group_id)) m.set(gt.group_id, []);
-      m.get(gt.group_id)!.push(gt.tag_id);
+      if (!m.get(gt.group_id)!.includes(gt.tag_id)) {
+        m.get(gt.group_id)!.push(gt.tag_id);
+      }
     }
     // From linked_tag_id on groups
     for (const g of groups) {
@@ -60,19 +62,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         }
       }
     }
-    // From task_tags of tasks in each project
-    for (const task of allTasks) {
-      if (task.group_id && task.task_tags) {
-        for (const tt of task.task_tags) {
-          if (!m.has(task.group_id)) m.set(task.group_id, []);
-          if (!m.get(task.group_id)!.includes(tt.tag_id)) {
-            m.get(task.group_id)!.push(tt.tag_id);
-          }
-        }
-      }
-    }
     return m;
-  }, [allGroupTags, groups, allTasks]);
+  }, [allGroupTags, groups]);
 
   const rootProjects = useMemo(
     () => groups.filter((g) => !g.parent_id).sort((a, b) => a.position - b.position),
