@@ -309,8 +309,11 @@ export default function CrmBoard() {
     if (filterGroupIds.length > 0) {
       result = result.filter((t) => t.group_id && filterGroupIds.includes(t.group_id));
     }
+    if (filterAssigneeIds.length > 0) {
+      result = result.filter((t) => t.assigned_to && filterAssigneeIds.includes(t.assigned_to));
+    }
     return result;
-  }, [tasks, searchQuery, filterTagIds, filterGroupIds]);
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
   const columns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
