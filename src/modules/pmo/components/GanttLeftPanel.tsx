@@ -293,6 +293,46 @@ export default function GanttLeftPanel({
                   </PopoverContent>
                 </Popover>
               )}
+              {row.type === "subtask" && row.subtask && (
+                <Popover open={assigneePopover === row.subtask.id} onOpenChange={(v) => setAssigneePopover(v ? row.subtask!.id : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "h-4 w-4 rounded-full text-[7px] font-bold mx-auto flex items-center justify-center transition-colors",
+                        row.subtask.assigned_to
+                          ? "bg-primary/15 text-primary hover:bg-primary/25"
+                          : "bg-muted/50 text-muted-foreground/30 hover:bg-muted-foreground/15 hover:text-muted-foreground"
+                      )}
+                      title={getUserName(row.subtask.assigned_to)}
+                    >
+                      {getUserInitials(row.subtask.assigned_to) || <User className="h-2 w-2" />}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
+                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
+                    <button
+                      onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: null }); setAssigneePopover(null); }}
+                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
+                    >
+                      Без назначения
+                    </button>
+                    <div className="max-h-36 overflow-y-auto">
+                      {users.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
+                          className={cn(
+                            "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
+                            row.subtask!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
+                          )}
+                        >
+                          {u.display_name || u.email}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
 
             {/* Deadline clickable */}
