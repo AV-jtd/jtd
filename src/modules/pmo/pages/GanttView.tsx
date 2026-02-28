@@ -33,7 +33,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
-  const { addGroup, addTask, updateTask, deleteTask, toggleTask } = useTaskMutations();
+  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask } = useTaskMutations();
   const { addDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
