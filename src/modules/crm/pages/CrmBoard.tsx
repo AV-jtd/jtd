@@ -624,9 +624,12 @@ export default function CrmBoard() {
                 groupById={groupById}
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
+                crmProjectOptions={crmProjectOptions}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
+                onCreateTask={handleCreateCrmTask}
+                onCreateProject={handleCreateCrmProject}
               />
             ))}
           </div>
