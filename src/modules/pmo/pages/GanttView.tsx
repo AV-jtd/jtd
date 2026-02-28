@@ -613,6 +613,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
           filterAssignee={filterAssignee}
+          hoveredRow={hoveredRow}
+          onHoverRow={setHoveredRow}
         />
 
         {/* Draggable splitter */}
