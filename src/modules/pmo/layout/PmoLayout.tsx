@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
@@ -19,7 +19,10 @@ const navItems: { id: PmoView; label: string; icon: React.ElementType }[] = [
 export default function PmoLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<PmoView>("portfolio");
+  const [searchParams] = useSearchParams();
+  const initialProject = searchParams.get("project");
+  const initialView = initialProject ? "gantt" : "portfolio";
+  const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
 
   if (loading) {
     return (
