@@ -514,6 +514,7 @@ export default function CrmBoard() {
                 isMoving={moveMutation.isPending}
                 tagById={tagById}
                 groupById={groupById}
+                crmGroupId={crmGroupId || ""}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -529,7 +530,7 @@ export default function CrmBoard() {
             <CrmCard
               task={activeTask}
               tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null))}
-              group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
+              group={activeTask.group_id && activeTask.group_id !== crmGroupId ? groupById.get(activeTask.group_id) || null : null}
               isDragging
               onToggleComplete={() => {}}
               onToggleImportant={() => {}}
@@ -558,6 +559,7 @@ function DroppableColumn({
   isMoving,
   tagById,
   groupById,
+  crmGroupId,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -568,6 +570,7 @@ function DroppableColumn({
   isMoving: boolean;
   tagById: Map<string, CrmTag>;
   groupById: Map<string, CrmGroup>;
+  crmGroupId: string;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
@@ -595,7 +598,7 @@ function DroppableColumn({
               task={task}
               isMoving={isMoving}
               tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null))}
-              group={task.group_id ? groupById.get(task.group_id) || null : null}
+              group={task.group_id && task.group_id !== crmGroupId ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
               onCardClick={() => onCardClick(task.id)}
