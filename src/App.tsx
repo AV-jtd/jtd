@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
+import Crm from "./pages/Crm";
 import OnlineStatus from "./components/OnlineStatus";
 
 const queryClient = new QueryClient({
