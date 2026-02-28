@@ -42,6 +42,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/pmo" element={<Pmo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <OnlineStatus />
