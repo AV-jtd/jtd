@@ -164,12 +164,32 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         if (daysDelta > 0 && allDependencies.length > 0) {
           const entityMap = new Map<string, { id: string; deadline?: string | null; created_at: string }>();
           allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, created_at: t.created_at }));
+          // Include milestones and projects for cross-entity cascading
+          allMilestones.forEach(m => entityMap.set(m.id, { id: m.id, deadline: m.planned_date, created_at: m.created_at }));
+          groups.forEach(g => {
+            const gTasks = allTasks.filter(t => t.group_id === g.id);
+            const earliest = gTasks.reduce((min, t) => {
+              const d = t.created_at;
+              return d < min ? d : min;
+            }, g.created_at);
+            const latest = gTasks.reduce((max, t) => {
+              const d = t.deadline || t.created_at;
+              return d > max ? d : max;
+            }, g.created_at);
+            entityMap.set(g.id, { id: g.id, deadline: latest, created_at: earliest });
+          });
           // Update the moved task in the map
           entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
           
           const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
-          cascadeUpdates.forEach((newDl, taskId) => {
-            updateTask.mutate({ id: taskId, deadline: newDl });
+          cascadeUpdates.forEach((update, entityId) => {
+            // Determine entity type and apply appropriate mutation
+            if (allTasks.some(t => t.id === entityId)) {
+              updateTask.mutate({ id: entityId, deadline: update.deadline, created_at: update.created_at });
+            } else if (allMilestones.some(m => m.id === entityId)) {
+              updateMilestone.mutate({ id: entityId, planned_date: update.deadline });
+            }
+            // Projects don't have direct date fields to shift
           });
         }
       }
@@ -182,7 +202,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, scale, updateTask, allDependencies, allTasks]);
+  }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups]);
 
   // Dependency drag handlers
   useEffect(() => {

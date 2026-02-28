@@ -7,12 +7,15 @@ interface DateEntity {
   created_at: string;
 }
 
+export interface CascadeUpdate {
+  deadline: string;
+  created_at: string;
+}
+
 /**
  * Calculate cascading date shifts for dependent tasks.
- * Returns a map of entity_id -> new deadline ISO string.
- * 
- * Only processes FS (Finish-to-Start) dependencies for now.
- * Other types (SS, FF, SF) are also handled.
+ * Returns a map of entity_id -> { deadline, created_at }.
+ * Both start (created_at) and end (deadline) dates are pushed forward.
  */
 export function computeCascadeUpdates(
   changedEntityId: string,
@@ -20,8 +23,8 @@ export function computeCascadeUpdates(
   oldDeadline: Date,
   dependencies: TaskDependency[],
   entities: Map<string, DateEntity>,
-): Map<string, string> {
-  const updates = new Map<string, string>();
+): Map<string, CascadeUpdate> {
+  const updates = new Map<string, CascadeUpdate>();
   const daysDelta = differenceInCalendarDays(newDeadline, oldDeadline);
   
   if (daysDelta === 0) return updates;
@@ -29,7 +32,7 @@ export function computeCascadeUpdates(
   // Only push forward (positive delta). Don't pull back.
   if (daysDelta < 0) return updates;
 
-  // Build successor adjacency from changedEntityId
+  // Build successor adjacency
   const successorMap = new Map<string, { successor_id: string; dependency_type: string; lag_days: number }[]>();
   dependencies.forEach(d => {
     if (!successorMap.has(d.predecessor_id)) successorMap.set(d.predecessor_id, []);
@@ -53,19 +56,21 @@ export function computeCascadeUpdates(
       visited.add(succ.successor_id);
 
       const entity = entities.get(succ.successor_id);
-      if (!entity || !entity.deadline) continue;
+      if (!entity) continue;
 
-      const currentDeadline = parseISO(entity.deadline);
-      const predecessor = entities.get(entityId);
-      const predEnd = predecessor?.deadline ? parseISO(predecessor.deadline) : newDeadline;
-
-      // For FS: successor should start after predecessor ends + lag
-      // We push the successor's deadline by the same delta
       const effectivePush = pushDays + succ.lag_days;
       if (effectivePush <= 0) continue;
 
-      const newSuccDeadline = addDays(currentDeadline, effectivePush);
-      updates.set(succ.successor_id, newSuccDeadline.toISOString());
+      // Shift both created_at (start) and deadline (end)
+      const newCreatedAt = addDays(parseISO(entity.created_at), effectivePush);
+      const newSuccDeadline = entity.deadline
+        ? addDays(parseISO(entity.deadline), effectivePush)
+        : newCreatedAt;
+
+      updates.set(succ.successor_id, {
+        deadline: newSuccDeadline.toISOString(),
+        created_at: newCreatedAt.toISOString(),
+      });
 
       queue.push({ entityId: succ.successor_id, pushDays: effectivePush });
     }
