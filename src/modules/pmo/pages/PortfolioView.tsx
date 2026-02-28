@@ -1,9 +1,8 @@
 import { useTaskGroups, useTasks, useTags, type TaskGroup, type Task } from "@/hooks/useTasks";
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, GanttChart } from "lucide-react";
-import { format, isPast, parseISO, differenceInDays } from "date-fns";
-import { ru } from "date-fns/locale";
+import { Folder, Clock, AlertTriangle, TrendingUp, X } from "lucide-react";
+import { isPast, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +17,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: allTasks = [] } = useTasks();
   const { data: allTags = [] } = useTags();
   const { user } = useAuth();
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  const toggleTag = useCallback((tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(t => t !== tagId) : [...prev, tagId]
+    );
+  }, []);
 
   // Fetch all group_tags in one query
   const { data: allGroupTags = [] } = useQuery({
@@ -52,14 +58,36 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     [groups]
   );
 
+  // Collect all unique tags used across projects for the filter bar
+  const usedTags = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of rootProjects) {
+      const tags = groupTagsMap.get(p.id);
+      if (tags) tags.forEach(id => ids.add(id));
+    }
+    return Array.from(ids)
+      .map(id => {
+        const t = tagMap.get(id);
+        return t ? { id, name: t.name, color: t.color } : null;
+      })
+      .filter(Boolean) as { id: string; name: string; color: string | null }[];
+  }, [rootProjects, groupTagsMap, tagMap]);
+
+  // Filter projects by selected tags (AND logic)
+  const filteredProjects = useMemo(() => {
+    if (selectedTagIds.length === 0) return rootProjects;
+    return rootProjects.filter(p => {
+      const pTags = groupTagsMap.get(p.id) || [];
+      return selectedTagIds.every(tid => pTags.includes(tid));
+    });
+  }, [rootProjects, selectedTagIds, groupTagsMap]);
+
   const projectStats = useMemo(() => {
     const statsMap: Record<string, { total: number; completed: number; overdue: number; driftCount: number; upcoming: number }> = {};
-
     for (const project of groups) {
       const tasks = allTasks.filter((t) => t.group_id === project.id);
       const total = tasks.length;
       const completed = tasks.filter((t) => t.is_completed).length;
-      const now = new Date();
       const overdue = tasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
       const driftCount = tasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
       const weekFromNow = new Date();
@@ -70,7 +98,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return statsMap;
   }, [groups, allTasks]);
 
-  // Aggregate stats for child projects
   const getAggregatedStats = (projectId: string) => {
     const childIds = groups.filter((g) => g.parent_id === projectId).map((g) => g.id);
     const allIds = [projectId, ...childIds];
@@ -89,7 +116,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     );
   };
 
-  const totalAgg = rootProjects.reduce(
+  const totalAgg = filteredProjects.reduce(
     (acc, p) => {
       const s = getAggregatedStats(p.id);
       return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue };
@@ -99,9 +126,47 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6 scrollbar-thin">
+      {/* Tag filter bar */}
+      {usedTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          {usedTags.map(tag => {
+            const isActive = selectedTagIds.includes(tag.id);
+            return (
+              <button
+                key={tag.id}
+                onClick={() => toggleTag(tag.id)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                  isActive
+                    ? "border-transparent text-primary-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+                style={isActive
+                  ? { backgroundColor: tag.color || "hsl(var(--primary))", color: "#fff" }
+                  : tag.color
+                    ? { borderColor: tag.color + "40", color: tag.color }
+                    : undefined
+                }
+              >
+                {tag.name}
+                {isActive && <X className="h-3 w-3 ml-0.5" />}
+              </button>
+            );
+          })}
+          {selectedTagIds.length > 0 && (
+            <button
+              onClick={() => setSelectedTagIds([])}
+              className="text-xs text-muted-foreground hover:text-foreground ml-1"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <SummaryCard label="Проекты" value={rootProjects.length} />
+        <SummaryCard label="Проекты" value={filteredProjects.length} />
         <SummaryCard label="Всего задач" value={totalAgg.total} />
         <SummaryCard label="Выполнено" value={totalAgg.completed} accent="success" />
         <SummaryCard label="Просрочено" value={totalAgg.overdue} accent="destructive" />
@@ -109,7 +174,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
       {/* Project grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {rootProjects.map((project) => {
+        {filteredProjects.map((project) => {
           const stats = getAggregatedStats(project.id);
           const progress = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
           const children = groups.filter((g) => g.parent_id === project.id);
@@ -150,8 +215,15 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                     <Badge
                       key={tag.id}
                       variant="secondary"
-                      className="text-[10px] px-1.5 py-0"
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity",
+                        selectedTagIds.includes(tag.id) && "ring-1 ring-foreground/30"
+                      )}
                       style={tag.color ? { backgroundColor: tag.color + "20", color: tag.color } : undefined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTag(tag.id);
+                      }}
                     >
                       {tag.name}
                     </Badge>
@@ -199,9 +271,9 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         })}
       </div>
 
-      {rootProjects.length === 0 && (
+      {filteredProjects.length === 0 && (
         <div className="text-center text-muted-foreground text-sm mt-12">
-          Нет проектов. Создайте проект в основном интерфейсе задач.
+          {selectedTagIds.length > 0 ? "Нет проектов с выбранными тегами." : "Нет проектов. Создайте проект в основном интерфейсе задач."}
         </div>
       )}
     </div>
