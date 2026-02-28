@@ -170,7 +170,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }
 
   if (priorityFilter !== null) {
-    filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+    if (priorityFilter === "important") {
+      filteredTasks = filteredTasks.filter(t => t.is_important);
+    } else {
+      filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+    }
   }
 
   if (assigneeFilter !== null) {
