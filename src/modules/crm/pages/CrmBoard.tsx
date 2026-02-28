@@ -17,8 +17,13 @@ import {
   Check,
   Briefcase,
   FolderOpen,
+  Search,
+  X,
+  Tag,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -102,6 +107,9 @@ export default function CrmBoard() {
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
+  const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
@@ -273,15 +281,36 @@ export default function CrmBoard() {
     },
   });
 
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((t) => {
+        const name = t.client?.name || t.title;
+        return name.toLowerCase().includes(q);
+      });
+    }
+    if (filterTagIds.length > 0) {
+      result = result.filter((t) => {
+        const taskTagIds = (t.task_tags || []).map((tt) => tt.tag_id);
+        return filterTagIds.every((fid) => taskTagIds.includes(fid));
+      });
+    }
+    if (filterGroupIds.length > 0) {
+      result = result.filter((t) => t.group_id && filterGroupIds.includes(t.group_id));
+    }
+    return result;
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds]);
+
   const columns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       const stage = getTaskStage(task.subtasks);
       if (stage === "done") continue;
       if (grouped[stage]) grouped[stage].push(task);
     }
     return grouped;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -315,6 +344,18 @@ export default function CrmBoard() {
     moveMutation.mutate({ task, targetStage });
   };
 
+  // Unique groups used by CRM tasks
+  const usedGroups = useMemo(() => {
+    const ids = new Set(tasks.map((t) => t.group_id).filter(Boolean) as string[]);
+    return [...ids].map((id) => groupById.get(id)).filter(Boolean) as CrmGroup[];
+  }, [tasks, groupById]);
+
+  // Unique tags used by CRM tasks
+  const usedTags = useMemo(() => {
+    const ids = new Set(tasks.flatMap((t) => (t.task_tags || []).map((tt) => tt.tag_id)));
+    return [...ids].map((id) => tagById.get(id)).filter(Boolean) as CrmTag[];
+  }, [tasks, tagById]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -326,6 +367,13 @@ export default function CrmBoard() {
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
+  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0;
+
+  const toggleFilterTag = (tagId: string) =>
+    setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterGroup = (groupId: string) =>
+    setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -335,20 +383,118 @@ export default function CrmBoard() {
       onDragEnd={handleDragEnd}
     >
       <div className="flex flex-col h-full">
-        <div className="px-4 py-3 border-b border-border bg-card/50 shrink-0">
+        {/* Filter bar */}
+        <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px] max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск клиента..."
+                className="h-8 pl-8 pr-8 text-xs"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  filterTagIds.length > 0
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <Tag className="h-3 w-3" />
+                  Тэги
+                  {filterTagIds.length > 0 && <span className="font-bold">{filterTagIds.length}</span>}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" side="bottom">
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {usedTags.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>}
+                  {usedTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleFilterTag(tag.id)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        filterTagIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                      <span className="truncate">{tag.name}</span>
+                      {filterTagIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  filterGroupIds.length > 0
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <FolderOpen className="h-3 w-3" />
+                  Проект
+                  {filterGroupIds.length > 0 && <span className="font-bold">{filterGroupIds.length}</span>}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" side="bottom">
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {usedGroups.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">Нет проектов</p>}
+                  {usedGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => toggleFilterGroup(g.id)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        filterGroupIds.includes(g.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      <FolderOpen className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{g.icon ? `${g.icon} ` : ""}{g.name}</span>
+                      {filterGroupIds.includes(g.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {hasFilters && (
+              <button
+                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Сбросить
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats bar */}
+        <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
               <span className="text-xs text-muted-foreground">Активных</span>
               <span className="text-sm font-bold text-foreground">{totalActive}</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
               <span className="text-xs text-muted-foreground">Завершено</span>
               <span className="text-sm font-bold text-foreground">{totalDone}</span>
             </div>
             <div className="h-4 w-px bg-border" />
             {CRM_STAGES.map((stage) => (
-              <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg", stage.bgLight)}>
+              <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", stage.bgLight)}>
                 <div className={cn("h-2 w-2 rounded-full", stage.color)} />
                 <span className={cn("text-xs font-medium", stage.textColor)}>{stage.title}</span>
                 <span className="text-sm font-bold text-foreground">{columns[stage.key]?.length || 0}</span>
