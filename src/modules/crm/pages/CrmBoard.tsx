@@ -1,8 +1,8 @@
-import { useMemo, useState, type ComponentProps } from "react";
+import { useMemo, useState, useRef, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskMutations, type Task } from "@/hooks/useTasks";
+import { useTaskMutations, type Task, useTaskGroups } from "@/hooks/useTasks";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import {
@@ -20,6 +20,7 @@ import {
   Search,
   X,
   Tag,
+  Plus,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
