@@ -688,8 +688,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 return (
                   <div
                     key={i}
-                    className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")}
+                    className={cn(
+                      "relative border-b border-border/30",
+                      row.type === "project" && "bg-muted/10",
+                      hoveredRow === i && "bg-muted/30"
+                    )}
                     style={{ height: ROW_HEIGHT }}
+                    onMouseEnter={() => setHoveredRow(i)}
+                    onMouseLeave={() => setHoveredRow(null)}
                   >
                     {/* Summary bar for project */}
                     {row.type === "project" && row.summaryStart && row.summaryEnd && (() => {
