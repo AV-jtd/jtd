@@ -627,7 +627,8 @@ export default function AppSidebar({
             </>
           )}
         </div>
-      </button>
+        </button>
+      </div>
     </div>
   );
 
