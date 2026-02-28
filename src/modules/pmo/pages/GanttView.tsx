@@ -462,10 +462,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
   const getBarStyle = useCallback((task: Task) => {
-    const created = startOfDay(parseISO(task.created_at));
-    const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : created;
-    const barStart = created < deadline ? created : deadline;
-    const barEnd = created < deadline ? deadline : addDays(created, 1);
+    const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
+    const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : start;
+    const barStart = start < deadline ? start : deadline;
+    const barEnd = start < deadline ? deadline : addDays(start, 1);
     const startOffset = differenceInCalendarDays(barStart, timelineStart);
     const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
