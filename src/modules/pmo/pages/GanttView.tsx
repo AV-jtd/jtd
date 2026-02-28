@@ -1072,16 +1072,33 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         onOpenChange={(open) => { if (!open) setDepDialogState(null); }}
         predecessorLabel={depDialogState?.predecessorLabel || ""}
         successorLabel={depDialogState?.successorLabel || ""}
+        editMode={depDialogState?.editMode}
+        initialType={depDialogState?.initialType}
+        initialLag={depDialogState?.initialLag}
         onConfirm={(type, lagDays) => {
           if (depDialogState) {
-            addDependency.mutate({
-              predecessor_id: depDialogState.predecessorId,
-              successor_id: depDialogState.successorId,
-              dependency_type: type,
-              lag_days: lagDays,
-              predecessor_entity_type: depDialogState.predecessorEntityType,
-              successor_entity_type: depDialogState.successorEntityType,
-            });
+            if (depDialogState.editMode && depDialogState.editId) {
+              updateDependency.mutate({
+                id: depDialogState.editId,
+                dependency_type: type,
+                lag_days: lagDays,
+              });
+            } else {
+              addDependency.mutate({
+                predecessor_id: depDialogState.predecessorId,
+                successor_id: depDialogState.successorId,
+                dependency_type: type,
+                lag_days: lagDays,
+                predecessor_entity_type: depDialogState.predecessorEntityType,
+                successor_entity_type: depDialogState.successorEntityType,
+              });
+            }
+          }
+          setDepDialogState(null);
+        }}
+        onDelete={() => {
+          if (depDialogState?.editId) {
+            deleteDependency.mutate(depDialogState.editId);
           }
           setDepDialogState(null);
         }}
