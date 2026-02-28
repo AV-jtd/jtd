@@ -512,48 +512,84 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         <form
           onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
-          className="flex items-center gap-3 mb-6 bg-card rounded-xl border border-border p-3 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
+          className="mb-6 bg-card rounded-xl border border-border shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
         >
-          <button
-            type="submit"
-            disabled={!newTitle.trim()}
-            className="h-8 w-8 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
-          >
-            <Plus className="h-4 w-4 text-primary" />
-          </button>
-          <Input
-            ref={inputRef}
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Добавить задачу...  (N)"
-            enterKeyHint="done"
-            className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
-          />
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
+          <div className="flex items-center gap-3 p-3">
+            <button
+              type="submit"
+              disabled={!newTitle.trim() || (newTaskType === 'crm' && !newClientName.trim())}
+              className="h-8 w-8 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
+            >
+              <Plus className="h-4 w-4 text-primary" />
+            </button>
+            <Input
+              ref={inputRef}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Добавить задачу...  (N)"
+              enterKeyHint="done"
+              className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
+            />
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Task type toggle */}
               <button
                 type="button"
+                onClick={() => { setNewTaskType(prev => prev === 'standard' ? 'crm' : 'standard'); setNewClientName(""); }}
                 className={cn(
-                  "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors shrink-0",
-                  newDeadline
-                    ? "border-primary/30 bg-primary/5 text-primary"
+                  "flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  newTaskType === 'crm'
+                    ? "border-red-500/30 bg-red-500/10 text-red-500"
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
                 )}
+                title="Тип задачи: CRM"
               >
-                <CalendarIcon className="h-3.5 w-3.5" />
-                {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
+                <Briefcase className="h-3.5 w-3.5" />
+                {newTaskType === 'crm' ? 'CRM' : ''}
               </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={newDeadline}
-                onSelect={(date) => { setNewDeadline(date); setCalendarOpen(false); }}
-                initialFocus
-                className="pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                      newDeadline
+                        ? "border-primary/30 bg-primary/5 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                    )}
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                    {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={newDeadline}
+                    onSelect={(date) => { setNewDeadline(date); setCalendarOpen(false); }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          {/* CRM client name field */}
+          {newTaskType === 'crm' && (
+            <div className="px-3 pb-3 pt-0">
+              <div className="flex items-center gap-2 pl-11">
+                <Briefcase className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                <Input
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="Название клиента..."
+                  className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 pl-11 mt-1">
+                Автоматически создаст тег и карточку клиента + шаги воронки
+              </p>
+            </div>
+          )}
         </form>
 
         {/* Task list */}
