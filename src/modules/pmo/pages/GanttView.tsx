@@ -168,8 +168,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
           
           const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
-          cascadeUpdates.forEach((newDl, taskId) => {
-            updateTask.mutate({ id: taskId, deadline: newDl });
+          cascadeUpdates.forEach((update, taskId) => {
+            updateTask.mutate({ id: taskId, deadline: update.deadline, created_at: update.created_at });
           });
         }
       }
