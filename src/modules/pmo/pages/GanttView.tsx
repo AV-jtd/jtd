@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import {
@@ -8,10 +8,11 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Folder } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Folder, Minus, Plus } from "lucide-react";
 
 type Scale = "day" | "week" | "month";
 
+const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 
 export default function GanttView() {
