@@ -16,6 +16,8 @@ import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLef
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
 import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
+import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
+import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 
 type Scale = "day" | "week" | "month";
 
@@ -63,11 +65,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   // Dependency drag state
   const [depDrag, setDepDrag] = useState<{
-    fromTaskId: string;
+    fromId: string;
+    fromEntityType: "task" | "milestone" | "project";
     startX: number;
     startY: number;
     currentX: number;
     currentY: number;
+  } | null>(null);
+
+  // Dependency dialog state
+  const [depDialogState, setDepDialogState] = useState<{
+    predecessorId: string;
+    successorId: string;
+    predecessorLabel: string;
+    successorLabel: string;
+    predecessorEntityType: string;
+    successorEntityType: string;
   } | null>(null);
 
   // Splitter drag
@@ -132,7 +145,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     };
   }, [zoomIn, zoomOut]);
 
-  // Drag handlers (resize deadline OR move whole bar)
+  // Drag handlers (resize deadline OR move whole bar) with cascading
   useEffect(() => {
     if (!dragState) return;
     const handleMouseMove = (e: MouseEvent) => {
@@ -142,14 +155,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
-        if (dragState.side === "move") {
-          // Move entire bar: shift both created_at conceptually and deadline
-          const newDeadline = addDays(parseISO(dragState.originalDeadline), daysDelta);
-          updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
-        } else {
-          const original = parseISO(dragState.originalDeadline);
-          const newDate = addDays(original, daysDelta);
-          updateTask.mutate({ id: dragState.taskId, deadline: newDate.toISOString() });
+        const oldDeadline = parseISO(dragState.originalDeadline);
+        const newDeadline = addDays(oldDeadline, daysDelta);
+        
+        updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
+
+        // Cascading: push forward dependent tasks
+        if (daysDelta > 0 && allDependencies.length > 0) {
+          const entityMap = new Map<string, { id: string; deadline?: string | null; created_at: string }>();
+          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, created_at: t.created_at }));
+          // Update the moved task in the map
+          entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
+          
+          const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
+          cascadeUpdates.forEach((newDl, taskId) => {
+            updateTask.mutate({ id: taskId, deadline: newDl });
+          });
         }
       }
       setDragState(null);
@@ -161,7 +182,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, scale, updateTask]);
+  }, [dragState, scale, updateTask, allDependencies, allTasks]);
 
   // Dependency drag handlers
   useEffect(() => {
@@ -466,16 +487,27 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
 
-  // Handle drop on a task bar to create dependency
-  const handleBarMouseUp = useCallback((taskId: string) => {
-    if (depDrag && depDrag.fromTaskId !== taskId) {
-      addDependency.mutate({
-        predecessor_id: depDrag.fromTaskId,
-        successor_id: taskId,
+  // Handle drop on a task/milestone bar to create dependency (opens dialog)
+  const getEntityLabel = useCallback((id: string, entityType: string) => {
+    if (entityType === "task") return allTasks.find(t => t.id === id)?.title || "Задача";
+    if (entityType === "milestone") return allMilestones.find(m => m.id === id)?.name || "Веха";
+    if (entityType === "project") return groups.find(g => g.id === id)?.name || "Проект";
+    return "—";
+  }, [allTasks, allMilestones, groups]);
+
+  const handleBarMouseUp = useCallback((targetId: string, targetEntityType: "task" | "milestone" | "project" = "task") => {
+    if (depDrag && depDrag.fromId !== targetId) {
+      setDepDialogState({
+        predecessorId: depDrag.fromId,
+        successorId: targetId,
+        predecessorLabel: getEntityLabel(depDrag.fromId, depDrag.fromEntityType),
+        successorLabel: getEntityLabel(targetId, targetEntityType),
+        predecessorEntityType: depDrag.fromEntityType,
+        successorEntityType: targetEntityType,
       });
       setDepDrag(null);
     }
-  }, [depDrag, addDependency]);
+  }, [depDrag, getEntityLabel]);
 
   // Unique assignees for filter
   const assignees = useMemo(() => {
@@ -686,6 +718,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 dependencies={allDependencies}
                 rowHeight={ROW_HEIGHT}
                 getBarStyle={getBarStyle}
+                getMilestoneX={getMilestoneX}
+                getSummaryBarStyle={getSummaryBarStyle}
                 criticalTaskIds={criticalTaskIds}
               />
 
@@ -730,8 +764,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const color = row.project.color || "#3b82f6";
                       return (
                         <div
-                          className="absolute top-3.5 rounded-sm h-3 opacity-50"
+                          className="absolute top-3.5 rounded-sm h-3 opacity-50 group/proj"
                           style={{ left, width, backgroundColor: color }}
+                          onMouseUp={() => handleBarMouseUp(row.project.id, "project")}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
                             <div
@@ -742,6 +777,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                           {/* Bookend markers */}
                           <div className="absolute -left-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
                           <div className="absolute -right-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
+                          {/* Project dependency connector */}
+                          <div
+                            className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/proj:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setDepDrag({
+                                fromId: row.project.id,
+                                fromEntityType: "project",
+                                startX: left + width,
+                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                currentX: e.clientX,
+                                currentY: e.clientY,
+                              });
+                            }}
+                          />
                         </div>
                       );
                     })()}
@@ -853,7 +904,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                   const scrollLeft = scrollRef.current?.scrollLeft || 0;
                                   const scrollTop = scrollRef.current?.scrollTop || 0;
                                   setDepDrag({
-                                    fromTaskId: task.id,
+                                    fromId: task.id,
+                                    fromEntityType: "task",
                                     startX: left + width,
                                     startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
                                     currentX: e.clientX,
@@ -911,12 +963,13 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const isCompleted = row.milestone!.status === "completed";
                       return (
                         <div
-                          className="absolute top-1 cursor-pointer group"
+                          className="absolute top-1 cursor-pointer group/ms"
                           style={{ left: x - 10 }}
                           title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
                           onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
+                          onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
                         >
-                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover:drop-shadow-md transition-all">
+                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover/ms:drop-shadow-md transition-all">
                             <rect
                               x="10" y="2" width="11" height="11"
                               transform="rotate(45 10 2)"
@@ -929,6 +982,23 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                               <path d="M7 10 L9.5 12.5 L13 7.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                             )}
                           </svg>
+                          {/* Dependency connector for milestone */}
+                          <div
+                            className="absolute -right-2 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setDepDrag({
+                                fromId: row.milestone!.id,
+                                fromEntityType: "milestone",
+                                startX: x + 10,
+                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                currentX: e.clientX,
+                                currentY: e.clientY,
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
                       );
                     })()}
@@ -955,6 +1025,27 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           }
         }}
         onDelete={(id) => deleteMilestone.mutate(id)}
+      />
+
+      {/* Dependency type dialog */}
+      <DependencyDialog
+        open={!!depDialogState}
+        onOpenChange={(open) => { if (!open) setDepDialogState(null); }}
+        predecessorLabel={depDialogState?.predecessorLabel || ""}
+        successorLabel={depDialogState?.successorLabel || ""}
+        onConfirm={(type, lagDays) => {
+          if (depDialogState) {
+            addDependency.mutate({
+              predecessor_id: depDialogState.predecessorId,
+              successor_id: depDialogState.successorId,
+              dependency_type: type,
+              lag_days: lagDays,
+              predecessor_entity_type: depDialogState.predecessorEntityType,
+              successor_entity_type: depDialogState.successorEntityType,
+            });
+          }
+          setDepDialogState(null);
+        }}
       />
     </div>
   );
