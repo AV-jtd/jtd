@@ -16,6 +16,8 @@ import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLef
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
 import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
+import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
+import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 
 type Scale = "day" | "week" | "month";
 
