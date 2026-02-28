@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => ({
         theme_color: "#5c3d2e",
         background_color: "#5c3d2e",
         display: "standalone",
-        orientation: "portrait-primary",
+        orientation: "any",
         start_url: "/",
         icons: [
           { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
