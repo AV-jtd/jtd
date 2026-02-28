@@ -67,7 +67,32 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const [tagSearch, setTagSearch] = useState("");
+  const [suggestedTagIds, setSuggestedTagIds] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const suggestionsLoaded = useRef(false);
   const itemRef = useRef<HTMLDivElement>(null);
+
+  const fetchTagSuggestions = useCallback(async () => {
+    if (suggestionsLoaded.current || availableTags.length === 0) return;
+    suggestionsLoaded.current = true;
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("suggest-tags", {
+        body: {
+          taskTitle: task.title,
+          taskDescription: task.description,
+          availableTags: availableTags.map(t => ({ id: t.id, name: t.name })),
+        },
+      });
+      if (!error && data?.suggestedTagIds) {
+        setSuggestedTagIds(data.suggestedTagIds);
+      }
+    } catch (e) {
+      console.error("Tag suggestions error:", e);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [task.title, task.description, availableTags]);
 
   useEffect(() => {
     if (initialOpen && itemRef.current) {
