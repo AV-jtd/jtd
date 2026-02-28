@@ -38,6 +38,8 @@ interface GanttLeftPanelProps {
   onAddSubtask: (taskId: string, title: string) => void;
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string, completed: boolean) => void;
+  onUpdateSubtask: (id: string, updates: Partial<Subtask>) => void;
+  onToggleSubtask: (id: string, completed: boolean) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
