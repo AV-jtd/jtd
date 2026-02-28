@@ -9,10 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 
 export type GanttRow = {
-  type: "project" | "task" | "milestone" | "summary";
+  type: "project" | "task" | "milestone" | "summary" | "subtask";
   project: TaskGroup;
   task?: Task;
   milestone?: Milestone;
+  subtask?: Subtask;
+  parentTask?: Task;
   depth: number;
   collapsed?: boolean;
   summaryStart?: Date;
