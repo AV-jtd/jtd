@@ -540,6 +540,26 @@ export default function CrmBoard() {
                 Сбросить
               </button>
             )}
+
+            <div className="h-4 w-px bg-border" />
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors">
+                  <Plus className="h-3 w-3" />
+                  Новый проект
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" side="bottom">
+                <CreateProjectInline
+                  onCreated={() => {
+                    queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
+                    queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+                    queryClient.invalidateQueries({ queryKey: ["task_groups"] });
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
