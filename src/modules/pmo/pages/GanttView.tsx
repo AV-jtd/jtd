@@ -182,8 +182,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
           
           const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
-          cascadeUpdates.forEach((update, taskId) => {
-            updateTask.mutate({ id: taskId, deadline: update.deadline, created_at: update.created_at });
+          cascadeUpdates.forEach((update, entityId) => {
+            // Determine entity type and apply appropriate mutation
+            if (allTasks.some(t => t.id === entityId)) {
+              updateTask.mutate({ id: entityId, deadline: update.deadline, created_at: update.created_at });
+            } else if (allMilestones.some(m => m.id === entityId)) {
+              updateMilestone.mutate({ id: entityId, planned_date: update.deadline });
+            }
+            // Projects don't have direct date fields to shift
           });
         }
       }
