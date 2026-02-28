@@ -567,7 +567,13 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error(_e.message); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSettled: (_d, _e, task) => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.task_type === 'crm') {
+        qc.invalidateQueries({ queryKey: ["tags"] });
+        qc.invalidateQueries({ queryKey: ["clients"] });
+      }
+    },
   });
 
   const updateTask = useMutation({
