@@ -452,6 +452,7 @@ function DroppableColumn({
               group={task.group_id ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
+              onCardClick={() => onCardClick(task.id)}
             />
           ))}
           {tasks.length === 0 && (
