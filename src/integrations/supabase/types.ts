@@ -422,6 +422,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_id: string | null
           position: number
           user_id: string
         }
@@ -430,6 +431,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          parent_id?: string | null
           position?: number
           user_id: string
         }
@@ -438,10 +440,19 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_id?: string | null
           position?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tag_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {

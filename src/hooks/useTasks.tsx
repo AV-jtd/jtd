@@ -23,7 +23,7 @@ export type TaskParticipant = { id: string; task_id: string; user_id: string; ro
 export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
 export type ProjectFolder = { id: string; user_id: string; name: string; color: string | null; icon: string | null; position: number; created_at: string };
 export type ProjectFolderItem = { id: string; folder_id: string; group_id: string; user_id: string; position: number; created_at: string };
-export type TagCategory = { id: string; name: string; color: string | null; position: number; user_id: string; created_at: string };
+export type TagCategory = { id: string; name: string; color: string | null; position: number; user_id: string; created_at: string; parent_id?: string | null };
 
 // --- Optimistic update helpers ---
 
@@ -1046,10 +1046,10 @@ export function useTaskMutations() {
   // ========== TAG CATEGORIES ==========
 
   const addTagCategory = useMutation({
-    mutationFn: async ({ name, color }: { name: string; color?: string }) => {
+    mutationFn: async ({ name, color, parent_id }: { name: string; color?: string; parent_id?: string | null }) => {
       const { data: existing } = await supabase.from("tag_categories" as any).select("position").order("position", { ascending: false }).limit(1);
       const pos = ((existing as any)?.[0]?.position ?? -1) + 1;
-      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos });
+      const { error } = await supabase.from("tag_categories" as any).insert({ name, color: color || "#6366f1", user_id: user!.id, position: pos, parent_id: parent_id || null });
       if (error) throw error;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["tag_categories"] }),

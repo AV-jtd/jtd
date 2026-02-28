@@ -96,6 +96,7 @@ export default function AppSidebar({
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["__uncategorized__"]));
   const [newTagCategoryId, setNewTagCategoryId] = useState<string | null>(null);
+  const [newSubcategoryParentId, setNewSubcategoryParentId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
@@ -241,9 +242,9 @@ export default function AppSidebar({
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = (parentId?: string | null) => {
     if (newCategoryName.trim()) {
-      addTagCategory.mutate({ name: newCategoryName.trim() });
+      addTagCategory.mutate({ name: newCategoryName.trim(), parent_id: parentId || null });
       setNewCategoryName("");
       setShowNewCategory(false);
     }
@@ -859,14 +860,14 @@ export default function AppSidebar({
           {showTags && (
             <div className="space-y-1 mt-1">
               {/* New category form */}
-              {showNewCategory && (
+              {showNewCategory && !newSubcategoryParentId && (
                 <form onSubmit={(e) => { e.preventDefault(); handleAddCategory(); }} className="px-3 py-1 flex items-center gap-1.5">
                   <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
                   <input
                     autoFocus
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
-                    onBlur={() => { setTimeout(() => { if (!newCategoryName.trim()) setShowNewCategory(false); }, 150); }}
+                    onBlur={() => { setTimeout(() => { if (!newCategoryName.trim()) { setShowNewCategory(false); setNewSubcategoryParentId(null); } }, 150); }}
                     placeholder="Категория..."
                     className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1.5 text-sm text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
                   />
@@ -876,8 +877,9 @@ export default function AppSidebar({
                 </form>
               )}
 
-              {/* Categories with tags */}
-              {tagCategories.map((cat) => {
+              {/* Root categories (parent_id is null) */}
+              {tagCategories.filter(c => !c.parent_id).map((cat) => {
+                const subcategories = tagCategories.filter(c => c.parent_id === cat.id);
                 const catTags = tags.filter(t => (t as any).category_id === cat.id);
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
@@ -906,9 +908,16 @@ export default function AppSidebar({
                             {cat.name}
                           </span>
                         )}
-                        <span className="text-sidebar-fg/40 text-xs">{catTags.length}</span>
+                        <span className="text-sidebar-fg/40 text-xs">{catTags.length + subcategories.reduce((acc, sc) => acc + tags.filter(t => (t as any).category_id === sc.id).length, 0)}</span>
                       </button>
                       <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                        <span
+                          onClick={(e) => { e.stopPropagation(); setShowNewCategory(true); setNewSubcategoryParentId(cat.id); setNewCategoryName(""); }}
+                          className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60"
+                          title="Добавить подпапку"
+                        >
+                          <FolderPlus className="h-3 w-3" />
+                        </span>
                         <span
                           onClick={(e) => { e.stopPropagation(); setEditingTagId("__new__"); setNewTagCategoryId(cat.id); setNewTagName(""); }}
                           className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60"
@@ -917,7 +926,7 @@ export default function AppSidebar({
                           <Plus className="h-3 w-3" />
                         </span>
                         {cat.user_id === user?.id && (
-                          <ConfirmDelete title="Удалить категорию?" description="Тэги останутся, но потеряют привязку." onConfirm={() => deleteTagCategory.mutate(cat.id)}>
+                          <ConfirmDelete title="Удалить категорию?" description="Подкатегории и тэги останутся, но потеряют привязку." onConfirm={() => deleteTagCategory.mutate(cat.id)}>
                             <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60">
                               <Trash2 className="h-3 w-3" />
                             </span>
@@ -927,6 +936,84 @@ export default function AppSidebar({
                     </div>
                     {isExpanded && (
                       <div className="space-y-0.5 ml-2">
+                        {/* New subcategory form */}
+                        {showNewCategory && newSubcategoryParentId === cat.id && (
+                          <form onSubmit={(e) => { e.preventDefault(); handleAddCategory(cat.id); }} className="px-3 py-1 flex items-center gap-1.5">
+                            <FolderOpen className="h-3 w-3 text-sidebar-fg/50 shrink-0" />
+                            <input
+                              autoFocus
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              onBlur={() => { setTimeout(() => { if (!newCategoryName.trim()) { setShowNewCategory(false); setNewSubcategoryParentId(null); } }, 150); }}
+                              placeholder="Подпапка..."
+                              className="flex-1 bg-sidebar-hover/50 rounded px-2 py-1 text-xs text-sidebar-fg placeholder:text-sidebar-fg/40 outline-none"
+                            />
+                            <button type="submit" disabled={!newCategoryName.trim()} className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-primary hover:bg-primary/10 disabled:opacity-20 transition-all">
+                              <Send className="h-3 w-3" />
+                            </button>
+                          </form>
+                        )}
+
+                        {/* Subcategories */}
+                        {subcategories.map((subcat) => {
+                          const subTags = tags.filter(t => (t as any).category_id === subcat.id);
+                          const isSubExpanded = expandedCategories.has(subcat.id);
+                          return (
+                            <div key={subcat.id}>
+                              <div className="group flex items-center">
+                                <button
+                                  onClick={() => toggleCategory(subcat.id)}
+                                  className="flex items-center gap-1.5 flex-1 px-2 py-1 text-xs text-sidebar-fg/60 hover:text-sidebar-fg/80 transition-colors"
+                                >
+                                  {isSubExpanded ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
+                                  {editingCategoryId === subcat.id ? (
+                                    <input
+                                      autoFocus
+                                      value={editingCategoryName}
+                                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                                      onBlur={() => handleSaveCategoryName(subcat.id)}
+                                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveCategoryName(subcat.id); if (e.key === "Escape") setEditingCategoryId(null); }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex-1 bg-sidebar-hover/50 rounded px-1 py-0.5 text-xs text-sidebar-fg outline-none min-w-0"
+                                    />
+                                  ) : (
+                                    <span
+                                      className="truncate flex-1 text-left"
+                                      onDoubleClick={(e) => { e.stopPropagation(); setEditingCategoryId(subcat.id); setEditingCategoryName(subcat.name); }}
+                                    >
+                                      {subcat.name}
+                                    </span>
+                                  )}
+                                  <span className="text-sidebar-fg/40 text-[10px]">{subTags.length}</span>
+                                </button>
+                                <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                                  <span
+                                    onClick={(e) => { e.stopPropagation(); setEditingTagId("__new__"); setNewTagCategoryId(subcat.id); setNewTagName(""); }}
+                                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60"
+                                    title="Добавить тэг"
+                                  >
+                                    <Plus className="h-2.5 w-2.5" />
+                                  </span>
+                                  {subcat.user_id === user?.id && (
+                                    <ConfirmDelete title="Удалить подкатегорию?" description="Тэги останутся, но потеряют привязку." onConfirm={() => deleteTagCategory.mutate(subcat.id)}>
+                                      <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer text-sidebar-fg/60">
+                                        <Trash2 className="h-2.5 w-2.5" />
+                                      </span>
+                                    </ConfirmDelete>
+                                  )}
+                                </div>
+                              </div>
+                              {isSubExpanded && (
+                                <div className="space-y-0.5 ml-3">
+                                  {subTags.map((t) => renderTagItem(t))}
+                                  {editingTagId === "__new__" && newTagCategoryId === subcat.id && renderNewTagForm(subcat.id)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Tags directly in root category */}
                         {catTags.map((t) => renderTagItem(t))}
                         {editingTagId === "__new__" && newTagCategoryId === cat.id && renderNewTagForm(cat.id)}
                       </div>
