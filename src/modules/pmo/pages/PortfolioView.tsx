@@ -46,12 +46,24 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   const groupTagsMap = useMemo(() => {
     const m = new Map<string, string[]>();
+    // From group_tags table
     for (const gt of allGroupTags) {
       if (!m.has(gt.group_id)) m.set(gt.group_id, []);
-      m.get(gt.group_id)!.push(gt.tag_id);
+      if (!m.get(gt.group_id)!.includes(gt.tag_id)) {
+        m.get(gt.group_id)!.push(gt.tag_id);
+      }
+    }
+    // From linked_tag_id on groups
+    for (const g of groups) {
+      if (g.linked_tag_id) {
+        if (!m.has(g.id)) m.set(g.id, []);
+        if (!m.get(g.id)!.includes(g.linked_tag_id)) {
+          m.get(g.id)!.push(g.linked_tag_id);
+        }
+      }
     }
     return m;
-  }, [allGroupTags]);
+  }, [allGroupTags, groups]);
 
   const rootProjects = useMemo(
     () => groups.filter((g) => !g.parent_id).sort((a, b) => a.position - b.position),
