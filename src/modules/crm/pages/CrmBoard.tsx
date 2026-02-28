@@ -604,7 +604,7 @@ function DroppableColumn({
               key={task.id}
               task={task}
               isMoving={isMoving}
-              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null))}
+              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null) && t.id !== crmLinkedTagId && t.name.trim().toLowerCase() !== crmGroupNameNormalized)}
               group={task.group_id && task.group_id !== crmGroupId ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
