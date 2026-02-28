@@ -527,8 +527,10 @@ function CrmCard({
   const totalSteps = task.subtasks.length;
 
   return (
-    <div className={cn(
-      "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow",
+    <div
+      onClick={onCardClick}
+      className={cn(
+      "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow cursor-pointer",
       isDragging ? "shadow-lg" : "hover:shadow-md"
     )}>
       <div className="flex items-start gap-2">
