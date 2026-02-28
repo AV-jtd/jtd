@@ -102,7 +102,9 @@ export function useClientMutations() {
 
       // If group_id provided, also add tag to group
       if (group_id) {
-        await supabase.from("group_tags" as any).insert({ group_id, tag_id: tagData.id }).catch(() => {});
+        try {
+          await supabase.from("group_tags" as any).insert({ group_id, tag_id: tagData.id });
+        } catch {}
       }
 
       return clientData as unknown as Client;
