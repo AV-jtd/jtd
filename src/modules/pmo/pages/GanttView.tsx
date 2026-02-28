@@ -17,15 +17,19 @@ type Scale = "day" | "week" | "month";
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 
-export default function GanttView() {
+export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
+  const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: allMilestones = [] } = useMilestones();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
+  const { addGroup } = useTaskMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
   const lastPinchDistRef = useRef<number | null>(null);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [showNewProject, setShowNewProject] = useState(false);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
