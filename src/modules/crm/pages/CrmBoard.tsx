@@ -19,6 +19,7 @@ const CRM_STAGES = [
 const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Отправить презентацию и КП": "kp",
   "Получить ОС": "os",
+  "Получить обратную связь": "os",
   "Проведены переговоры": "negotiation",
   "Старт отгрузок": "shipping",
 };
