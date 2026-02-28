@@ -473,6 +473,7 @@ function DraggableCard({
   isMoving,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   task: CrmTask;
   tags: CrmTag[];
@@ -480,6 +481,7 @@ function DraggableCard({
   isMoving: boolean;
   onToggleComplete: () => void;
   onToggleImportant: () => void;
+  onCardClick: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
@@ -496,6 +498,7 @@ function DraggableCard({
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleComplete={onToggleComplete}
         onToggleImportant={onToggleImportant}
+        onCardClick={onCardClick}
       />
     </div>
   );
