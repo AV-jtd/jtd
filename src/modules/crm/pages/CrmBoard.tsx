@@ -376,7 +376,7 @@ export default function CrmBoard() {
   const usedAssignees = useMemo(() => {
     const map = new Map<string, { id: string; display_name: string | null; email: string | null }>();
     for (const t of tasks) {
-      if (t.assignee && t.assigned_to) map.set(t.assigned_to, t.assignee);
+      if (t.assignee && t.assigned_to) map.set(t.assigned_to, { id: t.assigned_to, ...t.assignee });
     }
     return [...map.values()];
   }, [tasks]);
