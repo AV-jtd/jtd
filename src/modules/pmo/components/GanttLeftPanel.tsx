@@ -380,6 +380,49 @@ export default function GanttLeftPanel({
                   </PopoverContent>
                 </Popover>
               )}
+              {row.type === "subtask" && row.subtask && (
+                <Popover open={deadlinePopover === row.subtask.id} onOpenChange={(v) => setDeadlinePopover(v ? row.subtask!.id : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "text-[10px] px-1 py-0.5 rounded transition-colors truncate",
+                        row.subtask.deadline
+                          ? new Date(row.subtask.deadline) < new Date() && !row.subtask.is_completed
+                            ? "text-destructive font-medium hover:bg-destructive/10"
+                            : "text-muted-foreground hover:bg-muted"
+                          : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                      )}
+                      title={row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMMM yyyy", { locale: ru }) : "Установить срок"}
+                    >
+                      {row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMM", { locale: ru }) : (
+                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                    <Calendar
+                      mode="single"
+                      selected={row.subtask.deadline ? parseISO(row.subtask.deadline) : undefined}
+                      onSelect={(date) => {
+                        onUpdateSubtask(row.subtask!.id, { deadline: date ? date.toISOString() : null });
+                        setDeadlinePopover(null);
+                      }}
+                      locale={ru}
+                      className="rounded-md border"
+                    />
+                    {row.subtask.deadline && (
+                      <div className="p-2 border-t">
+                        <button
+                          onClick={() => { onUpdateSubtask(row.subtask!.id, { deadline: null }); setDeadlinePopover(null); }}
+                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                        >
+                          Убрать срок
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
               {row.type === "milestone" && row.milestone && (
                 <span className="text-[10px]">{format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru })}</span>
               )}
