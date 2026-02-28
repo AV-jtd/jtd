@@ -104,7 +104,7 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
 export default function CrmBoard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toggleTask, toggleImportant } = useTaskMutations();
+  const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
