@@ -74,8 +74,8 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
 
       const isCritical = criticalTaskIds?.has(dep.predecessor_id) && criticalTaskIds?.has(dep.successor_id);
 
-      return { id: dep.id, path, endX, endY, isCritical };
-    }).filter(Boolean) as { id: string; path: string; endX: number; endY: number; isCritical: boolean }[];
+      return { id: dep.id, path, endX, endY, isCritical, dep };
+    }).filter(Boolean) as { id: string; path: string; endX: number; endY: number; isCritical: boolean; dep: Dependency }[];
   }, [rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds]);
 
   if (lines.length === 0) return null;
