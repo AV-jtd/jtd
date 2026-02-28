@@ -202,7 +202,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, scale, updateTask, allDependencies, allTasks]);
+  }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups]);
 
   // Dependency drag handlers
   useEffect(() => {
