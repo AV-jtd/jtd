@@ -83,7 +83,7 @@ type CrmTask = {
 };
 
 type CrmTag = { id: string; name: string; color: string | null };
-type CrmGroup = { id: string; name: string; icon: string | null; color: string | null };
+type CrmGroup = { id: string; name: string; icon: string | null; color: string | null; linked_tag_id: string | null };
 
 function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   if (!subtasks || subtasks.length === 0) return "kp";
