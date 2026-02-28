@@ -44,6 +44,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [leftPanelWidth, setLeftPanelWidth] = useState(380);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
