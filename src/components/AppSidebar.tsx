@@ -561,7 +561,13 @@ export default function AppSidebar({
   }
 
   const renderTagItem = (t: typeof tags[number]) => (
-    <div key={t.id} className="group">
+    <div
+      key={t.id}
+      className={cn("group", draggingTagId === t.id && "opacity-40")}
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData("tag-id", t.id); setDraggingTagId(t.id); }}
+      onDragEnd={() => { setDraggingTagId(null); setDragOverCategoryId(null); }}
+    >
       <button
         onClick={() => onToggleTag(t.id)}
         className={cn(
