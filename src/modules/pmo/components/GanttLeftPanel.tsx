@@ -29,6 +29,8 @@ interface GanttLeftPanelProps {
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
+  hoveredRow: number | null;
+  onHoverRow: (index: number | null) => void;
 }
 
 export default function GanttLeftPanel({
