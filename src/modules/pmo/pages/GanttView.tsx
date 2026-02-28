@@ -751,7 +751,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                           <GanttTooltip task={task} project={row.project} progress={progress} disabled={popoverOpenTaskId === task.id}>
                             <div
                               className={cn(
-                                "absolute top-1.5 rounded-sm h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar",
+                                "absolute top-1.5 rounded-[4px] h-6 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-sm",
                                 isOverdue && "opacity-80",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
