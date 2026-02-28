@@ -77,7 +77,7 @@ type CrmTask = {
   group_id: string | null;
   task_type: string;
   task_tags?: { tag_id: string }[];
-  subtasks: { id: string; title: string; is_completed: boolean; position: number }[];
+  subtasks: { id: string; title: string; is_completed: boolean; position: number; deadline: string | null; assigned_to: string | null }[];
   client?: { name: string; contact_name: string | null; phone: string | null; email: string | null } | null;
   assignee?: { display_name: string | null; email: string | null } | null;
 };
@@ -168,7 +168,7 @@ export default function CrmBoard() {
       const taskIds = crmTasks.map((t) => t.id);
       const { data: subtasks } = await supabase
         .from("subtasks")
-        .select("id, title, is_completed, position, task_id")
+        .select("id, title, is_completed, position, task_id, deadline, assigned_to")
         .in("task_id", taskIds)
         .order("position");
 
@@ -789,6 +789,19 @@ function CrmCard({
         <div className="mt-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-muted-foreground">{completedSteps}/{totalSteps} шагов</span>
+            {(() => {
+              const nextDeadline = task.subtasks
+                .filter((s) => !s.is_completed && s.deadline)
+                .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
+              if (!nextDeadline) return null;
+              const isOverdue = new Date(nextDeadline.deadline!) < new Date();
+              return (
+                <span className={cn("text-[10px] flex items-center gap-0.5", isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                  <Calendar className="h-2.5 w-2.5" />
+                  {format(parseISO(nextDeadline.deadline!), "d MMM", { locale: ru })}
+                </span>
+              );
+            })()}
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
@@ -807,10 +820,11 @@ function CrmCard({
           </div>
         )}
         {task.assignee && (
-          <div className="flex items-center gap-1 ml-auto">
-            <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium text-primary">
-              {(task.assignee.display_name || task.assignee.email || "?").charAt(0).toUpperCase()}
-            </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <User className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+              {task.assignee.display_name || task.assignee.email || "?"}
+            </span>
           </div>
         )}
       </div>
