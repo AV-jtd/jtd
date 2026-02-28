@@ -94,12 +94,6 @@ export default function PmoLayout() {
   );
 }
 
-function PortfolioPlaceholder() {
-  return <PortfolioView />;
-}
-function GanttPlaceholder({ initialProjectId }: { initialProjectId?: string | null }) {
-  return <GanttView initialProjectId={initialProjectId} />;
-}
 function MilestonesPlaceholder() {
   return <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />;
 }
