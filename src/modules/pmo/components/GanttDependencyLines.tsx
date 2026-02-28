@@ -7,6 +7,8 @@ interface Dependency {
   successor_id: string;
   dependency_type: string;
   lag_days: number;
+  predecessor_entity_type: string;
+  successor_entity_type: string;
 }
 
 interface GanttDependencyLinesProps {
