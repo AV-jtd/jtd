@@ -20,7 +20,6 @@ import {
   Search,
   X,
   Tag,
-  Plus,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -28,7 +27,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
-import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
@@ -104,7 +102,7 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
 export default function CrmBoard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
+  const { toggleTask, toggleImportant } = useTaskMutations();
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
@@ -540,26 +538,6 @@ export default function CrmBoard() {
                 Сбросить
               </button>
             )}
-
-            <div className="h-4 w-px bg-border" />
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors">
-                  <Plus className="h-3 w-3" />
-                  Новый проект
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3" side="bottom">
-                <CreateProjectInline
-                  onCreated={() => {
-                    queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
-                    queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
-                    queryClient.invalidateQueries({ queryKey: ["task_groups"] });
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
 
@@ -599,17 +577,9 @@ export default function CrmBoard() {
                 groupById={groupById}
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
-                crmGroups={crmGroups}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
-                onCreateTask={(title, groupId) => {
-                  addTask.mutate({ title, group_id: groupId, task_type: "crm", client_name: title }, {
-                    onSuccess: () => {
-                      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
-                    },
-                  });
-                }}
               />
             ))}
           </div>

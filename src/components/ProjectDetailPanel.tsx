@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, Profile } from "@/hooks/useTasks";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
@@ -14,7 +13,7 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -182,20 +181,6 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
               </div>
             </PopoverContent>
           </Popover>
-        </div>
-      </div>
-
-      {/* CRM Toggle */}
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-          <Briefcase className="h-3 w-3" /> CRM
-        </p>
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={(group as any).project_type === 'crm'}
-            onCheckedChange={(checked) => updateGroupProjectType.mutate({ id: group.id, project_type: checked ? 'crm' : 'standard' })}
-          />
-          <span className="text-sm text-foreground/80">Показывать в CRM</span>
         </div>
       </div>
 
