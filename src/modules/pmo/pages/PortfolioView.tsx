@@ -1,11 +1,15 @@
 import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, GanttChart } from "lucide-react";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
-export default function PortfolioView() {
+interface PortfolioViewProps {
+  onOpenGantt?: (projectId: string) => void;
+}
+
+export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
 
@@ -96,6 +100,15 @@ export default function PortfolioView() {
                   )}
                 </div>
                 <HealthDot status={healthColor} />
+                {onOpenGantt && (
+                  <span
+                    className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => onOpenGantt(project.id)}
+                    title="Открыть Гант"
+                  >
+                    <GanttChart className="h-3.5 w-3.5" />
+                  </span>
+                )}
               </div>
 
               {/* Progress bar */}

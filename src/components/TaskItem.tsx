@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
 import UserPicker from "@/components/UserPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
@@ -53,6 +54,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -318,13 +320,24 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
               return group ? (
-                <span
-                  className="inline-flex items-center gap-1 text-xs font-medium cursor-pointer hover:opacity-70 transition-opacity"
-                  style={{ color: group.color || '#3b82f6' }}
-                  onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
-                >
-                  <span className="text-[11px]">{group.icon || '📁'}</span>
-                  {group.name}
+                <span className="inline-flex items-center gap-1 text-xs font-medium">
+                  <span
+                    className="inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
+                    style={{ color: group.color || '#3b82f6' }}
+                    onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
+                  >
+                    <span className="text-[11px]">{group.icon || '📁'}</span>
+                    {group.name}
+                  </span>
+                  {!group.parent_id && (
+                    <span
+                      className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                      onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo?project=${group.id}`); }}
+                      title="Открыть в PMO (Гант)"
+                    >
+                      <GanttChart className="h-3 w-3" />
+                    </span>
+                  )}
                 </span>
               ) : null;
             })()}

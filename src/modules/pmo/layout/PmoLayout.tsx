@@ -23,6 +23,12 @@ export default function PmoLayout() {
   const initialProject = searchParams.get("project");
   const initialView = initialProject ? "gantt" : "portfolio";
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
+  const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
+
+  const handleOpenGantt = (projectId: string) => {
+    setFocusProjectId(projectId);
+    setActiveView("gantt");
+  };
 
   if (loading) {
     return (
@@ -78,8 +84,8 @@ export default function PmoLayout() {
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">
-        {activeView === "portfolio" && <PortfolioPlaceholder />}
-        {activeView === "gantt" && <GanttPlaceholder initialProjectId={initialProject} />}
+        {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
+        {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
         {activeView === "milestones" && <MilestonesPlaceholder />}
         {activeView === "resources" && <ResourcesPlaceholder />}
         {activeView === "reports" && <ReportsPlaceholder />}
@@ -88,12 +94,6 @@ export default function PmoLayout() {
   );
 }
 
-function PortfolioPlaceholder() {
-  return <PortfolioView />;
-}
-function GanttPlaceholder({ initialProjectId }: { initialProjectId?: string | null }) {
-  return <GanttView initialProjectId={initialProjectId} />;
-}
 function MilestonesPlaceholder() {
   return <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />;
 }

@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, GanttChart,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox,
 } from "lucide-react";
 
 import ImportProjectDialog from "@/components/ImportProjectDialog";
@@ -485,15 +485,6 @@ export default function AppSidebar({
               >
                 <Expand className="h-3.5 w-3.5" />
                </span>
-              {isRoot && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo?project=${group.id}`); }}
-                  className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
-                  title="Открыть в PMO (Гант)"
-                >
-                  <GanttChart className="h-3.5 w-3.5" />
-                </span>
-              )}
               {/* Move to folder */}
               {isRoot && folders.length > 0 && (
                 <Popover open={folderPickerGroupId === group.id} onOpenChange={(open) => setFolderPickerGroupId(open ? group.id : null)}>
