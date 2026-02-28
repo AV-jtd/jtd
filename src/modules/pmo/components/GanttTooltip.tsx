@@ -17,8 +17,10 @@ export default function GanttTooltip({ task, project, children, progress, disabl
 
   const priorities: Record<number, string> = { 1: "🔴 P1", 2: "🟠 P2", 3: "🟡 P3" };
 
+  if (disabled) return <>{children}</>;
+
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider delayDuration={400}>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent side="top" className="max-w-64 p-2 space-y-1 text-xs">
