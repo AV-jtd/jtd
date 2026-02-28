@@ -19,9 +19,10 @@ interface GanttDependencyLinesProps {
   getMilestoneX?: (ms: any) => number;
   getSummaryBarStyle?: (start: Date, end: Date) => { left: number; width: number };
   criticalTaskIds?: Set<string>;
+  onClickDependency?: (dep: Dependency) => void;
 }
 
-export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds }: GanttDependencyLinesProps) {
+export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, onClickDependency }: GanttDependencyLinesProps) {
   const lines = useMemo(() => {
     return dependencies.map(dep => {
       // Find predecessor row
@@ -73,8 +74,8 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
 
       const isCritical = criticalTaskIds?.has(dep.predecessor_id) && criticalTaskIds?.has(dep.successor_id);
 
-      return { id: dep.id, path, endX, endY, isCritical };
-    }).filter(Boolean) as { id: string; path: string; endX: number; endY: number; isCritical: boolean }[];
+      return { id: dep.id, path, endX, endY, isCritical, dep };
+    }).filter(Boolean) as { id: string; path: string; endX: number; endY: number; isCritical: boolean; dep: Dependency }[];
   }, [rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds]);
 
   if (lines.length === 0) return null;
@@ -90,15 +91,48 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
         </marker>
       </defs>
       {lines.map(l => (
-        <path
-          key={l.id}
-          d={l.path}
-          fill="none"
-          stroke={l.isCritical ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
-          strokeWidth={l.isCritical ? "2" : "1.5"}
-          strokeOpacity={l.isCritical ? "0.7" : "0.5"}
-          markerEnd={l.isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"}
-        />
+        <g key={l.id}>
+          {/* Invisible wider hit area for click */}
+          <path
+            d={l.path}
+            fill="none"
+            stroke="transparent"
+            strokeWidth="12"
+            className="pointer-events-auto cursor-pointer"
+            onClick={() => onClickDependency?.(l.dep)}
+          />
+          {/* Visible line */}
+          <path
+            d={l.path}
+            fill="none"
+            stroke={l.isCritical ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
+            strokeWidth={l.isCritical ? "2" : "1.5"}
+            strokeOpacity={l.isCritical ? "0.7" : "0.5"}
+            markerEnd={l.isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"}
+            className="pointer-events-none"
+          />
+          {/* Dependency type label at midpoint */}
+          {l.dep.dependency_type !== "FS" || l.dep.lag_days !== 0 ? (() => {
+            const midMatch = l.path.match(/H\s+([\d.]+)\s+V/);
+            const midX = midMatch ? parseFloat(midMatch[1]) : (l.endX + 20);
+            const startYMatch = l.path.match(/M\s+[\d.]+\s+([\d.]+)/);
+            const endYMatch = l.path.match(/V\s+([\d.]+)/);
+            const midY = startYMatch && endYMatch ? (parseFloat(startYMatch[1]) + parseFloat(endYMatch[1])) / 2 : 0;
+            const label = l.dep.dependency_type + (l.dep.lag_days !== 0 ? ` ${l.dep.lag_days > 0 ? "+" : ""}${l.dep.lag_days}d` : "");
+            return (
+              <text
+                x={midX + 4}
+                y={midY - 4}
+                className="pointer-events-none"
+                fill="hsl(var(--muted-foreground))"
+                fontSize="9"
+                fontWeight="500"
+              >
+                {label}
+              </text>
+            );
+          })() : null}
+        </g>
       ))}
     </svg>
   );

@@ -36,7 +36,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
   const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask } = useTaskMutations();
-  const { addDependency } = useDependencyMutations();
+  const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
@@ -81,6 +81,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     successorLabel: string;
     predecessorEntityType: string;
     successorEntityType: string;
+    editMode?: boolean;
+    editId?: string;
+    initialType?: string;
+    initialLag?: number;
   } | null>(null);
 
   // Splitter drag
@@ -162,8 +166,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
         // Cascading: push forward dependent tasks
         if (daysDelta > 0 && allDependencies.length > 0) {
-          const entityMap = new Map<string, { id: string; deadline?: string | null; created_at: string }>();
-          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, created_at: t.created_at }));
+          const entityMap = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
+          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
           // Include milestones and projects for cross-entity cascading
           allMilestones.forEach(m => entityMap.set(m.id, { id: m.id, deadline: m.planned_date, created_at: m.created_at }));
           groups.forEach(g => {
@@ -183,13 +187,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           
           const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
           cascadeUpdates.forEach((update, entityId) => {
-            // Determine entity type and apply appropriate mutation
             if (allTasks.some(t => t.id === entityId)) {
-              updateTask.mutate({ id: entityId, deadline: update.deadline, created_at: update.created_at });
+              const mutPayload: any = { id: entityId };
+              if (update.deadline) mutPayload.deadline = update.deadline;
+              if (update.start_at) mutPayload.start_at = update.start_at;
+              updateTask.mutate(mutPayload);
             } else if (allMilestones.some(m => m.id === entityId)) {
-              updateMilestone.mutate({ id: entityId, planned_date: update.deadline });
+              if (update.deadline) updateMilestone.mutate({ id: entityId, planned_date: update.deadline });
             }
-            // Projects don't have direct date fields to shift
           });
         }
       }
@@ -283,8 +288,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     const taskDuration = (id: string) => {
       const t = allTasks.find(t => t.id === id);
       if (!t) return 1;
-      if (t.deadline && t.created_at) {
-        return Math.max(differenceInCalendarDays(parseISO(t.deadline), parseISO(t.created_at)), 1);
+      const startDate = t.start_at || t.created_at;
+      if (t.deadline && startDate) {
+        return Math.max(differenceInCalendarDays(parseISO(t.deadline), parseISO(startDate)), 1);
       }
       return 1;
     };
@@ -361,7 +367,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       let taskCount = 0;
 
       allProjectTasks.forEach(t => {
-        const start = startOfDay(parseISO(t.created_at));
+        const start = t.start_at ? startOfDay(parseISO(t.start_at)) : startOfDay(parseISO(t.created_at));
         const end = t.deadline ? startOfDay(parseISO(t.deadline)) : start;
         if (!summaryStart || start < summaryStart) summaryStart = start;
         if (!summaryEnd || end > summaryEnd) summaryEnd = end;
@@ -419,7 +425,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
     rows.forEach(r => {
       if (r.task) {
-        const start = startOfDay(parseISO(r.task.created_at));
+        const start = r.task.start_at ? startOfDay(parseISO(r.task.start_at)) : startOfDay(parseISO(r.task.created_at));
         const end = r.task.deadline ? startOfDay(parseISO(r.task.deadline)) : start;
         if (start < minDate) minDate = start;
         if (end > maxDate) maxDate = end;
@@ -462,10 +468,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
   const getBarStyle = useCallback((task: Task) => {
-    const created = startOfDay(parseISO(task.created_at));
-    const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : created;
-    const barStart = created < deadline ? created : deadline;
-    const barEnd = created < deadline ? deadline : addDays(created, 1);
+    const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
+    const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : start;
+    const barStart = start < deadline ? start : deadline;
+    const barEnd = start < deadline ? deadline : addDays(start, 1);
     const startOffset = differenceInCalendarDays(barStart, timelineStart);
     const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
@@ -479,10 +485,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   const getBaselineStyle = useCallback((task: Task) => {
     if (!task.original_deadline || !task.deadline || task.original_deadline === task.deadline) return null;
-    const created = startOfDay(parseISO(task.created_at));
+    const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
     const origDeadline = startOfDay(parseISO(task.original_deadline));
-    const barStart = created < origDeadline ? created : origDeadline;
-    const barEnd = created < origDeadline ? origDeadline : addDays(created, 1);
+    const barStart = start < origDeadline ? start : origDeadline;
+    const barEnd = start < origDeadline ? origDeadline : addDays(start, 1);
     const startOffset = differenceInCalendarDays(barStart, timelineStart);
     const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
@@ -741,6 +747,20 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 getMilestoneX={getMilestoneX}
                 getSummaryBarStyle={getSummaryBarStyle}
                 criticalTaskIds={criticalTaskIds}
+                onClickDependency={(dep) => {
+                  setDepDialogState({
+                    predecessorId: dep.predecessor_id,
+                    successorId: dep.successor_id,
+                    predecessorLabel: getEntityLabel(dep.predecessor_id, dep.predecessor_entity_type),
+                    successorLabel: getEntityLabel(dep.successor_id, dep.successor_entity_type),
+                    predecessorEntityType: dep.predecessor_entity_type,
+                    successorEntityType: dep.successor_entity_type,
+                    editMode: true,
+                    editId: dep.id,
+                    initialType: dep.dependency_type,
+                    initialLag: dep.lag_days,
+                  });
+                }}
               />
 
               {/* Dependency drag line */}
@@ -1053,16 +1073,33 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         onOpenChange={(open) => { if (!open) setDepDialogState(null); }}
         predecessorLabel={depDialogState?.predecessorLabel || ""}
         successorLabel={depDialogState?.successorLabel || ""}
+        editMode={depDialogState?.editMode}
+        initialType={depDialogState?.initialType}
+        initialLag={depDialogState?.initialLag}
         onConfirm={(type, lagDays) => {
           if (depDialogState) {
-            addDependency.mutate({
-              predecessor_id: depDialogState.predecessorId,
-              successor_id: depDialogState.successorId,
-              dependency_type: type,
-              lag_days: lagDays,
-              predecessor_entity_type: depDialogState.predecessorEntityType,
-              successor_entity_type: depDialogState.successorEntityType,
-            });
+            if (depDialogState.editMode && depDialogState.editId) {
+              updateDependency.mutate({
+                id: depDialogState.editId,
+                dependency_type: type,
+                lag_days: lagDays,
+              });
+            } else {
+              addDependency.mutate({
+                predecessor_id: depDialogState.predecessorId,
+                successor_id: depDialogState.successorId,
+                dependency_type: type,
+                lag_days: lagDays,
+                predecessor_entity_type: depDialogState.predecessorEntityType,
+                successor_entity_type: depDialogState.successorEntityType,
+              });
+            }
+          }
+          setDepDialogState(null);
+        }}
+        onDelete={() => {
+          if (depDialogState?.editId) {
+            deleteDependency.mutate(depDialogState.editId);
           }
           setDepDialogState(null);
         }}

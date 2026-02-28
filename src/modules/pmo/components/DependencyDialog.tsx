@@ -10,7 +10,11 @@ interface DependencyDialogProps {
   onOpenChange: (open: boolean) => void;
   predecessorLabel: string;
   successorLabel: string;
+  initialType?: string;
+  initialLag?: number;
+  editMode?: boolean;
   onConfirm: (type: string, lagDays: number) => void;
+  onDelete?: () => void;
 }
 
 const DEP_TYPES = [
@@ -20,9 +24,18 @@ const DEP_TYPES = [
   { value: "SF", label: "Старт → Финиш (SF)", desc: "Преемник завершается при начале предшественника" },
 ];
 
-export default function DependencyDialog({ open, onOpenChange, predecessorLabel, successorLabel, onConfirm }: DependencyDialogProps) {
-  const [depType, setDepType] = useState("FS");
-  const [lagDays, setLagDays] = useState(0);
+export default function DependencyDialog({ open, onOpenChange, predecessorLabel, successorLabel, initialType, initialLag, editMode, onConfirm, onDelete }: DependencyDialogProps) {
+  const [depType, setDepType] = useState(initialType || "FS");
+  const [lagDays, setLagDays] = useState(initialLag ?? 0);
+
+  // Reset state when dialog opens with new values
+  const handleOpenChange = (o: boolean) => {
+    if (o) {
+      setDepType(initialType || "FS");
+      setLagDays(initialLag ?? 0);
+    }
+    onOpenChange(o);
+  };
 
   const handleConfirm = () => {
     onConfirm(depType, lagDays);
@@ -32,10 +45,10 @@ export default function DependencyDialog({ open, onOpenChange, predecessorLabel,
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base">Создать зависимость</DialogTitle>
+          <DialogTitle className="text-base">{editMode ? "Редактировать зависимость" : "Создать зависимость"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
@@ -78,9 +91,18 @@ export default function DependencyDialog({ open, onOpenChange, predecessorLabel,
             </p>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button size="sm" onClick={handleConfirm}>Создать</Button>
+        <DialogFooter className="flex justify-between sm:justify-between">
+          {editMode && onDelete ? (
+            <Button variant="destructive" size="sm" onClick={() => { onDelete(); onOpenChange(false); }}>
+              Удалить
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Отмена</Button>
+            <Button size="sm" onClick={handleConfirm}>{editMode ? "Сохранить" : "Создать"}</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

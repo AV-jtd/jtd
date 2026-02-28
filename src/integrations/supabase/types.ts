@@ -802,6 +802,7 @@ export type Database = {
           priority: number | null
           recurrence: string | null
           recurrence_end_date: string | null
+          start_at: string | null
           task_type: string
           title: string
           updated_at: string
@@ -825,6 +826,7 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          start_at?: string | null
           task_type?: string
           title: string
           updated_at?: string
@@ -848,6 +850,7 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          start_at?: string | null
           task_type?: string
           title?: string
           updated_at?: string
