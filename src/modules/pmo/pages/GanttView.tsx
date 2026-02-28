@@ -484,10 +484,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   const getBaselineStyle = useCallback((task: Task) => {
     if (!task.original_deadline || !task.deadline || task.original_deadline === task.deadline) return null;
-    const created = startOfDay(parseISO(task.created_at));
+    const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
     const origDeadline = startOfDay(parseISO(task.original_deadline));
-    const barStart = created < origDeadline ? created : origDeadline;
-    const barEnd = created < origDeadline ? origDeadline : addDays(created, 1);
+    const barStart = start < origDeadline ? start : origDeadline;
+    const barEnd = start < origDeadline ? origDeadline : addDays(start, 1);
     const startOffset = differenceInCalendarDays(barStart, timelineStart);
     const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
