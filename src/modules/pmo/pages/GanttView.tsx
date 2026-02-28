@@ -746,6 +746,20 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 getMilestoneX={getMilestoneX}
                 getSummaryBarStyle={getSummaryBarStyle}
                 criticalTaskIds={criticalTaskIds}
+                onClickDependency={(dep) => {
+                  setDepDialogState({
+                    predecessorId: dep.predecessor_id,
+                    successorId: dep.successor_id,
+                    predecessorLabel: getEntityLabel(dep.predecessor_id, dep.predecessor_entity_type),
+                    successorLabel: getEntityLabel(dep.successor_id, dep.successor_entity_type),
+                    predecessorEntityType: dep.predecessor_entity_type,
+                    successorEntityType: dep.successor_entity_type,
+                    editMode: true,
+                    editId: dep.id,
+                    initialType: dep.dependency_type,
+                    initialLag: dep.lag_days,
+                  });
+                }}
               />
 
               {/* Dependency drag line */}
