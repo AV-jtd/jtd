@@ -559,6 +559,7 @@ function DroppableColumn({
   isMoving,
   tagById,
   groupById,
+  crmGroupId,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -569,6 +570,7 @@ function DroppableColumn({
   isMoving: boolean;
   tagById: Map<string, CrmTag>;
   groupById: Map<string, CrmGroup>;
+  crmGroupId: string;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
