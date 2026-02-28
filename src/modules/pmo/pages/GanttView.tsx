@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { useTaskGroups, useTasks, useTaskMutations, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
@@ -10,10 +10,11 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
+import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 
 type Scale = "day" | "week" | "month";
@@ -21,7 +22,8 @@ type Scale = "day" | "week" | "month";
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 const ROW_HEIGHT = 32;
-const LEFT_PANEL_WIDTH = 380;
+const MIN_LEFT_PANEL = 250;
+const MAX_LEFT_PANEL = 600;
 
 export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
   const { user } = useAuth();
@@ -29,27 +31,55 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: allTasks = [] } = useTasks();
   const { data: allMilestones = [] } = useMilestones();
   const { data: allDependencies = [] } = useDependencies();
+  const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
   const { addGroup, addTask, updateTask, deleteTask, toggleTask } = useTaskMutations();
+  const { addDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
   const lastPinchDistRef = useRef<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [leftPanelWidth, setLeftPanelWidth] = useState(380);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  // Drag-resize state
+  // Drag-resize state (right edge = deadline)
   const [dragState, setDragState] = useState<{
     taskId: string;
     startX: number;
     originalDeadline: string;
-    side: "end";
+    side: "end" | "move";
+    originalCreatedAt?: string;
   } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
+
+  // Dependency drag state
+  const [depDrag, setDepDrag] = useState<{
+    fromTaskId: string;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  // Splitter drag
+  const [splitterDragging, setSplitterDragging] = useState(false);
+  const splitterStartRef = useRef<{ x: number; width: number } | null>(null);
+
+  const toggleCollapse = useCallback((projectId: string) => {
+    setCollapsedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  }, []);
 
   const zoomIn = useCallback(() => {
     setScale(prev => {
@@ -100,7 +130,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     };
   }, [zoomIn, zoomOut]);
 
-  // Drag-resize handlers (mouse)
+  // Drag handlers (resize deadline OR move whole bar)
   useEffect(() => {
     if (!dragState) return;
     const handleMouseMove = (e: MouseEvent) => {
@@ -110,9 +140,15 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
-        const original = parseISO(dragState.originalDeadline);
-        const newDate = addDays(original, daysDelta);
-        updateTask.mutate({ id: dragState.taskId, deadline: newDate.toISOString() });
+        if (dragState.side === "move") {
+          // Move entire bar: shift both created_at conceptually and deadline
+          const newDeadline = addDays(parseISO(dragState.originalDeadline), daysDelta);
+          updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
+        } else {
+          const original = parseISO(dragState.originalDeadline);
+          const newDate = addDays(original, daysDelta);
+          updateTask.mutate({ id: dragState.taskId, deadline: newDate.toISOString() });
+        }
       }
       setDragState(null);
       setDragDelta(0);
@@ -125,7 +161,136 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     };
   }, [dragState, scale, updateTask]);
 
-  // Build rows
+  // Dependency drag handlers
+  useEffect(() => {
+    if (!depDrag) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setDepDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+    };
+    const handleMouseUp = () => {
+      setDepDrag(null);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [depDrag]);
+
+  // Splitter drag handlers
+  useEffect(() => {
+    if (!splitterDragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (splitterStartRef.current) {
+        const delta = e.clientX - splitterStartRef.current.x;
+        const newWidth = Math.max(MIN_LEFT_PANEL, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
+        setLeftPanelWidth(newWidth);
+      }
+    };
+    const handleMouseUp = () => {
+      setSplitterDragging(false);
+      splitterStartRef.current = null;
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [splitterDragging]);
+
+  // Compute subtask progress per task
+  const taskProgress = useMemo(() => {
+    const map = new Map<string, number>();
+    allTasks.forEach(t => {
+      if (t.subtasks && t.subtasks.length > 0) {
+        const done = t.subtasks.filter(s => s.is_completed).length;
+        map.set(t.id, (done / t.subtasks.length) * 100);
+      } else {
+        map.set(t.id, t.is_completed ? 100 : 0);
+      }
+    });
+    return map;
+  }, [allTasks]);
+
+  // Critical path calculation
+  const criticalTaskIds = useMemo(() => {
+    if (allDependencies.length === 0) return new Set<string>();
+
+    // Build adjacency list
+    const adj = new Map<string, string[]>();
+    const taskSet = new Set<string>();
+    allDependencies.forEach(d => {
+      taskSet.add(d.predecessor_id);
+      taskSet.add(d.successor_id);
+      if (!adj.has(d.predecessor_id)) adj.set(d.predecessor_id, []);
+      adj.get(d.predecessor_id)!.push(d.successor_id);
+    });
+
+    // Find tasks with no predecessors (start nodes)
+    const hasPred = new Set(allDependencies.map(d => d.successor_id));
+    const startNodes = [...taskSet].filter(id => !hasPred.has(id));
+
+    // Longest path via BFS/DFS
+    const dist = new Map<string, number>();
+    const prev = new Map<string, string | null>();
+    taskSet.forEach(id => { dist.set(id, 0); prev.set(id, null); });
+
+    const taskDuration = (id: string) => {
+      const t = allTasks.find(t => t.id === id);
+      if (!t) return 1;
+      if (t.deadline && t.created_at) {
+        return Math.max(differenceInCalendarDays(parseISO(t.deadline), parseISO(t.created_at)), 1);
+      }
+      return 1;
+    };
+
+    // Topological sort + longest path
+    const visited = new Set<string>();
+    const order: string[] = [];
+    const dfs = (node: string) => {
+      if (visited.has(node)) return;
+      visited.add(node);
+      (adj.get(node) || []).forEach(dfs);
+      order.push(node);
+    };
+    startNodes.forEach(dfs);
+    // Remaining unvisited (in cycles, skip them)
+    taskSet.forEach(id => { if (!visited.has(id)) order.push(id); });
+    order.reverse();
+
+    order.forEach(node => {
+      const d = (dist.get(node) || 0) + taskDuration(node);
+      (adj.get(node) || []).forEach(succ => {
+        if (d > (dist.get(succ) || 0)) {
+          dist.set(succ, d);
+          prev.set(succ, node);
+        }
+      });
+    });
+
+    // Find end node with max distance
+    let maxDist = 0;
+    let endNode: string | null = null;
+    dist.forEach((d, id) => {
+      if (d + taskDuration(id) > maxDist) {
+        maxDist = d + taskDuration(id);
+        endNode = id;
+      }
+    });
+
+    // Trace back
+    const critical = new Set<string>();
+    let cur = endNode;
+    while (cur) {
+      critical.add(cur);
+      cur = prev.get(cur) || null;
+    }
+    return critical;
+  }, [allDependencies, allTasks]);
+
+  // Build rows with collapse and summary bars
   const rows: GanttRow[] = useMemo(() => {
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
     const result: GanttRow[] = [];
@@ -136,6 +301,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const projectTasks = allTasks
         .filter(t => t.group_id === project.id && !t.is_completed)
         .sort((a, b) => a.position - b.position);
+      const allProjectTasks = allTasks.filter(t => t.group_id === project.id);
       const projectMilestones = allMilestones.filter(m => m.group_id === project.id);
       const children = groups.filter(g => g.parent_id === project.id).sort((a, b) => a.position - b.position);
 
@@ -143,19 +309,46 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const hasChildren = children.length > 0;
       const hasMilestones = projectMilestones.length > 0;
 
-      // Show project even if empty when selected
       if (!hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
 
-      result.push({ type: "project", project, depth });
-      projectTasks.forEach(t => {
-        if (t.deadline || t.created_at) {
-          result.push({ type: "task", project, task: t, depth: depth + 1 });
-        }
+      // Compute project summary dates and progress
+      let summaryStart: Date | undefined;
+      let summaryEnd: Date | undefined;
+      let totalProgress = 0;
+      let taskCount = 0;
+
+      allProjectTasks.forEach(t => {
+        const start = startOfDay(parseISO(t.created_at));
+        const end = t.deadline ? startOfDay(parseISO(t.deadline)) : start;
+        if (!summaryStart || start < summaryStart) summaryStart = start;
+        if (!summaryEnd || end > summaryEnd) summaryEnd = end;
+        totalProgress += taskProgress.get(t.id) || 0;
+        taskCount++;
       });
-      projectMilestones.forEach(m => {
-        result.push({ type: "milestone", project, milestone: m, depth: depth + 1 });
+
+      const progress = taskCount > 0 ? totalProgress / taskCount : 0;
+
+      result.push({
+        type: "project",
+        project,
+        depth,
+        collapsed: collapsedProjects.has(project.id),
+        summaryStart,
+        summaryEnd,
+        progress,
       });
-      children.forEach(child => addProjectRows(child, depth + 1));
+
+      if (!collapsedProjects.has(project.id)) {
+        projectTasks.forEach(t => {
+          if (t.deadline || t.created_at) {
+            result.push({ type: "task", project, task: t, depth: depth + 1 });
+          }
+        });
+        projectMilestones.forEach(m => {
+          result.push({ type: "milestone", project, milestone: m, depth: depth + 1 });
+        });
+        children.forEach(child => addProjectRows(child, depth + 1));
+      }
     };
 
     if (selectedProjectId) {
@@ -165,7 +358,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       rootProjects.forEach(p => addProjectRows(p, 0));
     }
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress]);
 
   // Timeline range
   const { timelineStart, timelineEnd, columns } = useMemo(() => {
@@ -185,6 +378,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         if (d < minDate) minDate = d;
         if (d > maxDate) maxDate = d;
       }
+      if (r.summaryStart && r.summaryStart < minDate) minDate = r.summaryStart;
+      if (r.summaryEnd && r.summaryEnd > maxDate) maxDate = r.summaryEnd;
     });
 
     minDate = addDays(startOfDay(minDate), -3);
@@ -221,6 +416,23 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
   }, [timelineStart, totalDays, totalWidth]);
 
+  const getSummaryBarStyle = useCallback((start: Date, end: Date) => {
+    const startOffset = differenceInCalendarDays(start, timelineStart);
+    const duration = Math.max(differenceInCalendarDays(end, start), 1);
+    return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 16) };
+  }, [timelineStart, totalDays, totalWidth]);
+
+  const getBaselineStyle = useCallback((task: Task) => {
+    if (!task.original_deadline || !task.deadline || task.original_deadline === task.deadline) return null;
+    const created = startOfDay(parseISO(task.created_at));
+    const origDeadline = startOfDay(parseISO(task.original_deadline));
+    const barStart = created < origDeadline ? created : origDeadline;
+    const barEnd = created < origDeadline ? origDeadline : addDays(created, 1);
+    const startOffset = differenceInCalendarDays(barStart, timelineStart);
+    const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
+    return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
+  }, [timelineStart, totalDays, totalWidth]);
+
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
     const offset = differenceInCalendarDays(d, timelineStart);
@@ -240,12 +452,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
 
-  // Click on empty timeline area to create task
-  const handleTimelineClick = (e: React.MouseEvent, rowIndex: number) => {
-    const row = rows[rowIndex];
-    if (row.type !== "project") return;
-    // Could implement click-to-create here in future
-  };
+  // Handle drop on a task bar to create dependency
+  const handleBarMouseUp = useCallback((taskId: string) => {
+    if (depDrag && depDrag.fromTaskId !== taskId) {
+      addDependency.mutate({
+        predecessor_id: depDrag.fromTaskId,
+        successor_id: taskId,
+      });
+      setDepDrag(null);
+    }
+  }, [depDrag, addDependency]);
+
+  // Unique assignees for filter
+  const assignees = useMemo(() => {
+    const ids = new Set(allTasks.filter(t => t.assigned_to).map(t => t.assigned_to!));
+    return users.filter(u => ids.has(u.id));
+  }, [allTasks, users]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -287,6 +509,23 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
             <option key={p.id} value={p.id}>{p.icon && p.icon !== "list" ? `${p.icon} ` : ""}{p.name}</option>
           ))}
         </select>
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* Assignee filter */}
+        <div className="flex items-center gap-1">
+          <User className="h-3 w-3 text-muted-foreground" />
+          <select
+            value={filterAssignee || ""}
+            onChange={e => setFilterAssignee(e.target.value || null)}
+            className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
+          >
+            <option value="">Все</option>
+            {assignees.map(u => (
+              <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+            ))}
+          </select>
+        </div>
 
         <div className="h-4 w-px bg-border" />
 
@@ -346,7 +585,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         <GanttLeftPanel
           rows={rows}
           rowHeight={ROW_HEIGHT}
-          width={LEFT_PANEL_WIDTH}
+          width={leftPanelWidth}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
@@ -356,6 +595,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           }}
           onToggleTask={(id, completed) => {
             toggleTask.mutate({ id, is_completed: completed });
+          }}
+          collapsedProjects={collapsedProjects}
+          onToggleCollapse={toggleCollapse}
+          filterAssignee={filterAssignee}
+        />
+
+        {/* Draggable splitter */}
+        <div
+          className={cn(
+            "w-1 shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors",
+            splitterDragging && "bg-primary/50"
+          )}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setSplitterDragging(true);
+            splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
           }}
         />
 
@@ -391,96 +646,209 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 dependencies={allDependencies}
                 rowHeight={ROW_HEIGHT}
                 getBarStyle={getBarStyle}
+                criticalTaskIds={criticalTaskIds}
               />
 
+              {/* Dependency drag line */}
+              {depDrag && (
+                <svg className="absolute inset-0 pointer-events-none z-30" style={{ width: "100%", height: rows.length * ROW_HEIGHT }}>
+                  <line
+                    x1={depDrag.startX}
+                    y1={depDrag.startY}
+                    x2={depDrag.currentX - (scrollRef.current?.getBoundingClientRect().left || 0) + (scrollRef.current?.scrollLeft || 0)}
+                    y2={depDrag.currentY - (scrollRef.current?.getBoundingClientRect().top || 0) + (scrollRef.current?.scrollTop || 0) - 40}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="2"
+                    strokeDasharray="4 2"
+                    opacity="0.7"
+                  />
+                </svg>
+              )}
+
               {/* Rows */}
-              {rows.map((row, i) => (
-                <div
-                  key={i}
-                  className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")}
-                  style={{ height: ROW_HEIGHT }}
-                  onClick={(e) => handleTimelineClick(e, i)}
-                >
-                  {/* Task bar */}
-                  {row.type === "task" && row.task && (row.task.deadline || row.task.created_at) && (() => {
-                    const task = row.task!;
-                    let { left, width } = getBarStyle(task);
-                    // Apply drag delta
-                    if (dragState?.taskId === task.id) {
-                      width = Math.max(width + dragDelta, 8);
-                    }
-                    const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !task.is_completed;
-                    const color = row.project.color || "#3b82f6";
-                    return (
-                      <GanttTaskPopover
-                        task={task}
-                        project={row.project}
-                        onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
-                        onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
-                        onDelete={(id) => deleteTask.mutate(id)}
-                      >
+              {rows.map((row, i) => {
+                const dimmed = filterAssignee && row.type === "task" && row.task?.assigned_to !== filterAssignee;
+
+                return (
+                  <div
+                    key={i}
+                    className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")}
+                    style={{ height: ROW_HEIGHT }}
+                  >
+                    {/* Summary bar for project */}
+                    {row.type === "project" && row.summaryStart && row.summaryEnd && (() => {
+                      const { left, width } = getSummaryBarStyle(row.summaryStart!, row.summaryEnd!);
+                      const color = row.project.color || "#3b82f6";
+                      return (
                         <div
-                          className={cn(
-                            "absolute top-1.5 rounded-sm h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar",
-                            isOverdue && "opacity-80",
-                            dragState?.taskId === task.id && "cursor-col-resize"
-                          )}
-                          style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
-                          title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}`}
+                          className="absolute top-3 rounded-sm h-2 opacity-40"
+                          style={{ left, width, backgroundColor: color }}
                         >
-                          <span className="truncate px-1.5">{width > 50 ? task.title : ""}</span>
-                          {/* Drag handle for deadline resize */}
-                          {task.deadline && (
+                          {row.progress !== undefined && row.progress > 0 && (
                             <div
-                              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-sm"
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setDragState({
-                                  taskId: task.id,
-                                  startX: e.clientX,
-                                  originalDeadline: task.deadline!,
-                                  side: "end",
-                                });
-                              }}
+                              className="h-full rounded-sm opacity-80"
+                              style={{ width: `${row.progress}%`, backgroundColor: color }}
                             />
                           )}
+                          {/* Bookend markers */}
+                          <div className="absolute -left-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
+                          <div className="absolute -right-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
                         </div>
-                      </GanttTaskPopover>
-                    );
-                  })()}
+                      );
+                    })()}
 
-                  {/* Milestone diamond */}
-                  {row.type === "milestone" && row.milestone && (() => {
-                    const x = getMilestoneX(row.milestone!);
-                    const msColor = row.milestone!.color || "#3b82f6";
-                    const isMissed = row.milestone!.status === "missed";
-                    const isCompleted = row.milestone!.status === "completed";
-                    return (
-                      <div
-                        className="absolute top-1 cursor-pointer group"
-                        style={{ left: x - 10 }}
-                        title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
-                        onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover:drop-shadow-md transition-all">
-                          <rect
-                            x="10" y="2" width="11" height="11"
-                            transform="rotate(45 10 2)"
-                            fill={isMissed ? "hsl(var(--destructive))" : msColor}
-                            opacity={isCompleted ? 0.6 : 1}
-                            stroke={isCompleted ? "hsl(var(--foreground))" : "white"}
-                            strokeWidth="1.5"
-                          />
-                          {isCompleted && (
-                            <path d="M7 10 L9.5 12.5 L13 7.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Task bar */}
+                    {row.type === "task" && row.task && (row.task.deadline || row.task.created_at) && (() => {
+                      const task = row.task!;
+                      let { left, width } = getBarStyle(task);
+                      const progress = taskProgress.get(task.id) || 0;
+                      const baseline = getBaselineStyle(task);
+                      const isCritical = criticalTaskIds.has(task.id);
+
+                      // Apply drag delta
+                      if (dragState?.taskId === task.id) {
+                        if (dragState.side === "move") {
+                          left += dragDelta;
+                        } else {
+                          width = Math.max(width + dragDelta, 8);
+                        }
+                      }
+                      const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !task.is_completed;
+                      const color = row.project.color || "#3b82f6";
+
+                      return (
+                        <>
+                          {/* Baseline (original deadline) */}
+                          {baseline && (
+                            <div
+                              className="absolute top-5 rounded-sm h-1 opacity-25"
+                              style={{ left: baseline.left, width: baseline.width, backgroundColor: "hsl(var(--muted-foreground))" }}
+                            />
                           )}
-                        </svg>
-                      </div>
-                    );
-                  })()}
-                </div>
-              ))}
+
+                          <GanttTooltip task={task} project={row.project} progress={progress}>
+                            <div
+                              className={cn(
+                                "absolute top-1.5 rounded-sm h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar",
+                                isOverdue && "opacity-80",
+                                (dragState?.taskId === task.id) && "cursor-grabbing",
+                                isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
+                                dimmed && "opacity-20"
+                              )}
+                              style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
+                              title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}`}
+                              onMouseUp={() => handleBarMouseUp(task.id)}
+                            >
+                              {/* Progress fill inside bar */}
+                              {progress > 0 && progress < 100 && (
+                                <div
+                                  className="absolute inset-0 rounded-sm opacity-30 bg-white"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              )}
+
+                              {/* Move handle (whole bar) */}
+                              <div
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-grab hover:bg-white/20 rounded-l-sm"
+                                onMouseDown={(e) => {
+                                  if (!task.deadline) return;
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setDragState({
+                                    taskId: task.id,
+                                    startX: e.clientX,
+                                    originalDeadline: task.deadline!,
+                                    originalCreatedAt: task.created_at,
+                                    side: "move",
+                                  });
+                                }}
+                              />
+
+                              {/* Popover trigger area (middle of bar) */}
+                              <GanttTaskPopover
+                                task={task}
+                                project={row.project}
+                                onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
+                                onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
+                                onDelete={(id) => deleteTask.mutate(id)}
+                              >
+                                <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
+                              </GanttTaskPopover>
+
+                              {/* Resize handle (right edge) */}
+                              {task.deadline && (
+                                <div
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-sm"
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setDragState({
+                                      taskId: task.id,
+                                      startX: e.clientX,
+                                      originalDeadline: task.deadline!,
+                                      side: "end",
+                                    });
+                                  }}
+                                />
+                              )}
+
+                              {/* Dependency connector dot (right side) */}
+                              <div
+                                className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/bar:opacity-100 cursor-crosshair z-20 transition-opacity"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  const barRect = (e.target as HTMLElement).parentElement!;
+                                  const scrollRect = scrollRef.current?.getBoundingClientRect();
+                                  const scrollLeft = scrollRef.current?.scrollLeft || 0;
+                                  const scrollTop = scrollRef.current?.scrollTop || 0;
+                                  setDepDrag({
+                                    fromTaskId: task.id,
+                                    startX: left + width,
+                                    startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                    currentX: e.clientX,
+                                    currentY: e.clientY,
+                                  });
+                                }}
+                              />
+                            </div>
+                          </GanttTooltip>
+                        </>
+                      );
+                    })()}
+
+                    {/* Milestone diamond */}
+                    {row.type === "milestone" && row.milestone && (() => {
+                      const x = getMilestoneX(row.milestone!);
+                      const msColor = row.milestone!.color || "#3b82f6";
+                      const isMissed = row.milestone!.status === "missed";
+                      const isCompleted = row.milestone!.status === "completed";
+                      return (
+                        <div
+                          className="absolute top-1 cursor-pointer group"
+                          style={{ left: x - 10 }}
+                          title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
+                          onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover:drop-shadow-md transition-all">
+                            <rect
+                              x="10" y="2" width="11" height="11"
+                              transform="rotate(45 10 2)"
+                              fill={isMissed ? "hsl(var(--destructive))" : msColor}
+                              opacity={isCompleted ? 0.6 : 1}
+                              stroke={isCompleted ? "hsl(var(--foreground))" : "white"}
+                              strokeWidth="1.5"
+                            />
+                            {isCompleted && (
+                              <path d="M7 10 L9.5 12.5 L13 7.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            )}
+                          </svg>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
