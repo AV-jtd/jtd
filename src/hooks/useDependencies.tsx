@@ -61,6 +61,21 @@ export function useDependencyMutations() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const updateDependency = useMutation({
+    mutationFn: async ({ id, dependency_type, lag_days }: { id: string; dependency_type?: string; lag_days?: number }) => {
+      const updates: Record<string, any> = {};
+      if (dependency_type !== undefined) updates.dependency_type = dependency_type;
+      if (lag_days !== undefined) updates.lag_days = lag_days;
+      const { error } = await supabase.from("task_dependencies").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task_dependencies"] });
+      toast.success("Зависимость обновлена");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const deleteDependency = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("task_dependencies").delete().eq("id", id);
@@ -73,5 +88,5 @@ export function useDependencyMutations() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  return { addDependency, deleteDependency };
+  return { addDependency, updateDependency, deleteDependency };
 }
