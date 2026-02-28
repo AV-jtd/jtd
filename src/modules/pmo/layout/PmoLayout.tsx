@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
+import GanttView from "@/modules/pmo/pages/GanttView";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
@@ -88,7 +89,7 @@ function PortfolioPlaceholder() {
   return <PortfolioView />;
 }
 function GanttPlaceholder() {
-  return <PlaceholderView icon={GanttChart} title="Гант-диаграмма" description="Timeline задач с зависимостями и критическим путём" />;
+  return <GanttView />;
 }
 function MilestonesPlaceholder() {
   return <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />;
