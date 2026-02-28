@@ -23,7 +23,7 @@ export default function Settings() {
   const { prefs, updatePrefs } = useNotificationPreferences();
   const [telegramUsername, setTelegramUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
+  
   const [workEmail, setWorkEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -41,7 +41,7 @@ export default function Settings() {
           setDisplayName(data.display_name || "");
           setTelegramUsername((data as any).telegram_username || "");
           setWorkEmail((data as any).work_email || "");
-          setUsername((data as any).username || "");
+          
         }
         setLoadingProfile(false);
       });
@@ -67,7 +67,7 @@ export default function Settings() {
         display_name: displayName.trim() || null,
         telegram_username: cleanUsername || null,
         work_email: workEmail.trim() || null,
-        username: username.trim() || null,
+        
       } as any)
       .eq("id", user.id);
 
@@ -114,24 +114,6 @@ export default function Settings() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Ваше имя"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="username">Никнейм</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
-                    placeholder="my_nickname"
-                    className="pl-7"
-                    maxLength={30}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Уникальный ник — только латиница, цифры и подчёркивание.
-                </p>
               </div>
 
               <div className="space-y-2">
