@@ -77,7 +77,7 @@ type CrmTask = {
   group_id: string | null;
   task_type: string;
   task_tags?: { tag_id: string }[];
-  subtasks: { id: string; title: string; is_completed: boolean; position: number }[];
+  subtasks: { id: string; title: string; is_completed: boolean; position: number; deadline: string | null; assigned_to: string | null }[];
   client?: { name: string; contact_name: string | null; phone: string | null; email: string | null } | null;
   assignee?: { display_name: string | null; email: string | null } | null;
 };
