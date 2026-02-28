@@ -21,21 +21,51 @@ interface GanttDependencyLinesProps {
   criticalTaskIds?: Set<string>;
 }
 
-export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, criticalTaskIds }: GanttDependencyLinesProps) {
+export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds }: GanttDependencyLinesProps) {
   const lines = useMemo(() => {
     return dependencies.map(dep => {
-      const predIdx = rows.findIndex(r => r.type === "task" && r.task?.id === dep.predecessor_id);
-      const succIdx = rows.findIndex(r => r.type === "task" && r.task?.id === dep.successor_id);
+      // Find predecessor row
+      const predIdx = rows.findIndex(r => {
+        if (dep.predecessor_entity_type === "task") return r.type === "task" && r.task?.id === dep.predecessor_id;
+        if (dep.predecessor_entity_type === "milestone") return r.type === "milestone" && r.milestone?.id === dep.predecessor_id;
+        if (dep.predecessor_entity_type === "project") return r.type === "project" && r.project?.id === dep.predecessor_id;
+        return r.type === "task" && r.task?.id === dep.predecessor_id;
+      });
+      const succIdx = rows.findIndex(r => {
+        if (dep.successor_entity_type === "task") return r.type === "task" && r.task?.id === dep.successor_id;
+        if (dep.successor_entity_type === "milestone") return r.type === "milestone" && r.milestone?.id === dep.successor_id;
+        if (dep.successor_entity_type === "project") return r.type === "project" && r.project?.id === dep.successor_id;
+        return r.type === "task" && r.task?.id === dep.successor_id;
+      });
       if (predIdx === -1 || succIdx === -1) return null;
 
-      const predTask = rows[predIdx].task!;
-      const succTask = rows[succIdx].task!;
-      const predBar = getBarStyle(predTask);
-      const succBar = getBarStyle(succTask);
+      // Get start/end X for predecessor
+      let startX = 0;
+      const predRow = rows[predIdx];
+      if (predRow.type === "task" && predRow.task) {
+        const bar = getBarStyle(predRow.task);
+        startX = bar.left + bar.width;
+      } else if (predRow.type === "milestone" && predRow.milestone && getMilestoneX) {
+        startX = getMilestoneX(predRow.milestone) + 10;
+      } else if (predRow.type === "project" && predRow.summaryStart && predRow.summaryEnd && getSummaryBarStyle) {
+        const bar = getSummaryBarStyle(predRow.summaryStart, predRow.summaryEnd);
+        startX = bar.left + bar.width;
+      }
 
-      const startX = predBar.left + predBar.width;
+      // Get end X for successor
+      let endX = 0;
+      const succRow = rows[succIdx];
+      if (succRow.type === "task" && succRow.task) {
+        const bar = getBarStyle(succRow.task);
+        endX = bar.left;
+      } else if (succRow.type === "milestone" && succRow.milestone && getMilestoneX) {
+        endX = getMilestoneX(succRow.milestone) - 10;
+      } else if (succRow.type === "project" && succRow.summaryStart && succRow.summaryEnd && getSummaryBarStyle) {
+        const bar = getSummaryBarStyle(succRow.summaryStart, succRow.summaryEnd);
+        endX = bar.left;
+      }
+
       const startY = predIdx * rowHeight + rowHeight / 2;
-      const endX = succBar.left;
       const endY = succIdx * rowHeight + rowHeight / 2;
 
       const midX = Math.max(startX + 8, (startX + endX) / 2);
@@ -45,7 +75,7 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
 
       return { id: dep.id, path, endX, endY, isCritical };
     }).filter(Boolean) as { id: string; path: string; endX: number; endY: number; isCritical: boolean }[];
-  }, [rows, dependencies, rowHeight, getBarStyle, criticalTaskIds]);
+  }, [rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds]);
 
   if (lines.length === 0) return null;
 
