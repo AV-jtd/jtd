@@ -147,6 +147,8 @@ export default function CrmBoard() {
   });
 
   const crmGroupId = crmGroup?.id;
+  const crmLinkedTagId = crmGroup?.linked_tag_id ?? null;
+  const crmGroupNameNormalized = (crmGroup?.name || "").trim().toLowerCase();
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["crm-tasks", user?.id, crmGroupId],
