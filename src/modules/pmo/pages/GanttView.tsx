@@ -718,6 +718,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 dependencies={allDependencies}
                 rowHeight={ROW_HEIGHT}
                 getBarStyle={getBarStyle}
+                getMilestoneX={getMilestoneX}
+                getSummaryBarStyle={getSummaryBarStyle}
                 criticalTaskIds={criticalTaskIds}
               />
 
