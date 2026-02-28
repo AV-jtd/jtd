@@ -41,7 +41,7 @@ export default function Settings() {
           setDisplayName(data.display_name || "");
           setTelegramUsername((data as any).telegram_username || "");
           setWorkEmail((data as any).work_email || "");
-          setUsername((data as any).username || "");
+          
         }
         setLoadingProfile(false);
       });
