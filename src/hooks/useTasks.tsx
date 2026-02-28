@@ -534,6 +534,8 @@ export function useTaskMutations() {
         parent_recurring_id: null,
         priority: null,
         deferred_until: null,
+        task_type: task.task_type || 'standard',
+        client_id: null,
         subtasks: [],
         task_tags: [],
       };
