@@ -2,7 +2,9 @@ import { useMemo, useState, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskMutations } from "@/hooks/useTasks";
+import { useTaskMutations, type Task } from "@/hooks/useTasks";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import {
   Loader2,
   User,
@@ -99,6 +101,22 @@ export default function CrmBoard() {
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const { data: selectedTask } = useQuery({
+    queryKey: ["crm-task-detail", selectedTaskId],
+    queryFn: async () => {
+      if (!selectedTaskId) return null;
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, subtasks(*), task_tags(tag_id)")
+        .eq("id", selectedTaskId)
+        .single();
+      if (error) throw error;
+      return data as Task;
+    },
+    enabled: !!selectedTaskId,
+  });
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -352,6 +370,7 @@ export default function CrmBoard() {
                 groupById={groupById}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+                onCardClick={(taskId) => setSelectedTaskId(taskId)}
               />
             ))}
           </div>
@@ -372,6 +391,16 @@ export default function CrmBoard() {
           </div>
         )}
       </DragOverlay>
+
+      <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+          {selectedTask && (
+            <div className="p-4">
+              <TaskItem task={selectedTask} initialOpen />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </DndContext>
   );
 }
@@ -385,6 +414,7 @@ function DroppableColumn({
   groupById,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   stage: (typeof CRM_STAGES)[number];
   tasks: CrmTask[];
@@ -394,6 +424,7 @@ function DroppableColumn({
   groupById: Map<string, CrmGroup>;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
+  onCardClick: (taskId: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: stage.key });
 
@@ -421,6 +452,7 @@ function DroppableColumn({
               group={task.group_id ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
+              onCardClick={() => onCardClick(task.id)}
             />
           ))}
           {tasks.length === 0 && (
@@ -441,6 +473,7 @@ function DraggableCard({
   isMoving,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   task: CrmTask;
   tags: CrmTag[];
@@ -448,6 +481,7 @@ function DraggableCard({
   isMoving: boolean;
   onToggleComplete: () => void;
   onToggleImportant: () => void;
+  onCardClick: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
@@ -464,6 +498,7 @@ function DraggableCard({
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleComplete={onToggleComplete}
         onToggleImportant={onToggleImportant}
+        onCardClick={onCardClick}
       />
     </div>
   );
@@ -477,6 +512,7 @@ function CrmCard({
   dragHandleProps,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   task: CrmTask;
   tags: CrmTag[];
@@ -485,13 +521,16 @@ function CrmCard({
   dragHandleProps?: ComponentProps<"button">;
   onToggleComplete: () => void;
   onToggleImportant: () => void;
+  onCardClick?: () => void;
 }) {
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
 
   return (
-    <div className={cn(
-      "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow",
+    <div
+      onClick={onCardClick}
+      className={cn(
+      "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow cursor-pointer",
       isDragging ? "shadow-lg" : "hover:shadow-md"
     )}>
       <div className="flex items-start gap-2">
