@@ -1015,6 +1015,10 @@ export type Database = {
         Args: { _supervisor_id: string; _user_id: string }
         Returns: boolean
       }
+      is_task_in_user_group: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_task_owner: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
