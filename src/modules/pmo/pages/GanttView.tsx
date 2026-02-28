@@ -366,7 +366,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       let taskCount = 0;
 
       allProjectTasks.forEach(t => {
-        const start = startOfDay(parseISO(t.created_at));
+        const start = t.start_at ? startOfDay(parseISO(t.start_at)) : startOfDay(parseISO(t.created_at));
         const end = t.deadline ? startOfDay(parseISO(t.deadline)) : start;
         if (!summaryStart || start < summaryStart) summaryStart = start;
         if (!summaryEnd || end > summaryEnd) summaryEnd = end;
