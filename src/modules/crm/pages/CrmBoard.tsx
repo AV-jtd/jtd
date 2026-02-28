@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, User, Phone, Mail, Calendar, CheckCircle2 } from "lucide-react";
@@ -7,6 +7,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 
 const CRM_STAGES = [
   { key: "kp", title: "Отправить КП", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
@@ -15,12 +27,21 @@ const CRM_STAGES = [
   { key: "shipping", title: "Старт отгрузок", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
 ];
 
+const STAGE_ORDER = ["kp", "os", "negotiation", "shipping"];
+
 const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Отправить презентацию и КП": "kp",
   "Получить ОС": "os",
   "Получить обратную связь": "os",
   "Проведены переговоры": "negotiation",
   "Старт отгрузок": "shipping",
+};
+
+const STAGE_SUBTASK_TITLES: Record<string, string[]> = {
+  kp: ["Отправить презентацию и КП"],
+  os: ["Получить ОС", "Получить обратную связь"],
+  negotiation: ["Проведены переговоры"],
+  shipping: ["Старт отгрузок"],
 };
 
 type CrmTask = {
@@ -48,8 +69,14 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
 
 export default function CrmBoard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
+  const [overColumn, setOverColumn] = useState<string | null>(null);
 
-  // Find the "НОВЫЕ КЛИЕНТЫ" project group
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
   const { data: crmGroup } = useQuery({
     queryKey: ["crm-group", user?.id],
     queryFn: async () => {
@@ -71,7 +98,6 @@ export default function CrmBoard() {
     queryKey: ["crm-tasks", user?.id, crmGroupId],
     queryFn: async () => {
       if (!user || !crmGroupId) return [];
-
       const { data: crmTasks, error } = await supabase
         .from("tasks")
         .select("id, title, created_at, deadline, is_completed, assigned_to, client_id, task_type, group_id")
@@ -126,6 +152,32 @@ export default function CrmBoard() {
     enabled: !!user && !!crmGroupId,
   });
 
+  const moveMutation = useMutation({
+    mutationFn: async ({ task, targetStage }: { task: CrmTask; targetStage: string }) => {
+      const targetIdx = STAGE_ORDER.indexOf(targetStage);
+      if (targetIdx === -1) return;
+
+      const sorted = [...task.subtasks].sort((a, b) => a.position - b.position);
+
+      for (const sub of sorted) {
+        const subStage = SUBTASK_STAGE_MAP[sub.title];
+        if (!subStage) continue;
+        const subIdx = STAGE_ORDER.indexOf(subStage);
+        const shouldBeCompleted = subIdx < targetIdx;
+
+        if (sub.is_completed !== shouldBeCompleted) {
+          await supabase
+            .from("subtasks")
+            .update({ is_completed: shouldBeCompleted })
+            .eq("id", sub.id);
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+    },
+  });
+
   const columns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
     for (const task of tasks) {
@@ -135,6 +187,38 @@ export default function CrmBoard() {
     }
     return grouped;
   }, [tasks]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId && STAGE_ORDER.includes(overId)) {
+      setOverColumn(overId);
+    } else {
+      setOverColumn(null);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    setOverColumn(null);
+
+    if (!over) return;
+    const targetStage = over.id as string;
+    if (!STAGE_ORDER.includes(targetStage)) return;
+
+    const task = tasks.find((t) => t.id === active.id);
+    if (!task) return;
+
+    const currentStage = getTaskStage(task.subtasks);
+    if (currentStage === targetStage) return;
+
+    moveMutation.mutate({ task, targetStage });
+  };
 
   if (isLoading) {
     return (
@@ -148,56 +232,116 @@ export default function CrmBoard() {
   const totalDone = doneTasks.length;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Summary stats */}
-      <div className="px-4 py-3 border-b border-border bg-card/50 shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
-            <span className="text-xs text-muted-foreground">Активных</span>
-            <span className="text-sm font-bold text-foreground">{totalActive}</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-xs text-muted-foreground">Завершено</span>
-            <span className="text-sm font-bold text-foreground">{totalDone}</span>
-          </div>
-          <div className="h-4 w-px bg-border" />
-          {CRM_STAGES.map((stage) => (
-            <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg", stage.bgLight)}>
-              <div className={cn("h-2 w-2 rounded-full", stage.color)} />
-              <span className={cn("text-xs font-medium", stage.textColor)}>{stage.title}</span>
-              <span className="text-sm font-bold text-foreground">{columns[stage.key]?.length || 0}</span>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex flex-col h-full">
+        {/* Summary stats */}
+        <div className="px-4 py-3 border-b border-border bg-card/50 shrink-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
+              <span className="text-xs text-muted-foreground">Активных</span>
+              <span className="text-sm font-bold text-foreground">{totalActive}</span>
             </div>
-          ))}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-xs text-muted-foreground">Завершено</span>
+              <span className="text-sm font-bold text-foreground">{totalDone}</span>
+            </div>
+            <div className="h-4 w-px bg-border" />
+            {CRM_STAGES.map((stage) => (
+              <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg", stage.bgLight)}>
+                <div className={cn("h-2 w-2 rounded-full", stage.color)} />
+                <span className={cn("text-xs font-medium", stage.textColor)}>{stage.title}</span>
+                <span className="text-sm font-bold text-foreground">{columns[stage.key]?.length || 0}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Kanban board */}
+        <div className="flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="flex h-full min-w-max gap-0">
+            {CRM_STAGES.map((stage) => (
+              <DroppableColumn
+                key={stage.key}
+                stage={stage}
+                tasks={columns[stage.key] || []}
+                isOver={overColumn === stage.key}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Kanban board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full min-w-max gap-0">
-          {CRM_STAGES.map((stage) => (
-            <div key={stage.key} className="flex flex-col w-72 md:w-80 shrink-0 border-r border-border last:border-r-0">
-              <div className="flex items-center gap-2 px-4 py-3 shrink-0">
-                <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
-                <span className="text-sm font-semibold text-foreground">{stage.title}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{columns[stage.key]?.length || 0}</span>
-              </div>
-              <ScrollArea className="flex-1 px-2 pb-2">
-                <div className="flex flex-col gap-2">
-                  {(columns[stage.key] || []).map((task) => (
-                    <CrmCard key={task.id} task={task} />
-                  ))}
-                  {(!columns[stage.key] || columns[stage.key].length === 0) && (
-                    <div className="text-center py-8 text-xs text-muted-foreground/50">
-                      Нет клиентов
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          ))}
-        </div>
+      <DragOverlay dropAnimation={null}>
+        {activeTask && (
+          <div className="w-72 md:w-80 opacity-90">
+            <CrmCard task={activeTask} />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+function DroppableColumn({
+  stage,
+  tasks,
+  isOver,
+}: {
+  stage: (typeof CRM_STAGES)[number];
+  tasks: CrmTask[];
+  isOver: boolean;
+}) {
+  const { setNodeRef } = useDroppable({ id: stage.key });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
+        isOver && "bg-primary/5"
+      )}
+    >
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+        <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
+        <span className="text-sm font-semibold text-foreground">{stage.title}</span>
+        <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
       </div>
+      <ScrollArea className="flex-1 px-2 pb-2">
+        <div className="flex flex-col gap-2">
+          {tasks.map((task) => (
+            <DraggableCard key={task.id} task={task} />
+          ))}
+          {tasks.length === 0 && (
+            <div className="text-center py-8 text-xs text-muted-foreground/50">
+              Нет клиентов
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+function DraggableCard({ task }: { task: CrmTask }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(isDragging && "opacity-30")}
+    >
+      <CrmCard task={task} />
     </div>
   );
 }
@@ -207,7 +351,7 @@ function CrmCard({ task }: { task: CrmTask }) {
   const totalSteps = task.subtasks.length;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+    <div className="rounded-lg border border-border bg-card p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing">
       <h4 className="text-sm font-medium text-foreground leading-tight mb-2 line-clamp-2">
         {task.client?.name || task.title}
       </h4>
