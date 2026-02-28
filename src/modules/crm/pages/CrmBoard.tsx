@@ -137,7 +137,7 @@ export default function CrmBoard() {
       if (!user) return null;
       const { data } = await supabase
         .from("task_groups")
-        .select("id, name")
+        .select("id, name, linked_tag_id")
         .ilike("name", "%новые клиенты%")
         .limit(1)
         .single();
@@ -147,6 +147,8 @@ export default function CrmBoard() {
   });
 
   const crmGroupId = crmGroup?.id;
+  const crmLinkedTagId = crmGroup?.linked_tag_id ?? null;
+  const crmGroupNameNormalized = (crmGroup?.name || "").trim().toLowerCase();
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["crm-tasks", user?.id, crmGroupId],
@@ -515,6 +517,8 @@ export default function CrmBoard() {
                 tagById={tagById}
                 groupById={groupById}
                 crmGroupId={crmGroupId || ""}
+                crmLinkedTagId={crmLinkedTagId}
+                crmGroupNameNormalized={crmGroupNameNormalized}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -529,7 +533,7 @@ export default function CrmBoard() {
           <div className="w-72 md:w-80 opacity-90">
             <CrmCard
               task={activeTask}
-              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null))}
+              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null) && t.id !== crmLinkedTagId && t.name.trim().toLowerCase() !== crmGroupNameNormalized)}
               group={activeTask.group_id && activeTask.group_id !== crmGroupId ? groupById.get(activeTask.group_id) || null : null}
               isDragging
               onToggleComplete={() => {}}
@@ -560,6 +564,8 @@ function DroppableColumn({
   tagById,
   groupById,
   crmGroupId,
+  crmLinkedTagId,
+  crmGroupNameNormalized,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -571,6 +577,8 @@ function DroppableColumn({
   tagById: Map<string, CrmTag>;
   groupById: Map<string, CrmGroup>;
   crmGroupId: string;
+  crmLinkedTagId: string | null;
+  crmGroupNameNormalized: string;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
@@ -597,7 +605,7 @@ function DroppableColumn({
               key={task.id}
               task={task}
               isMoving={isMoving}
-              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null))}
+              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null) && t.id !== crmLinkedTagId && t.name.trim().toLowerCase() !== crmGroupNameNormalized)}
               group={task.group_id && task.group_id !== crmGroupId ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
