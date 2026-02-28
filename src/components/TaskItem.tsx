@@ -72,6 +72,20 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const suggestionsLoaded = useRef(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (initialOpen && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      onOpened?.();
+    }
+  }, [initialOpen]);
+
+  const subtasks = task.subtasks || [];
+  const completedSubs = subtasks.filter(s => s.is_completed).length;
+  const linkedTagId = task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id : null;
+  const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
+  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId);
+  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
+
   const fetchTagSuggestions = useCallback(async () => {
     if (suggestionsLoaded.current || availableTags.length === 0) return;
     suggestionsLoaded.current = true;
@@ -93,20 +107,6 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
       setLoadingSuggestions(false);
     }
   }, [task.title, task.description, availableTags]);
-
-  useEffect(() => {
-    if (initialOpen && itemRef.current) {
-      itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      onOpened?.();
-    }
-  }, [initialOpen]);
-
-  const subtasks = task.subtasks || [];
-  const completedSubs = subtasks.filter(s => s.is_completed).length;
-  const linkedTagId = task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id : null;
-  const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
-  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId);
-  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
