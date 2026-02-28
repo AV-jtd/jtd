@@ -4,7 +4,6 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
-import { cn } from "@/lib/utils";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
