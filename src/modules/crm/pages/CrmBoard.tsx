@@ -1,8 +1,8 @@
-import { useMemo, useState, type ComponentProps } from "react";
+import { useMemo, useState, useRef, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskMutations, type Task } from "@/hooks/useTasks";
+import { useTaskMutations, type Task, useTaskGroups } from "@/hooks/useTasks";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import {
@@ -20,6 +20,7 @@ import {
   Search,
   X,
   Tag,
+  Plus,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
@@ -102,7 +104,8 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
 export default function CrmBoard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toggleTask, toggleImportant } = useTaskMutations();
+  const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
+  const { data: allProjectGroups = [] } = useTaskGroups();
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
@@ -401,6 +404,50 @@ export default function CrmBoard() {
   const toggleFilterAssignee = (userId: string) =>
     setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
+  // CRM projects for the "create task" picker
+  const crmProjectOptions = useMemo(() => {
+    return allProjectGroups.filter(
+      (g) => (g as any).project_type === "crm" || g.name.trim().toLowerCase().includes("новые клиенты")
+    );
+  }, [allProjectGroups]);
+
+  const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
+    if (!title.trim()) return;
+    try {
+      await addTask.mutateAsync({
+        title: title.trim(),
+        group_id: groupId,
+        task_type: "crm",
+        client_name: title.trim(),
+      });
+      // For stages beyond "kp", we need to complete earlier subtasks
+      // But since addTask creates subtasks async, we rely on the board refresh
+      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      toast.success("Клиент добавлен");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleCreateCrmProject = async (name: string) => {
+    if (!name.trim()) return;
+    try {
+      await supabase.from("task_groups").insert({
+        name: name.trim(),
+        user_id: user!.id,
+        project_type: "crm",
+        icon: "🤝",
+        color: "#ef4444",
+      });
+      queryClient.invalidateQueries({ queryKey: ["task_groups"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
+      toast.success("CRM-проект создан");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -577,9 +624,12 @@ export default function CrmBoard() {
                 groupById={groupById}
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
+                crmProjectOptions={crmProjectOptions}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
+                onCreateTask={handleCreateCrmTask}
+                onCreateProject={handleCreateCrmProject}
               />
             ))}
           </div>
@@ -623,9 +673,12 @@ function DroppableColumn({
   groupById,
   crmLinkedTagIds,
   crmGroupNames,
+  crmProjectOptions,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
+  onCreateTask,
+  onCreateProject,
 }: {
   stage: (typeof CRM_STAGES)[number];
   tasks: CrmTask[];
@@ -635,11 +688,22 @@ function DroppableColumn({
   groupById: Map<string, CrmGroup>;
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
+  crmProjectOptions: { id: string; name: string }[];
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
+  onCreateTask: (title: string, groupId: string | null, stageKey: string) => void;
+  onCreateProject: (name: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: stage.key });
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
+    crmProjectOptions.length > 0 ? crmProjectOptions[0].id : null
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
 
   return (
     <div
@@ -653,9 +717,90 @@ function DroppableColumn({
         <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
         <span className="text-sm font-semibold text-foreground">{stage.title}</span>
         <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
+        <button
+          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Добавить клиента"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
+
       <ScrollArea className="flex-1 px-2 pb-2">
         <div className="flex flex-col gap-2">
+          {adding && (
+            <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
+              <Input
+                ref={inputRef}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Имя клиента..."
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTitle.trim()) {
+                    onCreateTask(newTitle, selectedGroupId, stage.key);
+                    setNewTitle("");
+                    setAdding(false);
+                  }
+                  if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+                }}
+              />
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedGroupId || ""}
+                  onChange={(e) => setSelectedGroupId(e.target.value || null)}
+                  className="flex-1 h-6 text-[11px] rounded border border-border bg-background px-1.5"
+                >
+                  {crmProjectOptions.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setCreatingProject(true)}
+                  className="text-[10px] text-primary hover:underline whitespace-nowrap"
+                >
+                  + Проект
+                </button>
+              </div>
+              {creatingProject && (
+                <Input
+                  autoFocus
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Название проекта..."
+                  className="h-7 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newProjectName.trim()) {
+                      onCreateProject(newProjectName);
+                      setNewProjectName("");
+                      setCreatingProject(false);
+                    }
+                    if (e.key === "Escape") { setCreatingProject(false); setNewProjectName(""); }
+                  }}
+                />
+              )}
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => {
+                    if (newTitle.trim()) {
+                      onCreateTask(newTitle, selectedGroupId, stage.key);
+                      setNewTitle("");
+                      setAdding(false);
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Добавить
+                </button>
+                <button
+                  onClick={() => { setAdding(false); setNewTitle(""); setCreatingProject(false); }}
+                  className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          )}
           {tasks.map((task) => (
             <DraggableCard
               key={task.id}
@@ -668,7 +813,7 @@ function DroppableColumn({
               onCardClick={() => onCardClick(task.id)}
             />
           ))}
-          {tasks.length === 0 && (
+          {tasks.length === 0 && !adding && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">
               Нет клиентов
             </div>

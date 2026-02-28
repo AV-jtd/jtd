@@ -401,6 +401,25 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  const updateGroupProjectType = useMutation({
+    mutationFn: async ({ id, project_type }: { id: string; project_type: string }) => {
+      const { error } = await supabase.from("task_groups").update({ project_type } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, project_type }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, project_type } : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["crm-groups-list"] });
+      qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    },
+  });
+
   const reorderGroups = useMutation({
     mutationFn: async (items: { id: string; position: number }[]) => {
       const promises = items.map(({ id, position }) =>
@@ -1190,7 +1209,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
