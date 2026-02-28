@@ -424,7 +424,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
     rows.forEach(r => {
       if (r.task) {
-        const start = startOfDay(parseISO(r.task.created_at));
+        const start = r.task.start_at ? startOfDay(parseISO(r.task.start_at)) : startOfDay(parseISO(r.task.created_at));
         const end = r.task.deadline ? startOfDay(parseISO(r.task.deadline)) : start;
         if (start < minDate) minDate = start;
         if (end > maxDate) maxDate = end;
