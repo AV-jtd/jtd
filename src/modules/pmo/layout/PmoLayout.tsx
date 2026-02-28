@@ -89,7 +89,7 @@ function PortfolioPlaceholder() {
   return <PortfolioView />;
 }
 function GanttPlaceholder() {
-  return <PlaceholderView icon={GanttChart} title="Гант-диаграмма" description="Timeline задач с зависимостями и критическим путём" />;
+  return <GanttView />;
 }
 function MilestonesPlaceholder() {
   return <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />;
