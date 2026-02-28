@@ -97,6 +97,8 @@ export default function AppSidebar({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["__uncategorized__"]));
   const [newTagCategoryId, setNewTagCategoryId] = useState<string | null>(null);
   const [newSubcategoryParentId, setNewSubcategoryParentId] = useState<string | null>(null);
+  const [draggingTagId, setDraggingTagId] = useState<string | null>(null);
+  const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null);
   const tagColors = [
     "hsl(var(--tag-blue))", "hsl(var(--tag-green))", "hsl(var(--tag-orange))",
     "hsl(var(--tag-purple))", "hsl(var(--tag-red))", "hsl(var(--tag-yellow))",
