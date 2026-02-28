@@ -10,7 +10,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
