@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { type Task, type TaskGroup, useAvailableUsers } from "@/hooks/useTasks";
+import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
 import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User } from "lucide-react";
@@ -9,10 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 
 export type GanttRow = {
-  type: "project" | "task" | "milestone" | "summary";
+  type: "project" | "task" | "milestone" | "summary" | "subtask";
   project: TaskGroup;
   task?: Task;
   milestone?: Milestone;
+  subtask?: Subtask;
+  parentTask?: Task;
   depth: number;
   collapsed?: boolean;
   summaryStart?: Date;
@@ -36,6 +38,8 @@ interface GanttLeftPanelProps {
   onAddSubtask: (taskId: string, title: string) => void;
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string, completed: boolean) => void;
+  onUpdateSubtask: (id: string, updates: Partial<Subtask>) => void;
+  onToggleSubtask: (id: string, completed: boolean) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
@@ -44,7 +48,7 @@ interface GanttLeftPanelProps {
 }
 
 export default function GanttLeftPanel({
-  rows, rowHeight, width, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask,
+  rows, rowHeight, width, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
 }: GanttLeftPanelProps) {
   const { data: users = [] } = useAvailableUsers();
@@ -114,7 +118,10 @@ export default function GanttLeftPanel({
       </div>
 
       {rows.map((row, i) => {
-        const dimmed = filterAssignee && row.type === "task" && row.task?.assigned_to !== filterAssignee;
+        const dimmed = filterAssignee && (
+          (row.type === "task" && row.task?.assigned_to !== filterAssignee) ||
+          (row.type === "subtask" && row.subtask?.assigned_to !== filterAssignee)
+        );
 
         return (
           <div
@@ -187,6 +194,20 @@ export default function GanttLeftPanel({
                 <div className="flex items-center gap-1.5 min-w-0 cursor-pointer" onClick={() => row.milestone && onMilestoneClick(row.milestone)}>
                   <Diamond className="h-3 w-3 shrink-0" style={{ color: row.milestone?.color || "#3b82f6" }} />
                   <span className="truncate">{row.milestone?.name}</span>
+                </div>
+              ) : row.type === "subtask" && row.subtask ? (
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <button
+                    onClick={() => onToggleSubtask(row.subtask!.id, !row.subtask!.is_completed)}
+                    className={cn("h-3 w-3 rounded-sm border shrink-0 flex items-center justify-center",
+                      row.subtask.is_completed ? "bg-primary/60 border-primary/60" : "border-muted-foreground/30"
+                    )}
+                  >
+                    {row.subtask.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
+                  </button>
+                  <span className={cn("truncate text-[11px] flex-1", row.subtask.is_completed && "line-through opacity-40")}>
+                    {row.subtask.title}
+                  </span>
                 </div>
               ) : row.task ? (
                 editingField?.rowIndex === i && editingField.field === "title" ? (
@@ -272,6 +293,46 @@ export default function GanttLeftPanel({
                   </PopoverContent>
                 </Popover>
               )}
+              {row.type === "subtask" && row.subtask && (
+                <Popover open={assigneePopover === row.subtask.id} onOpenChange={(v) => setAssigneePopover(v ? row.subtask!.id : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "h-4 w-4 rounded-full text-[7px] font-bold mx-auto flex items-center justify-center transition-colors",
+                        row.subtask.assigned_to
+                          ? "bg-primary/15 text-primary hover:bg-primary/25"
+                          : "bg-muted/50 text-muted-foreground/30 hover:bg-muted-foreground/15 hover:text-muted-foreground"
+                      )}
+                      title={getUserName(row.subtask.assigned_to)}
+                    >
+                      {getUserInitials(row.subtask.assigned_to) || <User className="h-2 w-2" />}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
+                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
+                    <button
+                      onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: null }); setAssigneePopover(null); }}
+                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
+                    >
+                      Без назначения
+                    </button>
+                    <div className="max-h-36 overflow-y-auto">
+                      {users.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
+                          className={cn(
+                            "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
+                            row.subtask!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
+                          )}
+                        >
+                          {u.display_name || u.email}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
 
             {/* Deadline clickable */}
@@ -313,6 +374,49 @@ export default function GanttLeftPanel({
                           className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
                         >
                           Убрать дедлайн
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+              {row.type === "subtask" && row.subtask && (
+                <Popover open={deadlinePopover === row.subtask.id} onOpenChange={(v) => setDeadlinePopover(v ? row.subtask!.id : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "text-[10px] px-1 py-0.5 rounded transition-colors truncate",
+                        row.subtask.deadline
+                          ? new Date(row.subtask.deadline) < new Date() && !row.subtask.is_completed
+                            ? "text-destructive font-medium hover:bg-destructive/10"
+                            : "text-muted-foreground hover:bg-muted"
+                          : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                      )}
+                      title={row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMMM yyyy", { locale: ru }) : "Установить срок"}
+                    >
+                      {row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMM", { locale: ru }) : (
+                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                    <Calendar
+                      mode="single"
+                      selected={row.subtask.deadline ? parseISO(row.subtask.deadline) : undefined}
+                      onSelect={(date) => {
+                        onUpdateSubtask(row.subtask!.id, { deadline: date ? date.toISOString() : null });
+                        setDeadlinePopover(null);
+                      }}
+                      locale={ru}
+                      className="rounded-md border"
+                    />
+                    {row.subtask.deadline && (
+                      <div className="p-2 border-t">
+                        <button
+                          onClick={() => { onUpdateSubtask(row.subtask!.id, { deadline: null }); setDeadlinePopover(null); }}
+                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                        >
+                          Убрать срок
                         </button>
                       </div>
                     )}

@@ -33,7 +33,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
-  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask } = useTaskMutations();
+  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask } = useTaskMutations();
   const { addDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
@@ -344,6 +344,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         projectTasks.forEach(t => {
           if (t.deadline || t.created_at) {
             result.push({ type: "task", project, task: t, depth: depth + 1 });
+            // Add subtask rows
+            if (t.subtasks && t.subtasks.length > 0) {
+              t.subtasks
+                .sort((a, b) => a.position - b.position)
+                .forEach(st => {
+                  result.push({ type: "subtask", project, subtask: st, parentTask: t, depth: depth + 2 });
+                });
+            }
           }
         });
         projectMilestones.forEach(m => {
@@ -374,6 +382,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         const end = r.task.deadline ? startOfDay(parseISO(r.task.deadline)) : start;
         if (start < minDate) minDate = start;
         if (end > maxDate) maxDate = end;
+      }
+      if (r.subtask && r.subtask.deadline) {
+        const stEnd = startOfDay(parseISO(r.subtask.deadline));
+        if (stEnd > maxDate) maxDate = stEnd;
       }
       if (r.milestone) {
         const d = startOfDay(parseISO(r.milestone.planned_date));
@@ -616,6 +628,12 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           onToggleTask={(id, completed) => {
             toggleTask.mutate({ id, is_completed: completed });
           }}
+          onUpdateSubtask={(id, updates) => {
+            updateSubtask.mutate({ id, ...updates });
+          }}
+          onToggleSubtask={(id, completed) => {
+            toggleSubtask.mutate({ id, is_completed: completed });
+          }}
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
           filterAssignee={filterAssignee}
@@ -689,7 +707,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
               {/* Rows */}
               {rows.map((row, i) => {
-                const dimmed = filterAssignee && row.type === "task" && row.task?.assigned_to !== filterAssignee;
+                const dimmed = filterAssignee && (
+                  (row.type === "task" && row.task?.assigned_to !== filterAssignee) ||
+                  (row.type === "subtask" && row.subtask?.assigned_to !== filterAssignee)
+                );
 
                 return (
                   <div
@@ -843,6 +864,42 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                             </div>
                           </GanttTooltip>
                         </>
+                      );
+                    })()}
+
+                    {/* Subtask bar */}
+                    {row.type === "subtask" && row.subtask && row.subtask.deadline && (() => {
+                      const st = row.subtask!;
+                      const parentTask = row.parentTask;
+                      const stStart = startOfDay(parseISO(st.created_at));
+                      const stEnd = startOfDay(parseISO(st.deadline));
+                      const barStart = stStart < stEnd ? stStart : stEnd;
+                      const barEnd = stStart < stEnd ? stEnd : addDays(stStart, 1);
+                      const startOffset = differenceInCalendarDays(barStart, timelineStart);
+                      const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
+                      const left = (startOffset / totalDays) * totalWidth;
+                      const width = Math.max((duration / totalDays) * totalWidth, 6);
+                      const color = row.project.color || "#3b82f6";
+                      const isOverdue = st.deadline && isPast(parseISO(st.deadline)) && !st.is_completed;
+
+                      return (
+                        <div
+                          className={cn(
+                            "absolute top-2.5 rounded-[3px] h-4 opacity-60",
+                            st.is_completed && "opacity-30"
+                          )}
+                          style={{
+                            left,
+                            width,
+                            backgroundColor: isOverdue ? "hsl(var(--destructive))" : color,
+                            minWidth: 6,
+                          }}
+                          title={`${st.title}${st.deadline ? ` → ${format(parseISO(st.deadline), "d MMM", { locale: ru })}` : ""}`}
+                        >
+                          {st.is_completed && (
+                            <div className="absolute inset-0 rounded-[3px] bg-white/30" />
+                          )}
+                        </div>
                       );
                     })()}
 
