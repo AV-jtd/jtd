@@ -65,11 +65,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   // Dependency drag state
   const [depDrag, setDepDrag] = useState<{
-    fromTaskId: string;
+    fromId: string;
+    fromEntityType: "task" | "milestone" | "project";
     startX: number;
     startY: number;
     currentX: number;
     currentY: number;
+  } | null>(null);
+
+  // Dependency dialog state
+  const [depDialogState, setDepDialogState] = useState<{
+    predecessorId: string;
+    successorId: string;
+    predecessorLabel: string;
+    successorLabel: string;
+    predecessorEntityType: string;
+    successorEntityType: string;
   } | null>(null);
 
   // Splitter drag
