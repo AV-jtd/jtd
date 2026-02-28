@@ -195,6 +195,20 @@ export default function GanttLeftPanel({
                   <Diamond className="h-3 w-3 shrink-0" style={{ color: row.milestone?.color || "#3b82f6" }} />
                   <span className="truncate">{row.milestone?.name}</span>
                 </div>
+              ) : row.type === "subtask" && row.subtask ? (
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <button
+                    onClick={() => onToggleSubtask(row.subtask!.id, !row.subtask!.is_completed)}
+                    className={cn("h-3 w-3 rounded-sm border shrink-0 flex items-center justify-center",
+                      row.subtask.is_completed ? "bg-primary/60 border-primary/60" : "border-muted-foreground/30"
+                    )}
+                  >
+                    {row.subtask.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
+                  </button>
+                  <span className={cn("truncate text-[11px] flex-1", row.subtask.is_completed && "line-through opacity-40")}>
+                    {row.subtask.title}
+                  </span>
+                </div>
               ) : row.task ? (
                 editingField?.rowIndex === i && editingField.field === "title" ? (
                   <input
