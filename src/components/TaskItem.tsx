@@ -320,13 +320,24 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
               return group ? (
-                <span
-                  className="inline-flex items-center gap-1 text-xs font-medium cursor-pointer hover:opacity-70 transition-opacity"
-                  style={{ color: group.color || '#3b82f6' }}
-                  onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
-                >
-                  <span className="text-[11px]">{group.icon || '📁'}</span>
-                  {group.name}
+                <span className="inline-flex items-center gap-1 text-xs font-medium">
+                  <span
+                    className="inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
+                    style={{ color: group.color || '#3b82f6' }}
+                    onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
+                  >
+                    <span className="text-[11px]">{group.icon || '📁'}</span>
+                    {group.name}
+                  </span>
+                  {!group.parent_id && (
+                    <span
+                      className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                      onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo?project=${group.id}`); }}
+                      title="Открыть в PMO (Гант)"
+                    >
+                      <GanttChart className="h-3 w-3" />
+                    </span>
+                  )}
                 </span>
               ) : null;
             })()}
