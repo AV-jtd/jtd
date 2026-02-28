@@ -512,6 +512,7 @@ function CrmCard({
   dragHandleProps,
   onToggleComplete,
   onToggleImportant,
+  onCardClick,
 }: {
   task: CrmTask;
   tags: CrmTag[];
@@ -520,6 +521,7 @@ function CrmCard({
   dragHandleProps?: ComponentProps<"button">;
   onToggleComplete: () => void;
   onToggleImportant: () => void;
+  onCardClick?: () => void;
 }) {
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
