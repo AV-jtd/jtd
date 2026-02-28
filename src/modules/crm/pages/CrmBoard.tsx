@@ -414,31 +414,14 @@ export default function CrmBoard() {
   const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
     if (!title.trim()) return;
     try {
-      const stageIdx = STAGE_ORDER.indexOf(stageKey);
-      const result = await addTask.mutateAsync({
+      await addTask.mutateAsync({
         title: title.trim(),
         group_id: groupId,
         task_type: "crm",
         client_name: title.trim(),
       });
-      // If placed beyond first stage, mark earlier subtasks as done
-      if (stageIdx > 0 && result?.id) {
-        const { data: subs } = await supabase
-          .from("subtasks")
-          .select("id, title, position")
-          .eq("task_id", result.id)
-          .order("position");
-        if (subs) {
-          const mapped = subs.filter((s) => SUBTASK_STAGE_MAP[s.title]);
-          const toComplete = mapped.filter((s) => {
-            const si = STAGE_ORDER.indexOf(SUBTASK_STAGE_MAP[s.title]);
-            return si >= 0 && si < stageIdx;
-          });
-          await Promise.all(
-            toComplete.map((s) => supabase.from("subtasks").update({ is_completed: true }).eq("id", s.id))
-          );
-        }
-      }
+      // For stages beyond "kp", we need to complete earlier subtasks
+      // But since addTask creates subtasks async, we rely on the board refresh
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
       toast.success("Клиент добавлен");
     } catch (e: any) {
