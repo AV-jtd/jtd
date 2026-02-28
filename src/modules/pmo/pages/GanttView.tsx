@@ -944,12 +944,13 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const isCompleted = row.milestone!.status === "completed";
                       return (
                         <div
-                          className="absolute top-1 cursor-pointer group"
+                          className="absolute top-1 cursor-pointer group/ms"
                           style={{ left: x - 10 }}
                           title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
                           onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
+                          onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
                         >
-                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover:drop-shadow-md transition-all">
+                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover/ms:drop-shadow-md transition-all">
                             <rect
                               x="10" y="2" width="11" height="11"
                               transform="rotate(45 10 2)"
@@ -962,6 +963,23 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                               <path d="M7 10 L9.5 12.5 L13 7.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                             )}
                           </svg>
+                          {/* Dependency connector for milestone */}
+                          <div
+                            className="absolute -right-2 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setDepDrag({
+                                fromId: row.milestone!.id,
+                                fromEntityType: "milestone",
+                                startX: x + 10,
+                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                currentX: e.clientX,
+                                currentY: e.clientY,
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
                       );
                     })()}
