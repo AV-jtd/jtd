@@ -288,8 +288,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     const taskDuration = (id: string) => {
       const t = allTasks.find(t => t.id === id);
       if (!t) return 1;
-      if (t.deadline && t.created_at) {
-        return Math.max(differenceInCalendarDays(parseISO(t.deadline), parseISO(t.created_at)), 1);
+      const startDate = t.start_at || t.created_at;
+      if (t.deadline && startDate) {
+        return Math.max(differenceInCalendarDays(parseISO(t.deadline), parseISO(startDate)), 1);
       }
       return 1;
     };
