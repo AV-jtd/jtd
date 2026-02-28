@@ -114,6 +114,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           const progress = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
           const children = groups.filter((g) => g.parent_id === project.id);
           const healthColor = stats.overdue > 0 ? "destructive" : stats.upcoming > 0 ? "warning" : "success";
+          const projectTags = (groupTagsMap.get(project.id) || [])
+            .map(tid => {
+              const t = tagMap.get(tid);
+              return t ? { id: tid, name: t.name, color: t.color } : null;
+            })
+            .filter(Boolean) as { id: string; name: string; color: string | null }[];
 
           return (
             <div
@@ -152,7 +158,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   ))}
                 </div>
               )}
-              </div>
 
               {/* Progress bar */}
               <div className="mb-3">
