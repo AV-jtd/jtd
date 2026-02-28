@@ -386,6 +386,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       if (r.subtask && r.subtask.deadline) {
         const stEnd = startOfDay(parseISO(r.subtask.deadline));
         if (stEnd > maxDate) maxDate = stEnd;
+      }
       if (r.milestone) {
         const d = startOfDay(parseISO(r.milestone.planned_date));
         if (d < minDate) minDate = d;
