@@ -563,9 +563,11 @@ export function useTaskMutations() {
 
         // Link client tag to the task
         if (task.client_name?.trim()) {
-          const { data: tags } = await supabase.from("tags").select("id").eq("name", task.client_name.trim()).eq("user_id", user!.id);
-          if (tags && tags.length > 0) {
-            await supabase.from("task_tags").insert({ task_id: taskData.id, tag_id: tags[0].id });
+          const clientNameLower = task.client_name.trim().toLowerCase();
+          const { data: tags } = await supabase.from("tags").select("id, name").eq("user_id", user!.id);
+          const matchedTag = (tags || []).find((t: any) => t.name.toLowerCase() === clientNameLower);
+          if (matchedTag) {
+            await supabase.from("task_tags").insert({ task_id: taskData.id, tag_id: matchedTag.id });
           }
         }
       }
