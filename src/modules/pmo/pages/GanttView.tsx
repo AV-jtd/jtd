@@ -1007,6 +1007,27 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         }}
         onDelete={(id) => deleteMilestone.mutate(id)}
       />
+
+      {/* Dependency type dialog */}
+      <DependencyDialog
+        open={!!depDialogState}
+        onOpenChange={(open) => { if (!open) setDepDialogState(null); }}
+        predecessorLabel={depDialogState?.predecessorLabel || ""}
+        successorLabel={depDialogState?.successorLabel || ""}
+        onConfirm={(type, lagDays) => {
+          if (depDialogState) {
+            addDependency.mutate({
+              predecessor_id: depDialogState.predecessorId,
+              successor_id: depDialogState.successorId,
+              dependency_type: type,
+              lag_days: lagDays,
+              predecessor_entity_type: depDialogState.predecessorEntityType,
+              successor_entity_type: depDialogState.successorEntityType,
+            });
+          }
+          setDepDialogState(null);
+        }}
+      />
     </div>
   );
 }
