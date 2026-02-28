@@ -101,6 +101,22 @@ export default function CrmBoard() {
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const { data: selectedTask } = useQuery({
+    queryKey: ["crm-task-detail", selectedTaskId],
+    queryFn: async () => {
+      if (!selectedTaskId) return null;
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, subtasks(*), task_tags(tag_id)")
+        .eq("id", selectedTaskId)
+        .single();
+      if (error) throw error;
+      return data as Task;
+    },
+    enabled: !!selectedTaskId,
+  });
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
