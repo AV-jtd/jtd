@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useTaskGroups, useTasks, useTaskMutations, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
+import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
 import { cn } from "@/lib/utils";
 import {
   addDays, differenceInCalendarDays,
@@ -11,19 +12,25 @@ import {
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
+import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
+import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
+import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 
 type Scale = "day" | "week" | "month";
 
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
+const ROW_HEIGHT = 32;
+const LEFT_PANEL_WIDTH = 380;
 
 export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: allMilestones = [] } = useMilestones();
+  const { data: allDependencies = [] } = useDependencies();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
-  const { addGroup } = useTaskMutations();
+  const { addGroup, addTask, updateTask, deleteTask, toggleTask } = useTaskMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
@@ -34,6 +41,15 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
+
+  // Drag-resize state
+  const [dragState, setDragState] = useState<{
+    taskId: string;
+    startX: number;
+    originalDeadline: string;
+    side: "end";
+  } | null>(null);
+  const [dragDelta, setDragDelta] = useState(0);
 
   const zoomIn = useCallback(() => {
     setScale(prev => {
@@ -84,10 +100,35 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     };
   }, [zoomIn, zoomOut]);
 
+  // Drag-resize handlers (mouse)
+  useEffect(() => {
+    if (!dragState) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setDragDelta(e.clientX - dragState.startX);
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      const delta = e.clientX - dragState.startX;
+      const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
+      if (daysDelta !== 0) {
+        const original = parseISO(dragState.originalDeadline);
+        const newDate = addDays(original, daysDelta);
+        updateTask.mutate({ id: dragState.taskId, deadline: newDate.toISOString() });
+      }
+      setDragState(null);
+      setDragDelta(0);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragState, scale, updateTask]);
+
   // Build rows
-  const rows = useMemo(() => {
+  const rows: GanttRow[] = useMemo(() => {
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
-    const result: { type: "project" | "task" | "milestone"; project: TaskGroup; task?: Task; milestone?: Milestone; depth: number }[] = [];
+    const result: GanttRow[] = [];
 
     const addProjectRows = (project: TaskGroup, depth: number) => {
       if (selectedProjectId && selectedProjectId !== project.id && project.parent_id !== selectedProjectId) return;
@@ -102,7 +143,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const hasChildren = children.length > 0;
       const hasMilestones = projectMilestones.length > 0;
 
-      if (!hasDatedTasks && !hasChildren && !hasMilestones) return;
+      // Show project even if empty when selected
+      if (!hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
 
       result.push({ type: "project", project, depth });
       projectTasks.forEach(t => {
@@ -169,7 +211,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const totalWidth = columns.length * colWidth;
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
-  const getBarStyle = (task: Task) => {
+  const getBarStyle = useCallback((task: Task) => {
     const created = startOfDay(parseISO(task.created_at));
     const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : created;
     const barStart = created < deadline ? created : deadline;
@@ -177,7 +219,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     const startOffset = differenceInCalendarDays(barStart, timelineStart);
     const duration = Math.max(differenceInCalendarDays(barEnd, barStart), 1);
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
-  };
+  }, [timelineStart, totalDays, totalWidth]);
 
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
@@ -197,13 +239,18 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   }, [todayOffset]);
 
   const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
-  const ROW_HEIGHT = 32;
-  const LEFT_PANEL_WIDTH = 240;
+
+  // Click on empty timeline area to create task
+  const handleTimelineClick = (e: React.MouseEvent, rowIndex: number) => {
+    const row = rows[rowIndex];
+    if (row.type !== "project") return;
+    // Could implement click-to-create here in future
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 flex-wrap">
         <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
           {(["day", "week", "month"] as Scale[]).map(s => (
             <button
@@ -256,7 +303,16 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         {/* Add project */}
         {showNewProject ? (
           <form
-            onSubmit={(e) => { e.preventDefault(); if (newProjectName.trim()) { addGroup.mutate({ name: newProjectName.trim() }, { onSuccess: (data: any) => { if (data?.id) setSelectedProjectId(data.id); } }); setNewProjectName(""); setShowNewProject(false); } }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newProjectName.trim()) {
+                addGroup.mutate({ name: newProjectName.trim() }, {
+                  onSuccess: (data: any) => { if (data?.id) setSelectedProjectId(data.id); }
+                });
+                setNewProjectName("");
+                setShowNewProject(false);
+              }
+            }}
             className="flex items-center gap-1"
           >
             <input
@@ -286,43 +342,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
       {/* Gantt body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel */}
-        <div className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin" style={{ width: LEFT_PANEL_WIDTH }}>
-          <div className="h-10 flex items-center px-3 border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10">
-            Задача
-          </div>
-          {rows.map((row, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex items-center gap-1.5 px-3 border-b border-border/50 text-xs truncate cursor-default",
-                row.type === "project" ? "font-semibold text-foreground bg-muted/30" :
-                row.type === "milestone" ? "text-primary font-medium italic" : "text-muted-foreground"
-              )}
-              style={{ height: ROW_HEIGHT, paddingLeft: 12 + row.depth * 12 }}
-              onClick={() => {
-                if (row.type === "milestone" && row.milestone) {
-                  setEditingMilestone(row.milestone);
-                  setMsDialogOpen(true);
-                }
-              }}
-            >
-              {row.type === "project" ? (
-                <>
-                  <span className="text-sm shrink-0">{row.project.icon && row.project.icon !== "list" ? row.project.icon : "📁"}</span>
-                  <span className="truncate">{row.project.name}</span>
-                </>
-              ) : row.type === "milestone" ? (
-                <>
-                  <Diamond className="h-3 w-3 shrink-0" style={{ color: row.milestone?.color || "#3b82f6" }} />
-                  <span className="truncate">{row.milestone?.name}</span>
-                </>
-              ) : (
-                <span className="truncate">{row.task?.title}</span>
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Left panel - editable table */}
+        <GanttLeftPanel
+          rows={rows}
+          rowHeight={ROW_HEIGHT}
+          width={LEFT_PANEL_WIDTH}
+          onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
+          onAddTask={(projectId, title) => {
+            addTask.mutate({ title, group_id: projectId });
+          }}
+          onUpdateTask={(id, updates) => {
+            updateTask.mutate({ id, ...updates });
+          }}
+          onToggleTask={(id, completed) => {
+            toggleTask.mutate({ id, is_completed: completed });
+          }}
+        />
 
         {/* Timeline */}
         <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-thin">
@@ -350,22 +385,68 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
               {/* Today line */}
               <div className="absolute top-0 w-0.5 bg-primary z-20" style={{ left: todayOffset, height: rows.length * ROW_HEIGHT }} />
 
+              {/* Dependency lines */}
+              <GanttDependencyLines
+                rows={rows}
+                dependencies={allDependencies}
+                rowHeight={ROW_HEIGHT}
+                getBarStyle={getBarStyle}
+              />
+
               {/* Rows */}
               {rows.map((row, i) => (
-                <div key={i} className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")} style={{ height: ROW_HEIGHT }}>
+                <div
+                  key={i}
+                  className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")}
+                  style={{ height: ROW_HEIGHT }}
+                  onClick={(e) => handleTimelineClick(e, i)}
+                >
                   {/* Task bar */}
                   {row.type === "task" && row.task && (row.task.deadline || row.task.created_at) && (() => {
-                    const { left, width } = getBarStyle(row.task!);
-                    const isOverdue = row.task!.deadline && isPast(parseISO(row.task!.deadline)) && !row.task!.is_completed;
+                    const task = row.task!;
+                    let { left, width } = getBarStyle(task);
+                    // Apply drag delta
+                    if (dragState?.taskId === task.id) {
+                      width = Math.max(width + dragDelta, 8);
+                    }
+                    const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !task.is_completed;
                     const color = row.project.color || "#3b82f6";
                     return (
-                      <div
-                        className={cn("absolute top-1.5 rounded-sm h-5 flex items-center px-1.5 text-[10px] font-medium text-white truncate transition-all", isOverdue && "opacity-80")}
-                        style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
-                        title={`${row.task!.title}${row.task!.deadline ? ` → ${format(parseISO(row.task!.deadline), "d MMM", { locale: ru })}` : ""}`}
+                      <GanttTaskPopover
+                        task={task}
+                        project={row.project}
+                        onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
+                        onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
+                        onDelete={(id) => deleteTask.mutate(id)}
                       >
-                        {width > 50 && <span className="truncate">{row.task!.title}</span>}
-                      </div>
+                        <div
+                          className={cn(
+                            "absolute top-1.5 rounded-sm h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar",
+                            isOverdue && "opacity-80",
+                            dragState?.taskId === task.id && "cursor-col-resize"
+                          )}
+                          style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
+                          title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}`}
+                        >
+                          <span className="truncate px-1.5">{width > 50 ? task.title : ""}</span>
+                          {/* Drag handle for deadline resize */}
+                          {task.deadline && (
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-sm"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setDragState({
+                                  taskId: task.id,
+                                  startX: e.clientX,
+                                  originalDeadline: task.deadline!,
+                                  side: "end",
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      </GanttTaskPopover>
                     );
                   })()}
 
