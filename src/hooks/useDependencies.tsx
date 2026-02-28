@@ -35,11 +35,21 @@ export function useDependencyMutations() {
   const { user } = useAuth();
 
   const addDependency = useMutation({
-    mutationFn: async (dep: { predecessor_id: string; successor_id: string; dependency_type?: string }) => {
+    mutationFn: async (dep: {
+      predecessor_id: string;
+      successor_id: string;
+      dependency_type?: string;
+      lag_days?: number;
+      predecessor_entity_type?: string;
+      successor_entity_type?: string;
+    }) => {
       const { error } = await supabase.from("task_dependencies").insert({
         predecessor_id: dep.predecessor_id,
         successor_id: dep.successor_id,
         dependency_type: dep.dependency_type || "FS",
+        lag_days: dep.lag_days || 0,
+        predecessor_entity_type: dep.predecessor_entity_type || "task",
+        successor_entity_type: dep.successor_entity_type || "task",
         created_by: user!.id,
       });
       if (error) throw error;
