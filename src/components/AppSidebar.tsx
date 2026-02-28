@@ -892,7 +892,17 @@ export default function AppSidebar({
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
                   <div key={cat.id}>
-                    <div className="group flex items-center">
+                    <div
+                      className={cn("group flex items-center", dragOverCategoryId === cat.id && "bg-primary/10 rounded-lg")}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCategoryId(cat.id); }}
+                      onDragLeave={() => setDragOverCategoryId(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const tagId = e.dataTransfer.getData("tag-id");
+                        if (tagId) { updateTagCategory.mutate({ tag_id: tagId, category_id: cat.id }); }
+                        setDragOverCategoryId(null); setDraggingTagId(null);
+                      }}
+                    >
                       <button
                         onClick={() => toggleCategory(cat.id)}
                         className="flex items-center gap-2 flex-1 px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
