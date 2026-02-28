@@ -79,7 +79,7 @@ export default function PmoLayout() {
       {/* Content */}
       <main className="flex-1 overflow-hidden">
         {activeView === "portfolio" && <PortfolioPlaceholder />}
-        {activeView === "gantt" && <GanttPlaceholder />}
+        {activeView === "gantt" && <GanttPlaceholder initialProjectId={initialProject} />}
         {activeView === "milestones" && <MilestonesPlaceholder />}
         {activeView === "resources" && <ResourcesPlaceholder />}
         {activeView === "reports" && <ReportsPlaceholder />}
