@@ -1114,5 +1114,6 @@ export function useTaskMutations() {
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
     addGroupTag, removeGroupTag,
     addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory,
+    updateGroupProjectType,
   };
 }
