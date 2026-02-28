@@ -363,11 +363,23 @@ export default function CrmBoard() {
     return [...ids].map((id) => groupById.get(id)).filter(Boolean) as CrmGroup[];
   }, [tasks, groupById]);
 
-  // Unique tags used by CRM tasks
+  // Unique tags used by CRM tasks (exclude CRM group linked tags)
   const usedTags = useMemo(() => {
     const ids = new Set(tasks.flatMap((t) => (t.task_tags || []).map((tt) => tt.tag_id)));
-    return [...ids].map((id) => tagById.get(id)).filter(Boolean) as CrmTag[];
-  }, [tasks, tagById]);
+    return [...ids]
+      .map((id) => tagById.get(id))
+      .filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))
+    ;
+  }, [tasks, tagById, crmLinkedTagIds, crmGroupNames]);
+
+  // Unique assignees used by CRM tasks
+  const usedAssignees = useMemo(() => {
+    const map = new Map<string, { id: string; display_name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.assignee && t.assigned_to) map.set(t.assigned_to, t.assignee);
+    }
+    return [...map.values()];
+  }, [tasks]);
 
   if (isLoading) {
     return (
@@ -380,12 +392,14 @@ export default function CrmBoard() {
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
-  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0;
+  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0;
 
   const toggleFilterTag = (tagId: string) =>
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
   const toggleFilterGroup = (groupId: string) =>
     setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
+  const toggleFilterAssignee = (userId: string) =>
+    setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
   return (
     <DndContext
