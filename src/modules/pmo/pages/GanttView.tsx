@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTaskMutations, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
 import {
@@ -8,7 +9,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 
 type Scale = "day" | "week" | "month";
@@ -16,15 +17,19 @@ type Scale = "day" | "week" | "month";
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 
-export default function GanttView() {
+export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
+  const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: allMilestones = [] } = useMilestones();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
+  const { addGroup } = useTaskMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
   const lastPinchDistRef = useRef<number | null>(null);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [showNewProject, setShowNewProject] = useState(false);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
@@ -245,6 +250,34 @@ export default function GanttView() {
           <Diamond className="h-3 w-3" />
           <span className="hidden sm:inline">Веха</span>
         </button>
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* Add project */}
+        {showNewProject ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (newProjectName.trim()) { addGroup.mutate({ name: newProjectName.trim() }); setNewProjectName(""); setShowNewProject(false); } }}
+            className="flex items-center gap-1"
+          >
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              onBlur={() => { if (!newProjectName.trim()) setShowNewProject(false); }}
+              onKeyDown={e => { if (e.key === "Escape") { setShowNewProject(false); setNewProjectName(""); } }}
+              placeholder="Имя проекта..."
+              className="h-6 w-32 text-xs bg-muted border-0 rounded px-2 text-foreground outline-none"
+            />
+          </form>
+        ) : (
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <FolderPlus className="h-3 w-3" />
+            <span className="hidden sm:inline">Проект</span>
+          </button>
+        )}
 
         <span className="text-xs text-muted-foreground ml-auto">
           {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех

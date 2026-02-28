@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
@@ -19,7 +19,10 @@ const navItems: { id: PmoView; label: string; icon: React.ElementType }[] = [
 export default function PmoLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<PmoView>("portfolio");
+  const [searchParams] = useSearchParams();
+  const initialProject = searchParams.get("project");
+  const initialView = initialProject ? "gantt" : "portfolio";
+  const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
 
   if (loading) {
     return (
@@ -76,7 +79,7 @@ export default function PmoLayout() {
       {/* Content */}
       <main className="flex-1 overflow-hidden">
         {activeView === "portfolio" && <PortfolioPlaceholder />}
-        {activeView === "gantt" && <GanttPlaceholder />}
+        {activeView === "gantt" && <GanttPlaceholder initialProjectId={initialProject} />}
         {activeView === "milestones" && <MilestonesPlaceholder />}
         {activeView === "resources" && <ResourcesPlaceholder />}
         {activeView === "reports" && <ReportsPlaceholder />}
@@ -88,8 +91,8 @@ export default function PmoLayout() {
 function PortfolioPlaceholder() {
   return <PortfolioView />;
 }
-function GanttPlaceholder() {
-  return <GanttView />;
+function GanttPlaceholder({ initialProjectId }: { initialProjectId?: string | null }) {
+  return <GanttView initialProjectId={initialProjectId} />;
 }
 function MilestonesPlaceholder() {
   return <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />;
