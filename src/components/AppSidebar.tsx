@@ -485,6 +485,15 @@ export default function AppSidebar({
               >
                 <Expand className="h-3.5 w-3.5" />
                </span>
+              {isRoot && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo?project=${group.id}`); }}
+                  className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
+                  title="Открыть в PMO (Гант)"
+                >
+                  <GanttChart className="h-3.5 w-3.5" />
+                </span>
+              )}
               {/* Move to folder */}
               {isRoot && folders.length > 0 && (
                 <Popover open={folderPickerGroupId === group.id} onOpenChange={(open) => setFolderPickerGroupId(open ? group.id : null)}>
