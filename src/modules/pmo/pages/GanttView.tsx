@@ -145,7 +145,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     };
   }, [zoomIn, zoomOut]);
 
-  // Drag handlers (resize deadline OR move whole bar)
+  // Drag handlers (resize deadline OR move whole bar) with cascading
   useEffect(() => {
     if (!dragState) return;
     const handleMouseMove = (e: MouseEvent) => {
@@ -155,14 +155,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
-        if (dragState.side === "move") {
-          // Move entire bar: shift both created_at conceptually and deadline
-          const newDeadline = addDays(parseISO(dragState.originalDeadline), daysDelta);
-          updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
-        } else {
-          const original = parseISO(dragState.originalDeadline);
-          const newDate = addDays(original, daysDelta);
-          updateTask.mutate({ id: dragState.taskId, deadline: newDate.toISOString() });
+        const oldDeadline = parseISO(dragState.originalDeadline);
+        const newDeadline = addDays(oldDeadline, daysDelta);
+        
+        updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
+
+        // Cascading: push forward dependent tasks
+        if (daysDelta > 0 && allDependencies.length > 0) {
+          const entityMap = new Map<string, { id: string; deadline?: string | null; created_at: string }>();
+          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, created_at: t.created_at }));
+          // Update the moved task in the map
+          entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
+          
+          const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
+          cascadeUpdates.forEach((newDl, taskId) => {
+            updateTask.mutate({ id: taskId, deadline: newDl });
+          });
         }
       }
       setDragState(null);
@@ -174,7 +182,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, scale, updateTask]);
+  }, [dragState, scale, updateTask, allDependencies, allTasks]);
 
   // Dependency drag handlers
   useEffect(() => {
