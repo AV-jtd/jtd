@@ -344,6 +344,18 @@ export default function CrmBoard() {
     moveMutation.mutate({ task, targetStage });
   };
 
+  // Unique groups used by CRM tasks
+  const usedGroups = useMemo(() => {
+    const ids = new Set(tasks.map((t) => t.group_id).filter(Boolean) as string[]);
+    return [...ids].map((id) => groupById.get(id)).filter(Boolean) as CrmGroup[];
+  }, [tasks, groupById]);
+
+  // Unique tags used by CRM tasks
+  const usedTags = useMemo(() => {
+    const ids = new Set(tasks.flatMap((t) => (t.task_tags || []).map((tt) => tt.tag_id)));
+    return [...ids].map((id) => tagById.get(id)).filter(Boolean) as CrmTag[];
+  }, [tasks, tagById]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -361,18 +373,6 @@ export default function CrmBoard() {
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
   const toggleFilterGroup = (groupId: string) =>
     setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
-
-  // Unique groups used by CRM tasks
-  const usedGroups = useMemo(() => {
-    const ids = new Set(tasks.map((t) => t.group_id).filter(Boolean) as string[]);
-    return [...ids].map((id) => groupById.get(id)).filter(Boolean) as CrmGroup[];
-  }, [tasks, groupById]);
-
-  // Unique tags used by CRM tasks
-  const usedTags = useMemo(() => {
-    const ids = new Set(tasks.flatMap((t) => (t.task_tags || []).map((tt) => tt.tag_id)));
-    return [...ids].map((id) => tagById.get(id)).filter(Boolean) as CrmTag[];
-  }, [tasks, tagById]);
 
   return (
     <DndContext
