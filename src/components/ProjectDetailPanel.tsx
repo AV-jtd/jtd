@@ -1,11 +1,9 @@
 import { useState, useMemo } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, Profile } from "@/hooks/useTasks";
-import { useClients, useClientMutations } from "@/hooks/useClients";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, Building2, User, Phone, Mail } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
@@ -14,31 +12,19 @@ interface ProjectDetailPanelProps {
   group: TaskGroup;
 }
 
-const PROJECT_TYPES = [
-  { value: "standard", label: "Стандартный", icon: "📋" },
-  { value: "crm", label: "CRM", icon: "💼" },
-  { value: "npd", label: "NPD", icon: "🧪" },
-];
-
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, addSubtask } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: allTags = [] } = useTags();
   const { data: groupTags = [] } = useGroupTags(group.id);
-  const { data: clients = [] } = useClients(group.id);
-  const { addClient } = useClientMutations();
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState((group as any).description || "");
   const [userSearch, setUserSearch] = useState("");
   const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | null>(null);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [addingClient, setAddingClient] = useState(false);
-
-  const projectType = (group as any).project_type || "standard";
 
   const handleSaveDescription = () => {
     const newDesc = descriptionDraft.trim() || null;
@@ -46,20 +32,6 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       updateGroupDescription.mutate({ id: group.id, description: newDesc });
     }
     setEditingDescription(false);
-  };
-
-  const handleProjectTypeChange = (value: string) => {
-    updateGroupProjectType.mutate({ id: group.id, project_type: value });
-  };
-
-  const handleAddClient = async () => {
-    if (!clientName.trim()) return;
-    addClient.mutate({
-      name: clientName.trim(),
-      group_id: group.id,
-    });
-    setClientName("");
-    setAddingClient(false);
   };
 
   const filteredUsers = useMemo(() => {
@@ -121,75 +93,6 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 mb-4 space-y-4 animate-fade-in">
-      {/* Project Type */}
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-          <Briefcase className="h-3 w-3" /> Тип проекта
-        </p>
-        <Select value={projectType} onValueChange={handleProjectTypeChange}>
-          <SelectTrigger className="h-8 text-sm w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PROJECT_TYPES.map(pt => (
-              <SelectItem key={pt.value} value={pt.value}>
-                <span className="flex items-center gap-2">
-                  <span>{pt.icon}</span>
-                  <span>{pt.label}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* CRM Client Section */}
-      {projectType === "crm" && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-            <Building2 className="h-3 w-3" /> Клиенты
-          </p>
-          <div className="space-y-1.5">
-            {clients.map(client => (
-              <div key={client.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-muted/50 text-sm">
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="font-medium flex-1">{client.name}</span>
-                {client.contact_name && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User className="h-2.5 w-2.5" />
-                    {client.contact_name}
-                  </span>
-                )}
-              </div>
-            ))}
-            {addingClient ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  autoFocus
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Название клиента..."
-                  className="h-7 text-xs flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddClient();
-                    if (e.key === "Escape") { setAddingClient(false); setClientName(""); }
-                  }}
-                />
-                <button onClick={handleAddClient} className="text-xs text-primary hover:text-primary/80">Добавить</button>
-                <button onClick={() => { setAddingClient(false); setClientName(""); }} className="text-xs text-muted-foreground">Отмена</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingClient(true)}
-                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-              >
-                <Plus className="h-2.5 w-2.5" /> Клиент
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Description */}
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">

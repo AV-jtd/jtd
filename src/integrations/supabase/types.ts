@@ -35,60 +35,6 @@ export type Database = {
         }
         Relationships: []
       }
-      clients: {
-        Row: {
-          contact_name: string | null
-          created_at: string
-          email: string | null
-          group_id: string | null
-          id: string
-          name: string
-          phone: string | null
-          tag_id: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          contact_name?: string | null
-          created_at?: string
-          email?: string | null
-          group_id?: string | null
-          id?: string
-          name: string
-          phone?: string | null
-          tag_id?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          contact_name?: string | null
-          created_at?: string
-          email?: string | null
-          group_id?: string | null
-          id?: string
-          name?: string
-          phone?: string | null
-          tag_id?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "clients_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "task_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clients_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       group_members: {
         Row: {
           created_at: string
@@ -589,7 +535,6 @@ export type Database = {
           name: string
           parent_id: string | null
           position: number
-          project_type: string
           user_id: string
         }
         Insert: {
@@ -602,7 +547,6 @@ export type Database = {
           name: string
           parent_id?: string | null
           position?: number
-          project_type?: string
           user_id: string
         }
         Update: {
@@ -615,7 +559,6 @@ export type Database = {
           name?: string
           parent_id?: string | null
           position?: number
-          project_type?: string
           user_id?: string
         }
         Relationships: [

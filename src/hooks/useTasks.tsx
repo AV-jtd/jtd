@@ -16,7 +16,7 @@ export type Task = Tables<"tasks"> & {
   original_deadline?: string | null;
   deferred_until?: string | null;
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; project_type?: string };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
@@ -1043,23 +1043,6 @@ export function useTaskMutations() {
     onSettled: (_d, _e, vars) => qc.invalidateQueries({ queryKey: ["group_tags", vars.group_id] }),
   });
 
-  // ========== PROJECT TYPE ==========
-
-  const updateGroupProjectType = useMutation({
-    mutationFn: async ({ id, project_type }: { id: string; project_type: string }) => {
-      const { error } = await supabase.from("task_groups").update({ project_type } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onMutate: async ({ id, project_type }) => {
-      await qc.cancelQueries({ queryKey: ["task_groups"] });
-      const snap = snapshotGroups(qc);
-      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, project_type } : g));
-      return { snap };
-    },
-    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
-  });
-
   // ========== TAG CATEGORIES ==========
 
   const addTagCategory = useMutation({
@@ -1114,6 +1097,5 @@ export function useTaskMutations() {
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,
     addGroupTag, removeGroupTag,
     addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory,
-    updateGroupProjectType,
   };
 }
