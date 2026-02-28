@@ -344,6 +344,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         projectTasks.forEach(t => {
           if (t.deadline || t.created_at) {
             result.push({ type: "task", project, task: t, depth: depth + 1 });
+            // Add subtask rows
+            if (t.subtasks && t.subtasks.length > 0) {
+              t.subtasks
+                .sort((a, b) => a.position - b.position)
+                .forEach(st => {
+                  result.push({ type: "subtask", project, subtask: st, parentTask: t, depth: depth + 2 });
+                });
+            }
           }
         });
         projectMilestones.forEach(m => {
