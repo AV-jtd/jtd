@@ -7,7 +7,6 @@ import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
-const [ganttProjectId, setGanttProjectId] = [null, () => {}]; // placeholder removed below
 
 const navItems: { id: PmoView; label: string; icon: React.ElementType }[] = [
   { id: "portfolio", label: "Портфель", icon: LayoutDashboard },
