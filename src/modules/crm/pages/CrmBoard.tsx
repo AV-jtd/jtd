@@ -196,20 +196,24 @@ export default function CrmBoard() {
   });
 
   const { data: doneTasks = [] } = useQuery({
-    queryKey: ["crm-tasks-done", user?.id, crmGroupId],
+    queryKey: ["crm-tasks-done", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || !crmGroupId) return [];
+      if (!user || crmGroupIds.length === 0) return [];
+      const orFilters = [
+        ...crmGroupIds.map((id) => `group_id.eq.${id}`),
+        "task_type.eq.crm",
+      ].join(",");
       const { data, error } = await supabase
         .from("tasks")
         .select("id")
-        .or(`group_id.eq.${crmGroupId},task_type.eq.crm`)
+        .or(orFilters)
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && !!crmGroupId,
+    enabled: !!user && crmGroupIds.length > 0,
   });
 
   const { data: allTags = [] } = useQuery({
