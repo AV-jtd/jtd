@@ -1,7 +1,7 @@
 import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, GanttChart } from "lucide-react";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
