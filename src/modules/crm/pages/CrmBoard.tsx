@@ -496,9 +496,43 @@ export default function CrmBoard() {
               </PopoverContent>
             </Popover>
 
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  filterAssigneeIds.length > 0
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <User className="h-3 w-3" />
+                  Ответственный
+                  {filterAssigneeIds.length > 0 && <span className="font-bold">{filterAssigneeIds.length}</span>}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" side="bottom">
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {usedAssignees.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">Нет ответственных</p>}
+                  {usedAssignees.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => toggleFilterAssignee(a.id)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        filterAssigneeIds.includes(a.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{a.display_name || a.email || "?"}</span>
+                      {filterAssigneeIds.includes(a.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             {hasFilters && (
               <button
-                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); }}
+                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Сбросить
