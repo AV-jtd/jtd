@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Pmo from "./pages/Pmo";
 import OnlineStatus from "./components/OnlineStatus";
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/pmo" element={<Pmo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <OnlineStatus />

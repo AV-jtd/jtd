@@ -370,6 +370,56 @@ export type Database = {
         }
         Relationships: []
       }
+      project_milestones: {
+        Row: {
+          actual_date: string | null
+          color: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          group_id: string
+          id: string
+          name: string
+          planned_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_date?: string | null
+          color?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          group_id: string
+          id?: string
+          name: string
+          planned_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_date?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+          planned_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_milestones_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -572,6 +622,51 @@ export type Database = {
           {
             foreignKeyName: "task_comments_task_id_fkey"
             columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_dependencies: {
+        Row: {
+          created_at: string
+          created_by: string
+          dependency_type: string
+          id: string
+          lag_days: number
+          predecessor_id: string
+          successor_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          dependency_type?: string
+          id?: string
+          lag_days?: number
+          predecessor_id: string
+          successor_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          dependency_type?: string
+          id?: string
+          lag_days?: number
+          predecessor_id?: string
+          successor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_predecessor_id_fkey"
+            columns: ["predecessor_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_successor_id_fkey"
+            columns: ["successor_id"]
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
@@ -979,6 +1074,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_dependency: {
+        Args: { _dep_id: string; _user_id: string }
+        Returns: boolean
+      }
       debug_user_visible_groups: {
         Args: { _user_id: string }
         Returns: {
