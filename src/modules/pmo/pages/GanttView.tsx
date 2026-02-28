@@ -494,10 +494,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
         <button onClick={zoomOut} disabled={scale === "month"}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Уменьшить масштаб"><Minus className="h-3.5 w-3.5" /></button>
+          aria-label="Уменьшить масштаб"><Minus className="h-3.5 w-3.5" /></button>
         <button onClick={zoomIn} disabled={scale === "day"}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Увеличить масштаб"><Plus className="h-3.5 w-3.5" /></button>
+          aria-label="Увеличить масштаб"><Plus className="h-3.5 w-3.5" /></button>
+
+        <button
+          onClick={() => {
+            if (scrollRef.current) {
+              scrollRef.current.scrollTo({ left: Math.max(todayOffset - 300, 0), behavior: "smooth" });
+            }
+          }}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="К сегодняшнему дню"
+        >
+          <LocateFixed className="h-3.5 w-3.5" />
+        </button>
 
         <div className="h-4 w-px bg-border" />
 
