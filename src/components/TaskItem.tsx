@@ -54,6 +54,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
