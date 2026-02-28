@@ -168,7 +168,7 @@ export default function CrmBoard() {
       const taskIds = crmTasks.map((t) => t.id);
       const { data: subtasks } = await supabase
         .from("subtasks")
-        .select("id, title, is_completed, position, task_id")
+        .select("id, title, is_completed, position, task_id, deadline, assigned_to")
         .in("task_id", taskIds)
         .order("position");
 
