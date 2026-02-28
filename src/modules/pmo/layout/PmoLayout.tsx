@@ -85,7 +85,7 @@ export default function PmoLayout() {
 }
 
 function PortfolioPlaceholder() {
-  return <PlaceholderView icon={LayoutDashboard} title="Портфель проектов" description="Обзор всех проектов с прогрессом и KPI" />;
+  return <PortfolioView />;
 }
 function GanttPlaceholder() {
   return <PlaceholderView icon={GanttChart} title="Гант-диаграмма" description="Timeline задач с зависимостями и критическим путём" />;
