@@ -118,7 +118,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           return (
             <div
               key={project.id}
-              className="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow"
+              className="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => onOpenGantt?.(project.id)}
             >
               <div className="flex items-start gap-3 mb-3">
                 <div
@@ -134,15 +135,23 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   )}
                 </div>
                 <HealthDot status={healthColor} />
-                {onOpenGantt && (
-                  <span
-                    className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
-                    onClick={() => onOpenGantt(project.id)}
-                    title="Открыть Гант"
-                  >
-                    <GanttChart className="h-3.5 w-3.5" />
-                  </span>
-                )}
+              </div>
+
+              {/* Tags */}
+              {projectTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {projectTags.map(tag => (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0"
+                      style={tag.color ? { backgroundColor: tag.color + "20", color: tag.color } : undefined}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               </div>
 
               {/* Progress bar */}
