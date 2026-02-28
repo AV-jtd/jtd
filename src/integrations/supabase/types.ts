@@ -700,6 +700,7 @@ export type Database = {
       tasks: {
         Row: {
           assigned_to: string | null
+          client_id: string | null
           completed_at: string | null
           created_at: string
           deadline: string | null
@@ -715,12 +716,14 @@ export type Database = {
           priority: number | null
           recurrence: string | null
           recurrence_end_date: string | null
+          task_type: string
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
           assigned_to?: string | null
+          client_id?: string | null
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
@@ -736,12 +739,14 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          task_type?: string
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
           assigned_to?: string | null
+          client_id?: string | null
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
@@ -757,11 +762,19 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          task_type?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_group_id_fkey"
             columns: ["group_id"]

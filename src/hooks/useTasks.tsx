@@ -439,13 +439,44 @@ export function useTaskMutations() {
   // ========== TASKS ==========
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null }) => {
+    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; task_type?: string; client_name?: string }) => {
+      const taskType = task.task_type || 'standard';
+      let clientId: string | null = null;
+
+      // For CRM tasks, create client + tag in "Клиенты" category
+      if (taskType === 'crm' && task.client_name?.trim()) {
+        // Find "Клиенты" subcategory (under "CRM / Продажи")
+        const { data: categories } = await supabase.from("tag_categories").select("*");
+        const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id);
+        const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id);
+
+        // Create tag with client name
+        const { data: tagData } = await supabase.from("tags").insert({
+          name: task.client_name.trim(),
+          user_id: user!.id,
+          color: '#ef4444',
+          category_id: clientsCat?.id || null,
+        }).select().single();
+
+        // Create client record
+        const { data: clientData } = await supabase.from("clients").insert({
+          name: task.client_name.trim(),
+          user_id: user!.id,
+          group_id: task.group_id || null,
+          tag_id: tagData?.id || null,
+        } as any).select().single();
+
+        clientId = (clientData as any)?.id || null;
+      }
+
       const { data: taskData, error } = await supabase.from("tasks").insert({
         title: task.title,
         group_id: task.group_id || null,
         user_id: user!.id,
         deadline: task.deadline || null,
-      }).select().single();
+        task_type: taskType,
+        client_id: clientId,
+      } as any).select().single();
       if (error) throw error;
 
       const { error: partError } = await supabase.from("task_participants").insert({
@@ -479,6 +510,30 @@ export function useTaskMutations() {
           notifyEvent("new_task_in_group", task.title, memberIds);
         }
       }
+
+      // For CRM tasks, create template subtasks (funnel steps)
+      if (taskType === 'crm') {
+        const crmSteps = [
+          'Отправить презентацию и КП',
+          'Получить обратную связь',
+          'Проведены переговоры',
+          'Старт отгрузок',
+        ];
+        const subtaskInserts = crmSteps.map((title, i) => ({
+          task_id: taskData.id,
+          title,
+          position: i,
+        }));
+        await supabase.from("subtasks").insert(subtaskInserts);
+
+        // Link client tag to the task
+        if (task.client_name?.trim()) {
+          const { data: tags } = await supabase.from("tags").select("id").eq("name", task.client_name.trim()).eq("user_id", user!.id);
+          if (tags && tags.length > 0) {
+            await supabase.from("task_tags").insert({ task_id: taskData.id, tag_id: tags[0].id });
+          }
+        }
+      }
     },
     onMutate: async (task) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
@@ -503,6 +558,8 @@ export function useTaskMutations() {
         parent_recurring_id: null,
         priority: null,
         deferred_until: null,
+        task_type: task.task_type || 'standard',
+        client_id: null,
         subtasks: [],
         task_tags: [],
       };
@@ -510,7 +567,13 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error(_e.message); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSettled: (_d, _e, task) => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.task_type === 'crm') {
+        qc.invalidateQueries({ queryKey: ["tags"] });
+        qc.invalidateQueries({ queryKey: ["clients"] });
+      }
+    },
   });
 
   const updateTask = useMutation({
