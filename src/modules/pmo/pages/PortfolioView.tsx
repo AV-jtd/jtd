@@ -1,9 +1,13 @@
-import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTags, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, GanttChart } from "lucide-react";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 
 interface PortfolioViewProps {
   onOpenGantt?: (projectId: string) => void;
@@ -12,6 +16,36 @@ interface PortfolioViewProps {
 export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
+  const { data: allTags = [] } = useTags();
+  const { user } = useAuth();
+
+  // Fetch all group_tags in one query
+  const { data: allGroupTags = [] } = useQuery({
+    queryKey: ["all_group_tags"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_tags" as any)
+        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const tagMap = useMemo(() => {
+    const m = new Map<string, { name: string; color: string | null }>();
+    for (const t of allTags) m.set(t.id, { name: t.name, color: t.color });
+    return m;
+  }, [allTags]);
+
+  const groupTagsMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const gt of allGroupTags) {
+      if (!m.has(gt.group_id)) m.set(gt.group_id, []);
+      m.get(gt.group_id)!.push(gt.tag_id);
+    }
+    return m;
+  }, [allGroupTags]);
 
   const rootProjects = useMemo(
     () => groups.filter((g) => !g.parent_id).sort((a, b) => a.position - b.position),
@@ -80,11 +114,18 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           const progress = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
           const children = groups.filter((g) => g.parent_id === project.id);
           const healthColor = stats.overdue > 0 ? "destructive" : stats.upcoming > 0 ? "warning" : "success";
+          const projectTags = (groupTagsMap.get(project.id) || [])
+            .map(tid => {
+              const t = tagMap.get(tid);
+              return t ? { id: tid, name: t.name, color: t.color } : null;
+            })
+            .filter(Boolean) as { id: string; name: string; color: string | null }[];
 
           return (
             <div
               key={project.id}
-              className="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow"
+              className="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => onOpenGantt?.(project.id)}
             >
               <div className="flex items-start gap-3 mb-3">
                 <div
@@ -100,16 +141,23 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   )}
                 </div>
                 <HealthDot status={healthColor} />
-                {onOpenGantt && (
-                  <span
-                    className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
-                    onClick={() => onOpenGantt(project.id)}
-                    title="Открыть Гант"
-                  >
-                    <GanttChart className="h-3.5 w-3.5" />
-                  </span>
-                )}
               </div>
+
+              {/* Tags */}
+              {projectTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {projectTags.map(tag => (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="text-[10px] px-1.5 py-0"
+                      style={tag.color ? { backgroundColor: tag.color + "20", color: tag.color } : undefined}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
               {/* Progress bar */}
               <div className="mb-3">
