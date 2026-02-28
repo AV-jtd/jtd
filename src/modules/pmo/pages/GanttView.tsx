@@ -81,6 +81,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     successorLabel: string;
     predecessorEntityType: string;
     successorEntityType: string;
+    editMode?: boolean;
+    editId?: string;
+    initialType?: string;
+    initialLag?: number;
   } | null>(null);
 
   // Splitter drag
