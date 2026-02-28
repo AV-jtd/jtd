@@ -21,6 +21,65 @@ export default function GanttView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const lastPinchDistRef = useRef<number | null>(null);
+
+  // Zoom in/out helpers
+  const zoomIn = useCallback(() => {
+    setScale(prev => {
+      const idx = SCALE_ORDER.indexOf(prev);
+      return idx < SCALE_ORDER.length - 1 ? SCALE_ORDER[idx + 1] : prev;
+    });
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setScale(prev => {
+      const idx = SCALE_ORDER.indexOf(prev);
+      return idx > 0 ? SCALE_ORDER[idx - 1] : prev;
+    });
+  }, []);
+
+  // Pinch-to-zoom on the timeline area
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDistRef.current = Math.hypot(dx, dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastPinchDistRef.current !== null) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const delta = dist - lastPinchDistRef.current;
+
+        if (Math.abs(delta) > 40) {
+          if (delta > 0) zoomIn(); else zoomOut();
+          lastPinchDistRef.current = dist;
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      lastPinchDistRef.current = null;
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [zoomIn, zoomOut]);
 
   // Build rows: project headers + tasks with deadlines or created_at
   const rows = useMemo(() => {
