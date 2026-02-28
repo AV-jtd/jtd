@@ -233,6 +233,23 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         </div>
       </div>
 
+      {/* CRM toggle */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="crm-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 cursor-pointer">
+            <Briefcase className="h-3 w-3" /> Показывать в CRM
+          </Label>
+          <Switch
+            id="crm-toggle"
+            checked={(group as any).project_type === "crm"}
+            onCheckedChange={(checked) => {
+              updateGroupProjectType.mutate({ id: group.id, project_type: checked ? "crm" : "standard" });
+            }}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground/70">Задачи проекта будут отображаться на CRM-доске</p>
+      </div>
+
       {/* Assignee */}
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
