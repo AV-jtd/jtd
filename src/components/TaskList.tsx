@@ -61,7 +61,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
   const [newClientName, setNewClientName] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState<number | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
   const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
 
@@ -170,7 +170,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }
 
   if (priorityFilter !== null) {
-    filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+    if (priorityFilter === "important") {
+      filteredTasks = filteredTasks.filter(t => t.is_important);
+    } else {
+      filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+    }
   }
 
   if (assigneeFilter !== null) {
@@ -390,13 +394,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           <div className="flex items-center gap-1.5 mb-4 flex-wrap">
             {/* Priority filters */}
             {[
-              { value: 1, label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10" },
-              { value: 2, label: "P2", color: "text-orange-500 border-orange-500/40 bg-orange-500/10" },
-              { value: 3, label: "P3", color: "text-yellow-500 border-yellow-500/40 bg-yellow-500/10" },
-              { value: 4, label: "P4", color: "text-blue-400 border-blue-400/40 bg-blue-400/10" },
+              { value: 1 as number | "important", label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "flag" },
+              { value: "important" as number | "important", label: "Важные", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
             ].map(p => (
               <button
-                key={p.value}
+                key={String(p.value)}
                 onClick={() => setPriorityFilter(prev => prev === p.value ? null : p.value)}
                 className={cn(
                   "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
@@ -405,7 +407,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
                 )}
               >
-                <Flag className="h-3 w-3" />
+                {p.icon === "star" ? <Star className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
                 {p.label}
               </button>
             ))}
