@@ -161,8 +161,18 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       if (daysDelta !== 0) {
         const oldDeadline = parseISO(dragState.originalDeadline);
         const newDeadline = addDays(oldDeadline, daysDelta);
+        const taskUpdates: any = { id: dragState.taskId, deadline: newDeadline.toISOString() };
         
-        updateTask.mutate({ id: dragState.taskId, deadline: newDeadline.toISOString() });
+        // When moving the whole bar, also shift start_at
+        if (dragState.side === "move") {
+          const movedTask = allTasks.find(t => t.id === dragState.taskId);
+          if (movedTask) {
+            const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
+            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+          }
+        }
+        
+        updateTask.mutate(taskUpdates);
 
         // Cascading: push forward dependent tasks
         if (daysDelta > 0 && allDependencies.length > 0) {
