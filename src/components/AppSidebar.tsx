@@ -1060,7 +1060,16 @@ export default function AppSidebar({
                     {tagCategories.length > 0 && (
                       <button
                         onClick={() => toggleCategory("__uncategorized__")}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors"
+                        className={cn("flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium text-sidebar-fg/70 hover:text-sidebar-fg/90 transition-colors", dragOverCategoryId === "__uncategorized__" && "bg-primary/10 rounded-lg")}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverCategoryId("__uncategorized__"); }}
+                        onDragLeave={() => setDragOverCategoryId(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const tagId = e.dataTransfer.getData("tag-id");
+                          if (tagId) { updateTagCategory.mutate({ tag_id: tagId, category_id: null }); }
+                          setDragOverCategoryId(null); setDraggingTagId(null);
+                        }}
+                      >
                       >
                         {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                         <span className="truncate flex-1 text-left">Без категории</span>
