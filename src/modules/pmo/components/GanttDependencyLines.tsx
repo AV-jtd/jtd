@@ -16,6 +16,8 @@ interface GanttDependencyLinesProps {
   dependencies: Dependency[];
   rowHeight: number;
   getBarStyle: (task: any) => { left: number; width: number };
+  getMilestoneX?: (ms: any) => number;
+  getSummaryBarStyle?: (start: Date, end: Date) => { left: number; width: number };
   criticalTaskIds?: Set<string>;
 }
 
