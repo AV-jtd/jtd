@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
 import UserPicker from "@/components/UserPicker";
+import { supabase } from "@/integrations/supabase/client";
+import { Sparkles, Loader2 } from "lucide-react";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2,
 } from "lucide-react";
@@ -65,6 +67,9 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const [tagSearch, setTagSearch] = useState("");
+  const [suggestedTagIds, setSuggestedTagIds] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const suggestionsLoaded = useRef(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,6 +85,28 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId);
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
+
+  const fetchTagSuggestions = useCallback(async () => {
+    if (suggestionsLoaded.current || availableTags.length === 0) return;
+    suggestionsLoaded.current = true;
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("suggest-tags", {
+        body: {
+          taskTitle: task.title,
+          taskDescription: task.description,
+          availableTags: availableTags.map(t => ({ id: t.id, name: t.name })),
+        },
+      });
+      if (!error && data?.suggestedTagIds) {
+        setSuggestedTagIds(data.suggestedTagIds);
+      }
+    } catch (e) {
+      console.error("Tag suggestions error:", e);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [task.title, task.description, availableTags]);
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
@@ -409,7 +436,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             </PopoverContent>
           </Popover>
 
-          <Popover>
+          <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
               <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Тэг">
                 <Tag className="h-3.5 w-3.5" />
@@ -426,11 +453,40 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   autoFocus
                 />
                 <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {/* AI Suggestions */}
+                  {!tagSearch && suggestedTagIds.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-primary" /> ИИ-рекомендации
+                      </p>
+                      {availableTags
+                        .filter(t => suggestedTagIds.includes(t.id))
+                        .map(tag => (
+                          <button
+                            key={`ai-${tag.id}`}
+                            onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
+                          >
+                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
+                            <span className="truncate">{tag.name}</span>
+                            <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
+                          </button>
+                        ))}
+                      <div className="border-t border-border my-1" />
+                    </>
+                  )}
+                  {!tagSearch && loadingSuggestions && (
+                    <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
+                    </p>
+                  )}
+                  {/* All tags */}
                   {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
                     <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
                   )}
                   {availableTags
                     .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                     .map(tag => (
                       <button
                         key={tag.id}
@@ -590,7 +646,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 </span>
               ))}
               {availableTags.length > 0 && (
-                <Popover>
+                <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
                   <PopoverTrigger asChild>
                     <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                       <Plus className="h-2.5 w-2.5" /> Тэг
@@ -606,8 +662,36 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                       autoFocus
                     />
                     <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      {/* AI Suggestions */}
+                      {!tagSearch && suggestedTagIds.length > 0 && (
+                        <>
+                          <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-primary" /> ИИ-рекомендации
+                          </p>
+                          {availableTags
+                            .filter(t => suggestedTagIds.includes(t.id))
+                            .map(tag => (
+                              <button
+                                key={`ai-${tag.id}`}
+                                onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
+                              >
+                                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
+                                <span className="truncate">{tag.name}</span>
+                                <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
+                              </button>
+                            ))}
+                          <div className="border-t border-border my-1" />
+                        </>
+                      )}
+                      {!tagSearch && loadingSuggestions && (
+                        <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
+                        </p>
+                      )}
                       {availableTags
                         .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                        .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                         .map(tag => (
                           <button
                             key={tag.id}
