@@ -22,7 +22,7 @@ interface GanttDependencyLinesProps {
   onClickDependency?: (dep: Dependency) => void;
 }
 
-export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds }: GanttDependencyLinesProps) {
+export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, onClickDependency }: GanttDependencyLinesProps) {
   const lines = useMemo(() => {
     return dependencies.map(dep => {
       // Find predecessor row
