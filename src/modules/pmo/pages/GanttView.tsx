@@ -604,6 +604,12 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
           }}
+          onAddSubproject={(parentId, name) => {
+            addGroup.mutate({ name, parent_id: parentId });
+          }}
+          onAddSubtask={(taskId, title) => {
+            addSubtask.mutate({ task_id: taskId, title });
+          }}
           onUpdateTask={(id, updates) => {
             updateTask.mutate({ id, ...updates });
           }}
