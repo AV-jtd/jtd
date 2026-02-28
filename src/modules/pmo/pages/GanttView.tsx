@@ -21,7 +21,7 @@ type Scale = "day" | "week" | "month";
 
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 36;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 600;
 
