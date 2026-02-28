@@ -33,7 +33,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
-  const { addGroup, addTask, updateTask, deleteTask, toggleTask } = useTaskMutations();
+  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask } = useTaskMutations();
   const { addDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
@@ -603,6 +603,12 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
+          }}
+          onAddSubproject={(parentId, name) => {
+            addGroup.mutate({ name, parent_id: parentId });
+          }}
+          onAddSubtask={(taskId, title) => {
+            addSubtask.mutate({ task_id: taskId, title });
           }}
           onUpdateTask={(id, updates) => {
             updateTask.mutate({ id, ...updates });
