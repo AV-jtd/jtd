@@ -1070,7 +1070,6 @@ export default function AppSidebar({
                           setDragOverCategoryId(null); setDraggingTagId(null);
                         }}
                       >
-                      >
                         {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                         <span className="truncate flex-1 text-left">Без категории</span>
                         <span className="text-sidebar-fg/40 text-xs">{uncategorized.length}</span>
