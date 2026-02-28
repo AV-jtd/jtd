@@ -11,6 +11,8 @@ export type TaskDependency = {
   lag_days: number;
   created_by: string;
   created_at: string;
+  predecessor_entity_type: string;
+  successor_entity_type: string;
 };
 
 export function useDependencies() {
