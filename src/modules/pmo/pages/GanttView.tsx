@@ -236,6 +236,26 @@ export default function GanttView() {
 
         <div className="h-4 w-px bg-border" />
 
+        {/* Zoom buttons */}
+        <button
+          onClick={zoomOut}
+          disabled={scale === "month"}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Уменьшить масштаб"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={zoomIn}
+          disabled={scale === "day"}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Увеличить масштаб"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="h-4 w-px bg-border" />
+
         {/* Project filter */}
         <select
           value={selectedProjectId || ""}
