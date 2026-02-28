@@ -487,16 +487,27 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
   const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
 
-  // Handle drop on a task bar to create dependency
-  const handleBarMouseUp = useCallback((taskId: string) => {
-    if (depDrag && depDrag.fromTaskId !== taskId) {
-      addDependency.mutate({
-        predecessor_id: depDrag.fromTaskId,
-        successor_id: taskId,
+  // Handle drop on a task/milestone bar to create dependency (opens dialog)
+  const getEntityLabel = useCallback((id: string, entityType: string) => {
+    if (entityType === "task") return allTasks.find(t => t.id === id)?.title || "Задача";
+    if (entityType === "milestone") return allMilestones.find(m => m.id === id)?.name || "Веха";
+    if (entityType === "project") return groups.find(g => g.id === id)?.name || "Проект";
+    return "—";
+  }, [allTasks, allMilestones, groups]);
+
+  const handleBarMouseUp = useCallback((targetId: string, targetEntityType: "task" | "milestone" | "project" = "task") => {
+    if (depDrag && depDrag.fromId !== targetId) {
+      setDepDialogState({
+        predecessorId: depDrag.fromId,
+        successorId: targetId,
+        predecessorLabel: getEntityLabel(depDrag.fromId, depDrag.fromEntityType),
+        successorLabel: getEntityLabel(targetId, targetEntityType),
+        predecessorEntityType: depDrag.fromEntityType,
+        successorEntityType: targetEntityType,
       });
       setDepDrag(null);
     }
-  }, [depDrag, addDependency]);
+  }, [depDrag, getEntityLabel]);
 
   // Unique assignees for filter
   const assignees = useMemo(() => {
