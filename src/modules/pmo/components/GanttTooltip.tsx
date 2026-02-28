@@ -8,9 +8,10 @@ interface GanttTooltipProps {
   project: TaskGroup;
   children: React.ReactNode;
   progress?: number;
+  disabled?: boolean;
 }
 
-export default function GanttTooltip({ task, project, children, progress }: GanttTooltipProps) {
+export default function GanttTooltip({ task, project, children, progress, disabled }: GanttTooltipProps) {
   const { data: users = [] } = useAvailableUsers();
   const assignee = users.find(u => u.id === task.assigned_to);
 
