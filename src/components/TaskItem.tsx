@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
 import UserPicker from "@/components/UserPicker";
+import { supabase } from "@/integrations/supabase/client";
+import { Sparkles, Loader2 } from "lucide-react";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2,
 } from "lucide-react";
