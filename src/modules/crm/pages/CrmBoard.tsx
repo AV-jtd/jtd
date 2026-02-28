@@ -110,6 +110,7 @@ export default function CrmBoard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
+  const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
@@ -131,34 +132,37 @@ export default function CrmBoard() {
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
   );
 
-  const { data: crmGroup } = useQuery({
-    queryKey: ["crm-group", user?.id],
+  const { data: crmGroups = [] } = useQuery({
+    queryKey: ["crm-groups-list", user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user) return [];
       const { data } = await supabase
         .from("task_groups")
         .select("id, name, linked_tag_id")
-        .ilike("name", "%новые клиенты%")
-        .limit(1)
-        .single();
-      return data;
+        .or("project_type.eq.crm,name.ilike.%новые клиенты%");
+      return data || [];
     },
     enabled: !!user,
   });
 
-  const crmGroupId = crmGroup?.id;
-  const crmLinkedTagId = crmGroup?.linked_tag_id ?? null;
-  const crmGroupNameNormalized = (crmGroup?.name || "").trim().toLowerCase();
+  const crmGroupIds = useMemo(() => crmGroups.map((g) => g.id), [crmGroups]);
+  const crmLinkedTagIds = useMemo(() => new Set(crmGroups.map((g) => g.linked_tag_id).filter(Boolean) as string[]), [crmGroups]);
+  const crmGroupNames = useMemo(() => new Set(crmGroups.map((g) => g.name.trim().toLowerCase())), [crmGroups]);
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["crm-tasks", user?.id, crmGroupId],
+    queryKey: ["crm-tasks", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || !crmGroupId) return [];
+      if (!user || crmGroupIds.length === 0) return [];
+
+      const orFilters = [
+        ...crmGroupIds.map((id) => `group_id.eq.${id}`),
+        "task_type.eq.crm",
+      ].join(",");
 
       const { data: crmTasks, error } = await supabase
         .from("tasks")
         .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, task_tags(tag_id)")
-        .or(`group_id.eq.${crmGroupId},task_type.eq.crm`)
+        .or(orFilters)
         .eq("is_completed", false)
         .order("created_at", { ascending: false });
 
@@ -189,24 +193,28 @@ export default function CrmBoard() {
         assignee: (profiles || []).find((p) => p.id === t.assigned_to) || null,
       })) as CrmTask[];
     },
-    enabled: !!user && !!crmGroupId,
+    enabled: !!user && crmGroupIds.length > 0,
   });
 
   const { data: doneTasks = [] } = useQuery({
-    queryKey: ["crm-tasks-done", user?.id, crmGroupId],
+    queryKey: ["crm-tasks-done", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || !crmGroupId) return [];
+      if (!user || crmGroupIds.length === 0) return [];
+      const orFilters = [
+        ...crmGroupIds.map((id) => `group_id.eq.${id}`),
+        "task_type.eq.crm",
+      ].join(",");
       const { data, error } = await supabase
         .from("tasks")
         .select("id")
-        .or(`group_id.eq.${crmGroupId},task_type.eq.crm`)
+        .or(orFilters)
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && !!crmGroupId,
+    enabled: !!user && crmGroupIds.length > 0,
   });
 
   const { data: allTags = [] } = useQuery({
@@ -301,8 +309,11 @@ export default function CrmBoard() {
     if (filterGroupIds.length > 0) {
       result = result.filter((t) => t.group_id && filterGroupIds.includes(t.group_id));
     }
+    if (filterAssigneeIds.length > 0) {
+      result = result.filter((t) => t.assigned_to && filterAssigneeIds.includes(t.assigned_to));
+    }
     return result;
-  }, [tasks, searchQuery, filterTagIds, filterGroupIds]);
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
   const columns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
@@ -352,11 +363,23 @@ export default function CrmBoard() {
     return [...ids].map((id) => groupById.get(id)).filter(Boolean) as CrmGroup[];
   }, [tasks, groupById]);
 
-  // Unique tags used by CRM tasks
+  // Unique tags used by CRM tasks (exclude CRM group linked tags)
   const usedTags = useMemo(() => {
     const ids = new Set(tasks.flatMap((t) => (t.task_tags || []).map((tt) => tt.tag_id)));
-    return [...ids].map((id) => tagById.get(id)).filter(Boolean) as CrmTag[];
-  }, [tasks, tagById]);
+    return [...ids]
+      .map((id) => tagById.get(id))
+      .filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))
+    ;
+  }, [tasks, tagById, crmLinkedTagIds, crmGroupNames]);
+
+  // Unique assignees used by CRM tasks
+  const usedAssignees = useMemo(() => {
+    const map = new Map<string, { id: string; display_name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.assignee && t.assigned_to) map.set(t.assigned_to, { id: t.assigned_to, ...t.assignee });
+    }
+    return [...map.values()];
+  }, [tasks]);
 
   if (isLoading) {
     return (
@@ -369,12 +392,14 @@ export default function CrmBoard() {
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
-  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0;
+  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0;
 
   const toggleFilterTag = (tagId: string) =>
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
   const toggleFilterGroup = (groupId: string) =>
     setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
+  const toggleFilterAssignee = (userId: string) =>
+    setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
   return (
     <DndContext
@@ -471,9 +496,43 @@ export default function CrmBoard() {
               </PopoverContent>
             </Popover>
 
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  filterAssigneeIds.length > 0
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <User className="h-3 w-3" />
+                  Ответственный
+                  {filterAssigneeIds.length > 0 && <span className="font-bold">{filterAssigneeIds.length}</span>}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" side="bottom">
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {usedAssignees.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">Нет ответственных</p>}
+                  {usedAssignees.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => toggleFilterAssignee(a.id)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        filterAssigneeIds.includes(a.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{a.display_name || a.email || "?"}</span>
+                      {filterAssigneeIds.includes(a.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             {hasFilters && (
               <button
-                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); }}
+                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Сбросить
@@ -516,9 +575,8 @@ export default function CrmBoard() {
                 isMoving={moveMutation.isPending}
                 tagById={tagById}
                 groupById={groupById}
-                crmGroupId={crmGroupId || ""}
-                crmLinkedTagId={crmLinkedTagId}
-                crmGroupNameNormalized={crmGroupNameNormalized}
+                crmLinkedTagIds={crmLinkedTagIds}
+                crmGroupNames={crmGroupNames}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -533,8 +591,8 @@ export default function CrmBoard() {
           <div className="w-72 md:w-80 opacity-90">
             <CrmCard
               task={activeTask}
-              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null) && t.id !== crmLinkedTagId && t.name.trim().toLowerCase() !== crmGroupNameNormalized)}
-              group={activeTask.group_id && activeTask.group_id !== crmGroupId ? groupById.get(activeTask.group_id) || null : null}
+              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
+              group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
               isDragging
               onToggleComplete={() => {}}
               onToggleImportant={() => {}}
@@ -563,9 +621,8 @@ function DroppableColumn({
   isMoving,
   tagById,
   groupById,
-  crmGroupId,
-  crmLinkedTagId,
-  crmGroupNameNormalized,
+  crmLinkedTagIds,
+  crmGroupNames,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -576,9 +633,8 @@ function DroppableColumn({
   isMoving: boolean;
   tagById: Map<string, CrmTag>;
   groupById: Map<string, CrmGroup>;
-  crmGroupId: string;
-  crmLinkedTagId: string | null;
-  crmGroupNameNormalized: string;
+  crmLinkedTagIds: Set<string>;
+  crmGroupNames: Set<string>;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
@@ -605,8 +661,8 @@ function DroppableColumn({
               key={task.id}
               task={task}
               isMoving={isMoving}
-              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null) && t.id !== crmLinkedTagId && t.name.trim().toLowerCase() !== crmGroupNameNormalized)}
-              group={task.group_id && task.group_id !== crmGroupId ? groupById.get(task.group_id) || null : null}
+              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
+              group={task.group_id ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
               onCardClick={() => onCardClick(task.id)}
