@@ -764,8 +764,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const color = row.project.color || "#3b82f6";
                       return (
                         <div
-                          className="absolute top-3.5 rounded-sm h-3 opacity-50"
+                          className="absolute top-3.5 rounded-sm h-3 opacity-50 group/proj"
                           style={{ left, width, backgroundColor: color }}
+                          onMouseUp={() => handleBarMouseUp(row.project.id, "project")}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
                             <div
@@ -776,6 +777,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                           {/* Bookend markers */}
                           <div className="absolute -left-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
                           <div className="absolute -right-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
+                          {/* Project dependency connector */}
+                          <div
+                            className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/proj:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setDepDrag({
+                                fromId: row.project.id,
+                                fromEntityType: "project",
+                                startX: left + width,
+                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                currentX: e.clientX,
+                                currentY: e.clientY,
+                              });
+                            }}
+                          />
                         </div>
                       );
                     })()}
