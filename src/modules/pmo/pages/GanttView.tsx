@@ -885,7 +885,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                   const scrollLeft = scrollRef.current?.scrollLeft || 0;
                                   const scrollTop = scrollRef.current?.scrollTop || 0;
                                   setDepDrag({
-                                    fromTaskId: task.id,
+                                    fromId: task.id,
+                                    fromEntityType: "task",
                                     startX: left + width,
                                     startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
                                     currentX: e.clientX,
