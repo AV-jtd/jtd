@@ -131,34 +131,37 @@ export default function CrmBoard() {
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
   );
 
-  const { data: crmGroup } = useQuery({
-    queryKey: ["crm-group", user?.id],
+  const { data: crmGroups = [] } = useQuery({
+    queryKey: ["crm-groups-list", user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user) return [];
       const { data } = await supabase
         .from("task_groups")
         .select("id, name, linked_tag_id")
-        .ilike("name", "%новые клиенты%")
-        .limit(1)
-        .single();
-      return data;
+        .or("project_type.eq.crm,name.ilike.%новые клиенты%");
+      return data || [];
     },
     enabled: !!user,
   });
 
-  const crmGroupId = crmGroup?.id;
-  const crmLinkedTagId = crmGroup?.linked_tag_id ?? null;
-  const crmGroupNameNormalized = (crmGroup?.name || "").trim().toLowerCase();
+  const crmGroupIds = useMemo(() => crmGroups.map((g) => g.id), [crmGroups]);
+  const crmLinkedTagIds = useMemo(() => new Set(crmGroups.map((g) => g.linked_tag_id).filter(Boolean) as string[]), [crmGroups]);
+  const crmGroupNames = useMemo(() => new Set(crmGroups.map((g) => g.name.trim().toLowerCase())), [crmGroups]);
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["crm-tasks", user?.id, crmGroupId],
+    queryKey: ["crm-tasks", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || !crmGroupId) return [];
+      if (!user || crmGroupIds.length === 0) return [];
+
+      const orFilters = [
+        ...crmGroupIds.map((id) => `group_id.eq.${id}`),
+        "task_type.eq.crm",
+      ].join(",");
 
       const { data: crmTasks, error } = await supabase
         .from("tasks")
         .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, task_tags(tag_id)")
-        .or(`group_id.eq.${crmGroupId},task_type.eq.crm`)
+        .or(orFilters)
         .eq("is_completed", false)
         .order("created_at", { ascending: false });
 
@@ -189,7 +192,7 @@ export default function CrmBoard() {
         assignee: (profiles || []).find((p) => p.id === t.assigned_to) || null,
       })) as CrmTask[];
     },
-    enabled: !!user && !!crmGroupId,
+    enabled: !!user && crmGroupIds.length > 0,
   });
 
   const { data: doneTasks = [] } = useQuery({
