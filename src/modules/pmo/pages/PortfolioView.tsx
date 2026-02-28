@@ -5,7 +5,11 @@ import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, G
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
-export default function PortfolioView() {
+interface PortfolioViewProps {
+  onOpenGantt?: (projectId: string) => void;
+}
+
+export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
 
