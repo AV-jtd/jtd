@@ -789,6 +789,19 @@ function CrmCard({
         <div className="mt-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-muted-foreground">{completedSteps}/{totalSteps} шагов</span>
+            {(() => {
+              const nextDeadline = task.subtasks
+                .filter((s) => !s.is_completed && s.deadline)
+                .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
+              if (!nextDeadline) return null;
+              const isOverdue = new Date(nextDeadline.deadline!) < new Date();
+              return (
+                <span className={cn("text-[10px] flex items-center gap-0.5", isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                  <Calendar className="h-2.5 w-2.5" />
+                  {format(parseISO(nextDeadline.deadline!), "d MMM", { locale: ru })}
+                </span>
+              );
+            })()}
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
