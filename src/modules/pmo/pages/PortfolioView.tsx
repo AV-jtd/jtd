@@ -1,9 +1,13 @@
-import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTags, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Folder, ChevronRight, CheckCircle2, Clock, AlertTriangle, TrendingUp, GanttChart } from "lucide-react";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 
 interface PortfolioViewProps {
   onOpenGantt?: (projectId: string) => void;
