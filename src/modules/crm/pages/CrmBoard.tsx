@@ -83,7 +83,7 @@ type CrmTask = {
 };
 
 type CrmTag = { id: string; name: string; color: string | null };
-type CrmGroup = { id: string; name: string; icon: string | null; color: string | null };
+type CrmGroup = { id: string; name: string; icon: string | null; color: string | null; linked_tag_id: string | null };
 
 function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   if (!subtasks || subtasks.length === 0) return "kp";
@@ -222,7 +222,7 @@ export default function CrmBoard() {
     queryKey: ["crm-groups", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from("task_groups").select("id, name, icon, color");
+      const { data, error } = await supabase.from("task_groups").select("id, name, icon, color, linked_tag_id");
       if (error) throw error;
       return (data || []) as CrmGroup[];
     },
@@ -528,7 +528,7 @@ export default function CrmBoard() {
           <div className="w-72 md:w-80 opacity-90">
             <CrmCard
               task={activeTask}
-              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter(Boolean) as CrmTag[]}
+              tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (activeTask.group_id ? groupById.get(activeTask.group_id)?.linked_tag_id : null))}
               group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
               isDragging
               onToggleComplete={() => {}}
@@ -594,7 +594,7 @@ function DroppableColumn({
               key={task.id}
               task={task}
               isMoving={isMoving}
-              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter(Boolean) as CrmTag[]}
+              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && t.id !== (task.group_id ? groupById.get(task.group_id)?.linked_tag_id : null))}
               group={task.group_id ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
               onToggleImportant={() => onToggleImportant(task)}
