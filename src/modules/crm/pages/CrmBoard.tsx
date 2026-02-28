@@ -404,6 +404,67 @@ export default function CrmBoard() {
   const toggleFilterAssignee = (userId: string) =>
     setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
+  // CRM projects for the "create task" picker
+  const crmProjectOptions = useMemo(() => {
+    return allProjectGroups.filter(
+      (g) => (g as any).project_type === "crm" || g.name.trim().toLowerCase().includes("новые клиенты")
+    );
+  }, [allProjectGroups]);
+
+  const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
+    if (!title.trim()) return;
+    try {
+      const stageIdx = STAGE_ORDER.indexOf(stageKey);
+      const result = await addTask.mutateAsync({
+        title: title.trim(),
+        group_id: groupId,
+        task_type: "crm",
+        client_name: title.trim(),
+      });
+      // If placed beyond first stage, mark earlier subtasks as done
+      if (stageIdx > 0 && result?.id) {
+        const { data: subs } = await supabase
+          .from("subtasks")
+          .select("id, title, position")
+          .eq("task_id", result.id)
+          .order("position");
+        if (subs) {
+          const mapped = subs.filter((s) => SUBTASK_STAGE_MAP[s.title]);
+          const toComplete = mapped.filter((s) => {
+            const si = STAGE_ORDER.indexOf(SUBTASK_STAGE_MAP[s.title]);
+            return si >= 0 && si < stageIdx;
+          });
+          await Promise.all(
+            toComplete.map((s) => supabase.from("subtasks").update({ is_completed: true }).eq("id", s.id))
+          );
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      toast.success("Клиент добавлен");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleCreateCrmProject = async (name: string) => {
+    if (!name.trim()) return;
+    try {
+      await supabase.from("task_groups").insert({
+        name: name.trim(),
+        user_id: user!.id,
+        project_type: "crm",
+        icon: "🤝",
+        color: "#ef4444",
+      });
+      queryClient.invalidateQueries({ queryKey: ["task_groups"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
+      toast.success("CRM-проект создан");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <DndContext
       sensors={sensors}
