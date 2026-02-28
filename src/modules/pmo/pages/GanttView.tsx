@@ -162,8 +162,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
         // Cascading: push forward dependent tasks
         if (daysDelta > 0 && allDependencies.length > 0) {
-          const entityMap = new Map<string, { id: string; deadline?: string | null; created_at: string }>();
-          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, created_at: t.created_at }));
+          const entityMap = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
+          allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
           // Include milestones and projects for cross-entity cascading
           allMilestones.forEach(m => entityMap.set(m.id, { id: m.id, deadline: m.planned_date, created_at: m.created_at }));
           groups.forEach(g => {
