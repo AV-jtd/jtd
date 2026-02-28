@@ -23,6 +23,12 @@ export default function PmoLayout() {
   const initialProject = searchParams.get("project");
   const initialView = initialProject ? "gantt" : "portfolio";
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
+  const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
+
+  const handleOpenGantt = (projectId: string) => {
+    setFocusProjectId(projectId);
+    setActiveView("gantt");
+  };
 
   if (loading) {
     return (
