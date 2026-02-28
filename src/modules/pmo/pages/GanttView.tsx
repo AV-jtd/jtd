@@ -793,6 +793,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                 onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
                                 onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
                                 onDelete={(id) => deleteTask.mutate(id)}
+                                onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
                                 <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
                               </GanttTaskPopover>
