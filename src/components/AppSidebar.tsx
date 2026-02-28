@@ -568,16 +568,18 @@ export default function AppSidebar({
       onDragStart={(e) => { e.dataTransfer.setData("tag-id", t.id); setDraggingTagId(t.id); }}
       onDragEnd={() => { setDraggingTagId(null); setDragOverCategoryId(null); }}
     >
-      <button
-        onClick={() => onToggleTag(t.id)}
-        className={cn(
-          "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition-colors",
-          activeTagFilters.includes(t.id)
-            ? "bg-sidebar-active text-sidebar-fg"
-            : "text-sidebar-fg/80 hover:bg-sidebar-hover"
-        )}
-      >
-        <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
+      <div className="flex items-center">
+        <GripVertical className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40 cursor-grab text-sidebar-fg/50 mr-0.5" />
+        <button
+          onClick={() => onToggleTag(t.id)}
+          className={cn(
+            "flex items-center gap-3 flex-1 px-2 py-2 rounded-lg text-sm transition-colors",
+            activeTagFilters.includes(t.id)
+              ? "bg-sidebar-active text-sidebar-fg"
+              : "text-sidebar-fg/80 hover:bg-sidebar-hover"
+          )}
+        >
+          <Tag className="h-3.5 w-3.5" style={{ color: t.color || undefined }} />
         {editingTagId === t.id ? (
           <input
             autoFocus
