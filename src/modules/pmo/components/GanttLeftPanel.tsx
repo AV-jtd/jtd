@@ -29,11 +29,13 @@ interface GanttLeftPanelProps {
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
+  hoveredRow: number | null;
+  onHoverRow: (index: number | null) => void;
 }
 
 export default function GanttLeftPanel({
   rows, rowHeight, width, onMilestoneClick, onAddTask, onUpdateTask, onToggleTask,
-  collapsedProjects, onToggleCollapse, filterAssignee,
+  collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
 }: GanttLeftPanelProps) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -79,10 +81,13 @@ export default function GanttLeftPanel({
             className={cn(
               "flex items-center border-b border-border/50 text-xs cursor-default group",
               row.type === "project" || row.type === "summary" ? "font-semibold text-foreground bg-muted/30" :
-              row.type === "milestone" ? "text-primary font-medium italic" : "text-muted-foreground hover:bg-muted/20",
-              dimmed && "opacity-30"
+              row.type === "milestone" ? "text-primary font-medium italic" : "text-muted-foreground",
+              dimmed && "opacity-30",
+              hoveredRow === i && "bg-muted/40"
             )}
             style={{ height: rowHeight }}
+            onMouseEnter={() => onHoverRow(i)}
+            onMouseLeave={() => onHoverRow(null)}
           >
             {/* Name column */}
             <div

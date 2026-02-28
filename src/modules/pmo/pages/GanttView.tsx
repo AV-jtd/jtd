@@ -10,7 +10,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed } from "lucide-react";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
@@ -21,7 +21,7 @@ type Scale = "day" | "week" | "month";
 
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 36;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 600;
 
@@ -44,6 +44,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [leftPanelWidth, setLeftPanelWidth] = useState(380);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
@@ -492,10 +494,22 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
 
         <button onClick={zoomOut} disabled={scale === "month"}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Уменьшить масштаб"><Minus className="h-3.5 w-3.5" /></button>
+          aria-label="Уменьшить масштаб"><Minus className="h-3.5 w-3.5" /></button>
         <button onClick={zoomIn} disabled={scale === "day"}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Увеличить масштаб"><Plus className="h-3.5 w-3.5" /></button>
+          aria-label="Увеличить масштаб"><Plus className="h-3.5 w-3.5" /></button>
+
+        <button
+          onClick={() => {
+            if (scrollRef.current) {
+              scrollRef.current.scrollTo({ left: Math.max(todayOffset - 300, 0), behavior: "smooth" });
+            }
+          }}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="К сегодняшнему дню"
+        >
+          <LocateFixed className="h-3.5 w-3.5" />
+        </button>
 
         <div className="h-4 w-px bg-border" />
 
@@ -599,6 +613,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
           filterAssignee={filterAssignee}
+          hoveredRow={hoveredRow}
+          onHoverRow={setHoveredRow}
         />
 
         {/* Draggable splitter */}
@@ -672,8 +688,14 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                 return (
                   <div
                     key={i}
-                    className={cn("relative border-b border-border/30", row.type === "project" && "bg-muted/10")}
+                    className={cn(
+                      "relative border-b border-border/30",
+                      row.type === "project" && "bg-muted/10",
+                      hoveredRow === i && "bg-muted/30"
+                    )}
                     style={{ height: ROW_HEIGHT }}
+                    onMouseEnter={() => setHoveredRow(i)}
+                    onMouseLeave={() => setHoveredRow(null)}
                   >
                     {/* Summary bar for project */}
                     {row.type === "project" && row.summaryStart && row.summaryEnd && (() => {
@@ -681,7 +703,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       const color = row.project.color || "#3b82f6";
                       return (
                         <div
-                          className="absolute top-3 rounded-sm h-2 opacity-40"
+                          className="absolute top-3.5 rounded-sm h-3 opacity-50"
                           style={{ left, width, backgroundColor: color }}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
@@ -726,10 +748,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                             />
                           )}
 
-                          <GanttTooltip task={task} project={row.project} progress={progress}>
+                          <GanttTooltip task={task} project={row.project} progress={progress} disabled={popoverOpenTaskId === task.id}>
                             <div
                               className={cn(
-                                "absolute top-1.5 rounded-sm h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar",
+                                "absolute top-1.5 rounded-[4px] h-6 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-sm",
                                 isOverdue && "opacity-80",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
@@ -771,6 +793,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                 onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
                                 onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
                                 onDelete={(id) => deleteTask.mutate(id)}
+                                onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
                                 <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
                               </GanttTaskPopover>
