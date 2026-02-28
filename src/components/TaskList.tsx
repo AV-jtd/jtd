@@ -211,13 +211,19 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const handleAddTask = () => {
     if (newTitle.trim()) {
+      const isCrm = newTaskType === 'crm';
+      if (isCrm && !newClientName.trim()) return;
       addTask.mutate({
         title: newTitle.trim(),
         group_id: activeView === "group" ? activeGroupId : null,
         deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : null,
+        task_type: newTaskType,
+        client_name: isCrm ? newClientName.trim() : undefined,
       });
       setNewTitle("");
       setNewDeadline(undefined);
+      setNewTaskType("standard");
+      setNewClientName("");
     }
   };
 
