@@ -1046,6 +1046,8 @@ function InboxColumn({
   cardVariant = "funnel",
   isOver,
   usedAssignees = [],
+  crmProjectOptions = [],
+  allProjectGroups = [],
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -1059,27 +1061,105 @@ function InboxColumn({
   cardVariant?: "funnel" | "sales";
   isOver?: boolean;
   usedAssignees?: { id: string; display_name: string | null; email: string | null }[];
+  crmProjectOptions?: { id: string; name: string }[];
+  allProjectGroups?: { id: string; name: string }[];
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
-  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null) => void;
+  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null) => void;
 }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newAssignee, setNewAssignee] = useState<string | null>(null);
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
+  const [newClientTagId, setNewClientTagId] = useState<string | null>(null);
+  const [newGroupId, setNewGroupId] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState("");
+  const [projectSearch, setProjectSearch] = useState("");
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data: clientTags = [] } = useQuery({
+    queryKey: ["crm-client-tags", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data: cats } = await supabase
+        .from("tag_categories")
+        .select("id")
+        .eq("name", "Клиенты")
+        .eq("user_id", user.id);
+      if (!cats || cats.length === 0) return [];
+      const { data: tags } = await supabase
+        .from("tags")
+        .select("id, name, color")
+        .in("category_id", cats.map((c) => c.id))
+        .order("name");
+      return (tags || []) as CrmTag[];
+    },
+    enabled: !!user && adding,
+  });
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch.trim()) return clientTags;
+    const q = clientSearch.toLowerCase();
+    return clientTags.filter((t) => t.name.toLowerCase().includes(q));
+  }, [clientTags, clientSearch]);
+
+  const visibleProjects = useMemo(() => {
+    const list = showAllProjects ? allProjectGroups : crmProjectOptions;
+    if (!projectSearch.trim()) return list;
+    const q = projectSearch.toLowerCase();
+    return list.filter((g) => g.name.toLowerCase().includes(q));
+  }, [showAllProjects, allProjectGroups, crmProjectOptions, projectSearch]);
+
+  const resetForm = () => {
+    setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined);
+    setNewClientTagId(null); setNewGroupId(null);
+    setClientSearch(""); setProjectSearch(""); setShowAllProjects(false);
+    setAdding(false);
+  };
 
   const handleSubmit = () => {
     if (!newTitle.trim() || !onCreateInboxTask) return;
-    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null);
-    setNewTitle("");
-    setNewAssignee(null);
-    setNewDeadline(undefined);
-    setAdding(false);
+    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null, newClientTagId, newGroupId);
+    resetForm();
   };
+
+  const handleCreateClient = async (name: string) => {
+    if (!name.trim() || !user) return;
+    try {
+      const { data: cats } = await supabase
+        .from("tag_categories").select("id").eq("name", "Клиенты").eq("user_id", user.id).limit(1);
+      let catId: string | null = cats?.[0]?.id || null;
+      if (!catId) {
+        const { data: parentCats } = await supabase
+          .from("tag_categories").select("id").eq("name", "CRM / Продажи").eq("user_id", user.id).limit(1);
+        const { data: newCat } = await supabase
+          .from("tag_categories")
+          .insert({ name: "Клиенты", user_id: user.id, color: "#ef4444", parent_id: parentCats?.[0]?.id || null, position: 0 })
+          .select("id").single();
+        catId = newCat?.id || null;
+      }
+      const { data: newTag, error } = await supabase
+        .from("tags").insert({ name: name.trim(), user_id: user.id, color: "#ef4444", category_id: catId })
+        .select("id").single();
+      if (error) throw error;
+      setNewClientTagId(newTag.id);
+      setClientSearch("");
+      queryClient.invalidateQueries({ queryKey: ["crm-client-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
+      toast.success(`Клиент «${name.trim()}» создан`);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const selectedClientName = newClientTagId ? (clientTags.find((t) => t.id === newClientTagId)?.name || "Выбран") : null;
+  const selectedGroupName = newGroupId
+    ? (crmProjectOptions.find((g) => g.id === newGroupId)?.name || allProjectGroups.find((g) => g.id === newGroupId)?.name || "Выбран")
+    : null;
 
   return (
     <div
