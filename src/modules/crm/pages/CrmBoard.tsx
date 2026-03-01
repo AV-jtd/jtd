@@ -529,12 +529,33 @@ export default function CrmBoard() {
         {/* Filter bar */}
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+              <button
+                onClick={() => setBoardView("funnel")}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-md transition-colors",
+                  boardView === "funnel" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Воронка
+              </button>
+              <button
+                onClick={() => setBoardView("sales")}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-md transition-colors",
+                  boardView === "sales" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Задачи продаж
+              </button>
+            </div>
+
             <div className="relative flex-1 min-w-[160px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск клиента..."
+                placeholder={boardView === "funnel" ? "Поиск клиента..." : "Поиск задачи/клиента..."}
                 className="h-8 pl-8 pr-8 text-xs"
               />
               {searchQuery && (
@@ -670,11 +691,11 @@ export default function CrmBoard() {
               <span className="text-sm font-bold text-foreground">{totalDone}</span>
             </div>
             <div className="h-4 w-px bg-border" />
-            {CRM_STAGES.map((stage) => (
+            {visibleStages.map((stage) => (
               <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", stage.bgLight)}>
                 <div className={cn("h-2 w-2 rounded-full", stage.color)} />
                 <span className={cn("text-xs font-medium", stage.textColor)}>{stage.title}</span>
-                <span className="text-sm font-bold text-foreground">{columns[stage.key]?.length || 0}</span>
+                <span className="text-sm font-bold text-foreground">{visibleColumns[stage.key]?.length || 0}</span>
               </div>
             ))}
           </div>
@@ -682,11 +703,11 @@ export default function CrmBoard() {
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
-            {CRM_STAGES.map((stage) => (
+            {visibleStages.map((stage) => (
               <DroppableColumn
                 key={stage.key}
                 stage={stage}
-                tasks={columns[stage.key] || []}
+                tasks={visibleColumns[stage.key] || []}
                 isOver={overColumn === stage.key}
                 isMoving={moveMutation.isPending}
                 tagById={tagById}
@@ -694,6 +715,9 @@ export default function CrmBoard() {
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
                 crmProjectOptions={crmProjectOptions}
+                allowCreate={boardView === "funnel"}
+                createLabel={boardView === "funnel" ? "Добавить клиента" : "Добавить задачу"}
+                createPlaceholder={boardView === "funnel" ? "Имя клиента..." : "Название задачи..."}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -701,6 +725,12 @@ export default function CrmBoard() {
                 onCreateProject={handleCreateCrmProject}
               />
             ))}
+            <DoneColumn
+              title={boardView === "funnel" ? "Завершено" : "Готово"}
+              tasks={doneTasks}
+              groupById={groupById}
+              onCardClick={(taskId) => setSelectedTaskId(taskId)}
+            />
           </div>
         </div>
         </>)}
