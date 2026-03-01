@@ -1204,10 +1204,135 @@ function InboxColumn({
                   className="h-7 text-xs"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && newTitle.trim()) handleSubmit();
-                    if (e.key === "Escape") { setAdding(false); setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined); }
+                    if (e.key === "Escape") resetForm();
                   }}
                 />
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Client picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors max-w-[130px]",
+                        newClientTagId ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <Briefcase className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{selectedClientName || "Клиент"}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-2" side="bottom" align="start">
+                      <Input
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        placeholder="Поиск или создать..."
+                        className="h-7 text-xs mb-2"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && clientSearch.trim() && filteredClients.length === 0) {
+                            handleCreateClient(clientSearch);
+                          }
+                        }}
+                      />
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {newClientTagId && (
+                          <button onClick={() => setNewClientTagId(null)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted">
+                            <X className="h-3 w-3" /> Убрать
+                          </button>
+                        )}
+                        {filteredClients.map((tag) => (
+                          <button key={tag.id}
+                            onClick={() => { setNewClientTagId(tag.id); setClientSearch(""); }}
+                            className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                              newClientTagId === tag.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                            )}>
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color || "#ef4444" }} />
+                            <span className="truncate">{tag.name}</span>
+                            {newClientTagId === tag.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        ))}
+                        {filteredClients.length === 0 && clientSearch.trim() && (
+                          <button onClick={() => handleCreateClient(clientSearch)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10">
+                            <Plus className="h-3 w-3" />
+                            <span>Создать «{clientSearch.trim()}»</span>
+                          </button>
+                        )}
+                        {clientTags.length === 0 && !clientSearch.trim() && (
+                          <p className="text-xs text-muted-foreground px-2 py-1">Нет клиентов. Введите имя для создания.</p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Project picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors max-w-[130px]",
+                        newGroupId ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <FolderOpen className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{selectedGroupName || "Проект"}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-2" side="bottom" align="start">
+                      <Input
+                        value={projectSearch}
+                        onChange={(e) => setProjectSearch(e.target.value)}
+                        placeholder="Поиск проекта..."
+                        className="h-7 text-xs mb-2"
+                      />
+                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {newGroupId && (
+                          <button onClick={() => setNewGroupId(null)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted">
+                            <X className="h-3 w-3" /> Убрать
+                          </button>
+                        )}
+                        {!showAllProjects && (<>
+                          {visibleProjects.map((g) => (
+                            <button key={g.id}
+                              onClick={() => { setNewGroupId(g.id); setProjectSearch(""); }}
+                              className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                                newGroupId === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                              )}>
+                              <FolderOpen className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{g.name}</span>
+                              {newGroupId === g.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {visibleProjects.length === 0 && !projectSearch.trim() && (
+                            <p className="text-xs text-muted-foreground px-2 py-1">Нет CRM-проектов</p>
+                          )}
+                          <button onClick={() => setShowAllProjects(true)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10 mt-1 border-t border-border pt-2">
+                            <Search className="h-3 w-3" />
+                            <span>Все проекты</span>
+                          </button>
+                        </>)}
+                        {showAllProjects && (<>
+                          {visibleProjects.map((g) => (
+                            <button key={g.id}
+                              onClick={() => { setNewGroupId(g.id); setProjectSearch(""); }}
+                              className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                                newGroupId === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                              )}>
+                              <FolderOpen className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{g.name}</span>
+                              {newGroupId === g.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                            </button>
+                          ))}
+                          {visibleProjects.length === 0 && (
+                            <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+                          )}
+                          <button onClick={() => { setShowAllProjects(false); setProjectSearch(""); }}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground mt-1 border-t border-border pt-2">
+                            ← CRM-проекты
+                          </button>
+                        </>)}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
                   {/* Assignee picker */}
                   <Popover>
                     <PopoverTrigger asChild>
@@ -1218,28 +1343,22 @@ function InboxColumn({
                         <User className="h-3 w-3" />
                         {newAssignee
                           ? (usedAssignees.find((a) => a.id === newAssignee)?.display_name || "Назначен")
-                          : "Ответственный"}
+                          : "Ответств."}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-48 p-2" side="bottom" align="start">
                       <div className="max-h-40 overflow-y-auto space-y-0.5">
                         {newAssignee && (
-                          <button
-                            onClick={() => setNewAssignee(null)}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted"
-                          >
+                          <button onClick={() => setNewAssignee(null)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted">
                             <X className="h-3 w-3" /> Убрать
                           </button>
                         )}
                         {usedAssignees.map((a) => (
-                          <button
-                            key={a.id}
-                            onClick={() => setNewAssignee(a.id)}
-                            className={cn(
-                              "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          <button key={a.id} onClick={() => setNewAssignee(a.id)}
+                            className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
                               newAssignee === a.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                            )}
-                          >
+                            )}>
                             <User className="h-3 w-3 shrink-0 text-muted-foreground" />
                             <span className="truncate">{a.display_name || a.email || "?"}</span>
                             {newAssignee === a.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
@@ -1260,9 +1379,7 @@ function InboxColumn({
                         newDeadline ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
                       )}>
                         <Calendar className="h-3 w-3" />
-                        {newDeadline
-                          ? format(newDeadline, "d MMM", { locale: ru })
-                          : "Срок"}
+                        {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" side="bottom" align="start">
@@ -1277,45 +1394,32 @@ function InboxColumn({
                             const d = new Date();
                             d.setDate(d.getDate() + preset.days);
                             return (
-                              <button
-                                key={preset.days}
-                                onClick={() => setNewDeadline(d)}
-                                className="text-[10px] px-2 py-1 rounded bg-muted hover:bg-muted/80 text-foreground"
-                              >
+                              <button key={preset.days} onClick={() => setNewDeadline(d)}
+                                className="text-[10px] px-2 py-1 rounded bg-muted hover:bg-muted/80 text-foreground">
                                 {preset.label}
                               </button>
                             );
                           })}
                           {newDeadline && (
-                            <button
-                              onClick={() => setNewDeadline(undefined)}
-                              className="text-[10px] px-2 py-1 rounded text-muted-foreground hover:text-foreground"
-                            >
+                            <button onClick={() => setNewDeadline(undefined)}
+                              className="text-[10px] px-2 py-1 rounded text-muted-foreground hover:text-foreground">
                               <X className="h-3 w-3" />
                             </button>
                           )}
                         </div>
-                        <CalendarComponent
-                          mode="single"
-                          selected={newDeadline}
-                          onSelect={setNewDeadline}
-                          className="p-0 pointer-events-auto"
-                        />
+                        <CalendarComponent mode="single" selected={newDeadline} onSelect={setNewDeadline}
+                          className="p-0 pointer-events-auto" />
                       </div>
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div className="flex gap-1.5">
-                  <button
-                    onClick={handleSubmit}
-                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                  >
+                  <button onClick={handleSubmit}
+                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90">
                     Добавить
                   </button>
-                  <button
-                    onClick={() => { setAdding(false); setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined); }}
-                    className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground"
-                  >
+                  <button onClick={resetForm}
+                    className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground">
                     Отмена
                   </button>
                 </div>
