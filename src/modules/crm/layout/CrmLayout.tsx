@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2, ChevronLeft } from "lucide-react";
 import CrmBoard from "@/modules/crm/pages/CrmBoard";
+import { cn } from "@/lib/utils";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
 
   if (loading) {
     return (
@@ -28,12 +31,38 @@ export default function CrmLayout() {
           <span className="text-xs font-medium hidden sm:inline">Задачи</span>
         </button>
         <div className="h-5 w-px bg-border" />
-        <span className="text-sm font-bold tracking-tight text-foreground">
+        <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">
           CRM
         </span>
+        <div className="h-5 w-px bg-border ml-1" />
+        <div className="flex items-center text-sm font-semibold tracking-tight">
+          <button
+            onClick={() => setBoardView("funnel")}
+            className={cn(
+              "px-2 py-0.5 transition-colors duration-200",
+              boardView === "funnel"
+                ? "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Воронка
+          </button>
+          <span className="text-muted-foreground/40">|</span>
+          <button
+            onClick={() => setBoardView("sales")}
+            className={cn(
+              "px-2 py-0.5 transition-colors duration-200",
+              boardView === "sales"
+                ? "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Задачи
+          </button>
+        </div>
       </header>
       <main className="flex-1 overflow-hidden">
-        <CrmBoard />
+        <CrmBoard boardView={boardView} />
       </main>
     </div>
   );

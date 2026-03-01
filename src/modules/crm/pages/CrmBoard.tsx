@@ -137,7 +137,7 @@ function getSalesStatus(task: CrmTask): "todo" | "in_progress" | "waiting" {
   return "todo";
 }
 
-export default function CrmBoard() {
+export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
@@ -146,7 +146,6 @@ export default function CrmBoard() {
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
@@ -581,33 +580,6 @@ export default function CrmBoard() {
         {/* Filter bar */}
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative inline-flex items-center rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-1 shadow-inner">
-              <div
-                className="absolute top-1 bottom-1 rounded-lg bg-primary/90 shadow-md backdrop-blur-sm transition-all duration-300 ease-out"
-                style={{
-                  left: boardView === "funnel" ? "4px" : "50%",
-                  width: "calc(50% - 4px)",
-                }}
-              />
-              <button
-                onClick={() => setBoardView("funnel")}
-                className={cn(
-                  "relative z-10 text-xs font-medium px-4 py-1.5 rounded-lg transition-colors duration-200",
-                  boardView === "funnel" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Воронка
-              </button>
-              <button
-                onClick={() => setBoardView("sales")}
-                className={cn(
-                  "relative z-10 text-xs font-medium px-4 py-1.5 rounded-lg transition-colors duration-200",
-                  boardView === "sales" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Задачи продаж
-              </button>
-            </div>
 
             <div className="relative flex-1 min-w-[160px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
