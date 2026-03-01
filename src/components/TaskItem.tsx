@@ -660,7 +660,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                 </span>
               ))}
               {availableTags.length > 0 && (
-                <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
+                <Popover modal={false} onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
                   <PopoverTrigger asChild>
                     <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                       <Plus className="h-2.5 w-2.5" /> Тэг
