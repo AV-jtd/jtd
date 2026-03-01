@@ -715,6 +715,7 @@ export default function CrmBoard() {
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
                 crmProjectOptions={crmProjectOptions}
+                cardVariant={boardView === "sales" ? "sales" : "funnel"}
                 allowCreate={boardView === "funnel"}
                 createLabel={boardView === "funnel" ? "Добавить клиента" : "Добавить задачу"}
                 createPlaceholder={boardView === "funnel" ? "Имя клиента..." : "Название задачи..."}
