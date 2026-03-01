@@ -422,22 +422,25 @@ export default function CrmBoard() {
     }
   };
 
-  const handleCreateCrmProject = async (name: string) => {
-    if (!name.trim()) return;
+  const handleCreateCrmProject = async (name: string): Promise<string | null> => {
+    if (!name.trim()) return null;
     try {
-      await supabase.from("task_groups").insert({
+      const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
         user_id: user!.id,
         project_type: "crm",
         icon: "🤝",
         color: "#ef4444",
-      });
+      }).select("id").single();
+      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
       toast.success("CRM-проект создан");
+      return data.id;
     } catch (e: any) {
       toast.error(e.message);
+      return null;
     }
   };
 
@@ -692,7 +695,7 @@ function DroppableColumn({
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
   onCreateTask: (title: string, groupId: string | null, stageKey: string) => void;
-  onCreateProject: (name: string) => void;
+  onCreateProject: (name: string) => Promise<string | null>;
 }) {
   const { setNodeRef } = useDroppable({ id: stage.key });
   const [adding, setAdding] = useState(false);
@@ -768,9 +771,10 @@ function DroppableColumn({
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Название проекта..."
                   className="h-7 text-xs"
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === "Enter" && newProjectName.trim()) {
-                      onCreateProject(newProjectName);
+                      const newId = await onCreateProject(newProjectName);
+                      if (newId) setSelectedGroupId(newId);
                       setNewProjectName("");
                       setCreatingProject(false);
                     }
