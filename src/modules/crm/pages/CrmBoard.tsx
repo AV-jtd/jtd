@@ -341,6 +341,20 @@ export default function CrmBoard() {
     },
   });
 
+  const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
+
+  const isInboxTask = (task: CrmTask) => {
+    if (!task.task_tags || task.task_tags.length === 0) return false;
+    const taskTagNames = task.task_tags
+      .map((tt) => tagById.get(tt.tag_id)?.name?.trim().toLowerCase())
+      .filter(Boolean) as string[];
+    const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
+    if (!hasInboxTag) return false;
+    const crmSubtasks = task.subtasks.filter((s) => SUBTASK_STAGE_MAP[s.title]);
+    if (crmSubtasks.length > 0 && crmSubtasks.some((s) => s.is_completed)) return false;
+    return true;
+  };
+
   const filteredTasks = useMemo(() => {
     let result = tasks;
     if (searchQuery.trim()) {
@@ -365,23 +379,26 @@ export default function CrmBoard() {
     return result;
   }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
+  const inboxTasks = useMemo(() => filteredTasks.filter((t) => isInboxTask(t)), [filteredTasks, tagById]);
+  const nonInboxTasks = useMemo(() => filteredTasks.filter((t) => !isInboxTask(t)), [filteredTasks, tagById]);
+
   const funnelColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
-    for (const task of filteredTasks) {
+    for (const task of nonInboxTasks) {
       const stage = getTaskStage(task.subtasks);
       if (stage === "done") continue;
       if (grouped[stage]) grouped[stage].push(task);
     }
     return grouped;
-  }, [filteredTasks]);
+  }, [nonInboxTasks]);
 
   const salesColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { todo: [], in_progress: [], waiting: [] };
-    for (const task of filteredTasks) {
+    for (const task of nonInboxTasks) {
       grouped[getSalesStatus(task)].push(task);
     }
     return grouped;
-  }, [filteredTasks]);
+  }, [nonInboxTasks]);
 
   const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
   const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
