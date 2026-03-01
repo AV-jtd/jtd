@@ -640,6 +640,7 @@ export default function CrmBoard() {
             ))}
           </div>
         </div>
+        </>)}
       </div>
 
       <DragOverlay dropAnimation={null}>
