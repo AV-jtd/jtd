@@ -695,7 +695,7 @@ function DroppableColumn({
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
   onCreateTask: (title: string, groupId: string | null, stageKey: string) => void;
-  onCreateProject: (name: string) => void;
+  onCreateProject: (name: string) => Promise<string | null>;
 }) {
   const { setNodeRef } = useDroppable({ id: stage.key });
   const [adding, setAdding] = useState(false);
