@@ -11,6 +11,7 @@ import {
   Phone,
   Mail,
   Calendar,
+  Inbox,
   CheckCircle2,
   GripVertical,
   Star,
@@ -341,6 +342,20 @@ export default function CrmBoard() {
     },
   });
 
+  const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
+
+  const isInboxTask = (task: CrmTask) => {
+    if (!task.task_tags || task.task_tags.length === 0) return false;
+    const taskTagNames = task.task_tags
+      .map((tt) => tagById.get(tt.tag_id)?.name?.trim().toLowerCase())
+      .filter(Boolean) as string[];
+    const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
+    if (!hasInboxTag) return false;
+    const crmSubtasks = task.subtasks.filter((s) => SUBTASK_STAGE_MAP[s.title]);
+    if (crmSubtasks.length > 0 && crmSubtasks.some((s) => s.is_completed)) return false;
+    return true;
+  };
+
   const filteredTasks = useMemo(() => {
     let result = tasks;
     if (searchQuery.trim()) {
@@ -365,23 +380,26 @@ export default function CrmBoard() {
     return result;
   }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
+  const inboxTasks = useMemo(() => filteredTasks.filter((t) => isInboxTask(t)), [filteredTasks, tagById]);
+  const nonInboxTasks = useMemo(() => filteredTasks.filter((t) => !isInboxTask(t)), [filteredTasks, tagById]);
+
   const funnelColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
-    for (const task of filteredTasks) {
+    for (const task of nonInboxTasks) {
       const stage = getTaskStage(task.subtasks);
       if (stage === "done") continue;
       if (grouped[stage]) grouped[stage].push(task);
     }
     return grouped;
-  }, [filteredTasks]);
+  }, [nonInboxTasks]);
 
   const salesColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { todo: [], in_progress: [], waiting: [] };
-    for (const task of filteredTasks) {
+    for (const task of nonInboxTasks) {
       grouped[getSalesStatus(task)].push(task);
     }
     return grouped;
-  }, [filteredTasks]);
+  }, [nonInboxTasks]);
 
   const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
   const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
@@ -703,6 +721,17 @@ export default function CrmBoard() {
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
+            <InboxColumn
+              tasks={inboxTasks}
+              tagById={tagById}
+              groupById={groupById}
+              crmLinkedTagIds={crmLinkedTagIds}
+              crmGroupNames={crmGroupNames}
+              cardVariant={boardView === "sales" ? "sales" : "funnel"}
+              onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
+              onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+              onCardClick={(taskId) => setSelectedTaskId(taskId)}
+            />
             {visibleStages.map((stage) => (
               <DroppableColumn
                 key={stage.key}
@@ -947,6 +976,70 @@ function DroppableColumn({
   );
 }
 
+function InboxColumn({
+  tasks,
+  tagById,
+  groupById,
+  crmLinkedTagIds,
+  crmGroupNames,
+  cardVariant = "funnel",
+  onToggleComplete,
+  onToggleImportant,
+  onCardClick,
+}: {
+  tasks: CrmTask[];
+  tagById: Map<string, CrmTag>;
+  groupById: Map<string, CrmGroup>;
+  crmLinkedTagIds: Set<string>;
+  crmGroupNames: Set<string>;
+  cardVariant?: "funnel" | "sales";
+  onToggleComplete: (task: CrmTask) => void;
+  onToggleImportant: (task: CrmTask) => void;
+  onCardClick: (taskId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
+        collapsed ? "w-16" : "w-72 md:w-80"
+      )}
+    >
+      <button
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
+        title={collapsed ? "Развернуть: Входящие" : "Свернуть: Входящие"}
+      >
+        <Inbox className="h-4 w-4 text-blue-500 shrink-0" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
+      </button>
+
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+          <div className="flex flex-col gap-2">
+            {tasks.length === 0 && (
+              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет входящих задач</div>
+            )}
+            {tasks.map((task) => (
+              <CrmCard
+                key={task.id}
+                task={task}
+                variant={cardVariant}
+                tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
+                group={task.group_id ? groupById.get(task.group_id) || null : null}
+                onToggleComplete={() => onToggleComplete(task)}
+                onToggleImportant={() => onToggleImportant(task)}
+                onCardClick={() => onCardClick(task.id)}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
 function DoneColumn({
   title,
   tasks,
