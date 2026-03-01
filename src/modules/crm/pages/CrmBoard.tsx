@@ -137,7 +137,7 @@ function getSalesStatus(task: CrmTask): "todo" | "in_progress" | "waiting" {
   return "todo";
 }
 
-export default function CrmBoard() {
+export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
@@ -146,7 +146,6 @@ export default function CrmBoard() {
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
