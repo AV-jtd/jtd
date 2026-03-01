@@ -43,16 +43,34 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 
-const CRM_STAGES = [
+type BoardStage = {
+  key: string;
+  title: string;
+  color: string;
+  textColor: string;
+  bgLight: string;
+};
+
+const CRM_STAGES: BoardStage[] = [
   { key: "kp", title: "Отправить КП", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
   { key: "os", title: "Получить ОС", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
   { key: "negotiation", title: "Переговоры", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
   { key: "shipping", title: "Старт отгрузок", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
 ];
 
-const STAGE_ORDER = ["kp", "os", "negotiation", "shipping"];
+const SALES_STAGES: BoardStage[] = [
+  { key: "todo", title: "Надо сделать", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "in_progress", title: "В работе", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "waiting", title: "Ожидание ответа", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+];
 
-const SUBTASK_STAGE_MAP: Record<string, string> = {
+const STAGE_ORDER = ["kp", "os", "negotiation", "shipping"];
+const SALES_TO_CRM_STAGE: Record<string, string> = {
+  todo: "kp",
+  in_progress: "negotiation",
+  waiting: "os",
+};
+const SALES_DROP_KEYS = Object.keys(SALES_TO_CRM_STAGE);
   "Отправить презентацию и КП": "kp",
   "Получить ОС": "os",
   "Получить обратную связь": "os",
