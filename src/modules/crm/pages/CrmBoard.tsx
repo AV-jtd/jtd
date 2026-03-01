@@ -720,6 +720,17 @@ export default function CrmBoard() {
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
+            <InboxColumn
+              tasks={inboxTasks}
+              tagById={tagById}
+              groupById={groupById}
+              crmLinkedTagIds={crmLinkedTagIds}
+              crmGroupNames={crmGroupNames}
+              cardVariant={boardView === "sales" ? "sales" : "funnel"}
+              onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
+              onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+              onCardClick={(taskId) => setSelectedTaskId(taskId)}
+            />
             {visibleStages.map((stage) => (
               <DroppableColumn
                 key={stage.key}
