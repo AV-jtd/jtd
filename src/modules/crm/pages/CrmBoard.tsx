@@ -155,12 +155,13 @@ export default function CrmBoard() {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["crm-tasks", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || crmGroupIds.length === 0) return [];
+      if (!user) return [];
 
-      const orFilters = [
+      const orParts = [
         ...crmGroupIds.map((id) => `group_id.eq.${id}`),
         "task_type.eq.crm",
-      ].join(",");
+      ];
+      const orFilters = orParts.join(",");
 
       const { data: crmTasks, error } = await supabase
         .from("tasks")
@@ -196,28 +197,28 @@ export default function CrmBoard() {
         assignee: (profiles || []).find((p) => p.id === t.assigned_to) || null,
       })) as CrmTask[];
     },
-    enabled: !!user && crmGroupIds.length > 0,
+    enabled: !!user,
   });
 
   const { data: doneTasks = [] } = useQuery({
     queryKey: ["crm-tasks-done", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || crmGroupIds.length === 0) return [];
-      const orFilters = [
+      if (!user) return [];
+      const orParts = [
         ...crmGroupIds.map((id) => `group_id.eq.${id}`),
         "task_type.eq.crm",
-      ].join(",");
+      ];
       const { data, error } = await supabase
         .from("tasks")
         .select("id")
-        .or(orFilters)
+        .or(orParts.join(","))
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && crmGroupIds.length > 0,
+    enabled: !!user,
   });
 
   const { data: allTags = [] } = useQuery({
@@ -447,6 +448,14 @@ export default function CrmBoard() {
       toast.error(e.message);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <DndContext
