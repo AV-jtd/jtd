@@ -155,12 +155,13 @@ export default function CrmBoard() {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["crm-tasks", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || crmGroupIds.length === 0) return [];
+      if (!user) return [];
 
-      const orFilters = [
+      const orParts = [
         ...crmGroupIds.map((id) => `group_id.eq.${id}`),
         "task_type.eq.crm",
-      ].join(",");
+      ];
+      const orFilters = orParts.join(",");
 
       const { data: crmTasks, error } = await supabase
         .from("tasks")
@@ -196,7 +197,7 @@ export default function CrmBoard() {
         assignee: (profiles || []).find((p) => p.id === t.assigned_to) || null,
       })) as CrmTask[];
     },
-    enabled: !!user && crmGroupIds.length > 0,
+    enabled: !!user,
   });
 
   const { data: doneTasks = [] } = useQuery({
