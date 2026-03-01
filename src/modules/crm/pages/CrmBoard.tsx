@@ -421,6 +421,7 @@ export default function CrmBoard() {
   const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
   const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
   const activeDropKeys = boardView === "funnel" ? STAGE_ORDER : SALES_DROP_KEYS;
+  const allDropKeys = useMemo(() => ["inbox", ...activeDropKeys], [activeDropKeys]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -429,7 +430,7 @@ export default function CrmBoard() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
-    if (overId && activeDropKeys.includes(overId)) {
+    if (overId && allDropKeys.includes(overId)) {
       setOverColumn(overId);
     } else {
       setOverColumn(null);
@@ -444,20 +445,30 @@ export default function CrmBoard() {
     if (!over) return;
 
     const dropKey = over.id as string;
-    if (!activeDropKeys.includes(dropKey)) return;
+    if (!allDropKeys.includes(dropKey)) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
 
+    const taskIsInbox = isInboxTask(task);
+
+    // Dropping on inbox = move back to inbox
+    if (dropKey === "inbox") {
+      if (taskIsInbox) return; // already inbox
+      moveToInboxMutation.mutate({ task });
+      return;
+    }
+
     if (boardView === "funnel") {
       const currentStage = getTaskStage(task.subtasks);
-      if (currentStage === dropKey) return;
+      // Skip same-stage only if NOT coming from inbox
+      if (!taskIsInbox && currentStage === dropKey) return;
       moveMutation.mutate({ task, targetStage: dropKey });
       return;
     }
 
     const currentSalesStatus = getSalesStatus(task);
-    if (currentSalesStatus === dropKey) return;
+    if (!taskIsInbox && currentSalesStatus === dropKey) return;
 
     const targetStage = SALES_TO_CRM_STAGE[dropKey];
     if (!targetStage) return;
