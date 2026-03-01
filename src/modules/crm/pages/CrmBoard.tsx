@@ -106,6 +106,14 @@ type CrmTask = {
 
 type CrmTag = { id: string; name: string; color: string | null };
 type CrmGroup = { id: string; name: string; icon: string | null; color: string | null; linked_tag_id: string | null };
+type DoneCrmTask = {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  client_id: string | null;
+  group_id: string | null;
+  client?: { name: string | null } | null;
+};
 
 function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   if (!subtasks || subtasks.length === 0) return "kp";
