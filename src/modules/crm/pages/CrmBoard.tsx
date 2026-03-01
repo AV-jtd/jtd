@@ -1056,6 +1056,7 @@ function CrmCard({
   task,
   tags,
   group,
+  variant = "funnel",
   isDragging,
   dragHandleProps,
   onToggleComplete,
@@ -1065,6 +1066,7 @@ function CrmCard({
   task: CrmTask;
   tags: CrmTag[];
   group: CrmGroup | null;
+  variant?: "funnel" | "sales";
   isDragging?: boolean;
   dragHandleProps?: ComponentProps<"button">;
   onToggleComplete: () => void;
@@ -1074,6 +1076,96 @@ function CrmCard({
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
 
+  if (variant === "sales") {
+    return (
+      <div
+        onClick={onCardClick}
+        className={cn(
+          "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow cursor-pointer",
+          isDragging ? "shadow-lg" : "hover:shadow-md"
+        )}
+      >
+        {/* Row 1: title + drag handle */}
+        <div className="flex items-start gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
+            className={cn(
+              "h-5 w-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+              task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+          </button>
+          <h4 className="flex-1 text-sm font-medium text-foreground leading-tight line-clamp-2 min-w-0">
+            {task.title}
+          </h4>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleImportant(); }}
+            className={cn("p-1 rounded transition-colors shrink-0", task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning")}
+          >
+            <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
+          </button>
+          <button
+            {...dragHandleProps}
+            onClick={(e) => e.stopPropagation()}
+            className="p-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Row 2: deadline + assignee + project — compact info line */}
+        <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground flex-wrap">
+          {task.deadline && (
+            <span className={cn("inline-flex items-center gap-1", new Date(task.deadline) < new Date() ? "text-destructive" : "")}>
+              <Calendar className="h-3 w-3" />
+              {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+            </span>
+          )}
+          {task.assignee && (
+            <span className="inline-flex items-center gap-1 truncate max-w-[120px]">
+              <User className="h-3 w-3 shrink-0" />
+              {task.assignee.display_name || task.assignee.email || "?"}
+            </span>
+          )}
+          {group && (
+            <span className="inline-flex items-center gap-1 truncate max-w-[120px]">
+              <FolderOpen className="h-3 w-3 shrink-0" />
+              {group.icon ? `${group.icon} ` : ""}{group.name}
+            </span>
+          )}
+        </div>
+
+        {/* Row 3: client name if available */}
+        {task.client && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Briefcase className="h-3 w-3 shrink-0" />
+            <span className="truncate">{task.client.name}</span>
+          </div>
+        )}
+
+        {/* Tags */}
+        {tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: tag.color ? `${tag.color}20` : undefined,
+                  color: tag.color || undefined,
+                }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Funnel variant (original)
   return (
     <div
       onClick={onCardClick}
