@@ -1040,7 +1040,7 @@ function InboxColumn({
     </div>
   );
 }
-
+function DoneColumn({
   title,
   tasks,
   groupById,
