@@ -776,6 +776,7 @@ function DroppableColumn({
   crmLinkedTagIds,
   crmGroupNames,
   crmProjectOptions,
+  cardVariant = "funnel",
   allowCreate = true,
   createLabel = "Добавить клиента",
   createPlaceholder = "Имя клиента...",
@@ -794,6 +795,7 @@ function DroppableColumn({
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
   crmProjectOptions: { id: string; name: string }[];
+  cardVariant?: "funnel" | "sales";
   allowCreate?: boolean;
   createLabel?: string;
   createPlaceholder?: string;
