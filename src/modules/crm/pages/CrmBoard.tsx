@@ -11,6 +11,7 @@ import {
   Phone,
   Mail,
   Calendar,
+  Inbox,
   CheckCircle2,
   GripVertical,
   Star,
