@@ -675,7 +675,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                       className="w-full px-2 py-1.5 text-sm bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground mb-1"
                       autoFocus
                     />
-                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    <div className="max-h-48 overflow-y-auto overscroll-contain space-y-0.5">
                       {/* AI Suggestions */}
                       {!tagSearch && suggestedTagIds.length > 0 && (
                         <>
