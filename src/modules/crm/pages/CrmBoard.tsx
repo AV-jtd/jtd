@@ -720,7 +720,7 @@ function DroppableColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col h-full w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
+        "flex flex-col h-full min-h-0 w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
         isOver && "bg-primary/5"
       )}
     >
