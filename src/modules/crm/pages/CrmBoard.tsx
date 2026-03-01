@@ -342,6 +342,22 @@ export default function CrmBoard() {
     },
   });
 
+  const moveToInboxMutation = useMutation({
+    mutationFn: async ({ task }: { task: CrmTask }) => {
+      // Delete CRM stage subtasks to revert task to inbox
+      const crmSubtaskIds = task.subtasks
+        .filter((s) => SUBTASK_STAGE_MAP[s.title])
+        .map((s) => s.id);
+      if (crmSubtaskIds.length === 0) return;
+      const { error } = await supabase.from("subtasks").delete().in("id", crmSubtaskIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
 
   const isInboxTask = (task: CrmTask) => {
@@ -351,8 +367,9 @@ export default function CrmBoard() {
       .filter(Boolean) as string[];
     const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
     if (!hasInboxTag) return false;
+    // Once task has CRM stage subtasks, it's no longer inbox
     const crmSubtasks = task.subtasks.filter((s) => SUBTASK_STAGE_MAP[s.title]);
-    if (crmSubtasks.length > 0 && crmSubtasks.some((s) => s.is_completed)) return false;
+    if (crmSubtasks.length > 0) return false;
     return true;
   };
 
@@ -404,6 +421,7 @@ export default function CrmBoard() {
   const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
   const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
   const activeDropKeys = boardView === "funnel" ? STAGE_ORDER : SALES_DROP_KEYS;
+  const allDropKeys = useMemo(() => ["inbox", ...activeDropKeys], [activeDropKeys]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -412,7 +430,7 @@ export default function CrmBoard() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
-    if (overId && activeDropKeys.includes(overId)) {
+    if (overId && allDropKeys.includes(overId)) {
       setOverColumn(overId);
     } else {
       setOverColumn(null);
@@ -427,20 +445,36 @@ export default function CrmBoard() {
     if (!over) return;
 
     const dropKey = over.id as string;
-    if (!activeDropKeys.includes(dropKey)) return;
+    if (!allDropKeys.includes(dropKey)) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
 
+    const taskIsInbox = isInboxTask(task);
+
+    // Dropping on inbox = move back to inbox (only if task has inbox tags)
+    if (dropKey === "inbox") {
+      if (taskIsInbox) return; // already inbox
+      // Check task has inbox tags before allowing move
+      const taskTagNames = (task.task_tags || [])
+        .map((tt) => tagById.get(tt.tag_id)?.name?.trim().toLowerCase())
+        .filter(Boolean) as string[];
+      const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
+      if (!hasInboxTag) return; // can't move to inbox without inbox tags
+      moveToInboxMutation.mutate({ task });
+      return;
+    }
+
     if (boardView === "funnel") {
       const currentStage = getTaskStage(task.subtasks);
-      if (currentStage === dropKey) return;
+      // Skip same-stage only if NOT coming from inbox
+      if (!taskIsInbox && currentStage === dropKey) return;
       moveMutation.mutate({ task, targetStage: dropKey });
       return;
     }
 
     const currentSalesStatus = getSalesStatus(task);
-    if (currentSalesStatus === dropKey) return;
+    if (!taskIsInbox && currentSalesStatus === dropKey) return;
 
     const targetStage = SALES_TO_CRM_STAGE[dropKey];
     if (!targetStage) return;
@@ -727,7 +761,8 @@ export default function CrmBoard() {
               groupById={groupById}
               crmLinkedTagIds={crmLinkedTagIds}
               crmGroupNames={crmGroupNames}
-                cardVariant="sales"
+              cardVariant="sales"
+              isOver={overColumn === "inbox"}
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -983,6 +1018,7 @@ function InboxColumn({
   crmLinkedTagIds,
   crmGroupNames,
   cardVariant = "funnel",
+  isOver,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -993,17 +1029,21 @@ function InboxColumn({
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
   cardVariant?: "funnel" | "sales";
+  isOver?: boolean;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
 }) {
+  const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
-        collapsed ? "w-16" : "w-72 md:w-80"
+        collapsed ? "w-16" : "w-72 md:w-80",
+        isOver && "bg-primary/5"
       )}
     >
       <button
