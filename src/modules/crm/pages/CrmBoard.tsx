@@ -351,8 +351,9 @@ export default function CrmBoard() {
       .filter(Boolean) as string[];
     const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
     if (!hasInboxTag) return false;
+    // Once task has CRM stage subtasks, it's no longer inbox
     const crmSubtasks = task.subtasks.filter((s) => SUBTASK_STAGE_MAP[s.title]);
-    if (crmSubtasks.length > 0 && crmSubtasks.some((s) => s.is_completed)) return false;
+    if (crmSubtasks.length > 0) return false;
     return true;
   };
 
