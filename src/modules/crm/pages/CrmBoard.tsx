@@ -457,11 +457,6 @@ export default function CrmBoard() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      {isLoading ? (
-        <div className="flex items-center justify-center h-full">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
       <div className="flex flex-col h-full">
         {/* Filter bar */}
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
