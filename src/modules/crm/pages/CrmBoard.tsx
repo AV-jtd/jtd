@@ -1011,6 +1011,7 @@ function InboxColumn({
   crmLinkedTagIds,
   crmGroupNames,
   cardVariant = "funnel",
+  isOver,
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -1021,17 +1022,21 @@ function InboxColumn({
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
   cardVariant?: "funnel" | "sales";
+  isOver?: boolean;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
 }) {
+  const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
-        collapsed ? "w-16" : "w-72 md:w-80"
+        collapsed ? "w-16" : "w-72 md:w-80",
+        isOver && "bg-primary/5"
       )}
     >
       <button
