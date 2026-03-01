@@ -1035,9 +1035,11 @@ function InboxColumn({
   crmGroupNames,
   cardVariant = "funnel",
   isOver,
+  usedAssignees = [],
   onToggleComplete,
   onToggleImportant,
   onCardClick,
+  onCreateInboxTask,
 }: {
   tasks: CrmTask[];
   tagById: Map<string, CrmTag>;
@@ -1046,12 +1048,28 @@ function InboxColumn({
   crmGroupNames: Set<string>;
   cardVariant?: "funnel" | "sales";
   isOver?: boolean;
+  usedAssignees?: { id: string; display_name: string | null; email: string | null }[];
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
+  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newAssignee, setNewAssignee] = useState<string | null>(null);
+  const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = () => {
+    if (!newTitle.trim() || !onCreateInboxTask) return;
+    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null);
+    setNewTitle("");
+    setNewAssignee(null);
+    setNewDeadline(undefined);
+    setAdding(false);
+  };
 
   return (
     <div
@@ -1062,20 +1080,158 @@ function InboxColumn({
         isOver && "bg-primary/5"
       )}
     >
-      <button
-        onClick={() => setCollapsed((prev) => !prev)}
-        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
-        title={collapsed ? "Развернуть: Входящие" : "Свернуть: Входящие"}
-      >
-        <Inbox className="h-4 w-4 text-blue-500 shrink-0" />
-        {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
-        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
-      </button>
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
+        <button
+          onClick={() => setCollapsed((prev) => !prev)}
+          className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+          title={collapsed ? "Развернуть: Входящие" : "Свернуть: Входящие"}
+        >
+          <Inbox className="h-4 w-4 text-primary shrink-0" />
+          {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+          <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
+        </button>
+        {!collapsed && onCreateInboxTask && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            title="Добавить задачу"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       {!collapsed && (
         <ScrollArea className="flex-1 min-h-0 px-2 py-2">
           <div className="flex flex-col gap-2">
-            {tasks.length === 0 && (
+            {adding && (
+              <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
+                <Input
+                  ref={inputRef}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Название задачи..."
+                  className="h-7 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newTitle.trim()) handleSubmit();
+                    if (e.key === "Escape") { setAdding(false); setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined); }
+                  }}
+                />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Assignee picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors",
+                        newAssignee ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <User className="h-3 w-3" />
+                        {newAssignee
+                          ? (usedAssignees.find((a) => a.id === newAssignee)?.display_name || "Назначен")
+                          : "Ответственный"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" side="bottom" align="start">
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {newAssignee && (
+                          <button
+                            onClick={() => setNewAssignee(null)}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted"
+                          >
+                            <X className="h-3 w-3" /> Убрать
+                          </button>
+                        )}
+                        {usedAssignees.map((a) => (
+                          <button
+                            key={a.id}
+                            onClick={() => setNewAssignee(a.id)}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                              newAssignee === a.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                            )}
+                          >
+                            <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{a.display_name || a.email || "?"}</span>
+                            {newAssignee === a.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        ))}
+                        {usedAssignees.length === 0 && (
+                          <p className="text-xs text-muted-foreground px-2 py-1">Нет участников</p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Deadline picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors",
+                        newDeadline ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <Calendar className="h-3 w-3" />
+                        {newDeadline
+                          ? format(newDeadline, "d MMM", { locale: ru })
+                          : "Срок"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" side="bottom" align="start">
+                      <div className="p-2 pointer-events-auto">
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {[
+                            { label: "Сегодня", days: 0 },
+                            { label: "Завтра", days: 1 },
+                            { label: "+3 дня", days: 3 },
+                            { label: "+7 дней", days: 7 },
+                          ].map((preset) => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + preset.days);
+                            return (
+                              <button
+                                key={preset.days}
+                                onClick={() => setNewDeadline(d)}
+                                className="text-[10px] px-2 py-1 rounded bg-muted hover:bg-muted/80 text-foreground"
+                              >
+                                {preset.label}
+                              </button>
+                            );
+                          })}
+                          {newDeadline && (
+                            <button
+                              onClick={() => setNewDeadline(undefined)}
+                              className="text-[10px] px-2 py-1 rounded text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <CalendarComponent
+                          mode="single"
+                          selected={newDeadline}
+                          onSelect={setNewDeadline}
+                          className="p-0 pointer-events-auto"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={handleSubmit}
+                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Добавить
+                  </button>
+                  <button
+                    onClick={() => { setAdding(false); setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined); }}
+                    className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
+            {tasks.length === 0 && !adding && (
               <div className="text-center py-8 text-xs text-muted-foreground/50">Нет входящих задач</div>
             )}
             {tasks.map((task) => (
