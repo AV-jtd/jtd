@@ -71,6 +71,8 @@ const SALES_TO_CRM_STAGE: Record<string, string> = {
   waiting: "os",
 };
 const SALES_DROP_KEYS = Object.keys(SALES_TO_CRM_STAGE);
+
+const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Отправить презентацию и КП": "kp",
   "Получить ОС": "os",
   "Получить обратную связь": "os",
