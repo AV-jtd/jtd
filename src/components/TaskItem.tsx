@@ -666,7 +666,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                       <Plus className="h-2.5 w-2.5" /> Тэг
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()}>
+                  <PopoverContent className="w-56 p-2 z-[60]" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()} onWheel={(e) => e.stopPropagation()}>
                     <input
                       type="text"
                       placeholder="Найти тэг..."
