@@ -246,13 +246,23 @@ export default function CrmBoard() {
       ];
       const { data, error } = await supabase
         .from("tasks")
-        .select("id")
+        .select("id, title, completed_at, client_id, group_id")
         .or(orParts.join(","))
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data || [];
+
+      const doneRows = (data || []) as DoneCrmTask[];
+      const clientIds = doneRows.map((t) => t.client_id).filter(Boolean) as string[];
+      const { data: clients } = clientIds.length > 0
+        ? await supabase.from("clients").select("id, name").in("id", clientIds)
+        : { data: [] };
+
+      return doneRows.map((row) => ({
+        ...row,
+        client: (clients || []).find((c) => c.id === row.client_id) || null,
+      }));
     },
     enabled: !!user,
   });
