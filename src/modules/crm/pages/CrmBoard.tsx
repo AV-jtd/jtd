@@ -744,10 +744,12 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               cardVariant="sales"
               isOver={overColumn === "inbox"}
               usedAssignees={usedAssignees}
+              crmProjectOptions={crmProjectOptions}
+              allProjectGroups={allProjectGroups}
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
-              onCreateInboxTask={async (title, assigneeId, deadline) => {
+              onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId) => {
                 if (!title.trim() || !user) return;
                 try {
                   let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
@@ -771,13 +773,20 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                       task_type: "crm",
                       assigned_to: assigneeId || null,
                       deadline: deadline || null,
+                      group_id: groupId || null,
                     })
                     .select("id")
                     .single();
                   if (taskErr) throw taskErr;
+                  // Link crm tag
                   await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: crmTagId });
+                  // Link client tag if selected
+                  if (clientTagId) {
+                    await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: clientTagId });
+                  }
                   queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
                   queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
+                  queryClient.invalidateQueries({ queryKey: ["tasks"] });
                   toast.success("Задача создана во Входящих");
                 } catch (e: any) {
                   toast.error(e.message);
