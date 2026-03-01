@@ -342,6 +342,22 @@ export default function CrmBoard() {
     },
   });
 
+  const moveToInboxMutation = useMutation({
+    mutationFn: async ({ task }: { task: CrmTask }) => {
+      // Delete CRM stage subtasks to revert task to inbox
+      const crmSubtaskIds = task.subtasks
+        .filter((s) => SUBTASK_STAGE_MAP[s.title])
+        .map((s) => s.id);
+      if (crmSubtaskIds.length === 0) return;
+      const { error } = await supabase.from("subtasks").delete().in("id", crmSubtaskIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
 
   const isInboxTask = (task: CrmTask) => {
