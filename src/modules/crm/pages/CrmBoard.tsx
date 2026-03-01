@@ -43,14 +43,34 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 
-const CRM_STAGES = [
+type BoardStage = {
+  key: string;
+  title: string;
+  color: string;
+  textColor: string;
+  bgLight: string;
+};
+
+const CRM_STAGES: BoardStage[] = [
   { key: "kp", title: "Отправить КП", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
   { key: "os", title: "Получить ОС", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
   { key: "negotiation", title: "Переговоры", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
   { key: "shipping", title: "Старт отгрузок", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
 ];
 
+const SALES_STAGES: BoardStage[] = [
+  { key: "todo", title: "Надо сделать", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "in_progress", title: "В работе", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "waiting", title: "Ожидание ответа", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+];
+
 const STAGE_ORDER = ["kp", "os", "negotiation", "shipping"];
+const SALES_TO_CRM_STAGE: Record<string, string> = {
+  todo: "kp",
+  in_progress: "negotiation",
+  waiting: "os",
+};
+const SALES_DROP_KEYS = Object.keys(SALES_TO_CRM_STAGE);
 
 const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Отправить презентацию и КП": "kp",
@@ -86,6 +106,14 @@ type CrmTask = {
 
 type CrmTag = { id: string; name: string; color: string | null };
 type CrmGroup = { id: string; name: string; icon: string | null; color: string | null; linked_tag_id: string | null };
+type DoneCrmTask = {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  client_id: string | null;
+  group_id: string | null;
+  client?: { name: string | null } | null;
+};
 
 function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   if (!subtasks || subtasks.length === 0) return "kp";
@@ -101,6 +129,13 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   return SUBTASK_STAGE_MAP[firstIncomplete.title] || "kp";
 }
 
+function getSalesStatus(task: CrmTask): "todo" | "in_progress" | "waiting" {
+  const stage = getTaskStage(task.subtasks);
+  if (stage === "os") return "waiting";
+  if (stage === "negotiation" || stage === "shipping") return "in_progress";
+  return "todo";
+}
+
 export default function CrmBoard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -110,6 +145,7 @@ export default function CrmBoard() {
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
@@ -210,13 +246,23 @@ export default function CrmBoard() {
       ];
       const { data, error } = await supabase
         .from("tasks")
-        .select("id")
+        .select("id, title, completed_at, client_id, group_id")
         .or(orParts.join(","))
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data || [];
+
+      const doneRows = (data || []) as DoneCrmTask[];
+      const clientIds = doneRows.map((t) => t.client_id).filter(Boolean) as string[];
+      const { data: clients } = clientIds.length > 0
+        ? await supabase.from("clients").select("id, name").in("id", clientIds)
+        : { data: [] };
+
+      return doneRows.map((row) => ({
+        ...row,
+        client: (clients || []).find((c) => c.id === row.client_id) || null,
+      }));
     },
     enabled: !!user,
   });
@@ -319,7 +365,7 @@ export default function CrmBoard() {
     return result;
   }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
-  const columns = useMemo(() => {
+  const funnelColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
     for (const task of filteredTasks) {
       const stage = getTaskStage(task.subtasks);
@@ -329,6 +375,18 @@ export default function CrmBoard() {
     return grouped;
   }, [filteredTasks]);
 
+  const salesColumns = useMemo(() => {
+    const grouped: Record<string, CrmTask[]> = { todo: [], in_progress: [], waiting: [] };
+    for (const task of filteredTasks) {
+      grouped[getSalesStatus(task)].push(task);
+    }
+    return grouped;
+  }, [filteredTasks]);
+
+  const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
+  const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
+  const activeDropKeys = boardView === "funnel" ? STAGE_ORDER : SALES_DROP_KEYS;
+
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
     setActiveTask(task || null);
@@ -336,7 +394,7 @@ export default function CrmBoard() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
-    if (overId && STAGE_ORDER.includes(overId)) {
+    if (overId && activeDropKeys.includes(overId)) {
       setOverColumn(overId);
     } else {
       setOverColumn(null);
@@ -349,15 +407,25 @@ export default function CrmBoard() {
     setOverColumn(null);
 
     if (!over) return;
-    const targetStage = over.id as string;
-    if (!STAGE_ORDER.includes(targetStage)) return;
+
+    const dropKey = over.id as string;
+    if (!activeDropKeys.includes(dropKey)) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
 
-    const currentStage = getTaskStage(task.subtasks);
-    if (currentStage === targetStage) return;
+    if (boardView === "funnel") {
+      const currentStage = getTaskStage(task.subtasks);
+      if (currentStage === dropKey) return;
+      moveMutation.mutate({ task, targetStage: dropKey });
+      return;
+    }
 
+    const currentSalesStatus = getSalesStatus(task);
+    if (currentSalesStatus === dropKey) return;
+
+    const targetStage = SALES_TO_CRM_STAGE[dropKey];
+    if (!targetStage) return;
     moveMutation.mutate({ task, targetStage });
   };
 
@@ -461,12 +529,33 @@ export default function CrmBoard() {
         {/* Filter bar */}
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+              <button
+                onClick={() => setBoardView("funnel")}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-md transition-colors",
+                  boardView === "funnel" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Воронка
+              </button>
+              <button
+                onClick={() => setBoardView("sales")}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-md transition-colors",
+                  boardView === "sales" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Задачи продаж
+              </button>
+            </div>
+
             <div className="relative flex-1 min-w-[160px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск клиента..."
+                placeholder={boardView === "funnel" ? "Поиск клиента..." : "Поиск задачи/клиента..."}
                 className="h-8 pl-8 pr-8 text-xs"
               />
               {searchQuery && (
@@ -602,11 +691,11 @@ export default function CrmBoard() {
               <span className="text-sm font-bold text-foreground">{totalDone}</span>
             </div>
             <div className="h-4 w-px bg-border" />
-            {CRM_STAGES.map((stage) => (
+            {visibleStages.map((stage) => (
               <div key={stage.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", stage.bgLight)}>
                 <div className={cn("h-2 w-2 rounded-full", stage.color)} />
                 <span className={cn("text-xs font-medium", stage.textColor)}>{stage.title}</span>
-                <span className="text-sm font-bold text-foreground">{columns[stage.key]?.length || 0}</span>
+                <span className="text-sm font-bold text-foreground">{visibleColumns[stage.key]?.length || 0}</span>
               </div>
             ))}
           </div>
@@ -614,11 +703,11 @@ export default function CrmBoard() {
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
-            {CRM_STAGES.map((stage) => (
+            {visibleStages.map((stage) => (
               <DroppableColumn
                 key={stage.key}
                 stage={stage}
-                tasks={columns[stage.key] || []}
+                tasks={visibleColumns[stage.key] || []}
                 isOver={overColumn === stage.key}
                 isMoving={moveMutation.isPending}
                 tagById={tagById}
@@ -626,6 +715,9 @@ export default function CrmBoard() {
                 crmLinkedTagIds={crmLinkedTagIds}
                 crmGroupNames={crmGroupNames}
                 crmProjectOptions={crmProjectOptions}
+                allowCreate={boardView === "funnel"}
+                createLabel={boardView === "funnel" ? "Добавить клиента" : "Добавить задачу"}
+                createPlaceholder={boardView === "funnel" ? "Имя клиента..." : "Название задачи..."}
                 onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
                 onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
                 onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -633,6 +725,12 @@ export default function CrmBoard() {
                 onCreateProject={handleCreateCrmProject}
               />
             ))}
+            <DoneColumn
+              title={boardView === "funnel" ? "Завершено" : "Готово"}
+              tasks={doneTasks}
+              groupById={groupById}
+              onCardClick={(taskId) => setSelectedTaskId(taskId)}
+            />
           </div>
         </div>
         </>)}
@@ -676,13 +774,16 @@ function DroppableColumn({
   crmLinkedTagIds,
   crmGroupNames,
   crmProjectOptions,
+  allowCreate = true,
+  createLabel = "Добавить клиента",
+  createPlaceholder = "Имя клиента...",
   onToggleComplete,
   onToggleImportant,
   onCardClick,
   onCreateTask,
   onCreateProject,
 }: {
-  stage: (typeof CRM_STAGES)[number];
+  stage: BoardStage;
   tasks: CrmTask[];
   isOver: boolean;
   isMoving: boolean;
@@ -691,6 +792,9 @@ function DroppableColumn({
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
   crmProjectOptions: { id: string; name: string }[];
+  allowCreate?: boolean;
+  createLabel?: string;
+  createPlaceholder?: string;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
@@ -707,7 +811,6 @@ function DroppableColumn({
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
-  // Sync selectedGroupId when crmProjectOptions loads/changes and current selection is invalid
   useEffect(() => {
     if (crmProjectOptions.length > 0) {
       const currentExists = crmProjectOptions.some((g) => g.id === selectedGroupId);
@@ -716,6 +819,7 @@ function DroppableColumn({
       }
     }
   }, [crmProjectOptions, selectedGroupId]);
+
   return (
     <div
       ref={setNodeRef}
@@ -728,24 +832,26 @@ function DroppableColumn({
         <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
         <span className="text-sm font-semibold text-foreground">{stage.title}</span>
         <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
-        <button
-          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Добавить клиента"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        {allowCreate && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title={createLabel}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
         <div className="flex flex-col gap-2">
-          {adding && (
+          {allowCreate && adding && (
             <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
               <Input
                 ref={inputRef}
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Имя клиента..."
+                placeholder={createPlaceholder}
                 className="h-7 text-xs"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newTitle.trim()) {
@@ -827,11 +933,75 @@ function DroppableColumn({
           ))}
           {tasks.length === 0 && !adding && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">
-              Нет клиентов
+              {allowCreate ? "Нет клиентов" : "Нет задач"}
             </div>
           )}
         </div>
       </ScrollArea>
+    </div>
+  );
+}
+
+function DoneColumn({
+  title,
+  tasks,
+  groupById,
+  onCardClick,
+}: {
+  title: string;
+  tasks: DoneCrmTask[];
+  groupById: Map<string, CrmGroup>;
+  onCardClick: (taskId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col h-full min-h-0 shrink-0 border-r border-border last:border-r-0 transition-all",
+        collapsed ? "w-16" : "w-72 md:w-80"
+      )}
+    >
+      <button
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
+        title={collapsed ? `Развернуть: ${title}` : `Свернуть: ${title}`}
+      >
+        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground">{title}</span>}
+        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
+      </button>
+
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+          <div className="flex flex-col gap-2">
+            {tasks.length === 0 && (
+              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет завершённых задач</div>
+            )}
+            {tasks.map((task) => {
+              const group = task.group_id ? groupById.get(task.group_id) : null;
+              const titleText = task.client?.name || task.title;
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => onCardClick(task.id)}
+                  className="w-full text-left rounded-lg border border-border bg-card p-2.5 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="text-sm font-medium text-foreground line-clamp-2">{titleText}</div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    {group && <span className="text-[11px] text-muted-foreground truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>}
+                    {task.completed_at && (
+                      <span className="text-[11px] text-muted-foreground ml-auto">
+                        {format(parseISO(task.completed_at), "d MMM", { locale: ru })}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }

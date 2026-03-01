@@ -675,7 +675,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                       className="w-full px-2 py-1.5 text-sm bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground mb-1"
                       autoFocus
                     />
-                    <div className="max-h-48 overflow-y-auto overscroll-contain space-y-0.5">
+                    <div className="max-h-48 overflow-y-auto overscroll-contain space-y-0.5" onWheelCapture={(e) => e.stopPropagation()} onTouchMoveCapture={(e) => e.stopPropagation()}>
                       {/* AI Suggestions */}
                       {!tagSearch && suggestedTagIds.length > 0 && (
                         <>
@@ -749,7 +749,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-48 p-2 z-[60]" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()} onWheel={(e) => e.stopPropagation()}>
-                  <div className="space-y-0.5 max-h-48 overflow-y-auto overscroll-contain">
+                  <div className="space-y-0.5 max-h-48 overflow-y-auto overscroll-contain" onWheelCapture={(e) => e.stopPropagation()} onTouchMoveCapture={(e) => e.stopPropagation()}>
                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
                     {allGroups.filter(g => g.id !== task.group_id).map(g => (
                       <button
