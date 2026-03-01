@@ -540,11 +540,11 @@ export function useTaskMutations() {
       });
       if (partError) console.error("Failed to add creator as participant:", partError);
 
-      if (task.group_id) {
+      if (resolvedGroupId) {
         const { data: group } = await supabase
           .from("task_groups")
           .select("*")
-          .eq("id", task.group_id)
+          .eq("id", resolvedGroupId)
           .single();
         
         if (group && (group as any).linked_tag_id) {
@@ -558,10 +558,19 @@ export function useTaskMutations() {
         const { data: members } = await supabase
           .from("group_members")
           .select("user_id")
-          .eq("group_id", task.group_id);
+          .eq("group_id", resolvedGroupId);
         const memberIds = (members || []).map((m: any) => m.user_id);
         if (memberIds.length > 0) {
           notifyEvent("new_task_in_group", task.title, memberIds);
+        }
+      }
+
+      // For CRM tasks, also assign the client tag to the task
+      if (taskType === 'crm' && task.client_name?.trim()) {
+        const clientNameTrimmed = task.client_name.trim();
+        const { data: clientTag } = await supabase.from("tags").select("id").eq("user_id", user!.id).eq("name", clientNameTrimmed).maybeSingle();
+        if (clientTag) {
+          await supabase.from("task_tags").insert({ task_id: taskData.id, tag_id: clientTag.id }).maybeSingle();
         }
       }
 

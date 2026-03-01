@@ -654,7 +654,7 @@ export default function CrmBoard() {
       </DragOverlay>
 
       <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
           {selectedTask && (
             <div className="p-4">
               <TaskItem task={selectedTask} initialOpen />
