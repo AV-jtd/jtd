@@ -737,7 +737,7 @@ function DroppableColumn({
         </button>
       </div>
 
-      <ScrollArea className="flex-1 px-2 pb-2">
+      <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
         <div className="flex flex-col gap-2">
           {adding && (
             <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
