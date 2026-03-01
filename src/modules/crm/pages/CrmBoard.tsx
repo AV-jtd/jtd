@@ -452,9 +452,15 @@ export default function CrmBoard() {
 
     const taskIsInbox = isInboxTask(task);
 
-    // Dropping on inbox = move back to inbox
+    // Dropping on inbox = move back to inbox (only if task has inbox tags)
     if (dropKey === "inbox") {
       if (taskIsInbox) return; // already inbox
+      // Check task has inbox tags before allowing move
+      const taskTagNames = (task.task_tags || [])
+        .map((tt) => tagById.get(tt.tag_id)?.name?.trim().toLowerCase())
+        .filter(Boolean) as string[];
+      const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
+      if (!hasInboxTag) return; // can't move to inbox without inbox tags
       moveToInboxMutation.mutate({ task });
       return;
     }
