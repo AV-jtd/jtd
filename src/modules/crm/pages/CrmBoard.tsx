@@ -1041,6 +1041,7 @@ function DraggableCard({
         task={task}
         tags={tags}
         group={group}
+        variant={variant}
         isDragging={isDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleComplete={onToggleComplete}
