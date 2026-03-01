@@ -942,6 +942,70 @@ function DroppableColumn({
   );
 }
 
+function DoneColumn({
+  title,
+  tasks,
+  groupById,
+  onCardClick,
+}: {
+  title: string;
+  tasks: DoneCrmTask[];
+  groupById: Map<string, CrmGroup>;
+  onCardClick: (taskId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col h-full min-h-0 shrink-0 border-r border-border last:border-r-0 transition-all",
+        collapsed ? "w-16" : "w-72 md:w-80"
+      )}
+    >
+      <button
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
+        title={collapsed ? `Развернуть: ${title}` : `Свернуть: ${title}`}
+      >
+        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground">{title}</span>}
+        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
+      </button>
+
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+          <div className="flex flex-col gap-2">
+            {tasks.length === 0 && (
+              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет завершённых задач</div>
+            )}
+            {tasks.map((task) => {
+              const group = task.group_id ? groupById.get(task.group_id) : null;
+              const titleText = task.client?.name || task.title;
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => onCardClick(task.id)}
+                  className="w-full text-left rounded-lg border border-border bg-card p-2.5 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="text-sm font-medium text-foreground line-clamp-2">{titleText}</div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    {group && <span className="text-[11px] text-muted-foreground truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>}
+                    {task.completed_at && (
+                      <span className="text-[11px] text-muted-foreground ml-auto">
+                        {format(parseISO(task.completed_at), "d MMM", { locale: ru })}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
+
 function DraggableCard({
   task,
   tags,
