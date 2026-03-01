@@ -1016,6 +1016,7 @@ function DraggableCard({
   tags,
   group,
   isMoving,
+  variant = "funnel",
   onToggleComplete,
   onToggleImportant,
   onCardClick,
@@ -1024,6 +1025,7 @@ function DraggableCard({
   tags: CrmTag[];
   group: CrmGroup | null;
   isMoving: boolean;
+  variant?: "funnel" | "sales";
   onToggleComplete: () => void;
   onToggleImportant: () => void;
   onCardClick: () => void;
