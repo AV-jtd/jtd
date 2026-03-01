@@ -744,6 +744,7 @@ export default function CrmBoard() {
               task={activeTask}
               tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
               group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
+              variant={boardView === "sales" ? "sales" : "funnel"}
               isDragging
               onToggleComplete={() => {}}
               onToggleImportant={() => {}}
