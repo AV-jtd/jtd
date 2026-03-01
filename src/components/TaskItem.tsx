@@ -742,13 +742,13 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                   </button>
                 </>
               ) : null}
-              <Popover>
+              <Popover modal={false}>
                 <PopoverTrigger asChild>
                   <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                     <Plus className="h-2.5 w-2.5" /> {task.group_id ? "Изменить" : "Назначить"}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-48 p-2" side="bottom">
+                <PopoverContent className="w-48 p-2" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()}>
                   <div className="space-y-0.5 max-h-40 overflow-y-auto">
                     <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
                     {allGroups.filter(g => g.id !== task.group_id).map(g => (
