@@ -928,6 +928,7 @@ function DroppableColumn({
               key={task.id}
               task={task}
               isMoving={isMoving}
+              variant={cardVariant}
               tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
               group={task.group_id ? groupById.get(task.group_id) || null : null}
               onToggleComplete={() => onToggleComplete(task)}
