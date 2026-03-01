@@ -707,6 +707,15 @@ function DroppableColumn({
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
+  // Sync selectedGroupId when crmProjectOptions loads/changes and current selection is invalid
+  useEffect(() => {
+    if (crmProjectOptions.length > 0) {
+      const currentExists = crmProjectOptions.some((g) => g.id === selectedGroupId);
+      if (!currentExists) {
+        setSelectedGroupId(crmProjectOptions[0].id);
+      }
+    }
+  }, [crmProjectOptions, selectedGroupId]);
   return (
     <div
       ref={setNodeRef}

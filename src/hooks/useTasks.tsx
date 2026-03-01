@@ -467,10 +467,10 @@ export function useTaskMutations() {
       if (taskType === 'crm' && task.client_name?.trim()) {
         const clientNameTrimmed = task.client_name.trim();
 
-        // Find "Клиенты" subcategory (under "CRM / Продажи")
+        // Find "Клиенты" subcategory (under "CRM / Продажи") for the current user
         const { data: categories } = await supabase.from("tag_categories").select("*");
-        const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id);
-        const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id);
+        const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id && c.user_id === user!.id);
+        const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id && c.user_id === user!.id);
 
         // Case-insensitive tag lookup to avoid duplicates
         const { data: existingTags } = await supabase.from("tags").select("*").eq("user_id", user!.id);
