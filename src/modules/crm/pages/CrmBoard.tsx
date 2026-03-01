@@ -365,7 +365,7 @@ export default function CrmBoard() {
     return result;
   }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
 
-  const columns = useMemo(() => {
+  const funnelColumns = useMemo(() => {
     const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
     for (const task of filteredTasks) {
       const stage = getTaskStage(task.subtasks);
@@ -375,6 +375,18 @@ export default function CrmBoard() {
     return grouped;
   }, [filteredTasks]);
 
+  const salesColumns = useMemo(() => {
+    const grouped: Record<string, CrmTask[]> = { todo: [], in_progress: [], waiting: [] };
+    for (const task of filteredTasks) {
+      grouped[getSalesStatus(task)].push(task);
+    }
+    return grouped;
+  }, [filteredTasks]);
+
+  const visibleStages = boardView === "funnel" ? CRM_STAGES : SALES_STAGES;
+  const visibleColumns = boardView === "funnel" ? funnelColumns : salesColumns;
+  const activeDropKeys = boardView === "funnel" ? STAGE_ORDER : SALES_DROP_KEYS;
+
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
     setActiveTask(task || null);
@@ -382,7 +394,7 @@ export default function CrmBoard() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
-    if (overId && STAGE_ORDER.includes(overId)) {
+    if (overId && activeDropKeys.includes(overId)) {
       setOverColumn(overId);
     } else {
       setOverColumn(null);
@@ -395,15 +407,25 @@ export default function CrmBoard() {
     setOverColumn(null);
 
     if (!over) return;
-    const targetStage = over.id as string;
-    if (!STAGE_ORDER.includes(targetStage)) return;
+
+    const dropKey = over.id as string;
+    if (!activeDropKeys.includes(dropKey)) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
 
-    const currentStage = getTaskStage(task.subtasks);
-    if (currentStage === targetStage) return;
+    if (boardView === "funnel") {
+      const currentStage = getTaskStage(task.subtasks);
+      if (currentStage === dropKey) return;
+      moveMutation.mutate({ task, targetStage: dropKey });
+      return;
+    }
 
+    const currentSalesStatus = getSalesStatus(task);
+    if (currentSalesStatus === dropKey) return;
+
+    const targetStage = SALES_TO_CRM_STAGE[dropKey];
+    if (!targetStage) return;
     moveMutation.mutate({ task, targetStage });
   };
 
