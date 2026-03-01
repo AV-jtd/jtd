@@ -129,6 +129,13 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   return SUBTASK_STAGE_MAP[firstIncomplete.title] || "kp";
 }
 
+function getSalesStatus(task: CrmTask): "todo" | "in_progress" | "waiting" {
+  const stage = getTaskStage(task.subtasks);
+  if (stage === "os") return "waiting";
+  if (stage === "negotiation" || stage === "shipping") return "in_progress";
+  return "todo";
+}
+
 export default function CrmBoard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
