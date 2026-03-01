@@ -774,13 +774,16 @@ function DroppableColumn({
   crmLinkedTagIds,
   crmGroupNames,
   crmProjectOptions,
+  allowCreate = true,
+  createLabel = "Добавить клиента",
+  createPlaceholder = "Имя клиента...",
   onToggleComplete,
   onToggleImportant,
   onCardClick,
   onCreateTask,
   onCreateProject,
 }: {
-  stage: (typeof CRM_STAGES)[number];
+  stage: BoardStage;
   tasks: CrmTask[];
   isOver: boolean;
   isMoving: boolean;
@@ -789,6 +792,9 @@ function DroppableColumn({
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
   crmProjectOptions: { id: string; name: string }[];
+  allowCreate?: boolean;
+  createLabel?: string;
+  createPlaceholder?: string;
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
@@ -805,7 +811,6 @@ function DroppableColumn({
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
-  // Sync selectedGroupId when crmProjectOptions loads/changes and current selection is invalid
   useEffect(() => {
     if (crmProjectOptions.length > 0) {
       const currentExists = crmProjectOptions.some((g) => g.id === selectedGroupId);
@@ -814,6 +819,7 @@ function DroppableColumn({
       }
     }
   }, [crmProjectOptions, selectedGroupId]);
+
   return (
     <div
       ref={setNodeRef}
@@ -826,24 +832,26 @@ function DroppableColumn({
         <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
         <span className="text-sm font-semibold text-foreground">{stage.title}</span>
         <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
-        <button
-          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Добавить клиента"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        {allowCreate && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title={createLabel}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
         <div className="flex flex-col gap-2">
-          {adding && (
+          {allowCreate && adding && (
             <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
               <Input
                 ref={inputRef}
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Имя клиента..."
+                placeholder={createPlaceholder}
                 className="h-7 text-xs"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newTitle.trim()) {
@@ -925,7 +933,7 @@ function DroppableColumn({
           ))}
           {tasks.length === 0 && !adding && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">
-              Нет клиентов
+              {allowCreate ? "Нет клиентов" : "Нет задач"}
             </div>
           )}
         </div>
