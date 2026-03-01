@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, type ComponentProps } from "react";
+import { useMemo, useState, useRef, useEffect, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -654,7 +654,7 @@ export default function CrmBoard() {
       </DragOverlay>
 
       <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
           {selectedTask && (
             <div className="p-4">
               <TaskItem task={selectedTask} initialOpen />
@@ -707,6 +707,15 @@ function DroppableColumn({
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
+  // Sync selectedGroupId when crmProjectOptions loads/changes and current selection is invalid
+  useEffect(() => {
+    if (crmProjectOptions.length > 0) {
+      const currentExists = crmProjectOptions.some((g) => g.id === selectedGroupId);
+      if (!currentExists) {
+        setSelectedGroupId(crmProjectOptions[0].id);
+      }
+    }
+  }, [crmProjectOptions, selectedGroupId]);
   return (
     <div
       ref={setNodeRef}

@@ -467,10 +467,10 @@ export function useTaskMutations() {
       if (taskType === 'crm' && task.client_name?.trim()) {
         const clientNameTrimmed = task.client_name.trim();
 
-        // Find "Клиенты" subcategory (under "CRM / Продажи")
+        // Find "Клиенты" subcategory (under "CRM / Продажи") for the current user
         const { data: categories } = await supabase.from("tag_categories").select("*");
-        const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id);
-        const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id);
+        const crmParent = (categories || []).find((c: any) => c.name === 'CRM / Продажи' && !c.parent_id && c.user_id === user!.id);
+        const clientsCat = (categories || []).find((c: any) => c.name === 'Клиенты' && c.parent_id === crmParent?.id && c.user_id === user!.id);
 
         // Case-insensitive tag lookup to avoid duplicates
         const { data: existingTags } = await supabase.from("tags").select("*").eq("user_id", user!.id);
@@ -540,11 +540,11 @@ export function useTaskMutations() {
       });
       if (partError) console.error("Failed to add creator as participant:", partError);
 
-      if (task.group_id) {
+      if (resolvedGroupId) {
         const { data: group } = await supabase
           .from("task_groups")
           .select("*")
-          .eq("id", task.group_id)
+          .eq("id", resolvedGroupId)
           .single();
         
         if (group && (group as any).linked_tag_id) {
@@ -558,10 +558,19 @@ export function useTaskMutations() {
         const { data: members } = await supabase
           .from("group_members")
           .select("user_id")
-          .eq("group_id", task.group_id);
+          .eq("group_id", resolvedGroupId);
         const memberIds = (members || []).map((m: any) => m.user_id);
         if (memberIds.length > 0) {
           notifyEvent("new_task_in_group", task.title, memberIds);
+        }
+      }
+
+      // For CRM tasks, also assign the client tag to the task
+      if (taskType === 'crm' && task.client_name?.trim()) {
+        const clientNameTrimmed = task.client_name.trim();
+        const { data: clientTag } = await supabase.from("tags").select("id").eq("user_id", user!.id).eq("name", clientNameTrimmed).maybeSingle();
+        if (clientTag) {
+          await supabase.from("task_tags").insert({ task_id: taskData.id, tag_id: clientTag.id }).maybeSingle();
         }
       }
 
