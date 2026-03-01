@@ -771,9 +771,10 @@ function DroppableColumn({
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Название проекта..."
                   className="h-7 text-xs"
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === "Enter" && newProjectName.trim()) {
-                      onCreateProject(newProjectName);
+                      const newId = await onCreateProject(newProjectName);
+                      if (newId) setSelectedGroupId(newId);
                       setNewProjectName("");
                       setCreatingProject(false);
                     }
