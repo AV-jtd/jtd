@@ -742,9 +742,46 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               crmGroupNames={crmGroupNames}
               cardVariant="sales"
               isOver={overColumn === "inbox"}
+              usedAssignees={usedAssignees}
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
+              onCreateInboxTask={async (title, assigneeId, deadline) => {
+                if (!title.trim() || !user) return;
+                try {
+                  let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
+                  let crmTagId: string;
+                  if (crmTag) {
+                    crmTagId = crmTag.id;
+                  } else {
+                    const { data: newTag, error: tagErr } = await supabase
+                      .from("tags")
+                      .insert({ name: "crm", user_id: user.id, color: "#ef4444" })
+                      .select("id")
+                      .single();
+                    if (tagErr) throw tagErr;
+                    crmTagId = newTag.id;
+                  }
+                  const { data: newTask, error: taskErr } = await supabase
+                    .from("tasks")
+                    .insert({
+                      title: title.trim(),
+                      user_id: user.id,
+                      task_type: "crm",
+                      assigned_to: assigneeId || null,
+                      deadline: deadline || null,
+                    })
+                    .select("id")
+                    .single();
+                  if (taskErr) throw taskErr;
+                  await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: crmTagId });
+                  queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+                  queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
+                  toast.success("Задача создана во Входящих");
+                } catch (e: any) {
+                  toast.error(e.message);
+                }
+              }}
             />
             {visibleStages.map((stage) => (
               <DroppableColumn
