@@ -581,12 +581,19 @@ export default function CrmBoard() {
         {/* Filter bar */}
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+            <div className="relative inline-flex items-center rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-1 shadow-inner">
+              <div
+                className="absolute top-1 bottom-1 rounded-lg bg-primary/90 shadow-md backdrop-blur-sm transition-all duration-300 ease-out"
+                style={{
+                  left: boardView === "funnel" ? "4px" : "50%",
+                  width: "calc(50% - 4px)",
+                }}
+              />
               <button
                 onClick={() => setBoardView("funnel")}
                 className={cn(
-                  "text-xs px-2.5 py-1 rounded-md transition-colors",
-                  boardView === "funnel" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  "relative z-10 text-xs font-medium px-4 py-1.5 rounded-lg transition-colors duration-200",
+                  boardView === "funnel" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Воронка
@@ -594,8 +601,8 @@ export default function CrmBoard() {
               <button
                 onClick={() => setBoardView("sales")}
                 className={cn(
-                  "text-xs px-2.5 py-1 rounded-md transition-colors",
-                  boardView === "sales" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  "relative z-10 text-xs font-medium px-4 py-1.5 rounded-lg transition-colors duration-200",
+                  boardView === "sales" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Задачи продаж
