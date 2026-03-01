@@ -422,22 +422,25 @@ export default function CrmBoard() {
     }
   };
 
-  const handleCreateCrmProject = async (name: string) => {
-    if (!name.trim()) return;
+  const handleCreateCrmProject = async (name: string): Promise<string | null> => {
+    if (!name.trim()) return null;
     try {
-      await supabase.from("task_groups").insert({
+      const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
         user_id: user!.id,
         project_type: "crm",
         icon: "🤝",
         color: "#ef4444",
-      });
+      }).select("id").single();
+      if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
       toast.success("CRM-проект создан");
+      return data.id;
     } catch (e: any) {
       toast.error(e.message);
+      return null;
     }
   };
 
