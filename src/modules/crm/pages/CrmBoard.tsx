@@ -203,22 +203,22 @@ export default function CrmBoard() {
   const { data: doneTasks = [] } = useQuery({
     queryKey: ["crm-tasks-done", user?.id, crmGroupIds],
     queryFn: async () => {
-      if (!user || crmGroupIds.length === 0) return [];
-      const orFilters = [
+      if (!user) return [];
+      const orParts = [
         ...crmGroupIds.map((id) => `group_id.eq.${id}`),
         "task_type.eq.crm",
-      ].join(",");
+      ];
       const { data, error } = await supabase
         .from("tasks")
         .select("id")
-        .or(orFilters)
+        .or(orParts.join(","))
         .eq("is_completed", true)
         .order("completed_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && crmGroupIds.length > 0,
+    enabled: !!user,
   });
 
   const { data: allTags = [] } = useQuery({
