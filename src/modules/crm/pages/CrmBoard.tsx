@@ -976,7 +976,71 @@ function DroppableColumn({
   );
 }
 
-function DoneColumn({
+function InboxColumn({
+  tasks,
+  tagById,
+  groupById,
+  crmLinkedTagIds,
+  crmGroupNames,
+  cardVariant = "funnel",
+  onToggleComplete,
+  onToggleImportant,
+  onCardClick,
+}: {
+  tasks: CrmTask[];
+  tagById: Map<string, CrmTag>;
+  groupById: Map<string, CrmGroup>;
+  crmLinkedTagIds: Set<string>;
+  crmGroupNames: Set<string>;
+  cardVariant?: "funnel" | "sales";
+  onToggleComplete: (task: CrmTask) => void;
+  onToggleImportant: (task: CrmTask) => void;
+  onCardClick: (taskId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
+        collapsed ? "w-16" : "w-72 md:w-80"
+      )}
+    >
+      <button
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
+        title={collapsed ? "Развернуть: Входящие" : "Свернуть: Входящие"}
+      >
+        <Inbox className="h-4 w-4 text-blue-500 shrink-0" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
+      </button>
+
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+          <div className="flex flex-col gap-2">
+            {tasks.length === 0 && (
+              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет входящих задач</div>
+            )}
+            {tasks.map((task) => (
+              <CrmCard
+                key={task.id}
+                task={task}
+                variant={cardVariant}
+                tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
+                group={task.group_id ? groupById.get(task.group_id) || null : null}
+                onToggleComplete={() => onToggleComplete(task)}
+                onToggleImportant={() => onToggleImportant(task)}
+                onCardClick={() => onCardClick(task.id)}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
+
   title,
   tasks,
   groupById,
