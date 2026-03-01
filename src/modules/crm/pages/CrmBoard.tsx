@@ -727,7 +727,7 @@ export default function CrmBoard() {
               groupById={groupById}
               crmLinkedTagIds={crmLinkedTagIds}
               crmGroupNames={crmGroupNames}
-              cardVariant={boardView === "sales" ? "sales" : "funnel"}
+                cardVariant="sales"
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
@@ -773,7 +773,7 @@ export default function CrmBoard() {
               task={activeTask}
               tags={(activeTask.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
               group={activeTask.group_id ? groupById.get(activeTask.group_id) || null : null}
-              variant={boardView === "sales" ? "sales" : "funnel"}
+              variant="sales"
               isDragging
               onToggleComplete={() => {}}
               onToggleImportant={() => {}}
@@ -1023,9 +1023,10 @@ function InboxColumn({
               <div className="text-center py-8 text-xs text-muted-foreground/50">Нет входящих задач</div>
             )}
             {tasks.map((task) => (
-              <CrmCard
+              <DraggableCard
                 key={task.id}
                 task={task}
+                isMoving={false}
                 variant={cardVariant}
                 tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
                 group={task.group_id ? groupById.get(task.group_id) || null : null}
