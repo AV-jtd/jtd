@@ -1376,11 +1376,37 @@ function InboxColumn({
                           {visibleProjects.length === 0 && !projectSearch.trim() && (
                             <p className="text-xs text-muted-foreground px-2 py-1">Нет CRM-проектов</p>
                           )}
-                          <button onClick={() => setShowAllProjects(true)}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10 mt-1 border-t border-border pt-2">
-                            <Search className="h-3 w-3" />
-                            <span>Все проекты</span>
-                          </button>
+                          <div className="mt-1 border-t border-border pt-2 space-y-0.5">
+                            <button onClick={() => setShowAllProjects(true)}
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10">
+                              <Search className="h-3 w-3" />
+                              <span>Все проекты</span>
+                            </button>
+                            {!creatingInboxProject ? (
+                              <button onClick={() => setCreatingInboxProject(true)}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10">
+                                <Plus className="h-3 w-3" />
+                                <span>Создать проект</span>
+                              </button>
+                            ) : (
+                              <Input
+                                autoFocus
+                                value={newInboxProjectName}
+                                onChange={(e) => setNewInboxProjectName(e.target.value)}
+                                placeholder="Название проекта..."
+                                className="h-7 text-xs"
+                                onKeyDown={async (e) => {
+                                  if (e.key === "Enter" && newInboxProjectName.trim() && onCreateProject) {
+                                    const newId = await onCreateProject(newInboxProjectName);
+                                    if (newId) setNewGroupId(newId);
+                                    setNewInboxProjectName("");
+                                    setCreatingInboxProject(false);
+                                  }
+                                  if (e.key === "Escape") { setCreatingInboxProject(false); setNewInboxProjectName(""); }
+                                }}
+                              />
+                            )}
+                          </div>
                         </>)}
                         {showAllProjects && (<>
                           {visibleProjects.map((g) => (
@@ -1397,10 +1423,36 @@ function InboxColumn({
                           {visibleProjects.length === 0 && (
                             <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
                           )}
-                          <button onClick={() => { setShowAllProjects(false); setProjectSearch(""); }}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground mt-1 border-t border-border pt-2">
-                            ← CRM-проекты
-                          </button>
+                          <div className="mt-1 border-t border-border pt-2 space-y-0.5">
+                            <button onClick={() => { setShowAllProjects(false); setProjectSearch(""); }}
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground">
+                              ← CRM-проекты
+                            </button>
+                            {!creatingInboxProject ? (
+                              <button onClick={() => setCreatingInboxProject(true)}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-primary hover:bg-primary/10">
+                                <Plus className="h-3 w-3" />
+                                <span>Создать проект</span>
+                              </button>
+                            ) : (
+                              <Input
+                                autoFocus
+                                value={newInboxProjectName}
+                                onChange={(e) => setNewInboxProjectName(e.target.value)}
+                                placeholder="Название проекта..."
+                                className="h-7 text-xs"
+                                onKeyDown={async (e) => {
+                                  if (e.key === "Enter" && newInboxProjectName.trim() && onCreateProject) {
+                                    const newId = await onCreateProject(newInboxProjectName);
+                                    if (newId) setNewGroupId(newId);
+                                    setNewInboxProjectName("");
+                                    setCreatingInboxProject(false);
+                                  }
+                                  if (e.key === "Escape") { setCreatingInboxProject(false); setNewInboxProjectName(""); }
+                                }}
+                              />
+                            )}
+                          </div>
                         </>)}
                       </div>
                     </PopoverContent>
