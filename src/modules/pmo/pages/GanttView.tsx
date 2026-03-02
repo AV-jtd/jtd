@@ -1129,17 +1129,25 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                     const succTask = allTasks.find(t => t.id === depDialogState.successorId);
                     if (succTask) {
                       const oldStart = succTask.start_at ? parseISO(succTask.start_at) : parseISO(succTask.created_at);
-                      const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
-                      if (succTask.deadline) {
-                        const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
-                        updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
-                      } else {
-                        updates.deadline = addDays(newStart, 1).toISOString();
+                      // Only move successor forward, never backward
+                      if (newStart > oldStart) {
+                        const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
+                        if (succTask.deadline) {
+                          const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
+                          updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
+                        } else {
+                          updates.deadline = addDays(newStart, 1).toISOString();
+                        }
+                        updateTask.mutate(updates);
                       }
-                      updateTask.mutate(updates);
                     }
                   } else if (depDialogState.successorEntityType === "milestone") {
-                    updateMilestone.mutate({ id: depDialogState.successorId, planned_date: newStart.toISOString() });
+                    const succMs = allMilestones.find(m => m.id === depDialogState.successorId);
+                    const oldPlanned = succMs ? parseISO(succMs.planned_date) : null;
+                    // Only move milestone forward, never backward
+                    if (!oldPlanned || newStart > oldPlanned) {
+                      updateMilestone.mutate({ id: depDialogState.successorId, planned_date: newStart.toISOString() });
+                    }
                   }
                 }
               }
