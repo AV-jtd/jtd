@@ -402,6 +402,7 @@ export function useTaskMutations() {
 
   const renameGroup = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await checkDuplicateName(name, "project", user!.id, id);
       const { error } = await supabase.from("task_groups").update({ name }).eq("id", id);
       if (error) throw error;
     },
