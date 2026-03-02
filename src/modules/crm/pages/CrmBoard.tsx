@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect, type ComponentProps } from "react
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskMutations, type Task, useTaskGroups } from "@/hooks/useTasks";
+import { useTaskMutations, type Task, useTaskGroups, DuplicateNameError } from "@/hooks/useTasks";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import {
@@ -601,6 +601,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       const currentUserId = sessionData?.session?.user?.id;
       if (!currentUserId) {
         toast.error("Сессия истекла. Пожалуйста, войдите заново.");
+        return null;
+      }
+
+      // Check for duplicate names across projects and tags
+      const normalized = name.trim().toLowerCase();
+      const { data: existingGroups } = await supabase.from("task_groups").select("id, name");
+      const dupGroup = (existingGroups || []).find((g) => g.name.trim().toLowerCase() === normalized);
+      if (dupGroup) {
+        toast.error(`Проект «${dupGroup.name}» уже существует`);
         return null;
       }
 
