@@ -1123,6 +1123,7 @@ function InboxColumn({
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
   onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null, extraTagIds?: string[]) => void;
+  onCreateProject?: (name: string) => Promise<string | null>;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
