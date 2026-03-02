@@ -951,6 +951,7 @@ export function useTaskMutations() {
 
   const addTag = useMutation({
     mutationFn: async ({ name, color, category_id }: { name: string; color?: string; category_id?: string | null }) => {
+      await checkDuplicateName(name, "tag", user!.id);
       const { error } = await supabase.from("tags").insert({ name, color, user_id: user!.id, category_id: category_id || null } as any);
       if (error) throw error;
     },
