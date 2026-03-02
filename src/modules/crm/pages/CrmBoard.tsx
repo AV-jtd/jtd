@@ -1132,8 +1132,7 @@ function InboxColumn({
       const { data: cats } = await supabase
         .from("tag_categories")
         .select("id")
-        .eq("name", "Клиенты")
-        .eq("user_id", user.id);
+        .ilike("name", "Клиенты");
       if (!cats || cats.length === 0) return [];
       const { data: tags } = await supabase
         .from("tags")
