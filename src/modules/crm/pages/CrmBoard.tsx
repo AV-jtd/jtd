@@ -597,29 +597,51 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const handleCreateCrmProject = async (name: string): Promise<string | null> => {
     if (!name.trim()) return null;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
+      if (!currentUserId) {
+        toast.error("Сессия истекла. Пожалуйста, войдите заново.");
+        return null;
+      }
+
       const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
-        user_id: user!.id,
+        user_id: currentUserId,
         project_type: "crm",
         icon: "🤝",
         color: "#ef4444",
       }).select("id").single();
       if (error) throw error;
       // Auto-link "crm" tag to the new project via group_tags
-      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
-      let crmTagId: string;
+      let crmTagId: string | null = null;
+      const crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
       if (crmTag) {
         crmTagId = crmTag.id;
       } else {
-        const { data: newTag, error: tagErr } = await supabase
+        const { data: existingCrm } = await supabase
           .from("tags")
-          .insert({ name: "crm", user_id: user!.id, color: "#ef4444" })
           .select("id")
-          .single();
-        if (tagErr) throw tagErr;
-        crmTagId = newTag.id;
+          .eq("user_id", currentUserId)
+          .ilike("name", "crm")
+          .maybeSingle();
+        if (existingCrm) {
+          crmTagId = existingCrm.id;
+        } else {
+          const { data: newTag, error: tagErr } = await supabase
+            .from("tags")
+            .insert({ name: "crm", user_id: currentUserId, color: "#ef4444" })
+            .select("id")
+            .single();
+          if (tagErr) {
+            console.error("Failed to create crm tag:", tagErr);
+          } else {
+            crmTagId = newTag.id;
+          }
+        }
       }
-      await supabase.from("group_tags").insert({ group_id: data.id, tag_id: crmTagId });
+      if (crmTagId) {
+        await supabase.from("group_tags").insert({ group_id: data.id, tag_id: crmTagId });
+      }
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
@@ -627,7 +649,8 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       toast.success("CRM-проект создан");
       return data.id;
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("CRM project creation error:", e);
+      toast.error("Ошибка: " + e.message);
       return null;
     }
   };
