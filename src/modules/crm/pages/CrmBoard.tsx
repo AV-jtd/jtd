@@ -1107,6 +1107,7 @@ function InboxColumn({
   onToggleImportant,
   onCardClick,
   onCreateInboxTask,
+  onCreateProject,
 }: {
   tasks: CrmTask[];
   tagById: Map<string, CrmTag>;
