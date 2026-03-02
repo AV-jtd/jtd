@@ -1081,6 +1081,7 @@ function InboxColumn({
   groupById,
   crmLinkedTagIds,
   crmGroupNames,
+  allTags = [],
   cardVariant = "funnel",
   isOver,
   usedAssignees = [],
@@ -1096,6 +1097,7 @@ function InboxColumn({
   groupById: Map<string, CrmGroup>;
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
+  allTags?: CrmTag[];
   cardVariant?: "funnel" | "sales";
   isOver?: boolean;
   usedAssignees?: { id: string; display_name: string | null; email: string | null }[];
@@ -1104,7 +1106,7 @@ function InboxColumn({
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
-  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null) => void;
+  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null, extraTagIds?: string[]) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
