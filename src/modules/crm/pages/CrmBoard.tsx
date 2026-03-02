@@ -525,7 +525,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   }, [allProjectGroups]);
 
   const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
-    if (!title.trim()) return;
+    if (!title.trim() || !user) return;
     try {
       await addTask.mutateAsync({
         title: title.trim(),
@@ -533,9 +533,37 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         task_type: "crm",
         client_name: title.trim(),
       });
-      // For stages beyond "kp", we need to complete earlier subtasks
-      // But since addTask creates subtasks async, we rely on the board refresh
+      // Also ensure "crm" tag is linked
+      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
+      let crmTagId: string;
+      if (crmTag) {
+        crmTagId = crmTag.id;
+      } else {
+        const { data: newTag, error: tagErr } = await supabase
+          .from("tags")
+          .insert({ name: "crm", user_id: user.id, color: "#ef4444" })
+          .select("id")
+          .single();
+        if (tagErr) throw tagErr;
+        crmTagId = newTag.id;
+      }
+      // Find the task that was just created (latest crm task by this user)
+      const { data: latestTask } = await supabase
+        .from("tasks")
+        .select("id, task_tags(tag_id)")
+        .eq("user_id", user.id)
+        .eq("task_type", "crm")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (latestTask) {
+        const alreadyHasCrm = (latestTask.task_tags || []).some((tt: any) => tt.tag_id === crmTagId);
+        if (!alreadyHasCrm) {
+          await supabase.from("task_tags").insert({ task_id: latestTask.id, tag_id: crmTagId });
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
       toast.success("Клиент добавлен");
     } catch (e: any) {
       toast.error(e.message);
@@ -741,6 +769,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               groupById={groupById}
               crmLinkedTagIds={crmLinkedTagIds}
               crmGroupNames={crmGroupNames}
+              allTags={allTags}
               cardVariant="sales"
               isOver={overColumn === "inbox"}
               usedAssignees={usedAssignees}
@@ -749,7 +778,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
-              onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId) => {
+              onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId, extraTagIds) => {
                 if (!title.trim() || !user) return;
                 try {
                   let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
@@ -783,6 +812,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                   // Link client tag if selected
                   if (clientTagId) {
                     await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: clientTagId });
+                  }
+                  // Link extra tags
+                  if (extraTagIds && extraTagIds.length > 0) {
+                    const uniqueExtra = extraTagIds.filter((id) => id !== crmTagId && id !== clientTagId);
+                    if (uniqueExtra.length > 0) {
+                      await supabase.from("task_tags").insert(
+                        uniqueExtra.map((tag_id) => ({ task_id: newTask.id, tag_id }))
+                      );
+                    }
                   }
                   queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
                   queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
@@ -1043,6 +1081,7 @@ function InboxColumn({
   groupById,
   crmLinkedTagIds,
   crmGroupNames,
+  allTags = [],
   cardVariant = "funnel",
   isOver,
   usedAssignees = [],
@@ -1058,6 +1097,7 @@ function InboxColumn({
   groupById: Map<string, CrmGroup>;
   crmLinkedTagIds: Set<string>;
   crmGroupNames: Set<string>;
+  allTags?: CrmTag[];
   cardVariant?: "funnel" | "sales";
   isOver?: boolean;
   usedAssignees?: { id: string; display_name: string | null; email: string | null }[];
@@ -1066,7 +1106,7 @@ function InboxColumn({
   onToggleComplete: (task: CrmTask) => void;
   onToggleImportant: (task: CrmTask) => void;
   onCardClick: (taskId: string) => void;
-  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null) => void;
+  onCreateInboxTask?: (title: string, assigneeId: string | null, deadline: string | null, clientTagId: string | null, groupId: string | null, extraTagIds?: string[]) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -1078,6 +1118,8 @@ function InboxColumn({
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
   const [newClientTagId, setNewClientTagId] = useState<string | null>(null);
   const [newGroupId, setNewGroupId] = useState<string | null>(null);
+  const [newExtraTagIds, setNewExtraTagIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -1116,16 +1158,26 @@ function InboxColumn({
     return list.filter((g) => g.name.toLowerCase().includes(q));
   }, [showAllProjects, allProjectGroups, crmProjectOptions, projectSearch]);
 
+  const filteredTagsForPicker = useMemo(() => {
+    const excluded = new Set([...newExtraTagIds, newClientTagId].filter(Boolean) as string[]);
+    let list = allTags.filter((t) => !excluded.has(t.id));
+    if (tagSearch.trim()) {
+      const q = tagSearch.toLowerCase();
+      list = list.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [allTags, newExtraTagIds, newClientTagId, tagSearch]);
+
   const resetForm = () => {
     setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined);
-    setNewClientTagId(null); setNewGroupId(null);
-    setClientSearch(""); setProjectSearch(""); setShowAllProjects(false);
+    setNewClientTagId(null); setNewGroupId(null); setNewExtraTagIds([]);
+    setClientSearch(""); setProjectSearch(""); setTagSearch(""); setShowAllProjects(false);
     setAdding(false);
   };
 
   const handleSubmit = () => {
     if (!newTitle.trim() || !onCreateInboxTask) return;
-    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null, newClientTagId, newGroupId);
+    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null, newClientTagId, newGroupId, newExtraTagIds);
     resetForm();
   };
 
@@ -1409,6 +1461,58 @@ function InboxColumn({
                         </div>
                         <CalendarComponent mode="single" selected={newDeadline} onSelect={setNewDeadline}
                           className="p-0 pointer-events-auto" />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Tag picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors",
+                        newExtraTagIds.length > 0 ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <Tag className="h-3 w-3" />
+                        {newExtraTagIds.length > 0 ? `Тэги (${newExtraTagIds.length})` : "Тэги"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-2" side="bottom" align="start">
+                      <Input
+                        value={tagSearch}
+                        onChange={(e) => setTagSearch(e.target.value)}
+                        placeholder="Поиск тэга..."
+                        className="h-7 text-xs mb-2"
+                      />
+                      {newExtraTagIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {newExtraTagIds.map((tagId) => {
+                            const tag = allTags.find((t) => t.id === tagId);
+                            if (!tag) return null;
+                            return (
+                              <span key={tagId} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-foreground">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                                {tag.name}
+                                <button onClick={() => setNewExtraTagIds((prev) => prev.filter((id) => id !== tagId))}
+                                  className="hover:text-destructive">
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {filteredTagsForPicker.map((tag) => (
+                          <button key={tag.id}
+                            onClick={() => setNewExtraTagIds((prev) => [...prev, tag.id])}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                            <span className="truncate">{tag.name}</span>
+                          </button>
+                        ))}
+                        {filteredTagsForPicker.length === 0 && (
+                          <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
+                        )}
                       </div>
                     </PopoverContent>
                   </Popover>
