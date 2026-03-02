@@ -527,6 +527,14 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
     if (!title.trim() || !user) return;
     try {
+      // Refresh session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
+      if (!currentUserId) {
+        toast.error("Сессия истекла. Пожалуйста, войдите заново.");
+        return;
+      }
+
       await addTask.mutateAsync({
         title: title.trim(),
         group_id: groupId,
@@ -534,68 +542,106 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         client_name: title.trim(),
       });
       // Also ensure "crm" tag is linked
-      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
-      let crmTagId: string;
+      let crmTagId: string | null = null;
+      const crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
       if (crmTag) {
         crmTagId = crmTag.id;
       } else {
-        const { data: newTag, error: tagErr } = await supabase
+        const { data: existingCrm } = await supabase
           .from("tags")
-          .insert({ name: "crm", user_id: user.id, color: "#ef4444" })
           .select("id")
-          .single();
-        if (tagErr) throw tagErr;
-        crmTagId = newTag.id;
+          .eq("user_id", currentUserId)
+          .ilike("name", "crm")
+          .maybeSingle();
+        if (existingCrm) {
+          crmTagId = existingCrm.id;
+        } else {
+          const { data: newTag, error: tagErr } = await supabase
+            .from("tags")
+            .insert({ name: "crm", user_id: currentUserId, color: "#ef4444" })
+            .select("id")
+            .single();
+          if (tagErr) {
+            console.error("Failed to create crm tag:", tagErr);
+          } else {
+            crmTagId = newTag.id;
+          }
+        }
       }
       // Find the task that was just created (latest crm task by this user)
-      const { data: latestTask } = await supabase
-        .from("tasks")
-        .select("id, task_tags(tag_id)")
-        .eq("user_id", user.id)
-        .eq("task_type", "crm")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      if (latestTask) {
-        const alreadyHasCrm = (latestTask.task_tags || []).some((tt: any) => tt.tag_id === crmTagId);
-        if (!alreadyHasCrm) {
-          await supabase.from("task_tags").insert({ task_id: latestTask.id, tag_id: crmTagId });
+      if (crmTagId) {
+        const { data: latestTask } = await supabase
+          .from("tasks")
+          .select("id, task_tags(tag_id)")
+          .eq("user_id", currentUserId)
+          .eq("task_type", "crm")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (latestTask) {
+          const alreadyHasCrm = (latestTask.task_tags || []).some((tt: any) => tt.tag_id === crmTagId);
+          if (!alreadyHasCrm) {
+            await supabase.from("task_tags").insert({ task_id: latestTask.id, tag_id: crmTagId });
+          }
         }
       }
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
       toast.success("Клиент добавлен");
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("CRM task creation error:", e);
+      toast.error("Ошибка: " + e.message);
     }
   };
 
   const handleCreateCrmProject = async (name: string): Promise<string | null> => {
     if (!name.trim()) return null;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
+      if (!currentUserId) {
+        toast.error("Сессия истекла. Пожалуйста, войдите заново.");
+        return null;
+      }
+
       const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
-        user_id: user!.id,
+        user_id: currentUserId,
         project_type: "crm",
         icon: "🤝",
         color: "#ef4444",
       }).select("id").single();
       if (error) throw error;
       // Auto-link "crm" tag to the new project via group_tags
-      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
-      let crmTagId: string;
+      let crmTagId: string | null = null;
+      const crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
       if (crmTag) {
         crmTagId = crmTag.id;
       } else {
-        const { data: newTag, error: tagErr } = await supabase
+        const { data: existingCrm } = await supabase
           .from("tags")
-          .insert({ name: "crm", user_id: user!.id, color: "#ef4444" })
           .select("id")
-          .single();
-        if (tagErr) throw tagErr;
-        crmTagId = newTag.id;
+          .eq("user_id", currentUserId)
+          .ilike("name", "crm")
+          .maybeSingle();
+        if (existingCrm) {
+          crmTagId = existingCrm.id;
+        } else {
+          const { data: newTag, error: tagErr } = await supabase
+            .from("tags")
+            .insert({ name: "crm", user_id: currentUserId, color: "#ef4444" })
+            .select("id")
+            .single();
+          if (tagErr) {
+            console.error("Failed to create crm tag:", tagErr);
+          } else {
+            crmTagId = newTag.id;
+          }
+        }
       }
-      await supabase.from("group_tags").insert({ group_id: data.id, tag_id: crmTagId });
+      if (crmTagId) {
+        await supabase.from("group_tags").insert({ group_id: data.id, tag_id: crmTagId });
+      }
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
@@ -603,7 +649,8 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       toast.success("CRM-проект создан");
       return data.id;
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("CRM project creation error:", e);
+      toast.error("Ошибка: " + e.message);
       return null;
     }
   };
@@ -797,24 +844,20 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId, extraTagIds) => {
                 if (!title.trim() || !user) return;
                 try {
-                  let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
-                  let crmTagId: string;
-                  if (crmTag) {
-                    crmTagId = crmTag.id;
-                  } else {
-                    const { data: newTag, error: tagErr } = await supabase
-                      .from("tags")
-                      .insert({ name: "crm", user_id: user.id, color: "#ef4444" })
-                      .select("id")
-                      .single();
-                    if (tagErr) throw tagErr;
-                    crmTagId = newTag.id;
+                  // Refresh session to ensure auth.uid() matches user.id
+                  const { data: sessionData } = await supabase.auth.getSession();
+                  const currentUserId = sessionData?.session?.user?.id;
+                  if (!currentUserId) {
+                    toast.error("Сессия истекла. Пожалуйста, войдите заново.");
+                    return;
                   }
+
+                  // First create the task
                   const { data: newTask, error: taskErr } = await supabase
                     .from("tasks")
                     .insert({
                       title: title.trim(),
-                      user_id: user.id,
+                      user_id: currentUserId,
                       task_type: "crm",
                       assigned_to: assigneeId || null,
                       deadline: deadline || null,
@@ -823,11 +866,47 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                     .select("id")
                     .single();
                   if (taskErr) throw taskErr;
-                  // Link crm tag
-                  await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: crmTagId });
+
+                  // Find or create "crm" tag
+                  let crmTagId: string | null = null;
+                  const crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
+                  if (crmTag) {
+                    crmTagId = crmTag.id;
+                  } else {
+                    // Check if user already has a crm tag (might not be in allTags yet)
+                    const { data: existingCrm } = await supabase
+                      .from("tags")
+                      .select("id")
+                      .eq("user_id", currentUserId)
+                      .ilike("name", "crm")
+                      .maybeSingle();
+                    if (existingCrm) {
+                      crmTagId = existingCrm.id;
+                    } else {
+                      const { data: newTag, error: tagErr } = await supabase
+                        .from("tags")
+                        .insert({ name: "crm", user_id: currentUserId, color: "#ef4444" })
+                        .select("id")
+                        .single();
+                      if (tagErr) {
+                        console.error("Failed to create crm tag:", tagErr);
+                      } else {
+                        crmTagId = newTag.id;
+                      }
+                    }
+                  }
+
+                  // Link crm tag (non-blocking)
+                  if (crmTagId) {
+                    await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: crmTagId }).then(({ error }) => {
+                      if (error) console.error("Failed to link crm tag:", error);
+                    });
+                  }
                   // Link client tag if selected
                   if (clientTagId) {
-                    await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: clientTagId });
+                    await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: clientTagId }).then(({ error }) => {
+                      if (error) console.error("Failed to link client tag:", error);
+                    });
                   }
                   // Link extra tags
                   if (extraTagIds && extraTagIds.length > 0) {
@@ -835,7 +914,9 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                     if (uniqueExtra.length > 0) {
                       await supabase.from("task_tags").insert(
                         uniqueExtra.map((tag_id) => ({ task_id: newTask.id, tag_id }))
-                      );
+                      ).then(({ error }) => {
+                        if (error) console.error("Failed to link extra tags:", error);
+                      });
                     }
                   }
                   queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
@@ -843,7 +924,8 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                   queryClient.invalidateQueries({ queryKey: ["tasks"] });
                   toast.success("Задача создана во Входящих");
                 } catch (e: any) {
-                  toast.error(e.message);
+                  console.error("CRM inbox task creation error:", e);
+                  toast.error("Ошибка создания задачи: " + e.message);
                 }
               }}
               onCreateProject={handleCreateCrmProject}
