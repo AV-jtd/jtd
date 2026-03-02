@@ -769,6 +769,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               groupById={groupById}
               crmLinkedTagIds={crmLinkedTagIds}
               crmGroupNames={crmGroupNames}
+              allTags={allTags}
               cardVariant="sales"
               isOver={overColumn === "inbox"}
               usedAssignees={usedAssignees}
