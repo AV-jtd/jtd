@@ -604,6 +604,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         return null;
       }
 
+      // Check for duplicate names across projects and tags
+      const normalized = name.trim().toLowerCase();
+      const { data: existingGroups } = await supabase.from("task_groups").select("id, name");
+      const dupGroup = (existingGroups || []).find((g) => g.name.trim().toLowerCase() === normalized);
+      if (dupGroup) {
+        toast.error(`Проект «${dupGroup.name}» уже существует`);
+        return null;
+      }
+
       const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
         user_id: currentUserId,
