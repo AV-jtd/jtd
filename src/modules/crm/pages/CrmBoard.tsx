@@ -777,7 +777,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               onToggleComplete={(task) => toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })}
               onToggleImportant={(task) => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
               onCardClick={(taskId) => setSelectedTaskId(taskId)}
-              onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId) => {
+              onCreateInboxTask={async (title, assigneeId, deadline, clientTagId, groupId, extraTagIds) => {
                 if (!title.trim() || !user) return;
                 try {
                   let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
@@ -811,6 +811,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                   // Link client tag if selected
                   if (clientTagId) {
                     await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: clientTagId });
+                  }
+                  // Link extra tags
+                  if (extraTagIds && extraTagIds.length > 0) {
+                    const uniqueExtra = extraTagIds.filter((id) => id !== crmTagId && id !== clientTagId);
+                    if (uniqueExtra.length > 0) {
+                      await supabase.from("task_tags").insert(
+                        uniqueExtra.map((tag_id) => ({ task_id: newTask.id, tag_id }))
+                      );
+                    }
                   }
                   queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
                   queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
