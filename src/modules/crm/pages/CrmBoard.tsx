@@ -525,7 +525,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   }, [allProjectGroups]);
 
   const handleCreateCrmTask = async (title: string, groupId: string | null, stageKey: string) => {
-    if (!title.trim()) return;
+    if (!title.trim() || !user) return;
     try {
       await addTask.mutateAsync({
         title: title.trim(),
@@ -533,9 +533,37 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         task_type: "crm",
         client_name: title.trim(),
       });
-      // For stages beyond "kp", we need to complete earlier subtasks
-      // But since addTask creates subtasks async, we rely on the board refresh
+      // Also ensure "crm" tag is linked
+      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
+      let crmTagId: string;
+      if (crmTag) {
+        crmTagId = crmTag.id;
+      } else {
+        const { data: newTag, error: tagErr } = await supabase
+          .from("tags")
+          .insert({ name: "crm", user_id: user.id, color: "#ef4444" })
+          .select("id")
+          .single();
+        if (tagErr) throw tagErr;
+        crmTagId = newTag.id;
+      }
+      // Find the task that was just created (latest crm task by this user)
+      const { data: latestTask } = await supabase
+        .from("tasks")
+        .select("id, task_tags(tag_id)")
+        .eq("user_id", user.id)
+        .eq("task_type", "crm")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (latestTask) {
+        const alreadyHasCrm = (latestTask.task_tags || []).some((tt: any) => tt.tag_id === crmTagId);
+        if (!alreadyHasCrm) {
+          await supabase.from("task_tags").insert({ task_id: latestTask.id, tag_id: crmTagId });
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
       toast.success("Клиент добавлен");
     } catch (e: any) {
       toast.error(e.message);
