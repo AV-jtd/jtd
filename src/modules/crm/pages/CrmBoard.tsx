@@ -1158,16 +1158,26 @@ function InboxColumn({
     return list.filter((g) => g.name.toLowerCase().includes(q));
   }, [showAllProjects, allProjectGroups, crmProjectOptions, projectSearch]);
 
+  const filteredTagsForPicker = useMemo(() => {
+    const excluded = new Set([...newExtraTagIds, newClientTagId].filter(Boolean) as string[]);
+    let list = allTags.filter((t) => !excluded.has(t.id));
+    if (tagSearch.trim()) {
+      const q = tagSearch.toLowerCase();
+      list = list.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [allTags, newExtraTagIds, newClientTagId, tagSearch]);
+
   const resetForm = () => {
     setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined);
-    setNewClientTagId(null); setNewGroupId(null);
-    setClientSearch(""); setProjectSearch(""); setShowAllProjects(false);
+    setNewClientTagId(null); setNewGroupId(null); setNewExtraTagIds([]);
+    setClientSearch(""); setProjectSearch(""); setTagSearch(""); setShowAllProjects(false);
     setAdding(false);
   };
 
   const handleSubmit = () => {
     if (!newTitle.trim() || !onCreateInboxTask) return;
-    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null, newClientTagId, newGroupId);
+    onCreateInboxTask(newTitle, newAssignee, newDeadline ? newDeadline.toISOString() : null, newClientTagId, newGroupId, newExtraTagIds);
     resetForm();
   };
 
