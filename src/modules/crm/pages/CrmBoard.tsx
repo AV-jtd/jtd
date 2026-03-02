@@ -1123,6 +1123,8 @@ function InboxColumn({
   const [clientSearch, setClientSearch] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const [creatingInboxProject, setCreatingInboxProject] = useState(false);
+  const [newInboxProjectName, setNewInboxProjectName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: clientTags = [] } = useQuery({
