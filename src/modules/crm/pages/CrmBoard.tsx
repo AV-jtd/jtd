@@ -865,7 +865,18 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                     })
                     .select("id")
                     .single();
-                  if (taskErr) throw taskErr;
+                   if (taskErr) throw taskErr;
+
+                   // Create task_participants record for assignee so it shows in base view
+                   if (assigneeId && newTask?.id) {
+                     await supabase.from("task_participants").insert({
+                       task_id: newTask.id,
+                       user_id: assigneeId,
+                       role: "assignee",
+                     }).then(({ error }) => {
+                       if (error) console.error("Failed to add assignee participant:", error);
+                     });
+                   }
 
                   // Find or create "crm" tag
                   let crmTagId: string | null = null;
