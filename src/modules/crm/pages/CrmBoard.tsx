@@ -1464,6 +1464,58 @@ function InboxColumn({
                       </div>
                     </PopoverContent>
                   </Popover>
+
+                  {/* Tag picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border transition-colors",
+                        newExtraTagIds.length > 0 ? "text-foreground bg-muted" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <Tag className="h-3 w-3" />
+                        {newExtraTagIds.length > 0 ? `Тэги (${newExtraTagIds.length})` : "Тэги"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-2" side="bottom" align="start">
+                      <Input
+                        value={tagSearch}
+                        onChange={(e) => setTagSearch(e.target.value)}
+                        placeholder="Поиск тэга..."
+                        className="h-7 text-xs mb-2"
+                      />
+                      {newExtraTagIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {newExtraTagIds.map((tagId) => {
+                            const tag = allTags.find((t) => t.id === tagId);
+                            if (!tag) return null;
+                            return (
+                              <span key={tagId} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-foreground">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                                {tag.name}
+                                <button onClick={() => setNewExtraTagIds((prev) => prev.filter((id) => id !== tagId))}
+                                  className="hover:text-destructive">
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {filteredTagsForPicker.map((tag) => (
+                          <button key={tag.id}
+                            onClick={() => setNewExtraTagIds((prev) => [...prev, tag.id])}
+                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                            <span className="truncate">{tag.name}</span>
+                          </button>
+                        ))}
+                        {filteredTagsForPicker.length === 0 && (
+                          <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="flex gap-1.5">
                   <button onClick={handleSubmit}
