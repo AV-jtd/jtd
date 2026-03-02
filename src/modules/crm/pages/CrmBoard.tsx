@@ -930,9 +930,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                       });
                     }
                   }
-                  queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
-                  queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
-                  queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                   queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
+                   queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
+                   queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                   queryClient.invalidateQueries({ queryKey: ["task_participants"] });
                   toast.success("Задача создана во Входящих");
                 } catch (e: any) {
                   console.error("CRM inbox task creation error:", e);
