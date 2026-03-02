@@ -1192,6 +1192,7 @@ function InboxColumn({
     setNewTitle(""); setNewAssignee(null); setNewDeadline(undefined);
     setNewClientTagId(null); setNewGroupId(null); setNewExtraTagIds([]);
     setClientSearch(""); setProjectSearch(""); setTagSearch(""); setShowAllProjects(false);
+    setCreatingInboxProject(false); setNewInboxProjectName("");
     setAdding(false);
   };
 
