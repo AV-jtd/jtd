@@ -581,9 +581,25 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         color: "#ef4444",
       }).select("id").single();
       if (error) throw error;
+      // Auto-link "crm" tag to the new project via group_tags
+      let crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
+      let crmTagId: string;
+      if (crmTag) {
+        crmTagId = crmTag.id;
+      } else {
+        const { data: newTag, error: tagErr } = await supabase
+          .from("tags")
+          .insert({ name: "crm", user_id: user!.id, color: "#ef4444" })
+          .select("id")
+          .single();
+        if (tagErr) throw tagErr;
+        crmTagId = newTag.id;
+      }
+      await supabase.from("group_tags").insert({ group_id: data.id, tag_id: crmTagId });
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
       toast.success("CRM-проект создан");
       return data.id;
     } catch (e: any) {
