@@ -350,6 +350,8 @@ export function useTaskMutations() {
 
   const addGroup = useMutation({
     mutationFn: async ({ name, parent_id }: { name: string; parent_id?: string | null }) => {
+      await checkDuplicateName(name, "project", user!.id);
+
       const { data: tagData, error: tagError } = await supabase
         .from("tags")
         .insert({ name, user_id: user!.id, color: "#3b82f6" })
