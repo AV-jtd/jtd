@@ -63,6 +63,69 @@ function tempId() {
   return `temp-${crypto.randomUUID()}`;
 }
 
+// --- Duplicate name check helper ---
+
+export class DuplicateNameError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DuplicateNameError";
+  }
+}
+
+/**
+ * Check if a name already exists across tags, projects, or tasks.
+ * Throws DuplicateNameError if duplicate found.
+ * @param name - Name to check
+ * @param entity - What we're creating/renaming ('tag' | 'project' | 'task')
+ * @param excludeId - ID to exclude (for rename operations)
+ * @param userId - Current user ID for scoping
+ */
+async function checkDuplicateName(
+  name: string,
+  entity: "tag" | "project" | "task",
+  userId: string,
+  excludeId?: string
+) {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return;
+
+  // Check projects
+  const { data: groups } = await supabase
+    .from("task_groups")
+    .select("id, name, linked_tag_id");
+  const dupGroup = (groups || []).find(
+    (g) => g.name.trim().toLowerCase() === normalized && g.id !== excludeId
+  );
+  if (dupGroup) {
+    if (entity === "project") {
+      throw new DuplicateNameError(`Проект «${dupGroup.name}» уже существует`);
+    }
+    throw new DuplicateNameError(`Название «${name.trim()}» уже используется проектом «${dupGroup.name}»`);
+  }
+
+  // Collect linked tag IDs (these are auto-created for projects, skip them in tag-vs-tag check)
+  const linkedTagIds = new Set((groups || []).map((g) => g.linked_tag_id).filter(Boolean));
+
+  // Check tags (exclude linked tags for project creation since project auto-creates a linked tag)
+  const { data: tags } = await supabase
+    .from("tags")
+    .select("id, name")
+    .eq("user_id", userId);
+  const dupTag = (tags || []).find((t) => {
+    if (t.name.trim().toLowerCase() !== normalized) return false;
+    if (t.id === excludeId) return false;
+    // When creating a project, skip tags that are linked to projects (they share names by design)
+    if (entity === "project" && linkedTagIds.has(t.id)) return false;
+    return true;
+  });
+  if (dupTag) {
+    if (entity === "tag") {
+      throw new DuplicateNameError(`Тэг «${dupTag.name}» уже существует`);
+    }
+    throw new DuplicateNameError(`Название «${name.trim()}» уже используется тэгом «${dupTag.name}»`);
+  }
+}
+
 // --- Query hooks ---
 
 export function useTaskGroups() {
