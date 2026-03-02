@@ -1118,6 +1118,8 @@ function InboxColumn({
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
   const [newClientTagId, setNewClientTagId] = useState<string | null>(null);
   const [newGroupId, setNewGroupId] = useState<string | null>(null);
+  const [newExtraTagIds, setNewExtraTagIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [showAllProjects, setShowAllProjects] = useState(false);
