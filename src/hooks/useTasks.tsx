@@ -968,6 +968,7 @@ export function useTaskMutations() {
 
   const renameTag = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await checkDuplicateName(name, "tag", user!.id, id);
       const { error } = await supabase.from("tags").update({ name }).eq("id", id);
       if (error) throw error;
     },
