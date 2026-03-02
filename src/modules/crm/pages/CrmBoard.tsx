@@ -846,6 +846,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                   toast.error(e.message);
                 }
               }}
+              onCreateProject={handleCreateCrmProject}
             />
             {visibleStages.map((stage) => (
               <DroppableColumn
