@@ -313,16 +313,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     enabled: !!user,
   });
 
-  const { data: allTags = [] } = useQuery({
-    queryKey: ["crm-tags", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from("tags").select("id, name, color");
-      if (error) throw error;
-      return (data || []) as CrmTag[];
-    },
-    enabled: !!user,
-  });
 
   const { data: allGroups = [] } = useQuery({
     queryKey: ["crm-groups", user?.id],
