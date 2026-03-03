@@ -124,6 +124,40 @@ export default function AppSidebar({
   const rootGroups = groups.filter(g => !g.parent_id);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
 
+  // Build a map: my category id -> Set of all category ids (mine + others') with matching name+parent_name
+  const categoryIdMapping = useMemo(() => {
+    const myCats = tagCategories.filter(c => c.user_id === user?.id);
+    const otherCats = tagCategories.filter(c => c.user_id !== user?.id);
+    const catNameById = new Map(tagCategories.map(c => [c.id, c.name]));
+    const catParentById = new Map(tagCategories.map(c => [c.id, c.parent_id]));
+
+    // Build a "path" key for a category: parentName/name (or just name for root)
+    const getPathKey = (cat: { id: string; name: string; parent_id: string | null }) => {
+      const parentName = cat.parent_id ? catNameById.get(cat.parent_id) || "" : "";
+      return parentName ? `${parentName}/${cat.name}` : cat.name;
+    };
+
+    const mapping = new Map<string, Set<string>>();
+    for (const myCat of myCats) {
+      const key = getPathKey(myCat);
+      const matchingIds = new Set([myCat.id]);
+      for (const other of otherCats) {
+        if (getPathKey(other) === key) {
+          matchingIds.add(other.id);
+        }
+      }
+      mapping.set(myCat.id, matchingIds);
+    }
+    return mapping;
+  }, [tagCategories, user?.id]);
+
+  // All category IDs that are "claimed" by the user's tree
+  const allMappedCategoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    categoryIdMapping.forEach(set => set.forEach(id => ids.add(id)));
+    return ids;
+  }, [categoryIdMapping]);
+
   // Folder grouping: map group_id -> folder_id
   const groupFolderMap = useMemo(() => {
     const map = new Map<string, string>();
