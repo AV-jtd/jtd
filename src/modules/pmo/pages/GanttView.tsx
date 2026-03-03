@@ -160,9 +160,24 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
+        const taskUpdates: any = { id: dragState.taskId };
+
+        if (dragState.side === "start") {
+          // Resize from left: only change start_at
+          const movedTask = allTasks.find(t => t.id === dragState.taskId);
+          if (movedTask) {
+            const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
+            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+          }
+          updateTask.mutate(taskUpdates);
+          setDragState(null);
+          setDragDelta(0);
+          return;
+        }
+
         const oldDeadline = parseISO(dragState.originalDeadline);
         const newDeadline = addDays(oldDeadline, daysDelta);
-        const taskUpdates: any = { id: dragState.taskId, deadline: newDeadline.toISOString() };
+        taskUpdates.deadline = newDeadline.toISOString();
         
         // When moving the whole bar, also shift start_at
         if (dragState.side === "move") {
