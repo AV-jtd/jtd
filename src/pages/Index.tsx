@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import TaskList from "@/components/TaskList";
 import CalendarView from "@/components/CalendarView";
