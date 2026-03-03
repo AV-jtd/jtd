@@ -481,13 +481,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const lastOverColumn = overColumn;
     setActiveTask(null);
     setOverColumn(null);
 
-    if (!over) return;
-
-    const dropKey = over.id as string;
-    if (!allDropKeys.includes(dropKey)) return;
+    // Use over.id if it's a valid drop key, otherwise fall back to last tracked overColumn
+    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
+      ? (over.id as string)
+      : lastOverColumn;
+    if (!dropKey) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
