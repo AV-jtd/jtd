@@ -44,17 +44,9 @@ export default function PmoLayout() {
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Top header bar */}
       <header className="flex items-center h-12 px-4 border-b border-border bg-card shrink-0 gap-2">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors mr-2 p-1 rounded-md hover:bg-muted"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="text-xs font-medium hidden sm:inline">Задачи</span>
-        </button>
-
-        <div className="h-5 w-px bg-border" />
-
         <div className="flex items-center text-sm font-bold tracking-tight gap-0.5">
+          <Link to="/" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">Задачи</Link>
+          <span className="text-muted-foreground/30">|</span>
           <span className="px-1.5 py-0.5 text-primary">PMO</span>
           <span className="text-muted-foreground/30">|</span>
           <Link to="/crm" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">CRM</Link>
