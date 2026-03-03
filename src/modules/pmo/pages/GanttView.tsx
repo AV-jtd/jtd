@@ -384,7 +384,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const hasChildren = children.length > 0;
       const hasMilestones = projectMilestones.length > 0;
 
-      if (!hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
+      // Always show descendants (subprojects) even if empty; hide only root-level empty projects
+      if (!isDescendant && !hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
 
       // Compute project summary dates and progress
       let summaryStart: Date | undefined;
