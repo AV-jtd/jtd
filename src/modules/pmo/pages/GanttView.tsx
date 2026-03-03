@@ -370,8 +370,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
     const result: GanttRow[] = [];
 
-    const addProjectRows = (project: TaskGroup, depth: number) => {
-      if (selectedProjectId && selectedProjectId !== project.id && project.parent_id !== selectedProjectId) return;
+    const addProjectRows = (project: TaskGroup, depth: number, isDescendant: boolean = false) => {
+      if (!isDescendant && selectedProjectId && selectedProjectId !== project.id) return;
 
       const projectTasks = allTasks
         .filter(t => t.group_id === project.id && !t.is_completed)
