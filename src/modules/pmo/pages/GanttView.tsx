@@ -875,6 +875,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       if (dragState?.taskId === task.id) {
                         if (dragState.side === "move") {
                           left += dragDelta;
+                        } else if (dragState.side === "start") {
+                          left += dragDelta;
+                          width = Math.max(width - dragDelta, 8);
                         } else {
                           width = Math.max(width + dragDelta, 8);
                         }
