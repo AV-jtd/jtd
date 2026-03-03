@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 export default function CrmLayout() {
   const { user, loading } = useAuth();
   const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
-  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
 
   if (loading) {
     return (
