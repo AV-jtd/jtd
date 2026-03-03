@@ -73,6 +73,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     currentX: number;
     currentY: number;
   } | null>(null);
+  const wasDepDragRef = useRef(false);
 
   // Dependency dialog state
   const [depDialogState, setDepDialogState] = useState<{
