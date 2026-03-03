@@ -1098,8 +1098,7 @@ export default function AppSidebar({
 
               {/* Uncategorized tags */}
               {(() => {
-                const myCategoryIds = new Set(tagCategories.filter(c => c.user_id === user?.id).map(c => c.id));
-                const uncategorized = tags.filter(t => !(t as any).category_id || !myCategoryIds.has((t as any).category_id));
+                const uncategorized = tags.filter(t => !(t as any).category_id || !allMappedCategoryIds.has((t as any).category_id));
                 if (uncategorized.length === 0 && editingTagId !== "__new__") return null;
                 const isExpanded = expandedCategories.has("__uncategorized__");
                 return (
