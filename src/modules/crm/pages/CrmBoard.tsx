@@ -38,7 +38,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  pointerWithin,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
