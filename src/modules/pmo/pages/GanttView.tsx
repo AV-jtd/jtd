@@ -1059,7 +1059,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                           className="absolute top-1 cursor-pointer group/ms"
                           style={{ left: x - 10 }}
                           title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
-                          onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
+                          onClick={() => { if (!depDrag) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
                           onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
                         >
                           <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover/ms:drop-shadow-md transition-all">
