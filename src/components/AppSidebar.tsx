@@ -896,8 +896,8 @@ export default function AppSidebar({
               )}
 
               {/* Root categories (parent_id is null) */}
-              {tagCategories.filter(c => !c.parent_id).map((cat) => {
-                const subcategories = tagCategories.filter(c => c.parent_id === cat.id);
+              {tagCategories.filter(c => !c.parent_id && c.user_id === user?.id).map((cat) => {
+                const subcategories = tagCategories.filter(c => c.parent_id === cat.id && c.user_id === user?.id);
                 const catTags = tags.filter(t => (t as any).category_id === cat.id);
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
@@ -1062,7 +1062,8 @@ export default function AppSidebar({
 
               {/* Uncategorized tags */}
               {(() => {
-                const uncategorized = tags.filter(t => !(t as any).category_id);
+                const myCategoryIds = new Set(tagCategories.filter(c => c.user_id === user?.id).map(c => c.id));
+                const uncategorized = tags.filter(t => !(t as any).category_id || !myCategoryIds.has((t as any).category_id));
                 if (uncategorized.length === 0 && editingTagId !== "__new__") return null;
                 const isExpanded = expandedCategories.has("__uncategorized__");
                 return (
