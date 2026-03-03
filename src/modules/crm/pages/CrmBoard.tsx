@@ -38,7 +38,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  pointerWithin,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -168,8 +168,8 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   });
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
   );
 
   const { data: crmGroups = [] } = useQuery({
@@ -375,6 +375,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       queryClient.invalidateQueries({ queryKey: ["crm-tasks-done"] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
+    onError: (err: any) => {
+      console.error("CRM move error:", err);
+      toast.error("Ошибка перемещения: " + (err?.message || "Неизвестная ошибка"));
+    },
   });
 
   const moveToInboxMutation = useMutation({
@@ -390,6 +394,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (err: any) => {
+      console.error("CRM inbox move error:", err);
+      toast.error("Ошибка перемещения: " + (err?.message || "Неизвестная ошибка"));
     },
   });
 
@@ -473,13 +481,15 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const lastOverColumn = overColumn;
     setActiveTask(null);
     setOverColumn(null);
 
-    if (!over) return;
-
-    const dropKey = over.id as string;
-    if (!allDropKeys.includes(dropKey)) return;
+    // Use over.id if it's a valid drop key, otherwise fall back to last tracked overColumn
+    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
+      ? (over.id as string)
+      : lastOverColumn;
+    if (!dropKey) return;
 
     const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
@@ -701,7 +711,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
