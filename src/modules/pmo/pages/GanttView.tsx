@@ -243,7 +243,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       setDepDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
     };
     const handleMouseUp = () => {
+      wasDepDragRef.current = true;
       setDepDrag(null);
+      // Reset ref after click events have fired
+      setTimeout(() => { wasDepDragRef.current = false; }, 0);
     };
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
