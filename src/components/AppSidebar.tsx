@@ -932,7 +932,8 @@ export default function AppSidebar({
               {/* Root categories (parent_id is null) */}
               {tagCategories.filter(c => !c.parent_id && c.user_id === user?.id).map((cat) => {
                 const subcategories = tagCategories.filter(c => c.parent_id === cat.id && c.user_id === user?.id);
-                const catTags = tags.filter(t => (t as any).category_id === cat.id);
+                const matchingCatIds = categoryIdMapping.get(cat.id) || new Set([cat.id]);
+                const catTags = tags.filter(t => matchingCatIds.has((t as any).category_id));
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
                   <div key={cat.id}>
