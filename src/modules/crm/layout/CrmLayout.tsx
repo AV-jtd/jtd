@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, Link } from "react-router-dom";
 import { Loader2, ChevronLeft } from "lucide-react";
 import CrmBoard from "@/modules/crm/pages/CrmBoard";
 import { cn } from "@/lib/utils";
