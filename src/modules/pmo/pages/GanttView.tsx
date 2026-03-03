@@ -53,12 +53,13 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const [msDialogOpen, setMsDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  // Drag-resize state (right edge = deadline)
+  // Drag-resize state (right edge = deadline, left edge = start_at)
   const [dragState, setDragState] = useState<{
     taskId: string;
     startX: number;
     originalDeadline: string;
-    side: "end" | "move";
+    side: "end" | "move" | "start";
+    originalStartAt?: string;
     originalCreatedAt?: string;
   } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
