@@ -129,7 +129,7 @@ async function checkDuplicateName(
 // --- Query hooks ---
 
 export function useTaskGroups() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -158,14 +158,16 @@ export function useTaskGroups() {
       if (error) throw error;
       return data as TaskGroup[];
     },
-    enabled: !!user,
+    enabled: !loading && !!user,
     staleTime: 1000 * 30,
+    refetchOnMount: "always",
     refetchOnWindowFocus: 'always',
+    refetchOnReconnect: "always",
   });
 }
 
 export function useTasks(groupId?: string | null, filterTags?: string[] | null) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const qc = useQueryClient();
 
   // Real-time: auto-refresh when subtasks change (other participants)
@@ -209,12 +211,14 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
 
       return tasks;
     },
-    enabled: !!user,
+    enabled: !loading && !!user,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
   });
 }
 
 export function useTags() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   return useQuery({
     queryKey: ["tags", user?.id],
     queryFn: async () => {
@@ -222,20 +226,24 @@ export function useTags() {
       if (error) throw error;
       return data as Tag[];
     },
-    enabled: !!user,
+    enabled: !loading && !!user,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
   });
 }
 
 export function useTagCategories() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   return useQuery({
-    queryKey: ["tag_categories"],
+    queryKey: ["tag_categories", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.from("tag_categories" as any).select("*").order("position");
       if (error) throw error;
       return (data || []) as unknown as TagCategory[];
     },
-    enabled: !!user,
+    enabled: !loading && !!user,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
   });
 }
 
