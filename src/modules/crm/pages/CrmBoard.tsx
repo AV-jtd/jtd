@@ -189,11 +189,19 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const crmLinkedTagIds = useMemo(() => new Set(crmGroups.map((g) => g.linked_tag_id).filter(Boolean) as string[]), [crmGroups]);
   const crmGroupNames = useMemo(() => new Set(crmGroups.map((g) => g.name.trim().toLowerCase())), [crmGroups]);
 
+  // First, find tag IDs for inbox tags (crm, оп, продажи)
+  const inboxTagIds = useMemo(() => {
+    return allTags
+      .filter((t) => INBOX_TAG_NAMES.has(t.name.trim().toLowerCase()))
+      .map((t) => t.id);
+  }, [allTags]);
+
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["crm-tasks", user?.id, crmGroupIds],
+    queryKey: ["crm-tasks", user?.id, crmGroupIds, inboxTagIds],
     queryFn: async () => {
       if (!user) return [];
 
+      // Query 1: tasks from CRM groups or with task_type=crm
       const orParts = [
         ...crmGroupIds.map((id) => `group_id.eq.${id}`),
         "task_type.eq.crm",
@@ -208,26 +216,50 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (!crmTasks || crmTasks.length === 0) return [];
 
-      const taskIds = crmTasks.map((t) => t.id);
+      // Query 2: tasks that have inbox tags (crm, оп, продажи) — these may be in regular projects
+      let taggedTasks: typeof crmTasks = [];
+      if (inboxTagIds.length > 0) {
+        const { data: taskTagRows } = await supabase
+          .from("task_tags")
+          .select("task_id")
+          .in("tag_id", inboxTagIds);
+
+        const taggedTaskIds = [...new Set((taskTagRows || []).map((r) => r.task_id))];
+        const alreadyLoadedIds = new Set((crmTasks || []).map((t) => t.id));
+        const missingIds = taggedTaskIds.filter((id) => !alreadyLoadedIds.has(id));
+
+        if (missingIds.length > 0) {
+          const { data: extraTasks } = await supabase
+            .from("tasks")
+            .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, task_tags(tag_id)")
+            .in("id", missingIds)
+            .eq("is_completed", false);
+          taggedTasks = extraTasks || [];
+        }
+      }
+
+      const allCrmTasks = [...(crmTasks || []), ...taggedTasks];
+      if (allCrmTasks.length === 0) return [];
+
+      const taskIds = allCrmTasks.map((t) => t.id);
       const { data: subtasks } = await supabase
         .from("subtasks")
         .select("id, title, is_completed, position, task_id, deadline, assigned_to")
         .in("task_id", taskIds)
         .order("position");
 
-      const clientIds = crmTasks.map((t) => t.client_id).filter(Boolean) as string[];
+      const clientIds = allCrmTasks.map((t) => t.client_id).filter(Boolean) as string[];
       const { data: clients } = clientIds.length > 0
         ? await supabase.from("clients").select("id, name, contact_name, phone, email").in("id", clientIds)
         : { data: [] };
 
-      const assigneeIds = crmTasks.map((t) => t.assigned_to).filter(Boolean) as string[];
+      const assigneeIds = allCrmTasks.map((t) => t.assigned_to).filter(Boolean) as string[];
       const { data: profiles } = assigneeIds.length > 0
         ? await supabase.from("profiles").select("id, display_name, email").in("id", assigneeIds)
         : { data: [] };
 
-      return crmTasks.map((t) => ({
+      return allCrmTasks.map((t) => ({
         ...t,
         subtasks: (subtasks || []).filter((s) => s.task_id === t.id),
         client: (clients || []).find((c) => c.id === t.client_id) || null,
