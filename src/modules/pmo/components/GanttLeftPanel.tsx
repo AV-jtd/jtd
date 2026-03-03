@@ -114,7 +114,8 @@ export default function GanttLeftPanel({
         <div className="w-9 px-0.5 text-center shrink-0">
           <User className="h-3 w-3 mx-auto" />
         </div>
-        <div className="w-16 px-0.5 text-center shrink-0">Срок</div>
+        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Старт</div>
+        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Срок</div>
       </div>
 
       {rows.map((row, i) => {
