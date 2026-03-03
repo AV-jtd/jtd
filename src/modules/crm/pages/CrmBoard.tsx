@@ -393,7 +393,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     },
   });
 
-  const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
 
   const isInboxTask = (task: CrmTask) => {
     if (!task.task_tags || task.task_tags.length === 0) return false;
