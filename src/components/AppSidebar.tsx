@@ -124,6 +124,40 @@ export default function AppSidebar({
   const rootGroups = groups.filter(g => !g.parent_id);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
 
+  // Build a map: my category id -> Set of all category ids (mine + others') with matching name+parent_name
+  const categoryIdMapping = useMemo(() => {
+    const myCats = tagCategories.filter(c => c.user_id === user?.id);
+    const otherCats = tagCategories.filter(c => c.user_id !== user?.id);
+    const catNameById = new Map(tagCategories.map(c => [c.id, c.name]));
+    const catParentById = new Map(tagCategories.map(c => [c.id, c.parent_id]));
+
+    // Build a "path" key for a category: parentName/name (or just name for root)
+    const getPathKey = (cat: { id: string; name: string; parent_id?: string | null }) => {
+      const parentName = cat.parent_id ? catNameById.get(cat.parent_id) || "" : "";
+      return parentName ? `${parentName}/${cat.name}` : cat.name;
+    };
+
+    const mapping = new Map<string, Set<string>>();
+    for (const myCat of myCats) {
+      const key = getPathKey(myCat);
+      const matchingIds = new Set([myCat.id]);
+      for (const other of otherCats) {
+        if (getPathKey(other) === key) {
+          matchingIds.add(other.id);
+        }
+      }
+      mapping.set(myCat.id, matchingIds);
+    }
+    return mapping;
+  }, [tagCategories, user?.id]);
+
+  // All category IDs that are "claimed" by the user's tree
+  const allMappedCategoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    categoryIdMapping.forEach(set => set.forEach(id => ids.add(id)));
+    return ids;
+  }, [categoryIdMapping]);
+
   // Folder grouping: map group_id -> folder_id
   const groupFolderMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -898,7 +932,8 @@ export default function AppSidebar({
               {/* Root categories (parent_id is null) */}
               {tagCategories.filter(c => !c.parent_id && c.user_id === user?.id).map((cat) => {
                 const subcategories = tagCategories.filter(c => c.parent_id === cat.id && c.user_id === user?.id);
-                const catTags = tags.filter(t => (t as any).category_id === cat.id);
+                const matchingCatIds = categoryIdMapping.get(cat.id) || new Set([cat.id]);
+                const catTags = tags.filter(t => matchingCatIds.has((t as any).category_id));
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
                   <div key={cat.id}>
@@ -936,7 +971,7 @@ export default function AppSidebar({
                             {cat.name}
                           </span>
                         )}
-                        <span className="text-sidebar-fg/40 text-xs">{catTags.length + subcategories.reduce((acc, sc) => acc + tags.filter(t => (t as any).category_id === sc.id).length, 0)}</span>
+                        <span className="text-sidebar-fg/40 text-xs">{catTags.length + subcategories.reduce((acc, sc) => acc + tags.filter(t => { const ids = categoryIdMapping.get(sc.id) || new Set([sc.id]); return ids.has((t as any).category_id); }).length, 0)}</span>
                       </button>
                       <div className="flex items-center gap-0.5 pr-2 shrink-0">
                         <span
@@ -984,7 +1019,8 @@ export default function AppSidebar({
 
                         {/* Subcategories */}
                         {subcategories.map((subcat) => {
-                          const subTags = tags.filter(t => (t as any).category_id === subcat.id);
+                          const matchingSubIds = categoryIdMapping.get(subcat.id) || new Set([subcat.id]);
+                          const subTags = tags.filter(t => matchingSubIds.has((t as any).category_id));
                           const isSubExpanded = expandedCategories.has(subcat.id);
                           return (
                             <div key={subcat.id}>
@@ -1062,8 +1098,7 @@ export default function AppSidebar({
 
               {/* Uncategorized tags */}
               {(() => {
-                const myCategoryIds = new Set(tagCategories.filter(c => c.user_id === user?.id).map(c => c.id));
-                const uncategorized = tags.filter(t => !(t as any).category_id || !myCategoryIds.has((t as any).category_id));
+                const uncategorized = tags.filter(t => !(t as any).category_id || !allMappedCategoryIds.has((t as any).category_id));
                 if (uncategorized.length === 0 && editingTagId !== "__new__") return null;
                 const isExpanded = expandedCategories.has("__uncategorized__");
                 return (
