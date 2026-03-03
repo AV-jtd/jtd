@@ -189,7 +189,20 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const crmLinkedTagIds = useMemo(() => new Set(crmGroups.map((g) => g.linked_tag_id).filter(Boolean) as string[]), [crmGroups]);
   const crmGroupNames = useMemo(() => new Set(crmGroups.map((g) => g.name.trim().toLowerCase())), [crmGroups]);
 
-  // First, find tag IDs for inbox tags (crm, оп, продажи)
+  const { data: allTags = [] } = useQuery({
+    queryKey: ["crm-tags", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from("tags").select("id, name, color");
+      if (error) throw error;
+      return (data || []) as CrmTag[];
+    },
+    enabled: !!user,
+  });
+
+  const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
+
+  // Find tag IDs for inbox tags (crm, оп, продажи)
   const inboxTagIds = useMemo(() => {
     return allTags
       .filter((t) => INBOX_TAG_NAMES.has(t.name.trim().toLowerCase()))
