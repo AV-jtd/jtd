@@ -37,6 +37,7 @@ interface GanttLeftPanelProps {
   rows: GanttRow[];
   rowHeight: number;
   width: number;
+  allProjects: TaskGroup[];
   onMilestoneClick: (ms: Milestone) => void;
   onAddTask: (projectId: string, title: string) => void;
   onAddSubproject: (parentId: string, name: string) => void;
@@ -45,6 +46,8 @@ interface GanttLeftPanelProps {
   onToggleTask: (id: string, completed: boolean) => void;
   onUpdateSubtask: (id: string, updates: Partial<Subtask>) => void;
   onToggleSubtask: (id: string, completed: boolean) => void;
+  onMoveTask: (taskId: string, newGroupId: string) => void;
+  onMoveProject: (projectId: string, newParentId: string | null) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
