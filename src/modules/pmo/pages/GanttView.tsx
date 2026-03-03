@@ -430,7 +430,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         projectMilestones.forEach(m => {
           result.push({ type: "milestone", project, milestone: m, depth: depth + 1 });
         });
-        children.forEach(child => addProjectRows(child, depth + 1));
+        children.forEach(child => addProjectRows(child, depth + 1, true));
       }
     };
 
