@@ -240,6 +240,32 @@ export default function GanttLeftPanel({
                     >
                       {row.task.title}
                     </span>
+                    {/* Move task to another project */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
+                          title="Переместить в проект"
+                        >
+                          <ArrowRightLeft className="h-2.5 w-2.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
+                        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {allProjects.filter(p => p.id !== row.task!.group_id).map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => onMoveTask(row.task!.id, p.id)}
+                              className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate"
+                            >
+                              {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     {/* Add step button */}
                     <button
                       onClick={(e) => {
