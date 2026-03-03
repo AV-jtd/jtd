@@ -971,7 +971,7 @@ export default function AppSidebar({
                             {cat.name}
                           </span>
                         )}
-                        <span className="text-sidebar-fg/40 text-xs">{catTags.length + subcategories.reduce((acc, sc) => acc + tags.filter(t => (t as any).category_id === sc.id).length, 0)}</span>
+                        <span className="text-sidebar-fg/40 text-xs">{catTags.length + subcategories.reduce((acc, sc) => acc + tags.filter(t => { const ids = categoryIdMapping.get(sc.id) || new Set([sc.id]); return ids.has((t as any).category_id); }).length, 0)}</span>
                       </button>
                       <div className="flex items-center gap-0.5 pr-2 shrink-0">
                         <span
