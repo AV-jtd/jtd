@@ -56,8 +56,8 @@ interface GanttLeftPanelProps {
 }
 
 export default function GanttLeftPanel({
-  rows, rowHeight, width, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
+  rows, rowHeight, width, allProjects, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
 }: GanttLeftPanelProps) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
