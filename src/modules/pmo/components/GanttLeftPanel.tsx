@@ -165,6 +165,44 @@ export default function GanttLeftPanel({
                     <span className="text-[10px] text-muted-foreground ml-0.5 shrink-0">{Math.round(row.progress)}%</span>
                   )}
 
+                  {/* Move project to another parent */}
+                  {row.depth > 0 || !row.project.parent_id ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
+                          title="Переместить проект"
+                        >
+                          <ArrowRightLeft className="h-2.5 w-2.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
+                        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
+                        <button
+                          onClick={() => onMoveProject(row.project.id, null)}
+                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
+                        >
+                          📂 Корневой уровень
+                        </button>
+                        <div className="max-h-48 overflow-y-auto">
+                          {allProjects.filter(p => p.id !== row.project.id && p.parent_id !== row.project.id).map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => onMoveProject(row.project.id, p.id)}
+                              className={cn(
+                                "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate",
+                                row.project.parent_id === p.id && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+
                   {/* Context "+" with type dropdown */}
                   <div className="relative ml-auto shrink-0">
                     <button

@@ -73,6 +73,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     currentX: number;
     currentY: number;
   } | null>(null);
+  const wasDepDragRef = useRef(false);
 
   // Dependency dialog state
   const [depDialogState, setDepDialogState] = useState<{
@@ -242,7 +243,10 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       setDepDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
     };
     const handleMouseUp = () => {
+      wasDepDragRef.current = true;
       setDepDrag(null);
+      // Reset ref after click events have fired
+      setTimeout(() => { wasDepDragRef.current = false; }, 0);
     };
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
@@ -384,7 +388,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const hasChildren = children.length > 0;
       const hasMilestones = projectMilestones.length > 0;
 
-      if (!hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
+      // Always show descendants (subprojects) even if empty; hide only root-level empty projects
+      if (!isDescendant && !hasDatedTasks && !hasChildren && !hasMilestones && selectedProjectId !== project.id) return;
 
       // Compute project summary dates and progress
       let summaryStart: Date | undefined;
@@ -1058,7 +1063,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                           className="absolute top-1 cursor-pointer group/ms"
                           style={{ left: x - 10 }}
                           title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
-                          onClick={() => { setEditingMilestone(row.milestone!); setMsDialogOpen(true); }}
+                          onClick={() => { if (!depDrag && !wasDepDragRef.current) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
                           onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
                         >
                           <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover/ms:drop-shadow-md transition-all">
