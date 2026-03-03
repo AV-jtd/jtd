@@ -132,7 +132,7 @@ export default function AppSidebar({
     const catParentById = new Map(tagCategories.map(c => [c.id, c.parent_id]));
 
     // Build a "path" key for a category: parentName/name (or just name for root)
-    const getPathKey = (cat: { id: string; name: string; parent_id: string | null }) => {
+    const getPathKey = (cat: { id: string; name: string; parent_id?: string | null }) => {
       const parentName = cat.parent_id ? catNameById.get(cat.parent_id) || "" : "";
       return parentName ? `${parentName}/${cat.name}` : cat.name;
     };
