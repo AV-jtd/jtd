@@ -916,9 +916,25 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                 />
                               )}
 
-                              {/* Move handle (whole bar) */}
+                              {/* Left-edge resize handle (start_at) */}
                               <div
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-grab hover:bg-white/20 rounded-l-sm"
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-sm"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setDragState({
+                                    taskId: task.id,
+                                    startX: e.clientX,
+                                    originalDeadline: task.deadline || task.created_at,
+                                    originalStartAt: task.start_at || task.created_at,
+                                    side: "start",
+                                  });
+                                }}
+                              />
+
+                              {/* Move handle (grab area between edges) */}
+                              <div
+                                className="absolute left-2 top-0 bottom-0 right-2 cursor-grab"
                                 onMouseDown={(e) => {
                                   if (!task.deadline) return;
                                   e.stopPropagation();
