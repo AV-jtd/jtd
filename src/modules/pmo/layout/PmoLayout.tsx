@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
@@ -54,9 +54,11 @@ export default function PmoLayout() {
 
         <div className="h-5 w-px bg-border" />
 
-        <span className="text-sm font-bold tracking-tight text-foreground">
-          PMO
-        </span>
+        <div className="flex items-center text-sm font-bold tracking-tight gap-0.5">
+          <span className="px-1.5 py-0.5 text-primary">PMO</span>
+          <span className="text-muted-foreground/30">|</span>
+          <Link to="/crm" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">CRM</Link>
+        </div>
 
         {/* Nav tabs */}
         <nav className="flex items-center gap-0.5 ml-4">
