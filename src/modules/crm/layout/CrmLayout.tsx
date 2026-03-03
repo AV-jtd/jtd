@@ -31,9 +31,11 @@ export default function CrmLayout() {
           <span className="text-xs font-medium hidden sm:inline">Задачи</span>
         </button>
         <div className="h-5 w-px bg-border" />
-        <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">
-          CRM
-        </span>
+        <div className="flex items-center text-sm font-bold tracking-tight gap-0.5">
+          <Link to="/pmo" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">PMO</Link>
+          <span className="text-muted-foreground/30">|</span>
+          <span className="px-1.5 py-0.5 bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">CRM</span>
+        </div>
         <div className="h-5 w-px bg-border ml-1" />
         <div className="flex items-center text-sm font-semibold tracking-tight">
           <button

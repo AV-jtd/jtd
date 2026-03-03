@@ -54,9 +54,11 @@ export default function PmoLayout() {
 
         <div className="h-5 w-px bg-border" />
 
-        <span className="text-sm font-bold tracking-tight text-foreground">
-          PMO
-        </span>
+        <div className="flex items-center text-sm font-bold tracking-tight gap-0.5">
+          <span className="px-1.5 py-0.5 text-primary">PMO</span>
+          <span className="text-muted-foreground/30">|</span>
+          <Link to="/crm" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">CRM</Link>
+        </div>
 
         {/* Nav tabs */}
         <nav className="flex items-center gap-0.5 ml-4">
