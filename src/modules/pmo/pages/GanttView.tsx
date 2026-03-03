@@ -35,7 +35,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
-  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask } = useTaskMutations();
+  const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask, updateGroupParent } = useTaskMutations();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
@@ -53,12 +53,13 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
   const [msDialogOpen, setMsDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
-  // Drag-resize state (right edge = deadline)
+  // Drag-resize state (right edge = deadline, left edge = start_at)
   const [dragState, setDragState] = useState<{
     taskId: string;
     startX: number;
     originalDeadline: string;
-    side: "end" | "move";
+    side: "end" | "move" | "start";
+    originalStartAt?: string;
     originalCreatedAt?: string;
   } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
@@ -159,9 +160,24 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
+        const taskUpdates: any = { id: dragState.taskId };
+
+        if (dragState.side === "start") {
+          // Resize from left: only change start_at
+          const movedTask = allTasks.find(t => t.id === dragState.taskId);
+          if (movedTask) {
+            const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
+            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+          }
+          updateTask.mutate(taskUpdates);
+          setDragState(null);
+          setDragDelta(0);
+          return;
+        }
+
         const oldDeadline = parseISO(dragState.originalDeadline);
         const newDeadline = addDays(oldDeadline, daysDelta);
-        const taskUpdates: any = { id: dragState.taskId, deadline: newDeadline.toISOString() };
+        taskUpdates.deadline = newDeadline.toISOString();
         
         // When moving the whole bar, also shift start_at
         if (dragState.side === "move") {
@@ -354,8 +370,8 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
     const result: GanttRow[] = [];
 
-    const addProjectRows = (project: TaskGroup, depth: number) => {
-      if (selectedProjectId && selectedProjectId !== project.id && project.parent_id !== selectedProjectId) return;
+    const addProjectRows = (project: TaskGroup, depth: number, isDescendant: boolean = false) => {
+      if (!isDescendant && selectedProjectId && selectedProjectId !== project.id) return;
 
       const projectTasks = allTasks
         .filter(t => t.group_id === project.id && !t.is_completed)
@@ -414,7 +430,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
         projectMilestones.forEach(m => {
           result.push({ type: "milestone", project, milestone: m, depth: depth + 1 });
         });
-        children.forEach(child => addProjectRows(child, depth + 1));
+        children.forEach(child => addProjectRows(child, depth + 1, true));
       }
     };
 
@@ -680,6 +696,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           rows={rows}
           rowHeight={ROW_HEIGHT}
           width={leftPanelWidth}
+          allProjects={groups}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
@@ -701,6 +718,12 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           }}
           onToggleSubtask={(id, completed) => {
             toggleSubtask.mutate({ id, is_completed: completed });
+          }}
+          onMoveTask={(taskId, newGroupId) => {
+            updateTask.mutate({ id: taskId, group_id: newGroupId });
+          }}
+          onMoveProject={(projectId, newParentId) => {
+            updateGroupParent.mutate({ id: projectId, parent_id: newParentId });
           }}
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
@@ -859,6 +882,9 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                       if (dragState?.taskId === task.id) {
                         if (dragState.side === "move") {
                           left += dragDelta;
+                        } else if (dragState.side === "start") {
+                          left += dragDelta;
+                          width = Math.max(width - dragDelta, 8);
                         } else {
                           width = Math.max(width + dragDelta, 8);
                         }
@@ -897,9 +923,25 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
                                 />
                               )}
 
-                              {/* Move handle (whole bar) */}
+                              {/* Left-edge resize handle (start_at) */}
                               <div
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-grab hover:bg-white/20 rounded-l-sm"
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-sm"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setDragState({
+                                    taskId: task.id,
+                                    startX: e.clientX,
+                                    originalDeadline: task.deadline || task.created_at,
+                                    originalStartAt: task.start_at || task.created_at,
+                                    side: "start",
+                                  });
+                                }}
+                              />
+
+                              {/* Move handle (grab area between edges) */}
+                              <div
+                                className="absolute left-2 top-0 bottom-0 right-2 cursor-grab"
                                 onMouseDown={(e) => {
                                   if (!task.deadline) return;
                                   e.stopPropagation();

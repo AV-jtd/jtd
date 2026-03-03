@@ -2,11 +2,12 @@ import { useState, useRef } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 export type GanttRow = {
   type: "project" | "task" | "milestone" | "summary" | "subtask";
@@ -32,6 +33,7 @@ interface GanttLeftPanelProps {
   rows: GanttRow[];
   rowHeight: number;
   width: number;
+  allProjects: TaskGroup[];
   onMilestoneClick: (ms: Milestone) => void;
   onAddTask: (projectId: string, title: string) => void;
   onAddSubproject: (parentId: string, name: string) => void;
@@ -40,6 +42,8 @@ interface GanttLeftPanelProps {
   onToggleTask: (id: string, completed: boolean) => void;
   onUpdateSubtask: (id: string, updates: Partial<Subtask>) => void;
   onToggleSubtask: (id: string, completed: boolean) => void;
+  onMoveTask: (taskId: string, newGroupId: string) => void;
+  onMoveProject: (projectId: string, newParentId: string | null) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
@@ -48,8 +52,8 @@ interface GanttLeftPanelProps {
 }
 
 export default function GanttLeftPanel({
-  rows, rowHeight, width, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
+  rows, rowHeight, width, allProjects, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
 }: GanttLeftPanelProps) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -114,7 +118,8 @@ export default function GanttLeftPanel({
         <div className="w-9 px-0.5 text-center shrink-0">
           <User className="h-3 w-3 mx-auto" />
         </div>
-        <div className="w-16 px-0.5 text-center shrink-0">Срок</div>
+        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Старт</div>
+        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Срок</div>
       </div>
 
       {rows.map((row, i) => {
@@ -235,6 +240,32 @@ export default function GanttLeftPanel({
                     >
                       {row.task.title}
                     </span>
+                    {/* Move task to another project */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
+                          title="Переместить в проект"
+                        >
+                          <ArrowRightLeft className="h-2.5 w-2.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
+                        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {allProjects.filter(p => p.id !== row.task!.group_id).map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => onMoveTask(row.task!.id, p.id)}
+                              className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate"
+                            >
+                              {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     {/* Add step button */}
                     <button
                       onClick={(e) => {
@@ -335,14 +366,59 @@ export default function GanttLeftPanel({
               )}
             </div>
 
+            {/* Start date clickable */}
+            <div className="w-[52px] px-0.5 text-center shrink-0">
+              {row.type === "task" && row.task && (
+                <Popover open={deadlinePopover === `start-${row.task.id}`} onOpenChange={(v) => setDeadlinePopover(v ? `start-${row.task!.id}` : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
+                        row.task.start_at
+                          ? "text-muted-foreground hover:bg-muted"
+                          : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                      )}
+                      title={row.task.start_at ? format(parseISO(row.task.start_at), "d MMMM yyyy", { locale: ru }) : "Установить старт"}
+                    >
+                      {row.task.start_at ? format(parseISO(row.task.start_at), "d MMM", { locale: ru }) : (
+                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                    <Calendar
+                      mode="single"
+                      selected={row.task.start_at ? parseISO(row.task.start_at) : undefined}
+                      onSelect={(date) => {
+                        onUpdateTask(row.task!.id, { start_at: date ? date.toISOString() : null } as any);
+                        setDeadlinePopover(null);
+                      }}
+                      locale={ru}
+                      className="rounded-md border"
+                    />
+                    {row.task.start_at && (
+                      <div className="p-2 border-t">
+                        <button
+                          onClick={() => { onUpdateTask(row.task!.id, { start_at: null } as any); setDeadlinePopover(null); }}
+                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                        >
+                          Убрать старт
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
             {/* Deadline clickable */}
-            <div className="w-16 px-0.5 text-center shrink-0">
+            <div className="w-[52px] px-0.5 text-center shrink-0">
               {row.type === "task" && row.task && (
                 <Popover open={deadlinePopover === row.task.id} onOpenChange={(v) => setDeadlinePopover(v ? row.task!.id : null)}>
                   <PopoverTrigger asChild>
                     <button
                       className={cn(
-                        "text-[10px] px-1 py-0.5 rounded transition-colors truncate",
+                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
                         row.task.deadline
                           ? new Date(row.task.deadline) < new Date() && !row.task.is_completed
                             ? "text-destructive font-medium hover:bg-destructive/10"
@@ -352,7 +428,7 @@ export default function GanttLeftPanel({
                       title={row.task.deadline ? format(parseISO(row.task.deadline), "d MMMM yyyy", { locale: ru }) : "Установить дедлайн"}
                     >
                       {row.task.deadline ? format(parseISO(row.task.deadline), "d MMM", { locale: ru }) : (
-                        <CalendarIcon className="h-3 w-3 mx-auto" />
+                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
                       )}
                     </button>
                   </PopoverTrigger>
@@ -385,7 +461,7 @@ export default function GanttLeftPanel({
                   <PopoverTrigger asChild>
                     <button
                       className={cn(
-                        "text-[10px] px-1 py-0.5 rounded transition-colors truncate",
+                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
                         row.subtask.deadline
                           ? new Date(row.subtask.deadline) < new Date() && !row.subtask.is_completed
                             ? "text-destructive font-medium hover:bg-destructive/10"
@@ -395,7 +471,7 @@ export default function GanttLeftPanel({
                       title={row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMMM yyyy", { locale: ru }) : "Установить срок"}
                     >
                       {row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMM", { locale: ru }) : (
-                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                        <CalendarIcon className="h-2 w-2 mx-auto" />
                       )}
                     </button>
                   </PopoverTrigger>
