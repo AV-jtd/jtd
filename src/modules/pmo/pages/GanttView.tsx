@@ -696,6 +696,7 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           rows={rows}
           rowHeight={ROW_HEIGHT}
           width={leftPanelWidth}
+          allProjects={groups}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
