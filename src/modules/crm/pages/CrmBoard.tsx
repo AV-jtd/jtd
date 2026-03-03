@@ -395,6 +395,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       queryClient.invalidateQueries({ queryKey: ["crm-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
+    onError: (err: any) => {
+      console.error("CRM inbox move error:", err);
+      toast.error("Ошибка перемещения: " + (err?.message || "Неизвестная ошибка"));
+    },
   });
 
 
