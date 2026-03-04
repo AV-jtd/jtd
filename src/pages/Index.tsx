@@ -179,6 +179,26 @@ export default function Index() {
           )}
         </div>
       </div>
+
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigateToTask={(taskId) => {
+          setActiveView("all");
+          setActiveGroupId(null);
+          setHighlightTaskId(taskId);
+        }}
+        onNavigateToProject={(groupId) => {
+          setActiveGroupId(groupId);
+          setActiveView("group");
+          setActiveTagFilters([]);
+        }}
+        onNavigateToTag={(tagId) => {
+          setActiveTagFilters([tagId]);
+          setActiveView("all");
+          setActiveGroupId(null);
+        }}
+      />
     </div>
   );
 }
