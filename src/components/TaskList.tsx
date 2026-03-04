@@ -62,8 +62,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
   const [newClientName, setNewClientName] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
-  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
-  const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
