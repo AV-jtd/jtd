@@ -196,6 +196,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     }
   }
 
+  if (searchFilter.trim()) {
+    const q = searchFilter.toLowerCase();
+    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(q));
+  }
+
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
   const completedTasks = filteredTasks.filter(t => t.is_completed);
 
