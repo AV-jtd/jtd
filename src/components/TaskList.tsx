@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
@@ -62,8 +62,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
   const [newClientName, setNewClientName] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
-  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null); // userId, "unassigned", or "me"
-  const [projectFilter, setProjectFilter] = useState<string | null>(null); // groupId or "none"
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -193,6 +194,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     } else {
       filteredTasks = filteredTasks.filter(t => t.group_id === projectFilter);
     }
+  }
+
+  if (searchFilter.trim()) {
+    const q = searchFilter.toLowerCase();
+    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(q));
   }
 
   const activeTasks = filteredTasks.filter(t => !t.is_completed);
@@ -392,6 +398,21 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         {/* Filters */}
         {!batchMode && (
           <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+            {/* Inline search */}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <input
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="Поиск..."
+                className="h-7 w-32 focus:w-44 transition-all pl-7 pr-6 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {searchFilter && (
+                <button onClick={() => setSearchFilter("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
             {/* Priority filters */}
             {[
               { value: 1 as number | "important", label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "flag" },

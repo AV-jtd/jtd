@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
@@ -10,8 +10,9 @@ import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
 import ProjectChat from "@/components/ProjectChat";
 import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 import { useTaskGroups } from "@/hooks/useTasks";
-import { Loader2, Menu, MessageCircle } from "lucide-react";
+import { Loader2, Menu, MessageCircle, Search } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -26,8 +27,21 @@ export default function Index() {
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
+
+  // Cmd+K / Ctrl+K global shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   if (loading) {
     return (
@@ -90,6 +104,12 @@ export default function Index() {
               <span className="text-muted-foreground/30">|</span>
               <Link to="/crm" className="px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">CRM</Link>
             </div>
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-5 w-5" />
+            </button>
             <button
               onClick={() => setMessengerOpen(prev => !prev)}
               className={cn(
@@ -159,6 +179,26 @@ export default function Index() {
           )}
         </div>
       </div>
+
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigateToTask={(taskId) => {
+          setActiveView("all");
+          setActiveGroupId(null);
+          setHighlightTaskId(taskId);
+        }}
+        onNavigateToProject={(groupId) => {
+          setActiveGroupId(groupId);
+          setActiveView("group");
+          setActiveTagFilters([]);
+        }}
+        onNavigateToTag={(tagId) => {
+          setActiveTagFilters([tagId]);
+          setActiveView("all");
+          setActiveGroupId(null);
+        }}
+      />
     </div>
   );
 }
