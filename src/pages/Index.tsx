@@ -105,6 +105,12 @@ export default function Index() {
               <Link to="/crm" className="px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">CRM</Link>
             </div>
             <button
+              onClick={() => setSearchOpen(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+            <button
               onClick={() => setMessengerOpen(prev => !prev)}
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
