@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { idbPersister } from "@/lib/queryPersist";
+import { usePrefetchData } from "@/hooks/usePrefetch";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
@@ -14,6 +15,19 @@ import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
 import Crm from "./pages/Crm";
 import OnlineStatus from "./components/OnlineStatus";
+import PendingSync from "./components/PendingSync";
+
+// Sync onlineManager with browser online/offline events
+onlineManager.setEventListener((setOnline) => {
+  const onOnline = () => setOnline(true);
+  const onOffline = () => setOnline(false);
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+  return () => {
+    window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
+  };
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,9 +38,33 @@ const queryClient = new QueryClient({
     },
     mutations: {
       networkMode: "offlineFirst",
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     },
   },
 });
+
+function AppContent() {
+  usePrefetchData();
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/pmo" element={<Pmo />} />
+          <Route path="/crm" element={<Crm />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <OnlineStatus />
+        <PendingSync />
+      </BrowserRouter>
+    </>
+  );
+}
 
 const App = () => (
   <PersistQueryClientProvider
@@ -36,19 +74,7 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/pmo" element={<Pmo />} />
-              <Route path="/crm" element={<Crm />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <OnlineStatus />
-          </BrowserRouter>
+          <AppContent />
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>
