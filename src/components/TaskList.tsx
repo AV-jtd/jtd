@@ -251,7 +251,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               {pluralizeRu(activeTasks.length, "задача", "задачи", "задач")}
               {!batchMode && (
                 <span className="hidden sm:inline text-muted-foreground/40 ml-2">
-                  N — новая · Esc — закрыть
+                  N — новая · ⌘K — поиск · Esc — закрыть
                 </span>
               )}
             </p>
