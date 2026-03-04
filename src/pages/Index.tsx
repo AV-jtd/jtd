@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
@@ -10,8 +10,9 @@ import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
 import ProjectChat from "@/components/ProjectChat";
 import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 import { useTaskGroups } from "@/hooks/useTasks";
-import { Loader2, Menu, MessageCircle } from "lucide-react";
+import { Loader2, Menu, MessageCircle, Search } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
