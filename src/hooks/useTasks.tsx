@@ -720,6 +720,29 @@ export function useTaskMutations() {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & Partial<TablesInsert<"tasks">>) => {
+      // Handle linked tag sync when changing group_id
+      if ('group_id' in updates) {
+        const { data: currentTask } = await supabase.from("tasks").select("group_id").eq("id", id).single();
+        const oldGroupId = currentTask?.group_id;
+        const newGroupId = updates.group_id;
+
+        // Remove old project's linked tag
+        if (oldGroupId && oldGroupId !== newGroupId) {
+          const { data: oldGroup } = await supabase.from("task_groups").select("linked_tag_id").eq("id", oldGroupId).single();
+          if (oldGroup?.linked_tag_id) {
+            await supabase.from("task_tags").delete().eq("task_id", id).eq("tag_id", oldGroup.linked_tag_id);
+          }
+        }
+
+        // Add new project's linked tag
+        if (newGroupId && newGroupId !== oldGroupId) {
+          const { data: newGroup } = await supabase.from("task_groups").select("linked_tag_id").eq("id", newGroupId as string).single();
+          if (newGroup?.linked_tag_id) {
+            await supabase.from("task_tags").insert({ task_id: id, tag_id: newGroup.linked_tag_id }).maybeSingle();
+          }
+        }
+      }
+
       const { error } = await supabase.from("tasks").update(updates).eq("id", id);
       if (error) throw error;
 
@@ -736,7 +759,10 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    },
   });
 
   const deleteTask = useMutation({
