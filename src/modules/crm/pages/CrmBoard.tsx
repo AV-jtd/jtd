@@ -657,14 +657,24 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         return null;
       }
 
+      // Create linked tag for the project (like addGroup does)
+      const { data: tagData, error: tagError } = await supabase
+        .from("tags")
+        .insert({ name: name.trim(), user_id: currentUserId, color: "#ef4444" })
+        .select()
+        .single();
+      if (tagError) throw tagError;
+
       const { data, error } = await supabase.from("task_groups").insert({
         name: name.trim(),
         user_id: currentUserId,
         project_type: "crm",
         icon: "🤝",
         color: "#ef4444",
+        linked_tag_id: tagData.id,
       }).select("id").single();
       if (error) throw error;
+
       // Auto-link "crm" tag to the new project via group_tags
       let crmTagId: string | null = null;
       const crmTag = allTags.find((t) => t.name.trim().toLowerCase() === "crm");
@@ -699,6 +709,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
       queryClient.invalidateQueries({ queryKey: ["crm-groups-list"] });
       queryClient.invalidateQueries({ queryKey: ["crm-groups"] });
       queryClient.invalidateQueries({ queryKey: ["crm-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
       toast.success("CRM-проект создан");
       return data.id;
     } catch (e: any) {
