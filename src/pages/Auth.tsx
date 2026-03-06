@@ -91,6 +91,23 @@ export default function Auth() {
     setSubmitting(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("Введите email для сброса пароля");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Письмо для сброса пароля отправлено! Проверьте почту.");
+    }
+    setSubmitting(false);
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -257,6 +274,18 @@ export default function Auth() {
                     minLength={6}
                   />
                 </div>
+                {!isSignUp && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={submitting}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Забыли пароль?
+                    </button>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSignUp ? "Получить код в Telegram" : "Войти"}
