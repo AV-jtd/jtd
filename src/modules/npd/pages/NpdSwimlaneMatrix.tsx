@@ -16,10 +16,12 @@ import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
+import QuickCreateForm from "@/components/QuickCreateForm";
+import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
-  Expand, GripVertical, Inbox,
+  Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
 import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -183,76 +185,80 @@ export default function NpdSwimlaneMatrix() {
     toast.success("Стрим перемещён в " + NPD_GATES.find(g => g.key === gateKey)?.title);
   };
 
-  // Create task
-  const handleCreateTask = async (title: string, groupId: string, deadline?: Date, assigneeId?: string) => {
-    if (!title.trim() || !user) return;
+  // Unified create handler for QuickCreateForm
+  const handleQuickCreate = async (
+    params: { type: QuickCreateType; title: string; deadline?: Date; assigneeId?: string },
+    groupId: string,
+    streamName?: string,
+    gateKey?: string,
+  ) => {
+    if (!user) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id;
     if (!uid) { toast.error("Сессия истекла"); return; }
 
-    const insertData: any = {
-      title: title.trim(),
-      user_id: uid,
-      group_id: groupId,
-    };
-    if (deadline) insertData.deadline = deadline.toISOString();
-    if (assigneeId) insertData.assigned_to = assigneeId;
+    if (params.type === "subproject") {
+      // Create subproject under the parent project
+      const { data: newSub, error } = await supabase
+        .from("task_groups")
+        .insert({
+          name: params.title,
+          user_id: uid,
+          project_type: "npd",
+          icon: "📋",
+          color: "#8b5cf6",
+          parent_id: projectId,
+          position: subprojects.length,
+        })
+        .select("id")
+        .single();
+      if (error || !newSub) { toast.error(error?.message || "Ошибка"); return; }
 
-    const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
-    if (error) { toast.error(error.message); return; }
+      // Assign stream tag if we know the stream
+      if (streamName) {
+        const streamTag = streamTags.find(t => t.name === streamName);
+        if (streamTag) {
+          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTag.id });
+        }
+      }
+      // Assign gate tag
+      if (gateKey) {
+        const gateTagId = gateKeyToTagId.get(gateKey);
+        if (gateTagId) {
+          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: gateTagId });
+        }
+      }
 
-    // Sync assigned_to -> task_participants
-    if (assigneeId && data) {
-      await supabase.from("task_participants").upsert({
-        task_id: data.id,
-        user_id: assigneeId,
-        role: "assignee",
-      }, { onConflict: "task_id,user_id" });
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    toast.success("Задача создана");
-  };
-
-  // Create subproject (stream) with gate assignment
-  const handleCreateSubproject = async (streamName: string, gateKey: string) => {
-    if (!user || !projectId) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id;
-    if (!uid) { toast.error("Сессия истекла"); return; }
-
-    // Create subproject
-    const { data: newSub, error } = await supabase
-      .from("task_groups")
-      .insert({
-        name: `${project?.name || ""} / ${streamName}`,
+      queryClient.invalidateQueries({ queryKey: ["task-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      toast.success(`Подпроект «${params.title}» создан`);
+    } else {
+      // Create task
+      const insertData: any = {
+        title: params.title,
         user_id: uid,
-        project_type: "npd",
-        icon: "📋",
-        color: "#8b5cf6",
-        parent_id: projectId,
-        position: subprojects.length,
-      })
-      .select("id")
-      .single();
-    if (error || !newSub) { toast.error(error?.message || "Ошибка"); return; }
+        group_id: groupId,
+      };
+      if (params.deadline) insertData.deadline = params.deadline.toISOString();
+      if (params.assigneeId) insertData.assigned_to = params.assigneeId;
 
-    // Assign stream tag
-    const streamTag = streamTags.find(t => t.name === streamName);
-    if (streamTag) {
-      await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTag.id });
+      const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
+      if (error) { toast.error(error.message); return; }
+
+      if (params.assigneeId && data) {
+        await supabase.from("task_participants").upsert({
+          task_id: data.id,
+          user_id: params.assigneeId,
+          role: "assignee",
+        }, { onConflict: "task_id,user_id" });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Задача создана");
     }
-
-    // Assign gate tag
-    const gateTagId = gateKeyToTagId.get(gateKey);
-    if (gateTagId) {
-      await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: gateTagId });
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["task-groups"] });
-    queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
-    toast.success(`Стрим «${streamName}» создан в ${NPD_GATES.find(g => g.key === gateKey)?.title}`);
   };
+
+  // Legacy handleCreateSubproject removed — now handled via handleQuickCreate
 
   // Cascade update on deadline change
   const handleDeadlineChange = async (task: Task, newDeadline: Date) => {
@@ -456,29 +462,31 @@ export default function NpdSwimlaneMatrix() {
                                   />
                                 ))}
                                 {sub && (
-                                  <InlineTaskCreator
-                                    groupId={sub.id}
+                                  <QuickCreateForm
                                     users={users}
-                                    onCreate={handleCreateTask}
+                                    onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   />
                                 )}
                               </div>
                             ) : sub ? (
                               /* Stream exists but is in another gate — compact + */
                               <div className="flex items-center justify-center min-h-[40px]">
-                                <InlineTaskCreator
-                                  groupId={sub.id}
+                                <QuickCreateForm
                                   users={users}
-                                  onCreate={handleCreateTask}
+                                  onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact
                                 />
                               </div>
                             ) : (
                               /* No subproject for this stream — create one on click */
-                              <CellCreateButton
-                                label="Стрим"
-                                onCreateSubproject={() => handleCreateSubproject(stream, gate.key)}
-                              />
+                              <div className="flex items-center justify-center min-h-[40px]">
+                                <QuickCreateForm
+                                  users={users}
+                                  singleType="subproject"
+                                  onCreate={(p) => handleQuickCreate(p, projectId!, stream, gate.key)}
+                                  compact
+                                />
+                              </div>
                             )}
                           </div>
                         )}
@@ -561,10 +569,9 @@ export default function NpdSwimlaneMatrix() {
                             />
                           ))}
                           {projectId && (
-                            <InlineTaskCreator
-                              groupId={projectId}
+                            <QuickCreateForm
                               users={users}
-                              onCreate={handleCreateTask}
+                              onCreate={(p) => handleQuickCreate(p, projectId)}
                             />
                           )}
                         </div>
@@ -616,10 +623,9 @@ export default function NpdSwimlaneMatrix() {
                                 }}
                               />
                             ))}
-                            <InlineTaskCreator
-                              groupId={sub.id}
+                            <QuickCreateForm
                               users={users}
-                              onCreate={handleCreateTask}
+                              onCreate={(p) => handleQuickCreate(p, sub.id)}
                             />
                           </div>
                         );
@@ -903,155 +909,5 @@ function MatrixTaskRow({
         </PopoverContent>
       </Popover>
     </div>
-  );
-}
-
-// ── Inline Task Creator (CRM-style compact) ──
-function InlineTaskCreator({
-  groupId, users, onCreate, compact = false,
-}: {
-  groupId: string;
-  users: Profile[];
-  onCreate: (title: string, groupId: string, deadline?: Date, assigneeId?: string) => Promise<void>;
-  compact?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [deadline, setDeadline] = useState<Date | undefined>();
-  const [assigneeId, setAssigneeId] = useState<string | undefined>();
-  const [saving, setSaving] = useState(false);
-  const [calOpen, setCalOpen] = useState(false);
-  const [userPickerOpen, setUserPickerOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleSubmit = async () => {
-    if (!title.trim() || saving) return;
-    setSaving(true);
-    await onCreate(title, groupId, deadline, assigneeId);
-    setTitle("");
-    setDeadline(undefined);
-    setAssigneeId(undefined);
-    setSaving(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setTitle("");
-    setDeadline(undefined);
-    setAssigneeId(undefined);
-  };
-
-  const assignee = users.find(u => u.id === assigneeId);
-
-  if (!open) {
-    return (
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className={cn(
-          "inline-flex items-center gap-1 transition-colors",
-          compact
-            ? "p-0.5 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted"
-            : "rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/30 w-full justify-center mt-1"
-        )}
-        title="Добавить задачу"
-      >
-        <Plus className="h-3 w-3" />
-        {!compact && <span>Задача</span>}
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-md border border-primary/30 bg-card p-2 space-y-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
-      <Input
-        ref={inputRef}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Название задачи..."
-        className="h-7 text-xs"
-        disabled={saving}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSubmit();
-          if (e.key === "Escape") handleClose();
-        }}
-      />
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <Popover open={calOpen} onOpenChange={setCalOpen}>
-          <PopoverTrigger asChild>
-            <button className={cn(
-              "text-[10px] px-2 py-0.5 rounded-md border transition-colors",
-              deadline ? "border-primary/30 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-            )}>
-              {deadline ? format(deadline, "d MMM", { locale: ru }) : "Срок"}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 z-[60]" align="start">
-            <Calendar
-              mode="single"
-              selected={deadline}
-              onSelect={(d) => { setDeadline(d || undefined); setCalOpen(false); }}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
-        <UserPicker
-          users={users}
-          onSelect={(u) => setAssigneeId(u.id)}
-          open={userPickerOpen}
-          onOpenChange={setUserPickerOpen}
-          title="Ответственный"
-          trigger={
-            <button className={cn(
-              "text-[10px] px-2 py-0.5 rounded-md border transition-colors",
-              assigneeId ? "border-primary/30 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
-            )}>
-              {assignee ? (assignee.display_name || "").split(" ")[0] : "Ответственный"}
-            </button>
-          }
-        />
-        <div className="flex-1" />
-        <button
-          onClick={handleSubmit}
-          disabled={saving || !title.trim()}
-          className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {saving ? "..." : "Добавить"}
-        </button>
-        <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Cell Create Button (for empty cells without a subproject) ──
-function CellCreateButton({ label, onCreateSubproject }: { label: string; onCreateSubproject: () => void }) {
-  const [creating, setCreating] = useState(false);
-
-  if (creating) {
-    return (
-      <div className="flex items-center justify-center min-h-[40px]">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={async (e) => {
-        e.stopPropagation();
-        setCreating(true);
-        await onCreateSubproject();
-        setCreating(false);
-      }}
-      className="w-full min-h-[40px] rounded-lg flex items-center justify-center transition-colors group/cell"
-    >
-      <span className="flex items-center gap-1 text-muted-foreground/30 group-hover/cell:text-primary/60 transition-colors">
-        <Plus className="h-3.5 w-3.5" />
-      </span>
-    </button>
   );
 }
