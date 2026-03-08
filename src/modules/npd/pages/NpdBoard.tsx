@@ -1662,24 +1662,21 @@ function DashboardSection({ title, count, children, variant }: { title: string; 
 function DashboardTaskRow({ task, drift, assigneeName, variant }: { task: Task; drift?: number; assigneeName?: string | null; variant?: "overdue" }) {
   const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
   return (
-    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50 transition-colors min-w-0">
       <span className={cn(
-        "text-xs truncate flex-1",
+        "text-[11px] truncate flex-1 min-w-0",
         isOverdue ? "text-red-600 dark:text-red-400" : "text-foreground",
         task.is_completed && "line-through text-muted-foreground"
       )}>{task.title}</span>
       {drift !== undefined && (
-        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
+        <span className={cn("text-[9px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
       )}
       {task.deadline && (
-        <span className="text-[10px] text-muted-foreground shrink-0">
+        <span className="text-[9px] text-muted-foreground shrink-0">
           {format(parseISO(task.deadline), "d MMM", { locale: ru })}
         </span>
-      )}
-      {assigneeName && (
-        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate">{assigneeName}</span>
       )}
     </div>
   );
