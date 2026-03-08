@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import AppHeader from "@/components/AppHeader";
 import CrmBoard from "@/modules/crm/pages/CrmBoard";
 import AiAssistant from "@/components/AiAssistant";
+import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();
