@@ -696,11 +696,6 @@ export default function AppSidebar({
             <span className="text-sm font-black text-primary-foreground leading-none">✓</span>
           </div>
           <span className="text-lg font-bold tracking-tight">Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it</span>
-          <div className="flex items-center text-xs font-semibold ml-auto gap-0.5">
-            <Link to="/pmo" className="px-1.5 py-0.5 rounded hover:bg-sidebar-fg/10 text-sidebar-fg/50 hover:text-sidebar-fg transition-colors">PMO</Link>
-            <span className="text-sidebar-fg/20">|</span>
-            <Link to="/crm" className="px-1.5 py-0.5 rounded hover:bg-sidebar-fg/10 text-sidebar-fg/50 hover:text-sidebar-fg transition-colors">CRM</Link>
-          </div>
         </div>
       </div>
 
