@@ -1441,7 +1441,6 @@ function ProjectCard({
   onCardClick?: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<"dashboard" | "settings">("dashboard");
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks(project.id);
   const group = allGroups.find(g => g.id === project.id);
