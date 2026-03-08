@@ -1914,12 +1914,7 @@ function CrmCard({
   const totalSteps = task.subtasks.length;
 
   const displayName = variant === "funnel" ? (task.client?.name || task.title) : task.title;
-  const hasDetails = !!(
-    (tags.length > 0) ||
-    (task.client && (task.client.contact_name || task.client.phone || task.client.email)) ||
-    (totalSteps > 0) ||
-    (variant === "funnel" && group)
-  );
+  const hasDetails = true;
 
   const toggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1995,16 +1990,16 @@ function CrmCard({
         {hasDetails && (
           <button
             onClick={toggleExpand}
-            className="p-1.5 -m-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="h-6 w-6 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded-md border border-border/70 bg-muted/50 text-foreground/80 hover:text-foreground transition-colors shrink-0"
           >
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
           </button>
         )}
 
         <button
           {...dragHandleProps}
           onClick={(e) => e.stopPropagation()}
-          className="p-1.5 -m-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+          className="h-6 w-6 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded-md border border-border/70 bg-muted/50 text-foreground/80 hover:text-foreground cursor-grab active:cursor-grabbing touch-none transition-colors shrink-0"
         >
           <GripVertical className="h-4 w-4" />
         </button>
