@@ -13,7 +13,7 @@ import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
 } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
 import { toast } from "sonner";
