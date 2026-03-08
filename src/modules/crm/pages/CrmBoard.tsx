@@ -56,6 +56,7 @@ type BoardStage = {
 
 const CRM_STAGES: BoardStage[] = [
   { key: "kp", title: "Отправить КП", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "samples", title: "Отправить образцы", color: "bg-cyan-500", textColor: "text-cyan-600", bgLight: "bg-cyan-500/10" },
   { key: "os", title: "Получить ОС", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
   { key: "negotiation", title: "Переговоры", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
   { key: "shipping", title: "Старт отгрузок", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
@@ -67,7 +68,7 @@ const SALES_STAGES: BoardStage[] = [
   { key: "waiting", title: "Ожидание ответа", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
 ];
 
-const STAGE_ORDER = ["kp", "os", "negotiation", "shipping"];
+const STAGE_ORDER = ["kp", "samples", "os", "negotiation", "shipping"];
 const SALES_TO_CRM_STAGE: Record<string, string> = {
   todo: "kp",
   in_progress: "negotiation",
@@ -77,6 +78,7 @@ const SALES_DROP_KEYS = Object.keys(SALES_TO_CRM_STAGE);
 
 const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Отправить презентацию и КП": "kp",
+  "Отправить образцы": "samples",
   "Получить ОС": "os",
   "Получить обратную связь": "os",
   "Проведены переговоры": "negotiation",
@@ -85,6 +87,7 @@ const SUBTASK_STAGE_MAP: Record<string, string> = {
 
 const CRM_STAGE_TEMPLATE = [
   "Отправить презентацию и КП",
+  "Отправить образцы",
   "Получить обратную связь",
   "Проведены переговоры",
   "Старт отгрузок",
