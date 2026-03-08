@@ -679,116 +679,12 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 </PopoverContent>
               </Popover>
 
-              <div className="relative flex-1 min-w-[160px] max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Поиск проекта..."
-                  className="h-8 pl-8 pr-8 text-xs"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Column visibility toggle */}
-              <Popover open={showColumnFilter} onOpenChange={setShowColumnFilter}>
-                <PopoverTrigger asChild>
-                  <button className={cn(
-                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                    hiddenGates.size > 0
-                      ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                  )}>
-                    <Eye className="h-3 w-3" />
-                    Колонки
-                    {hiddenGates.size > 0 && <span className="font-bold">{hiddenGates.size}</span>}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-2" side="bottom">
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
-                      <input type="checkbox" checked={showInbox} onChange={() => setShowInbox((p) => !p)} className="rounded" />
-                      <Inbox className="h-3 w-3 text-primary" />
-                      Входящие
-                    </label>
-                    {NPD_GATES.map((gate) => (
-                      <label key={gate.key} className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
-                        <input type="checkbox" checked={!hiddenGates.has(gate.key)} onChange={() => toggleGate(gate.key)} className="rounded" />
-                        <span className={cn("w-2 h-2 rounded-full", gate.color)} />
-                        {gate.title}
-                      </label>
-                    ))}
-                    <label className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
-                      <input type="checkbox" checked={showArchive} onChange={() => setShowArchive((p) => !p)} className="rounded" />
-                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                      Архив
-                    </label>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Stream filter */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className={cn(
-                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                    activeStreams.size > 0
-                      ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                  )}>
-                    <Layers className="h-3 w-3" />
-                    Стримы
-                    {activeStreams.size > 0 && <span className="font-bold">{activeStreams.size}</span>}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-52 p-2" side="bottom">
-                  <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {NPD_STREAMS.map((stream) => (
-                      <button
-                        key={stream}
-                        onClick={() => toggleStream(stream)}
-                        className={cn(
-                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
-                          activeStreams.has(stream) ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                        )}
-                      >
-                        <span className="truncate">{stream}</span>
-                        {activeStreams.has(stream) && <Check className="h-3 w-3 ml-auto shrink-0" />}
-                      </button>
-                    ))}
-                    {activeStreams.size > 0 && (
-                      <button onClick={() => setActiveStreams(new Set())} className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 w-full text-left">
-                        Сбросить
-                      </button>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Swimlane toggle */}
-              <button
-                onClick={() => setSwimlaneMode((p) => !p)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                  swimlaneMode
-                    ? "border-primary/50 bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                )}
-              >
-                <LayoutGrid className="h-3 w-3" />
-                Swimlanes
-              </button>
-
-              {(searchQuery || activeStreams.size > 0 || projectFilter) && (
+              {projectFilter && (
                 <button
-                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); onProjectFilterChange?.(null); }}
+                  onClick={() => onProjectFilterChange?.(null)}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Сбросить всё
+                  Сбросить
                 </button>
               )}
             </div>
