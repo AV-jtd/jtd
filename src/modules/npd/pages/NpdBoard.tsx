@@ -1443,9 +1443,14 @@ function ProjectCard({
   const [detailOpen, setDetailOpen] = useState(false);
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks(project.id);
+  const { data: members = [] } = useGroupMembers(project.id);
+  const { data: availableUsers = [] } = useAvailableUsers();
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  const assignee = members.find(m => m.role === "assignee");
+  const assigneeName = assignee ? (availableUsers.find(u => u.id === assignee.user_id)?.display_name || assignee.user_id.slice(0, 8)) : null;
 
   // Dashboard data
   const now = new Date();
@@ -1457,6 +1462,11 @@ function ProjectCard({
     const subIds = subprojects.map(s => s.id);
     return allTasks.filter(t => t.group_id === project.id || (t.group_id && subIds.includes(t.group_id)));
   }, [allTasks, project.id, subprojects]);
+
+  const getAssigneeName = (userId: string | null) => {
+    if (!userId) return null;
+    return availableUsers.find(u => u.id === userId)?.display_name || userId.slice(0, 8);
+  };
 
   const activeTasks = allProjectTasks.filter(t => !t.is_completed);
   const overdueTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now);
