@@ -1559,66 +1559,68 @@ function ProjectCard({
 
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
-        <div className="border-t border-border animate-fade-in">
-          <div className="px-3 py-3 space-y-3">
-            {/* Assignee */}
-            {assigneeName && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
-                <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+        <div className="border-t border-border animate-fade-in px-4 pb-4 pt-3 space-y-4">
+          {/* Assignee */}
+          {assigneeName && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
+              <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+            </div>
+          )}
+
+          {/* Subprojects first (like dashboard) */}
+          {subprojects.length > 0 && (
+            <DashboardSection title="Подпроекты" count={subprojects.length}>
+              <div className="space-y-2">
+                {subprojects.map(sub => (
+                  <NpdSubprojectCard
+                    key={sub.id}
+                    subproject={sub}
+                    allTasks={allTasks}
+                    allGroups={allGroups}
+                    availableUsers={availableUsers}
+                  />
+                ))}
               </div>
-            )}
+            </DashboardSection>
+          )}
 
-            {/* Overdue tasks */}
-            {overdueTasks.length > 0 && (
-              <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+          {/* Overdue tasks */}
+          {overdueTasks.length > 0 && (
+            <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+              <div className="space-y-1">
                 {overdueTasks.map(t => (
-                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} variant="overdue" />
                 ))}
-              </DashboardSection>
-            )}
+              </div>
+            </DashboardSection>
+          )}
 
-            {/* Upcoming deadlines */}
-            {upcomingTasks.length > 0 && (
-              <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+          {/* Upcoming deadlines */}
+          {upcomingTasks.length > 0 && (
+            <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+              <div className="space-y-1">
                 {upcomingTasks.map(t => (
-                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
-              </DashboardSection>
-            )}
+              </div>
+            </DashboardSection>
+          )}
 
-            {/* Drift */}
-            {driftTasks.length > 0 && (
-              <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
+          {/* Drift */}
+          {driftTasks.length > 0 && (
+            <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
+              <div className="space-y-1">
                 {driftTasks.map(({ task: t, driftDays }) => (
-                  <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to)} />
+                  <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
-              </DashboardSection>
-            )}
+              </div>
+            </DashboardSection>
+          )}
 
-            {/* Subprojects with stream stats — expandable */}
-            {subprojects.length > 0 && (
-              <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
-                {subprojects.filter(sub => {
-                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
-                  return st ? st.total > 0 : true;
-                }).map((sub) => {
-                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
-                  return (
-                    <ExpandableSubprojectRow
-                      key={sub.id}
-                      subproject={sub}
-                      stats={st || { name: sub.name, total: 0, completed: 0 }}
-                    />
-                  );
-                })}
-              </DashboardSection>
-            )}
-
-            {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
-            )}
-          </div>
+          {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
+          )}
         </div>
       )}
     </div>
