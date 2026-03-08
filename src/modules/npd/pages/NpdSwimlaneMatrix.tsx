@@ -108,7 +108,7 @@ export default function NpdSwimlaneMatrix() {
         streamsCatId = data?.id || null;
       }
 
-      // Ensure gate tags
+      // Ensure gate tags in current NPD category
       let { data: existingGateTags } = await supabase
         .from("tags")
         .select("id, name")
@@ -130,7 +130,7 @@ export default function NpdSwimlaneMatrix() {
         existingGateTags = refreshed;
       }
 
-      // Ensure stream tags
+      // Ensure stream tags in current NPD category
       let { data: existingStreamTags } = await supabase
         .from("tags")
         .select("id, name")
@@ -144,17 +144,25 @@ export default function NpdSwimlaneMatrix() {
         await supabase.from("tags").insert(
           missingStreams.map((s) => ({ name: s, user_id: user.id, color: "#8b5cf6", category_id: streamsCatId! }))
         );
-        const { data: refreshed } = await supabase
-          .from("tags")
-          .select("id, name")
-          .eq("category_id", streamsCatId!)
-          .eq("user_id", user.id);
-        existingStreamTags = refreshed;
       }
 
+      // IMPORTANT: also include legacy tags with same names from other categories
+      const gateNames = NPD_GATES.map(g => g.tagName);
+      const { data: allGateTagsByName } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .in("name", gateNames);
+
+      const { data: allStreamTagsByName } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .in("name", NPD_STREAMS);
+
       return {
-        gateTags: (existingGateTags || []) as { id: string; name: string }[],
-        streamTags: (existingStreamTags || []) as { id: string; name: string }[],
+        gateTags: (allGateTagsByName || []) as { id: string; name: string }[],
+        streamTags: (allStreamTagsByName || []) as { id: string; name: string }[],
         gatesCategoryId: gatesCatId,
         streamsCategoryId: streamsCatId,
       };
