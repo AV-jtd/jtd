@@ -36,7 +36,12 @@ export default function CrmLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader onAiOpen={() => setAiOpen(true)}>
+      <AppHeader
+        onSearchOpen={() => setSearchOpen(true)}
+        onAiOpen={() => setAiOpen(true)}
+        onMessengerToggle={() => setMessengerOpen(prev => !prev)}
+        messengerOpen={messengerOpen}
+      >
         <div className="flex items-center text-sm font-semibold tracking-tight">
           <button
             onClick={() => setBoardView("funnel")}
