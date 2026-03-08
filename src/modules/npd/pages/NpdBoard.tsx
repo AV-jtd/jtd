@@ -1377,6 +1377,33 @@ function ProjectCard({
 
   const timingStatus = getTimingStatus(allProjectTasks);
 
+  // For secondary cards, show a compact ghost version
+  if (isSecondary) {
+    return (
+      <div
+        onClick={onCardClick}
+        className="rounded-lg border border-dashed border-border/60 bg-card/40 shadow-none transition-all hover:bg-muted/30 cursor-pointer px-3 py-2 opacity-60 hover:opacity-80"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <ProjectIcon project={project} />
+          <h4 className="flex-1 text-xs font-medium text-muted-foreground truncate">{project.name}</h4>
+          {otherGateLabels.length > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
+              также в {otherGateLabels.join(", ")}
+            </span>
+          )}
+        </div>
+        {project.stats.total > 0 && (
+          <div className="mt-1.5">
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/40 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -1392,6 +1419,27 @@ function ProjectCard({
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
           <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+          {/* Multi-gate indicator on primary card */}
+          {project.allGateKeys.length > 1 && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              {project.allGateKeys.map((gk) => {
+                const gate = NPD_GATES.find((g) => g.key === gk);
+                if (!gate) return null;
+                return (
+                  <Tooltip key={gk}>
+                    <TooltipTrigger asChild>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        gate.color,
+                        gk === currentGate?.key ? "ring-1 ring-foreground/30" : "opacity-40"
+                      )} />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">{gate.short} · {gate.shortTitle}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          )}
           <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0", STATUS_BADGE[timingStatus])}>
             {STATUS_LABEL[timingStatus]}
           </span>
