@@ -449,6 +449,97 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "context_chat") {
+      const { projectContext, history: chatHistory } = context || {};
+      
+      let contextInfo = "";
+      if (projectContext) {
+        const { project, subprojects, tasks, participants, recentMessages } = projectContext;
+        if (project) {
+          contextInfo += `\n\n📁 Проект: "${project.name}" (тип: ${project.project_type || "standard"})`;
+          if (project.description) contextInfo += `\nОписание: ${project.description}`;
+        }
+        if (subprojects?.length) {
+          contextInfo += `\n\n📂 Подпроекты (${subprojects.length}):`;
+          subprojects.forEach((sp: any) => {
+            contextInfo += `\n- ${sp.name}${sp.taskCount !== undefined ? ` (${sp.completedCount || 0}/${sp.taskCount} выполнено)` : ""}`;
+          });
+        }
+        if (tasks?.length) {
+          contextInfo += `\n\n📋 Задачи (${tasks.length}):`;
+          tasks.forEach((t: any) => {
+            const status = t.is_completed ? "✅" : t.deadline && new Date(t.deadline) < new Date() ? "🔴 просрочена" : "⬜";
+            contextInfo += `\n- ${status} "${t.title}"`;
+            if (t.deadline) contextInfo += ` [срок: ${t.deadline.split("T")[0]}]`;
+            if (t.assigned_to_name) contextInfo += ` → ${t.assigned_to_name}`;
+            if (t.priority) contextInfo += ` P${t.priority}`;
+            if (t.subtasks?.length) {
+              const done = t.subtasks.filter((s: any) => s.is_completed).length;
+              contextInfo += ` (шаги: ${done}/${t.subtasks.length})`;
+            }
+          });
+        }
+        if (participants?.length) {
+          contextInfo += `\n\n👥 Участники: ${participants.map((p: any) => p.name).join(", ")}`;
+        }
+        if (recentMessages?.length) {
+          contextInfo += `\n\n💬 Последние сообщения:`;
+          recentMessages.slice(-10).forEach((m: any) => {
+            contextInfo += `\n- ${m.author}: ${m.content.slice(0, 100)}`;
+          });
+        }
+      }
+
+      const contextSystemPrompt = `Ты — контекстный AI-помощник проекта в приложении JustTODOit.
+У тебя есть полный доступ к данным проекта. Ты можешь:
+1. Отвечать на вопросы о статусе проекта, задачах, дедлайнах
+2. Анализировать прогресс и выявлять риски
+3. Давать рекомендации по управлению проектом
+4. Формировать саммари и отчёты
+
+Текущая дата: ${new Date().toISOString().split("T")[0]}
+${contextInfo}
+
+Отвечай на русском языке. Используй markdown для форматирования. Будь конкретным — ссылайся на реальные данные проекта.`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: contextSystemPrompt },
+            ...(chatHistory || []),
+            { role: "user", content: message },
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
     // Default: chat mode (streaming)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
