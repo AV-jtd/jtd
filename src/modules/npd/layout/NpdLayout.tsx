@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import NpdBoard from "@/modules/npd/pages/NpdBoard";
 import AiAssistant from "@/components/AiAssistant";
+import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 
 export default function NpdLayout() {
   const { user, loading } = useAuth();
