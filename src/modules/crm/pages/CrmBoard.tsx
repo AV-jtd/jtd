@@ -2471,7 +2471,7 @@ function CrmCard({
         <h4 className={cn(
           "flex-1 text-xs font-medium text-foreground leading-tight min-w-0",
           expanded ? "whitespace-normal break-words" : "truncate"
-        )}>
+        )} title={displayName}>
           {displayName}
         </h4>
 
