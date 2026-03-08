@@ -15,7 +15,7 @@ import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
-  Loader2, Folder, Inbox, CheckCircle2, GripVertical,
+  Loader2, Folder, FolderPlus, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
   GanttChart, Grid3X3, PanelLeft,
