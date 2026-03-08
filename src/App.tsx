@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
 import Crm from "./pages/Crm";
 import Npd from "./pages/Npd";
+import NpdMatrix from "./pages/NpdMatrix";
 import OnlineStatus from "./components/OnlineStatus";
 import PendingSync from "./components/PendingSync";
 
@@ -61,6 +62,7 @@ function AppContent() {
           <Route path="/pmo" element={<Pmo />} />
           <Route path="/crm" element={<Crm />} />
           <Route path="/npd" element={<Npd />} />
+          <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <OnlineStatus />
