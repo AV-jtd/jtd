@@ -959,9 +959,150 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               </PopoverContent>
             </Popover>
 
+            {/* CRM dimension filters */}
+            {territoryTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterTerritoryIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Globe className="h-3 w-3" />
+                    Территория
+                    {filterTerritoryIds.length > 0 && <span className="font-bold">{filterTerritoryIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {territoryTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterTerritory(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterTerritoryIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterTerritoryIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {retailTypeTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterRetailTypeIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Briefcase className="h-3 w-3" />
+                    Тип ретейла
+                    {filterRetailTypeIds.length > 0 && <span className="font-bold">{filterRetailTypeIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {retailTypeTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRetailType(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterRetailTypeIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterRetailTypeIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {rankTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterRankIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Star className="h-3 w-3" />
+                    Ранг
+                    {filterRankIds.length > 0 && <span className="font-bold">{filterRankIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {rankTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRank(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterRankIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterRankIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {usedManagers.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterManagerIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <User className="h-3 w-3" />
+                    Менеджер
+                    {filterManagerIds.length > 0 && <span className="font-bold">{filterManagerIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {usedManagers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => toggleFilterManager(m.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterManagerIds.includes(m.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{m.display_name || m.email || "?"}</span>
+                        {filterManagerIds.includes(m.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
             {hasFilters && (
               <button
-                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); }}
+                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); setFilterTerritoryIds([]); setFilterRetailTypeIds([]); setFilterRankIds([]); setFilterManagerIds([]); }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Сбросить
