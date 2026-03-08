@@ -2426,9 +2426,9 @@ function CrmCard({
         </span>
       )}
       {variant === "sales" && group && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[110px]" title={`${group.icon ? `${group.icon} ` : ""}${group.name}`}>
           <FolderOpen className="h-2.5 w-2.5 shrink-0" />
-          {group.icon ? `${group.icon} ` : ""}{group.name}
+          <span className="truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>
         </span>
       )}
       {variant === "sales" && task.client && (
