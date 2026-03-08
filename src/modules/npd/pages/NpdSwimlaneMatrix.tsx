@@ -321,6 +321,7 @@ export default function NpdSwimlaneMatrix() {
             const tasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
             const activeTasks = tasks.filter(t => !t.is_completed);
             const completedCount = tasks.filter(t => t.is_completed).length;
+            const overdueTasks = activeTasks.filter(t => t.deadline && isPast(parseISO(t.deadline)));
 
             return (
               <div key={stream} className="border-b border-border">
@@ -445,6 +446,90 @@ export default function NpdSwimlaneMatrix() {
               </div>
             );
           })}
+          {/* Summary footer row */}
+          <div className="flex border-t-2 border-border bg-card sticky bottom-0 z-10">
+            <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-3 border-r border-border">
+              <span className="text-xs font-bold text-foreground">Итого</span>
+              {(() => {
+                const totalTasks = NPD_STREAMS.reduce((acc, s) => {
+                  const sub = streamSubMap.get(s);
+                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).length : 0);
+                }, 0);
+                const totalCompleted = NPD_STREAMS.reduce((acc, s) => {
+                  const sub = streamSubMap.get(s);
+                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).filter(t => t.is_completed).length : 0);
+                }, 0);
+                const pct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+                return (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono text-muted-foreground">{pct}%</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{totalCompleted}/{totalTasks} задач</span>
+                  </div>
+                );
+              })()}
+            </div>
+            {NPD_GATES.map(gate => {
+              // Streams in this gate
+              const streamsInGate = NPD_STREAMS.filter(s => {
+                const sub = streamSubMap.get(s);
+                return sub && getSubprojectGate(sub.id) === gate.key;
+              });
+              const gateTotalTasks = streamsInGate.reduce((acc, s) => {
+                const sub = streamSubMap.get(s)!;
+                return acc + (tasksByGroup.get(sub.id) || []).length;
+              }, 0);
+              const gateCompletedTasks = streamsInGate.reduce((acc, s) => {
+                const sub = streamSubMap.get(s)!;
+                return acc + (tasksByGroup.get(sub.id) || []).filter(t => t.is_completed).length;
+              }, 0);
+              const gateOverdue = streamsInGate.reduce((acc, s) => {
+                const sub = streamSubMap.get(s)!;
+                return acc + (tasksByGroup.get(sub.id) || []).filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+              }, 0);
+              const gatePct = gateTotalTasks > 0 ? Math.round((gateCompletedTasks / gateTotalTasks) * 100) : 0;
+
+              return (
+                <div key={gate.key} className={cn("min-w-[280px] w-[280px] shrink-0 border-r border-border px-3 py-3", streamsInGate.length > 0 ? gate.bgLight : "")}>
+                  {streamsInGate.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {streamsInGate.map(s => (
+                          <span key={s} className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium", gate.bgLight, gate.textColor)}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all", gate.color)} style={{ width: `${gatePct}%` }} />
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground">{gatePct}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{gateCompletedTasks}/{gateTotalTasks}</span>
+                        {gateOverdue > 0 && (
+                          <span className="text-[10px] text-destructive flex items-center gap-0.5">
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                            {gateOverdue}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/40">—</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
