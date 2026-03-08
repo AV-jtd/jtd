@@ -34,6 +34,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 type GateStage = {
   key: string;
   short: string;
+  shortTitle: string;
   title: string;
   tagName: string;
   color: string;
