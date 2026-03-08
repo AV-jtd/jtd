@@ -857,7 +857,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 {showArchive && (
                   <ArchiveColumn
                     projects={archiveProjects}
-                    onCardClick={setSelectedProjectId}
+                    onCardClick={handleCardClick}
                   />
                 )}
               </div>
