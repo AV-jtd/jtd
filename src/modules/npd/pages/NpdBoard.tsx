@@ -900,7 +900,7 @@ function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
   projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
-  onCreateTask,
+  onCreateTask, allGroups,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -917,6 +917,7 @@ function SwimlaneGrid({
   streamSubprojectTasks: Map<string, Task[]>;
   allTasks: Task[];
   onCreateTask: (title: string, groupId: string) => Promise<void>;
+  allGroups: TaskGroup[];
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
