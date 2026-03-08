@@ -1026,3 +1026,32 @@ function InlineTaskCreator({
     </div>
   );
 }
+
+// ── Cell Create Button (for empty cells without a subproject) ──
+function CellCreateButton({ label, onCreateSubproject }: { label: string; onCreateSubproject: () => void }) {
+  const [creating, setCreating] = useState(false);
+
+  if (creating) {
+    return (
+      <div className="flex items-center justify-center min-h-[40px]">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        setCreating(true);
+        await onCreateSubproject();
+        setCreating(false);
+      }}
+      className="w-full min-h-[40px] rounded-lg flex items-center justify-center transition-colors group/cell"
+    >
+      <span className="flex items-center gap-1 text-muted-foreground/30 group-hover/cell:text-primary/60 transition-colors">
+        <Plus className="h-3.5 w-3.5" />
+      </span>
+    </button>
+  );
+}
