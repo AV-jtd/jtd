@@ -1002,25 +1002,20 @@ function SwimlaneGrid({
                 {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
-              {!isCollapsed && visibleGates.map((gate) => {
-                // When project is filtered, show tasks in the gate column where the project lives
-                if (projectFilter && streamSub) {
-                  const project = filteredProjects.find((p) => p.id === projectFilter);
-                  const projectGate = project ? getProjectGate(project) : null;
-                  const showTasks = projectGate === gate.key;
-                  return (
-                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
-                      <div className="flex flex-col gap-1">
-                        {showTasks ? streamTasks.map((task) => (
-                          <TaskMiniCard key={task.id} task={task} />
-                        )) : (
-                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
-                        )}
-                      </div>
+              {!isCollapsed && projectFilter && streamSub ? (
+                /* When project is filtered: show all tasks across the full row */
+                <div className="flex-1 px-3 py-2 border-r border-border">
+                  {streamTasks.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {streamTasks.map((task) => (
+                        <TaskMiniCard key={task.id} task={task} />
+                      ))}
                     </div>
-                  );
-                }
-                // Default: show project cards
+                  ) : (
+                    <div className="text-center py-2 text-[10px] text-muted-foreground/50">Нет задач в этом стриме</div>
+                  )}
+                </div>
+              ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
                   <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
@@ -1040,11 +1035,11 @@ function SwimlaneGrid({
                     </div>
                   </div>
                 );
-              })}
+              }) : null}
               {isCollapsed && (
                 <div className="flex-1 flex items-center px-3">
                   <span className="text-[10px] text-muted-foreground">
-                    {totalInRow > 0 ? `${totalInRow} проект(ов)` : "пусто"}
+                    {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
                   </span>
                 </div>
               )}
