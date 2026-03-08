@@ -265,12 +265,23 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const projectStreamTags = groupTagIds.filter((id) => streamTagIds.has(id));
 
       // Stats: include child groups
-      const childIds = allGroups.filter((c) => c.parent_id === g.id).map((c) => c.id);
+      const childGroups = allGroups.filter((c) => c.parent_id === g.id);
+      const childIds = childGroups.map((c) => c.id);
       const allProjectIds = [g.id, ...childIds];
       const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
       const total = projectTasks.length;
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+
+      // Build stream stats for card display
+      const streamStats: { name: string; total: number; completed: number }[] = [];
+      for (const child of childGroups) {
+        const cTags = allGroupTags.filter((gt) => gt.group_id === child.id);
+        const sTagId = cTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
+        const sName = sTagId ? streamTagById.get(sTagId) || child.name : child.name;
+        const cTasks = allTasks.filter((t) => t.group_id === child.id);
+        streamStats.push({ name: sName, total: cTasks.length, completed: cTasks.filter((t) => t.is_completed).length });
+      }
 
       return {
         id: g.id,
@@ -283,9 +294,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         gateTags: projectGateTags,
         streamTags: projectStreamTags,
         stats: { total, completed, overdue },
+        streamStats,
       };
     });
-  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds]);
+  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
 
   // ── Gate assignment ──
   const getProjectGate = (project: NpdProject): string | null => {
