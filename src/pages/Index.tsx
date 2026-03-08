@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
+import AppSidebar from "@/components/AppSidebar";
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
 import CalendarView from "@/components/CalendarView";
