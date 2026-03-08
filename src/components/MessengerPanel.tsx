@@ -34,6 +34,35 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : threads;
 
+  // AI Chat view
+  if (showAiChat) {
+    return (
+      <div className="flex flex-col h-full bg-card border-l border-border">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+          <button
+            onClick={() => setShowAiChat(false)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              ИИ-ассистент
+            </p>
+            <p className="text-[10px] text-muted-foreground">Контекстный анализ проекта</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AiChatThread />
+        </div>
+      </div>
+    );
+  }
+
   // Thread list view
   if (!activeThread) {
     return (
