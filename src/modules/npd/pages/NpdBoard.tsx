@@ -82,6 +82,7 @@ export default function NpdBoard() {
   const [activeStreams, setActiveStreams] = useState<Set<string>>(new Set());
   const [showInbox, setShowInbox] = useState(true);
   const [showArchive, setShowArchive] = useState(false);
+  const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [swimlaneMode, setSwimlaneMode] = useState(() => {
     try { return localStorage.getItem("npd-swimlane") === "true"; } catch { return false; }
