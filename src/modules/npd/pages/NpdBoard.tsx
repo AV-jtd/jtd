@@ -1307,6 +1307,9 @@ function ProjectCard({
   const now = new Date();
   const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const subprojects = allGroups.filter(g => g.parent_id === project.id);
+  const subprojectsWithTasks = useMemo(() => {
+    return subprojects.filter(sub => allTasks.some(t => t.group_id === sub.id));
+  }, [subprojects, allTasks]);
 
   // Collect tasks from subprojects too
   const allProjectTasks = useMemo(() => {
