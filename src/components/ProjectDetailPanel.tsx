@@ -320,21 +320,8 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           <Download className="h-3 w-3" /> Импорт / Экспорт
         </p>
         <div className="flex items-center gap-2">
-          <button
-            onClick={async () => {
-              try {
-                const blob = await exportProjectToExcel(group.id);
-                downloadExcel(blob, `${group.name}.xlsx`);
-                toast.success("Excel экспортирован");
-              } catch (err: any) {
-                toast.error("Ошибка экспорта: " + err.message);
-              }
-            }}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-          >
-            <Upload className="h-3 w-3" /> Экспорт Excel
-          </button>
-          <ImportProjectDialog
+          <SmartExportDialog groupId={group.id} groupName={group.name} />
+          <SmartImportDialog
             targetGroupId={group.id}
             trigger={
               <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
