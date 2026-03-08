@@ -417,14 +417,11 @@ export default function CrmSmartImportDialog({ trigger, open: controlledOpen, on
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetState(); }}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Upload className="h-3.5 w-3.5" />
-            Импорт CRM
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
