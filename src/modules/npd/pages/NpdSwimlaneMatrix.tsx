@@ -185,35 +185,77 @@ export default function NpdSwimlaneMatrix() {
     toast.success("Стрим перемещён в " + NPD_GATES.find(g => g.key === gateKey)?.title);
   };
 
-  // Create task
-  const handleCreateTask = async (title: string, groupId: string, deadline?: Date, assigneeId?: string) => {
-    if (!title.trim() || !user) return;
+  // Unified create handler for QuickCreateForm
+  const handleQuickCreate = async (
+    params: { type: QuickCreateType; title: string; deadline?: Date; assigneeId?: string },
+    groupId: string,
+    streamName?: string,
+    gateKey?: string,
+  ) => {
+    if (!user) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id;
     if (!uid) { toast.error("Сессия истекла"); return; }
 
-    const insertData: any = {
-      title: title.trim(),
-      user_id: uid,
-      group_id: groupId,
-    };
-    if (deadline) insertData.deadline = deadline.toISOString();
-    if (assigneeId) insertData.assigned_to = assigneeId;
+    if (params.type === "subproject") {
+      // Create subproject under the parent project
+      const { data: newSub, error } = await supabase
+        .from("task_groups")
+        .insert({
+          name: params.title,
+          user_id: uid,
+          project_type: "npd",
+          icon: "📋",
+          color: "#8b5cf6",
+          parent_id: projectId,
+          position: subprojects.length,
+        })
+        .select("id")
+        .single();
+      if (error || !newSub) { toast.error(error?.message || "Ошибка"); return; }
 
-    const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
-    if (error) { toast.error(error.message); return; }
+      // Assign stream tag if we know the stream
+      if (streamName) {
+        const streamTag = streamTags.find(t => t.name === streamName);
+        if (streamTag) {
+          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTag.id });
+        }
+      }
+      // Assign gate tag
+      if (gateKey) {
+        const gateTagId = gateKeyToTagId.get(gateKey);
+        if (gateTagId) {
+          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: gateTagId });
+        }
+      }
 
-    // Sync assigned_to -> task_participants
-    if (assigneeId && data) {
-      await supabase.from("task_participants").upsert({
-        task_id: data.id,
-        user_id: assigneeId,
-        role: "assignee",
-      }, { onConflict: "task_id,user_id" });
+      queryClient.invalidateQueries({ queryKey: ["task-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      toast.success(`Подпроект «${params.title}» создан`);
+    } else {
+      // Create task
+      const insertData: any = {
+        title: params.title,
+        user_id: uid,
+        group_id: groupId,
+      };
+      if (params.deadline) insertData.deadline = params.deadline.toISOString();
+      if (params.assigneeId) insertData.assigned_to = params.assigneeId;
+
+      const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
+      if (error) { toast.error(error.message); return; }
+
+      if (params.assigneeId && data) {
+        await supabase.from("task_participants").upsert({
+          task_id: data.id,
+          user_id: params.assigneeId,
+          role: "assignee",
+        }, { onConflict: "task_id,user_id" });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Задача создана");
     }
-
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    toast.success("Задача создана");
   };
 
   // Create subproject (stream) with gate assignment
