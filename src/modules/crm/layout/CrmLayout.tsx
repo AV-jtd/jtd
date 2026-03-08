@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import CrmBoard from "@/modules/crm/pages/CrmBoard";
+import AiAssistant from "@/components/AiAssistant";
 import { cn } from "@/lib/utils";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();
   const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
+  const [aiOpen, setAiOpen] = useState(false);
 
   if (loading) {
     return (
@@ -57,10 +59,20 @@ export default function CrmLayout() {
             Задачи
           </button>
         </div>
+        <div className="ml-auto">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-cyan-500/10 to-violet-500/10 text-cyan-600 dark:text-cyan-400 hover:from-cyan-500/20 hover:to-violet-500/20 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">AI</span>
+          </button>
+        </div>
       </header>
       <main className="flex-1 overflow-hidden">
         <CrmBoard boardView={boardView} />
       </main>
+      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "crm" }} />
     </div>
   );
 }
