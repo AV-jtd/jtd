@@ -296,9 +296,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return null;
   };
 
+  // ── Stream subprojects map: parentId -> stream subprojects ──
+  const streamSubprojectsMap = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; streamName: string | null }[]>();
+    for (const g of allGroups) {
+      if ((g as any).project_type !== "npd" || !g.parent_id) continue;
+      const parentNpd = npdProjects.find((p) => p.id === g.parent_id);
+      if (!parentNpd) continue;
+      // Determine stream from group_tags
+      const gTags = allGroupTags.filter((gt) => gt.group_id === g.id);
+      const sTagId = gTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
+      const sName = sTagId ? streamTagById.get(sTagId) || null : null;
+      if (!m.has(g.parent_id)) m.set(g.parent_id, []);
+      m.get(g.parent_id)!.push({ id: g.id, name: g.name, streamName: sName });
+    }
+    return m;
+  }, [allGroups, npdProjects, allGroupTags, streamTagIds, streamTagById]);
+
   // ── Filter ──
   const filteredProjects = useMemo(() => {
     let result = npdProjects;
+    if (projectFilter) {
+      result = result.filter((p) => p.id === projectFilter);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((p) => p.name.toLowerCase().includes(q));
@@ -310,7 +330,19 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       }));
     }
     return result;
-  }, [npdProjects, searchQuery, activeStreams, streamTagById]);
+  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter]);
+
+  // ── Tasks grouped by stream subproject (for swimlane task view) ──
+  const streamSubprojectTasks = useMemo(() => {
+    if (!projectFilter) return new Map<string, Task[]>();
+    const m = new Map<string, Task[]>(); // subproject_id -> tasks
+    const subs = streamSubprojectsMap.get(projectFilter) || [];
+    for (const sub of subs) {
+      const tasks = allTasks.filter((t) => t.group_id === sub.id);
+      m.set(sub.id, tasks);
+    }
+    return m;
+  }, [projectFilter, streamSubprojectsMap, allTasks]);
 
   // ── Columns ──
   const gateColumns = useMemo(() => {
