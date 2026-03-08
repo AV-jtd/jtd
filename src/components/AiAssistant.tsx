@@ -66,6 +66,7 @@ interface AiAssistantProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   moduleContext?: ModuleContext;
+  onRequestImport?: () => void;
 }
 
 const MODULE_CONFIG: Record<string, {
