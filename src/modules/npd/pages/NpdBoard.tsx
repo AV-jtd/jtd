@@ -485,8 +485,30 @@ export default function NpdBoard() {
         }
       }
 
+      // Auto-create stream subprojects
+      for (let i = 0; i < NPD_STREAMS.length; i++) {
+        const streamName = NPD_STREAMS[i];
+        const { data: subData } = await supabase.from("task_groups").insert({
+          name: streamName,
+          user_id: currentUserId,
+          project_type: "npd",
+          parent_id: data.id,
+          icon: "📋",
+          color: "#8b5cf6",
+          position: i,
+        }).select("id").single();
+
+        if (subData) {
+          const streamTag = streamTags.find(t => t.name === streamName);
+          if (streamTag) {
+            await supabase.from("group_tags" as any).insert({ group_id: subData.id, tag_id: streamTag.id });
+          }
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
       toast.success("NPD-проект создан");
     } catch (e: any) {
