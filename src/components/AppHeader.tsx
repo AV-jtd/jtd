@@ -93,7 +93,9 @@ export default function AppHeader({
       {children && (
         <>
           <div className="h-5 w-px bg-border mx-1 shrink-0" />
-          {children}
+          <div className="overflow-x-auto scrollbar-none min-w-0 shrink">
+            {children}
+          </div>
         </>
       )}
 
