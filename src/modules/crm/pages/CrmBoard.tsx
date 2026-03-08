@@ -2520,9 +2520,9 @@ function CrmCard({
               </span>
             )}
             {task.assignee && (
-              <span className="text-[11px] inline-flex items-center gap-1 text-muted-foreground truncate max-w-[120px]">
+              <span className="text-[11px] inline-flex items-center gap-1 text-muted-foreground truncate max-w-[140px]" title={task.assignee.display_name || task.assignee.email || "?"}>
                 <User className="h-3 w-3 shrink-0" />
-                {task.assignee.display_name || task.assignee.email || "?"}
+                <span className="truncate">{task.assignee.display_name || task.assignee.email || "?"}</span>
               </span>
             )}
           </div>
