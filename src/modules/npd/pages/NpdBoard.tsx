@@ -1442,7 +1442,7 @@ function ProjectCard({
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const { data: allGroups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks(project.id);
+  const { data: allTasks = [] } = useTasks();
   const { data: members = [] } = useGroupMembers(project.id);
   const { data: availableUsers = [] } = useAvailableUsers();
   const group = allGroups.find(g => g.id === project.id);
