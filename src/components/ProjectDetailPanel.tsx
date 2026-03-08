@@ -405,17 +405,63 @@ function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
 // ── Tasks section ──
 function TasksSection({ groupId }: { groupId: string }) {
   const { data: tasks = [] } = useTasks(groupId);
+  const { addTask } = useTaskMutations();
   const activeTasks = tasks.filter(t => !t.is_completed);
   const completedTasks = tasks.filter(t => t.is_completed);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdd = () => {
+    if (!newTitle.trim()) return;
+    addTask.mutate({ title: newTitle.trim(), group_id: groupId });
+    setNewTitle("");
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-        <ListChecks className="h-3 w-3" /> Задачи
-        <span className="text-muted-foreground/60">· {activeTasks.length}{completedTasks.length > 0 ? ` (+${completedTasks.length} ✓)` : ""}</span>
-      </p>
-      {activeTasks.length === 0 && completedTasks.length === 0 && (
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <ListChecks className="h-3 w-3" /> Задачи
+          <span className="text-muted-foreground/60">· {activeTasks.length}{completedTasks.length > 0 ? ` (+${completedTasks.length} ✓)` : ""}</span>
+        </p>
+        {!adding && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          >
+            <Plus className="h-2.5 w-2.5" /> Задача
+          </button>
+        )}
+      </div>
+      {adding && (
+        <div className="flex items-center gap-1.5 animate-fade-in">
+          <Input
+            ref={inputRef}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Название задачи..."
+            className="h-7 text-xs flex-1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+              if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+            }}
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newTitle.trim()}
+            className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            OK
+          </button>
+          <button onClick={() => { setAdding(false); setNewTitle(""); }} className="text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+      {activeTasks.length === 0 && completedTasks.length === 0 && !adding && (
         <p className="text-xs text-muted-foreground/60 italic px-1">Нет задач</p>
       )}
       <div className="space-y-0.5">
