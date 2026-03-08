@@ -569,10 +569,9 @@ export default function NpdSwimlaneMatrix() {
                             />
                           ))}
                           {projectId && (
-                            <InlineTaskCreator
-                              groupId={projectId}
+                            <QuickCreateForm
                               users={users}
-                              onCreate={handleCreateTask}
+                              onCreate={(p) => handleQuickCreate(p, projectId)}
                             />
                           )}
                         </div>
