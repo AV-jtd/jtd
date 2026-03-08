@@ -358,14 +358,29 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
             {/* Project badge */}
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
-              return group ? (
+              if (!group) return null;
+              const parentGroup = group.parent_id ? allGroups.find(g => g.id === group.parent_id) : null;
+              return (
                 <span className="inline-flex items-center gap-1 text-xs font-medium">
+                  {parentGroup && (
+                    <>
+                      <span
+                        className="inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
+                        style={{ color: parentGroup.color || '#3b82f6' }}
+                        onClick={(e) => { e.stopPropagation(); onProjectClick?.(parentGroup.id); }}
+                      >
+                        <span className="text-[11px]">{parentGroup.icon || '📁'}</span>
+                        {parentGroup.name}
+                      </span>
+                      <span className="text-muted-foreground">/</span>
+                    </>
+                  )}
                   <span
                     className="inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
                     style={{ color: group.color || '#3b82f6' }}
                     onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
                   >
-                    <span className="text-[11px]">{group.icon || '📁'}</span>
+                    {!parentGroup && <span className="text-[11px]">{group.icon || '📁'}</span>}
                     {group.name}
                   </span>
                   {!group.parent_id && (
