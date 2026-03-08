@@ -26,6 +26,7 @@ import {
   Globe,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
