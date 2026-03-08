@@ -601,7 +601,10 @@ export default function NpdSwimlaneMatrix() {
               <div key={stream} className="border-b border-border">
                 <div className="flex">
                   {/* Stream label */}
-                  <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50">
+                  <div className={cn(
+                    "min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50",
+                    isCollapsed && overdueTasks.length > 0 && "bg-destructive/5"
+                  )}>
                     <button
                       onClick={() => toggleCollapse(stream)}
                       className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
@@ -611,7 +614,13 @@ export default function NpdSwimlaneMatrix() {
                         : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       }
                       <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
-                      <div className="flex items-center gap-1 ml-auto shrink-0">
+                      <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                        {overdueTasks.length > 0 && (
+                          <span className="text-[9px] text-destructive font-medium flex items-center gap-0.5">
+                            <AlertTriangle className="h-3 w-3" />
+                            {overdueTasks.length}
+                          </span>
+                        )}
                         {tasks.length > 0 && (
                           <span className="text-[10px] text-muted-foreground">
                             {completedCount}/{tasks.length}
