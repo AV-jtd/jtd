@@ -99,6 +99,18 @@ export default function NpdSwimlaneMatrix() {
     return m;
   }, [gateTags, tagNameToGateKey]);
 
+  // Reverse: tagId → gateKey
+  const tagIdToGateKey = useMemo(() => {
+    const m = new Map<string, string>();
+    gateTags.forEach(t => {
+      const k = tagNameToGateKey.get(t.name);
+      if (k) m.set(t.id, k);
+    });
+    return m;
+  }, [gateTags, tagNameToGateKey]);
+
+  const gateTagIdSet = useMemo(() => new Set(gateTags.map(t => t.id)), [gateTags]);
+
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
