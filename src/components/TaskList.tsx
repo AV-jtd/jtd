@@ -44,9 +44,10 @@ interface TaskListProps {
   onHighlightClear?: () => void;
   onTagClick?: (tagId: string) => void;
   onProjectClick?: (groupId: string) => void;
+  onAiOpen?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onAiOpen }: TaskListProps) {
   const { user } = useAuth();
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
