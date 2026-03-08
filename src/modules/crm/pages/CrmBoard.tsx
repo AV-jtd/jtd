@@ -880,13 +880,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                   </span>
                 )}
               </button>
-              <CrmSmartImportDialog
-                trigger={
-                  <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
-                }
-              />
             </div>
           </div>
         )}
