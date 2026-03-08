@@ -1347,10 +1347,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
           </div>
         </div>
         )}
-            </div>
-          </div>
-        </div>
-        )}
 
         {/* Desktop stats bar */}
         {!isMobile && (
