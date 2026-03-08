@@ -790,6 +790,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     streamTagById={streamTagById}
                     onCardClick={handleCardClick}
                     onCreate={(name) => handleCreateProject(name, gate.key)}
+                    gateKeyToTagId={gateKeyToTagId}
+                    allGroupTags={allGroupTags}
                   />
                 ))}
                 {showArchive && (
