@@ -1272,12 +1272,14 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
 
 // ── Draggable project card ──
 function DraggableProjectCard({
-  project, isMoving, streamTagById, onCardClick,
+  project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
 }: {
   project: NpdProject;
   isMoving: boolean;
   streamTagById: Map<string, string>;
   onCardClick: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
@@ -1288,6 +1290,8 @@ function DraggableProjectCard({
         isDragging={isDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
         onCardClick={onCardClick}
+        isSecondary={isSecondary}
+        currentGate={currentGate}
       />
     </div>
   );
