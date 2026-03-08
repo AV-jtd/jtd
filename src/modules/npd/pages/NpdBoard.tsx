@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import QuickCreateForm from "@/components/QuickCreateForm";
+import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
@@ -1095,9 +1097,7 @@ function GateColumn({
   onCreate: (name: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: gate.key });
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { data: users = [] } = useAvailableUsers();
 
   return (
     <div
@@ -1116,39 +1116,16 @@ function GateColumn({
           <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
         </Tooltip>
         <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-        <button
-          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        <QuickCreateForm
+          users={users}
+          singleType="subproject"
+          compact
+          onCreate={async (p) => { onCreate(p.title); }}
+        />
       </div>
 
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {adding && (
-            <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
-              <Input
-                ref={inputRef}
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Название NPD-проекта..."
-                className="h-7 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); }
-                  if (e.key === "Escape") { setAdding(false); setNewName(""); }
-                }}
-              />
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => { if (newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); } }}
-                  className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                >Добавить</button>
-                <button onClick={() => { setAdding(false); setNewName(""); }} className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground">Отмена</button>
-              </div>
-            </div>
-          )}
           {projects.map((p) => (
             <DraggableProjectCard
               key={p.id}
@@ -1158,7 +1135,7 @@ function GateColumn({
               onCardClick={() => onCardClick(p.id)}
             />
           ))}
-          {projects.length === 0 && !adding && (
+          {projects.length === 0 && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
           )}
         </div>
@@ -1178,9 +1155,7 @@ function InboxColumn({
 }) {
   const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { data: users = [] } = useAvailableUsers();
 
   return (
     <div
@@ -1201,42 +1176,22 @@ function InboxColumn({
           <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
         </button>
         {!collapsed && (
-          <button
-            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <QuickCreateForm
+            users={users}
+            singleType="subproject"
+            compact
+            onCreate={async (p) => { onCreate(p.title); }}
+          />
         )}
       </div>
 
       {!collapsed && (
         <ScrollArea className="flex-1 min-h-0 py-2">
           <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-            {adding && (
-              <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
-                <Input
-                  ref={inputRef}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Название NPD-проекта..."
-                  className="h-7 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); }
-                    if (e.key === "Escape") { setAdding(false); setNewName(""); }
-                  }}
-                />
-                <div className="flex gap-1.5">
-                  <button onClick={() => { if (newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); } }}
-                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90">Добавить</button>
-                  <button onClick={() => { setAdding(false); setNewName(""); }} className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground">Отмена</button>
-                </div>
-              </div>
-            )}
             {projects.map((p) => (
               <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
             ))}
-            {projects.length === 0 && !adding && (
+            {projects.length === 0 && (
               <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
             )}
           </div>
