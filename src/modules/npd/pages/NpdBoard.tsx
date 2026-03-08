@@ -2,13 +2,14 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
