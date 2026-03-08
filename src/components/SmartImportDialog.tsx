@@ -1,0 +1,357 @@
+import { useState, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Upload, FileText, Loader2, CheckCircle2, Sparkles, Download, ArrowRight } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { importRowsToProject, type ImportPreview } from "@/lib/projectExcel";
+import { toast } from "sonner";
+import ExcelJS from "exceljs";
+
+interface ColumnMapping {
+  excel_column: string;
+  field: string;
+  confidence: number;
+}
+
+const FIELD_OPTIONS = [
+  { value: "title", label: "Задача" },
+  { value: "description", label: "Описание" },
+  { value: "deadline", label: "Дедлайн" },
+  { value: "priority", label: "Приоритет" },
+  { value: "status", label: "Статус" },
+  { value: "assigned_to", label: "Ответственный" },
+  { value: "tags", label: "Теги" },
+  { value: "subtasks", label: "Подзадачи" },
+  { value: "project", label: "Проект" },
+  { value: "subproject", label: "Подпроект" },
+  { value: "type", label: "Тип строки" },
+  { value: "skip", label: "— Пропустить —" },
+];
+
+interface SmartImportDialogProps {
+  trigger?: React.ReactNode;
+  targetGroupId?: string;
+  onSuccess?: (groupId: string) => void;
+}
+
+export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }: SmartImportDialogProps) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"upload" | "mapping" | "preview" | "done">("upload");
+  const [loading, setLoading] = useState(false);
+  const [mapping, setMapping] = useState<ColumnMapping[]>([]);
+  const [rawHeaders, setRawHeaders] = useState<string[]>([]);
+  const [rawRows, setRawRows] = useState<any[][]>([]);
+  const [allRows, setAllRows] = useState<any[][]>([]);
+  const [fileName, setFileName] = useState("");
+  const [importResult, setImportResult] = useState<{ taskCount: number; groupId: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    setFileName(file.name);
+    setLoading(true);
+
+    try {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error("Нет листов в файле");
+
+      const headers: string[] = [];
+      const rows: any[][] = [];
+
+      ws.eachRow((row, rowNumber) => {
+        const vals = (row.values as any[]).slice(1);
+        if (rowNumber === 1) {
+          vals.forEach(v => headers.push(String(v || "").trim()));
+        } else {
+          rows.push(vals.map(v => {
+            if (v instanceof Date) return v.toISOString().split("T")[0];
+            if (v && typeof v === "object" && v.text) return v.text;
+            return v != null ? String(v) : "";
+          }));
+        }
+      });
+
+      setRawHeaders(headers);
+      setAllRows(rows);
+      setRawRows(rows.slice(0, 3));
+
+      // Call AI to map columns
+      const { data, error } = await supabase.functions.invoke("ai-assistant", {
+        body: {
+          message: "",
+          action: "map_excel_columns",
+          context: { headers, sampleRows: rows.slice(0, 5) },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.mapping) {
+        setMapping(data.mapping);
+        setStep("mapping");
+      } else {
+        // Fallback: manual mapping
+        setMapping(headers.map(h => ({ excel_column: h, field: "skip", confidence: 0 })));
+        setStep("mapping");
+      }
+    } catch (e: any) {
+      toast.error("Ошибка: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateMapping = (index: number, field: string) => {
+    setMapping(prev => prev.map((m, i) => i === index ? { ...m, field, confidence: 1 } : m));
+  };
+
+  const handleImport = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      // Convert raw data using mapping
+      const fieldMap = new Map(mapping.filter(m => m.field !== "skip").map(m => [m.field, rawHeaders.indexOf(m.excel_column)]));
+
+      const rows = allRows.map(row => {
+        const get = (field: string) => {
+          const idx = fieldMap.get(field);
+          return idx !== undefined ? String(row[idx] || "") : "";
+        };
+
+        return {
+          type: get("type") || "Задача",
+          project: get("project") || fileName.replace(/\.(xlsx|xls)$/i, ""),
+          subproject: get("subproject") || "",
+          title: get("title") || "",
+          description: get("description") || "",
+          deadline: get("deadline") || "",
+          original_deadline: "",
+          priority: get("priority") || "",
+          status: get("status") || "",
+          assigned_to: get("assigned_to") || "",
+          tags: get("tags") || "",
+          subtasks: get("subtasks") || "",
+          recurrence: "",
+        };
+      }).filter(r => r.title.trim());
+
+      if (rows.length === 0) {
+        toast.error("Нет задач для импорта. Проверьте маппинг колонки «Задача»");
+        setLoading(false);
+        return;
+      }
+
+      const result = await importRowsToProject(user.id, rows, targetGroupId);
+      setImportResult(result);
+      setStep("done");
+      toast.success(`Импортировано ${result.taskCount} задач`);
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tags"] });
+      setTimeout(() => {
+        setOpen(false);
+        resetState();
+        onSuccess?.(result.groupId);
+      }, 1500);
+    } catch (e: any) {
+      toast.error("Ошибка импорта: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Шаблон");
+    
+    const templateHeaders = ["Задача", "Описание", "Дедлайн", "Приоритет", "Ответственный", "Теги"];
+    const headerRow = ws.addRow(templateHeaders);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    });
+
+    ws.columns = [
+      { width: 36 }, { width: 40 }, { width: 14 },
+      { width: 12 }, { width: 20 }, { width: 24 },
+    ];
+
+    // Sample rows
+    ws.addRow(["Подготовить презентацию", "Для ежемесячного отчёта", "2026-03-15", "Высокий", "Иванов", "маркетинг"]);
+    ws.addRow(["Позвонить клиенту", "", "2026-03-10", "Средний", "", "продажи"]);
+    ws.addRow(["Обновить документацию", "Раздел API", "", "Низкий", "Петров", ""]);
+
+    wb.xlsx.writeBuffer().then(buf => {
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "JustTODOit_Шаблон.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  const resetState = () => {
+    setStep("upload");
+    setMapping([]);
+    setRawHeaders([]);
+    setRawRows([]);
+    setAllRows([]);
+    setFileName("");
+    setImportResult(null);
+  };
+
+  const hasTitleMapping = mapping.some(m => m.field === "title");
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetState(); }}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <Upload className="h-3.5 w-3.5" />
+            Импорт
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base flex items-center gap-2">
+            {step === "mapping" && <Sparkles className="h-4 w-4 text-primary" />}
+            {step === "upload" ? "Умный импорт из Excel" : step === "mapping" ? "Маппинг колонок" : step === "done" ? "Готово!" : "Импорт"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "upload" && !loading && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Загрузите любой Excel-файл — AI автоматически определит колонки и предложит маппинг.
+            </p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+                e.target.value = "";
+              }}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 gap-2" onClick={() => fileRef.current?.click()}>
+                <FileText className="h-4 w-4" />
+                Загрузить Excel
+              </Button>
+              <Button variant="ghost" className="gap-2" onClick={downloadTemplate}>
+                <Download className="h-4 w-4" />
+                Шаблон
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "upload" && loading && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">AI анализирует колонки...</p>
+          </div>
+        )}
+
+        {step === "mapping" && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Проверьте маппинг. AI определил колонки автоматически — поправьте при необходимости.
+            </p>
+            <ScrollArea className="max-h-[300px]">
+              <div className="space-y-2">
+                {mapping.map((m, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className="w-28 truncate font-medium text-foreground" title={m.excel_column}>
+                      {m.excel_column}
+                    </span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <Select value={m.field} onValueChange={(v) => updateMapping(i, v)}>
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FIELD_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {m.confidence >= 0.8 && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+
+            {rawRows.length > 0 && (
+              <div className="bg-muted rounded-lg p-2 overflow-x-auto">
+                <p className="text-[10px] text-muted-foreground mb-1 font-medium">Превью данных:</p>
+                <table className="text-[10px] w-full">
+                  <thead>
+                    <tr>
+                      {rawHeaders.map((h, i) => (
+                        <th key={i} className="px-1 text-left font-medium text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawRows.map((row, ri) => (
+                      <tr key={ri}>
+                        {rawHeaders.map((_, ci) => (
+                          <td key={ci} className="px-1 py-0.5 text-foreground truncate max-w-[120px]">
+                            {String(row[ci] || "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { resetState(); }} className="flex-1">
+                Другой файл
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleImport}
+                disabled={loading || !hasTitleMapping}
+                className="flex-1 gap-1.5"
+              >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                Импортировать ({allRows.length} строк)
+              </Button>
+            </div>
+            {!hasTitleMapping && (
+              <p className="text-[10px] text-destructive">Укажите колонку для поля «Задача»</p>
+            )}
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            <p className="text-sm font-medium">Импортировано {importResult?.taskCount} задач!</p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
