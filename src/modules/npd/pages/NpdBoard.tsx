@@ -2020,7 +2020,10 @@ function ProjectDetailSheet({
 
       {/* Links */}
       <div className="flex gap-2 pt-2">
-        <a href={`/pmo?project=${project.id}`} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+        <a href={`/npd/matrix/${project.id}`} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          Swimlane Matrix
+        </a>
+        <a href={`/pmo?project=${project.id}`} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
           Открыть в PMO
         </a>
         <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
