@@ -31,7 +31,7 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
   const { data: allTasks = [] } = useTasks();
-  const { data: messages: groupMessages = [] } = useGroupMessages(groupId || "");
+  const { data: groupMessages = [] } = useGroupMessages(groupId || "");
 
   const [chatMessages, setChatMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
