@@ -1366,6 +1366,23 @@ function ProjectCard({
         </div>
       )}
 
+      {/* Stream subprojects breakdown */}
+      {project.streamStats.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
+            <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
+              <span className="text-muted-foreground truncate flex-1">{s.name}</span>
+              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
+                {s.completed}/{s.total}
+              </span>
+            </div>
+          ))}
+          {project.streamStats.filter(s => s.total > 0).length > 4 && (
+            <div className="text-[10px] text-muted-foreground">+{project.streamStats.filter(s => s.total > 0).length - 4} стримов</div>
+          )}
+        </div>
+      )}
+
       {/* Progress */}
       {project.stats.total > 0 && (
         <div className="mt-2">
