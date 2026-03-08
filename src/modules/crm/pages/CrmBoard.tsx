@@ -1971,7 +1971,7 @@ function CrmCard({
       )}
     >
       {/* Compact row — always visible */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1 min-w-0">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
           className={cn(
@@ -1984,30 +1984,35 @@ function CrmCard({
 
         {variant === "funnel" && <Briefcase className="h-3 w-3 text-muted-foreground shrink-0" />}
 
-        <h4 className="flex-1 text-xs font-medium text-foreground leading-tight truncate min-w-0">
+        <h4 className={cn(
+          "flex-1 text-xs font-medium text-foreground leading-tight min-w-0",
+          expanded ? "whitespace-normal break-words" : "truncate"
+        )}>
           {displayName}
         </h4>
 
-        {task.is_important && (
-          <Star className="h-3 w-3 text-warning fill-current shrink-0" />
-        )}
+        <div className="flex items-center shrink-0">
+          {task.is_important && (
+            <Star className="h-3 w-3 text-warning fill-current" />
+          )}
 
-        {hasDetails && (
+          {hasDetails && (
+            <button
+              onClick={toggleExpand}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
+            </button>
+          )}
+
           <button
-            onClick={toggleExpand}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            {...dragHandleProps}
+            onClick={(e) => e.stopPropagation()}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
           >
-            <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
+            <GripVertical className="h-3.5 w-3.5" />
           </button>
-        )}
-
-        <button
-          {...dragHandleProps}
-          onClick={(e) => e.stopPropagation()}
-          className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
+        </div>
       </div>
 
       {/* Compact info line — always visible */}
