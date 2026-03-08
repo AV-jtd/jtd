@@ -1914,7 +1914,12 @@ function CrmCard({
   const totalSteps = task.subtasks.length;
 
   const displayName = variant === "funnel" ? (task.client?.name || task.title) : task.title;
-  const hasDetails = true;
+  const hasDetails = !!(
+    (tags.length > 0) ||
+    (task.client && (task.client.contact_name || task.client.phone || task.client.email)) ||
+    (totalSteps > 0) ||
+    (variant === "funnel" && group)
+  );
 
   const toggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1970,7 +1975,7 @@ function CrmCard({
         <button
           onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
           className={cn(
-            "h-5 w-5 min-h-[20px] min-w-[20px] rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+            "h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
             task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
           )}
         >
@@ -1990,18 +1995,18 @@ function CrmCard({
         {hasDetails && (
           <button
             onClick={toggleExpand}
-            className="h-6 w-6 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded-md border border-border/70 bg-muted/50 text-foreground/80 hover:text-foreground transition-colors shrink-0"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
+            <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
           </button>
         )}
 
         <button
           {...dragHandleProps}
           onClick={(e) => e.stopPropagation()}
-          className="h-6 w-6 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded-md border border-border/70 bg-muted/50 text-foreground/80 hover:text-foreground cursor-grab active:cursor-grabbing touch-none transition-colors shrink-0"
+          className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-3.5 w-3.5" />
         </button>
       </div>
 
