@@ -486,10 +486,53 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ["task_groups"] });
-      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      // Auto-create stream subprojects
+      const streamSubprojects = NPD_STREAMS.map((streamName, idx) => ({
+        name: `${name.trim()} / ${streamName}`,
+        user_id: currentUserId,
+        project_type: "npd" as const,
+        icon: "📋",
+        color: "#8b5cf6",
+        parent_id: data.id,
+        position: idx,
+      }));
+
+      const { data: createdSubs, error: subError } = await supabase
+        .from("task_groups")
+        .insert(streamSubprojects)
+        .select("id, name");
+
+      if (subError) {
+        console.error("Error creating stream subprojects:", subError);
+      } else if (createdSubs) {
+        // Assign stream tags to each subproject
+        const streamTagInserts: { group_id: string; tag_id: string }[] = [];
+        for (const sub of createdSubs) {
+          const streamName = NPD_STREAMS.find((s) => sub.name.endsWith(` / ${s}`));
+          if (streamName) {
+            const sTag = streamTags.find((t) => t.name === streamName);
+            if (sTag) {
+              streamTagInserts.push({ group_id: sub.id, tag_id: sTag.id });
+            }
+          }
+          // Also assign gate tag to subprojects
+          if (gateKey) {
+            const gateTagId = gateKeyToTagId.get(gateKey);
+            if (gateTagId) {
+              streamTagInserts.push({ group_id: sub.id, tag_id: gateTagId });
+            }
+          }
+        }
+        if (streamTagInserts.length > 0) {
+          await supabase.from("group_tags" as any).insert(streamTagInserts);
+        }
+      }
+
+      await queryClient.refetchQueries({ queryKey: ["task_groups"] });
+      await queryClient.refetchQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
-      toast.success("NPD-проект создан");
+      toast.success("NPD-проект создан с подпроектами по стримам");
     } catch (e: any) {
       toast.error("Ошибка: " + e.message);
     }
