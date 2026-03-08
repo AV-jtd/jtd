@@ -1430,6 +1430,7 @@ function ProjectCard({
 }) {
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: members = [] } = useGroupMembers(project.id);
@@ -1552,9 +1553,9 @@ function ProjectCard({
           {/* Quick action icons */}
           <div className="flex items-center gap-1">
             <button
-              onClick={(e) => { e.stopPropagation(); onCardClick?.(); }}
+              onClick={(e) => { e.stopPropagation(); setSheetOpen(true); }}
               className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Карточка проекта (сайдбар)"
+              title="Карточка проекта"
             >
               <PanelLeft className="h-3.5 w-3.5" />
               <span>Карточка</span>
@@ -1659,6 +1660,13 @@ function ProjectCard({
           )}
         </div>
       )}
+
+      {/* Floating project detail sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="w-[440px] sm:w-[500px] p-0 overflow-y-auto">
+          {group && <ProjectDetailPanel group={group} />}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
