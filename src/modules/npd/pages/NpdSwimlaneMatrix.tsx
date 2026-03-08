@@ -662,6 +662,7 @@ export default function NpdSwimlaneMatrix() {
                                         predecessorEntityType: "task", successorEntityType: "task",
                                       });
                                     }}
+                                    onExpand={(id) => setDetailTaskId(id)}
                                   />
                                 ))}
                                 <QuickCreateForm
@@ -760,6 +761,7 @@ export default function NpdSwimlaneMatrix() {
                                   predecessorEntityType: "task", successorEntityType: "task",
                                 });
                               }}
+                              onExpand={(id) => setDetailTaskId(id)}
                             />
                           ))}
                           {projectId && (
@@ -815,6 +817,7 @@ export default function NpdSwimlaneMatrix() {
                                     predecessorEntityType: "task", successorEntityType: "task",
                                   });
                                 }}
+                                onExpand={(id) => setDetailTaskId(id)}
                               />
                             ))}
                             <QuickCreateForm
@@ -950,7 +953,7 @@ export default function NpdSwimlaneMatrix() {
 // ── Matrix Task Row ──
 function MatrixTaskRow({
   task, users, allDependencies, allTasks,
-  onDeadlineChange, onAssigneeChange, onToggle, onAddDependency,
+  onDeadlineChange, onAssigneeChange, onToggle, onAddDependency, onExpand,
 }: {
   task: Task;
   users: Profile[];
@@ -960,6 +963,7 @@ function MatrixTaskRow({
   onAssigneeChange: (taskId: string, userId: string | null) => void;
   onToggle: (taskId: string) => void;
   onAddDependency: (predId: string, succId: string) => void;
+  onExpand?: (taskId: string) => void;
 }) {
   const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
@@ -1073,6 +1077,17 @@ function MatrixTaskRow({
           </button>
         }
       />
+
+      {/* Expand task detail */}
+      {onExpand && (
+        <button
+          onClick={() => onExpand(task.id)}
+          className="shrink-0 text-muted-foreground/30 hover:text-foreground opacity-0 group-hover:opacity-100 transition-all p-0.5 rounded"
+          title="Открыть карточку"
+        >
+          <Expand className="h-3 w-3" />
+        </button>
+      )}
 
       {/* Add dependency button */}
       <Popover open={depPickerOpen} onOpenChange={setDepPickerOpen}>
