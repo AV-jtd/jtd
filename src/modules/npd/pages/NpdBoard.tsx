@@ -31,6 +31,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 // ── Gate definitions ──
 type GateStage = {
   key: string;
+  short: string;
   title: string;
   tagName: string;
   color: string;
