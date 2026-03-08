@@ -270,17 +270,33 @@ export default function NpdSwimlaneMatrix() {
         m.set(sName, sub);
       }
     }
-    // Fallback: match unmatched subprojects by name suffix (e.g., "Азиатская линейка / Реклама" → "Реклама")
-    const matchedIds = new Set(Array.from(m.values()).map(s => s.id));
+    // Fallback: match unmatched subprojects by name (exact or suffix)
+    // Supports both "Реклама" and "Проект / Реклама" (also with -, —, | separators)
+    const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+    const streamByNormalized = new Map(NPD_STREAMS.map((s) => [normalize(s), s] as const));
+
+    const tryMatchStreamName = (rawName: string): string | null => {
+      const fullMatch = streamByNormalized.get(normalize(rawName));
+      if (fullMatch) return fullMatch;
+
+      const parts = rawName
+        .split(/[\/|—–-]/)
+        .map((p) => normalize(p))
+        .filter(Boolean);
+
+      for (let i = parts.length - 1; i >= 0; i -= 1) {
+        const match = streamByNormalized.get(parts[i]);
+        if (match) return match;
+      }
+      return null;
+    };
+
+    const matchedIds = new Set(Array.from(m.values()).map((s) => s.id));
     for (const sub of subprojects) {
       if (matchedIds.has(sub.id)) continue;
-      const parts = sub.name.split("/");
-      if (parts.length >= 2) {
-        const suffix = parts[parts.length - 1].trim();
-        const matchedStream = NPD_STREAMS.find(s => s === suffix);
-        if (matchedStream && !m.has(matchedStream)) {
-          m.set(matchedStream, sub);
-        }
+      const matchedStream = tryMatchStreamName(sub.name);
+      if (matchedStream && !m.has(matchedStream)) {
+        m.set(matchedStream, sub);
       }
     }
     return m;
