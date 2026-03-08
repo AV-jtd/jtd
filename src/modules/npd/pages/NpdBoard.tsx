@@ -663,7 +663,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     {npdProjects.map(p => (
                       <button
                         key={p.id}
-                        onClick={() => onProjectFilterChange?.(p.id)}
+                        onClick={() => navigate(`/npd/matrix/${p.id}`)}
                         className={cn(
                           "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
                           projectFilter === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
