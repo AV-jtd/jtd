@@ -82,6 +82,13 @@ export default function NpdBoard() {
   const [showInbox, setShowInbox] = useState(true);
   const [showArchive, setShowArchive] = useState(false);
   const [showColumnFilter, setShowColumnFilter] = useState(false);
+  const [swimlaneMode, setSwimlaneMode] = useState(() => {
+    try { return localStorage.getItem("npd-swimlane") === "true"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("npd-swimlane", String(swimlaneMode));
+  }, [swimlaneMode]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
