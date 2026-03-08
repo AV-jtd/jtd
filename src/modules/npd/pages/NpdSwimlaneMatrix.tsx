@@ -846,6 +846,7 @@ export default function NpdSwimlaneMatrix() {
                                 users={users}
                                 allDependencies={allDependencies}
                                 allTasks={allTasks}
+                                projectGroupIds={projectGroupIds}
                                 onDeadlineChange={handleDeadlineChange}
                                 onAssigneeChange={(taskId, userId) => {
                                   updateTask.mutate({ id: taskId, assigned_to: userId });
