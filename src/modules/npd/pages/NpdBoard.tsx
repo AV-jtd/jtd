@@ -1441,10 +1441,10 @@ function ProjectCard({
           )}
 
           {/* Subprojects first (like dashboard) */}
-          {subprojects.length > 0 && (
-            <DashboardSection title="Подпроекты" count={subprojects.length}>
+          {subprojectsWithTasks.length > 0 && (
+            <DashboardSection title="Подпроекты" count={subprojectsWithTasks.length}>
               <div className="space-y-1.5">
-                {subprojects.map(sub => (
+                {subprojectsWithTasks.map(sub => (
                   <NpdSubprojectCard
                     key={sub.id}
                     subproject={sub}
