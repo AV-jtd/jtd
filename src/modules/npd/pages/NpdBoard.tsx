@@ -1006,70 +1006,29 @@ function SwimlaneGrid({
         const streamSub = projectFilter
           ? (streamSubprojectsMap.get(projectFilter) || []).find((s) => s.streamName === stream)
           : null;
+        const streamSubGroup = streamSub ? allGroups.find((g) => g.id === streamSub.id) : null;
         const streamTasks = streamSub ? (streamSubprojectTasks.get(streamSub.id) || []) : [];
         const totalInRow = projectFilter ? streamTasks.length : rowProjects.length;
 
         return (
-          <div key={stream} className="border-b border-border">
-            {/* Row header */}
-            <div className="flex">
-              <button
-                onClick={() => toggleRow(stream)}
-                className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 hover:bg-muted/50 transition-colors"
-              >
-                {isCollapsed
-                  ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                  : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-                }
-                <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
-                {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
-                <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
-              </button>
-              {!isCollapsed && projectFilter && streamSub ? (
-                /* When project is filtered: show all tasks from this stream subproject */
-                <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
-                  <div className="flex flex-col gap-1.5">
-                    {streamTasks.map((task) => (
-                      <TaskItem key={task.id} task={task} />
-                    ))}
-                    {streamTasks.length === 0 && (
-                      <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
-                    )}
-                    <InlineTaskAdder
-                      onAdd={(title) => onCreateTask(title, streamSub.id)}
-                    />
-                  </div>
-                </div>
-              ) : !isCollapsed ? visibleGates.map((gate) => {
-                const cellProjects = gridData[stream]?.[gate.key] || [];
-                return (
-                  <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
-                    <div className="flex flex-col gap-1.5">
-                      {cellProjects.map((p) => (
-                        <DraggableProjectCard
-                          key={p.id}
-                          project={p}
-                          isMoving={isMoving}
-                          streamTagById={streamTagById}
-                          onCardClick={() => onCardClick(p.id)}
-                        />
-                      ))}
-                      {cellProjects.length === 0 && (
-                        <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }) : null}
-              {isCollapsed && (
-                <div className="flex-1 flex items-center px-3">
-                  <span className="text-[10px] text-muted-foreground">
-                    {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          <SwimlaneStreamRow
+            key={stream}
+            stream={stream}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleRow(stream)}
+            totalInRow={totalInRow}
+            projectFilter={projectFilter}
+            streamSub={streamSub}
+            streamSubGroup={streamSubGroup || null}
+            streamTasks={streamTasks}
+            onCreateTask={onCreateTask}
+            visibleGates={visibleGates}
+            gridData={gridData}
+            colWidth={colWidth}
+            isMoving={isMoving}
+            streamTagById={streamTagById}
+            onCardClick={onCardClick}
+          />
         );
       })}
 
