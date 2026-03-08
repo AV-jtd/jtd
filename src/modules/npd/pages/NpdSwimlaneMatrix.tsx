@@ -445,7 +445,12 @@ export default function NpdSwimlaneMatrix() {
                   {/* Gate cells */}
                   {NPD_GATES.map(gate => {
                     const isCurrentGate = currentGate === gate.key;
-                    const cellTasks = isCurrentGate ? tasks : [];
+                    // Show tasks that have this gate tag, OR (if no task-level gate tag) fall back to subproject gate
+                    const cellTasks = sub ? tasks.filter(t => {
+                      const taskGate = getTaskGate(t.id);
+                      return taskGate ? taskGate === gate.key : isCurrentGate;
+                    }) : [];
+                    const hasTasks = cellTasks.length > 0;
 
                     return (
                       <div
