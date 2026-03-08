@@ -340,6 +340,107 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           />
         </div>
       </div>
+
+      {/* Subprojects */}
+      <SubprojectsList parentId={group.id} />
+
+      {/* Tasks */}
+      <TasksSection groupId={group.id} />
+    </div>
+  );
+}
+
+// ── Subprojects list ──
+function SubprojectsList({ parentId }: { parentId: string }) {
+  const { data: allGroups = [] } = useTaskGroups();
+  const subprojects = allGroups.filter(g => g.parent_id === parentId);
+  const [expanded, setExpanded] = useState(false);
+
+  if (subprojects.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <FolderOpen className="h-3 w-3" /> Подпроекты
+        <span className="text-muted-foreground/60">· {subprojects.length}</span>
+      </button>
+      {expanded && (
+        <div className="space-y-1.5 animate-fade-in">
+          {subprojects.map(sub => (
+            <SubprojectExpandableRow key={sub.id} group={sub} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+      >
+        {expanded
+          ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        }
+        <span className="text-xs font-medium text-foreground truncate">{group.icon && group.icon !== "list" ? `${group.icon} ` : ""}{group.name}</span>
+      </button>
+      {expanded && (
+        <div className="px-1 pb-2 space-y-2">
+          <TasksSection groupId={group.id} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tasks section ──
+function TasksSection({ groupId }: { groupId: string }) {
+  const { data: tasks = [] } = useTasks(groupId);
+  const activeTasks = tasks.filter(t => !t.is_completed);
+  const completedTasks = tasks.filter(t => t.is_completed);
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+        <ListChecks className="h-3 w-3" /> Задачи
+        <span className="text-muted-foreground/60">· {activeTasks.length}{completedTasks.length > 0 ? ` (+${completedTasks.length} ✓)` : ""}</span>
+      </p>
+      {activeTasks.length === 0 && completedTasks.length === 0 && (
+        <p className="text-xs text-muted-foreground/60 italic px-1">Нет задач</p>
+      )}
+      <div className="space-y-0.5">
+        {activeTasks.map(task => (
+          <TaskItem key={task.id} task={task} />
+        ))}
+      </div>
+      {completedTasks.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            {showCompleted ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Завершённые ({completedTasks.length})
+          </button>
+          {showCompleted && (
+            <div className="space-y-0.5 animate-fade-in">
+              {completedTasks.map(task => (
+                <TaskItem key={task.id} task={task} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
