@@ -506,8 +506,21 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     if (filterAssigneeIds.length > 0) {
       result = result.filter((t) => t.assigned_to && filterAssigneeIds.includes(t.assigned_to));
     }
+    // CRM dimension filters (match by client fields)
+    if (filterTerritoryIds.length > 0) {
+      result = result.filter((t) => t.client?.territory_tag_id && filterTerritoryIds.includes(t.client.territory_tag_id));
+    }
+    if (filterRetailTypeIds.length > 0) {
+      result = result.filter((t) => t.client?.retail_type_tag_id && filterRetailTypeIds.includes(t.client.retail_type_tag_id));
+    }
+    if (filterRankIds.length > 0) {
+      result = result.filter((t) => t.client?.rank_tag_id && filterRankIds.includes(t.client.rank_tag_id));
+    }
+    if (filterManagerIds.length > 0) {
+      result = result.filter((t) => t.client?.manager_id && filterManagerIds.includes(t.client.manager_id));
+    }
     return result;
-  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds, filterTerritoryIds, filterRetailTypeIds, filterRankIds, filterManagerIds]);
 
   const inboxTasks = useMemo(() => filteredTasks.filter((t) => isInboxTask(t)), [filteredTasks, tagById]);
   const nonInboxTasks = useMemo(() => filteredTasks.filter((t) => !isInboxTask(t)), [filteredTasks, tagById]);
