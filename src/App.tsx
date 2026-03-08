@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
 import Crm from "./pages/Crm";
+import Npd from "./pages/Npd";
 import OnlineStatus from "./components/OnlineStatus";
 import PendingSync from "./components/PendingSync";
 
