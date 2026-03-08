@@ -1424,8 +1424,8 @@ function InboxColumn({
       </div>
 
       {!collapsed && (
-        <ScrollArea className="flex-1 min-h-0 px-2 py-2">
-          <div className="flex flex-col gap-2">
+        <ScrollArea className="flex-1 min-h-0 py-2">
+          <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
             {adding && (
               <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
                 <Input
