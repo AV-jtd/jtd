@@ -395,7 +395,7 @@ function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
           ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
           : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
         }
-        <span className="text-xs font-medium text-foreground truncate flex-1">{group.icon && group.icon !== "list" ? `${group.icon} ` : ""}{group.name}</span>
+        <span className="text-xs font-medium text-foreground truncate flex-1">{group.icon && group.icon !== "list" ? `${group.icon} ` : ""}{group.name.includes("/") ? group.name.split("/").pop()!.trim() : group.name}</span>
         <span className="text-[10px] text-muted-foreground shrink-0">
           {activeCount > 0 ? activeCount : ""}{completedCount > 0 ? ` +${completedCount}✓` : ""}
         </span>
