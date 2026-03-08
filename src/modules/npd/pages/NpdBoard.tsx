@@ -583,6 +583,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
   };
 
+  // ── Create task in a stream subproject ──
+  const handleCreateTask = async (title: string, groupId: string) => {
+    if (!title.trim() || !user) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUserId = sessionData?.session?.user?.id;
+    if (!currentUserId) { toast.error("Сессия истекла"); return; }
+    const { error } = await supabase.from("tasks").insert({
+      title: title.trim(),
+      user_id: currentUserId,
+      group_id: groupId,
+    });
+    if (error) { toast.error("Ошибка: " + error.message); return; }
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    toast.success("Задача создана");
+  };
+
   // ── Selected project for detail view ──
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
