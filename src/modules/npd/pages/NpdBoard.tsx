@@ -1312,6 +1312,72 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
   );
 }
 
+// ── Ghost Project Badge (compact card for secondary gate presence) ──
+function GhostProjectBadge({
+  project, activeCount, totalCount, streams, primaryGate, onCardClick,
+}: {
+  project: NpdProject;
+  activeCount: number;
+  totalCount: number;
+  streams: string[];
+  primaryGate: string;
+  onCardClick: () => void;
+}) {
+  const primaryGateDef = NPD_GATES.find((g) => g.key === primaryGate);
+  const pct = totalCount > 0 ? Math.round(((totalCount - activeCount) / totalCount) * 100) : 0;
+
+  return (
+    <button
+      onClick={onCardClick}
+      className={cn(
+        "group w-full text-left rounded-lg border border-dashed border-border/60 bg-muted/20",
+        "px-2.5 py-2 transition-all hover:bg-muted/50 hover:border-border hover:shadow-sm",
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="opacity-40 group-hover:opacity-70 transition-opacity">
+          <ProjectIcon project={project} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground truncate transition-colors">
+              {project.name}
+            </span>
+            {primaryGateDef && (
+              <span className={cn(
+                "text-[8px] px-1 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap",
+                primaryGateDef.bgLight, primaryGateDef.textColor, "border-transparent"
+              )}>
+                ← {primaryGateDef.short}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex-1 max-w-[80px]">
+              <div className="h-0.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary/50 transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+            <span className="text-[9px] text-muted-foreground/70 shrink-0 font-mono">
+              {activeCount} акт.
+            </span>
+          </div>
+        </div>
+      </div>
+      {streams.length > 0 && (
+        <div className="flex flex-wrap gap-0.5 mt-1 ml-9">
+          {streams.slice(0, 3).map((s) => (
+            <span key={s} className="text-[8px] px-1 py-0 rounded bg-muted text-muted-foreground/70">{s}</span>
+          ))}
+          {streams.length > 3 && (
+            <span className="text-[8px] text-muted-foreground/50">+{streams.length - 3}</span>
+          )}
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ── Draggable project card ──
 function DraggableProjectCard({
   project, isMoving, streamTagById, onCardClick,
