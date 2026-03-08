@@ -325,6 +325,14 @@ export default function NpdSwimlaneMatrix() {
     return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
   }, [allTasks, projectId, subprojects, streamSubMap]);
 
+  // All group IDs belonging to this project (parent + all subprojects)
+  const projectGroupIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (projectId) ids.add(projectId);
+    subprojects.forEach(s => ids.add(s.id));
+    return ids;
+  }, [projectId, subprojects]);
+
   // Move stream subproject to a gate
   const moveStreamToGate = async (subId: string, gateKey: string) => {
     const gateTagId = gateKeyToTagId.get(gateKey);
