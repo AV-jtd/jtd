@@ -879,6 +879,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             <ProjectDetailSheet
               projectId={selectedProjectId}
               npdProjects={npdProjects}
+              allGroups={allGroups}
               streamTags={streamTags}
               streamTagById={streamTagById}
               gateKeyToTagId={gateKeyToTagId}
