@@ -618,6 +618,15 @@ export function useTaskMutations() {
               project_type: 'crm',
             } as any).select().single();
             resolvedGroupId = (newProject as any)?.id || null;
+            // Auto-add creator as group member
+            if (resolvedGroupId) {
+              await supabase.from("group_members").insert({
+                group_id: resolvedGroupId,
+                user_id: user!.id,
+                invited_by: user!.id,
+                role: "owner",
+              });
+            }
           }
         }
 
