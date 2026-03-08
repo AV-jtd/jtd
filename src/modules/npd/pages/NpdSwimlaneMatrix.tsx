@@ -115,6 +115,19 @@ export default function NpdSwimlaneMatrix() {
     enabled: !!user,
   });
 
+  // Fetch task_tags for gate-level task placement
+  const { data: allTaskTags = [] } = useQuery({
+    queryKey: ["npd-task-tags", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_tags")
+        .select("task_id, tag_id");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
   // Project data
   const project = allGroups.find(g => g.id === projectId);
   const subprojects = useMemo(
