@@ -60,6 +60,7 @@ type NpdProject = {
   gateTags: string[];  // tag_ids that are gate tags
   streamTags: string[]; // tag_ids that are stream tags
   stats: { total: number; completed: number; overdue: number };
+  streamStats: { name: string; total: number; completed: number }[];
 };
 
 // ── Main component ──
