@@ -269,6 +269,88 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "decompose_task") {
+      const { title, description, existingSubtasks } = context;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — AI-помощник для декомпозиции задач. Разбей задачу на конкретные, выполнимые шаги (подзадачи).
+Правила:
+- Каждый шаг должен быть конкретным действием (глагол + объект)
+- 3-8 шагов оптимально
+- Шаги в логическом порядке выполнения
+- Не дублируй существующие подзадачи
+- Отвечай только через tool call, без текста`,
+            },
+            {
+              role: "user",
+              content: `Задача: "${title}"${description ? `\nОписание: ${description}` : ""}${existingSubtasks?.length ? `\nУже есть шаги: ${existingSubtasks.join(", ")}` : ""}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "suggest_subtasks",
+                description: "Предложить список подзадач для декомпозиции задачи",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    subtasks: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Список подзадач — конкретных шагов для выполнения задачи",
+                    },
+                  },
+                  required: ["subtasks"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "suggest_subtasks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ action: "decompose_task", subtasks: parsed.subtasks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "map_excel_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 

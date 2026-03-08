@@ -73,6 +73,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [suggestedTagIds, setSuggestedTagIds] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const suggestionsLoaded = useRef(false);
+  const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
+  const [loadingDecompose, setLoadingDecompose] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -110,6 +112,43 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
       setLoadingSuggestions(false);
     }
   }, [task.title, task.description, availableTags]);
+
+  const handleDecompose = useCallback(async () => {
+    setLoadingDecompose(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-assistant", {
+        body: {
+          message: task.title,
+          action: "decompose_task",
+          context: {
+            title: task.title,
+            description: task.description,
+            existingSubtasks: subtasks.map(s => s.title),
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.error === "rate_limited") {
+        const { toast } = await import("sonner");
+        toast.error("Слишком много запросов, попробуйте позже");
+        return;
+      }
+      if (data?.error === "payment_required") {
+        const { toast } = await import("sonner");
+        toast.error("Недостаточно кредитов AI");
+        return;
+      }
+      if (data?.subtasks?.length) {
+        setAiSubtasks(data.subtasks);
+      }
+    } catch (e) {
+      console.error("Decompose error:", e);
+      const { toast } = await import("sonner");
+      toast.error("Не удалось разбить задачу");
+    } finally {
+      setLoadingDecompose(false);
+    }
+  }, [task.title, task.description, subtasks]);
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
@@ -878,9 +917,59 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
 
           {/* Subtasks */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Check className="h-3 w-3" /> Шаги
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Check className="h-3 w-3" /> Шаги
+              </p>
+              <button
+                onClick={handleDecompose}
+                disabled={loadingDecompose}
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                title="ИИ-декомпозиция"
+              >
+                {loadingDecompose ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                {loadingDecompose ? "Думаю..." : "Разбить на шаги"}
+              </button>
+            </div>
+            {/* AI suggested subtasks */}
+            {aiSubtasks.length > 0 && (
+              <div className="space-y-1 border border-primary/20 rounded-lg p-2 bg-primary/5">
+                <p className="text-[10px] font-medium text-primary flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> ИИ предлагает добавить:
+                </p>
+                {aiSubtasks.map((title, i) => (
+                  <div key={i} className="flex items-center gap-2 py-0.5">
+                    <button
+                      onClick={() => {
+                        addSubtask.mutate({ task_id: task.id, title });
+                        setAiSubtasks(prev => prev.filter((_, idx) => idx !== i));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
+                    >
+                      + Добавить
+                    </button>
+                    <span className="text-sm text-foreground/80">{title}</span>
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      aiSubtasks.forEach(title => addSubtask.mutate({ task_id: task.id, title }));
+                      setAiSubtasks([]);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    Добавить все
+                  </button>
+                  <button
+                    onClick={() => setAiSubtasks([])}
+                    className="text-[10px] px-2 py-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              </div>
+            )}
             {subtasks.map((sub) => (
               <div key={sub.id} className="flex items-start gap-2.5 group/sub py-1">
                 <button
