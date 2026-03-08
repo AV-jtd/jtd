@@ -2,17 +2,18 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
 } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -824,6 +825,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 streamSubprojectTasks={streamSubprojectTasks}
                 allTasks={allTasks}
                 onCreateTask={handleCreateTask}
+                allGroups={allGroups}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
@@ -878,6 +880,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             <ProjectDetailSheet
               projectId={selectedProjectId}
               npdProjects={npdProjects}
+              allGroups={allGroups}
               streamTags={streamTags}
               streamTagById={streamTagById}
               gateKeyToTagId={gateKeyToTagId}
@@ -898,7 +901,7 @@ function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
   projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
-  onCreateTask,
+  onCreateTask, allGroups,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -915,6 +918,7 @@ function SwimlaneGrid({
   streamSubprojectTasks: Map<string, Task[]>;
   allTasks: Task[];
   onCreateTask: (title: string, groupId: string) => Promise<void>;
+  allGroups: TaskGroup[];
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
@@ -1002,70 +1006,29 @@ function SwimlaneGrid({
         const streamSub = projectFilter
           ? (streamSubprojectsMap.get(projectFilter) || []).find((s) => s.streamName === stream)
           : null;
+        const streamSubGroup = streamSub ? allGroups.find((g) => g.id === streamSub.id) : null;
         const streamTasks = streamSub ? (streamSubprojectTasks.get(streamSub.id) || []) : [];
         const totalInRow = projectFilter ? streamTasks.length : rowProjects.length;
 
         return (
-          <div key={stream} className="border-b border-border">
-            {/* Row header */}
-            <div className="flex">
-              <button
-                onClick={() => toggleRow(stream)}
-                className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 hover:bg-muted/50 transition-colors"
-              >
-                {isCollapsed
-                  ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                  : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-                }
-                <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
-                {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
-                <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
-              </button>
-              {!isCollapsed && projectFilter && streamSub ? (
-                /* When project is filtered: show all tasks from this stream subproject */
-                <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
-                  <div className="flex flex-col gap-1.5">
-                    {streamTasks.map((task) => (
-                      <TaskItem key={task.id} task={task} />
-                    ))}
-                    {streamTasks.length === 0 && (
-                      <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
-                    )}
-                    <InlineTaskAdder
-                      onAdd={(title) => onCreateTask(title, streamSub.id)}
-                    />
-                  </div>
-                </div>
-              ) : !isCollapsed ? visibleGates.map((gate) => {
-                const cellProjects = gridData[stream]?.[gate.key] || [];
-                return (
-                  <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
-                    <div className="flex flex-col gap-1.5">
-                      {cellProjects.map((p) => (
-                        <DraggableProjectCard
-                          key={p.id}
-                          project={p}
-                          isMoving={isMoving}
-                          streamTagById={streamTagById}
-                          onCardClick={() => onCardClick(p.id)}
-                        />
-                      ))}
-                      {cellProjects.length === 0 && (
-                        <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }) : null}
-              {isCollapsed && (
-                <div className="flex-1 flex items-center px-3">
-                  <span className="text-[10px] text-muted-foreground">
-                    {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          <SwimlaneStreamRow
+            key={stream}
+            stream={stream}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleRow(stream)}
+            totalInRow={totalInRow}
+            projectFilter={projectFilter}
+            streamSub={streamSub}
+            streamSubGroup={streamSubGroup || null}
+            streamTasks={streamTasks}
+            onCreateTask={onCreateTask}
+            visibleGates={visibleGates}
+            gridData={gridData}
+            colWidth={colWidth}
+            isMoving={isMoving}
+            streamTagById={streamTagById}
+            onCardClick={onCardClick}
+          />
         );
       })}
 
@@ -1118,6 +1081,115 @@ function SwimlaneGrid({
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+// ── Swimlane Stream Row (extracted for hooks) ──
+function SwimlaneStreamRow({
+  stream, isCollapsed, onToggleCollapse, totalInRow,
+  projectFilter, streamSub, streamSubGroup, streamTasks, onCreateTask,
+  visibleGates, gridData, colWidth, isMoving, streamTagById, onCardClick,
+}: {
+  stream: string;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  totalInRow: number;
+  projectFilter: string | null;
+  streamSub: { id: string; name: string; streamName: string | null } | null;
+  streamSubGroup: TaskGroup | null;
+  streamTasks: Task[];
+  onCreateTask: (title: string, groupId: string) => Promise<void>;
+  visibleGates: GateStage[];
+  gridData: Record<string, Record<string, NpdProject[]>>;
+  colWidth: string;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: (id: string) => void;
+}) {
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  return (
+    <div className="border-b border-border">
+      {/* Row header */}
+      <div className="flex">
+        <div className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-1.5">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+          >
+            {isCollapsed
+              ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+              : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            }
+            <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+            {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
+            <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
+          </button>
+          {/* Expand subproject detail button */}
+          {streamSubGroup && (
+            <button
+              onClick={() => setDetailOpen(!detailOpen)}
+              className={cn(
+                "p-1 rounded transition-colors shrink-0",
+                detailOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Карточка подпроекта"
+            >
+              <Expand className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        {!isCollapsed && projectFilter && streamSub ? (
+          /* When project is filtered: show all tasks from this stream subproject */
+          <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
+            <div className="flex flex-col gap-1.5">
+              {streamTasks.map((task) => (
+                <TaskItem key={task.id} task={task} />
+              ))}
+              {streamTasks.length === 0 && (
+                <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
+              )}
+              <InlineTaskAdder
+                onAdd={(title) => onCreateTask(title, streamSub.id)}
+              />
+            </div>
+          </div>
+        ) : !isCollapsed ? visibleGates.map((gate) => {
+          const cellProjects = gridData[stream]?.[gate.key] || [];
+          return (
+            <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+              <div className="flex flex-col gap-1.5">
+                {cellProjects.map((p) => (
+                  <DraggableProjectCard
+                    key={p.id}
+                    project={p}
+                    isMoving={isMoving}
+                    streamTagById={streamTagById}
+                    onCardClick={() => onCardClick(p.id)}
+                  />
+                ))}
+                {cellProjects.length === 0 && (
+                  <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                )}
+              </div>
+            </div>
+          );
+        }) : null}
+        {isCollapsed && (
+          <div className="flex-1 flex items-center px-3">
+            <span className="text-[10px] text-muted-foreground">
+              {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
+            </span>
+          </div>
+        )}
+      </div>
+      {/* Subproject detail panel */}
+      {detailOpen && streamSubGroup && (
+        <div className="px-3 py-2 bg-muted/30 border-t border-border animate-fade-in">
+          <ProjectDetailPanel group={streamSubGroup} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1524,10 +1596,11 @@ function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> })
 
 
 function ProjectDetailSheet({
-  projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
+  projectId, npdProjects, allGroups, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {
   projectId: string;
   npdProjects: NpdProject[];
+  allGroups: TaskGroup[];
   streamTags: { id: string; name: string }[];
   streamTagById: Map<string, string>;
   gateKeyToTagId: Map<string, string>;
@@ -1535,14 +1608,14 @@ function ProjectDetailSheet({
   onClose: () => void;
 }) {
   const project = npdProjects.find((p) => p.id === projectId);
+  const group = allGroups.find((g) => g.id === projectId);
   const queryClient = useQueryClient();
 
-  if (!project) return <div className="p-4 text-muted-foreground text-sm">Проект не найден</div>;
+  if (!project || !group) return <div className="p-4 text-muted-foreground text-sm">Проект не найден</div>;
 
   const currentGateKey = project.gateTags
     .map((id) => tagIdToGateKey.get(id))
     .find(Boolean) || null;
-  const currentGate = currentGateKey ? NPD_GATES.find((g) => g.key === currentGateKey) : null;
 
   const assignedStreams = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
 
@@ -1573,76 +1646,69 @@ function ProjectDetailSheet({
     toast.success(`Перемещено в ${NPD_GATES.find((g) => g.key === gateKey)?.title}`);
   };
 
-  const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
+  // Subprojects of this NPD project
+  const subprojects = allGroups.filter((g) => g.parent_id === projectId);
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <ProjectIcon project={project} />
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-foreground truncate">{project.name}</h2>
-          {currentGate && (
-            <span className={cn("text-xs font-medium", currentGate.textColor)}>{currentGate.title}</span>
-          )}
+      {/* Unified ProjectDetailPanel */}
+      <ProjectDetailPanel group={group} />
+
+      {/* NPD-specific: Gate selector */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div>
+          <h3 className="text-xs font-semibold text-foreground mb-2">Гейт</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {NPD_GATES.map((gate) => (
+              <button
+                key={gate.key}
+                onClick={() => moveToGate(gate.key)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                  currentGateKey === gate.key
+                    ? cn("border-transparent", gate.bgLight, gate.textColor, "font-semibold")
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {gate.title.split(":")[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stream selector */}
+        <div>
+          <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {NPD_STREAMS.map((stream) => (
+              <button
+                key={stream}
+                onClick={() => toggleStreamTag(stream)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                  assignedStreams.includes(stream)
+                    ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {stream}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {project.description && (
-        <p className="text-sm text-muted-foreground">{project.description}</p>
+      {/* Subprojects list */}
+      {subprojects.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+          <h3 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+            <Folder className="h-3 w-3" /> Подпроекты (стримы)
+          </h3>
+          {subprojects.map((sub) => (
+            <SubprojectRow key={sub.id} group={sub} />
+          ))}
+        </div>
       )}
-
-      {/* Progress */}
-      <div>
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-          <span className="font-medium">{progress}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-
-      {/* Gate selector */}
-      <div>
-        <h3 className="text-xs font-semibold text-foreground mb-2">Гейт</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {NPD_GATES.map((gate) => (
-            <button
-              key={gate.key}
-              onClick={() => moveToGate(gate.key)}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
-                currentGateKey === gate.key
-                  ? cn("border-transparent", gate.bgLight, gate.textColor, "font-semibold")
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              )}
-            >
-              {gate.title.split(":")[0]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stream selector */}
-      <div>
-        <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {NPD_STREAMS.map((stream) => (
-            <button
-              key={stream}
-              onClick={() => toggleStreamTag(stream)}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
-                assignedStreams.includes(stream)
-                  ? "border-primary/50 bg-primary/10 text-primary font-semibold"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              )}
-            >
-              {stream}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Links */}
       <div className="flex gap-2 pt-2">
@@ -1653,6 +1719,30 @@ function ProjectDetailSheet({
           Закрыть
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Subproject row with expandable ProjectDetailPanel ──
+function SubprojectRow({ group }: { group: TaskGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+      >
+        {expanded
+          ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        }
+        <span className="text-xs font-medium text-foreground truncate">{group.name}</span>
+      </button>
+      {expanded && (
+        <div className="px-1 pb-2">
+          <ProjectDetailPanel group={group} />
+        </div>
+      )}
     </div>
   );
 }
