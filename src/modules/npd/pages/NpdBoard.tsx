@@ -1735,7 +1735,7 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-medium text-[11px] truncate">{subproject.name}</span>
+            <span className="font-medium text-[11px] truncate">{subproject.name.includes("/") ? subproject.name.split("/").pop()!.trim() : subproject.name}</span>
             <span className={cn("text-[8px] px-1 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap", STATUS_BADGE[timingStatus])}>
               {STATUS_LABEL[timingStatus]}
             </span>
