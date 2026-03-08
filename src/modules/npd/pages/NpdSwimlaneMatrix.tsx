@@ -1038,13 +1038,14 @@ export default function NpdSwimlaneMatrix() {
 
 // ── Matrix Task Row ──
 function MatrixTaskRow({
-  task, users, allDependencies, allTasks,
+  task, users, allDependencies, allTasks, projectGroupIds,
   onDeadlineChange, onAssigneeChange, onToggle, onAddDependency, onExpand,
 }: {
   task: Task;
   users: Profile[];
   allDependencies: any[];
   allTasks: Task[];
+  projectGroupIds: Set<string>;
   onDeadlineChange: (task: Task, date: Date) => void;
   onAssigneeChange: (taskId: string, userId: string | null) => void;
   onToggle: (taskId: string) => void;
