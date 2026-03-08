@@ -2,16 +2,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useAvailableUsers, useTaskMutations } from "@/hooks/useTasks";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-  Sparkles, Send, Loader2, CheckCircle2, Plus, CalendarDays,
-  User, FolderOpen, Tag, AlertCircle, Zap, LayoutList, X,
+  Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
+  Briefcase, FlaskConical, Target, FileBarChart,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { addDays } from "date-fns";
 import { toast } from "sonner";
 
 interface ParsedTask {
@@ -31,6 +30,7 @@ interface ParsedTask {
 interface ProjectPlan {
   project_name: string;
   description?: string;
+  project_type?: string;
   subprojects?: {
     name: string;
     tasks: {
@@ -56,12 +56,87 @@ interface Message {
   created?: boolean;
 }
 
+export type ModuleContext = {
+  module: "tasks" | "pmo" | "npd" | "crm";
+  activeProjectId?: string | null;
+  activeProjectName?: string | null;
+};
+
 interface AiAssistantProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  moduleContext?: ModuleContext;
 }
 
-export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
+const MODULE_CONFIG: Record<string, {
+  label: string;
+  gradient: string;
+  subtitle: string;
+  quickActions: { icon: React.ElementType; label: string; prompt: string }[];
+  examples: string[];
+}> = {
+  tasks: {
+    label: "AI-помощник",
+    gradient: "from-violet-500 to-blue-500",
+    subtitle: "Постановка задач • Планирование",
+    quickActions: [
+      { icon: Zap, label: "Быстрая задача", prompt: "Создай задачу: " },
+      { icon: LayoutList, label: "План проекта", prompt: "Спланируй проект: " },
+    ],
+    examples: [
+      "Подготовить презентацию к пятнице для Иванова",
+      "Спланируй проект запуска нового продукта на 2 месяца",
+      "Позвонить клиенту завтра, приоритет высокий",
+    ],
+  },
+  pmo: {
+    label: "PMO-помощник",
+    gradient: "from-blue-500 to-cyan-500",
+    subtitle: "Проекты • Структура • Вехи",
+    quickActions: [
+      { icon: Briefcase, label: "Новый проект", prompt: "Создай проект с вехами: " },
+      { icon: LayoutList, label: "Декомпозиция", prompt: "Разбей проект на подпроекты и задачи: " },
+      { icon: FileBarChart, label: "Отчёт", prompt: "Сформируй отчёт по проекту " },
+    ],
+    examples: [
+      "Создай проект «Внедрение CRM» с 3 этапами и вехами на 3 месяца",
+      "Разбей задачу «Запуск рекламной кампании» на 10 подзадач с дедлайнами",
+      "Спланируй проект миграции данных с зависимостями между задачами",
+    ],
+  },
+  npd: {
+    label: "NPD-помощник",
+    gradient: "from-violet-500 to-fuchsia-500",
+    subtitle: "Продукты • Гейты • Стримы",
+    quickActions: [
+      { icon: FlaskConical, label: "NPD-проект", prompt: "Создай NPD проект: " },
+      { icon: Target, label: "Gate Review", prompt: "Проанализируй готовность к переходу на следующий гейт для проекта " },
+      { icon: LayoutList, label: "Задачи стрима", prompt: "Создай задачи для стрима " },
+    ],
+    examples: [
+      "Создай NPD проект «Новый энергетик» с задачами для каждого стрима",
+      "Спланируй задачи для стрима RnD на Gate 2: Разработка",
+      "Какие задачи нужны для прохождения Gate 1 в проекте продакт-стрима?",
+    ],
+  },
+  crm: {
+    label: "CRM-помощник",
+    gradient: "from-cyan-500 to-violet-500",
+    subtitle: "Клиенты • Воронка • Продажи",
+    quickActions: [
+      { icon: Target, label: "Новый клиент", prompt: "Добавь клиента и создай задачу: " },
+      { icon: Zap, label: "Задача продаж", prompt: "Создай задачу продаж: " },
+      { icon: FileBarChart, label: "Сценарий", prompt: "Спланируй сценарий работы с клиентом: " },
+    ],
+    examples: [
+      "Добавь клиента «Рога и Копыта», контакт Иванов, назначь задачу отправить КП",
+      "Спланируй воронку для нового клиента из фарм-отрасли на 2 месяца",
+      "Создай задачу: позвонить Петрову по КП, приоритет высокий, дедлайн завтра",
+    ],
+  },
+};
+
+export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAssistantProps) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
@@ -73,6 +148,9 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const currentModule = moduleContext?.module || "tasks";
+  const config = MODULE_CONFIG[currentModule];
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -87,17 +165,20 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
   }, [messages]);
 
   const getContext = useCallback(() => ({
-    projects: groups.filter(g => !g.parent_id).map(g => ({ id: g.id, name: g.name })),
+    projects: groups.filter(g => !g.parent_id).map(g => ({ id: g.id, name: g.name, project_type: (g as any).project_type })),
     users: users.map(u => ({ id: u.id, name: u.display_name || u.email || "?" })),
     tags: tags.map(t => ({ id: t.id, name: t.name })),
-  }), [groups, users, tags]);
+    module: currentModule,
+    activeProjectId: moduleContext?.activeProjectId || null,
+    activeProjectName: moduleContext?.activeProjectName || null,
+  }), [groups, users, tags, currentModule, moduleContext]);
 
   const detectAction = (text: string): "parse_task" | "plan_project" | "chat" => {
     const lower = text.toLowerCase();
-    const planKeywords = ["спланируй", "план проекта", "создай проект", "структура проекта", "запланируй проект", "проект на", "план запуска"];
+    const planKeywords = ["спланируй", "план проекта", "создай проект", "структура проекта", "запланируй проект", "проект на", "план запуска", "npd проект", "сценарий", "воронк"];
     if (planKeywords.some(k => lower.includes(k))) return "plan_project";
     
-    const taskKeywords = ["задач", "сделать", "подготовить", "отправить", "написать", "позвонить", "связаться", "купить", "проверить", "обновить", "назначить", "запланировать", "организовать", "создать задач"];
+    const taskKeywords = ["задач", "сделать", "подготовить", "отправить", "написать", "позвонить", "связаться", "купить", "проверить", "обновить", "назначить", "запланировать", "организовать", "создать задач", "добавь клиент"];
     if (taskKeywords.some(k => lower.includes(k))) return "parse_task";
     
     return "chat";
@@ -148,7 +229,7 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
           if (plan.description) summary += `${plan.description}\n`;
           summary += `\n`;
           if (plan.subprojects?.length) {
-            plan.subprojects.forEach((sp, i) => {
+            plan.subprojects.forEach((sp) => {
               summary += `📂 **${sp.name}** (${sp.tasks.length} задач)\n`;
               sp.tasks.slice(0, 3).forEach(t => {
                 summary += `  • ${t.title}`;
@@ -257,10 +338,11 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
     if (!user) return;
     try {
       const assignee = resolveAssignee(task);
+      const groupId = task.project_id || moduleContext?.activeProjectId || null;
       await addTask.mutateAsync({
         title: task.title,
         deadline: task.deadline ? new Date(task.deadline + "T23:59:59").toISOString() : null,
-        group_id: task.project_id || null,
+        group_id: groupId,
         assigned_to: assignee,
         task_type: "standard",
       });
@@ -275,13 +357,13 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
   const handleCreateProject = async (plan: ProjectPlan, msgIndex: number) => {
     if (!user) return;
     try {
+      const projectType = plan.project_type || (currentModule === "npd" ? "npd" : currentModule === "crm" ? "crm" : "standard");
+      
       // Create main project
       await addGroup.mutateAsync({ name: plan.project_name });
 
-      // Wait for cache to update
       await new Promise(r => setTimeout(r, 500));
       
-      // Get the created project
       const { data: createdGroups } = await supabase
         .from("task_groups")
         .select("id")
@@ -292,6 +374,11 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
       
       const projectId = createdGroups?.[0]?.id;
       if (!projectId) throw new Error("Не удалось найти созданный проект");
+
+      // Set project_type if not standard
+      if (projectType !== "standard") {
+        await supabase.from("task_groups").update({ project_type: projectType } as any).eq("id", projectId);
+      }
 
       // Create subprojects and their tasks
       for (const sp of plan.subprojects || []) {
@@ -342,22 +429,17 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
     }
   };
 
-  const quickActions = [
-    { icon: Zap, label: "Быстрая задача", prompt: "Создай задачу: " },
-    { icon: LayoutList, label: "План проекта", prompt: "Спланируй проект: " },
-  ];
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[92vw] sm:w-[440px] md:w-[500px] max-w-[500px] p-0 flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+          <div className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center", config.gradient)}>
             <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">AI-помощник</h3>
-            <p className="text-[10px] text-muted-foreground">Постановка задач • Планирование</p>
+            <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
+            <p className="text-[10px] text-muted-foreground">{config.subtitle}</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
@@ -368,15 +450,15 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-8">
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 flex items-center justify-center">
-                <Sparkles className="h-7 w-7 text-primary" />
+              <div className={cn("h-14 w-14 rounded-2xl bg-gradient-to-br flex items-center justify-center opacity-20", config.gradient)}>
+                <Sparkles className="h-7 w-7 text-white" />
               </div>
               <div>
                 <p className="text-sm font-medium text-foreground">Чем могу помочь?</p>
-                <p className="text-xs text-muted-foreground mt-1">Напишите задачу в свободной форме или опишите проект</p>
+                <p className="text-xs text-muted-foreground mt-1">Опишите задачу или проект в свободной форме</p>
               </div>
               <div className="flex flex-col gap-2 w-full max-w-xs">
-                {quickActions.map((qa) => (
+                {config.quickActions.map((qa) => (
                   <button
                     key={qa.label}
                     onClick={() => {
@@ -391,11 +473,7 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
                 ))}
                 <div className="mt-2 space-y-1.5">
                   <p className="text-[10px] text-muted-foreground font-medium">Примеры:</p>
-                  {[
-                    "Подготовить презентацию к пятнице для Иванова",
-                    "Спланируй проект запуска нового продукта на 2 месяца",
-                    "Позвонить клиенту завтра, приоритет высокий",
-                  ].map((ex) => (
+                  {config.examples.map((ex) => (
                     <button
                       key={ex}
                       onClick={() => { setInput(ex); inputRef.current?.focus(); }}
@@ -423,7 +501,6 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
                   )}
                 </div>
 
-                {/* Action buttons for parsed task */}
                 {msg.parsedTask && !msg.created && (
                   <div className="mt-2 flex gap-2">
                     <Button
@@ -437,7 +514,6 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
                   </div>
                 )}
 
-                {/* Action buttons for project plan */}
                 {msg.projectPlan && !msg.created && (
                   <div className="mt-2 flex gap-2">
                     <Button
@@ -451,7 +527,6 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
                   </div>
                 )}
 
-                {/* Success indicator */}
                 {msg.created && (
                   <div className="mt-2 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                     <CheckCircle2 className="h-3.5 w-3.5" />
