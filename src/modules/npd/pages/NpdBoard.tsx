@@ -417,7 +417,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   }, [filteredProjects, tagIdToGateKey]);
 
   const inboxProjects = useMemo(
-    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.stats.total > 0 || getProjectGate(p) === null),
+    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
     [filteredProjects, tagIdToGateKey]
   );
 
