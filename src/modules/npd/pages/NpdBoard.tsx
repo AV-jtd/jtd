@@ -66,7 +66,8 @@ type NpdProject = {
   description: string | null;
   parent_id: string | null;
   user_id: string;
-  gateTags: string[];  // tag_ids that are gate tags
+  gateTags: string[];  // tag_ids that are gate tags (own)
+  allGateKeys: string[]; // all gate keys from own + child subproject tags
   streamTags: string[]; // tag_ids that are stream tags
   stats: { total: number; completed: number; overdue: number };
   streamStats: { name: string; total: number; completed: number }[];
@@ -284,6 +285,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
 
+      // Collect ALL gate keys from own + child subproject tags
+      const allGateKeysSet = new Set<string>();
+      for (const tagId of projectGateTags) {
+        const key = tagIdToGateKey.get(tagId);
+        if (key) allGateKeysSet.add(key);
+      }
+      for (const child of childGroups) {
+        const cTags = allGroupTags.filter((gt) => gt.group_id === child.id);
+        for (const ct of cTags) {
+          const key = tagIdToGateKey.get(ct.tag_id);
+          if (key) allGateKeysSet.add(key);
+        }
+      }
+      // Sort by gate order
+      const allGateKeys = GATE_ORDER.filter((k) => allGateKeysSet.has(k));
+
       // Build stream stats for card display
       const streamStats: { name: string; total: number; completed: number }[] = [];
       for (const child of childGroups) {
@@ -303,6 +320,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         parent_id: g.parent_id,
         user_id: g.user_id,
         gateTags: projectGateTags,
+        allGateKeys,
         streamTags: projectStreamTags,
         stats: { total, completed, overdue },
         streamStats,
@@ -311,12 +329,19 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
 
   // ── Gate assignment ──
+  // Primary gate = most advanced (highest index) from allGateKeys
   const getProjectGate = (project: NpdProject): string | null => {
+    if (project.allGateKeys.length > 0) return project.allGateKeys[project.allGateKeys.length - 1];
     for (const tagId of project.gateTags) {
       const key = tagIdToGateKey.get(tagId);
       if (key) return key;
     }
     return null;
+  };
+
+  // All active gates for a project (from own + child subproject tags)
+  const getProjectGates = (project: NpdProject): string[] => {
+    return project.allGateKeys.length > 0 ? project.allGateKeys : [];
   };
 
   // ── Stream subprojects map: parentId -> stream subprojects ──
@@ -326,7 +351,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       if ((g as any).project_type !== "npd" || !g.parent_id) continue;
       const parentNpd = npdProjects.find((p) => p.id === g.parent_id);
       if (!parentNpd) continue;
-      // Determine stream from group_tags
       const gTags = allGroupTags.filter((gt) => gt.group_id === g.id);
       const sTagId = gTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
       const sName = sTagId ? streamTagById.get(sTagId) || null : null;
@@ -358,7 +382,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   // ── Tasks grouped by stream subproject (for swimlane task view) ──
   const streamSubprojectTasks = useMemo(() => {
     if (!projectFilter) return new Map<string, Task[]>();
-    const m = new Map<string, Task[]>(); // subproject_id -> tasks
+    const m = new Map<string, Task[]>();
     const subs = streamSubprojectsMap.get(projectFilter) || [];
     for (const sub of subs) {
       const tasks = allTasks.filter((t) => t.group_id === sub.id);
@@ -367,22 +391,33 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
-  // ── Columns ──
+  // ── Columns (project appears in ALL active gates) ──
   const gateColumns = useMemo(() => {
-    const grouped: Record<string, NpdProject[]> = {};
+    const grouped: Record<string, { project: NpdProject; isPrimary: boolean }[]> = {};
     for (const gate of NPD_GATES) grouped[gate.key] = [];
 
     for (const project of filteredProjects) {
-      const gate = getProjectGate(project);
-      if (gate && grouped[gate]) {
-        grouped[gate].push(project);
+      const gates = getProjectGates(project);
+      const primaryGate = getProjectGate(project);
+      if (gates.length > 0) {
+        for (const gateKey of gates) {
+          if (grouped[gateKey]) {
+            grouped[gateKey].push({ project, isPrimary: gateKey === primaryGate });
+          }
+        }
+      } else {
+        // Fallback: single gate from own tag
+        const gate = primaryGate;
+        if (gate && grouped[gate]) {
+          grouped[gate].push({ project, isPrimary: true });
+        }
       }
     }
     return grouped;
   }, [filteredProjects, tagIdToGateKey]);
 
   const inboxProjects = useMemo(
-    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.stats.total > 0 || getProjectGate(p) === null),
+    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
     [filteredProjects, tagIdToGateKey]
   );
 
@@ -1090,7 +1125,7 @@ function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
 }: {
   gate: GateStage;
-  projects: NpdProject[];
+  projects: { project: NpdProject; isPrimary: boolean }[];
   isOver: boolean;
   isMoving: boolean;
   streamTagById: Map<string, string>;
@@ -1124,13 +1159,15 @@ function GateColumn({
       </div>
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {projects.map((p) => (
+          {projects.map(({ project: p, isPrimary }) => (
             <DraggableProjectCard
               key={p.id}
               project={p}
               isMoving={isMoving}
               streamTagById={streamTagById}
               onCardClick={() => onCardClick(p.id)}
+              isSecondary={!isPrimary}
+              currentGate={gate}
             />
           ))}
           {projects.length === 0 && (
@@ -1235,12 +1272,14 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
 
 // ── Draggable project card ──
 function DraggableProjectCard({
-  project, isMoving, streamTagById, onCardClick,
+  project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
 }: {
   project: NpdProject;
   isMoving: boolean;
   streamTagById: Map<string, string>;
   onCardClick: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
@@ -1251,6 +1290,8 @@ function DraggableProjectCard({
         isDragging={isDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
         onCardClick={onCardClick}
+        isSecondary={isSecondary}
+        currentGate={currentGate}
       />
     </div>
   );
@@ -1279,13 +1320,15 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Project Card ──
 function ProjectCard({
-  project, streamTagById, isDragging, dragHandleProps, onCardClick,
+  project, streamTagById, isDragging, dragHandleProps, onCardClick, isSecondary, currentGate,
 }: {
   project: NpdProject;
   streamTagById: Map<string, string>;
   isDragging?: boolean;
   dragHandleProps?: ComponentProps<"button">;
   onCardClick?: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
 }) {
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -1297,6 +1340,11 @@ function ProjectCard({
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  // For secondary cards, find the primary gate label
+  const primaryGateKey = project.allGateKeys[project.allGateKeys.length - 1];
+  const otherGates = project.allGateKeys.filter((k) => k !== currentGate?.key);
+  const otherGateLabels = otherGates.map((k) => NPD_GATES.find((g) => g.key === k)?.short).filter(Boolean);
 
   const assignee = members.find(m => m.role === "assignee");
   const assigneeName = assignee ? (availableUsers.find(u => u.id === assignee.user_id)?.display_name || assignee.user_id.slice(0, 8)) : null;
@@ -1329,6 +1377,33 @@ function ProjectCard({
 
   const timingStatus = getTimingStatus(allProjectTasks);
 
+  // For secondary cards, show a compact ghost version
+  if (isSecondary) {
+    return (
+      <div
+        onClick={onCardClick}
+        className="rounded-lg border border-dashed border-border/60 bg-card/40 shadow-none transition-all hover:bg-muted/30 cursor-pointer px-3 py-2 opacity-60 hover:opacity-80"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <ProjectIcon project={project} />
+          <h4 className="flex-1 text-xs font-medium text-muted-foreground truncate">{project.name}</h4>
+          {otherGateLabels.length > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
+              также в {otherGateLabels.join(", ")}
+            </span>
+          )}
+        </div>
+        {project.stats.total > 0 && (
+          <div className="mt-1.5">
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/40 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -1344,6 +1419,27 @@ function ProjectCard({
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
           <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+          {/* Multi-gate indicator on primary card */}
+          {project.allGateKeys.length > 1 && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              {project.allGateKeys.map((gk) => {
+                const gate = NPD_GATES.find((g) => g.key === gk);
+                if (!gate) return null;
+                return (
+                  <Tooltip key={gk}>
+                    <TooltipTrigger asChild>
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        gate.color,
+                        gk === currentGate?.key ? "ring-1 ring-foreground/30" : "opacity-40"
+                      )} />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">{gate.short} · {gate.shortTitle}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          )}
           <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0", STATUS_BADGE[timingStatus])}>
             {STATUS_LABEL[timingStatus]}
           </span>
