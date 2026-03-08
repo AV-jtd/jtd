@@ -12,9 +12,9 @@ import TaskItem from "@/components/TaskItem";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, TrendingUp,
 } from "lucide-react";
-import { isPast, parseISO } from "date-fns";
+import { isPast, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor,
@@ -57,9 +57,9 @@ type NpdProject = {
   description: string | null;
   parent_id: string | null;
   user_id: string;
-  gateTags: string[];  // tag_ids that are gate tags
-  streamTags: string[]; // tag_ids that are stream tags
-  stats: { total: number; completed: number; overdue: number };
+  gateTags: string[];
+  streamTags: string[];
+  stats: { total: number; completed: number; overdue: number; driftCount: number; upcoming: number };
   streamStats: { name: string; total: number; completed: number }[];
 };
 
@@ -273,6 +273,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const total = projectTasks.length;
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+      const driftCount = projectTasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+      const weekFromNow = new Date();
+      weekFromNow.setDate(weekFromNow.getDate() + 7);
+      const upcoming = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) <= weekFromNow && !isPast(parseISO(t.deadline))).length;
 
       // Build stream stats for card display
       const streamStats: { name: string; total: number; completed: number }[] = [];
@@ -294,7 +298,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         user_id: g.user_id,
         gateTags: projectGateTags,
         streamTags: projectStreamTags,
-        stats: { total, completed, overdue },
+        stats: { total, completed, overdue, driftCount, upcoming },
         streamStats,
       };
     });
@@ -583,18 +587,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
   };
 
-  // ── Create task in a stream subproject ──
-  const handleCreateTask = async (title: string, groupId: string) => {
+  // ── Create task in a stream subproject, optionally with a gate tag ──
+  const handleCreateTask = async (title: string, groupId: string, gateTagId?: string) => {
     if (!title.trim() || !user) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const currentUserId = sessionData?.session?.user?.id;
     if (!currentUserId) { toast.error("Сессия истекла"); return; }
-    const { error } = await supabase.from("tasks").insert({
+    const { data: newTask, error } = await supabase.from("tasks").insert({
       title: title.trim(),
       user_id: currentUserId,
       group_id: groupId,
-    });
+    }).select("id").single();
     if (error) { toast.error("Ошибка: " + error.message); return; }
+    // Assign gate tag to the task
+    if (gateTagId && newTask) {
+      await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: gateTagId });
+    }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     toast.success("Задача создана");
   };
@@ -824,6 +832,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 streamSubprojectTasks={streamSubprojectTasks}
                 allTasks={allTasks}
                 onCreateTask={handleCreateTask}
+                tagIdToGateKey={tagIdToGateKey}
+                gateTagIds={gateTagIds}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
@@ -898,7 +908,7 @@ function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
   projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
-  onCreateTask,
+  onCreateTask, tagIdToGateKey, gateTagIds,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -914,7 +924,9 @@ function SwimlaneGrid({
   streamSubprojectsMap: Map<string, { id: string; name: string; streamName: string | null }[]>;
   streamSubprojectTasks: Map<string, Task[]>;
   allTasks: Task[];
-  onCreateTask: (title: string, groupId: string) => Promise<void>;
+  onCreateTask: (title: string, groupId: string, gateTagId?: string) => Promise<void>;
+  tagIdToGateKey: Map<string, string>;
+  gateTagIds: Set<string>;
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
@@ -1022,20 +1034,35 @@ function SwimlaneGrid({
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
               {!isCollapsed && projectFilter && streamSub ? (
-                /* When project is filtered: show all tasks from this stream subproject */
-                <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
-                  <div className="flex flex-col gap-1.5">
-                    {streamTasks.map((task) => (
-                      <TaskItem key={task.id} task={task} />
-                    ))}
-                    {streamTasks.length === 0 && (
-                      <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
-                    )}
-                    <InlineTaskAdder
-                      onAdd={(title) => onCreateTask(title, streamSub.id)}
-                    />
-                  </div>
-                </div>
+                /* When project is filtered: show tasks split by gate columns */
+                visibleGates.map((gate) => {
+                  const gateTagId = gateKeyToTagId.get(gate.key);
+                  // Filter tasks that have this gate tag in their task_tags
+                  const cellTasks = streamTasks.filter((t) => {
+                    const taskTagIds = (t.task_tags || []).map((tt) => tt.tag_id);
+                    const taskGateKey = taskTagIds.find((tid) => gateTagIds.has(tid));
+                    if (taskGateKey) {
+                      return tagIdToGateKey.get(taskGateKey) === gate.key;
+                    }
+                    // Tasks without a gate tag go into the first visible gate
+                    return gate.key === visibleGates[0]?.key;
+                  });
+                  return (
+                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                      <div className="flex flex-col gap-1.5">
+                        {cellTasks.map((task) => (
+                          <TaskItem key={task.id} task={task} />
+                        ))}
+                        {cellTasks.length === 0 && (
+                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                        )}
+                        <InlineTaskAdder
+                          onAdd={(title) => onCreateTask(title, streamSub.id, gateTagId)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
               ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
@@ -1336,7 +1363,7 @@ function DraggableProjectCard({
   );
 }
 
-// ── Project Card ──
+// ── Project Card (dashboard-style) ──
 function ProjectCard({
   project, streamTagById, isDragging, dragHandleProps, onCardClick,
 }: {
@@ -1348,18 +1375,23 @@ function ProjectCard({
 }) {
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+  const { overdue, upcoming, driftCount } = project.stats;
+  const healthColor = overdue > 0 ? "destructive" : upcoming > 0 ? "warning" : "success";
 
   return (
     <div
       onClick={onCardClick}
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
+        "rounded-xl border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
         isDragging ? "shadow-lg" : "hover:shadow-md"
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-start gap-2 min-w-0">
         <ProjectIcon project={project} />
-        <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-semibold text-foreground truncate">{project.name}</h4>
+        </div>
+        <HealthDot status={healthColor} />
         {dragHandleProps && (
           <button
             {...dragHandleProps}
@@ -1382,13 +1414,51 @@ function ProjectCard({
         </div>
       )}
 
+      {/* Progress bar */}
+      {project.stats.total > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[10px] mb-0.5">
+            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
+            <span className="font-medium text-foreground">{progress}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Stats row - like dashboard */}
+      <div className="flex items-center gap-3 mt-2 text-[10px]">
+        {overdue > 0 && (
+          <span className="flex items-center gap-0.5 text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            {overdue}
+          </span>
+        )}
+        {upcoming > 0 && (
+          <span className="flex items-center gap-0.5 text-warning">
+            <Clock className="h-3 w-3" />
+            {upcoming}
+          </span>
+        )}
+        {driftCount > 0 && (
+          <span className="flex items-center gap-0.5 text-muted-foreground">
+            <TrendingUp className="h-3 w-3" />
+            {driftCount}
+          </span>
+        )}
+        {project.stats.total === 0 && (
+          <span className="text-muted-foreground">Нет задач</span>
+        )}
+      </div>
+
       {/* Stream subprojects breakdown */}
-      {project.streamStats.length > 0 && (
-        <div className="mt-2 space-y-0.5">
+      {project.streamStats.length > 0 && project.streamStats.some(s => s.total > 0) && (
+        <div className="mt-2 pt-2 border-t border-border/50 space-y-0.5">
           {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
             <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
               <span className="text-muted-foreground truncate flex-1">{s.name}</span>
-              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
+              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-success" : "text-foreground")}>
                 {s.completed}/{s.total}
               </span>
             </div>
@@ -1398,32 +1468,6 @@ function ProjectCard({
           )}
         </div>
       )}
-
-      {/* Progress */}
-      {project.stats.total > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-[10px] mb-0.5">
-            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-            <span className="font-medium text-foreground">{progress}%</span>
-          </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="flex items-center gap-2 mt-1.5 text-[10px]">
-        {project.stats.overdue > 0 && (
-          <span className="flex items-center gap-0.5 text-destructive">
-            <AlertTriangle className="h-3 w-3" />
-            {project.stats.overdue}
-          </span>
-        )}
-        {project.stats.total === 0 && (
-          <span className="text-muted-foreground">Нет задач</span>
-        )}
-      </div>
     </div>
   );
 }
@@ -1519,6 +1563,17 @@ function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> })
         <X className="h-3 w-3" />
       </button>
     </div>
+  );
+}
+
+function HealthDot({ status }: { status: string }) {
+  return (
+    <div className={cn(
+      "w-2.5 h-2.5 rounded-full shrink-0 mt-0.5",
+      status === "success" && "bg-success",
+      status === "warning" && "bg-warning",
+      status === "destructive" && "bg-destructive"
+    )} />
   );
 }
 
