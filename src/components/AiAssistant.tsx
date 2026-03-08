@@ -175,8 +175,14 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     activeProjectName: moduleContext?.activeProjectName || null,
   }), [groups, users, tags, currentModule, moduleContext]);
 
-  const detectAction = (text: string): "parse_task" | "plan_project" | "chat" => {
+  const detectAction = (text: string): "parse_task" | "plan_project" | "import_crm" | "chat" => {
     const lower = text.toLowerCase();
+    
+    if (currentModule === "crm") {
+      const importKeywords = ["импорт", "загрузи клиент", "загрузить клиент", "импортируй", "загрузи список", "загрузи базу"];
+      if (importKeywords.some(k => lower.includes(k))) return "import_crm";
+    }
+    
     const planKeywords = ["спланируй", "план проекта", "создай проект", "структура проекта", "запланируй проект", "проект на", "план запуска", "npd проект", "сценарий", "воронк"];
     if (planKeywords.some(k => lower.includes(k))) return "plan_project";
     
