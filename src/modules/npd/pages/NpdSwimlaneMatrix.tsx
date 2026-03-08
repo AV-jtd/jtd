@@ -325,6 +325,14 @@ export default function NpdSwimlaneMatrix() {
     return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
   }, [allTasks, projectId, subprojects, streamSubMap]);
 
+  // All group IDs belonging to this project (parent + all subprojects)
+  const projectGroupIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (projectId) ids.add(projectId);
+    subprojects.forEach(s => ids.add(s.id));
+    return ids;
+  }, [projectId, subprojects]);
+
   // Move stream subproject to a gate
   const moveStreamToGate = async (subId: string, gateKey: string) => {
     const gateTagId = gateKeyToTagId.get(gateKey);
@@ -659,6 +667,7 @@ export default function NpdSwimlaneMatrix() {
                                     users={users}
                                     allDependencies={allDependencies}
                                     allTasks={allTasks}
+                                    projectGroupIds={projectGroupIds}
                                     onDeadlineChange={handleDeadlineChange}
                                     onAssigneeChange={(taskId, userId) => {
                                       updateTask.mutate({ id: taskId, assigned_to: userId });
@@ -780,6 +789,7 @@ export default function NpdSwimlaneMatrix() {
                               users={users}
                               allDependencies={allDependencies}
                               allTasks={allTasks}
+                              projectGroupIds={projectGroupIds}
                               onDeadlineChange={handleDeadlineChange}
                               onAssigneeChange={(taskId, userId) => {
                                 updateTask.mutate({ id: taskId, assigned_to: userId });
@@ -836,6 +846,7 @@ export default function NpdSwimlaneMatrix() {
                                 users={users}
                                 allDependencies={allDependencies}
                                 allTasks={allTasks}
+                                projectGroupIds={projectGroupIds}
                                 onDeadlineChange={handleDeadlineChange}
                                 onAssigneeChange={(taskId, userId) => {
                                   updateTask.mutate({ id: taskId, assigned_to: userId });
@@ -1030,13 +1041,14 @@ export default function NpdSwimlaneMatrix() {
 
 // ── Matrix Task Row ──
 function MatrixTaskRow({
-  task, users, allDependencies, allTasks,
+  task, users, allDependencies, allTasks, projectGroupIds,
   onDeadlineChange, onAssigneeChange, onToggle, onAddDependency, onExpand,
 }: {
   task: Task;
   users: Profile[];
   allDependencies: any[];
   allTasks: Task[];
+  projectGroupIds: Set<string>;
   onDeadlineChange: (task: Task, date: Date) => void;
   onAssigneeChange: (taskId: string, userId: string | null) => void;
   onToggle: (taskId: string) => void;
@@ -1183,7 +1195,7 @@ function MatrixTaskRow({
             <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Выбрать преемника</p>
             <div className="max-h-48 overflow-y-auto space-y-0.5">
               {allTasks
-                .filter(t => t.id !== task.id && !t.is_completed && t.group_id)
+                .filter(t => t.id !== task.id && !t.is_completed && t.group_id && projectGroupIds.has(t.group_id))
                 .slice(0, 30)
                 .map(t => (
                   <button
