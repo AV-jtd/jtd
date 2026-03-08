@@ -604,7 +604,7 @@ export default function NpdSwimlaneMatrix() {
   const projectName = project.name;
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header */}
       <header className="flex items-center h-12 px-4 border-b border-border bg-card shrink-0 gap-3">
         <button onClick={() => navigate("/npd")} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
