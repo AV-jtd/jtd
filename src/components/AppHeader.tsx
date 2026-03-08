@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Search, Sparkles, MessageCircle, Settings, User } from "lucide-react";
+import { Menu, Search, Sparkles, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -14,7 +14,6 @@ interface AppHeaderProps {
 }
 
 const modules = [
-  { path: "/", label: "Задачи", activeStyle: "text-primary" },
   { path: "/pmo", label: "PMO", activeStyle: "text-primary" },
   { path: "/npd", label: "NPD", activeStyle: "bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent" },
   { path: "/crm", label: "CRM", activeStyle: "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent" },
@@ -48,22 +47,26 @@ export default function AppHeader({
         </button>
       )}
 
-      {/* Logo — desktop only */}
-      {!isMobile && (
-        <Link to="/" className="text-sm font-semibold text-foreground mr-1 shrink-0">
+      {/* Logo = Задачи link */}
+      {!isMobile ? (
+        <Link to="/" className={cn(
+          "text-sm font-semibold mr-1 shrink-0 transition-colors",
+          isActive("/") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}>
           Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it
         </Link>
-      )}
-
-      {/* Mobile logo */}
-      {isMobile && (
-        <span className="text-sm font-semibold text-foreground mr-1 shrink-0">
+      ) : (
+        <Link to="/" className={cn(
+          "text-sm font-semibold mr-1 shrink-0 transition-colors",
+          isActive("/") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}>
           J<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TD</span>
-        </span>
+        </Link>
       )}
 
       {/* Module navigation */}
       <nav className="flex items-center text-xs md:text-sm font-bold tracking-tight gap-0.5">
+        <span className="text-muted-foreground/30 select-none">|</span>
         {modules.map((mod, i) => {
           const active = isActive(mod.path);
           return (
@@ -134,13 +137,6 @@ export default function AppHeader({
           </button>
         )}
 
-        <Link
-          to="/settings"
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Настройки"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
       </div>
     </header>
   );

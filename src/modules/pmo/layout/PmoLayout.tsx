@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3 } from "lucide-react";
@@ -7,6 +7,8 @@ import AppHeader from "@/components/AppHeader";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
 import AiAssistant from "@/components/AiAssistant";
+import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
@@ -26,6 +28,16 @@ export default function PmoLayout() {
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
   const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
   const [aiOpen, setAiOpen] = useState(false);
+  const [messengerOpen, setMessengerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleOpenGantt = (projectId: string) => {
     setFocusProjectId(projectId);
@@ -44,7 +56,12 @@ export default function PmoLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader onAiOpen={() => setAiOpen(true)}>
+      <AppHeader
+        onSearchOpen={() => setSearchOpen(true)}
+        onAiOpen={() => setAiOpen(true)}
+        onMessengerToggle={() => setMessengerOpen(prev => !prev)}
+        messengerOpen={messengerOpen}
+      >
         <nav className="flex items-center gap-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -68,14 +85,22 @@ export default function PmoLayout() {
         </nav>
       </AppHeader>
 
-      <main className="flex-1 overflow-hidden">
-        {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
-        {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
-        {activeView === "milestones" && <MilestonesPlaceholder />}
-        {activeView === "resources" && <ResourcesPlaceholder />}
-        {activeView === "reports" && <ReportsPlaceholder />}
-      </main>
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
+          {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
+          {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
+          {activeView === "milestones" && <MilestonesPlaceholder />}
+          {activeView === "resources" && <ResourcesPlaceholder />}
+          {activeView === "reports" && <ReportsPlaceholder />}
+        </main>
+        {messengerOpen && (
+          <div className="w-96 shrink-0 h-full animate-fade-in">
+            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+          </div>
+        )}
+      </div>
 
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigateToTask={() => {}} onNavigateToProject={() => {}} onNavigateToTag={() => {}} />
       <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "pmo" }} />
     </div>
   );
