@@ -817,6 +817,7 @@ export default function NpdSwimlaneMatrix() {
                                     predecessorEntityType: "task", successorEntityType: "task",
                                   });
                                 }}
+                                onExpand={(id) => setDetailTaskId(id)}
                               />
                             ))}
                             <QuickCreateForm
