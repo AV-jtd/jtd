@@ -1525,10 +1525,11 @@ function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> })
 
 
 function ProjectDetailSheet({
-  projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
+  projectId, npdProjects, allGroups, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {
   projectId: string;
   npdProjects: NpdProject[];
+  allGroups: TaskGroup[];
   streamTags: { id: string; name: string }[];
   streamTagById: Map<string, string>;
   gateKeyToTagId: Map<string, string>;
@@ -1536,14 +1537,14 @@ function ProjectDetailSheet({
   onClose: () => void;
 }) {
   const project = npdProjects.find((p) => p.id === projectId);
+  const group = allGroups.find((g) => g.id === projectId);
   const queryClient = useQueryClient();
 
-  if (!project) return <div className="p-4 text-muted-foreground text-sm">Проект не найден</div>;
+  if (!project || !group) return <div className="p-4 text-muted-foreground text-sm">Проект не найден</div>;
 
   const currentGateKey = project.gateTags
     .map((id) => tagIdToGateKey.get(id))
     .find(Boolean) || null;
-  const currentGate = currentGateKey ? NPD_GATES.find((g) => g.key === currentGateKey) : null;
 
   const assignedStreams = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
 
@@ -1574,76 +1575,69 @@ function ProjectDetailSheet({
     toast.success(`Перемещено в ${NPD_GATES.find((g) => g.key === gateKey)?.title}`);
   };
 
-  const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
+  // Subprojects of this NPD project
+  const subprojects = allGroups.filter((g) => g.parent_id === projectId);
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <ProjectIcon project={project} />
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-foreground truncate">{project.name}</h2>
-          {currentGate && (
-            <span className={cn("text-xs font-medium", currentGate.textColor)}>{currentGate.title}</span>
-          )}
+      {/* Unified ProjectDetailPanel */}
+      <ProjectDetailPanel group={group} />
+
+      {/* NPD-specific: Gate selector */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div>
+          <h3 className="text-xs font-semibold text-foreground mb-2">Гейт</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {NPD_GATES.map((gate) => (
+              <button
+                key={gate.key}
+                onClick={() => moveToGate(gate.key)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                  currentGateKey === gate.key
+                    ? cn("border-transparent", gate.bgLight, gate.textColor, "font-semibold")
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {gate.title.split(":")[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stream selector */}
+        <div>
+          <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {NPD_STREAMS.map((stream) => (
+              <button
+                key={stream}
+                onClick={() => toggleStreamTag(stream)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                  assignedStreams.includes(stream)
+                    ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {stream}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {project.description && (
-        <p className="text-sm text-muted-foreground">{project.description}</p>
+      {/* Subprojects list */}
+      {subprojects.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+          <h3 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+            <Folder className="h-3 w-3" /> Подпроекты (стримы)
+          </h3>
+          {subprojects.map((sub) => (
+            <SubprojectRow key={sub.id} group={sub} />
+          ))}
+        </div>
       )}
-
-      {/* Progress */}
-      <div>
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-          <span className="font-medium">{progress}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-
-      {/* Gate selector */}
-      <div>
-        <h3 className="text-xs font-semibold text-foreground mb-2">Гейт</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {NPD_GATES.map((gate) => (
-            <button
-              key={gate.key}
-              onClick={() => moveToGate(gate.key)}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
-                currentGateKey === gate.key
-                  ? cn("border-transparent", gate.bgLight, gate.textColor, "font-semibold")
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              )}
-            >
-              {gate.title.split(":")[0]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stream selector */}
-      <div>
-        <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {NPD_STREAMS.map((stream) => (
-            <button
-              key={stream}
-              onClick={() => toggleStreamTag(stream)}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
-                assignedStreams.includes(stream)
-                  ? "border-primary/50 bg-primary/10 text-primary font-semibold"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              )}
-            >
-              {stream}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Links */}
       <div className="flex gap-2 pt-2">
@@ -1654,6 +1648,30 @@ function ProjectDetailSheet({
           Закрыть
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Subproject row with expandable ProjectDetailPanel ──
+function SubprojectRow({ group }: { group: TaskGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+      >
+        {expanded
+          ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        }
+        <span className="text-xs font-medium text-foreground truncate">{group.name}</span>
+      </button>
+      {expanded && (
+        <div className="px-1 pb-2">
+          <ProjectDetailPanel group={group} />
+        </div>
+      )}
     </div>
   );
 }
