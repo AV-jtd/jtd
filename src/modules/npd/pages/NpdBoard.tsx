@@ -578,7 +578,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
 
       // Auto-create stream subprojects
       const streamSubprojects = NPD_STREAMS.map((streamName, idx) => ({
-        name: `${name.trim()} / ${streamName}`,
+        name: streamName,
         user_id: currentUserId,
         project_type: "npd" as const,
         icon: "📋",
