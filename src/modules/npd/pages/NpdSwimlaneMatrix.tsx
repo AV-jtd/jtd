@@ -950,7 +950,7 @@ export default function NpdSwimlaneMatrix() {
 // ── Matrix Task Row ──
 function MatrixTaskRow({
   task, users, allDependencies, allTasks,
-  onDeadlineChange, onAssigneeChange, onToggle, onAddDependency,
+  onDeadlineChange, onAssigneeChange, onToggle, onAddDependency, onExpand,
 }: {
   task: Task;
   users: Profile[];
@@ -960,6 +960,7 @@ function MatrixTaskRow({
   onAssigneeChange: (taskId: string, userId: string | null) => void;
   onToggle: (taskId: string) => void;
   onAddDependency: (predId: string, succId: string) => void;
+  onExpand?: (taskId: string) => void;
 }) {
   const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
