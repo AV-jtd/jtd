@@ -530,10 +530,10 @@ export default function NpdSwimlaneMatrix() {
                             )}
                           </div>
                         )}
-                        {isCollapsed && isCurrentGate && (
+                        {isCollapsed && (hasTasks || isCurrentGate) && (
                           <div className="px-2 py-1.5 flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">{tasks.length} задач</span>
-                            {activeTasks.some(t => t.deadline && isPast(parseISO(t.deadline))) && (
+                            <span className="text-[10px] text-muted-foreground">{cellTasks.length} задач</span>
+                            {cellTasks.some(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))) && (
                               <AlertTriangle className="h-3 w-3 text-destructive" />
                             )}
                           </div>
