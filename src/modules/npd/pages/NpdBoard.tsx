@@ -1637,14 +1637,17 @@ function DashboardSection({ title, count, children, variant }: { title: string; 
   );
 }
 
-function DashboardTaskRow({ task, drift }: { task: Task; drift?: number }) {
+function DashboardTaskRow({ task, drift, assigneeName }: { task: Task; drift?: number; assigneeName?: string | null }) {
   const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   return (
     <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors">
       <CheckCircle2 className={cn("h-3 w-3 shrink-0", task.is_completed ? "text-emerald-500" : "text-muted-foreground/40")} />
-      <span className={cn("text-xs truncate flex-1", isOverdue && "text-red-600 dark:text-red-400")}>{task.title}</span>
+      <span className={cn("text-xs truncate flex-1", isOverdue && "text-destructive")}>{task.title}</span>
+      {assigneeName && (
+        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate">{assigneeName}</span>
+      )}
       {drift !== undefined && (
-        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-red-500" : "text-emerald-500")}>
+        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
       )}
@@ -1652,6 +1655,38 @@ function DashboardTaskRow({ task, drift }: { task: Task; drift?: number }) {
         <span className="text-[10px] text-muted-foreground shrink-0">
           {format(parseISO(task.deadline), "d MMM", { locale: ru })}
         </span>
+      )}
+    </div>
+  );
+}
+
+function ExpandableSubprojectRow({ subproject, stats }: { subproject: TaskGroup; stats: { name: string; total: number; completed: number } }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasTasks = stats.total > 0;
+
+  return (
+    <div>
+      <div
+        className={cn("flex items-center gap-2 px-2 py-1 rounded-md transition-colors", hasTasks && "cursor-pointer hover:bg-muted/50")}
+        onClick={() => hasTasks && setExpanded(!expanded)}
+      >
+        {hasTasks ? (
+          expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        ) : (
+          <div className="w-3 shrink-0" />
+        )}
+        <span className="text-xs text-foreground truncate flex-1">{stats.name}</span>
+        <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-primary" style={{ width: stats.total > 0 ? `${(stats.completed / stats.total) * 100}%` : '0%' }} />
+        </div>
+        <span className={cn("text-[10px] font-medium", stats.completed === stats.total && stats.total > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+          {stats.completed}/{stats.total}
+        </span>
+      </div>
+      {expanded && hasTasks && (
+        <div className="pl-4 pt-1 pb-1 animate-fade-in">
+          <ProjectDetailPanel group={subproject} />
+        </div>
       )}
     </div>
   );
