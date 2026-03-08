@@ -15,7 +15,8 @@ import {
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
 } from "lucide-react";
-import { isPast, parseISO } from "date-fns";
+import { isPast, parseISO, format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor,
