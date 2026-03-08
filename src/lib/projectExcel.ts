@@ -143,13 +143,38 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
     });
   });
 
+  // Apply filters from options
+  const selectedColumns = options?.columns;
+  const statusFilter = options?.statusFilter || "all";
+  const priorityFilter = options?.priorityFilter || "all";
+  const includeSubtasks = options?.includeSubtasks !== false;
+
+  // Filter task rows by status/priority
+  const filteredRows = rows.filter(row => {
+    if (row.type !== "task") return true; // keep project/subproject rows
+    if (statusFilter === "active" && row.status === "done") return false;
+    if (statusFilter === "done" && row.status !== "done") return false;
+    if (priorityFilter !== "all" && row.priority && row.priority !== priorityFilter) return false;
+    return true;
+  });
+
+  // Clear subtasks column if not included
+  if (!includeSubtasks) {
+    filteredRows.forEach(r => { r.subtasks = ""; });
+  }
+
+  // Select columns
+  const activeHeaders = selectedColumns
+    ? HEADERS.filter(h => selectedColumns.includes(h.key))
+    : HEADERS;
+
   // Create workbook
   const wb = new ExcelJS.Workbook();
   wb.creator = "Lovable";
   const ws = wb.addWorksheet(group.name.slice(0, 31));
 
   // Header row
-  const headerRow = ws.addRow(HEADERS.map(h => h.label));
+  const headerRow = ws.addRow(activeHeaders.map(h => h.label));
   headerRow.font = FONT_HEADER;
   headerRow.fill = FILL_HEADER;
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
@@ -157,15 +182,15 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
   headerRow.eachCell(cell => { cell.border = BORDER_THIN; });
 
   // Set column widths
-  HEADERS.forEach((h, i) => { ws.getColumn(i + 1).width = h.width; });
+  activeHeaders.forEach((h, i) => { ws.getColumn(i + 1).width = h.width; });
 
   // Freeze header
   ws.views = [{ state: "frozen", ySplit: 1 }];
 
   // Data rows
   const now = new Date();
-  rows.forEach(row => {
-    const values = HEADERS.map(h => row[h.key] || "");
+  filteredRows.forEach(row => {
+    const values = activeHeaders.map(h => row[h.key] || "");
     const excelRow = ws.addRow(values);
     excelRow.alignment = { vertical: "top", wrapText: true };
     excelRow.eachCell(cell => { cell.border = BORDER_THIN; });
@@ -178,57 +203,56 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
       excelRow.font = { bold: true, size: 10 };
     } else {
       // Status coloring
-      if (row.status === "done") {
-        excelRow.getCell(9).fill = FILL_DONE;
-        excelRow.getCell(9).font = { color: { argb: "FF16A34A" } };
-      } else if (row.deadline) {
+      const statusIdx = activeHeaders.findIndex(h => h.key === "status");
+      const deadlineIdx = activeHeaders.findIndex(h => h.key === "deadline");
+      const priorityIdx = activeHeaders.findIndex(h => h.key === "priority");
+
+      if (statusIdx >= 0 && row.status === "done") {
+        excelRow.getCell(statusIdx + 1).fill = FILL_DONE;
+        excelRow.getCell(statusIdx + 1).font = { color: { argb: "FF16A34A" } };
+      } else if (deadlineIdx >= 0 && row.deadline) {
         const dl = new Date(row.deadline);
         if (dl < now) {
-          excelRow.getCell(6).fill = FILL_OVERDUE;
-          excelRow.getCell(6).font = { color: { argb: "FFDC2626" } };
+          excelRow.getCell(deadlineIdx + 1).fill = FILL_OVERDUE;
+          excelRow.getCell(deadlineIdx + 1).font = { color: { argb: "FFDC2626" } };
         }
       }
-      // Priority coloring
-      const pFill = priorityFill(row.priority);
-      if (pFill) excelRow.getCell(8).fill = pFill;
+      if (priorityIdx >= 0) {
+        const pFill = priorityFill(row.priority);
+        if (pFill) excelRow.getCell(priorityIdx + 1).fill = pFill;
+      }
     }
   });
 
-  // Data validation dropdowns for task rows (rows 2+)
-  const taskRowStart = 2;
-  const taskRowEnd = rows.length + 1;
-  if (taskRowEnd >= taskRowStart) {
-    // Type dropdown
-    ws.getColumn(1).eachCell((cell, rowNumber) => {
+  // Data validation dropdowns
+  const typeIdx = activeHeaders.findIndex(h => h.key === "type");
+  const statusColIdx = activeHeaders.findIndex(h => h.key === "status");
+  const priorityColIdx = activeHeaders.findIndex(h => h.key === "priority");
+
+  if (typeIdx >= 0) {
+    ws.getColumn(typeIdx + 1).eachCell((cell, rowNumber) => {
       if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: "list", allowBlank: true,
-          formulae: ['"project,subproject,task"'],
-        };
+        cell.dataValidation = { type: "list", allowBlank: true, formulae: ['"project,subproject,task"'] };
       }
     });
-    // Status dropdown
-    ws.getColumn(9).eachCell((cell, rowNumber) => {
+  }
+  if (statusColIdx >= 0) {
+    ws.getColumn(statusColIdx + 1).eachCell((cell, rowNumber) => {
       if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: "list", allowBlank: true,
-          formulae: ['"active,done"'],
-        };
+        cell.dataValidation = { type: "list", allowBlank: true, formulae: ['"active,done"'] };
       }
     });
-    // Priority dropdown
-    ws.getColumn(8).eachCell((cell, rowNumber) => {
+  }
+  if (priorityColIdx >= 0) {
+    ws.getColumn(priorityColIdx + 1).eachCell((cell, rowNumber) => {
       if (rowNumber > 1) {
-        cell.dataValidation = {
-          type: "list", allowBlank: true,
-          formulae: ['"1,2,3"'],
-        };
+        cell.dataValidation = { type: "list", allowBlank: true, formulae: ['"1,2,3"'] };
       }
     });
   }
 
   // Auto-filter
-  ws.autoFilter = { from: "A1", to: `${String.fromCharCode(64 + HEADERS.length)}1` };
+  ws.autoFilter = { from: "A1", to: `${String.fromCharCode(64 + activeHeaders.length)}1` };
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
