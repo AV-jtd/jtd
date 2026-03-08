@@ -367,6 +367,47 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
+  // ── Compute secondary active gates per project ──
+  // A project's primary gate is the tag on the parent group.
+  // Secondary gates are gates where stream subprojects have active (incomplete) tasks
+  // but the stream subproject carries a different gate tag.
+  const projectSecondaryGates = useMemo(() => {
+    const m = new Map<string, { gateKey: string; activeCount: number; totalCount: number; streams: string[] }[]>();
+    for (const project of filteredProjects) {
+      const primaryGate = getProjectGate(project);
+      const subs = streamSubprojectsMap.get(project.id) || [];
+      const gateMap = new Map<string, { active: number; total: number; streams: string[] }>();
+
+      for (const sub of subs) {
+        // Find gate tag on this subproject
+        const subTags = allGroupTags.filter((gt) => gt.group_id === sub.id);
+        const subGateTagId = subTags.find((gt) => gateTagIds.has(gt.tag_id))?.tag_id;
+        const subGateKey = subGateTagId ? tagIdToGateKey.get(subGateTagId) : null;
+        if (!subGateKey || subGateKey === primaryGate) continue;
+
+        const subTasks = allTasks.filter((t) => t.group_id === sub.id);
+        const activeTasks = subTasks.filter((t) => !t.is_completed);
+        if (activeTasks.length === 0 && subTasks.length === 0) continue;
+
+        if (!gateMap.has(subGateKey)) gateMap.set(subGateKey, { active: 0, total: 0, streams: [] });
+        const entry = gateMap.get(subGateKey)!;
+        entry.active += activeTasks.length;
+        entry.total += subTasks.length;
+        if (sub.streamName) entry.streams.push(sub.streamName);
+      }
+
+      if (gateMap.size > 0) {
+        m.set(project.id, Array.from(gateMap.entries()).map(([gateKey, data]) => ({
+          gateKey,
+          activeCount: data.active,
+          totalCount: data.total,
+          streams: data.streams,
+        })));
+      }
+    }
+    return m;
+  }, [filteredProjects, streamSubprojectsMap, allGroupTags, allTasks, gateTagIds, tagIdToGateKey]);
+
   // ── Columns ──
   const gateColumns = useMemo(() => {
     const grouped: Record<string, NpdProject[]> = {};
@@ -380,6 +421,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
     return grouped;
   }, [filteredProjects, tagIdToGateKey]);
+
+  // Ghost badges: projects that appear as secondary in a gate
+  const ghostColumns = useMemo(() => {
+    const grouped: Record<string, { project: NpdProject; activeCount: number; totalCount: number; streams: string[]; primaryGate: string }[]> = {};
+    for (const gate of NPD_GATES) grouped[gate.key] = [];
+
+    for (const project of filteredProjects) {
+      const primaryGate = getProjectGate(project);
+      const secondaries = projectSecondaryGates.get(project.id) || [];
+      for (const sec of secondaries) {
+        if (grouped[sec.gateKey]) {
+          grouped[sec.gateKey].push({
+            project,
+            activeCount: sec.activeCount,
+            totalCount: sec.totalCount,
+            streams: sec.streams,
+            primaryGate: primaryGate || "inbox",
+          });
+        }
+      }
+    }
+    return grouped;
+  }, [filteredProjects, projectSecondaryGates]);
 
   const inboxProjects = useMemo(
     () => filteredProjects.filter((p) => getProjectGate(p) === null && p.stats.total > 0 || getProjectGate(p) === null),
