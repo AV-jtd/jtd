@@ -867,6 +867,7 @@ const SWIMLANE_UNASSIGNED = "__unassigned__";
 function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
+  projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -878,6 +879,10 @@ function SwimlaneGrid({
   onCardClick: (id: string) => void;
   onCreate: (name: string, gateKey: string | null) => void;
   gateKeyToTagId: Map<string, string>;
+  projectFilter: string | null;
+  streamSubprojectsMap: Map<string, { id: string; name: string; streamName: string | null }[]>;
+  streamSubprojectTasks: Map<string, Task[]>;
+  allTasks: Task[];
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
