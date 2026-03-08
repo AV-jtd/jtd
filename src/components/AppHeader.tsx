@@ -137,13 +137,6 @@ export default function AppHeader({
           </button>
         )}
 
-        <Link
-          to="/settings"
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Настройки"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
       </div>
     </header>
   );

@@ -68,9 +68,17 @@ export default function CrmLayout() {
           </button>
         </div>
       </AppHeader>
-      <main className="flex-1 overflow-hidden">
-        <CrmBoard boardView={boardView} />
-      </main>
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
+          <CrmBoard boardView={boardView} />
+        </main>
+        {messengerOpen && (
+          <div className="w-96 shrink-0 h-full animate-fade-in">
+            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+          </div>
+        )}
+      </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigateToTask={() => {}} onNavigateToProject={() => {}} onNavigateToTag={() => {}} />
       <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "crm" }} />
     </div>
   );

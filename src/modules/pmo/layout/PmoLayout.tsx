@@ -85,14 +85,22 @@ export default function PmoLayout() {
         </nav>
       </AppHeader>
 
-      <main className="flex-1 overflow-hidden">
-        {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
-        {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
-        {activeView === "milestones" && <MilestonesPlaceholder />}
-        {activeView === "resources" && <ResourcesPlaceholder />}
-        {activeView === "reports" && <ReportsPlaceholder />}
-      </main>
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
+          {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
+          {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
+          {activeView === "milestones" && <MilestonesPlaceholder />}
+          {activeView === "resources" && <ResourcesPlaceholder />}
+          {activeView === "reports" && <ReportsPlaceholder />}
+        </main>
+        {messengerOpen && (
+          <div className="w-96 shrink-0 h-full animate-fade-in">
+            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+          </div>
+        )}
+      </div>
 
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigateToTask={() => {}} onNavigateToProject={() => {}} onNavigateToTag={() => {}} />
       <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "pmo" }} />
     </div>
   );

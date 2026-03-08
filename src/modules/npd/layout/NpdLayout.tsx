@@ -35,10 +35,23 @@ export default function NpdLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader onAiOpen={() => setAiOpen(true)} />
-      <main className="flex-1 overflow-hidden">
-        <NpdBoard projectFilter={projectFilter} onProjectFilterChange={setProjectFilter} />
-      </main>
+      <AppHeader
+        onSearchOpen={() => setSearchOpen(true)}
+        onAiOpen={() => setAiOpen(true)}
+        onMessengerToggle={() => setMessengerOpen(prev => !prev)}
+        messengerOpen={messengerOpen}
+      />
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
+          <NpdBoard projectFilter={projectFilter} onProjectFilterChange={setProjectFilter} />
+        </main>
+        {messengerOpen && (
+          <div className="w-96 shrink-0 h-full animate-fade-in">
+            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+          </div>
+        )}
+      </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigateToTask={() => {}} onNavigateToProject={() => {}} onNavigateToTag={() => {}} />
       <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "npd" }} />
     </div>
   );
