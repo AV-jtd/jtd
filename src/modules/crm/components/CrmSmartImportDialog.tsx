@@ -45,9 +45,11 @@ const CRM_STAGE_TEMPLATE = [
 
 interface CrmSmartImportDialogProps {
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function CrmSmartImportDialog({ trigger }: CrmSmartImportDialogProps) {
+export default function CrmSmartImportDialog({ trigger, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CrmSmartImportDialogProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: groups = [] } = useTaskGroups();
@@ -55,7 +57,13 @@ export default function CrmSmartImportDialog({ trigger }: CrmSmartImportDialogPr
   const { data: allTags = [] } = useTags();
   const { addTask } = useTaskMutations();
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) controlledOnOpenChange?.(v);
+    else setInternalOpen(v);
+  };
   const [step, setStep] = useState<"upload" | "mapping" | "importing" | "done">("upload");
   const [loading, setLoading] = useState(false);
   const [mapping, setMapping] = useState<ColumnMapping[]>([]);
