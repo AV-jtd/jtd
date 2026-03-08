@@ -12,6 +12,16 @@ export default function NpdLayout() {
   const { user, loading } = useAuth();
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [messengerOpen, setMessengerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   if (loading) {
     return (
