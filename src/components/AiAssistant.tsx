@@ -138,7 +138,7 @@ const MODULE_CONFIG: Record<string, {
   },
 };
 
-export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAssistantProps) {
+export default function AiAssistant({ open, onOpenChange, moduleContext, onRequestImport }: AiAssistantProps) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
