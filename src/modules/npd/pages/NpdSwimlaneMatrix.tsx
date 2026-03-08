@@ -1075,6 +1075,17 @@ function MatrixTaskRow({
         }
       />
 
+      {/* Expand task detail */}
+      {onExpand && (
+        <button
+          onClick={() => onExpand(task.id)}
+          className="shrink-0 text-muted-foreground/30 hover:text-foreground opacity-0 group-hover:opacity-100 transition-all p-0.5 rounded"
+          title="Открыть карточку"
+        >
+          <Expand className="h-3 w-3" />
+        </button>
+      )}
+
       {/* Add dependency button */}
       <Popover open={depPickerOpen} onOpenChange={setDepPickerOpen}>
         <PopoverTrigger asChild>
