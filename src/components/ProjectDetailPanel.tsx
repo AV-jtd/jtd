@@ -334,7 +334,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       </div>
 
       {/* Subprojects */}
-      <SubprojectsList parentId={group.id} />
+      <SubprojectCards parentId={group.id} />
 
       {/* Tasks */}
       <TasksSection groupId={group.id} />
