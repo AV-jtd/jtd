@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, type Task, type TaskGroup } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
