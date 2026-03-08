@@ -108,7 +108,7 @@ export default function NpdSwimlaneMatrix() {
         streamsCatId = data?.id || null;
       }
 
-      // Ensure gate tags
+      // Ensure gate tags in current NPD category
       let { data: existingGateTags } = await supabase
         .from("tags")
         .select("id, name")
@@ -130,7 +130,7 @@ export default function NpdSwimlaneMatrix() {
         existingGateTags = refreshed;
       }
 
-      // Ensure stream tags
+      // Ensure stream tags in current NPD category
       let { data: existingStreamTags } = await supabase
         .from("tags")
         .select("id, name")
@@ -144,17 +144,25 @@ export default function NpdSwimlaneMatrix() {
         await supabase.from("tags").insert(
           missingStreams.map((s) => ({ name: s, user_id: user.id, color: "#8b5cf6", category_id: streamsCatId! }))
         );
-        const { data: refreshed } = await supabase
-          .from("tags")
-          .select("id, name")
-          .eq("category_id", streamsCatId!)
-          .eq("user_id", user.id);
-        existingStreamTags = refreshed;
       }
 
+      // IMPORTANT: also include legacy tags with same names from other categories
+      const gateNames = NPD_GATES.map(g => g.tagName);
+      const { data: allGateTagsByName } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .in("name", gateNames);
+
+      const { data: allStreamTagsByName } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .in("name", NPD_STREAMS);
+
       return {
-        gateTags: (existingGateTags || []) as { id: string; name: string }[],
-        streamTags: (existingStreamTags || []) as { id: string; name: string }[],
+        gateTags: (allGateTagsByName || []) as { id: string; name: string }[],
+        streamTags: (allStreamTagsByName || []) as { id: string; name: string }[],
         gatesCategoryId: gatesCatId,
         streamsCategoryId: streamsCatId,
       };
@@ -336,14 +344,15 @@ export default function NpdSwimlaneMatrix() {
     return null;
   }, [allTaskTags, tagIdToGateKey]);
 
-  // Inbox: tasks directly on parent project + unmatched subprojects
-  const inboxData = useMemo(() => {
-    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
-    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
-    const parentTasks = allTasks.filter(t => t.group_id === projectId);
-    const unmatchedSubTasks = unmatchedSubs.flatMap(s => allTasks.filter(t => t.group_id === s.id));
-    return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
-  }, [allTasks, projectId, subprojects, streamSubMap]);
+  // Map task → stream using task_tags
+  const getTaskStream = useCallback((taskId: string): string | null => {
+    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
+    for (const tt of tTags) {
+      const streamName = streamTagById.get(tt.tag_id);
+      if (streamName) return streamName;
+    }
+    return null;
+  }, [allTaskTags, streamTagById]);
 
   // All group IDs belonging to this project (parent + all subprojects)
   const projectGroupIds = useMemo(() => {
@@ -352,6 +361,43 @@ export default function NpdSwimlaneMatrix() {
     subprojects.forEach(s => ids.add(s.id));
     return ids;
   }, [projectId, subprojects]);
+
+  // All project tasks that already have explicit stream tags, grouped by stream
+  const streamTaggedTasksByStream = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    NPD_STREAMS.forEach(stream => map.set(stream, []));
+
+    allTasks.forEach(task => {
+      if (!task.group_id || !projectGroupIds.has(task.group_id)) return;
+      const stream = getTaskStream(task.id);
+      if (stream && map.has(stream)) {
+        map.get(stream)!.push(task);
+      }
+    });
+
+    return map;
+  }, [allTasks, projectGroupIds, getTaskStream]);
+
+  // Inbox: only tasks/subprojects that are not mapped to a stream in matrix
+  const inboxData = useMemo(() => {
+    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
+    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
+
+    const parentTasks = allTasks.filter(
+      t => t.group_id === projectId && !getTaskStream(t.id)
+    );
+
+    const unmatchedSubTasks = unmatchedSubs.flatMap(s =>
+      allTasks.filter(t => t.group_id === s.id && !getTaskStream(t.id))
+    );
+
+    return {
+      parentTasks,
+      unmatchedSubs,
+      unmatchedSubTasks,
+      totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length,
+    };
+  }, [allTasks, projectId, subprojects, streamSubMap, getTaskStream]);
 
   // Move stream subproject to a gate
   const moveStreamToGate = async (subId: string, gateKey: string) => {
@@ -620,7 +666,9 @@ export default function NpdSwimlaneMatrix() {
             const sub = streamSubMap.get(stream);
             const isCollapsed = collapsed.has(stream);
             const currentGate = sub ? getSubprojectGate(sub.id) : null;
-            const tasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
+            const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
+            const taggedStreamTasks = streamTaggedTasksByStream.get(stream) || [];
+            const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
             const activeTasks = tasks.filter(t => !t.is_completed);
             const completedCount = tasks.filter(t => t.is_completed).length;
             const overdueTasks = activeTasks.filter(t => t.deadline && isPast(parseISO(t.deadline)));
@@ -850,7 +898,7 @@ export default function NpdSwimlaneMatrix() {
                         </div>
                       {/* Unmatched subprojects */}
                       {inboxData.unmatchedSubs.map(sub => {
-                        const subTasks = allTasks.filter(t => t.group_id === sub.id);
+                        const subTasks = allTasks.filter(t => t.group_id === sub.id && !getTaskStream(t.id));
                         const displayName = sub.name.includes("/") ? sub.name.split("/").pop()!.trim() : sub.name;
                         return (
                           <div key={sub.id} className="space-y-1">
