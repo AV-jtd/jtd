@@ -393,7 +393,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
                     </span>
                   )}
                 </span>
-              ) : null;
+              );
             })()}
             {taskTags.map(tag => (
               <span
