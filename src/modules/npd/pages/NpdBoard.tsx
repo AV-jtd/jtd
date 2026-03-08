@@ -1660,6 +1660,13 @@ function ProjectCard({
           )}
         </div>
       )}
+
+      {/* Floating project detail sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="w-[440px] sm:w-[500px] p-0 overflow-y-auto">
+          {group && <ProjectDetailPanel group={group} />}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
