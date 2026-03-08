@@ -27,6 +27,7 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = search.trim()
