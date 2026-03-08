@@ -334,9 +334,21 @@ export default function NpdSwimlaneMatrix() {
 
       // Assign stream tag if we know the stream
       if (streamName) {
-        const streamTag = streamTags.find(t => t.name === streamName);
-        if (streamTag) {
-          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTag.id });
+        let streamTagId = streamTags.find(t => t.name === streamName)?.id;
+
+        // Safety: if stream tag was missing for this user, create it on the fly
+        if (!streamTagId && streamsCategoryId) {
+          const { data: createdStreamTag } = await supabase
+            .from("tags")
+            .insert({ name: streamName, user_id: uid, color: "#8b5cf6", category_id: streamsCategoryId })
+            .select("id")
+            .single();
+          streamTagId = createdStreamTag?.id;
+          queryClient.invalidateQueries({ queryKey: ["npd-tags-init", user?.id] });
+        }
+
+        if (streamTagId) {
+          await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTagId });
         }
       }
       // Assign gate tag
