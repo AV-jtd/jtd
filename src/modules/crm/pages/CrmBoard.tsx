@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, type ComponentProps } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
