@@ -909,13 +909,14 @@ function MatrixTaskRow({
   );
 }
 
-// ── Inline Task Creator ──
+// ── Inline Task Creator (CRM-style compact) ──
 function InlineTaskCreator({
-  groupId, users, onCreate,
+  groupId, users, onCreate, compact = false,
 }: {
   groupId: string;
   users: Profile[];
   onCreate: (title: string, groupId: string, deadline?: Date, assigneeId?: string) => Promise<void>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -937,21 +938,35 @@ function InlineTaskCreator({
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
+  const handleClose = () => {
+    setOpen(false);
+    setTitle("");
+    setDeadline(undefined);
+    setAssigneeId(undefined);
+  };
+
   const assignee = users.find(u => u.id === assigneeId);
 
   if (!open) {
     return (
       <button
-        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors w-full justify-center mt-1"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+        className={cn(
+          "inline-flex items-center gap-1 transition-colors",
+          compact
+            ? "p-0.5 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted"
+            : "rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/30 w-full justify-center mt-1"
+        )}
+        title="Добавить задачу"
       >
-        <Plus className="h-3 w-3" /> Добавить задачу
+        <Plus className="h-3 w-3" />
+        {!compact && <span>Задача</span>}
       </button>
     );
   }
 
   return (
-    <div className="rounded-md border border-primary/30 bg-card p-2 space-y-1.5 mt-1">
+    <div className="rounded-md border border-primary/30 bg-card p-2 space-y-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
       <Input
         ref={inputRef}
         value={title}
@@ -961,11 +976,10 @@ function InlineTaskCreator({
         disabled={saving}
         onKeyDown={(e) => {
           if (e.key === "Enter") handleSubmit();
-          if (e.key === "Escape") { setOpen(false); setTitle(""); setDeadline(undefined); setAssigneeId(undefined); }
+          if (e.key === "Escape") handleClose();
         }}
       />
       <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Deadline */}
         <Popover open={calOpen} onOpenChange={setCalOpen}>
           <PopoverTrigger asChild>
             <button className={cn(
@@ -975,7 +989,7 @@ function InlineTaskCreator({
               {deadline ? format(deadline, "d MMM", { locale: ru }) : "Срок"}
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className="w-auto p-0 z-[60]" align="start">
             <Calendar
               mode="single"
               selected={deadline}
@@ -985,8 +999,6 @@ function InlineTaskCreator({
             />
           </PopoverContent>
         </Popover>
-
-        {/* Assignee */}
         <UserPicker
           users={users}
           onSelect={(u) => setAssigneeId(u.id)}
@@ -1002,7 +1014,6 @@ function InlineTaskCreator({
             </button>
           }
         />
-
         <div className="flex-1" />
         <button
           onClick={handleSubmit}
@@ -1011,10 +1022,7 @@ function InlineTaskCreator({
         >
           {saving ? "..." : "Добавить"}
         </button>
-        <button
-          onClick={() => { setOpen(false); setTitle(""); setDeadline(undefined); setAssigneeId(undefined); }}
-          className="text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
           <X className="h-3 w-3" />
         </button>
       </div>
