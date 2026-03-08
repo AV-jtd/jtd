@@ -1273,6 +1273,7 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
 // ── Draggable project card ──
 function DraggableProjectCard({
   project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
+  gateKeyToTagId, allGroupTags,
 }: {
   project: NpdProject;
   isMoving: boolean;
@@ -1280,6 +1281,8 @@ function DraggableProjectCard({
   onCardClick: () => void;
   isSecondary?: boolean;
   currentGate?: GateStage;
+  gateKeyToTagId?: Map<string, string>;
+  allGroupTags?: { group_id: string; tag_id: string }[];
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
@@ -1292,6 +1295,8 @@ function DraggableProjectCard({
         onCardClick={onCardClick}
         isSecondary={isSecondary}
         currentGate={currentGate}
+        gateKeyToTagId={gateKeyToTagId}
+        allGroupTags={allGroupTags}
       />
     </div>
   );
