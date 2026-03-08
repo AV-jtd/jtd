@@ -715,9 +715,11 @@ export default function NpdSwimlaneMatrix() {
                           const cellOverdue = cellTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
                           const cellPct = cellTasks.length > 0 ? Math.round((cellCompleted / cellTasks.length) * 100) : 0;
                           return (
-                            <div className={cn(
-                              "px-2.5 py-2 flex items-center gap-2",
-                              cellOverdue > 0 && "bg-destructive/5"
+                            <div
+                              onClick={() => toggleCollapse(stream)}
+                              className={cn(
+                              "px-2.5 py-2 flex items-center gap-2 cursor-pointer hover:bg-muted/40 transition-colors",
+                              cellOverdue > 0 && "bg-destructive/5 hover:bg-destructive/10"
                             )}>
                               {cellTasks.length > 0 ? (
                                 <>
