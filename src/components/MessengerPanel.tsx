@@ -3,7 +3,8 @@ import { useThreads, Thread } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search } from "lucide-react";
+import AiChatThread from "./AiChatThread";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -26,11 +27,41 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = search.trim()
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : threads;
+
+  // AI Chat view
+  if (showAiChat) {
+    return (
+      <div className="flex flex-col h-full bg-card border-l border-border">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+          <button
+            onClick={() => setShowAiChat(false)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              ИИ-ассистент
+            </p>
+            <p className="text-[10px] text-muted-foreground">Контекстный анализ проекта</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AiChatThread />
+        </div>
+      </div>
+    );
+  }
 
   // Thread list view
   if (!activeThread) {
@@ -61,6 +92,22 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
               className="h-8 text-sm pl-8"
             />
           </div>
+        </div>
+
+        {/* AI Assistant entry */}
+        <div className="px-3 py-2 border-b border-border">
+          <button
+            onClick={() => setShowAiChat(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/10 transition-colors text-left"
+          >
+            <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground">ИИ-ассистент</span>
+              <p className="text-[10px] text-muted-foreground">Анализ проекта, саммари, риски</p>
+            </div>
+          </button>
         </div>
 
         {/* Thread list */}
