@@ -838,7 +838,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   <InboxColumn
                     projects={inboxProjects}
                     isOver={overColumn === "inbox"}
-                    onCardClick={setSelectedProjectId}
+                    onCardClick={handleCardClick}
                     onCreate={(name) => handleCreateProject(name, null)}
                   />
                 )}
