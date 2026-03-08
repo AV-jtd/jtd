@@ -1363,7 +1363,7 @@ function DraggableProjectCard({
   );
 }
 
-// ── Project Card ──
+// ── Project Card (dashboard-style) ──
 function ProjectCard({
   project, streamTagById, isDragging, dragHandleProps, onCardClick,
 }: {
@@ -1375,18 +1375,23 @@ function ProjectCard({
 }) {
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+  const { overdue, upcoming, driftCount } = project.stats;
+  const healthColor = overdue > 0 ? "destructive" : upcoming > 0 ? "warning" : "success";
 
   return (
     <div
       onClick={onCardClick}
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
+        "rounded-xl border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
         isDragging ? "shadow-lg" : "hover:shadow-md"
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-start gap-2 min-w-0">
         <ProjectIcon project={project} />
-        <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-semibold text-foreground truncate">{project.name}</h4>
+        </div>
+        <HealthDot status={healthColor} />
         {dragHandleProps && (
           <button
             {...dragHandleProps}
@@ -1409,13 +1414,51 @@ function ProjectCard({
         </div>
       )}
 
+      {/* Progress bar */}
+      {project.stats.total > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[10px] mb-0.5">
+            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
+            <span className="font-medium text-foreground">{progress}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Stats row - like dashboard */}
+      <div className="flex items-center gap-3 mt-2 text-[10px]">
+        {overdue > 0 && (
+          <span className="flex items-center gap-0.5 text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            {overdue}
+          </span>
+        )}
+        {upcoming > 0 && (
+          <span className="flex items-center gap-0.5 text-warning">
+            <Clock className="h-3 w-3" />
+            {upcoming}
+          </span>
+        )}
+        {driftCount > 0 && (
+          <span className="flex items-center gap-0.5 text-muted-foreground">
+            <TrendingUp className="h-3 w-3" />
+            {driftCount}
+          </span>
+        )}
+        {project.stats.total === 0 && (
+          <span className="text-muted-foreground">Нет задач</span>
+        )}
+      </div>
+
       {/* Stream subprojects breakdown */}
-      {project.streamStats.length > 0 && (
-        <div className="mt-2 space-y-0.5">
+      {project.streamStats.length > 0 && project.streamStats.some(s => s.total > 0) && (
+        <div className="mt-2 pt-2 border-t border-border/50 space-y-0.5">
           {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
             <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
               <span className="text-muted-foreground truncate flex-1">{s.name}</span>
-              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
+              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-success" : "text-foreground")}>
                 {s.completed}/{s.total}
               </span>
             </div>
@@ -1425,32 +1468,6 @@ function ProjectCard({
           )}
         </div>
       )}
-
-      {/* Progress */}
-      {project.stats.total > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-[10px] mb-0.5">
-            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-            <span className="font-medium text-foreground">{progress}%</span>
-          </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="flex items-center gap-2 mt-1.5 text-[10px]">
-        {project.stats.overdue > 0 && (
-          <span className="flex items-center gap-0.5 text-destructive">
-            <AlertTriangle className="h-3 w-3" />
-            {project.stats.overdue}
-          </span>
-        )}
-        {project.stats.total === 0 && (
-          <span className="text-muted-foreground">Нет задач</span>
-        )}
-      </div>
     </div>
   );
 }
