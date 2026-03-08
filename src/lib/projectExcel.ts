@@ -84,7 +84,14 @@ const BORDER_THIN: Partial<ExcelJS.Borders> = {
 
 // ─── Export ───
 
-export async function exportProjectToExcel(groupId: string): Promise<Blob> {
+export interface ExportOptions {
+  columns?: string[];
+  statusFilter?: "all" | "active" | "done";
+  priorityFilter?: "all" | "1" | "2" | "3";
+  includeSubtasks?: boolean;
+}
+
+export async function exportProjectToExcel(groupId: string, options?: ExportOptions): Promise<Blob> {
   const { data: group } = await supabase.from("task_groups").select("*").eq("id", groupId).single();
   if (!group) throw new Error("Проект не найден");
 
