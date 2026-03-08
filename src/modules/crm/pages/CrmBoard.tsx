@@ -220,6 +220,56 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     enabled: !!user,
   });
 
+  // CRM dimension tags — fetch tag categories for territory, retail type, rank
+  const { data: crmDimensionTags } = useQuery({
+    queryKey: ["crm-dimension-tags", user?.id],
+    queryFn: async () => {
+      if (!user) return { territory: [], retailType: [], rank: [] };
+      // Find CRM root categories for ALL users (tags are globally visible)
+      const { data: crmRoots } = await supabase
+        .from("tag_categories")
+        .select("id")
+        .is("parent_id", null)
+        .eq("name", "CRM / Продажи");
+      const rootIds = (crmRoots || []).map(r => r.id);
+      if (rootIds.length === 0) return { territory: [], retailType: [], rank: [] };
+
+      // Find subcategories
+      const { data: subCats } = await supabase
+        .from("tag_categories")
+        .select("id, name")
+        .in("parent_id", rootIds);
+      
+      const getCatIds = (name: string) => (subCats || []).filter(c => c.name === name).map(c => c.id);
+      const territoryCatIds = getCatIds("Территории");
+      const retailTypeCatIds = getCatIds("Тип ретейла");
+      const rankCatIds = getCatIds("Ранг");
+
+      const fetchTags = async (catIds: string[]) => {
+        if (catIds.length === 0) return [];
+        const { data } = await supabase.from("tags").select("id, name, color").in("category_id", catIds);
+        // Deduplicate by name
+        const seen = new Map<string, CrmTag>();
+        (data || []).forEach(t => { if (!seen.has(t.name.toLowerCase())) seen.set(t.name.toLowerCase(), t as CrmTag); });
+        return [...seen.values()];
+      };
+
+      const [territory, retailType, rank] = await Promise.all([
+        fetchTags(territoryCatIds),
+        fetchTags(retailTypeCatIds),
+        fetchTags(rankCatIds),
+      ]);
+
+      return { territory, retailType, rank };
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const territoryTags = crmDimensionTags?.territory || [];
+  const retailTypeTags = crmDimensionTags?.retailType || [];
+  const rankTags = crmDimensionTags?.rank || [];
+
   const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
 
   // Find tag IDs for inbox tags (crm, оп, продажи)
