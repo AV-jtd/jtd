@@ -1152,10 +1152,11 @@ function SwimlaneStreamRow({
 
 // ── Gate Column ──
 function GateColumn({
-  gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
+  gate, projects, ghosts, isOver, isMoving, streamTagById, onCardClick, onCreate,
 }: {
   gate: GateStage;
   projects: NpdProject[];
+  ghosts: { project: NpdProject; activeCount: number; totalCount: number; streams: string[]; primaryGate: string }[];
   isOver: boolean;
   isMoving: boolean;
   streamTagById: Map<string, string>;
@@ -1164,6 +1165,7 @@ function GateColumn({
 }) {
   const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
+  const navigate = useNavigate();
 
   return (
     <div
@@ -1198,7 +1200,19 @@ function GateColumn({
               onCardClick={() => onCardClick(p.id)}
             />
           ))}
-          {projects.length === 0 && (
+          {/* Ghost badges for projects primarily in another gate */}
+          {ghosts.map((g) => (
+            <GhostProjectBadge
+              key={`ghost-${g.project.id}`}
+              project={g.project}
+              activeCount={g.activeCount}
+              totalCount={g.totalCount}
+              streams={g.streams}
+              primaryGate={g.primaryGate}
+              onCardClick={() => navigate(`/npd/matrix/${g.project.id}`)}
+            />
+          ))}
+          {projects.length === 0 && ghosts.length === 0 && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
           )}
         </div>
