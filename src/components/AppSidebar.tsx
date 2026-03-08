@@ -6,7 +6,7 @@ import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox,
 } from "lucide-react";
 
-import ImportProjectDialog from "@/components/ImportProjectDialog";
+import SmartImportDialog from "@/components/SmartImportDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -729,12 +729,12 @@ export default function AppSidebar({
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Проекты
             <span className="ml-auto flex items-center gap-1">
-              <ImportProjectDialog
+              <SmartImportDialog
                 trigger={
                   <span
                     onClick={(e) => e.stopPropagation()}
                     className="hover:text-sidebar-fg"
-                    title="Импорт проекта из Excel"
+                    title="Умный импорт из Excel"
                   >
                     <Download className="h-3.5 w-3.5" />
                   </span>

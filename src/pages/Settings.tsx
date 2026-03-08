@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw } from "lucide-react";
-import ImportProjectDialog from "@/components/ImportProjectDialog";
+import SmartImportDialog from "@/components/SmartImportDialog";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
@@ -311,9 +311,9 @@ export default function Settings() {
                 Импорт / Экспорт
               </h2>
               <p className="text-sm text-muted-foreground mb-3">
-                Импортируйте проект из Excel-файла (.xlsx). Экспорт доступен в контекстном меню проекта в сайдбаре.
+                Импортируйте проект из Excel-файла (.xlsx) — AI автоматически определит колонки. Экспорт с выбором колонок и фильтров доступен в панели проекта.
               </p>
-              <ImportProjectDialog />
+              <SmartImportDialog />
             </div>
 
             {/* Teams section */}
