@@ -583,6 +583,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
   };
 
+  // ── Create task in a stream subproject ──
+  const handleCreateTask = async (title: string, groupId: string) => {
+    if (!title.trim() || !user) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUserId = sessionData?.session?.user?.id;
+    if (!currentUserId) { toast.error("Сессия истекла"); return; }
+    const { error } = await supabase.from("tasks").insert({
+      title: title.trim(),
+      user_id: currentUserId,
+      group_id: groupId,
+    });
+    if (error) { toast.error("Ошибка: " + error.message); return; }
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    toast.success("Задача создана");
+  };
+
   // ── Selected project for detail view ──
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
@@ -807,6 +823,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 streamSubprojectsMap={streamSubprojectsMap}
                 streamSubprojectTasks={streamSubprojectTasks}
                 allTasks={allTasks}
+                onCreateTask={handleCreateTask}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
@@ -881,6 +898,7 @@ function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
   projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
+  onCreateTask,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -896,6 +914,7 @@ function SwimlaneGrid({
   streamSubprojectsMap: Map<string, { id: string; name: string; streamName: string | null }[]>;
   streamSubprojectTasks: Map<string, Task[]>;
   allTasks: Task[];
+  onCreateTask: (title: string, groupId: string) => Promise<void>;
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
@@ -1005,15 +1024,14 @@ function SwimlaneGrid({
               {!isCollapsed && projectFilter && streamSub ? (
                 /* When project is filtered: show all tasks across the full row */
                 <div className="flex-1 px-3 py-2 border-r border-border">
-                  {streamTasks.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {streamTasks.map((task) => (
-                        <TaskMiniCard key={task.id} task={task} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-2 text-[10px] text-muted-foreground/50">Нет задач в этом стриме</div>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {streamTasks.map((task) => (
+                      <TaskMiniCard key={task.id} task={task} />
+                    ))}
+                    <InlineTaskAdder
+                      onAdd={(title) => onCreateTask(title, streamSub.id)}
+                    />
+                  </div>
                 </div>
               ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
@@ -1438,6 +1456,65 @@ function TaskMiniCard({ task }: { task: Task }) {
         <span className="truncate">{task.title}</span>
         {isOverdue && <AlertTriangle className="h-3 w-3 text-destructive shrink-0 ml-auto" />}
       </div>
+    </div>
+  );
+}
+
+// ── Inline Task Adder (+ button that expands to input) ──
+function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
+    await onAdd(title);
+    setTitle("");
+    setSaving(false);
+    // Keep open for rapid entry
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
+      >
+        <Plus className="h-3 w-3" /> Задача
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <Input
+        ref={inputRef}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название задачи..."
+        className="h-6 text-[11px] w-40 px-2"
+        disabled={saving}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+          if (e.key === "Escape") { setAdding(false); setTitle(""); }
+        }}
+      />
+      <button
+        onClick={handleSubmit}
+        disabled={saving || !title.trim()}
+        className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {saving ? "..." : "OK"}
+      </button>
+      <button
+        onClick={() => { setAdding(false); setTitle(""); }}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
     </div>
   );
 }
