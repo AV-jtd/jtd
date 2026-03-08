@@ -416,7 +416,7 @@ export default function NpdSwimlaneMatrix() {
                       >
                         {!isCollapsed && (
                           <div className="px-2 py-2 min-h-[60px]">
-                            {isCurrentGate ? (
+                             {isCurrentGate ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
                                   <MatrixTaskRow
@@ -428,12 +428,9 @@ export default function NpdSwimlaneMatrix() {
                                     onDeadlineChange={handleDeadlineChange}
                                     onAssigneeChange={(taskId, userId) => {
                                       updateTask.mutate({ id: taskId, assigned_to: userId });
-                                      // Sync participant
                                       if (userId) {
                                         supabase.from("task_participants").upsert({
-                                          task_id: taskId,
-                                          user_id: userId,
-                                          role: "assignee",
+                                          task_id: taskId, user_id: userId, role: "assignee",
                                         }, { onConflict: "task_id,user_id" });
                                       }
                                     }}
@@ -450,12 +447,10 @@ export default function NpdSwimlaneMatrix() {
                                       const pred = allTasks.find(t => t.id === predId);
                                       const succ = allTasks.find(t => t.id === succId);
                                       setDepDialogState({
-                                        predecessorId: predId,
-                                        successorId: succId,
+                                        predecessorId: predId, successorId: succId,
                                         predecessorLabel: pred?.title || predId,
                                         successorLabel: succ?.title || succId,
-                                        predecessorEntityType: "task",
-                                        successorEntityType: "task",
+                                        predecessorEntityType: "task", successorEntityType: "task",
                                       });
                                     }}
                                   />
@@ -468,15 +463,23 @@ export default function NpdSwimlaneMatrix() {
                                   />
                                 )}
                               </div>
+                            ) : sub ? (
+                              /* Stream exists but is in another gate — allow adding tasks here */
+                              <InlineTaskCreator
+                                groupId={sub.id}
+                                users={users}
+                                onCreate={handleCreateTask}
+                              />
                             ) : (
-                              /* Drop zone to move stream to this gate */
+                              /* No subproject for this stream — create one */
                               <button
-                                onClick={() => sub && moveStreamToGate(sub.id, gate.key)}
-                                className="w-full h-full min-h-[40px] rounded-lg border-2 border-dashed border-transparent hover:border-muted-foreground/20 flex items-center justify-center transition-colors group"
-                                title={`Переместить ${stream} → ${gate.title}`}
+                                onClick={() => handleCreateSubproject(stream, gate.key)}
+                                className="w-full min-h-[40px] rounded-lg border-2 border-dashed border-transparent hover:border-primary/30 flex items-center justify-center transition-colors group/create"
+                                title={`Создать стрим «${stream}» в ${gate.title}`}
                               >
-                                <span className="text-[10px] text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors">
-                                  Переместить сюда
+                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/30 group-hover/create:text-primary/60 transition-colors">
+                                  <Plus className="h-3 w-3" />
+                                  Создать стрим
                                 </span>
                               </button>
                             )}
