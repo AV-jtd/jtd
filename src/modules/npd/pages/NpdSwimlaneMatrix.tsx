@@ -658,7 +658,9 @@ export default function NpdSwimlaneMatrix() {
             const sub = streamSubMap.get(stream);
             const isCollapsed = collapsed.has(stream);
             const currentGate = sub ? getSubprojectGate(sub.id) : null;
-            const tasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
+            const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
+            const taggedStreamTasks = streamTaggedTasksByStream.get(stream) || [];
+            const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
             const activeTasks = tasks.filter(t => !t.is_completed);
             const completedCount = tasks.filter(t => t.is_completed).length;
             const overdueTasks = activeTasks.filter(t => t.deadline && isPast(parseISO(t.deadline)));
