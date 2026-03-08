@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
@@ -20,9 +20,13 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export default function Index() {
   const { user, loading } = useAuth();
-  const [activeView, setActiveView] = useState("all");
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+  const [searchParams] = useSearchParams();
+  const [activeView, setActiveView] = useState(() => searchParams.get("view") || "all");
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(() => searchParams.get("group"));
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>(() => {
+    const tag = searchParams.get("tag");
+    return tag ? [tag] : [];
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
