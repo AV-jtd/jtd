@@ -1428,6 +1428,7 @@ function ProjectCard({
   dragHandleProps?: ComponentProps<"button">;
   onCardClick?: () => void;
 }) {
+  const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
