@@ -1085,6 +1085,115 @@ function SwimlaneGrid({
   );
 }
 
+// ── Swimlane Stream Row (extracted for hooks) ──
+function SwimlaneStreamRow({
+  stream, isCollapsed, onToggleCollapse, totalInRow,
+  projectFilter, streamSub, streamSubGroup, streamTasks, onCreateTask,
+  visibleGates, gridData, colWidth, isMoving, streamTagById, onCardClick,
+}: {
+  stream: string;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  totalInRow: number;
+  projectFilter: string | null;
+  streamSub: { id: string; name: string; streamName: string | null } | null;
+  streamSubGroup: TaskGroup | null;
+  streamTasks: Task[];
+  onCreateTask: (title: string, groupId: string) => Promise<void>;
+  visibleGates: GateStage[];
+  gridData: Record<string, Record<string, NpdProject[]>>;
+  colWidth: string;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: (id: string) => void;
+}) {
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  return (
+    <div className="border-b border-border">
+      {/* Row header */}
+      <div className="flex">
+        <div className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-1.5">
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+          >
+            {isCollapsed
+              ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+              : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            }
+            <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+            {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
+            <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
+          </button>
+          {/* Expand subproject detail button */}
+          {streamSubGroup && (
+            <button
+              onClick={() => setDetailOpen(!detailOpen)}
+              className={cn(
+                "p-1 rounded transition-colors shrink-0",
+                detailOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Карточка подпроекта"
+            >
+              <Expand className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        {!isCollapsed && projectFilter && streamSub ? (
+          /* When project is filtered: show all tasks from this stream subproject */
+          <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
+            <div className="flex flex-col gap-1.5">
+              {streamTasks.map((task) => (
+                <TaskItem key={task.id} task={task} />
+              ))}
+              {streamTasks.length === 0 && (
+                <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
+              )}
+              <InlineTaskAdder
+                onAdd={(title) => onCreateTask(title, streamSub.id)}
+              />
+            </div>
+          </div>
+        ) : !isCollapsed ? visibleGates.map((gate) => {
+          const cellProjects = gridData[stream]?.[gate.key] || [];
+          return (
+            <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+              <div className="flex flex-col gap-1.5">
+                {cellProjects.map((p) => (
+                  <DraggableProjectCard
+                    key={p.id}
+                    project={p}
+                    isMoving={isMoving}
+                    streamTagById={streamTagById}
+                    onCardClick={() => onCardClick(p.id)}
+                  />
+                ))}
+                {cellProjects.length === 0 && (
+                  <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                )}
+              </div>
+            </div>
+          );
+        }) : null}
+        {isCollapsed && (
+          <div className="flex-1 flex items-center px-3">
+            <span className="text-[10px] text-muted-foreground">
+              {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
+            </span>
+          </div>
+        )}
+      </div>
+      {/* Subproject detail panel */}
+      {detailOpen && streamSubGroup && (
+        <div className="px-3 py-2 bg-muted/30 border-t border-border animate-fade-in">
+          <ProjectDetailPanel group={streamSubGroup} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Gate Column ──
 function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
