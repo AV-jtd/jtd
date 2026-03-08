@@ -238,7 +238,11 @@ export default function SubprojectCards({ parentId, onNavigate }: { parentId: st
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: availableUsers = [] } = useAvailableUsers();
-  const subprojects = allGroups.filter(g => g.parent_id === parentId);
+  const subprojects = allGroups.filter(g => g.parent_id === parentId)
+    .filter(g => {
+      const stats = computeSubprojectStats(g.id, allTasks, allGroups);
+      return stats.total > 0;
+    });
 
   if (subprojects.length === 0) return null;
 
