@@ -1548,6 +1548,33 @@ function ProjectCard({
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
         <div className="border-t border-border animate-fade-in px-2.5 pb-3 pt-2.5 space-y-3 overflow-hidden">
+          {/* Quick action icons */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onCardClick?.(); }}
+              className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Карточка проекта (сайдбар)"
+            >
+              <PanelLeft className="h-3.5 w-3.5" />
+              <span>Карточка</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/pmo?project=${project.id}`); }}
+              className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Открыть в Ганте"
+            >
+              <GanttChart className="h-3.5 w-3.5" />
+              <span>Гант</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/npd/matrix/${project.id}`); }}
+              className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Открыть матрицу"
+            >
+              <Grid3X3 className="h-3.5 w-3.5" />
+              <span>Матрица</span>
+            </button>
+          </div>
           {/* Assignee */}
           {assigneeName && (
             <div className="flex items-center gap-1.5">
