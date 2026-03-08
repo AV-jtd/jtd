@@ -2004,26 +2004,6 @@ function ProjectDetailSheet({
           </div>
         </div>
 
-        {/* Stream selector */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
-          <div className="flex flex-wrap gap-1.5">
-            {NPD_STREAMS.map((stream) => (
-              <button
-                key={stream}
-                onClick={() => toggleStreamTag(stream)}
-                className={cn(
-                  "text-xs px-2.5 py-1 rounded-lg border transition-colors",
-                  assignedStreams.includes(stream)
-                    ? "border-primary/50 bg-primary/10 text-primary font-semibold"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                )}
-              >
-                {stream}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Subprojects list */}
@@ -2064,7 +2044,7 @@ function SubprojectRow({ group }: { group: TaskGroup }) {
           ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
           : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
         }
-        <span className="text-xs font-medium text-foreground truncate">{group.name}</span>
+        <span className="text-xs font-medium text-foreground truncate">{group.name.includes("/") ? group.name.split("/").pop()!.trim() : group.name}</span>
       </button>
       {expanded && (
         <div className="px-1 pb-2">

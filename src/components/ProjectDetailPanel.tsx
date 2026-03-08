@@ -1,15 +1,19 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile } from "@/hooks/useTasks";
 import TaskItem from "@/components/TaskItem";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
 import { exportProjectToExcel, downloadExcel } from "@/lib/projectExcel";
 import ImportProjectDialog from "@/components/ImportProjectDialog";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface ProjectDetailPanelProps {
   group: TaskGroup;
@@ -413,19 +417,47 @@ function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
 function TasksSection({ groupId }: { groupId: string }) {
   const { data: tasks = [] } = useTasks(groupId);
   const { addTask } = useTaskMutations();
+  const { data: availableUsers = [] } = useAvailableUsers();
+  const { data: members = [] } = useGroupMembers(groupId);
   const activeTasks = tasks.filter(t => !t.is_completed);
   const completedTasks = tasks.filter(t => t.is_completed);
   const [showCompleted, setShowCompleted] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
+  const [newAssignee, setNewAssignee] = useState<string | null>(null);
+  const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // All users who can be assigned: group members + available users
+  const assignableUsers = useMemo(() => {
+    const memberIds = members.map(m => m.user_id);
+    const allIds = new Set([...memberIds]);
+    return availableUsers.filter(u => allIds.has(u.id));
+  }, [members, availableUsers]);
 
   const handleAdd = () => {
     if (!newTitle.trim()) return;
-    addTask.mutate({ title: newTitle.trim(), group_id: groupId });
+    addTask.mutate({
+      title: newTitle.trim(),
+      group_id: groupId,
+      deadline: newDeadline ? newDeadline.toISOString() : null,
+      assigned_to: newAssignee,
+    });
     setNewTitle("");
+    setNewDeadline(undefined);
+    setNewAssignee(null);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
+
+  const resetAdding = () => {
+    setAdding(false);
+    setNewTitle("");
+    setNewDeadline(undefined);
+    setNewAssignee(null);
+  };
+
+  const getAssigneeName = (id: string) => availableUsers.find(u => u.id === id)?.display_name || id.slice(0, 8);
 
   return (
     <div className="space-y-1.5">
@@ -444,28 +476,96 @@ function TasksSection({ groupId }: { groupId: string }) {
         )}
       </div>
       {adding && (
-        <div className="flex items-center gap-1.5 animate-fade-in">
+        <div className="space-y-1.5 animate-fade-in rounded-lg border border-primary/20 bg-muted/30 p-2">
           <Input
             ref={inputRef}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Название задачи..."
-            className="h-7 text-xs flex-1"
+            className="h-7 text-xs"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAdd();
-              if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+              if (e.key === "Escape") resetAdding();
             }}
           />
-          <button
-            onClick={handleAdd}
-            disabled={!newTitle.trim()}
-            className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            OK
-          </button>
-          <button onClick={() => { setAdding(false); setNewTitle(""); }} className="text-muted-foreground hover:text-foreground">
-            <X className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Deadline picker */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-colors",
+                  newDeadline
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <CalendarIcon className="h-2.5 w-2.5" />
+                  {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" side="bottom" align="start">
+                <Calendar
+                  mode="single"
+                  selected={newDeadline}
+                  onSelect={(d) => setNewDeadline(d)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            {newDeadline && (
+              <button onClick={() => setNewDeadline(undefined)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            )}
+
+            {/* Assignee picker */}
+            <Popover open={assigneePickerOpen} onOpenChange={setAssigneePickerOpen}>
+              <PopoverTrigger asChild>
+                <button className={cn(
+                  "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-colors",
+                  newAssignee
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}>
+                  <User className="h-2.5 w-2.5" />
+                  {newAssignee ? getAssigneeName(newAssignee) : "Ответственный"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="bottom" align="start">
+                <div className="max-h-40 overflow-y-auto space-y-0.5">
+                  {assignableUsers.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">Нет участников</p>
+                  )}
+                  {assignableUsers.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => { setNewAssignee(u.id); setAssigneePickerOpen(false); }}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors text-left"
+                    >
+                      {u.display_name || "Без имени"}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {newAssignee && (
+              <button onClick={() => setNewAssignee(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            )}
+
+            <div className="flex-1" />
+            <button
+              onClick={handleAdd}
+              disabled={!newTitle.trim()}
+              className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              OK
+            </button>
+            <button onClick={resetAdding} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
       {activeTasks.length === 0 && completedTasks.length === 0 && !adding && (

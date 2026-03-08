@@ -532,7 +532,7 @@ export function useTaskMutations() {
   // ========== TASKS ==========
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; task_type?: string; client_name?: string }) => {
+    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string }) => {
       const taskType = task.task_type || 'standard';
       let clientId: string | null = null;
       let resolvedGroupId = task.group_id || null;
@@ -602,6 +602,7 @@ export function useTaskMutations() {
         group_id: resolvedGroupId,
         user_id: user!.id,
         deadline: task.deadline || null,
+        assigned_to: task.assigned_to || null,
         task_type: taskType,
         client_id: clientId,
       } as any).select().single();
