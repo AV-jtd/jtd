@@ -93,6 +93,18 @@ const CRM_STAGE_TEMPLATE = [
   "Старт отгрузок",
 ];
 
+type CrmClient = {
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  manager_id: string | null;
+  territory_tag_id: string | null;
+  retail_type_tag_id: string | null;
+  rank_tag_id: string | null;
+  city: string | null;
+};
+
 type CrmTask = {
   id: string;
   title: string;
@@ -106,7 +118,7 @@ type CrmTask = {
   task_type: string;
   task_tags?: { tag_id: string }[];
   subtasks: { id: string; title: string; is_completed: boolean; position: number; deadline: string | null; assigned_to: string | null }[];
-  client?: { name: string; contact_name: string | null; phone: string | null; email: string | null } | null;
+  client?: CrmClient | null;
   assignee?: { display_name: string | null; email: string | null } | null;
 };
 
