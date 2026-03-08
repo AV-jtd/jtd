@@ -19,7 +19,7 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
-  Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
+  Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2, Check, Flag,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
