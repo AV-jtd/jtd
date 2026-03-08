@@ -17,6 +17,7 @@ import {
   Star,
   Check,
   Briefcase,
+  ChevronDown,
   FolderOpen,
   Search,
   X,
