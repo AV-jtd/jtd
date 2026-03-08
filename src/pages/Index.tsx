@@ -115,6 +115,12 @@ export default function Index() {
               <Search className="h-5 w-5" />
             </button>
             <button
+              onClick={() => setAiOpen(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Sparkles className="h-5 w-5" />
+            </button>
+            <button
               onClick={() => setMessengerOpen(prev => !prev)}
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
