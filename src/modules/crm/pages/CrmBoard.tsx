@@ -24,7 +24,7 @@ import {
   Tag,
   Plus,
   Globe,
-  Upload,
+  Download,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
