@@ -155,6 +155,15 @@ export default function NpdSwimlaneMatrix() {
     return m;
   }, [subprojects, allTasks]);
 
+  // Inbox: tasks directly on parent project + unmatched subprojects
+  const inboxData = useMemo(() => {
+    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
+    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
+    const parentTasks = allTasks.filter(t => t.group_id === projectId);
+    const unmatchedSubTasks = unmatchedSubs.flatMap(s => allTasks.filter(t => t.group_id === s.id));
+    return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
+  }, [allTasks, projectId, subprojects, streamSubMap]);
+
   // Move stream subproject to a gate
   const moveStreamToGate = async (subId: string, gateKey: string) => {
     const gateTagId = gateKeyToTagId.get(gateKey);
