@@ -321,6 +321,7 @@ export default function NpdSwimlaneMatrix() {
             const tasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
             const activeTasks = tasks.filter(t => !t.is_completed);
             const completedCount = tasks.filter(t => t.is_completed).length;
+            const overdueTasks = activeTasks.filter(t => t.deadline && isPast(parseISO(t.deadline)));
 
             return (
               <div key={stream} className="border-b border-border">
