@@ -239,17 +239,11 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
   const handleCreateTask = async (task: ParsedTask, msgIndex: number) => {
     if (!user) return;
     try {
-      await createTask.mutateAsync({
+      await addTask.mutateAsync({
         title: task.title,
-        description: task.description || null,
         deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
-        priority: task.priority || null,
         group_id: task.project_id || null,
         assigned_to: task.assigned_to_id || null,
-        is_important: task.is_important || false,
-        user_id: user.id,
-        position: 0,
-        is_completed: false,
         task_type: "standard",
       });
       
@@ -264,56 +258,63 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
     if (!user) return;
     try {
       // Create main project
-      const project = await createGroup.mutateAsync({
-        name: plan.project_name,
-        description: plan.description || null,
-        user_id: user.id,
-        position: 0,
-      });
+      await addGroup.mutateAsync({ name: plan.project_name });
+
+      // Wait for cache to update
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Get the created project
+      const { data: createdGroups } = await supabase
+        .from("task_groups")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("name", plan.project_name)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      const projectId = createdGroups?.[0]?.id;
+      if (!projectId) throw new Error("Не удалось найти созданный проект");
 
       // Create subprojects and their tasks
       for (const sp of plan.subprojects || []) {
-        const sub = await createGroup.mutateAsync({
-          name: sp.name,
-          user_id: user.id,
-          parent_id: project.id,
-          position: 0,
-        });
+        await addGroup.mutateAsync({ name: sp.name, parent_id: projectId });
+        
+        await new Promise(r => setTimeout(r, 300));
+        const { data: subGroups } = await supabase
+          .from("task_groups")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("name", sp.name)
+          .eq("parent_id", projectId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        
+        const subId = subGroups?.[0]?.id;
+        if (!subId) continue;
 
-        for (let i = 0; i < sp.tasks.length; i++) {
-          const t = sp.tasks[i];
-          await createTask.mutateAsync({
+        for (const t of sp.tasks) {
+          await addTask.mutateAsync({
             title: t.title,
-            group_id: sub.id,
-            user_id: user.id,
-            position: i,
-            is_completed: false,
-            priority: t.priority || null,
+            group_id: subId,
             deadline: t.deadline_offset_days
               ? addDays(new Date(), t.deadline_offset_days).toISOString()
               : null,
             task_type: "standard",
-            is_important: false,
           });
         }
       }
 
       // Create root-level tasks
-      for (let i = 0; i < (plan.tasks || []).length; i++) {
-        const t = plan.tasks![i];
-        await createTask.mutateAsync({
+      for (const t of plan.tasks || []) {
+        await addTask.mutateAsync({
           title: t.title,
-          group_id: project.id,
-          user_id: user.id,
-          position: i,
-          is_completed: false,
-          priority: t.priority || null,
+          group_id: projectId,
           deadline: t.deadline_offset_days
             ? addDays(new Date(), t.deadline_offset_days).toISOString()
             : null,
           task_type: "standard",
-          is_important: false,
         });
+      }
       }
 
       setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, created: true } : m));
