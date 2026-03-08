@@ -284,7 +284,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
       const clientIds = allCrmTasks.map((t) => t.client_id).filter(Boolean) as string[];
       const { data: clients } = clientIds.length > 0
-        ? await supabase.from("clients").select("id, name, contact_name, phone, email").in("id", clientIds)
+        ? await supabase.from("clients").select("id, name, contact_name, phone, email, manager_id, territory_tag_id, retail_type_tag_id, rank_tag_id, city").in("id", clientIds)
         : { data: [] };
 
       const assigneeIds = allCrmTasks.map((t) => t.assigned_to).filter(Boolean) as string[];
