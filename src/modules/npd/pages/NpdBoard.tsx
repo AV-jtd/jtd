@@ -12,7 +12,7 @@ import TaskItem from "@/components/TaskItem";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, TrendingUp,
 } from "lucide-react";
 import { isPast, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
