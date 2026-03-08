@@ -73,6 +73,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const [suggestedTagIds, setSuggestedTagIds] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const suggestionsLoaded = useRef(false);
+  const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
+  const [loadingDecompose, setLoadingDecompose] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
