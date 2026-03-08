@@ -457,12 +457,12 @@ export default function NpdSwimlaneMatrix() {
                         key={gate.key}
                         className={cn(
                           "min-w-[280px] w-[280px] shrink-0 border-r border-border transition-colors",
-                          isCurrentGate ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
+                          (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
                       >
                         {!isCollapsed && (
                           <div className="px-2 py-2 min-h-[60px]">
-                             {isCurrentGate ? (
+                             {sub ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
                                   <MatrixTaskRow
@@ -501,20 +501,11 @@ export default function NpdSwimlaneMatrix() {
                                     }}
                                   />
                                 ))}
-                                {sub && (
-                                  <QuickCreateForm
-                                    users={users}
-                                    onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
-                                  />
-                                )}
-                              </div>
-                            ) : sub ? (
-                              /* Stream exists but is in another gate — compact + */
-                              <div className="flex items-center justify-center min-h-[40px]">
                                 <QuickCreateForm
                                   users={users}
+                                  singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
-                                  compact
+                                  compact={cellTasks.length === 0}
                                 />
                               </div>
                             ) : (
