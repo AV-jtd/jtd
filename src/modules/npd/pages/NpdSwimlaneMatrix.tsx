@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import TaskItem from "@/components/TaskItem";
 import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
@@ -946,6 +947,17 @@ export default function NpdSwimlaneMatrix() {
           }}
         />
       )}
+
+      {/* Task detail sheet */}
+      <Sheet open={!!detailTask} onOpenChange={(open) => { if (!open) setDetailTaskId(null); }}>
+        <SheetContent side="right" className="w-[92vw] sm:w-[440px] md:w-[500px] max-w-[500px] p-0 overflow-y-auto">
+          {detailTask && (
+            <div className="p-4">
+              <TaskItem task={detailTask} initialOpen />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
