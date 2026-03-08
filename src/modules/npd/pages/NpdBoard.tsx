@@ -60,6 +60,7 @@ type NpdProject = {
   gateTags: string[];  // tag_ids that are gate tags
   streamTags: string[]; // tag_ids that are stream tags
   stats: { total: number; completed: number; overdue: number };
+  streamStats: { name: string; total: number; completed: number }[];
 };
 
 // ── Main component ──
@@ -265,12 +266,23 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const projectStreamTags = groupTagIds.filter((id) => streamTagIds.has(id));
 
       // Stats: include child groups
-      const childIds = allGroups.filter((c) => c.parent_id === g.id).map((c) => c.id);
+      const childGroups = allGroups.filter((c) => c.parent_id === g.id);
+      const childIds = childGroups.map((c) => c.id);
       const allProjectIds = [g.id, ...childIds];
       const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
       const total = projectTasks.length;
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+
+      // Build stream stats for card display
+      const streamStats: { name: string; total: number; completed: number }[] = [];
+      for (const child of childGroups) {
+        const cTags = allGroupTags.filter((gt) => gt.group_id === child.id);
+        const sTagId = cTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
+        const sName = sTagId ? streamTagById.get(sTagId) || child.name : child.name;
+        const cTasks = allTasks.filter((t) => t.group_id === child.id);
+        streamStats.push({ name: sName, total: cTasks.length, completed: cTasks.filter((t) => t.is_completed).length });
+      }
 
       return {
         id: g.id,
@@ -283,9 +295,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         gateTags: projectGateTags,
         streamTags: projectStreamTags,
         stats: { total, completed, overdue },
+        streamStats,
       };
     });
-  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds]);
+  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
 
   // ── Gate assignment ──
   const getProjectGate = (project: NpdProject): string | null => {
@@ -989,25 +1002,20 @@ function SwimlaneGrid({
                 {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
-              {!isCollapsed && visibleGates.map((gate) => {
-                // When project is filtered, show tasks in the gate column where the project lives
-                if (projectFilter && streamSub) {
-                  const project = filteredProjects.find((p) => p.id === projectFilter);
-                  const projectGate = project ? getProjectGate(project) : null;
-                  const showTasks = projectGate === gate.key;
-                  return (
-                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
-                      <div className="flex flex-col gap-1">
-                        {showTasks ? streamTasks.map((task) => (
-                          <TaskMiniCard key={task.id} task={task} />
-                        )) : (
-                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
-                        )}
-                      </div>
+              {!isCollapsed && projectFilter && streamSub ? (
+                /* When project is filtered: show all tasks across the full row */
+                <div className="flex-1 px-3 py-2 border-r border-border">
+                  {streamTasks.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {streamTasks.map((task) => (
+                        <TaskMiniCard key={task.id} task={task} />
+                      ))}
                     </div>
-                  );
-                }
-                // Default: show project cards
+                  ) : (
+                    <div className="text-center py-2 text-[10px] text-muted-foreground/50">Нет задач в этом стриме</div>
+                  )}
+                </div>
+              ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
                   <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
@@ -1027,11 +1035,11 @@ function SwimlaneGrid({
                     </div>
                   </div>
                 );
-              })}
+              }) : null}
               {isCollapsed && (
                 <div className="flex-1 flex items-center px-3">
                   <span className="text-[10px] text-muted-foreground">
-                    {totalInRow > 0 ? `${totalInRow} проект(ов)` : "пусто"}
+                    {totalInRow > 0 ? `${totalInRow} ${projectFilter ? 'задач' : 'проект(ов)'}` : "пусто"}
                   </span>
                 </div>
               )}
@@ -1350,6 +1358,23 @@ function ProjectCard({
               {name}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Stream subprojects breakdown */}
+      {project.streamStats.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
+            <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
+              <span className="text-muted-foreground truncate flex-1">{s.name}</span>
+              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
+                {s.completed}/{s.total}
+              </span>
+            </div>
+          ))}
+          {project.streamStats.filter(s => s.total > 0).length > 4 && (
+            <div className="text-[10px] text-muted-foreground">+{project.streamStats.filter(s => s.total > 0).length - 4} стримов</div>
+          )}
         </div>
       )}
 
