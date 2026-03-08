@@ -1123,6 +1123,7 @@ function SwimlaneStreamRow({
 // ── Gate Column ──
 function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
+  gateKeyToTagId, allGroupTags,
 }: {
   gate: GateStage;
   projects: { project: NpdProject; isPrimary: boolean }[];
@@ -1131,6 +1132,8 @@ function GateColumn({
   streamTagById: Map<string, string>;
   onCardClick: (id: string) => void;
   onCreate: (name: string) => void;
+  gateKeyToTagId: Map<string, string>;
+  allGroupTags: { group_id: string; tag_id: string }[];
 }) {
   const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
@@ -1168,6 +1171,8 @@ function GateColumn({
               onCardClick={() => onCardClick(p.id)}
               isSecondary={!isPrimary}
               currentGate={gate}
+              gateKeyToTagId={gateKeyToTagId}
+              allGroupTags={allGroupTags}
             />
           ))}
           {projects.length === 0 && (
