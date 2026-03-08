@@ -1510,7 +1510,7 @@ function ProjectCard({
             );
           })()}
 
-          {activeTasks.length === 0 && subprojects.length === 0 && (
+          {activeTasks.length === 0 && subprojectsWithTasks.length === 0 && (
             <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
         </div>
