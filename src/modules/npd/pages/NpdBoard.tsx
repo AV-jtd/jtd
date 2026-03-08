@@ -1566,6 +1566,17 @@ function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> })
   );
 }
 
+function HealthDot({ status }: { status: string }) {
+  return (
+    <div className={cn(
+      "w-2.5 h-2.5 rounded-full shrink-0 mt-0.5",
+      status === "success" && "bg-success",
+      status === "warning" && "bg-warning",
+      status === "destructive" && "bg-destructive"
+    )} />
+  );
+}
+
 
 function ProjectDetailSheet({
   projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
