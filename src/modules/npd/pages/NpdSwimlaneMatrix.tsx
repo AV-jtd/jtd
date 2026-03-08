@@ -19,7 +19,7 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
-  Expand, GripVertical,
+  Expand, GripVertical, Inbox,
 } from "lucide-react";
 import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 import { ru } from "date-fns/locale";
