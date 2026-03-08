@@ -47,22 +47,26 @@ export default function AppHeader({
         </button>
       )}
 
-      {/* Logo — desktop only */}
-      {!isMobile && (
-        <Link to="/" className="text-sm font-semibold text-foreground mr-1 shrink-0">
+      {/* Logo = Задачи link */}
+      {!isMobile ? (
+        <Link to="/" className={cn(
+          "text-sm font-semibold mr-1 shrink-0 transition-colors",
+          isActive("/") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}>
           Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it
         </Link>
-      )}
-
-      {/* Mobile logo */}
-      {isMobile && (
-        <span className="text-sm font-semibold text-foreground mr-1 shrink-0">
+      ) : (
+        <Link to="/" className={cn(
+          "text-sm font-semibold mr-1 shrink-0 transition-colors",
+          isActive("/") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}>
           J<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TD</span>
-        </span>
+        </Link>
       )}
 
       {/* Module navigation */}
       <nav className="flex items-center text-xs md:text-sm font-bold tracking-tight gap-0.5">
+        <span className="text-muted-foreground/30 select-none">|</span>
         {modules.map((mod, i) => {
           const active = isActive(mod.path);
           return (
