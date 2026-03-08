@@ -16,10 +16,12 @@ import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
+import QuickCreateForm from "@/components/QuickCreateForm";
+import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
-  Expand, GripVertical, Inbox,
+  Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
 import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 import { ru } from "date-fns/locale";
