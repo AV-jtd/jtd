@@ -1916,9 +1916,16 @@ function CrmCard({
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
 
+  const PRIORITIES = [
+    { value: 1, label: "P1", color: "text-red-500" },
+    { value: 2, label: "P2", color: "text-orange-500" },
+    { value: 3, label: "P3", color: "text-yellow-500" },
+    { value: 4, label: "P4", color: "text-blue-400" },
+  ] as const;
+  const priority = PRIORITIES.find(p => p.value === (task as any).priority);
+
   const displayName = variant === "funnel" ? (task.client?.name || task.title) : task.title;
   const hasDetails = !!(
-    (tags.length > 0) ||
     (task.client && (task.client.contact_name || task.client.phone || task.client.email)) ||
     (totalSteps > 0) ||
     (variant === "funnel" && group)
@@ -1929,7 +1936,7 @@ function CrmCard({
     setExpanded((p) => !p);
   }, []);
 
-  // Compact info badges (always visible)
+  // Compact info badges (always visible) — matches TaskItem meta row
   const compactInfo = (
     <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground flex-wrap">
       {task.deadline && (
@@ -1938,16 +1945,27 @@ function CrmCard({
           {format(parseISO(task.deadline), "d MMM", { locale: ru })}
         </span>
       )}
+      {/* Priority — matches TaskItem */}
+      {priority && (
+        <span className={cn("inline-flex items-center gap-0.5 font-medium", priority.color)}>
+          <Flag className="h-2.5 w-2.5" />
+          {priority.label}
+        </span>
+      )}
       {task.assignee && (
         <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
           <User className="h-2.5 w-2.5 shrink-0" />
           {task.assignee.display_name || task.assignee.email || "?"}
         </span>
       )}
-      {variant === "sales" && group && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
-          <FolderOpen className="h-2.5 w-2.5 shrink-0" />
-          {group.icon ? `${group.icon} ` : ""}{group.name}
+      {/* Project badge — colored text without background, matches TaskItem */}
+      {group && (
+        <span
+          className="inline-flex items-center gap-0.5 font-medium truncate max-w-[100px]"
+          style={{ color: group.color || '#3b82f6' }}
+        >
+          <span className="text-[10px]">{group.icon || '📁'}</span>
+          {group.name}
         </span>
       )}
       {variant === "sales" && task.client && (
@@ -1958,9 +1976,22 @@ function CrmCard({
       )}
       {totalSteps > 0 && (
         <span className="inline-flex items-center gap-0.5">
-          {completedSteps}/{totalSteps}
+          {completedSteps}/{totalSteps} шагов
         </span>
       )}
+      {/* Tags in compact view — matches TaskItem */}
+      {tags.map(tag => (
+        <span
+          key={tag.id}
+          className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
+          style={{
+            backgroundColor: tag.color ? `${tag.color}20` : undefined,
+            color: tag.color || undefined,
+          }}
+        >
+          {tag.name}
+        </span>
+      ))}
     </div>
   );
 
