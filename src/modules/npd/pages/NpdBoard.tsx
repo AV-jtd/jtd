@@ -732,6 +732,209 @@ export default function NpdBoard() {
   );
 }
 
+// ── Swimlane Grid ──
+const SWIMLANE_UNASSIGNED = "__unassigned__";
+
+function SwimlaneGrid({
+  visibleGates, filteredProjects, getProjectGate, streamTagById,
+  activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
+}: {
+  visibleGates: GateStage[];
+  filteredProjects: NpdProject[];
+  getProjectGate: (p: NpdProject) => string | null;
+  streamTagById: Map<string, string>;
+  activeStreams: Set<string>;
+  isOver: string | null;
+  isMoving: boolean;
+  onCardClick: (id: string) => void;
+  onCreate: (name: string, gateKey: string | null) => void;
+  gateKeyToTagId: Map<string, string>;
+}) {
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("npd-collapsed-swimlanes");
+      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("npd-collapsed-swimlanes", JSON.stringify([...collapsedRows]));
+  }, [collapsedRows]);
+
+  const toggleRow = (key: string) => {
+    setCollapsedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // Determine which streams to show
+  const streamsToShow = activeStreams.size > 0
+    ? NPD_STREAMS.filter((s) => activeStreams.has(s))
+    : NPD_STREAMS;
+
+  // Build grid data: stream -> gate -> projects
+  const gridData = useMemo(() => {
+    const data: Record<string, Record<string, NpdProject[]>> = {};
+
+    // Initialize
+    for (const stream of streamsToShow) {
+      data[stream] = {};
+      for (const gate of visibleGates) data[stream][gate.key] = [];
+    }
+    data[SWIMLANE_UNASSIGNED] = {};
+    for (const gate of visibleGates) data[SWIMLANE_UNASSIGNED][gate.key] = [];
+
+    for (const project of filteredProjects) {
+      const gateKey = getProjectGate(project);
+      if (!gateKey) continue;
+
+      const projectStreams = project.streamTags
+        .map((id) => streamTagById.get(id))
+        .filter(Boolean) as string[];
+
+      if (projectStreams.length === 0) {
+        if (data[SWIMLANE_UNASSIGNED]?.[gateKey]) {
+          data[SWIMLANE_UNASSIGNED][gateKey].push(project);
+        }
+      } else {
+        for (const stream of projectStreams) {
+          if (data[stream]?.[gateKey]) {
+            data[stream][gateKey].push(project);
+          }
+        }
+      }
+    }
+    return data;
+  }, [filteredProjects, visibleGates, streamsToShow, streamTagById]);
+
+  const colWidth = "min-w-[240px] w-[240px]";
+
+  return (
+    <div className="min-w-max">
+      {/* Header row */}
+      <div className="flex sticky top-0 z-10 bg-card border-b border-border">
+        <div className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border">
+          <span className="text-xs font-semibold text-muted-foreground">Стрим / Отдел</span>
+        </div>
+        {visibleGates.map((gate) => (
+          <div key={gate.key} className={cn("shrink-0 px-3 py-2 border-r border-border", colWidth)}>
+            <div className="flex items-center gap-1.5">
+              <div className={cn("h-2 w-2 rounded-full", gate.color)} />
+              <span className="text-xs font-semibold text-foreground">{gate.title}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stream rows */}
+      {streamsToShow.map((stream) => {
+        const isCollapsed = collapsedRows.has(stream);
+        const rowProjects = visibleGates.flatMap((g) => gridData[stream]?.[g.key] || []);
+        const totalInRow = rowProjects.length;
+
+        return (
+          <div key={stream} className="border-b border-border">
+            {/* Row header */}
+            <div className="flex">
+              <button
+                onClick={() => toggleRow(stream)}
+                className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 hover:bg-muted/50 transition-colors"
+              >
+                {isCollapsed
+                  ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                }
+                <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+                <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
+              </button>
+              {!isCollapsed && visibleGates.map((gate) => {
+                const cellProjects = gridData[stream]?.[gate.key] || [];
+                return (
+                  <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                    <div className="flex flex-col gap-1.5">
+                      {cellProjects.map((p) => (
+                        <DraggableProjectCard
+                          key={p.id}
+                          project={p}
+                          isMoving={isMoving}
+                          streamTagById={streamTagById}
+                          onCardClick={() => onCardClick(p.id)}
+                        />
+                      ))}
+                      {cellProjects.length === 0 && (
+                        <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {isCollapsed && (
+                <div className="flex-1 flex items-center px-3">
+                  <span className="text-[10px] text-muted-foreground">
+                    {totalInRow > 0 ? `${totalInRow} проект(ов)` : "пусто"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Unassigned row */}
+      {(() => {
+        const unassigned = visibleGates.flatMap((g) => gridData[SWIMLANE_UNASSIGNED]?.[g.key] || []);
+        if (unassigned.length === 0) return null;
+        const isCollapsed = collapsedRows.has(SWIMLANE_UNASSIGNED);
+        return (
+          <div className="border-b border-border">
+            <div className="flex">
+              <button
+                onClick={() => toggleRow(SWIMLANE_UNASSIGNED)}
+                className="min-w-[180px] w-[180px] shrink-0 px-3 py-2 border-r border-border flex items-center gap-2 hover:bg-muted/50 transition-colors"
+              >
+                {isCollapsed
+                  ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                }
+                <span className="text-xs font-medium text-muted-foreground italic truncate">Без стрима</span>
+                <span className="text-[10px] text-muted-foreground ml-auto">{unassigned.length}</span>
+              </button>
+              {!isCollapsed && visibleGates.map((gate) => {
+                const cellProjects = gridData[SWIMLANE_UNASSIGNED]?.[gate.key] || [];
+                return (
+                  <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                    <div className="flex flex-col gap-1.5">
+                      {cellProjects.map((p) => (
+                        <DraggableProjectCard
+                          key={p.id}
+                          project={p}
+                          isMoving={isMoving}
+                          streamTagById={streamTagById}
+                          onCardClick={() => onCardClick(p.id)}
+                        />
+                      ))}
+                      {cellProjects.length === 0 && (
+                        <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {isCollapsed && (
+                <div className="flex-1 flex items-center px-3">
+                  <span className="text-[10px] text-muted-foreground">{unassigned.length} проект(ов)</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 // ── Gate Column ──
 function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
