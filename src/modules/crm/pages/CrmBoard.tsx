@@ -1975,7 +1975,7 @@ function CrmCard({
         <button
           onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
           className={cn(
-            "h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+            "h-5 w-5 min-h-[20px] min-w-[20px] rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
             task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
           )}
         >
@@ -1995,18 +1995,18 @@ function CrmCard({
         {hasDetails && (
           <button
             onClick={toggleExpand}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="p-1.5 -m-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
-            <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
           </button>
         )}
 
         <button
           {...dragHandleProps}
           onClick={(e) => e.stopPropagation()}
-          className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+          className="p-1.5 -m-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
         >
-          <GripVertical className="h-3.5 w-3.5" />
+          <GripVertical className="h-4 w-4" />
         </button>
       </div>
 
