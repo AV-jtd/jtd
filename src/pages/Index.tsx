@@ -11,8 +11,9 @@ import CommunityView from "@/components/CommunityView";
 import ProjectChat from "@/components/ProjectChat";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import AiAssistant from "@/components/AiAssistant";
 import { useTaskGroups } from "@/hooks/useTasks";
-import { Loader2, Menu, MessageCircle, Search } from "lucide-react";
+import { Loader2, Menu, MessageCircle, Search, Sparkles } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export default function Index() {
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
 
@@ -113,6 +115,12 @@ export default function Index() {
               <Search className="h-5 w-5" />
             </button>
             <button
+              onClick={() => setAiOpen(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Sparkles className="h-5 w-5" />
+            </button>
+            <button
               onClick={() => setMessengerOpen(prev => !prev)}
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
@@ -159,6 +167,7 @@ export default function Index() {
                   onHighlightClear={() => setHighlightTaskId(null)}
                   onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
                   onProjectClick={(groupId) => { setActiveGroupId(groupId); setActiveView("group"); setActiveTagFilters([]); }}
+                  onAiOpen={() => setAiOpen(true)}
                 />
                 {chatOpen && activeGroupId && activeView === "group" && (
                   <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
@@ -201,6 +210,8 @@ export default function Index() {
           setActiveGroupId(null);
         }}
       />
+
+      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} />
     </div>
   );
 }

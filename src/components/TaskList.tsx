@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search } from "lucide-react";
+import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
@@ -44,9 +44,10 @@ interface TaskListProps {
   onHighlightClear?: () => void;
   onTagClick?: (tagId: string) => void;
   onProjectClick?: (groupId: string) => void;
+  onAiOpen?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onAiOpen }: TaskListProps) {
   const { user } = useAuth();
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
@@ -285,18 +286,27 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             </div>
           )}
           {(!activeGroup || activeView !== "group") && (
-            <button
-              onClick={onToggleMessenger}
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                messengerOpen
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Сообщения"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                onClick={onAiOpen}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                title="AI-помощник"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onToggleMessenger}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  messengerOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Сообщения"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+            </>
           )}
         </div>
 
