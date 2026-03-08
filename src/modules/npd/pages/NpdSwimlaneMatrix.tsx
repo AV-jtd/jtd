@@ -530,6 +530,8 @@ export default function NpdSwimlaneMatrix() {
               );
             })}
           </div>
+        </div>
+      </div>
 
       {/* Dependency dialog */}
       {depDialogState && (
