@@ -622,7 +622,7 @@ export default function NpdSwimlaneMatrix() {
                       <div
                         key={gate.key}
                         className={cn(
-                          "min-w-[280px] w-[280px] shrink-0 border-r border-border transition-colors",
+                          "min-w-[220px] w-[220px] shrink-0 border-r border-border transition-colors",
                           (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
                       >
