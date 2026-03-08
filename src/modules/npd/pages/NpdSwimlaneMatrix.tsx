@@ -853,6 +853,10 @@ export default function NpdSwimlaneMatrix() {
                   const sub = streamSubMap.get(s);
                   return acc + (sub ? (tasksByGroup.get(sub.id) || []).filter(t => t.is_completed).length : 0);
                 }, 0);
+                const totalOverdue = NPD_STREAMS.reduce((acc, s) => {
+                  const sub = streamSubMap.get(s);
+                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length : 0);
+                }, 0);
                 const pct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
                 return (
                   <div className="mt-1.5 space-y-1">
@@ -865,7 +869,15 @@ export default function NpdSwimlaneMatrix() {
                       </div>
                       <span className="text-[10px] font-mono text-muted-foreground">{pct}%</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{totalCompleted}/{totalTasks} задач</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">{totalCompleted}/{totalTasks} задач</span>
+                      {totalOverdue > 0 && (
+                        <span className="text-[10px] text-destructive flex items-center gap-0.5">
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          {totalOverdue}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
