@@ -113,6 +113,43 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
     }
   }, [task.title, task.description, availableTags]);
 
+  const handleDecompose = useCallback(async () => {
+    setLoadingDecompose(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-assistant", {
+        body: {
+          message: task.title,
+          action: "decompose_task",
+          context: {
+            title: task.title,
+            description: task.description,
+            existingSubtasks: subtasks.map(s => s.title),
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.error === "rate_limited") {
+        const { toast } = await import("sonner");
+        toast.error("Слишком много запросов, попробуйте позже");
+        return;
+      }
+      if (data?.error === "payment_required") {
+        const { toast } = await import("sonner");
+        toast.error("Недостаточно кредитов AI");
+        return;
+      }
+      if (data?.subtasks?.length) {
+        setAiSubtasks(data.subtasks);
+      }
+    } catch (e) {
+      console.error("Decompose error:", e);
+      const { toast } = await import("sonner");
+      toast.error("Не удалось разбить задачу");
+    } finally {
+      setLoadingDecompose(false);
+    }
+  }, [task.title, task.description, subtasks]);
+
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
   const {
