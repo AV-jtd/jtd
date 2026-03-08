@@ -23,6 +23,7 @@ import {
   X,
   Tag,
   Plus,
+  Globe,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,18 @@ const CRM_STAGE_TEMPLATE = [
   "Старт отгрузок",
 ];
 
+type CrmClient = {
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  manager_id: string | null;
+  territory_tag_id: string | null;
+  retail_type_tag_id: string | null;
+  rank_tag_id: string | null;
+  city: string | null;
+};
+
 type CrmTask = {
   id: string;
   title: string;
@@ -106,7 +119,7 @@ type CrmTask = {
   task_type: string;
   task_tags?: { tag_id: string }[];
   subtasks: { id: string; title: string; is_completed: boolean; position: number; deadline: string | null; assigned_to: string | null }[];
-  client?: { name: string; contact_name: string | null; phone: string | null; email: string | null } | null;
+  client?: CrmClient | null;
   assignee?: { display_name: string | null; email: string | null } | null;
 };
 
@@ -155,6 +168,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
   const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
+  const [filterTerritoryIds, setFilterTerritoryIds] = useState<string[]>([]);
+  const [filterRetailTypeIds, setFilterRetailTypeIds] = useState<string[]>([]);
+  const [filterRankIds, setFilterRankIds] = useState<string[]>([]);
+  const [filterManagerIds, setFilterManagerIds] = useState<string[]>([]);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
@@ -203,6 +220,56 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     },
     enabled: !!user,
   });
+
+  // CRM dimension tags — fetch tag categories for territory, retail type, rank
+  const { data: crmDimensionTags } = useQuery({
+    queryKey: ["crm-dimension-tags", user?.id],
+    queryFn: async () => {
+      if (!user) return { territory: [], retailType: [], rank: [] };
+      // Find CRM root categories for ALL users (tags are globally visible)
+      const { data: crmRoots } = await supabase
+        .from("tag_categories")
+        .select("id")
+        .is("parent_id", null)
+        .eq("name", "CRM / Продажи");
+      const rootIds = (crmRoots || []).map(r => r.id);
+      if (rootIds.length === 0) return { territory: [], retailType: [], rank: [] };
+
+      // Find subcategories
+      const { data: subCats } = await supabase
+        .from("tag_categories")
+        .select("id, name")
+        .in("parent_id", rootIds);
+      
+      const getCatIds = (name: string) => (subCats || []).filter(c => c.name === name).map(c => c.id);
+      const territoryCatIds = getCatIds("Территории");
+      const retailTypeCatIds = getCatIds("Тип ретейла");
+      const rankCatIds = getCatIds("Ранг");
+
+      const fetchTags = async (catIds: string[]) => {
+        if (catIds.length === 0) return [];
+        const { data } = await supabase.from("tags").select("id, name, color").in("category_id", catIds);
+        // Deduplicate by name
+        const seen = new Map<string, CrmTag>();
+        (data || []).forEach(t => { if (!seen.has(t.name.toLowerCase())) seen.set(t.name.toLowerCase(), t as CrmTag); });
+        return [...seen.values()];
+      };
+
+      const [territory, retailType, rank] = await Promise.all([
+        fetchTags(territoryCatIds),
+        fetchTags(retailTypeCatIds),
+        fetchTags(rankCatIds),
+      ]);
+
+      return { territory, retailType, rank };
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const territoryTags = crmDimensionTags?.territory || [];
+  const retailTypeTags = crmDimensionTags?.retailType || [];
+  const rankTags = crmDimensionTags?.rank || [];
 
   const INBOX_TAG_NAMES = useMemo(() => new Set(["crm", "оп", "продажи"]), []);
 
@@ -268,7 +335,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
       const clientIds = allCrmTasks.map((t) => t.client_id).filter(Boolean) as string[];
       const { data: clients } = clientIds.length > 0
-        ? await supabase.from("clients").select("id, name, contact_name, phone, email").in("id", clientIds)
+        ? await supabase.from("clients").select("id, name, contact_name, phone, email, manager_id, territory_tag_id, retail_type_tag_id, rank_tag_id, city").in("id", clientIds)
         : { data: [] };
 
       const assigneeIds = allCrmTasks.map((t) => t.assigned_to).filter(Boolean) as string[];
@@ -440,8 +507,21 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     if (filterAssigneeIds.length > 0) {
       result = result.filter((t) => t.assigned_to && filterAssigneeIds.includes(t.assigned_to));
     }
+    // CRM dimension filters (match by client fields)
+    if (filterTerritoryIds.length > 0) {
+      result = result.filter((t) => t.client?.territory_tag_id && filterTerritoryIds.includes(t.client.territory_tag_id));
+    }
+    if (filterRetailTypeIds.length > 0) {
+      result = result.filter((t) => t.client?.retail_type_tag_id && filterRetailTypeIds.includes(t.client.retail_type_tag_id));
+    }
+    if (filterRankIds.length > 0) {
+      result = result.filter((t) => t.client?.rank_tag_id && filterRankIds.includes(t.client.rank_tag_id));
+    }
+    if (filterManagerIds.length > 0) {
+      result = result.filter((t) => t.client?.manager_id && filterManagerIds.includes(t.client.manager_id));
+    }
     return result;
-  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds]);
+  }, [tasks, searchQuery, filterTagIds, filterGroupIds, filterAssigneeIds, filterTerritoryIds, filterRetailTypeIds, filterRankIds, filterManagerIds]);
 
   const inboxTasks = useMemo(() => filteredTasks.filter((t) => isInboxTask(t)), [filteredTasks, tagById]);
   const nonInboxTasks = useMemo(() => filteredTasks.filter((t) => !isInboxTask(t)), [filteredTasks, tagById]);
@@ -553,10 +633,24 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     return [...map.values()];
   }, [tasks]);
 
+  // Unique managers from clients
+  const usedManagers = useMemo(() => {
+    const map = new Map<string, { id: string; display_name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.client?.manager_id) {
+        const profile = usedAssignees.find(a => a.id === t.client!.manager_id);
+        if (profile) map.set(t.client.manager_id, profile);
+      }
+    }
+    // Also check profiles from all assignees
+    if (map.size === 0) return [];
+    return [...map.values()];
+  }, [tasks, usedAssignees]);
+
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
-  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0;
+  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0 || filterTerritoryIds.length > 0 || filterRetailTypeIds.length > 0 || filterRankIds.length > 0 || filterManagerIds.length > 0;
 
   const toggleFilterTag = (tagId: string) =>
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
@@ -564,6 +658,14 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
   const toggleFilterAssignee = (userId: string) =>
     setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
+  const toggleFilterTerritory = (tagId: string) =>
+    setFilterTerritoryIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterRetailType = (tagId: string) =>
+    setFilterRetailTypeIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterRank = (tagId: string) =>
+    setFilterRankIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterManager = (userId: string) =>
+    setFilterManagerIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
   // CRM projects for the "create task" picker
   const crmProjectOptions = useMemo(() => {
@@ -858,9 +960,150 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               </PopoverContent>
             </Popover>
 
+            {/* CRM dimension filters */}
+            {territoryTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterTerritoryIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Globe className="h-3 w-3" />
+                    Территория
+                    {filterTerritoryIds.length > 0 && <span className="font-bold">{filterTerritoryIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {territoryTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterTerritory(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterTerritoryIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterTerritoryIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {retailTypeTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterRetailTypeIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Briefcase className="h-3 w-3" />
+                    Тип ретейла
+                    {filterRetailTypeIds.length > 0 && <span className="font-bold">{filterRetailTypeIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {retailTypeTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRetailType(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterRetailTypeIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterRetailTypeIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {rankTags.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterRankIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Star className="h-3 w-3" />
+                    Ранг
+                    {filterRankIds.length > 0 && <span className="font-bold">{filterRankIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {rankTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRank(tag.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterRankIds.includes(tag.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        <span className="truncate">{tag.name}</span>
+                        {filterRankIds.includes(tag.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {usedManagers.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    filterManagerIds.length > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <User className="h-3 w-3" />
+                    Менеджер
+                    {filterManagerIds.length > 0 && <span className="font-bold">{filterManagerIds.length}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {usedManagers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => toggleFilterManager(m.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterManagerIds.includes(m.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{m.display_name || m.email || "?"}</span>
+                        {filterManagerIds.includes(m.id) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
             {hasFilters && (
               <button
-                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); }}
+                onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); setFilterTerritoryIds([]); setFilterRetailTypeIds([]); setFilterRankIds([]); setFilterManagerIds([]); }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Сбросить

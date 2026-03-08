@@ -202,11 +202,38 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
       let tasks = data as Task[];
 
       if (filterTags && filterTags.length > 0) {
-        tasks = tasks.filter(t =>
-          filterTags.every(tagId =>
+        // Smart project tag filtering: if tag is a linked_tag_id of a project,
+        // also include tasks from subprojects
+        const { data: linkedGroups } = await supabase
+          .from("task_groups")
+          .select("id, parent_id")
+          .in("linked_tag_id", filterTags);
+
+        const projectIds = (linkedGroups || []).map(g => g.id);
+        let subGroupIds: string[] = [];
+        if (projectIds.length > 0) {
+          const { data: subGroups } = await supabase
+            .from("task_groups")
+            .select("id")
+            .in("parent_id", projectIds);
+          subGroupIds = (subGroups || []).map(g => g.id);
+        }
+        const expandedGroupIds = new Set([...projectIds, ...subGroupIds]);
+
+        tasks = tasks.filter(t => {
+          // Task matches if it has ALL filter tags
+          const hasAllTags = filterTags.every(tagId =>
             t.task_tags?.some(tt => tt.tag_id === tagId)
-          )
-        );
+          );
+          if (hasAllTags) return true;
+
+          // OR task belongs to a project/subproject whose linked tag is in the filter
+          if (expandedGroupIds.size > 0 && t.group_id && expandedGroupIds.has(t.group_id)) {
+            return true;
+          }
+
+          return false;
+        });
       }
 
       return tasks;
