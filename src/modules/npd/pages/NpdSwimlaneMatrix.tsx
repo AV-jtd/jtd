@@ -53,27 +53,109 @@ export default function NpdSwimlaneMatrix() {
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
   const { updateTask } = useTaskMutations();
 
-  // Fetch tags
+  // Fetch/ensure NPD tags
   const { data: npdTagData } = useQuery({
     queryKey: ["npd-tags-init", user?.id],
     queryFn: async () => {
-      if (!user) return { gateTags: [], streamTags: [] };
-      const { data: cats } = await supabase
+      if (!user) return { gateTags: [], streamTags: [], gatesCategoryId: null, streamsCategoryId: null };
+
+      // Find or create NPD root category
+      let { data: npdCats } = await supabase
         .from("tag_categories")
         .select("id, name, parent_id")
+        .eq("user_id", user.id)
+        .or("name.eq.NPD");
+
+      let npdRootId: string | null = (npdCats || []).find((c) => !c.parent_id && c.name === "NPD")?.id || null;
+
+      if (!npdRootId) {
+        const { data: newCat } = await supabase
+          .from("tag_categories")
+          .insert({ name: "NPD", user_id: user.id, color: "#8b5cf6", position: 2 })
+          .select("id")
+          .single();
+        npdRootId = newCat?.id || null;
+      }
+
+      if (!npdRootId) return { gateTags: [], streamTags: [], gatesCategoryId: null, streamsCategoryId: null };
+
+      // Find or create subcategories
+      let { data: subCats } = await supabase
+        .from("tag_categories")
+        .select("id, name")
+        .eq("parent_id", npdRootId)
         .eq("user_id", user.id);
-      const npdRoot = (cats || []).find(c => !c.parent_id && c.name === "NPD");
-      if (!npdRoot) return { gateTags: [], streamTags: [] };
-      const subs = (cats || []).filter(c => c.parent_id === npdRoot.id);
-      const gatesCatId = subs.find(c => c.name === "Гейты")?.id;
-      const streamsCatId = subs.find(c => c.name === "Стримы")?.id;
-      const [gRes, sRes] = await Promise.all([
-        gatesCatId ? supabase.from("tags").select("id, name").eq("category_id", gatesCatId) : { data: [] },
-        streamsCatId ? supabase.from("tags").select("id, name").eq("category_id", streamsCatId) : { data: [] },
-      ]);
+
+      let gatesCatId = (subCats || []).find((c) => c.name === "Гейты")?.id || null;
+      let streamsCatId = (subCats || []).find((c) => c.name === "Стримы")?.id || null;
+
+      if (!gatesCatId) {
+        const { data } = await supabase
+          .from("tag_categories")
+          .insert({ name: "Гейты", user_id: user.id, color: "#8b5cf6", parent_id: npdRootId, position: 0 })
+          .select("id")
+          .single();
+        gatesCatId = data?.id || null;
+      }
+
+      if (!streamsCatId) {
+        const { data } = await supabase
+          .from("tag_categories")
+          .insert({ name: "Стримы", user_id: user.id, color: "#8b5cf6", parent_id: npdRootId, position: 1 })
+          .select("id")
+          .single();
+        streamsCatId = data?.id || null;
+      }
+
+      // Ensure gate tags
+      let { data: existingGateTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("category_id", gatesCatId!)
+        .eq("user_id", user.id);
+
+      const existingGateNames = new Set((existingGateTags || []).map((t) => t.name));
+      const missingGates = NPD_GATES.filter((g) => !existingGateNames.has(g.tagName));
+
+      if (missingGates.length > 0) {
+        await supabase.from("tags").insert(
+          missingGates.map((g) => ({ name: g.tagName, user_id: user.id, color: "#8b5cf6", category_id: gatesCatId! }))
+        );
+        const { data: refreshed } = await supabase
+          .from("tags")
+          .select("id, name")
+          .eq("category_id", gatesCatId!)
+          .eq("user_id", user.id);
+        existingGateTags = refreshed;
+      }
+
+      // Ensure stream tags
+      let { data: existingStreamTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("category_id", streamsCatId!)
+        .eq("user_id", user.id);
+
+      const existingStreamNames = new Set((existingStreamTags || []).map((t) => t.name));
+      const missingStreams = NPD_STREAMS.filter((s) => !existingStreamNames.has(s));
+
+      if (missingStreams.length > 0) {
+        await supabase.from("tags").insert(
+          missingStreams.map((s) => ({ name: s, user_id: user.id, color: "#8b5cf6", category_id: streamsCatId! }))
+        );
+        const { data: refreshed } = await supabase
+          .from("tags")
+          .select("id, name")
+          .eq("category_id", streamsCatId!)
+          .eq("user_id", user.id);
+        existingStreamTags = refreshed;
+      }
+
       return {
-        gateTags: (gRes.data || []) as { id: string; name: string }[],
-        streamTags: (sRes.data || []) as { id: string; name: string }[],
+        gateTags: (existingGateTags || []) as { id: string; name: string }[],
+        streamTags: (existingStreamTags || []) as { id: string; name: string }[],
+        gatesCategoryId: gatesCatId,
+        streamsCategoryId: streamsCatId,
       };
     },
     enabled: !!user,
@@ -82,6 +164,7 @@ export default function NpdSwimlaneMatrix() {
 
   const gateTags = npdTagData?.gateTags || [];
   const streamTags = npdTagData?.streamTags || [];
+  const streamsCategoryId = npdTagData?.streamsCategoryId || null;
 
   // Tag maps
   const tagNameToGateKey = useMemo(() => {
