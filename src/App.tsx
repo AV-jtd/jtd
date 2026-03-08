@@ -62,6 +62,7 @@ function AppContent() {
           <Route path="/pmo" element={<Pmo />} />
           <Route path="/crm" element={<Crm />} />
           <Route path="/npd" element={<Npd />} />
+          <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <OnlineStatus />
