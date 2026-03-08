@@ -823,6 +823,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 streamSubprojectsMap={streamSubprojectsMap}
                 streamSubprojectTasks={streamSubprojectTasks}
                 allTasks={allTasks}
+                onCreateTask={handleCreateTask}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
