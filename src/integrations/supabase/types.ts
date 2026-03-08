@@ -37,38 +37,53 @@ export type Database = {
       }
       clients: {
         Row: {
+          city: string | null
           contact_name: string | null
           created_at: string
           email: string | null
           group_id: string | null
           id: string
+          manager_id: string | null
           name: string
           phone: string | null
+          rank_tag_id: string | null
+          retail_type_tag_id: string | null
           tag_id: string | null
+          territory_tag_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          city?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
           group_id?: string | null
           id?: string
+          manager_id?: string | null
           name: string
           phone?: string | null
+          rank_tag_id?: string | null
+          retail_type_tag_id?: string | null
           tag_id?: string | null
+          territory_tag_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          city?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
           group_id?: string | null
           id?: string
+          manager_id?: string | null
           name?: string
           phone?: string | null
+          rank_tag_id?: string | null
+          retail_type_tag_id?: string | null
           tag_id?: string | null
+          territory_tag_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -81,8 +96,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clients_rank_tag_id_fkey"
+            columns: ["rank_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_retail_type_tag_id_fkey"
+            columns: ["retail_type_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clients_tag_id_fkey"
             columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_territory_tag_id_fkey"
+            columns: ["territory_tag_id"]
             isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["id"]
