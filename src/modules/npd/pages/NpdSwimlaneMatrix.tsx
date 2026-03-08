@@ -1054,8 +1054,11 @@ function MatrixTaskRow({
         )}
       </div>
 
-      {/* Row 2: deadline + assignee + dep link (compact, shown on hover or when set) */}
-      <div className="flex items-center gap-1.5 pl-5 min-w-0">
+      {/* Row 2: deadline + assignee + dep link — hidden if nothing set, shown on hover */}
+      <div className={cn(
+        "flex items-center gap-1.5 pl-5 min-w-0",
+        !task.deadline && !assignee ? "hidden group-hover:flex" : ""
+      )}>
         {/* Deadline picker */}
         <Popover open={calOpen} onOpenChange={setCalOpen}>
           <PopoverTrigger asChild>
