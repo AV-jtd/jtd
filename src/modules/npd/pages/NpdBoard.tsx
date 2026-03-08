@@ -1024,15 +1024,14 @@ function SwimlaneGrid({
               {!isCollapsed && projectFilter && streamSub ? (
                 /* When project is filtered: show all tasks across the full row */
                 <div className="flex-1 px-3 py-2 border-r border-border">
-                  {streamTasks.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {streamTasks.map((task) => (
-                        <TaskMiniCard key={task.id} task={task} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-2 text-[10px] text-muted-foreground/50">Нет задач в этом стриме</div>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {streamTasks.map((task) => (
+                      <TaskMiniCard key={task.id} task={task} />
+                    ))}
+                    <InlineTaskAdder
+                      onAdd={(title) => onCreateTask(title, streamSub.id)}
+                    />
+                  </div>
                 </div>
               ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
