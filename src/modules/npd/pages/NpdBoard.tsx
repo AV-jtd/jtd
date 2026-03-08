@@ -719,7 +719,18 @@ export default function NpdBoard() {
 
           {/* Board: flat columns or swimlane grid */}
           <div className="flex-1 overflow-auto">
-            {swimlaneMode ? (
+            {filterProjectId ? (
+              <NpdTaskSwimlane
+                projectId={filterProjectId}
+                allGroups={allGroups}
+                allTasks={allTasks}
+                visibleGates={visibleGates}
+                gateTagIds={gateTagIds}
+                tagIdToGateKey={tagIdToGateKey}
+                gateKeyToTagId={gateKeyToTagId}
+                streamTagById={streamTagById}
+              />
+            ) : swimlaneMode ? (
               <SwimlaneGrid
                 visibleGates={visibleGates}
                 filteredProjects={filteredProjects}
