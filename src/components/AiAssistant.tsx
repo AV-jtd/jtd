@@ -315,7 +315,6 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
           task_type: "standard",
         });
       }
-      }
 
       setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, created: true } : m));
       const totalTasks = (plan.subprojects || []).reduce((s, sp) => s + sp.tasks.length, 0) + (plan.tasks || []).length;
