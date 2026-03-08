@@ -710,14 +710,34 @@ export default function NpdSwimlaneMatrix() {
                             )}
                           </div>
                         )}
-                        {isCollapsed && (hasTasks || isCurrentGate) && (
-                          <div className="px-2 py-1.5 flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">{cellTasks.length} задач</span>
-                            {cellTasks.some(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))) && (
-                              <AlertTriangle className="h-3 w-3 text-destructive" />
-                            )}
-                          </div>
-                        )}
+                        {isCollapsed && (hasTasks || isCurrentGate) && (() => {
+                          const cellCompleted = cellTasks.filter(t => t.is_completed).length;
+                          const cellOverdue = cellTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+                          const cellPct = cellTasks.length > 0 ? Math.round((cellCompleted / cellTasks.length) * 100) : 0;
+                          return (
+                            <div className={cn(
+                              "px-2.5 py-2 flex items-center gap-2",
+                              cellOverdue > 0 && "bg-destructive/5"
+                            )}>
+                              {cellTasks.length > 0 ? (
+                                <>
+                                  <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                                    <div className={cn("h-full rounded-full transition-all", gate.color)} style={{ width: `${cellPct}%` }} />
+                                  </div>
+                                  <span className="text-[9px] font-mono text-muted-foreground shrink-0">{cellCompleted}/{cellTasks.length}</span>
+                                  {cellOverdue > 0 && (
+                                    <span className="text-[9px] text-destructive flex items-center gap-0.5 shrink-0">
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      {cellOverdue}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-[9px] text-muted-foreground/40">—</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
