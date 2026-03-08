@@ -63,7 +63,10 @@ type NpdProject = {
 };
 
 // ── Main component ──
-export default function NpdBoard() {
+export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
+  projectFilter?: string | null;
+  onProjectFilterChange?: (id: string | null) => void;
+} = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
