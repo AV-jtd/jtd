@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
-  Briefcase, FlaskConical, Target, FileBarChart,
+  Briefcase, FlaskConical, Target, FileBarChart, Download,
 } from "lucide-react";
 import { addDays } from "date-fns";
 import { toast } from "sonner";
