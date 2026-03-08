@@ -1418,84 +1418,105 @@ function ProjectCard({
   dragHandleProps?: ComponentProps<"button">;
   onCardClick?: () => void;
 }) {
+  const [detailOpen, setDetailOpen] = useState(false);
+  const allGroups = useTaskGroups().data || [];
+  const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
 
   return (
     <div
-      onClick={onCardClick}
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
+        "rounded-lg border border-border bg-card shadow-sm transition-all",
         isDragging ? "shadow-lg" : "hover:shadow-md"
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <ProjectIcon project={project} />
-        <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
-        {dragHandleProps && (
+      <div
+        onClick={onCardClick}
+        className="cursor-pointer px-3 py-2.5"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <ProjectIcon project={project} />
+          <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
           <button
-            {...dragHandleProps}
-            onClick={(e) => e.stopPropagation()}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+            onClick={(e) => { e.stopPropagation(); setDetailOpen(!detailOpen); }}
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+            title="Детали проекта"
           >
-            <GripVertical className="h-3.5 w-3.5" />
+            {detailOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
-        )}
-      </div>
-
-      {/* Stream badges */}
-      {streamNames.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          {streamNames.map((name) => (
-            <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              {name}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Stream subprojects breakdown */}
-      {project.streamStats.length > 0 && (
-        <div className="mt-2 space-y-0.5">
-          {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
-            <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
-              <span className="text-muted-foreground truncate flex-1">{s.name}</span>
-              <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
-                {s.completed}/{s.total}
-              </span>
-            </div>
-          ))}
-          {project.streamStats.filter(s => s.total > 0).length > 4 && (
-            <div className="text-[10px] text-muted-foreground">+{project.streamStats.filter(s => s.total > 0).length - 4} стримов</div>
+          {dragHandleProps && (
+            <button
+              {...dragHandleProps}
+              onClick={(e) => e.stopPropagation()}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
-      )}
 
-      {/* Progress */}
-      {project.stats.total > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-[10px] mb-0.5">
-            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-            <span className="font-medium text-foreground">{progress}%</span>
+        {/* Stream badges */}
+        {streamNames.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {streamNames.map((name) => (
+              <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {name}
+              </span>
+            ))}
           </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+        )}
+
+        {/* Stream subprojects breakdown */}
+        {project.streamStats.length > 0 && (
+          <div className="mt-2 space-y-0.5">
+            {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
+              <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
+                <span className="text-muted-foreground truncate flex-1">{s.name}</span>
+                <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
+                  {s.completed}/{s.total}
+                </span>
+              </div>
+            ))}
+            {project.streamStats.filter(s => s.total > 0).length > 4 && (
+              <div className="text-[10px] text-muted-foreground">+{project.streamStats.filter(s => s.total > 0).length - 4} стримов</div>
+            )}
           </div>
+        )}
+
+        {/* Progress */}
+        {project.stats.total > 0 && (
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-[10px] mb-0.5">
+              <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
+              <span className="font-medium text-foreground">{progress}%</span>
+            </div>
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+          {project.stats.overdue > 0 && (
+            <span className="flex items-center gap-0.5 text-destructive">
+              <AlertTriangle className="h-3 w-3" />
+              {project.stats.overdue}
+            </span>
+          )}
+          {project.stats.total === 0 && (
+            <span className="text-muted-foreground">Нет задач</span>
+          )}
+        </div>
+      </div>
+
+      {/* Expandable detail panel */}
+      {detailOpen && group && (
+        <div className="border-t border-border px-2 py-2 animate-fade-in">
+          <ProjectDetailPanel group={group} />
         </div>
       )}
-
-      {/* Stats */}
-      <div className="flex items-center gap-2 mt-1.5 text-[10px]">
-        {project.stats.overdue > 0 && (
-          <span className="flex items-center gap-0.5 text-destructive">
-            <AlertTriangle className="h-3 w-3" />
-            {project.stats.overdue}
-          </span>
-        )}
-        {project.stats.total === 0 && (
-          <span className="text-muted-foreground">Нет задач</span>
-        )}
-      </div>
     </div>
   );
 }
