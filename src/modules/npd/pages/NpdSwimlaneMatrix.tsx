@@ -457,6 +457,133 @@ export default function NpdSwimlaneMatrix() {
               </div>
             );
           })}
+          {/* Inbox row — unmatched tasks & subprojects */}
+          {inboxData.totalCount > 0 && (
+            <div className="border-b border-border">
+              <div className="flex">
+                <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50">
+                  <button
+                    onClick={() => setInboxOpen(prev => !prev)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    {inboxOpen
+                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    }
+                    <Inbox className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-semibold text-muted-foreground truncate">Входящие</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{inboxData.totalCount}</span>
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {inboxOpen && (
+                    <div className="px-3 py-2 space-y-1.5">
+                      {/* Tasks directly on parent project */}
+                      {inboxData.parentTasks.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Задачи проекта</span>
+                          {inboxData.parentTasks.map(task => (
+                            <MatrixTaskRow
+                              key={task.id}
+                              task={task}
+                              users={users}
+                              allDependencies={allDependencies}
+                              allTasks={allTasks}
+                              onDeadlineChange={handleDeadlineChange}
+                              onAssigneeChange={(taskId, userId) => {
+                                updateTask.mutate({ id: taskId, assigned_to: userId });
+                                if (userId) {
+                                  supabase.from("task_participants").upsert({
+                                    task_id: taskId, user_id: userId, role: "assignee",
+                                  }, { onConflict: "task_id,user_id" });
+                                }
+                              }}
+                              onToggle={(taskId) => {
+                                const t = allTasks.find(x => x.id === taskId);
+                                if (!t) return;
+                                updateTask.mutate({
+                                  id: taskId,
+                                  is_completed: !t.is_completed,
+                                  completed_at: !t.is_completed ? new Date().toISOString() : null,
+                                });
+                              }}
+                              onAddDependency={(predId, succId) => {
+                                const pred = allTasks.find(t => t.id === predId);
+                                const succ = allTasks.find(t => t.id === succId);
+                                setDepDialogState({
+                                  predecessorId: predId, successorId: succId,
+                                  predecessorLabel: pred?.title || predId,
+                                  successorLabel: succ?.title || succId,
+                                  predecessorEntityType: "task", successorEntityType: "task",
+                                });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* Unmatched subprojects */}
+                      {inboxData.unmatchedSubs.map(sub => {
+                        const subTasks = allTasks.filter(t => t.group_id === sub.id);
+                        const displayName = sub.name.includes("/") ? sub.name.split("/").pop()!.trim() : sub.name;
+                        return (
+                          <div key={sub.id} className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm leading-none">{sub.icon && sub.icon !== "list" ? sub.icon : "📋"}</span>
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{displayName}</span>
+                              <span className="text-[10px] text-muted-foreground">{subTasks.length} задач</span>
+                            </div>
+                            {subTasks.map(task => (
+                              <MatrixTaskRow
+                                key={task.id}
+                                task={task}
+                                users={users}
+                                allDependencies={allDependencies}
+                                allTasks={allTasks}
+                                onDeadlineChange={handleDeadlineChange}
+                                onAssigneeChange={(taskId, userId) => {
+                                  updateTask.mutate({ id: taskId, assigned_to: userId });
+                                  if (userId) {
+                                    supabase.from("task_participants").upsert({
+                                      task_id: taskId, user_id: userId, role: "assignee",
+                                    }, { onConflict: "task_id,user_id" });
+                                  }
+                                }}
+                                onToggle={(taskId) => {
+                                  const t = allTasks.find(x => x.id === taskId);
+                                  if (!t) return;
+                                  updateTask.mutate({
+                                    id: taskId,
+                                    is_completed: !t.is_completed,
+                                    completed_at: !t.is_completed ? new Date().toISOString() : null,
+                                  });
+                                }}
+                                onAddDependency={(predId, succId) => {
+                                  const pred = allTasks.find(t => t.id === predId);
+                                  const succ = allTasks.find(t => t.id === succId);
+                                  setDepDialogState({
+                                    predecessorId: predId, successorId: succId,
+                                    predecessorLabel: pred?.title || predId,
+                                    successorLabel: succ?.title || succId,
+                                    predecessorEntityType: "task", successorEntityType: "task",
+                                  });
+                                }}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!inboxOpen && (
+                    <div className="px-3 py-2.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {inboxData.parentTasks.length > 0 && <span>{inboxData.parentTasks.length} задач</span>}
+                      {inboxData.unmatchedSubs.length > 0 && <span>{inboxData.unmatchedSubs.length} подпроектов</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {/* Summary footer row */}
           <div className="flex border-t-2 border-border bg-card sticky bottom-0 z-10">
             <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-3 border-r border-border">
