@@ -54,9 +54,56 @@ export function useDependencyMutations() {
         created_by: user!.id,
       });
       if (error) throw error;
+
+      // For FS dependencies: if successor has no start_at, set it from predecessor's deadline
+      const depType = dep.dependency_type || "FS";
+      if (depType === "FS") {
+        const predType = dep.predecessor_entity_type || "task";
+        const succType = dep.successor_entity_type || "task";
+        const lagDays = dep.lag_days || 0;
+
+        // Fetch predecessor deadline
+        let predDeadline: string | null = null;
+        if (predType === "task") {
+          const { data: pred } = await supabase.from("tasks").select("deadline").eq("id", dep.predecessor_id).single();
+          predDeadline = pred?.deadline || null;
+        }
+
+        if (predDeadline) {
+          // Fetch successor to check start_at and deadline
+          if (succType === "task") {
+            const { data: succ } = await supabase.from("tasks").select("start_at, deadline").eq("id", dep.successor_id).single();
+            if (succ) {
+              const newStartAt = addDays(parseISO(predDeadline), lagDays);
+              const updates: Record<string, string> = {};
+
+              // Set start_at if missing
+              if (!succ.start_at) {
+                updates.start_at = newStartAt.toISOString();
+              }
+
+              // Push deadline forward if it's before predecessor's deadline + lag
+              if (succ.deadline && parseISO(succ.deadline) < newStartAt) {
+                const duration = succ.start_at
+                  ? Math.max(1, Math.round((parseISO(succ.deadline).getTime() - parseISO(succ.start_at).getTime()) / 86400000))
+                  : 1;
+                updates.deadline = addDays(newStartAt, duration).toISOString();
+              } else if (!succ.deadline) {
+                // If no deadline, set it to start + 1 day
+                updates.deadline = addDays(newStartAt, 1).toISOString();
+              }
+
+              if (Object.keys(updates).length > 0) {
+                await supabase.from("tasks").update(updates).eq("id", dep.successor_id);
+              }
+            }
+          }
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task_dependencies"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
       toast.success("Зависимость создана");
     },
     onError: (e: any) => toast.error(e.message),
