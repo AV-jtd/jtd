@@ -19,7 +19,7 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
-  Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2, Check, Flag,
+  Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
@@ -948,14 +948,6 @@ function MatrixTaskRow({
     ? differenceInCalendarDays(parseISO(task.deadline!), parseISO(task.original_deadline!))
     : 0;
 
-  const PRIORITIES = [
-    { value: 1, label: "P1", color: "text-red-500" },
-    { value: 2, label: "P2", color: "text-orange-500" },
-    { value: 3, label: "P3", color: "text-yellow-500" },
-    { value: 4, label: "P4", color: "text-blue-400" },
-  ] as const;
-  const priority = PRIORITIES.find(p => p.value === task.priority);
-
   const assignee = users.find(u => u.id === task.assigned_to);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
@@ -971,19 +963,15 @@ function MatrixTaskRow({
       "group flex items-center gap-1 px-1.5 py-1 rounded-md transition-colors min-w-0",
       task.is_completed ? "bg-muted/30" : isOverdue ? "bg-destructive/5" : "hover:bg-muted/40",
     )}>
-      {/* Checkbox — matches TaskItem style */}
+      {/* Checkbox */}
       <button
         onClick={() => onToggle(task.id)}
-        className="shrink-0 -m-0.5 p-0.5"
+        className="shrink-0"
       >
-        <span className={cn(
-          "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-          task.is_completed
-            ? "bg-primary border-primary"
-            : "border-muted-foreground/40 hover:border-primary"
-        )}>
-          {task.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-        </span>
+        <CheckCircle2 className={cn(
+          "h-3.5 w-3.5",
+          task.is_completed ? "text-emerald-500" : "text-muted-foreground/40 hover:text-muted-foreground"
+        )} />
       </button>
 
       {/* Title */}
@@ -994,14 +982,6 @@ function MatrixTaskRow({
       )}>
         {task.title}
       </span>
-
-      {/* Priority badge — matches TaskItem */}
-      {priority && (
-        <span className={cn("text-[9px] font-medium shrink-0 flex items-center gap-0.5", priority.color)}>
-          <Flag className="h-2.5 w-2.5" />
-          {priority.label}
-        </span>
-      )}
 
       {/* Drift badge */}
       {hasDrift && driftDays !== 0 && (

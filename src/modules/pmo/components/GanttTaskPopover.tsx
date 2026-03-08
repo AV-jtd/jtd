@@ -33,7 +33,6 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
     { value: 1, label: "P1", color: "text-red-500" },
     { value: 2, label: "P2", color: "text-orange-500" },
     { value: 3, label: "P3", color: "text-yellow-500" },
-    { value: 4, label: "P4", color: "text-blue-400" },
   ];
 
   const assignee = users.find(u => u.id === task.assigned_to);
