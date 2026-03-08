@@ -447,7 +447,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const nonInboxTasks = useMemo(() => filteredTasks.filter((t) => !isInboxTask(t)), [filteredTasks, tagById]);
 
   const funnelColumns = useMemo(() => {
-    const grouped: Record<string, CrmTask[]> = { kp: [], os: [], negotiation: [], shipping: [] };
+    const grouped: Record<string, CrmTask[]> = { kp: [], samples: [], os: [], negotiation: [], shipping: [] };
     for (const task of nonInboxTasks) {
       const stage = getTaskStage(task.subtasks);
       if (stage === "done") continue;
