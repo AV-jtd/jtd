@@ -209,6 +209,8 @@ export default function Index() {
           setActiveGroupId(null);
         }}
       />
+
+      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} />
     </div>
   );
 }
