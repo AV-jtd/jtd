@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type Task, type TaskGroup, type Profile } from "@/hooks/useTasks";
@@ -230,17 +230,57 @@ export default function NpdSwimlaneMatrix() {
     [allGroups, projectId]
   );
 
-  // Map stream subprojects
+  // Map stream subprojects — first by stream tag, then fallback by name pattern "Project / StreamName"
   const streamSubMap = useMemo(() => {
     const m = new Map<string, TaskGroup>(); // streamName -> subproject
     for (const sub of subprojects) {
       const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
       const sTagId = gTags.find(gt => streamTagIds.has(gt.tag_id))?.tag_id;
       const sName = sTagId ? streamTagById.get(sTagId) : null;
-      if (sName) m.set(sName, sub);
+      if (sName) {
+        m.set(sName, sub);
+      }
+    }
+    // Fallback: match unmatched subprojects by name suffix (e.g., "Азиатская линейка / Реклама" → "Реклама")
+    const matchedIds = new Set(Array.from(m.values()).map(s => s.id));
+    for (const sub of subprojects) {
+      if (matchedIds.has(sub.id)) continue;
+      const parts = sub.name.split("/");
+      if (parts.length >= 2) {
+        const suffix = parts[parts.length - 1].trim();
+        const matchedStream = NPD_STREAMS.find(s => s === suffix);
+        if (matchedStream && !m.has(matchedStream)) {
+          m.set(matchedStream, sub);
+        }
+      }
     }
     return m;
   }, [subprojects, allGroupTags, streamTagIds, streamTagById]);
+
+  // Auto-repair: assign missing stream tags to subprojects matched by name
+  const [repaired, setRepaired] = useState(false);
+  useEffect(() => {
+    if (repaired || streamTags.length === 0 || subprojects.length === 0) return;
+    setRepaired(true);
+
+    (async () => {
+      let changed = false;
+      for (const [streamName, sub] of streamSubMap.entries()) {
+        const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
+        const hasStreamTag = gTags.some(gt => streamTagIds.has(gt.tag_id));
+        if (hasStreamTag) continue;
+
+        const streamTag = streamTags.find(t => t.name === streamName);
+        if (streamTag) {
+          await supabase.from("group_tags" as any).insert({ group_id: sub.id, tag_id: streamTag.id });
+          changed = true;
+        }
+      }
+      if (changed) {
+        queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      }
+    })();
+  }, [streamSubMap, streamTags, allGroupTags, streamTagIds, subprojects, repaired, queryClient]);
 
   // Get gate for a subproject
   const getSubprojectGate = useCallback((subId: string): string | null => {
