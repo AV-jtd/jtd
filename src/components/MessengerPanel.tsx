@@ -94,6 +94,22 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
           </div>
         </div>
 
+        {/* AI Assistant entry */}
+        <div className="px-3 py-2 border-b border-border">
+          <button
+            onClick={() => setShowAiChat(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/10 transition-colors text-left"
+          >
+            <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground">ИИ-ассистент</span>
+              <p className="text-[10px] text-muted-foreground">Анализ проекта, саммари, риски</p>
+            </div>
+          </button>
+        </div>
+
         {/* Thread list */}
         <ScrollArea className="flex-1">
           {isLoading ? (
