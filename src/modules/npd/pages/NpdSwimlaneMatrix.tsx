@@ -191,7 +191,6 @@ export default function NpdSwimlaneMatrix() {
     }
     return null;
   }, [allTaskTags, tagIdToGateKey]);
-  }, [subprojects, allTasks]);
 
   // Inbox: tasks directly on parent project + unmatched subprojects
   const inboxData = useMemo(() => {
