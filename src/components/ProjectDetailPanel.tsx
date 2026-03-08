@@ -381,6 +381,10 @@ function SubprojectsList({ parentId }: { parentId: string }) {
 
 function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
   const [expanded, setExpanded] = useState(false);
+  const { data: tasks = [] } = useTasks(group.id);
+  const activeCount = tasks.filter(t => !t.is_completed).length;
+  const completedCount = tasks.filter(t => t.is_completed).length;
+
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
@@ -391,11 +395,14 @@ function SubprojectExpandableRow({ group }: { group: TaskGroup }) {
           ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
           : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
         }
-        <span className="text-xs font-medium text-foreground truncate">{group.icon && group.icon !== "list" ? `${group.icon} ` : ""}{group.name}</span>
+        <span className="text-xs font-medium text-foreground truncate flex-1">{group.icon && group.icon !== "list" ? `${group.icon} ` : ""}{group.name}</span>
+        <span className="text-[10px] text-muted-foreground shrink-0">
+          {activeCount > 0 ? activeCount : ""}{completedCount > 0 ? ` +${completedCount}✓` : ""}
+        </span>
       </button>
       {expanded && (
-        <div className="px-1 pb-2 space-y-2">
-          <TasksSection groupId={group.id} />
+        <div className="px-2 pb-2">
+          <ProjectDetailPanel group={group} />
         </div>
       )}
     </div>
