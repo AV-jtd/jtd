@@ -1192,12 +1192,7 @@ function MatrixTaskRow({
             <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Выбрать преемника</p>
             <div className="max-h-48 overflow-y-auto space-y-0.5">
               {allTasks
-                .filter(t => {
-                  if (t.id === task.id || t.is_completed || !t.group_id) return false;
-                  // Only tasks from current project (parent group or its subprojects)
-                  const projectGroupIds = new Set([task.group_id!, ...(allTasks.filter(at => at.group_id).map(() => ""))]);
-                  return t.group_id === task.group_id || allTasks.some(() => false);
-                })
+                .filter(t => t.id !== task.id && !t.is_completed && t.group_id && projectGroupIds.has(t.group_id))
                 .slice(0, 30)
                 .map(t => (
                   <button
