@@ -619,6 +619,11 @@ export default function NpdSwimlaneMatrix() {
                                 }}
                               />
                             ))}
+                            <InlineTaskCreator
+                              groupId={sub.id}
+                              users={users}
+                              onCreate={handleCreateTask}
+                            />
                           </div>
                         );
                       })}
