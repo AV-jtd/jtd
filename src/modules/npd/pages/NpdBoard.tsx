@@ -1520,6 +1520,7 @@ function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> })
 }
 
 
+function ProjectDetailSheet({
   projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {
   projectId: string;
