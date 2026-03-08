@@ -24,8 +24,10 @@ import {
   Tag,
   Plus,
   Globe,
+  Upload,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -1109,6 +1111,17 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                 Сбросить
               </button>
             )}
+
+            <div className="ml-auto">
+              <CrmSmartImportDialog
+                trigger={
+                  <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                    <Upload className="h-3 w-3" />
+                    Импорт
+                  </button>
+                }
+              />
+            </div>
           </div>
         </div>
 

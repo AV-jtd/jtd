@@ -449,7 +449,109 @@ ${activeProjectInfo}
       });
     }
 
-    if (action === "context_chat") {
+    if (action === "map_crm_columns") {
+      const { headers: excelHeaders, sampleRows } = context;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-lite",
+          messages: [
+            {
+              role: "system",
+              content: `Ты маппишь колонки Excel-файла к полям CRM-клиента. Доступные поля:
+- client_name: название клиента/компании (обязательное)
+- contact_name: контактное лицо
+- phone: телефон
+- email: email
+- city: город/регион
+- territory: территория/регион продаж
+- retail_type: тип розницы (гипермаркет, магазин, HoReCa и т.п.)
+- rank: ранг/категория клиента (A, B, C и т.п.)
+- manager: менеджер/ответственный
+- project: проект/группа
+- deadline: дедлайн/срок
+- tags: теги (через запятую)
+- notes: заметки/комментарии
+- skip: пропустить колонку
+
+Анализируй и заголовки, и примеры данных для определения типа колонки. 
+Клиент/компания/название — это client_name. Контакт/ФИО контакта — contact_name.`,
+            },
+            {
+              role: "user",
+              content: `Заголовки колонок: ${JSON.stringify(excelHeaders)}
+Примеры данных (первые 3 строки): ${JSON.stringify(sampleRows)}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "map_crm_columns",
+                description: "Маппинг колонок Excel к полям CRM-клиента",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    mapping: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          excel_column: { type: "string", description: "Оригинальное название колонки Excel" },
+                          field: { type: "string", description: "Поле CRM: client_name, contact_name, phone, email, city, territory, retail_type, rank, manager, project, deadline, tags, notes, или skip" },
+                          confidence: { type: "number", description: "Уверенность маппинга 0-1" },
+                        },
+                        required: ["excel_column", "field", "confidence"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["mapping"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "map_crm_columns" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ action: "map_crm_columns", mapping: parsed.mapping }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
       const { projectContext, history: chatHistory } = context || {};
       
       let contextInfo = "";
