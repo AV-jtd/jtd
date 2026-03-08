@@ -257,6 +257,31 @@ export default function NpdSwimlaneMatrix() {
     return m;
   }, [subprojects, allGroupTags, streamTagIds, streamTagById]);
 
+  // Auto-repair: assign missing stream tags to subprojects matched by name
+  const [repaired, setRepaired] = useState(false);
+  useEffect(() => {
+    if (repaired || streamTags.length === 0 || subprojects.length === 0) return;
+    setRepaired(true);
+
+    (async () => {
+      let changed = false;
+      for (const [streamName, sub] of streamSubMap.entries()) {
+        const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
+        const hasStreamTag = gTags.some(gt => streamTagIds.has(gt.tag_id));
+        if (hasStreamTag) continue;
+
+        const streamTag = streamTags.find(t => t.name === streamName);
+        if (streamTag) {
+          await supabase.from("group_tags" as any).insert({ group_id: sub.id, tag_id: streamTag.id });
+          changed = true;
+        }
+      }
+      if (changed) {
+        queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      }
+    })();
+  }, [streamSubMap, streamTags, allGroupTags, streamTagIds, subprojects, repaired, queryClient]);
+
   // Get gate for a subproject
   const getSubprojectGate = useCallback((subId: string): string | null => {
     const gTags = allGroupTags.filter(gt => gt.group_id === subId);
