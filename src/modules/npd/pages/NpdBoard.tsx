@@ -790,6 +790,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 onCardClick={setSelectedProjectId}
                 onCreate={handleCreateProject}
                 gateKeyToTagId={gateKeyToTagId}
+                projectFilter={projectFilter || null}
+                streamSubprojectsMap={streamSubprojectsMap}
+                streamSubprojectTasks={streamSubprojectTasks}
+                allTasks={allTasks}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
