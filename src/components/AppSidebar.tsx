@@ -165,8 +165,10 @@ export default function AppSidebar({
     return map;
   }, [folderItems]);
 
-  const getGroupsInFolder = (folderId: string) => rootGroups.filter(g => groupFolderMap.get(g.id) === folderId);
-  const ungroupedProjects = rootGroups.filter(g => !groupFolderMap.has(g.id));
+  const npdRootGroups = rootGroups.filter(g => (g as any).project_type === 'npd');
+  const nonNpdRootGroups = rootGroups.filter(g => (g as any).project_type !== 'npd');
+  const getGroupsInFolder = (folderId: string) => nonNpdRootGroups.filter(g => groupFolderMap.get(g.id) === folderId);
+  const ungroupedProjects = nonNpdRootGroups.filter(g => !groupFolderMap.has(g.id));
 
   const toggleFolderExpand = (id: string) => {
     setExpandedFolders(prev => {
