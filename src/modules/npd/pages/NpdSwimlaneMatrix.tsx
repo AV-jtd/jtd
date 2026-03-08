@@ -182,6 +182,17 @@ export default function NpdSwimlaneMatrix() {
     return m;
   }, [subprojects, allTasks]);
 
+  // Map task → gateKey using task_tags
+  const getTaskGate = useCallback((taskId: string): string | null => {
+    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
+    for (const tt of tTags) {
+      const gk = tagIdToGateKey.get(tt.tag_id);
+      if (gk) return gk;
+    }
+    return null;
+  }, [allTaskTags, tagIdToGateKey]);
+  }, [subprojects, allTasks]);
+
   // Inbox: tasks directly on parent project + unmatched subprojects
   const inboxData = useMemo(() => {
     const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
