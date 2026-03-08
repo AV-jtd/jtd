@@ -557,17 +557,14 @@ export default function NpdSwimlaneMatrix() {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Стрим</span>
             </div>
             {NPD_GATES.map(gate => (
-              <Tooltip key={gate.key}>
-                <TooltipTrigger asChild>
-                  <div className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border cursor-default", gate.bgLight)}>
-                    <div className="flex items-center gap-1.5">
-                      <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-                      <span className={cn("text-xs font-bold", gate.textColor)}>{gate.short}</span>
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
-              </Tooltip>
+              <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border", gate.bgLight)}>
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+                  <span className={cn("text-xs font-bold", gate.textColor)}>{gate.short}</span>
+                  <span className="text-[10px] text-muted-foreground/60">·</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{gate.shortTitle}</span>
+                </div>
+              </div>
             ))}
           </div>
 
