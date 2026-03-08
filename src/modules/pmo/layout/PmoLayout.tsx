@@ -62,7 +62,7 @@ export default function PmoLayout() {
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
       >
-        <nav className="flex items-center gap-0.5">
+        <nav className="flex items-center gap-0.5 whitespace-nowrap">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
