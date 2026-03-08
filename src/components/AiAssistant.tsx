@@ -262,8 +262,6 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
         deadline: task.deadline ? new Date(task.deadline + "T23:59:59").toISOString() : null,
         group_id: task.project_id || null,
         assigned_to: assignee,
-        priority: task.priority || null,
-        is_important: task.is_important || false,
         task_type: "standard",
       });
       
