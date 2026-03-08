@@ -236,14 +236,34 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
     }
   };
 
+  const resolveAssignee = (task: ParsedTask): string | null => {
+    if (task.assigned_to_id) {
+      const exact = users.find(u => u.id === task.assigned_to_id);
+      if (exact) return exact.id;
+    }
+    if (task.assigned_to_name) {
+      const name = task.assigned_to_name.toLowerCase();
+      const match = users.find(u => {
+        const dn = (u.display_name || "").toLowerCase();
+        const em = (u.email || "").toLowerCase();
+        return dn.includes(name) || name.includes(dn) || em.startsWith(name);
+      });
+      if (match) return match.id;
+    }
+    return null;
+  };
+
   const handleCreateTask = async (task: ParsedTask, msgIndex: number) => {
     if (!user) return;
     try {
+      const assignee = resolveAssignee(task);
       await addTask.mutateAsync({
         title: task.title,
-        deadline: task.deadline ? new Date(task.deadline).toISOString() : null,
+        deadline: task.deadline ? new Date(task.deadline + "T23:59:59").toISOString() : null,
         group_id: task.project_id || null,
-        assigned_to: task.assigned_to_id || null,
+        assigned_to: assignee,
+        priority: task.priority || null,
+        is_important: task.is_important || false,
         task_type: "standard",
       });
       
