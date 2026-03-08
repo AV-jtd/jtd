@@ -11,8 +11,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
-  Plus, AlertTriangle, Clock, ChevronDown, Check,
-  Search, X, Filter, Eye, EyeOff, Layers,
+  Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid,
 } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
 import { toast } from "sonner";
