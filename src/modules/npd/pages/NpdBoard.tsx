@@ -822,7 +822,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 activeStreams={activeStreams}
                 isOver={overColumn}
                 isMoving={moveMutation.isPending}
-                onCardClick={setSelectedProjectId}
+                onCardClick={handleCardClick}
                 onCreate={handleCreateProject}
                 gateKeyToTagId={gateKeyToTagId}
                 projectFilter={projectFilter || null}
