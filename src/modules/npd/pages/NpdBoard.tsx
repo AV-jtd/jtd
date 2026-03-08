@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, type Task, type TaskGroup } from "@/hooks/useTasks";
@@ -71,6 +72,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   onProjectFilterChange?: (id: string | null) => void;
 } = {}) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
@@ -601,8 +603,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     toast.success("Задача создана");
   };
 
-  // ── Selected project for detail view ──
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  // ── Navigate to swimlane matrix on card click ──
+  const handleCardClick = useCallback((id: string) => {
+    navigate(`/npd/matrix/${id}`);
+  }, [navigate]);
 
   const visibleGates = NPD_GATES.filter((g) => !hiddenGates.has(g.key));
   const totalProjects = npdProjects.length;
@@ -659,7 +663,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     {npdProjects.map(p => (
                       <button
                         key={p.id}
-                        onClick={() => onProjectFilterChange?.(p.id)}
+                        onClick={() => navigate(`/npd/matrix/${p.id}`)}
                         className={cn(
                           "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
                           projectFilter === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
@@ -818,7 +822,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 activeStreams={activeStreams}
                 isOver={overColumn}
                 isMoving={moveMutation.isPending}
-                onCardClick={setSelectedProjectId}
+                onCardClick={handleCardClick}
                 onCreate={handleCreateProject}
                 gateKeyToTagId={gateKeyToTagId}
                 projectFilter={projectFilter || null}
@@ -834,7 +838,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   <InboxColumn
                     projects={inboxProjects}
                     isOver={overColumn === "inbox"}
-                    onCardClick={setSelectedProjectId}
+                    onCardClick={handleCardClick}
                     onCreate={(name) => handleCreateProject(name, null)}
                   />
                 )}
@@ -846,14 +850,14 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     isOver={overColumn === gate.key}
                     isMoving={moveMutation.isPending}
                     streamTagById={streamTagById}
-                    onCardClick={setSelectedProjectId}
+                    onCardClick={handleCardClick}
                     onCreate={(name) => handleCreateProject(name, gate.key)}
                   />
                 ))}
                 {showArchive && (
                   <ArchiveColumn
                     projects={archiveProjects}
-                    onCardClick={setSelectedProjectId}
+                    onCardClick={handleCardClick}
                   />
                 )}
               </div>
@@ -874,23 +878,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         )}
       </DragOverlay>
 
-      {/* Project detail sheet - navigate to PMO */}
-      <Sheet open={!!selectedProjectId} onOpenChange={(open) => { if (!open) setSelectedProjectId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-y-auto">
-          {selectedProjectId && (
-            <ProjectDetailSheet
-              projectId={selectedProjectId}
-              npdProjects={npdProjects}
-              allGroups={allGroups}
-              streamTags={streamTags}
-              streamTagById={streamTagById}
-              gateKeyToTagId={gateKeyToTagId}
-              tagIdToGateKey={tagIdToGateKey}
-              onClose={() => setSelectedProjectId(null)}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
     </DndContext>
   );
 }
