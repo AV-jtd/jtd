@@ -520,7 +520,24 @@ export default function NpdSwimlaneMatrix() {
           <span className="text-sm leading-none">{project.icon && project.icon !== "list" ? project.icon : "🧪"}</span>
           <h1 className="text-sm font-bold text-foreground truncate">{projectName}</h1>
         </div>
-        <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">Swimlane Matrix</span>
+        {/* Mini progress */}
+        {(() => {
+          const allProjectTasks = allTasks.filter(t => {
+            const ids = [projectId!, ...subprojects.map(s => s.id)];
+            return t.group_id && ids.includes(t.group_id);
+          });
+          const total = allProjectTasks.length;
+          const done = allProjectTasks.filter(t => t.is_completed).length;
+          if (total === 0) return null;
+          return (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round((done / total) * 100)}%` }} />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-mono">{done}/{total}</span>
+            </div>
+          );
+        })()}
         <div className="flex-1" />
         <Link
           to={`/pmo?project=${projectId}`}
@@ -540,12 +557,17 @@ export default function NpdSwimlaneMatrix() {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Стрим</span>
             </div>
             {NPD_GATES.map(gate => (
-              <div key={gate.key} className={cn("min-w-[280px] w-[280px] shrink-0 px-3 py-2.5 border-r border-border", gate.bgLight)}>
-                <div className="flex items-center gap-1.5">
-                  <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-                  <span className={cn("text-xs font-bold", gate.textColor)}>{gate.title}</span>
-                </div>
-              </div>
+              <Tooltip key={gate.key}>
+                <TooltipTrigger asChild>
+                  <div className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border cursor-default", gate.bgLight)}>
+                    <div className="flex items-center gap-1.5">
+                      <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+                      <span className={cn("text-xs font-bold", gate.textColor)}>{gate.short}</span>
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
+              </Tooltip>
             ))}
           </div>
 
