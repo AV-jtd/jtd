@@ -1408,16 +1408,7 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Stream badges */}
-        {streamNames.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {streamNames.map((name) => (
-              <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                {name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Stream badges — hidden on board for cleanliness */}
 
         {/* Progress */}
         {project.stats.total > 0 && (
