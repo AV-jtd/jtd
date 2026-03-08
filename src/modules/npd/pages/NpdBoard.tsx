@@ -596,6 +596,53 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
           {/* Filter bar */}
           <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Project filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    projectFilter
+                      ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Folder className="h-3 w-3" />
+                    {projectFilter
+                      ? (npdProjects.find(p => p.id === projectFilter)?.name || "Проект")
+                      : "Все проекты"
+                    }
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" side="bottom">
+                  <div className="max-h-56 overflow-y-auto space-y-0.5">
+                    <button
+                      onClick={() => onProjectFilterChange?.(null)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        !projectFilter ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      Все проекты
+                      {!projectFilter && <Check className="h-3 w-3 ml-auto" />}
+                    </button>
+                    {npdProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => onProjectFilterChange?.(p.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          projectFilter === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="text-sm leading-none">{p.icon && p.icon !== "list" ? p.icon : "🧪"}</span>
+                        <span className="truncate">{p.name}</span>
+                        {projectFilter === p.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               <div className="relative flex-1 min-w-[160px] max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
