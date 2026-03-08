@@ -890,7 +890,7 @@ export default function NpdSwimlaneMatrix() {
               const gatePct = gateTotalTasks > 0 ? Math.round((gateCompletedTasks / gateTotalTasks) * 100) : 0;
 
               return (
-                <div key={gate.key} className={cn("min-w-[280px] w-[280px] shrink-0 border-r border-border px-3 py-3", streamsInGate.length > 0 ? gate.bgLight : "")}>
+                <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 border-r border-border px-3 py-3", streamsInGate.length > 0 ? gate.bgLight : "")}>
                   {streamsInGate.length > 0 ? (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
