@@ -1560,75 +1560,63 @@ function ProjectCard({
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
         <div className="border-t border-border animate-fade-in">
-          {/* Tab switcher */}
-          <div className="flex border-b border-border">
-            <button
-              onClick={(e) => { e.stopPropagation(); setDetailTab("dashboard"); }}
-              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "dashboard" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
-            >
-              Обзор
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setDetailTab("settings"); }}
-              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "settings" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
-            >
-              Настройки
-            </button>
-          </div>
-
           <div className="px-3 py-3 space-y-3">
-            {detailTab === "dashboard" ? (
-              <>
-                {/* Overdue tasks */}
-                {overdueTasks.length > 0 && (
-                  <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
-                    {overdueTasks.map(t => (
-                      <DashboardTaskRow key={t.id} task={t} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Assignee */}
+            {assigneeName && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
+                <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+              </div>
+            )}
 
-                {/* Upcoming deadlines */}
-                {upcomingTasks.length > 0 && (
-                  <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
-                    {upcomingTasks.map(t => (
-                      <DashboardTaskRow key={t.id} task={t} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Overdue tasks */}
+            {overdueTasks.length > 0 && (
+              <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+                {overdueTasks.map(t => (
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {/* Drift */}
-                {driftTasks.length > 0 && (
-                  <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
-                    {driftTasks.map(({ task: t, driftDays }) => (
-                      <DashboardTaskRow key={t.id} task={t} drift={driftDays} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Upcoming deadlines */}
+            {upcomingTasks.length > 0 && (
+              <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+                {upcomingTasks.map(t => (
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {/* Subprojects with stream stats */}
-                {subprojects.length > 0 && (
-                  <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
-                    {project.streamStats.filter(s => s.total > 0).map((s) => (
-                      <div key={s.name} className="flex items-center gap-2 px-2 py-1">
-                        <span className="text-xs text-foreground truncate flex-1">{s.name}</span>
-                        <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full bg-primary" style={{ width: s.total > 0 ? `${(s.completed / s.total) * 100}%` : '0%' }} />
-                        </div>
-                        <span className={cn("text-[10px] font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-muted-foreground")}>
-                          {s.completed}/{s.total}
-                        </span>
-                      </div>
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Drift */}
+            {driftTasks.length > 0 && (
+              <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
+                {driftTasks.map(({ task: t, driftDays }) => (
+                  <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
-                )}
-              </>
-            ) : (
-              <ProjectDetailPanel group={group} />
+            {/* Subprojects with stream stats — expandable */}
+            {subprojects.length > 0 && (
+              <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
+                {subprojects.filter(sub => {
+                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
+                  return st ? st.total > 0 : true;
+                }).map((sub) => {
+                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
+                  return (
+                    <ExpandableSubprojectRow
+                      key={sub.id}
+                      subproject={sub}
+                      stats={st || { name: sub.name, total: 0, completed: 0 }}
+                    />
+                  );
+                })}
+              </DashboardSection>
+            )}
+
+            {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
             )}
           </div>
         </div>
