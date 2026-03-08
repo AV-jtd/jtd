@@ -631,9 +631,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (<>
-          {/* Filter bar */}
+          {/* Unified compact bar */}
           <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-3">
               {/* Project filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -689,24 +689,25 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   Сбросить
                 </button>
               )}
-            </div>
-          </div>
 
-          {/* Stats bar */}
-          <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
-                <span className="text-xs text-muted-foreground">NPD-проектов</span>
-                <span className="text-sm font-bold text-foreground">{totalProjects}</span>
-              </div>
               <div className="h-4 w-px bg-border" />
-              {visibleGates.map((gate) => (
-                <div key={gate.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", gate.bgLight)}>
-                  <div className={cn("h-2 w-2 rounded-full", gate.color)} />
-                  <span className={cn("text-xs font-medium", gate.textColor)}>{gate.title.split(":")[0]}</span>
-                  <span className="text-sm font-bold text-foreground">{gateColumns[gate.key]?.length || 0}</span>
-                </div>
-              ))}
+
+              {/* Compact gate stats: colored dots with counts */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground font-medium">{totalProjects}</span>
+                <div className="h-3 w-px bg-border" />
+                {visibleGates.map((gate) => (
+                  <Tooltip key={gate.key}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 cursor-default">
+                        <div className={cn("h-2 w-2 rounded-full", gate.color)} />
+                        <span className="text-[11px] text-muted-foreground font-mono">{gateColumns[gate.key]?.length || 0}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
             </div>
           </div>
 
