@@ -280,6 +280,14 @@ export default function NpdSwimlaneMatrix() {
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
 
+      // Assign gate tag to task so it appears in the correct cell
+      if (gateKey && data) {
+        const gateTagId = gateKeyToTagId.get(gateKey);
+        if (gateTagId) {
+          await supabase.from("task_tags").insert({ task_id: data.id, tag_id: gateTagId });
+        }
+      }
+
       if (params.assigneeId && data) {
         await supabase.from("task_participants").upsert({
           task_id: data.id,
@@ -289,6 +297,7 @@ export default function NpdSwimlaneMatrix() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
       toast.success("Задача создана");
     }
   };
