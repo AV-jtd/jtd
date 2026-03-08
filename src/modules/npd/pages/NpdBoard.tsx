@@ -966,7 +966,12 @@ function SwimlaneGrid({
       {streamsToShow.map((stream) => {
         const isCollapsed = collapsedRows.has(stream);
         const rowProjects = visibleGates.flatMap((g) => gridData[stream]?.[g.key] || []);
-        const totalInRow = rowProjects.length;
+        // If project filter is active, find the stream subproject and its tasks
+        const streamSub = projectFilter
+          ? (streamSubprojectsMap.get(projectFilter) || []).find((s) => s.streamName === stream)
+          : null;
+        const streamTasks = streamSub ? (streamSubprojectTasks.get(streamSub.id) || []) : [];
+        const totalInRow = projectFilter ? streamTasks.length : rowProjects.length;
 
         return (
           <div key={stream} className="border-b border-border">
@@ -981,9 +986,28 @@ function SwimlaneGrid({
                   : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                 }
                 <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+                {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
               {!isCollapsed && visibleGates.map((gate) => {
+                // When project is filtered, show tasks in the gate column where the project lives
+                if (projectFilter && streamSub) {
+                  const project = filteredProjects.find((p) => p.id === projectFilter);
+                  const projectGate = project ? getProjectGate(project) : null;
+                  const showTasks = projectGate === gate.key;
+                  return (
+                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                      <div className="flex flex-col gap-1">
+                        {showTasks ? streamTasks.map((task) => (
+                          <TaskMiniCard key={task.id} task={task} />
+                        )) : (
+                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                // Default: show project cards
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
                   <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
