@@ -162,6 +162,7 @@ function getSalesStatus(task: CrmTask): "todo" | "in_progress" | "waiting" {
 export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const { toggleTask, toggleImportant, addTask, addGroup } = useTaskMutations();
   const { data: allProjectGroups = [] } = useTaskGroups();
 
@@ -176,6 +177,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const [filterRetailTypeIds, setFilterRetailTypeIds] = useState<string[]>([]);
   const [filterRankIds, setFilterRankIds] = useState<string[]>([]);
   const [filterManagerIds, setFilterManagerIds] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
