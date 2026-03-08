@@ -626,6 +626,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           )}
         </form>
 
+        {/* Subprojects dashboard */}
+        {activeView === "group" && activeGroupId && (
+          <SubprojectCards parentId={activeGroupId} onNavigate={onProjectClick} />
+        )}
+
         {/* Task list */}
         {isLoading ? (
           <div className="space-y-3">
