@@ -1475,7 +1475,7 @@ function ProjectCard({
       )}
     >
       <div
-        onClick={onCardClick}
+        onClick={() => setDetailOpen(!detailOpen)}
         className="cursor-pointer px-3 py-2.5"
       >
         <div className="flex items-center gap-2 min-w-0">
