@@ -1559,19 +1559,19 @@ function ProjectCard({
 
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
-        <div className="border-t border-border animate-fade-in px-4 pb-4 pt-3 space-y-4">
+        <div className="border-t border-border animate-fade-in px-2.5 pb-3 pt-2.5 space-y-3 overflow-hidden">
           {/* Assignee */}
           {assigneeName && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
-              <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-muted-foreground">Ответственный:</span>
+              <span className="text-[11px] text-foreground font-medium truncate">{assigneeName}</span>
             </div>
           )}
 
           {/* Subprojects first (like dashboard) */}
           {subprojects.length > 0 && (
             <DashboardSection title="Подпроекты" count={subprojects.length}>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {subprojects.map(sub => (
                   <NpdSubprojectCard
                     key={sub.id}
@@ -1588,7 +1588,7 @@ function ProjectCard({
           {/* Overdue tasks */}
           {overdueTasks.length > 0 && (
             <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {overdueTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} variant="overdue" />
                 ))}
@@ -1599,7 +1599,7 @@ function ProjectCard({
           {/* Upcoming deadlines */}
           {upcomingTasks.length > 0 && (
             <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {upcomingTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1610,7 +1610,7 @@ function ProjectCard({
           {/* Drift */}
           {driftTasks.length > 0 && (
             <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {driftTasks.map(({ task: t, driftDays }) => (
                   <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1618,8 +1618,28 @@ function ProjectCard({
             </DashboardSection>
           )}
 
-          {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
+          {/* All remaining active tasks (not in overdue/upcoming/drift) */}
+          {(() => {
+            const categorizedIds = new Set([
+              ...overdueTasks.map(t => t.id),
+              ...upcomingTasks.map(t => t.id),
+              ...driftTasks.map(d => d.task.id),
+            ]);
+            const otherTasks = activeTasks.filter(t => !categorizedIds.has(t.id));
+            if (otherTasks.length === 0) return null;
+            return (
+              <DashboardSection title="Активные задачи" count={otherTasks.length}>
+                <div className="space-y-0.5">
+                  {otherTasks.map(t => (
+                    <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
+                  ))}
+                </div>
+              </DashboardSection>
+            );
+          })()}
+
+          {activeTasks.length === 0 && subprojects.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
         </div>
       )}
@@ -1642,24 +1662,21 @@ function DashboardSection({ title, count, children, variant }: { title: string; 
 function DashboardTaskRow({ task, drift, assigneeName, variant }: { task: Task; drift?: number; assigneeName?: string | null; variant?: "overdue" }) {
   const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
   return (
-    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50 transition-colors min-w-0">
       <span className={cn(
-        "text-xs truncate flex-1",
+        "text-[11px] truncate flex-1 min-w-0",
         isOverdue ? "text-red-600 dark:text-red-400" : "text-foreground",
         task.is_completed && "line-through text-muted-foreground"
       )}>{task.title}</span>
       {drift !== undefined && (
-        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
+        <span className={cn("text-[9px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
       )}
       {task.deadline && (
-        <span className="text-[10px] text-muted-foreground shrink-0">
+        <span className="text-[9px] text-muted-foreground shrink-0">
           {format(parseISO(task.deadline), "d MMM", { locale: ru })}
         </span>
-      )}
-      {assigneeName && (
-        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate">{assigneeName}</span>
       )}
     </div>
   );
@@ -1705,53 +1722,46 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
   if (total === 0) return null;
 
   return (
-    <div className={cn("bg-card rounded-xl border border-dashed border-border overflow-hidden transition-shadow", expanded && "shadow-md")}>
+    <div className={cn("bg-card rounded-lg border border-dashed border-border overflow-hidden transition-shadow", expanded && "shadow-sm")}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
+        className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-muted/30 transition-colors min-w-0"
       >
         <div
-          className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
+          className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[9px] font-semibold"
           style={{ backgroundColor: subproject.color || "hsl(var(--primary))" }}
         >
           {subproject.icon && subproject.icon !== "list" ? subproject.icon : subproject.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-xs truncate">{subproject.name}</span>
-            <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium", STATUS_BADGE[timingStatus])}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-medium text-[11px] truncate">{subproject.name}</span>
+            <span className={cn("text-[8px] px-1 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap", STATUS_BADGE[timingStatus])}>
               {STATUS_LABEL[timingStatus]}
             </span>
           </div>
-          <div className="flex items-center gap-3 mt-1">
-            <div className="flex-1 max-w-[120px]">
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex-1 max-w-[80px]">
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
               </div>
             </div>
-            <span className="text-[10px] text-muted-foreground">{pct}% · {completed}/{total}</span>
+            <span className="text-[9px] text-muted-foreground shrink-0">{completed}/{total}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1 shrink-0 text-[9px] text-muted-foreground">
           {overdueTasks.length > 0 && (
-            <span className="flex items-center gap-0.5 text-red-500 font-medium">
-              <AlertTriangle className="h-3 w-3" /> {overdueTasks.length}
-            </span>
+            <span className="text-red-500 font-medium">{overdueTasks.length}!</span>
           )}
-          {driftTasks.length > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-500 font-medium">
-              <Clock className="h-3 w-3" /> {driftTasks.length}
-            </span>
-          )}
-          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-border px-3 pb-3 pt-2 space-y-3 animate-fade-in">
+        <div className="border-t border-border px-2 pb-2 pt-1.5 space-y-2 animate-fade-in">
           {childGroups.length > 0 && (
             <DashboardSection title="Подпроекты" count={childGroups.length}>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {childGroups.map(cg => (
                   <NpdSubprojectCard key={cg.id} subproject={cg} allTasks={allTasks} allGroups={allGroups} availableUsers={availableUsers} />
                 ))}
@@ -1761,7 +1771,7 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
 
           {overdueTasks.length > 0 && (
             <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {overdueTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
                 ))}
@@ -1771,7 +1781,7 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
 
           {upcomingTasks.length > 0 && (
             <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {upcomingTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1780,8 +1790,8 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
           )}
 
           {driftTasks.length > 0 && (
-            <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
-              <div className="space-y-1">
+            <DashboardSection title="Drift" count={driftTasks.length} variant="warning">
+              <div className="space-y-0.5">
                 {driftTasks.map(({ task: t, driftDays }) => (
                   <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1789,8 +1799,28 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
             </DashboardSection>
           )}
 
-          {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && childGroups.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
+          {/* All remaining active tasks */}
+          {(() => {
+            const categorizedIds = new Set([
+              ...overdueTasks.map(t => t.id),
+              ...upcomingTasks.map(t => t.id),
+              ...driftTasks.map(d => d.task.id),
+            ]);
+            const otherTasks = activeTasks.filter(t => !categorizedIds.has(t.id));
+            if (otherTasks.length === 0) return null;
+            return (
+              <DashboardSection title="Активные" count={otherTasks.length}>
+                <div className="space-y-0.5">
+                  {otherTasks.map(t => (
+                    <DashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                  ))}
+                </div>
+              </DashboardSection>
+            );
+          })()}
+
+          {activeTasks.length === 0 && childGroups.length === 0 && (
+            <p className="text-[10px] text-muted-foreground text-center py-1">Все задачи завершены</p>
           )}
         </div>
       )}
