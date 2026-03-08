@@ -1109,7 +1109,13 @@ function GateColumn({
     >
       <div className="flex items-center gap-2 px-4 py-3 shrink-0">
         <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-        <span className="text-sm font-semibold text-foreground">{gate.title}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-sm font-semibold text-foreground cursor-default">{gate.short}</span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
+        </Tooltip>
+        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
         <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
         <button
           onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
