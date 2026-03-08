@@ -66,8 +66,7 @@ export default function AiAssistant({ open, onOpenChange }: AiAssistantProps) {
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
   const { data: users = [] } = useAvailableUsers();
-  const createTask = useCreateTask();
-  const createGroup = useCreateGroup();
+  const { addTask, addGroup } = useTaskMutations();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
