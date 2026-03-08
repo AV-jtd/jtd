@@ -1101,7 +1101,7 @@ function InboxColumn({
   onCreate: (name: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: "inbox" });
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
