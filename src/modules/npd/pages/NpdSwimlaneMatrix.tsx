@@ -601,7 +601,10 @@ export default function NpdSwimlaneMatrix() {
               <div key={stream} className="border-b border-border">
                 <div className="flex">
                   {/* Stream label */}
-                  <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50">
+                  <div className={cn(
+                    "min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50",
+                    isCollapsed && overdueTasks.length > 0 && "bg-destructive/5"
+                  )}>
                     <button
                       onClick={() => toggleCollapse(stream)}
                       className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
@@ -611,7 +614,13 @@ export default function NpdSwimlaneMatrix() {
                         : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       }
                       <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
-                      <div className="flex items-center gap-1 ml-auto shrink-0">
+                      <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                        {overdueTasks.length > 0 && (
+                          <span className="text-[9px] text-destructive font-medium flex items-center gap-0.5">
+                            <AlertTriangle className="h-3 w-3" />
+                            {overdueTasks.length}
+                          </span>
+                        )}
                         {tasks.length > 0 && (
                           <span className="text-[10px] text-muted-foreground">
                             {completedCount}/{tasks.length}
@@ -701,14 +710,34 @@ export default function NpdSwimlaneMatrix() {
                             )}
                           </div>
                         )}
-                        {isCollapsed && (hasTasks || isCurrentGate) && (
-                          <div className="px-2 py-1.5 flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">{cellTasks.length} задач</span>
-                            {cellTasks.some(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))) && (
-                              <AlertTriangle className="h-3 w-3 text-destructive" />
-                            )}
-                          </div>
-                        )}
+                        {isCollapsed && (hasTasks || isCurrentGate) && (() => {
+                          const cellCompleted = cellTasks.filter(t => t.is_completed).length;
+                          const cellOverdue = cellTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+                          const cellPct = cellTasks.length > 0 ? Math.round((cellCompleted / cellTasks.length) * 100) : 0;
+                          return (
+                            <div className={cn(
+                              "px-2.5 py-2 flex items-center gap-2",
+                              cellOverdue > 0 && "bg-destructive/5"
+                            )}>
+                              {cellTasks.length > 0 ? (
+                                <>
+                                  <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                                    <div className={cn("h-full rounded-full transition-all", gate.color)} style={{ width: `${cellPct}%` }} />
+                                  </div>
+                                  <span className="text-[9px] font-mono text-muted-foreground shrink-0">{cellCompleted}/{cellTasks.length}</span>
+                                  {cellOverdue > 0 && (
+                                    <span className="text-[9px] text-destructive flex items-center gap-0.5 shrink-0">
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      {cellOverdue}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-[9px] text-muted-foreground/40">—</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
