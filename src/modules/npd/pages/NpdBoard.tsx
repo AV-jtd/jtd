@@ -34,6 +34,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 type GateStage = {
   key: string;
   short: string;
+  shortTitle: string;
   title: string;
   tagName: string;
   color: string;
@@ -42,12 +43,12 @@ type GateStage = {
 };
 
 const NPD_GATES: GateStage[] = [
-  { key: "gate0", short: "G0", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
-  { key: "gate1", short: "G1", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
-  { key: "gate2", short: "G2", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
-  { key: "gate3", short: "G3", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
-  { key: "gate4", short: "G4", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
-  { key: "gate5", short: "G5", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
+  { key: "gate0", short: "G0", title: "Gate 0: Идея", shortTitle: "Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "gate1", short: "G1", title: "Gate 1: Концепция", shortTitle: "Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "gate2", short: "G2", title: "Gate 2: Разработка", shortTitle: "Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+  { key: "gate3", short: "G3", title: "Gate 3: Подготовка", shortTitle: "Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
+  { key: "gate4", short: "G4", title: "Gate 4: Запуск", shortTitle: "Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
+  { key: "gate5", short: "G5", title: "Gate 5: Анализ", shortTitle: "Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
 ];
 
 const GATE_ORDER = NPD_GATES.map((g) => g.key);
@@ -1107,20 +1108,19 @@ function GateColumn({
         isOver && "bg-primary/5"
       )}
     >
-      <div className="flex flex-col px-4 py-3 shrink-0 gap-1">
-        <div className="flex items-center gap-2">
-          <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-          <span className="text-sm font-semibold text-foreground">{gate.short}</span>
-          <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-          <QuickCreateForm
-            users={users}
-            singleType="subproject"
-            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-            compact
-            onCreate={async (p) => { onCreate(p.title); }}
-          />
-        </div>
-        <span className="text-[10px] text-muted-foreground/70 leading-tight">{gate.title}</span>
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+        <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+        <span className="text-sm font-semibold text-foreground">{gate.short}</span>
+        <span className="text-xs text-muted-foreground/60">·</span>
+        <span className="text-xs text-muted-foreground truncate">{gate.shortTitle}</span>
+        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
+        <QuickCreateForm
+          users={users}
+          singleType="subproject"
+          options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+          compact
+          onCreate={async (p) => { onCreate(p.title); }}
+        />
       </div>
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
