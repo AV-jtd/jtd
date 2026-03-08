@@ -871,28 +871,36 @@ export default function NpdSwimlaneMatrix() {
               })()}
             </div>
             {NPD_GATES.map(gate => {
-              // Streams in this gate
-              const streamsInGate = NPD_STREAMS.filter(s => {
+              // Count tasks per gate using the SAME logic as cell rendering
+              let gateTotalTasks = 0;
+              let gateCompletedTasks = 0;
+              let gateOverdue = 0;
+              const streamsInGate: string[] = [];
+
+              NPD_STREAMS.forEach(s => {
                 const sub = streamSubMap.get(s);
-                return sub && getSubprojectGate(sub.id) === gate.key;
+                if (!sub) return;
+                const tasks = tasksByGroup.get(sub.id) || [];
+                const currentGate = getSubprojectGate(sub.id);
+
+                const cellTasks = tasks.filter(t => {
+                  const taskGate = getTaskGate(t.id);
+                  return taskGate ? taskGate === gate.key : currentGate === gate.key;
+                });
+
+                if (cellTasks.length > 0) {
+                  streamsInGate.push(s);
+                  gateTotalTasks += cellTasks.length;
+                  gateCompletedTasks += cellTasks.filter(t => t.is_completed).length;
+                  gateOverdue += cellTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+                }
               });
-              const gateTotalTasks = streamsInGate.reduce((acc, s) => {
-                const sub = streamSubMap.get(s)!;
-                return acc + (tasksByGroup.get(sub.id) || []).length;
-              }, 0);
-              const gateCompletedTasks = streamsInGate.reduce((acc, s) => {
-                const sub = streamSubMap.get(s)!;
-                return acc + (tasksByGroup.get(sub.id) || []).filter(t => t.is_completed).length;
-              }, 0);
-              const gateOverdue = streamsInGate.reduce((acc, s) => {
-                const sub = streamSubMap.get(s)!;
-                return acc + (tasksByGroup.get(sub.id) || []).filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
-              }, 0);
+
               const gatePct = gateTotalTasks > 0 ? Math.round((gateCompletedTasks / gateTotalTasks) * 100) : 0;
 
               return (
-                <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 border-r border-border px-3 py-3", streamsInGate.length > 0 ? gate.bgLight : "")}>
-                  {streamsInGate.length > 0 ? (
+                <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 border-r border-border px-3 py-3", gateTotalTasks > 0 ? gate.bgLight : "")}>
+                  {gateTotalTasks > 0 ? (
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {streamsInGate.map(s => (
