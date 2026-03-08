@@ -1307,6 +1307,9 @@ function ProjectCard({
   const now = new Date();
   const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const subprojects = allGroups.filter(g => g.parent_id === project.id);
+  const subprojectsWithTasks = useMemo(() => {
+    return subprojects.filter(sub => allTasks.some(t => t.group_id === sub.id));
+  }, [subprojects, allTasks]);
 
   // Collect tasks from subprojects too
   const allProjectTasks = useMemo(() => {
@@ -1438,10 +1441,10 @@ function ProjectCard({
           )}
 
           {/* Subprojects first (like dashboard) */}
-          {subprojects.length > 0 && (
-            <DashboardSection title="Подпроекты" count={subprojects.length}>
+          {subprojectsWithTasks.length > 0 && (
+            <DashboardSection title="Подпроекты" count={subprojectsWithTasks.length}>
               <div className="space-y-1.5">
-                {subprojects.map(sub => (
+                {subprojectsWithTasks.map(sub => (
                   <NpdSubprojectCard
                     key={sub.id}
                     subproject={sub}
@@ -1507,7 +1510,7 @@ function ProjectCard({
             );
           })()}
 
-          {activeTasks.length === 0 && subprojects.length === 0 && (
+          {activeTasks.length === 0 && subprojectsWithTasks.length === 0 && (
             <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
         </div>
