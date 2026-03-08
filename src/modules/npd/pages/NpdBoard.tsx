@@ -1320,13 +1320,15 @@ const STATUS_LABEL: Record<string, string> = {
 
 // ── Project Card ──
 function ProjectCard({
-  project, streamTagById, isDragging, dragHandleProps, onCardClick,
+  project, streamTagById, isDragging, dragHandleProps, onCardClick, isSecondary, currentGate,
 }: {
   project: NpdProject;
   streamTagById: Map<string, string>;
   isDragging?: boolean;
   dragHandleProps?: ComponentProps<"button">;
   onCardClick?: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
 }) {
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -1338,6 +1340,11 @@ function ProjectCard({
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  // For secondary cards, find the primary gate label
+  const primaryGateKey = project.allGateKeys[project.allGateKeys.length - 1];
+  const otherGates = project.allGateKeys.filter((k) => k !== currentGate?.key);
+  const otherGateLabels = otherGates.map((k) => NPD_GATES.find((g) => g.key === k)?.short).filter(Boolean);
 
   const assignee = members.find(m => m.role === "assignee");
   const assigneeName = assignee ? (availableUsers.find(u => u.id === assignee.user_id)?.display_name || assignee.user_id.slice(0, 8)) : null;
