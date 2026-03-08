@@ -1022,12 +1022,15 @@ function SwimlaneGrid({
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
               {!isCollapsed && projectFilter && streamSub ? (
-                /* When project is filtered: show all tasks across the full row */
-                <div className="flex-1 px-3 py-2 border-r border-border">
-                  <div className="flex flex-wrap gap-1.5">
+                /* When project is filtered: show all tasks from this stream subproject */
+                <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
+                  <div className="flex flex-col gap-1.5">
                     {streamTasks.map((task) => (
-                      <TaskMiniCard key={task.id} task={task} />
+                      <TaskItem key={task.id} task={task} />
                     ))}
+                    {streamTasks.length === 0 && (
+                      <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
+                    )}
                     <InlineTaskAdder
                       onAdd={(title) => onCreateTask(title, streamSub.id)}
                     />
