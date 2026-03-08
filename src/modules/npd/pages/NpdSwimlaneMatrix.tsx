@@ -29,12 +29,12 @@ import { toast } from "sonner";
 
 // ── Gate definitions (same as NpdBoard) ──
 const NPD_GATES = [
-  { key: "gate0", short: "G0", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
-  { key: "gate1", short: "G1", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
-  { key: "gate2", short: "G2", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
-  { key: "gate3", short: "G3", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
-  { key: "gate4", short: "G4", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
-  { key: "gate5", short: "G5", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
+  { key: "gate0", short: "G0", shortTitle: "Идея", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "gate1", short: "G1", shortTitle: "Концепция", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "gate2", short: "G2", shortTitle: "Разработка", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+  { key: "gate3", short: "G3", shortTitle: "Подготовка", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
+  { key: "gate4", short: "G4", shortTitle: "Запуск", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
+  { key: "gate5", short: "G5", shortTitle: "Анализ", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
 ];
 
 const NPD_STREAMS = [
@@ -557,17 +557,14 @@ export default function NpdSwimlaneMatrix() {
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Стрим</span>
             </div>
             {NPD_GATES.map(gate => (
-              <Tooltip key={gate.key}>
-                <TooltipTrigger asChild>
-                  <div className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border cursor-default", gate.bgLight)}>
-                    <div className="flex items-center gap-1.5">
-                      <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-                      <span className={cn("text-xs font-bold", gate.textColor)}>{gate.short}</span>
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
-              </Tooltip>
+              <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border", gate.bgLight)}>
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+                  <span className={cn("text-xs font-bold", gate.textColor)}>{gate.short}</span>
+                  <span className="text-[10px] text-muted-foreground/60">·</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{gate.shortTitle}</span>
+                </div>
+              </div>
             ))}
           </div>
 
