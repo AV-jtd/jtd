@@ -522,9 +522,10 @@ export default function NpdSwimlaneMatrix() {
                   {inboxOpen && (
                     <div className="px-3 py-2 space-y-1.5">
                       {/* Tasks directly on parent project */}
-                      {inboxData.parentTasks.length > 0 && (
                         <div className="space-y-1">
-                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Задачи проекта</span>
+                          {inboxData.parentTasks.length > 0 && (
+                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Задачи проекта</span>
+                          )}
                           {inboxData.parentTasks.map(task => (
                             <MatrixTaskRow
                               key={task.id}
@@ -562,8 +563,14 @@ export default function NpdSwimlaneMatrix() {
                               }}
                             />
                           ))}
+                          {projectId && (
+                            <InlineTaskCreator
+                              groupId={projectId}
+                              users={users}
+                              onCreate={handleCreateTask}
+                            />
+                          )}
                         </div>
-                      )}
                       {/* Unmatched subprojects */}
                       {inboxData.unmatchedSubs.map(sub => {
                         const subTasks = allTasks.filter(t => t.group_id === sub.id);
