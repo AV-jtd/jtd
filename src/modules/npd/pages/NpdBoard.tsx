@@ -329,12 +329,19 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
 
   // ── Gate assignment ──
+  // Primary gate = most advanced (highest index) from allGateKeys
   const getProjectGate = (project: NpdProject): string | null => {
+    if (project.allGateKeys.length > 0) return project.allGateKeys[project.allGateKeys.length - 1];
     for (const tagId of project.gateTags) {
       const key = tagIdToGateKey.get(tagId);
       if (key) return key;
     }
     return null;
+  };
+
+  // All active gates for a project (from own + child subproject tags)
+  const getProjectGates = (project: NpdProject): string[] => {
+    return project.allGateKeys.length > 0 ? project.allGateKeys : [];
   };
 
   // ── Stream subprojects map: parentId -> stream subprojects ──
@@ -344,7 +351,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       if ((g as any).project_type !== "npd" || !g.parent_id) continue;
       const parentNpd = npdProjects.find((p) => p.id === g.parent_id);
       if (!parentNpd) continue;
-      // Determine stream from group_tags
       const gTags = allGroupTags.filter((gt) => gt.group_id === g.id);
       const sTagId = gTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
       const sName = sTagId ? streamTagById.get(sTagId) || null : null;
@@ -376,7 +382,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   // ── Tasks grouped by stream subproject (for swimlane task view) ──
   const streamSubprojectTasks = useMemo(() => {
     if (!projectFilter) return new Map<string, Task[]>();
-    const m = new Map<string, Task[]>(); // subproject_id -> tasks
+    const m = new Map<string, Task[]>();
     const subs = streamSubprojectsMap.get(projectFilter) || [];
     for (const sub of subs) {
       const tasks = allTasks.filter((t) => t.group_id === sub.id);
@@ -385,15 +391,26 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
-  // ── Columns ──
+  // ── Columns (project appears in ALL active gates) ──
   const gateColumns = useMemo(() => {
-    const grouped: Record<string, NpdProject[]> = {};
+    const grouped: Record<string, { project: NpdProject; isPrimary: boolean }[]> = {};
     for (const gate of NPD_GATES) grouped[gate.key] = [];
 
     for (const project of filteredProjects) {
-      const gate = getProjectGate(project);
-      if (gate && grouped[gate]) {
-        grouped[gate].push(project);
+      const gates = getProjectGates(project);
+      const primaryGate = getProjectGate(project);
+      if (gates.length > 0) {
+        for (const gateKey of gates) {
+          if (grouped[gateKey]) {
+            grouped[gateKey].push({ project, isPrimary: gateKey === primaryGate });
+          }
+        }
+      } else {
+        // Fallback: single gate from own tag
+        const gate = primaryGate;
+        if (gate && grouped[gate]) {
+          grouped[gate].push({ project, isPrimary: true });
+        }
       }
     }
     return grouped;
