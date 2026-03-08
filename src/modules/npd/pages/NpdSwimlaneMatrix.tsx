@@ -462,29 +462,31 @@ export default function NpdSwimlaneMatrix() {
                                   />
                                 ))}
                                 {sub && (
-                                  <InlineTaskCreator
-                                    groupId={sub.id}
+                                  <QuickCreateForm
                                     users={users}
-                                    onCreate={handleCreateTask}
+                                    onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   />
                                 )}
                               </div>
                             ) : sub ? (
                               /* Stream exists but is in another gate — compact + */
                               <div className="flex items-center justify-center min-h-[40px]">
-                                <InlineTaskCreator
-                                  groupId={sub.id}
+                                <QuickCreateForm
                                   users={users}
-                                  onCreate={handleCreateTask}
+                                  onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact
                                 />
                               </div>
                             ) : (
                               /* No subproject for this stream — create one on click */
-                              <CellCreateButton
-                                label="Стрим"
-                                onCreateSubproject={() => handleCreateSubproject(stream, gate.key)}
-                              />
+                              <div className="flex items-center justify-center min-h-[40px]">
+                                <QuickCreateForm
+                                  users={users}
+                                  singleType="subproject"
+                                  onCreate={(p) => handleQuickCreate(p, projectId!, stream, gate.key)}
+                                  compact
+                                />
+                              </div>
                             )}
                           </div>
                         )}
