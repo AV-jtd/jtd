@@ -2078,28 +2078,15 @@ function CrmCard({
             )}
           </div>
 
+          {/* Project badge — colored text style, matches TaskItem */}
           {group && (
-            <div className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-muted text-foreground">
-              <FolderOpen className="h-3 w-3" />
-              <span className="truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>
-            </div>
-          )}
-
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: tag.color ? `${tag.color}20` : undefined,
-                    color: tag.color || undefined,
-                  }}
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-medium"
+              style={{ color: group.color || '#3b82f6' }}
+            >
+              <span className="text-[11px]">{group.icon || '📁'}</span>
+              {group.name}
+            </span>
           )}
 
           {task.client && (
