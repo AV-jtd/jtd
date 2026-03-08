@@ -1430,6 +1430,7 @@ function ProjectCard({
 }) {
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: members = [] } = useGroupMembers(project.id);
