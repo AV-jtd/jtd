@@ -602,6 +602,7 @@ export function useTaskMutations() {
         group_id: resolvedGroupId,
         user_id: user!.id,
         deadline: task.deadline || null,
+        assigned_to: task.assigned_to || null,
         task_type: taskType,
         client_id: clientId,
       } as any).select().single();
