@@ -651,36 +651,51 @@ export default function NpdBoard() {
             </div>
           </div>
 
-          {/* Board columns */}
-          <div className="flex-1 overflow-x-auto overflow-y-hidden">
-            <div className="flex h-full min-w-max gap-0">
-              {showInbox && (
-                <InboxColumn
-                  projects={inboxProjects}
-                  isOver={overColumn === "inbox"}
-                  onCardClick={setSelectedProjectId}
-                  onCreate={(name) => handleCreateProject(name, null)}
-                />
-              )}
-              {visibleGates.map((gate) => (
-                <GateColumn
-                  key={gate.key}
-                  gate={gate}
-                  projects={gateColumns[gate.key] || []}
-                  isOver={overColumn === gate.key}
-                  isMoving={moveMutation.isPending}
-                  streamTagById={streamTagById}
-                  onCardClick={setSelectedProjectId}
-                  onCreate={(name) => handleCreateProject(name, gate.key)}
-                />
-              ))}
-              {showArchive && (
-                <ArchiveColumn
-                  projects={archiveProjects}
-                  onCardClick={setSelectedProjectId}
-                />
-              )}
-            </div>
+          {/* Board: flat columns or swimlane grid */}
+          <div className="flex-1 overflow-auto">
+            {swimlaneMode ? (
+              <SwimlaneGrid
+                visibleGates={visibleGates}
+                filteredProjects={filteredProjects}
+                getProjectGate={getProjectGate}
+                streamTagById={streamTagById}
+                activeStreams={activeStreams}
+                isOver={overColumn}
+                isMoving={moveMutation.isPending}
+                onCardClick={setSelectedProjectId}
+                onCreate={handleCreateProject}
+                gateKeyToTagId={gateKeyToTagId}
+              />
+            ) : (
+              <div className="flex h-full min-w-max gap-0">
+                {showInbox && (
+                  <InboxColumn
+                    projects={inboxProjects}
+                    isOver={overColumn === "inbox"}
+                    onCardClick={setSelectedProjectId}
+                    onCreate={(name) => handleCreateProject(name, null)}
+                  />
+                )}
+                {visibleGates.map((gate) => (
+                  <GateColumn
+                    key={gate.key}
+                    gate={gate}
+                    projects={gateColumns[gate.key] || []}
+                    isOver={overColumn === gate.key}
+                    isMoving={moveMutation.isPending}
+                    streamTagById={streamTagById}
+                    onCardClick={setSelectedProjectId}
+                    onCreate={(name) => handleCreateProject(name, gate.key)}
+                  />
+                ))}
+                {showArchive && (
+                  <ArchiveColumn
+                    projects={archiveProjects}
+                    onCardClick={setSelectedProjectId}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </>)}
       </div>
