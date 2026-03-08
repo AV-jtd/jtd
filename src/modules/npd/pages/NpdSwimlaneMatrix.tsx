@@ -464,24 +464,21 @@ export default function NpdSwimlaneMatrix() {
                                 )}
                               </div>
                             ) : sub ? (
-                              /* Stream exists but is in another gate — allow adding tasks here */
-                              <InlineTaskCreator
-                                groupId={sub.id}
-                                users={users}
-                                onCreate={handleCreateTask}
-                              />
+                              /* Stream exists but is in another gate — compact + */
+                              <div className="flex items-center justify-center min-h-[40px]">
+                                <InlineTaskCreator
+                                  groupId={sub.id}
+                                  users={users}
+                                  onCreate={handleCreateTask}
+                                  compact
+                                />
+                              </div>
                             ) : (
-                              /* No subproject for this stream — create one */
-                              <button
-                                onClick={() => handleCreateSubproject(stream, gate.key)}
-                                className="w-full min-h-[40px] rounded-lg border-2 border-dashed border-transparent hover:border-primary/30 flex items-center justify-center transition-colors group/create"
-                                title={`Создать стрим «${stream}» в ${gate.title}`}
-                              >
-                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground/30 group-hover/create:text-primary/60 transition-colors">
-                                  <Plus className="h-3 w-3" />
-                                  Создать стрим
-                                </span>
-                              </button>
+                              /* No subproject for this stream — create one on click */
+                              <CellCreateButton
+                                label="Стрим"
+                                onCreateSubproject={() => handleCreateSubproject(stream, gate.key)}
+                              />
                             )}
                           </div>
                         )}
