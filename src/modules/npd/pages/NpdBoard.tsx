@@ -1119,11 +1119,11 @@ function GateColumn({
         <QuickCreateForm
           users={users}
           singleType="subproject"
+          options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
           compact
           onCreate={async (p) => { onCreate(p.title); }}
         />
       </div>
-
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
           {projects.map((p) => (
