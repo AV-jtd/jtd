@@ -676,6 +676,7 @@ export default function NpdSwimlaneMatrix() {
                               <div className="flex items-center justify-center min-h-[40px]">
                                 <QuickCreateForm
                                   users={users}
+                                  singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, projectId!, stream, gate.key)}
                                   compact
                                 />
