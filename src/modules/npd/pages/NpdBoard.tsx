@@ -1125,7 +1125,7 @@ function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
 }: {
   gate: GateStage;
-  projects: NpdProject[];
+  projects: { project: NpdProject; isPrimary: boolean }[];
   isOver: boolean;
   isMoving: boolean;
   streamTagById: Map<string, string>;
@@ -1159,13 +1159,15 @@ function GateColumn({
       </div>
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {projects.map((p) => (
+          {projects.map(({ project: p, isPrimary }) => (
             <DraggableProjectCard
               key={p.id}
               project={p}
               isMoving={isMoving}
               streamTagById={streamTagById}
               onCardClick={() => onCardClick(p.id)}
+              isSecondary={!isPrimary}
+              currentGate={gate}
             />
           ))}
           {projects.length === 0 && (
