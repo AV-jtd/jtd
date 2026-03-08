@@ -66,9 +66,13 @@ export function computeCascadeUpdates(
         update.deadline = addDays(parseISO(entity.deadline), effectivePush).toISOString();
       }
 
-      // Shift start_at if present
+      // Shift start_at if present, or set it from predecessor's deadline
       if (entity.start_at) {
         update.start_at = addDays(parseISO(entity.start_at), effectivePush).toISOString();
+      } else if (entity.deadline) {
+        // If no start_at, derive it: new deadline minus original task duration (default 1 day)
+        const newDeadlineDate = addDays(parseISO(entity.deadline), effectivePush);
+        update.start_at = addDays(newDeadlineDate, -1).toISOString();
       }
 
       if (update.deadline || update.start_at) {
