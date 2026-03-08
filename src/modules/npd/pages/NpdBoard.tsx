@@ -1663,7 +1663,7 @@ function ProjectCard({
 
       {/* Floating project detail sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-[440px] sm:w-[500px] p-0 overflow-y-auto">
+        <SheetContent side="right" className="w-[92vw] sm:w-[440px] md:w-[500px] max-w-[500px] p-0 overflow-y-auto">
           {group && <ProjectDetailPanel group={group} />}
         </SheetContent>
       </Sheet>
