@@ -1872,7 +1872,7 @@ function DraggableCard({
   });
 
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}> 
+    <div ref={setNodeRef} className={cn("overflow-hidden", isDragging && "opacity-30")}> 
       <CrmCard
         task={task}
         tags={tags}
