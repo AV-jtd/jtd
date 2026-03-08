@@ -57,9 +57,9 @@ type NpdProject = {
   description: string | null;
   parent_id: string | null;
   user_id: string;
-  gateTags: string[];  // tag_ids that are gate tags
-  streamTags: string[]; // tag_ids that are stream tags
-  stats: { total: number; completed: number; overdue: number };
+  gateTags: string[];
+  streamTags: string[];
+  stats: { total: number; completed: number; overdue: number; driftCount: number; upcoming: number };
   streamStats: { name: string; total: number; completed: number }[];
 };
 
