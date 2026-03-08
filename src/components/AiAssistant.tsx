@@ -482,6 +482,11 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
                   <button
                     key={qa.label}
                     onClick={() => {
+                      if (qa.prompt === "__import_crm__" && onRequestImport) {
+                        onOpenChange(false);
+                        setTimeout(() => onRequestImport(), 300);
+                        return;
+                      }
                       setInput(qa.prompt);
                       inputRef.current?.focus();
                     }}
