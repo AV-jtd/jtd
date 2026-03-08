@@ -747,9 +747,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 Swimlanes
               </button>
 
-              {(searchQuery || activeStreams.size > 0) && (
+              {(searchQuery || activeStreams.size > 0 || projectFilter) && (
                 <button
-                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); }}
+                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); onProjectFilterChange?.(null); }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Сбросить всё
