@@ -1107,22 +1107,20 @@ function GateColumn({
         isOver && "bg-primary/5"
       )}
     >
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
-        <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="text-sm font-semibold text-foreground cursor-default">{gate.short}</span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
-        </Tooltip>
-        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-        <QuickCreateForm
-          users={users}
-          singleType="subproject"
-          options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-          compact
-          onCreate={async (p) => { onCreate(p.title); }}
-        />
+      <div className="flex flex-col px-4 py-3 shrink-0 gap-1">
+        <div className="flex items-center gap-2">
+          <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+          <span className="text-sm font-semibold text-foreground">{gate.short}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
+          <QuickCreateForm
+            users={users}
+            singleType="subproject"
+            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+            compact
+            onCreate={async (p) => { onCreate(p.title); }}
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground/70 leading-tight">{gate.title}</span>
       </div>
       <ScrollArea className="flex-1 min-h-0 pb-2">
         <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
