@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+import NpdTaskSwimlane from "@/modules/npd/components/NpdTaskSwimlane";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
@@ -81,6 +82,7 @@ export default function NpdBoard() {
   const [activeStreams, setActiveStreams] = useState<Set<string>>(new Set());
   const [showInbox, setShowInbox] = useState(true);
   const [showArchive, setShowArchive] = useState(false);
+  const [filterProjectId, setFilterProjectId] = useState<string | null>(null);
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [swimlaneMode, setSwimlaneMode] = useState(() => {
     try { return localStorage.getItem("npd-swimlane") === "true"; } catch { return false; }
@@ -483,8 +485,30 @@ export default function NpdBoard() {
         }
       }
 
+      // Auto-create stream subprojects
+      for (let i = 0; i < NPD_STREAMS.length; i++) {
+        const streamName = NPD_STREAMS[i];
+        const { data: subData } = await supabase.from("task_groups").insert({
+          name: streamName,
+          user_id: currentUserId,
+          project_type: "npd",
+          parent_id: data.id,
+          icon: "📋",
+          color: "#8b5cf6",
+          position: i,
+        }).select("id").single();
+
+        if (subData) {
+          const streamTag = streamTags.find(t => t.name === streamName);
+          if (streamTag) {
+            await supabase.from("group_tags" as any).insert({ group_id: subData.id, tag_id: streamTag.id });
+          }
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ["task_groups"] });
       queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
       toast.success("NPD-проект создан");
     } catch (e: any) {
@@ -608,6 +632,48 @@ export default function NpdBoard() {
                 </PopoverContent>
               </Popover>
 
+              {/* Project filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors max-w-[200px]",
+                    filterProjectId
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Folder className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{filterProjectId ? (npdProjects.find(p => p.id === filterProjectId)?.name || "Проект") : "Проект"}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    <button
+                      onClick={() => setFilterProjectId(null)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        !filterProjectId ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      Все проекты
+                      {!filterProjectId && <Check className="h-3 w-3 ml-auto" />}
+                    </button>
+                    {npdProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => setFilterProjectId(p.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          filterProjectId === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        {filterProjectId === p.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               {/* Swimlane toggle */}
               <button
                 onClick={() => setSwimlaneMode((p) => !p)}
@@ -622,9 +688,9 @@ export default function NpdBoard() {
                 Swimlanes
               </button>
 
-              {(searchQuery || activeStreams.size > 0) && (
+              {(searchQuery || activeStreams.size > 0 || filterProjectId) && (
                 <button
-                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); }}
+                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); setFilterProjectId(null); }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Сбросить всё
@@ -653,7 +719,18 @@ export default function NpdBoard() {
 
           {/* Board: flat columns or swimlane grid */}
           <div className="flex-1 overflow-auto">
-            {swimlaneMode ? (
+            {filterProjectId ? (
+              <NpdTaskSwimlane
+                projectId={filterProjectId}
+                allGroups={allGroups}
+                allTasks={allTasks}
+                visibleGates={visibleGates}
+                gateTagIds={gateTagIds}
+                tagIdToGateKey={tagIdToGateKey}
+                gateKeyToTagId={gateKeyToTagId}
+                streamTagById={streamTagById}
+              />
+            ) : swimlaneMode ? (
               <SwimlaneGrid
                 visibleGates={visibleGates}
                 filteredProjects={filteredProjects}
@@ -1024,7 +1101,7 @@ function InboxColumn({
   onCreate: (name: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: "inbox" });
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
