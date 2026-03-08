@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Search, Sparkles, MessageCircle, Settings, User } from "lucide-react";
+import { Menu, Search, Sparkles, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
