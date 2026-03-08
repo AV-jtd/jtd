@@ -1151,8 +1151,8 @@ function DroppableColumn({
         )}
       </div>
 
-      <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
-        <div className="flex flex-col gap-2 max-w-full overflow-hidden">
+      <ScrollArea className="flex-1 min-h-0 pb-2">
+        <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
           {allowCreate && adding && (
             <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
               <Input
