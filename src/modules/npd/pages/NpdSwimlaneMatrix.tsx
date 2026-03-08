@@ -336,14 +336,15 @@ export default function NpdSwimlaneMatrix() {
     return null;
   }, [allTaskTags, tagIdToGateKey]);
 
-  // Inbox: tasks directly on parent project + unmatched subprojects
-  const inboxData = useMemo(() => {
-    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
-    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
-    const parentTasks = allTasks.filter(t => t.group_id === projectId);
-    const unmatchedSubTasks = unmatchedSubs.flatMap(s => allTasks.filter(t => t.group_id === s.id));
-    return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
-  }, [allTasks, projectId, subprojects, streamSubMap]);
+  // Map task → stream using task_tags
+  const getTaskStream = useCallback((taskId: string): string | null => {
+    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
+    for (const tt of tTags) {
+      const streamName = streamTagById.get(tt.tag_id);
+      if (streamName) return streamName;
+    }
+    return null;
+  }, [allTaskTags, streamTagById]);
 
   // All group IDs belonging to this project (parent + all subprojects)
   const projectGroupIds = useMemo(() => {
@@ -352,6 +353,43 @@ export default function NpdSwimlaneMatrix() {
     subprojects.forEach(s => ids.add(s.id));
     return ids;
   }, [projectId, subprojects]);
+
+  // All project tasks that already have explicit stream tags, grouped by stream
+  const streamTaggedTasksByStream = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    NPD_STREAMS.forEach(stream => map.set(stream, []));
+
+    allTasks.forEach(task => {
+      if (!task.group_id || !projectGroupIds.has(task.group_id)) return;
+      const stream = getTaskStream(task.id);
+      if (stream && map.has(stream)) {
+        map.get(stream)!.push(task);
+      }
+    });
+
+    return map;
+  }, [allTasks, projectGroupIds, getTaskStream]);
+
+  // Inbox: only tasks/subprojects that are not mapped to a stream in matrix
+  const inboxData = useMemo(() => {
+    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
+    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
+
+    const parentTasks = allTasks.filter(
+      t => t.group_id === projectId && !getTaskStream(t.id)
+    );
+
+    const unmatchedSubTasks = unmatchedSubs.flatMap(s =>
+      allTasks.filter(t => t.group_id === s.id && !getTaskStream(t.id))
+    );
+
+    return {
+      parentTasks,
+      unmatchedSubs,
+      unmatchedSubTasks,
+      totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length,
+    };
+  }, [allTasks, projectId, subprojects, streamSubMap, getTaskStream]);
 
   // Move stream subproject to a gate
   const moveStreamToGate = async (subId: string, gateKey: string) => {
