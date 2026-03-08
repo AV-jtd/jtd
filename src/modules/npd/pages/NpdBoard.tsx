@@ -814,6 +814,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     key={gate.key}
                     gate={gate}
                     projects={gateColumns[gate.key] || []}
+                    ghosts={ghostColumns[gate.key] || []}
                     isOver={overColumn === gate.key}
                     isMoving={moveMutation.isPending}
                     streamTagById={streamTagById}
