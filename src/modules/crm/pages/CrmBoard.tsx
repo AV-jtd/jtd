@@ -657,6 +657,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const totalDone = doneTasks.length;
 
   const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0 || filterTerritoryIds.length > 0 || filterRetailTypeIds.length > 0 || filterRankIds.length > 0 || filterManagerIds.length > 0;
+  const activeFilterCount = filterTagIds.length + filterGroupIds.length + filterAssigneeIds.length + filterTerritoryIds.length + filterRetailTypeIds.length + filterRankIds.length + filterManagerIds.length;
 
   const toggleFilterTag = (tagId: string) =>
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
