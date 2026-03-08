@@ -1396,7 +1396,28 @@ function ProjectIcon({ project }: { project: NpdProject }) {
   );
 }
 
-// ── Project Detail Sheet ──
+// ── Task Mini Card (for swimlane task view) ──
+function TaskMiniCard({ task }: { task: Task }) {
+  const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
+  return (
+    <div className={cn(
+      "rounded-md border px-2 py-1.5 text-xs transition-colors",
+      task.is_completed
+        ? "border-border/50 bg-muted/30 text-muted-foreground line-through"
+        : isOverdue
+          ? "border-destructive/30 bg-destructive/5 text-foreground"
+          : "border-border bg-card text-foreground hover:bg-muted/40"
+    )}>
+      <div className="flex items-center gap-1.5">
+        <CheckCircle2 className={cn("h-3 w-3 shrink-0", task.is_completed ? "text-success" : "text-muted-foreground/40")} />
+        <span className="truncate">{task.title}</span>
+        {isOverdue && <AlertTriangle className="h-3 w-3 text-destructive shrink-0 ml-auto" />}
+      </div>
+    </div>
+  );
+}
+
+
 function ProjectDetailSheet({
   projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {
