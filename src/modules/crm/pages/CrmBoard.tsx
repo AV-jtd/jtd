@@ -1965,7 +1965,7 @@ function CrmCard({
     <div
       onClick={onCardClick}
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer",
+        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer overflow-hidden max-w-full",
         expanded ? "p-3" : "px-2.5 py-1.5",
         isDragging ? "shadow-lg" : "hover:shadow-md"
       )}
