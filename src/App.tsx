@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
 import Crm from "./pages/Crm";
+import Npd from "./pages/Npd";
 import OnlineStatus from "./components/OnlineStatus";
 import PendingSync from "./components/PendingSync";
 
@@ -59,6 +60,7 @@ function AppContent() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/pmo" element={<Pmo />} />
           <Route path="/crm" element={<Crm />} />
+          <Route path="/npd" element={<Npd />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <OnlineStatus />

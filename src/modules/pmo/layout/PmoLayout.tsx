@@ -49,6 +49,8 @@ export default function PmoLayout() {
           <span className="text-muted-foreground/30">|</span>
           <span className="px-1.5 py-0.5 text-primary">PMO</span>
           <span className="text-muted-foreground/30">|</span>
+          <Link to="/npd" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">NPD</Link>
+          <span className="text-muted-foreground/30">|</span>
           <Link to="/crm" className="px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">CRM</Link>
         </div>
 

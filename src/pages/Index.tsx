@@ -102,6 +102,8 @@ export default function Index() {
               <span className="text-muted-foreground/30">|</span>
               <Link to="/pmo" className="px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">PMO</Link>
               <span className="text-muted-foreground/30">|</span>
+              <Link to="/npd" className="px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">NPD</Link>
+              <span className="text-muted-foreground/30">|</span>
               <Link to="/crm" className="px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">CRM</Link>
             </div>
             <button
