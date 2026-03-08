@@ -230,14 +230,29 @@ export default function NpdSwimlaneMatrix() {
     [allGroups, projectId]
   );
 
-  // Map stream subprojects
+  // Map stream subprojects — first by stream tag, then fallback by name pattern "Project / StreamName"
   const streamSubMap = useMemo(() => {
     const m = new Map<string, TaskGroup>(); // streamName -> subproject
     for (const sub of subprojects) {
       const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
       const sTagId = gTags.find(gt => streamTagIds.has(gt.tag_id))?.tag_id;
       const sName = sTagId ? streamTagById.get(sTagId) : null;
-      if (sName) m.set(sName, sub);
+      if (sName) {
+        m.set(sName, sub);
+      }
+    }
+    // Fallback: match unmatched subprojects by name suffix (e.g., "Азиатская линейка / Реклама" → "Реклама")
+    const matchedIds = new Set(Array.from(m.values()).map(s => s.id));
+    for (const sub of subprojects) {
+      if (matchedIds.has(sub.id)) continue;
+      const parts = sub.name.split("/");
+      if (parts.length >= 2) {
+        const suffix = parts[parts.length - 1].trim();
+        const matchedStream = NPD_STREAMS.find(s => s === suffix);
+        if (matchedStream && !m.has(matchedStream)) {
+          m.set(matchedStream, sub);
+        }
+      }
     }
     return m;
   }, [subprojects, allGroupTags, streamTagIds, streamTagById]);
