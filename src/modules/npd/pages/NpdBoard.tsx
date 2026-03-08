@@ -1460,7 +1460,66 @@ function TaskMiniCard({ task }: { task: Task }) {
   );
 }
 
-function ProjectDetailSheet({
+// ── Inline Task Adder (+ button that expands to input) ──
+function InlineTaskAdder({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || saving) return;
+    setSaving(true);
+    await onAdd(title);
+    setTitle("");
+    setSaving(false);
+    // Keep open for rapid entry
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
+      >
+        <Plus className="h-3 w-3" /> Задача
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <Input
+        ref={inputRef}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название задачи..."
+        className="h-6 text-[11px] w-40 px-2"
+        disabled={saving}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+          if (e.key === "Escape") { setAdding(false); setTitle(""); }
+        }}
+      />
+      <button
+        onClick={handleSubmit}
+        disabled={saving || !title.trim()}
+        className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {saving ? "..." : "OK"}
+      </button>
+      <button
+        onClick={() => { setAdding(false); setTitle(""); }}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+
   projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {
   projectId: string;
