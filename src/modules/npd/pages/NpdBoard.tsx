@@ -273,6 +273,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const total = projectTasks.length;
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+      const driftCount = projectTasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+      const weekFromNow = new Date();
+      weekFromNow.setDate(weekFromNow.getDate() + 7);
+      const upcoming = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) <= weekFromNow && !isPast(parseISO(t.deadline))).length;
 
       // Build stream stats for card display
       const streamStats: { name: string; total: number; completed: number }[] = [];
@@ -294,7 +298,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         user_id: g.user_id,
         gateTags: projectGateTags,
         streamTags: projectStreamTags,
-        stats: { total, completed, overdue },
+        stats: { total, completed, overdue, driftCount, upcoming },
         streamStats,
       };
     });
