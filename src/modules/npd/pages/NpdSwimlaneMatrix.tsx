@@ -401,6 +401,7 @@ export default function NpdSwimlaneMatrix() {
 
       queryClient.invalidateQueries({ queryKey: ["task-groups"] });
       queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       toast.success(`Подпроект «${params.title}» создан`);
     } else {
       // Create task
