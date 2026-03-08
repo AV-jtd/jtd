@@ -258,45 +258,7 @@ export default function NpdSwimlaneMatrix() {
     }
   };
 
-  // Create subproject (stream) with gate assignment
-  const handleCreateSubproject = async (streamName: string, gateKey: string) => {
-    if (!user || !projectId) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id;
-    if (!uid) { toast.error("Сессия истекла"); return; }
-
-    // Create subproject
-    const { data: newSub, error } = await supabase
-      .from("task_groups")
-      .insert({
-        name: `${project?.name || ""} / ${streamName}`,
-        user_id: uid,
-        project_type: "npd",
-        icon: "📋",
-        color: "#8b5cf6",
-        parent_id: projectId,
-        position: subprojects.length,
-      })
-      .select("id")
-      .single();
-    if (error || !newSub) { toast.error(error?.message || "Ошибка"); return; }
-
-    // Assign stream tag
-    const streamTag = streamTags.find(t => t.name === streamName);
-    if (streamTag) {
-      await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: streamTag.id });
-    }
-
-    // Assign gate tag
-    const gateTagId = gateKeyToTagId.get(gateKey);
-    if (gateTagId) {
-      await supabase.from("group_tags" as any).insert({ group_id: newSub.id, tag_id: gateTagId });
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["task-groups"] });
-    queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
-    toast.success(`Стрим «${streamName}» создан в ${NPD_GATES.find(g => g.key === gateKey)?.title}`);
-  };
+  // Legacy handleCreateSubproject removed — now handled via handleQuickCreate
 
   // Cascade update on deadline change
   const handleDeadlineChange = async (task: Task, newDeadline: Date) => {
