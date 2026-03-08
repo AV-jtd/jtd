@@ -1179,6 +1179,7 @@ function InboxColumn({
           <QuickCreateForm
             users={users}
             singleType="subproject"
+            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
             compact
             onCreate={async (p) => { onCreate(p.title); }}
           />
