@@ -5,6 +5,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const MODULE_INSTRUCTIONS: Record<string, string> = {
+  tasks: `Ты работаешь в модуле «Задачи». Создавай обычные задачи и проекты.`,
+  pmo: `Ты работаешь в модуле «PMO» (проектный офис). 
+При планировании проектов:
+- Создавай чёткую иерархию: проект → подпроекты (этапы) → задачи
+- Для каждого этапа продумай реалистичные дедлайны (deadline_offset_days от сегодня)
+- Учитывай зависимости: задачи последующих этапов начинаются после предыдущих
+- Предлагай вехи (milestones) в описании этапов`,
+  npd: `Ты работаешь в модуле «NPD» (New Product Development) — разработка новых продуктов по методологии Stage-Gate.
+Модель включает 6 гейтов: G0 (Идея), G1 (Концепция), G2 (Разработка), G3 (Подготовка к запуску), G4 (Запуск), G5 (Анализ).
+При планировании NPD проектов:
+- Подпроекты = стримы (Продакт, Реклама, RnD, СКК, Производство, Закупки, Продажи)
+- Задачи привязываются к конкретному стриму
+- Каждый стрим прогрессирует через гейты независимо
+- В plan_project используй project_type: "npd"
+- Названия подпроектов = только название стрима (без названия проекта)`,
+  crm: `Ты работаешь в модуле «CRM» (управление клиентами и продажами).
+Воронка продаж включает этапы: Входящие → Отправить КП → Отправить образцы → Получить ОС → Переговоры → Отгрузка.
+При создании задач:
+- Задачи CRM должны содержать подзадачи-шаги по воронке
+- Привязывай задачи к проектам с тегами crm/продажи если такие есть
+- При планировании сценариев создавай задачи с шагами по воронке`,
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -13,9 +37,11 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Context includes available projects, users, tags for grounding
+    const currentModule = context?.module || "tasks";
+    const moduleInstructions = MODULE_INSTRUCTIONS[currentModule] || MODULE_INSTRUCTIONS.tasks;
+
     const projectList = (context?.projects || [])
-      .map((p: { id: string; name: string }) => `- "${p.name}" (id: ${p.id})`)
+      .map((p: { id: string; name: string; project_type?: string }) => `- "${p.name}" (id: ${p.id}${p.project_type ? `, тип: ${p.project_type}` : ""})`)
       .join("\n");
 
     const userList = (context?.users || [])
@@ -26,11 +52,18 @@ serve(async (req) => {
       .map((t: { id: string; name: string }) => `- "${t.name}" (id: ${t.id})`)
       .join("\n");
 
+    const activeProjectInfo = context?.activeProjectId
+      ? `\nАктивный проект: "${context.activeProjectName}" (id: ${context.activeProjectId}). Если пользователь не указал проект, привязывай задачи к нему.`
+      : "";
+
     const systemPrompt = `Ты — AI-помощник для управления задачами и проектами в приложении JustTODOit.
+
+${moduleInstructions}
+
 Ты помогаешь пользователю:
 1. Быстро ставить задачи из свободного текста (парсишь название, дедлайн, приоритет, проект, ответственного)
 2. Планировать проекты — генерировать структуру подпроектов и задач
-3. Анализировать текущую загрузку
+3. Отвечать на вопросы по управлению проектами
 
 Доступные проекты:
 ${projectList || "нет проектов"}
@@ -40,6 +73,7 @@ ${userList || "нет участников"}
 
 Доступные теги:
 ${tagList || "нет тегов"}
+${activeProjectInfo}
 
 Текущая дата: ${new Date().toISOString().split("T")[0]}
 
@@ -50,13 +84,12 @@ ${tagList || "нет тегов"}
 
 При определении приоритета:
 - "срочно", "ASAP", "критично" → 1 (высокий)
-- "важно" → 2 (средний)  
+- "важно" → 2 (средний)
 - "когда будет время", "не срочно" → 3 (низкий)
 
 Всегда отвечай на русском языке. Будь кратким и конкретным.`;
 
     if (action === "parse_task") {
-      // Parse a natural language message into a structured task
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -88,7 +121,7 @@ ${tagList || "нет тегов"}
                     assigned_to_name: { type: "string", description: "Имя ответственного, если указан" },
                     tag_ids: { type: "array", items: { type: "string" }, description: "IDs релевантных тегов" },
                     is_important: { type: "boolean", description: "Отметить как важное" },
-                    subtasks: { type: "array", items: { type: "string" }, description: "Список подзадач, если есть" },
+                    subtasks: { type: "array", items: { type: "string" }, description: "Список подзадач/шагов" },
                   },
                   required: ["title"],
                   additionalProperties: false,
@@ -102,12 +135,12 @@ ${tagList || "нет тегов"}
 
       if (!response.ok) {
         if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "rate_limited", message: "Слишком много запросов, попробуйте позже" }), {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
         if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "payment_required", message: "Необходимо пополнить баланс" }), {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
             status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -154,12 +187,13 @@ ${tagList || "нет тегов"}
                   properties: {
                     project_name: { type: "string", description: "Название проекта" },
                     description: { type: "string", description: "Описание проекта" },
+                    project_type: { type: "string", description: "Тип проекта: standard, npd, или crm", enum: ["standard", "npd", "crm"] },
                     subprojects: {
                       type: "array",
                       items: {
                         type: "object",
                         properties: {
-                          name: { type: "string" },
+                          name: { type: "string", description: "Название подпроекта/стрима/этапа (без префикса проекта)" },
                           tasks: {
                             type: "array",
                             items: {
@@ -207,12 +241,12 @@ ${tagList || "нет тегов"}
 
       if (!response.ok) {
         if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "rate_limited", message: "Слишком много запросов" }), {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
         if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "payment_required", message: "Необходимо пополнить баланс" }), {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
             status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -236,7 +270,6 @@ ${tagList || "нет тегов"}
     }
 
     if (action === "map_excel_columns") {
-      // AI-powered column mapping for Excel import
       const { headers: excelHeaders, sampleRows } = context;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

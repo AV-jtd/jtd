@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3 } from "lucide-react";
+import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
+import AiAssistant from "@/components/AiAssistant";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
@@ -24,6 +25,7 @@ export default function PmoLayout() {
   const initialView = initialProject ? "gantt" : "portfolio";
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
   const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const handleOpenGantt = (projectId: string) => {
     setFocusProjectId(projectId);
@@ -76,6 +78,16 @@ export default function PmoLayout() {
             );
           })}
         </nav>
+
+        <div className="ml-auto">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-600 dark:text-blue-400 hover:from-blue-500/20 hover:to-cyan-500/20 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">AI</span>
+          </button>
+        </div>
       </header>
 
       {/* Content */}
@@ -86,6 +98,8 @@ export default function PmoLayout() {
         {activeView === "resources" && <ResourcesPlaceholder />}
         {activeView === "reports" && <ReportsPlaceholder />}
       </main>
+
+      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "pmo" }} />
     </div>
   );
 }

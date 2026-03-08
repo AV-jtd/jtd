@@ -211,7 +211,7 @@ export default function Index() {
         }}
       />
 
-      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} />
+      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "tasks" }} />
     </div>
   );
 }
