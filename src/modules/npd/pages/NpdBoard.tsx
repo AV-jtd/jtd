@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
@@ -30,6 +31,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 // ── Gate definitions ──
 type GateStage = {
   key: string;
+  short: string;
   title: string;
   tagName: string;
   color: string;
@@ -38,12 +40,12 @@ type GateStage = {
 };
 
 const NPD_GATES: GateStage[] = [
-  { key: "gate0", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
-  { key: "gate1", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
-  { key: "gate2", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
-  { key: "gate3", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
-  { key: "gate4", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
-  { key: "gate5", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
+  { key: "gate0", short: "G0", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "gate1", short: "G1", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "gate2", short: "G2", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+  { key: "gate3", short: "G3", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
+  { key: "gate4", short: "G4", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
+  { key: "gate5", short: "G5", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
 ];
 
 const GATE_ORDER = NPD_GATES.map((g) => g.key);
@@ -629,9 +631,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (<>
-          {/* Filter bar */}
+          {/* Unified compact bar */}
           <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-3">
               {/* Project filter */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -687,24 +689,25 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   Сбросить
                 </button>
               )}
-            </div>
-          </div>
 
-          {/* Stats bar */}
-          <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
-                <span className="text-xs text-muted-foreground">NPD-проектов</span>
-                <span className="text-sm font-bold text-foreground">{totalProjects}</span>
-              </div>
               <div className="h-4 w-px bg-border" />
-              {visibleGates.map((gate) => (
-                <div key={gate.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", gate.bgLight)}>
-                  <div className={cn("h-2 w-2 rounded-full", gate.color)} />
-                  <span className={cn("text-xs font-medium", gate.textColor)}>{gate.title.split(":")[0]}</span>
-                  <span className="text-sm font-bold text-foreground">{gateColumns[gate.key]?.length || 0}</span>
-                </div>
-              ))}
+
+              {/* Compact gate stats: colored dots with counts */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground font-medium">{totalProjects}</span>
+                <div className="h-3 w-px bg-border" />
+                {visibleGates.map((gate) => (
+                  <Tooltip key={gate.key}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 cursor-default">
+                        <div className={cn("h-2 w-2 rounded-full", gate.color)} />
+                        <span className="text-[11px] text-muted-foreground font-mono">{gateColumns[gate.key]?.length || 0}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1106,7 +1109,13 @@ function GateColumn({
     >
       <div className="flex items-center gap-2 px-4 py-3 shrink-0">
         <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-        <span className="text-sm font-semibold text-foreground">{gate.title}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-sm font-semibold text-foreground cursor-default">{gate.short}</span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">{gate.title}</TooltipContent>
+        </Tooltip>
+        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
         <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
         <button
           onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
@@ -1399,16 +1408,7 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Stream badges */}
-        {streamNames.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {streamNames.map((name) => (
-              <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                {name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Stream badges — hidden on board for cleanliness */}
 
         {/* Progress */}
         {project.stats.total > 0 && (
