@@ -1559,19 +1559,19 @@ function ProjectCard({
 
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
-        <div className="border-t border-border animate-fade-in px-4 pb-4 pt-3 space-y-4">
+        <div className="border-t border-border animate-fade-in px-2.5 pb-3 pt-2.5 space-y-3 overflow-hidden">
           {/* Assignee */}
           {assigneeName && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
-              <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-muted-foreground">Ответственный:</span>
+              <span className="text-[11px] text-foreground font-medium truncate">{assigneeName}</span>
             </div>
           )}
 
           {/* Subprojects first (like dashboard) */}
           {subprojects.length > 0 && (
             <DashboardSection title="Подпроекты" count={subprojects.length}>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {subprojects.map(sub => (
                   <NpdSubprojectCard
                     key={sub.id}
@@ -1588,7 +1588,7 @@ function ProjectCard({
           {/* Overdue tasks */}
           {overdueTasks.length > 0 && (
             <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {overdueTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} variant="overdue" />
                 ))}
@@ -1599,7 +1599,7 @@ function ProjectCard({
           {/* Upcoming deadlines */}
           {upcomingTasks.length > 0 && (
             <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {upcomingTasks.map(t => (
                   <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1610,7 +1610,7 @@ function ProjectCard({
           {/* Drift */}
           {driftTasks.length > 0 && (
             <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {driftTasks.map(({ task: t, driftDays }) => (
                   <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
                 ))}
@@ -1618,8 +1618,28 @@ function ProjectCard({
             </DashboardSection>
           )}
 
-          {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
+          {/* All remaining active tasks (not in overdue/upcoming/drift) */}
+          {(() => {
+            const categorizedIds = new Set([
+              ...overdueTasks.map(t => t.id),
+              ...upcomingTasks.map(t => t.id),
+              ...driftTasks.map(d => d.task.id),
+            ]);
+            const otherTasks = activeTasks.filter(t => !categorizedIds.has(t.id));
+            if (otherTasks.length === 0) return null;
+            return (
+              <DashboardSection title="Активные задачи" count={otherTasks.length}>
+                <div className="space-y-0.5">
+                  {otherTasks.map(t => (
+                    <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to || t.user_id)} />
+                  ))}
+                </div>
+              </DashboardSection>
+            );
+          })()}
+
+          {activeTasks.length === 0 && subprojects.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
         </div>
       )}
