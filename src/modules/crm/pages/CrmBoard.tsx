@@ -846,7 +846,242 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (<>
-        {/* Filter bar */}
+        {/* Mobile compact header */}
+        {isMobile && (
+          <div className="px-3 py-2 border-b border-border bg-card/50 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск..."
+                  className="h-8 pl-8 pr-8 text-xs"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setMobileFiltersOpen(true)}
+                className={cn(
+                  "relative inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-colors shrink-0",
+                  activeFilterCount > 0
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              <CrmSmartImportDialog
+                trigger={
+                  <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile filters sheet */}
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+            <SheetHeader>
+              <SheetTitle className="text-sm flex items-center justify-between">
+                Фильтры
+                {hasFilters && (
+                  <button
+                    onClick={() => { setSearchQuery(""); setFilterTagIds([]); setFilterGroupIds([]); setFilterAssigneeIds([]); setFilterTerritoryIds([]); setFilterRetailTypeIds([]); setFilterRankIds([]); setFilterManagerIds([]); }}
+                    className="text-xs text-muted-foreground hover:text-foreground font-normal"
+                  >
+                    Сбросить
+                  </button>
+                )}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="space-y-4 pt-4 overflow-y-auto">
+              {/* Stats */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
+                  <span className="text-xs text-muted-foreground">Активных</span>
+                  <span className="text-sm font-bold text-foreground">{totalActive}</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground">Завершено</span>
+                  <span className="text-sm font-bold text-foreground">{totalDone}</span>
+                </div>
+              </div>
+
+              {/* Stage counts */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {visibleStages.map((stage) => (
+                  <div key={stage.key} className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs", stage.bgLight)}>
+                    <div className={cn("h-2 w-2 rounded-full", stage.color)} />
+                    <span className={cn("font-medium", stage.textColor)}>{stage.title}</span>
+                    <span className="font-bold text-foreground">{visibleColumns[stage.key]?.length || 0}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Filter sections */}
+              {usedTags.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Тэги</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usedTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterTag(tag.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterTagIds.includes(tag.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {usedGroups.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Проект</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usedGroups.map((g) => (
+                      <button
+                        key={g.id}
+                        onClick={() => toggleFilterGroup(g.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterGroupIds.includes(g.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {g.icon ? `${g.icon} ` : ""}{g.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {usedAssignees.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Ответственный</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usedAssignees.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => toggleFilterAssignee(a.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterAssigneeIds.includes(a.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <User className="h-3 w-3" />
+                        {a.display_name || a.email || "?"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {territoryTags.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Территория</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {territoryTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterTerritory(tag.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterTerritoryIds.includes(tag.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {retailTypeTags.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Тип розницы</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {retailTypeTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRetailType(tag.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterRetailTypeIds.includes(tag.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {rankTags.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Ранг</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rankTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterRank(tag.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterRankIds.includes(tag.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {usedManagers.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Менеджер</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usedManagers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => toggleFilterManager(m.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors",
+                          filterManagerIds.includes(m.id) ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        <User className="h-3 w-3" />
+                        {m.display_name || m.email || "?"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Desktop filter bar */}
+        {!isMobile && (
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
 
@@ -1013,7 +1248,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                       : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   )}>
                     <Briefcase className="h-3 w-3" />
-                    Тип ретейла
+                    Тип розницы
                     {filterRetailTypeIds.length > 0 && <span className="font-bold">{filterRetailTypeIds.length}</span>}
                   </button>
                 </PopoverTrigger>
@@ -1129,8 +1364,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
             </div>
           </div>
         </div>
+        )}
 
-        {/* Stats bar */}
+        {/* Desktop stats bar */}
+        {!isMobile && (
         <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
@@ -1152,6 +1389,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
             ))}
           </div>
         </div>
+        )}
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
