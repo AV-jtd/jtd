@@ -356,7 +356,9 @@ export default function NpdSwimlaneMatrix() {
     if (!uid) { toast.error("Сессия истекла"); return; }
 
     if (params.type === "subproject") {
-      // Create subproject under the parent project
+      // If groupId is a stream subproject (not the main project), nest under it
+      // Otherwise create as a direct child of the main project
+      const parentId = groupId;
       const { data: newSub, error } = await supabase
         .from("task_groups")
         .insert({
@@ -365,7 +367,7 @@ export default function NpdSwimlaneMatrix() {
           project_type: "npd",
           icon: "📋",
           color: "#8b5cf6",
-          parent_id: projectId,
+          parent_id: parentId,
           position: subprojects.length,
         })
         .select("id")
@@ -664,7 +666,6 @@ export default function NpdSwimlaneMatrix() {
                                 ))}
                                 <QuickCreateForm
                                   users={users}
-                                  singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact={cellTasks.length === 0}
                                 />
