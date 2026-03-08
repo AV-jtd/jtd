@@ -286,18 +286,27 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             </div>
           )}
           {(!activeGroup || activeView !== "group") && (
-            <button
-              onClick={onToggleMessenger}
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                messengerOpen
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Сообщения"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                onClick={onAiOpen}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                title="AI-помощник"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onToggleMessenger}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  messengerOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Сообщения"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+            </>
           )}
         </div>
 
