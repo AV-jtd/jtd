@@ -603,8 +603,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     toast.success("Задача создана");
   };
 
-  // ── Selected project for detail view ──
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  // ── Navigate to swimlane matrix on card click ──
+  const handleCardClick = useCallback((id: string) => {
+    navigate(`/npd/matrix/${id}`);
+  }, [navigate]);
 
   const visibleGates = NPD_GATES.filter((g) => !hiddenGates.has(g.key));
   const totalProjects = npdProjects.length;
