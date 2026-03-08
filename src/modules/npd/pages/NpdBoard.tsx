@@ -1,0 +1,1135 @@
+import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useTaskGroups, useTasks } from "@/hooks/useTasks";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
+import {
+  Loader2, Folder, Inbox, CheckCircle2, GripVertical,
+  Plus, AlertTriangle, Clock, ChevronDown, Check,
+  Search, X, Filter, Eye, EyeOff, Layers,
+} from "lucide-react";
+import { isPast, parseISO } from "date-fns";
+import { toast } from "sonner";
+import {
+  DndContext, DragOverlay, MouseSensor, TouchSensor,
+  useSensor, useSensors, pointerWithin,
+  type DragStartEvent, type DragEndEvent, type DragOverEvent,
+} from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
+
+// ── Gate definitions ──
+type GateStage = {
+  key: string;
+  title: string;
+  tagName: string;
+  color: string;
+  textColor: string;
+  bgLight: string;
+};
+
+const NPD_GATES: GateStage[] = [
+  { key: "gate0", title: "Gate 0: Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", textColor: "text-slate-600", bgLight: "bg-slate-500/10" },
+  { key: "gate1", title: "Gate 1: Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", textColor: "text-blue-600", bgLight: "bg-blue-500/10" },
+  { key: "gate2", title: "Gate 2: Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", textColor: "text-amber-600", bgLight: "bg-amber-500/10" },
+  { key: "gate3", title: "Gate 3: Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", textColor: "text-purple-600", bgLight: "bg-purple-500/10" },
+  { key: "gate4", title: "Gate 4: Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", textColor: "text-emerald-600", bgLight: "bg-emerald-500/10" },
+  { key: "gate5", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
+];
+
+const GATE_ORDER = NPD_GATES.map((g) => g.key);
+
+const NPD_STREAMS = [
+  "Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования",
+];
+
+// ── Types ──
+type NpdProject = {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  description: string | null;
+  parent_id: string | null;
+  user_id: string;
+  gateTags: string[];  // tag_ids that are gate tags
+  streamTags: string[]; // tag_ids that are stream tags
+  stats: { total: number; completed: number; overdue: number };
+};
+
+// ── Main component ──
+export default function NpdBoard() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: allGroups = [] } = useTaskGroups();
+  const { data: allTasks = [] } = useTasks();
+
+  const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hiddenGates, setHiddenGates] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("npd-hidden-gates");
+      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+  const [activeStreams, setActiveStreams] = useState<Set<string>>(new Set());
+  const [showInbox, setShowInbox] = useState(true);
+  const [showArchive, setShowArchive] = useState(false);
+  const [showColumnFilter, setShowColumnFilter] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  );
+
+  // Save hidden gates to localStorage
+  useEffect(() => {
+    localStorage.setItem("npd-hidden-gates", JSON.stringify([...hiddenGates]));
+  }, [hiddenGates]);
+
+  // ── Fetch/ensure NPD tags ──
+  const { data: npdTagData } = useQuery({
+    queryKey: ["npd-tags-init", user?.id],
+    queryFn: async () => {
+      if (!user) return { gateTags: [], streamTags: [], gatesCategoryId: null, streamsCategoryId: null };
+
+      // Find or create NPD category
+      let { data: npdCats } = await supabase
+        .from("tag_categories")
+        .select("id, name, parent_id")
+        .eq("user_id", user.id)
+        .or("name.eq.NPD");
+
+      let npdRootId: string | null = (npdCats || []).find((c) => !c.parent_id && c.name === "NPD")?.id || null;
+
+      if (!npdRootId) {
+        const { data: newCat } = await supabase
+          .from("tag_categories")
+          .insert({ name: "NPD", user_id: user.id, color: "#8b5cf6", position: 2 })
+          .select("id")
+          .single();
+        npdRootId = newCat?.id || null;
+      }
+
+      if (!npdRootId) return { gateTags: [], streamTags: [], gatesCategoryId: null, streamsCategoryId: null };
+
+      // Find or create subcategories
+      let { data: subCats } = await supabase
+        .from("tag_categories")
+        .select("id, name")
+        .eq("parent_id", npdRootId)
+        .eq("user_id", user.id);
+
+      let gatesCatId = (subCats || []).find((c) => c.name === "Гейты")?.id || null;
+      let streamsCatId = (subCats || []).find((c) => c.name === "Стримы")?.id || null;
+
+      if (!gatesCatId) {
+        const { data } = await supabase
+          .from("tag_categories")
+          .insert({ name: "Гейты", user_id: user.id, color: "#8b5cf6", parent_id: npdRootId, position: 0 })
+          .select("id")
+          .single();
+        gatesCatId = data?.id || null;
+      }
+
+      if (!streamsCatId) {
+        const { data } = await supabase
+          .from("tag_categories")
+          .insert({ name: "Стримы", user_id: user.id, color: "#8b5cf6", parent_id: npdRootId, position: 1 })
+          .select("id")
+          .single();
+        streamsCatId = data?.id || null;
+      }
+
+      // Find or create gate tags
+      let { data: existingGateTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("category_id", gatesCatId!)
+        .eq("user_id", user.id);
+
+      const existingGateNames = new Set((existingGateTags || []).map((t) => t.name));
+      const missingGates = NPD_GATES.filter((g) => !existingGateNames.has(g.tagName));
+
+      if (missingGates.length > 0) {
+        await supabase.from("tags").insert(
+          missingGates.map((g) => ({ name: g.tagName, user_id: user.id, color: "#8b5cf6", category_id: gatesCatId! }))
+        );
+        const { data: refreshed } = await supabase
+          .from("tags").select("id, name").eq("category_id", gatesCatId!).eq("user_id", user.id);
+        existingGateTags = refreshed;
+      }
+
+      // Find or create stream tags
+      let { data: existingStreamTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .eq("category_id", streamsCatId!)
+        .eq("user_id", user.id);
+
+      const existingStreamNames = new Set((existingStreamTags || []).map((t) => t.name));
+      const missingStreams = NPD_STREAMS.filter((s) => !existingStreamNames.has(s));
+
+      if (missingStreams.length > 0) {
+        await supabase.from("tags").insert(
+          missingStreams.map((s) => ({ name: s, user_id: user.id, color: "#8b5cf6", category_id: streamsCatId! }))
+        );
+        const { data: refreshed } = await supabase
+          .from("tags").select("id, name").eq("category_id", streamsCatId!).eq("user_id", user.id);
+        existingStreamTags = refreshed;
+      }
+
+      return {
+        gateTags: (existingGateTags || []) as { id: string; name: string }[],
+        streamTags: (existingStreamTags || []) as { id: string; name: string }[],
+        gatesCategoryId: gatesCatId,
+        streamsCategoryId: streamsCatId,
+      };
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const gateTags = npdTagData?.gateTags || [];
+  const streamTags = npdTagData?.streamTags || [];
+
+  // Map tag name -> gate key
+  const tagNameToGateKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const gate of NPD_GATES) {
+      m.set(gate.tagName, gate.key);
+    }
+    return m;
+  }, []);
+
+  // Map gate key -> tag id
+  const gateKeyToTagId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const tag of gateTags) {
+      const key = tagNameToGateKey.get(tag.name);
+      if (key) m.set(key, tag.id);
+    }
+    return m;
+  }, [gateTags, tagNameToGateKey]);
+
+  // Tag id -> gate key
+  const tagIdToGateKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const tag of gateTags) {
+      const key = tagNameToGateKey.get(tag.name);
+      if (key) m.set(tag.id, key);
+    }
+    return m;
+  }, [gateTags, tagNameToGateKey]);
+
+  const gateTagIds = useMemo(() => new Set(gateTags.map((t) => t.id)), [gateTags]);
+  const streamTagIds = useMemo(() => new Set(streamTags.map((t) => t.id)), [streamTags]);
+  const streamTagById = useMemo(() => new Map(streamTags.map((t) => [t.id, t.name])), [streamTags]);
+
+  // ── Fetch group_tags for NPD projects ──
+  const { data: allGroupTags = [] } = useQuery({
+    queryKey: ["npd-group-tags", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_tags" as any)
+        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // ── Build NPD projects list ──
+  const npdProjects = useMemo(() => {
+    const npdGroups = allGroups.filter((g) => (g as any).project_type === "npd" && !g.parent_id);
+
+    return npdGroups.map((g): NpdProject => {
+      const groupTagIds = allGroupTags.filter((gt) => gt.group_id === g.id).map((gt) => gt.tag_id);
+      const projectGateTags = groupTagIds.filter((id) => gateTagIds.has(id));
+      const projectStreamTags = groupTagIds.filter((id) => streamTagIds.has(id));
+
+      // Stats: include child groups
+      const childIds = allGroups.filter((c) => c.parent_id === g.id).map((c) => c.id);
+      const allProjectIds = [g.id, ...childIds];
+      const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
+      const total = projectTasks.length;
+      const completed = projectTasks.filter((t) => t.is_completed).length;
+      const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+
+      return {
+        id: g.id,
+        name: g.name,
+        icon: g.icon,
+        color: g.color,
+        description: (g as any).description || null,
+        parent_id: g.parent_id,
+        user_id: g.user_id,
+        gateTags: projectGateTags,
+        streamTags: projectStreamTags,
+        stats: { total, completed, overdue },
+      };
+    });
+  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds]);
+
+  // ── Gate assignment ──
+  const getProjectGate = (project: NpdProject): string | null => {
+    for (const tagId of project.gateTags) {
+      const key = tagIdToGateKey.get(tagId);
+      if (key) return key;
+    }
+    return null;
+  };
+
+  // ── Filter ──
+  const filteredProjects = useMemo(() => {
+    let result = npdProjects;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    if (activeStreams.size > 0) {
+      result = result.filter((p) => p.streamTags.some((tid) => {
+        const name = streamTagById.get(tid);
+        return name && activeStreams.has(name);
+      }));
+    }
+    return result;
+  }, [npdProjects, searchQuery, activeStreams, streamTagById]);
+
+  // ── Columns ──
+  const gateColumns = useMemo(() => {
+    const grouped: Record<string, NpdProject[]> = {};
+    for (const gate of NPD_GATES) grouped[gate.key] = [];
+
+    for (const project of filteredProjects) {
+      const gate = getProjectGate(project);
+      if (gate && grouped[gate]) {
+        grouped[gate].push(project);
+      }
+    }
+    return grouped;
+  }, [filteredProjects, tagIdToGateKey]);
+
+  const inboxProjects = useMemo(
+    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.stats.total > 0 || getProjectGate(p) === null),
+    [filteredProjects, tagIdToGateKey]
+  );
+
+  const archiveProjects = useMemo(
+    () => filteredProjects.filter((p) => {
+      const gate = getProjectGate(p);
+      return gate === "gate5" && p.stats.total > 0 && p.stats.completed === p.stats.total;
+    }),
+    [filteredProjects, tagIdToGateKey]
+  );
+
+  // ── Drag & drop ──
+  const allDropKeys = useMemo(() => ["inbox", ...GATE_ORDER], []);
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ projectId, targetGateKey }: { projectId: string; targetGateKey: string }) => {
+      const targetTagId = gateKeyToTagId.get(targetGateKey);
+      if (!targetTagId) throw new Error("Gate tag not found");
+
+      // Remove all existing gate tags from this project
+      const project = npdProjects.find((p) => p.id === projectId);
+      if (project) {
+        for (const oldTagId of project.gateTags) {
+          await supabase.from("group_tags" as any).delete().eq("group_id", projectId).eq("tag_id", oldTagId);
+        }
+      }
+
+      // Add new gate tag
+      const { error } = await supabase.from("group_tags" as any).insert({ group_id: projectId, tag_id: targetTagId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
+    },
+    onError: (err: any) => {
+      toast.error("Ошибка перемещения: " + (err?.message || ""));
+    },
+  });
+
+  const moveToInboxMutation = useMutation({
+    mutationFn: async ({ projectId }: { projectId: string }) => {
+      const project = npdProjects.find((p) => p.id === projectId);
+      if (!project) return;
+      for (const oldTagId of project.gateTags) {
+        await supabase.from("group_tags" as any).delete().eq("group_id", projectId).eq("tag_id", oldTagId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
+    },
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveProjectId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId && allDropKeys.includes(overId)) {
+      setOverColumn(overId);
+    } else {
+      setOverColumn(null);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    const lastOverColumn = overColumn;
+    setActiveProjectId(null);
+    setOverColumn(null);
+
+    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
+      ? (over.id as string)
+      : lastOverColumn;
+    if (!dropKey) return;
+
+    const projectId = active.id as string;
+    const project = npdProjects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    if (dropKey === "inbox") {
+      const currentGate = getProjectGate(project);
+      if (!currentGate) return;
+      moveToInboxMutation.mutate({ projectId });
+      return;
+    }
+
+    const currentGate = getProjectGate(project);
+    if (currentGate === dropKey) return;
+    moveMutation.mutate({ projectId, targetGateKey: dropKey });
+  };
+
+  // ── Toggle gate visibility ──
+  const toggleGate = (key: string) => {
+    setHiddenGates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleStream = (name: string) => {
+    setActiveStreams((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  // ── Create NPD project ──
+  const handleCreateProject = async (name: string, gateKey: string | null) => {
+    if (!name.trim() || !user) return;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
+      if (!currentUserId) { toast.error("Сессия истекла"); return; }
+
+      // Check duplicate
+      const normalized = name.trim().toLowerCase();
+      const { data: existing } = await supabase.from("task_groups").select("id, name");
+      if ((existing || []).some((g) => g.name.trim().toLowerCase() === normalized)) {
+        toast.error(`Проект «${name.trim()}» уже существует`);
+        return;
+      }
+
+      // Create linked tag
+      const { data: tagData, error: tagError } = await supabase
+        .from("tags")
+        .insert({ name: name.trim(), user_id: currentUserId, color: "#8b5cf6" })
+        .select("id")
+        .single();
+      if (tagError) throw tagError;
+
+      // Create project
+      const { data, error } = await supabase
+        .from("task_groups")
+        .insert({
+          name: name.trim(),
+          user_id: currentUserId,
+          project_type: "npd",
+          icon: "🧪",
+          color: "#8b5cf6",
+          linked_tag_id: tagData.id,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      // Assign gate tag if specified
+      if (gateKey) {
+        const gateTagId = gateKeyToTagId.get(gateKey);
+        if (gateTagId) {
+          await supabase.from("group_tags" as any).insert({ group_id: data.id, tag_id: gateTagId });
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["task_groups"] });
+      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      toast.success("NPD-проект создан");
+    } catch (e: any) {
+      toast.error("Ошибка: " + e.message);
+    }
+  };
+
+  // ── Selected project for detail view ──
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  const visibleGates = NPD_GATES.filter((g) => !hiddenGates.has(g.key));
+  const totalProjects = npdProjects.length;
+  const activeProject = npdProjects.find((p) => p.id === activeProjectId);
+
+  const isLoading = !npdTagData;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex flex-col h-full">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (<>
+          {/* Filter bar */}
+          <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[160px] max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск проекта..."
+                  className="h-8 pl-8 pr-8 text-xs"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Column visibility toggle */}
+              <Popover open={showColumnFilter} onOpenChange={setShowColumnFilter}>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    hiddenGates.size > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Eye className="h-3 w-3" />
+                    Колонки
+                    {hiddenGates.size > 0 && <span className="font-bold">{hiddenGates.size}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" side="bottom">
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
+                      <input type="checkbox" checked={showInbox} onChange={() => setShowInbox((p) => !p)} className="rounded" />
+                      <Inbox className="h-3 w-3 text-primary" />
+                      Входящие
+                    </label>
+                    {NPD_GATES.map((gate) => (
+                      <label key={gate.key} className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
+                        <input type="checkbox" checked={!hiddenGates.has(gate.key)} onChange={() => toggleGate(gate.key)} className="rounded" />
+                        <span className={cn("w-2 h-2 rounded-full", gate.color)} />
+                        {gate.title}
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer hover:bg-muted">
+                      <input type="checkbox" checked={showArchive} onChange={() => setShowArchive((p) => !p)} className="rounded" />
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                      Архив
+                    </label>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Stream filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    activeStreams.size > 0
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Layers className="h-3 w-3" />
+                    Стримы
+                    {activeStreams.size > 0 && <span className="font-bold">{activeStreams.size}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-2" side="bottom">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {NPD_STREAMS.map((stream) => (
+                      <button
+                        key={stream}
+                        onClick={() => toggleStream(stream)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          activeStreams.has(stream) ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="truncate">{stream}</span>
+                        {activeStreams.has(stream) && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                    {activeStreams.size > 0 && (
+                      <button onClick={() => setActiveStreams(new Set())} className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 w-full text-left">
+                        Сбросить
+                      </button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {(searchQuery || activeStreams.size > 0) && (
+                <button
+                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Сбросить всё
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
+                <span className="text-xs text-muted-foreground">NPD-проектов</span>
+                <span className="text-sm font-bold text-foreground">{totalProjects}</span>
+              </div>
+              <div className="h-4 w-px bg-border" />
+              {visibleGates.map((gate) => (
+                <div key={gate.key} className={cn("flex items-center gap-2 px-3 py-1 rounded-lg", gate.bgLight)}>
+                  <div className={cn("h-2 w-2 rounded-full", gate.color)} />
+                  <span className={cn("text-xs font-medium", gate.textColor)}>{gate.title.split(":")[0]}</span>
+                  <span className="text-sm font-bold text-foreground">{gateColumns[gate.key]?.length || 0}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Board columns */}
+          <div className="flex-1 overflow-x-auto overflow-y-hidden">
+            <div className="flex h-full min-w-max gap-0">
+              {showInbox && (
+                <InboxColumn
+                  projects={inboxProjects}
+                  isOver={overColumn === "inbox"}
+                  onCardClick={setSelectedProjectId}
+                  onCreate={(name) => handleCreateProject(name, null)}
+                />
+              )}
+              {visibleGates.map((gate) => (
+                <GateColumn
+                  key={gate.key}
+                  gate={gate}
+                  projects={gateColumns[gate.key] || []}
+                  isOver={overColumn === gate.key}
+                  isMoving={moveMutation.isPending}
+                  streamTagById={streamTagById}
+                  onCardClick={setSelectedProjectId}
+                  onCreate={(name) => handleCreateProject(name, gate.key)}
+                />
+              ))}
+              {showArchive && (
+                <ArchiveColumn
+                  projects={archiveProjects}
+                  onCardClick={setSelectedProjectId}
+                />
+              )}
+            </div>
+          </div>
+        </>)}
+      </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeProject && (
+          <div className="w-72 md:w-80 opacity-90">
+            <ProjectCard
+              project={activeProject}
+              streamTagById={streamTagById}
+              isDragging
+            />
+          </div>
+        )}
+      </DragOverlay>
+
+      {/* Project detail sheet - navigate to PMO */}
+      <Sheet open={!!selectedProjectId} onOpenChange={(open) => { if (!open) setSelectedProjectId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-y-auto">
+          {selectedProjectId && (
+            <ProjectDetailSheet
+              projectId={selectedProjectId}
+              npdProjects={npdProjects}
+              streamTags={streamTags}
+              streamTagById={streamTagById}
+              gateKeyToTagId={gateKeyToTagId}
+              tagIdToGateKey={tagIdToGateKey}
+              onClose={() => setSelectedProjectId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </DndContext>
+  );
+}
+
+// ── Gate Column ──
+function GateColumn({
+  gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
+}: {
+  gate: GateStage;
+  projects: NpdProject[];
+  isOver: boolean;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: (id: string) => void;
+  onCreate: (name: string) => void;
+}) {
+  const { setNodeRef } = useDroppable({ id: gate.key });
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col h-full min-h-0 w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
+        isOver && "bg-primary/5"
+      )}
+    >
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+        <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+        <span className="text-sm font-semibold text-foreground">{gate.title}</span>
+        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
+        <button
+          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      <ScrollArea className="flex-1 min-h-0 pb-2">
+        <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
+          {adding && (
+            <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
+              <Input
+                ref={inputRef}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Название NPD-проекта..."
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); }
+                  if (e.key === "Escape") { setAdding(false); setNewName(""); }
+                }}
+              />
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => { if (newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); } }}
+                  className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                >Добавить</button>
+                <button onClick={() => { setAdding(false); setNewName(""); }} className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground">Отмена</button>
+              </div>
+            </div>
+          )}
+          {projects.map((p) => (
+            <DraggableProjectCard
+              key={p.id}
+              project={p}
+              isMoving={isMoving}
+              streamTagById={streamTagById}
+              onCardClick={() => onCardClick(p.id)}
+            />
+          ))}
+          {projects.length === 0 && !adding && (
+            <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+// ── Inbox Column ──
+function InboxColumn({
+  projects, isOver, onCardClick, onCreate,
+}: {
+  projects: NpdProject[];
+  isOver: boolean;
+  onCardClick: (id: string) => void;
+  onCreate: (name: string) => void;
+}) {
+  const { setNodeRef } = useDroppable({ id: "inbox" });
+  const [collapsed, setCollapsed] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
+        collapsed ? "w-16" : "w-72 md:w-80",
+        isOver && "bg-primary/5"
+      )}
+    >
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
+        <button
+          onClick={() => setCollapsed((prev) => !prev)}
+          className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+        >
+          <Inbox className="h-4 w-4 text-primary shrink-0" />
+          {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+          <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
+        </button>
+        {!collapsed && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 py-2">
+          <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
+            {adding && (
+              <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
+                <Input
+                  ref={inputRef}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Название NPD-проекта..."
+                  className="h-7 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); }
+                    if (e.key === "Escape") { setAdding(false); setNewName(""); }
+                  }}
+                />
+                <div className="flex gap-1.5">
+                  <button onClick={() => { if (newName.trim()) { onCreate(newName); setNewName(""); setAdding(false); } }}
+                    className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90">Добавить</button>
+                  <button onClick={() => { setAdding(false); setNewName(""); }} className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground">Отмена</button>
+                </div>
+              </div>
+            )}
+            {projects.map((p) => (
+              <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
+            ))}
+            {projects.length === 0 && !adding && (
+              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
+
+// ── Archive Column ──
+function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCardClick: (id: string) => void }) {
+  const [collapsed, setCollapsed] = useState(true);
+  return (
+    <div className={cn("flex flex-col h-full min-h-0 shrink-0 border-r border-border last:border-r-0 transition-all", collapsed ? "w-16" : "w-72 md:w-80")}>
+      <button
+        onClick={() => setCollapsed((p) => !p)}
+        className="flex items-center gap-2 px-3 py-3 border-b border-border hover:bg-muted/50 transition-colors"
+      >
+        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground">Архив</span>}
+        <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
+      </button>
+      {!collapsed && (
+        <ScrollArea className="flex-1 min-h-0 py-2">
+          <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
+            {projects.map((p) => (
+              <button key={p.id} onClick={() => onCardClick(p.id)} className="w-full text-left rounded-lg border border-border bg-card p-2.5 hover:bg-muted/40 transition-colors">
+                <div className="flex items-center gap-2">
+                  <ProjectIcon project={p} />
+                  <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">{p.stats.completed}/{p.stats.total} задач завершено</div>
+              </button>
+            ))}
+            {projects.length === 0 && <div className="text-center py-8 text-xs text-muted-foreground/50">Нет завершённых</div>}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
+
+// ── Draggable project card ──
+function DraggableProjectCard({
+  project, isMoving, streamTagById, onCardClick,
+}: {
+  project: NpdProject;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <ProjectCard
+        project={project}
+        streamTagById={streamTagById}
+        isDragging={isDragging}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        onCardClick={onCardClick}
+      />
+    </div>
+  );
+}
+
+// ── Project Card ──
+function ProjectCard({
+  project, streamTagById, isDragging, dragHandleProps, onCardClick,
+}: {
+  project: NpdProject;
+  streamTagById: Map<string, string>;
+  isDragging?: boolean;
+  dragHandleProps?: ComponentProps<"button">;
+  onCardClick?: () => void;
+}) {
+  const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
+  const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  return (
+    <div
+      onClick={onCardClick}
+      className={cn(
+        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer px-3 py-2.5",
+        isDragging ? "shadow-lg" : "hover:shadow-md"
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <ProjectIcon project={project} />
+        <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps}
+            onClick={(e) => e.stopPropagation()}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Stream badges */}
+      {streamNames.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {streamNames.map((name) => (
+            <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Progress */}
+      {project.stats.total > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[10px] mb-0.5">
+            <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
+            <span className="font-medium text-foreground">{progress}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+        {project.stats.overdue > 0 && (
+          <span className="flex items-center gap-0.5 text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            {project.stats.overdue}
+          </span>
+        )}
+        {project.stats.total === 0 && (
+          <span className="text-muted-foreground">Нет задач</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProjectIcon({ project }: { project: NpdProject }) {
+  if (project.icon && project.icon !== "list") {
+    return <span className="text-sm leading-none">{project.icon}</span>;
+  }
+  return (
+    <div
+      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+      style={{ backgroundColor: (project.color || "#8b5cf6") + "18", color: project.color || "#8b5cf6" }}
+    >
+      <Folder className="h-3.5 w-3.5" />
+    </div>
+  );
+}
+
+// ── Project Detail Sheet ──
+function ProjectDetailSheet({
+  projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
+}: {
+  projectId: string;
+  npdProjects: NpdProject[];
+  streamTags: { id: string; name: string }[];
+  streamTagById: Map<string, string>;
+  gateKeyToTagId: Map<string, string>;
+  tagIdToGateKey: Map<string, string>;
+  onClose: () => void;
+}) {
+  const project = npdProjects.find((p) => p.id === projectId);
+  const queryClient = useQueryClient();
+
+  if (!project) return <div className="p-4 text-muted-foreground text-sm">Проект не найден</div>;
+
+  const currentGateKey = project.gateTags
+    .map((id) => tagIdToGateKey.get(id))
+    .find(Boolean) || null;
+  const currentGate = currentGateKey ? NPD_GATES.find((g) => g.key === currentGateKey) : null;
+
+  const assignedStreams = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  const toggleStreamTag = async (streamName: string) => {
+    const tag = streamTags.find((t) => t.name === streamName);
+    if (!tag) return;
+
+    const hasIt = project.streamTags.includes(tag.id);
+    if (hasIt) {
+      await supabase.from("group_tags" as any).delete().eq("group_id", project.id).eq("tag_id", tag.id);
+    } else {
+      await supabase.from("group_tags" as any).insert({ group_id: project.id, tag_id: tag.id });
+    }
+    queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+    queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
+  };
+
+  const moveToGate = async (gateKey: string) => {
+    const targetTagId = gateKeyToTagId.get(gateKey);
+    if (!targetTagId) return;
+
+    for (const oldTagId of project.gateTags) {
+      await supabase.from("group_tags" as any).delete().eq("group_id", project.id).eq("tag_id", oldTagId);
+    }
+    await supabase.from("group_tags" as any).insert({ group_id: project.id, tag_id: targetTagId });
+    queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+    queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
+    toast.success(`Перемещено в ${NPD_GATES.find((g) => g.key === gateKey)?.title}`);
+  };
+
+  const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center gap-3">
+        <ProjectIcon project={project} />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-foreground truncate">{project.name}</h2>
+          {currentGate && (
+            <span className={cn("text-xs font-medium", currentGate.textColor)}>{currentGate.title}</span>
+          )}
+        </div>
+      </div>
+
+      {project.description && (
+        <p className="text-sm text-muted-foreground">{project.description}</p>
+      )}
+
+      {/* Progress */}
+      <div>
+        <div className="flex items-center justify-between text-xs mb-1">
+          <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
+          <span className="font-medium">{progress}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      {/* Gate selector */}
+      <div>
+        <h3 className="text-xs font-semibold text-foreground mb-2">Гейт</h3>
+        <div className="flex flex-wrap gap-1.5">
+          {NPD_GATES.map((gate) => (
+            <button
+              key={gate.key}
+              onClick={() => moveToGate(gate.key)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                currentGateKey === gate.key
+                  ? cn("border-transparent", gate.bgLight, gate.textColor, "font-semibold")
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              )}
+            >
+              {gate.title.split(":")[0]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stream selector */}
+      <div>
+        <h3 className="text-xs font-semibold text-foreground mb-2">Стримы (отделы)</h3>
+        <div className="flex flex-wrap gap-1.5">
+          {NPD_STREAMS.map((stream) => (
+            <button
+              key={stream}
+              onClick={() => toggleStreamTag(stream)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-lg border transition-colors",
+                assignedStreams.includes(stream)
+                  ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              )}
+            >
+              {stream}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Links */}
+      <div className="flex gap-2 pt-2">
+        <a href={`/pmo?project=${project.id}`} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          Открыть в PMO
+        </a>
+        <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+          Закрыть
+        </button>
+      </div>
+    </div>
+  );
+}
