@@ -878,23 +878,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         )}
       </DragOverlay>
 
-      {/* Project detail sheet - navigate to PMO */}
-      <Sheet open={!!selectedProjectId} onOpenChange={(open) => { if (!open) setSelectedProjectId(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-y-auto">
-          {selectedProjectId && (
-            <ProjectDetailSheet
-              projectId={selectedProjectId}
-              npdProjects={npdProjects}
-              allGroups={allGroups}
-              streamTags={streamTags}
-              streamTagById={streamTagById}
-              gateKeyToTagId={gateKeyToTagId}
-              tagIdToGateKey={tagIdToGateKey}
-              onClose={() => setSelectedProjectId(null)}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
     </DndContext>
   );
 }
