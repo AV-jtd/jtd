@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, type Task } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import TaskItem from "@/components/TaskItem";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
 } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -63,7 +63,10 @@ type NpdProject = {
 };
 
 // ── Main component ──
-export default function NpdBoard() {
+export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
+  projectFilter?: string | null;
+  onProjectFilterChange?: (id: string | null) => void;
+} = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
@@ -293,9 +296,29 @@ export default function NpdBoard() {
     return null;
   };
 
+  // ── Stream subprojects map: parentId -> stream subprojects ──
+  const streamSubprojectsMap = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; streamName: string | null }[]>();
+    for (const g of allGroups) {
+      if ((g as any).project_type !== "npd" || !g.parent_id) continue;
+      const parentNpd = npdProjects.find((p) => p.id === g.parent_id);
+      if (!parentNpd) continue;
+      // Determine stream from group_tags
+      const gTags = allGroupTags.filter((gt) => gt.group_id === g.id);
+      const sTagId = gTags.find((gt) => streamTagIds.has(gt.tag_id))?.tag_id;
+      const sName = sTagId ? streamTagById.get(sTagId) || null : null;
+      if (!m.has(g.parent_id)) m.set(g.parent_id, []);
+      m.get(g.parent_id)!.push({ id: g.id, name: g.name, streamName: sName });
+    }
+    return m;
+  }, [allGroups, npdProjects, allGroupTags, streamTagIds, streamTagById]);
+
   // ── Filter ──
   const filteredProjects = useMemo(() => {
     let result = npdProjects;
+    if (projectFilter) {
+      result = result.filter((p) => p.id === projectFilter);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((p) => p.name.toLowerCase().includes(q));
@@ -307,7 +330,19 @@ export default function NpdBoard() {
       }));
     }
     return result;
-  }, [npdProjects, searchQuery, activeStreams, streamTagById]);
+  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter]);
+
+  // ── Tasks grouped by stream subproject (for swimlane task view) ──
+  const streamSubprojectTasks = useMemo(() => {
+    if (!projectFilter) return new Map<string, Task[]>();
+    const m = new Map<string, Task[]>(); // subproject_id -> tasks
+    const subs = streamSubprojectsMap.get(projectFilter) || [];
+    for (const sub of subs) {
+      const tasks = allTasks.filter((t) => t.group_id === sub.id);
+      m.set(sub.id, tasks);
+    }
+    return m;
+  }, [projectFilter, streamSubprojectsMap, allTasks]);
 
   // ── Columns ──
   const gateColumns = useMemo(() => {
@@ -483,10 +518,53 @@ export default function NpdBoard() {
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ["task_groups"] });
-      queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
+      // Auto-create stream subprojects
+      const streamSubprojects = NPD_STREAMS.map((streamName, idx) => ({
+        name: `${name.trim()} / ${streamName}`,
+        user_id: currentUserId,
+        project_type: "npd" as const,
+        icon: "📋",
+        color: "#8b5cf6",
+        parent_id: data.id,
+        position: idx,
+      }));
+
+      const { data: createdSubs, error: subError } = await supabase
+        .from("task_groups")
+        .insert(streamSubprojects)
+        .select("id, name");
+
+      if (subError) {
+        console.error("Error creating stream subprojects:", subError);
+      } else if (createdSubs) {
+        // Assign stream tags to each subproject
+        const streamTagInserts: { group_id: string; tag_id: string }[] = [];
+        for (const sub of createdSubs) {
+          const streamName = NPD_STREAMS.find((s) => sub.name.endsWith(` / ${s}`));
+          if (streamName) {
+            const sTag = streamTags.find((t) => t.name === streamName);
+            if (sTag) {
+              streamTagInserts.push({ group_id: sub.id, tag_id: sTag.id });
+            }
+          }
+          // Also assign gate tag to subprojects
+          if (gateKey) {
+            const gateTagId = gateKeyToTagId.get(gateKey);
+            if (gateTagId) {
+              streamTagInserts.push({ group_id: sub.id, tag_id: gateTagId });
+            }
+          }
+        }
+        if (streamTagInserts.length > 0) {
+          await supabase.from("group_tags" as any).insert(streamTagInserts);
+        }
+      }
+
+      await queryClient.refetchQueries({ queryKey: ["task_groups"] });
+      await queryClient.refetchQueries({ queryKey: ["npd-group-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
-      toast.success("NPD-проект создан");
+      toast.success("NPD-проект создан с подпроектами по стримам");
     } catch (e: any) {
       toast.error("Ошибка: " + e.message);
     }
@@ -518,6 +596,53 @@ export default function NpdBoard() {
           {/* Filter bar */}
           <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Project filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                    projectFilter
+                      ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  )}>
+                    <Folder className="h-3 w-3" />
+                    {projectFilter
+                      ? (npdProjects.find(p => p.id === projectFilter)?.name || "Проект")
+                      : "Все проекты"
+                    }
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" side="bottom">
+                  <div className="max-h-56 overflow-y-auto space-y-0.5">
+                    <button
+                      onClick={() => onProjectFilterChange?.(null)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                        !projectFilter ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      )}
+                    >
+                      Все проекты
+                      {!projectFilter && <Check className="h-3 w-3 ml-auto" />}
+                    </button>
+                    {npdProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => onProjectFilterChange?.(p.id)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          projectFilter === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="text-sm leading-none">{p.icon && p.icon !== "list" ? p.icon : "🧪"}</span>
+                        <span className="truncate">{p.name}</span>
+                        {projectFilter === p.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               <div className="relative flex-1 min-w-[160px] max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -622,9 +747,9 @@ export default function NpdBoard() {
                 Swimlanes
               </button>
 
-              {(searchQuery || activeStreams.size > 0) && (
+              {(searchQuery || activeStreams.size > 0 || projectFilter) && (
                 <button
-                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); }}
+                  onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); onProjectFilterChange?.(null); }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Сбросить всё
@@ -665,6 +790,10 @@ export default function NpdBoard() {
                 onCardClick={setSelectedProjectId}
                 onCreate={handleCreateProject}
                 gateKeyToTagId={gateKeyToTagId}
+                projectFilter={projectFilter || null}
+                streamSubprojectsMap={streamSubprojectsMap}
+                streamSubprojectTasks={streamSubprojectTasks}
+                allTasks={allTasks}
               />
             ) : (
               <div className="flex h-full min-w-max gap-0">
@@ -738,6 +867,7 @@ const SWIMLANE_UNASSIGNED = "__unassigned__";
 function SwimlaneGrid({
   visibleGates, filteredProjects, getProjectGate, streamTagById,
   activeStreams, isOver, isMoving, onCardClick, onCreate, gateKeyToTagId,
+  projectFilter, streamSubprojectsMap, streamSubprojectTasks, allTasks,
 }: {
   visibleGates: GateStage[];
   filteredProjects: NpdProject[];
@@ -749,6 +879,10 @@ function SwimlaneGrid({
   onCardClick: (id: string) => void;
   onCreate: (name: string, gateKey: string | null) => void;
   gateKeyToTagId: Map<string, string>;
+  projectFilter: string | null;
+  streamSubprojectsMap: Map<string, { id: string; name: string; streamName: string | null }[]>;
+  streamSubprojectTasks: Map<string, Task[]>;
+  allTasks: Task[];
 }) {
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(() => {
     try {
@@ -832,7 +966,12 @@ function SwimlaneGrid({
       {streamsToShow.map((stream) => {
         const isCollapsed = collapsedRows.has(stream);
         const rowProjects = visibleGates.flatMap((g) => gridData[stream]?.[g.key] || []);
-        const totalInRow = rowProjects.length;
+        // If project filter is active, find the stream subproject and its tasks
+        const streamSub = projectFilter
+          ? (streamSubprojectsMap.get(projectFilter) || []).find((s) => s.streamName === stream)
+          : null;
+        const streamTasks = streamSub ? (streamSubprojectTasks.get(streamSub.id) || []) : [];
+        const totalInRow = projectFilter ? streamTasks.length : rowProjects.length;
 
         return (
           <div key={stream} className="border-b border-border">
@@ -847,9 +986,28 @@ function SwimlaneGrid({
                   : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                 }
                 <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+                {streamSub && <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />}
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
               {!isCollapsed && visibleGates.map((gate) => {
+                // When project is filtered, show tasks in the gate column where the project lives
+                if (projectFilter && streamSub) {
+                  const project = filteredProjects.find((p) => p.id === projectFilter);
+                  const projectGate = project ? getProjectGate(project) : null;
+                  const showTasks = projectGate === gate.key;
+                  return (
+                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                      <div className="flex flex-col gap-1">
+                        {showTasks ? streamTasks.map((task) => (
+                          <TaskMiniCard key={task.id} task={task} />
+                        )) : (
+                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                // Default: show project cards
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
                   <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
@@ -1238,7 +1396,28 @@ function ProjectIcon({ project }: { project: NpdProject }) {
   );
 }
 
-// ── Project Detail Sheet ──
+// ── Task Mini Card (for swimlane task view) ──
+function TaskMiniCard({ task }: { task: Task }) {
+  const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
+  return (
+    <div className={cn(
+      "rounded-md border px-2 py-1.5 text-xs transition-colors",
+      task.is_completed
+        ? "border-border/50 bg-muted/30 text-muted-foreground line-through"
+        : isOverdue
+          ? "border-destructive/30 bg-destructive/5 text-foreground"
+          : "border-border bg-card text-foreground hover:bg-muted/40"
+    )}>
+      <div className="flex items-center gap-1.5">
+        <CheckCircle2 className={cn("h-3 w-3 shrink-0", task.is_completed ? "text-success" : "text-muted-foreground/40")} />
+        <span className="truncate">{task.title}</span>
+        {isOverdue && <AlertTriangle className="h-3 w-3 text-destructive shrink-0 ml-auto" />}
+      </div>
+    </div>
+  );
+}
+
+
 function ProjectDetailSheet({
   projectId, npdProjects, streamTags, streamTagById, gateKeyToTagId, tagIdToGateKey, onClose,
 }: {

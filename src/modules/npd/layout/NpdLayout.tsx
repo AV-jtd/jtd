@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -5,6 +6,7 @@ import NpdBoard from "@/modules/npd/pages/NpdBoard";
 
 export default function NpdLayout() {
   const { user, loading } = useAuth();
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -30,7 +32,10 @@ export default function NpdLayout() {
         </div>
       </header>
       <main className="flex-1 overflow-hidden">
-        <NpdBoard />
+        <NpdBoard
+          projectFilter={projectFilter}
+          onProjectFilterChange={setProjectFilter}
+        />
       </main>
     </div>
   );
