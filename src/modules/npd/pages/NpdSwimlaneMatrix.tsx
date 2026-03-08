@@ -663,6 +663,7 @@ export default function NpdSwimlaneMatrix() {
                                 ))}
                                 <QuickCreateForm
                                   users={users}
+                                  singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact={cellTasks.length === 0}
                                 />
