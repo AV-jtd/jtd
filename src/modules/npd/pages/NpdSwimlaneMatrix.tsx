@@ -198,30 +198,49 @@ export default function NpdSwimlaneMatrix() {
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
-  // Fetch group_tags
+  // Fetch group_tags — scoped to project + subprojects to avoid 1000-row limit
+  const projectAndSubIds = useMemo(() => {
+    const ids = [projectId, ...allGroups.filter(g => g.parent_id === projectId).map(g => g.id)].filter(Boolean) as string[];
+    return ids;
+  }, [projectId, allGroups]);
+
   const { data: allGroupTags = [] } = useQuery({
-    queryKey: ["npd-group-tags", user?.id],
+    queryKey: ["npd-group-tags", projectId, projectAndSubIds.length],
     queryFn: async () => {
+      if (projectAndSubIds.length === 0) return [];
       const { data, error } = await supabase
         .from("group_tags" as any)
-        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+        .select("group_id, tag_id")
+        .in("group_id", projectAndSubIds) as { data: { group_id: string; tag_id: string }[] | null; error: any };
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && projectAndSubIds.length > 0,
   });
 
-  // Fetch task_tags for gate-level task placement
+  // Fetch task_tags for gate-level task placement — scoped to project tasks
+  const projectTaskIds = useMemo(() => {
+    return allTasks.filter(t => t.group_id && projectAndSubIds.includes(t.group_id)).map(t => t.id);
+  }, [allTasks, projectAndSubIds]);
+
   const { data: allTaskTags = [] } = useQuery({
-    queryKey: ["npd-task-tags", user?.id],
+    queryKey: ["npd-task-tags", projectId, projectTaskIds.length],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("task_tags")
-        .select("task_id, tag_id");
-      if (error) throw error;
-      return data || [];
+      if (projectTaskIds.length === 0) return [];
+      // Batch in chunks of 200 to avoid URL length limits
+      const results: { task_id: string; tag_id: string }[] = [];
+      for (let i = 0; i < projectTaskIds.length; i += 200) {
+        const chunk = projectTaskIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("task_tags")
+          .select("task_id, tag_id")
+          .in("task_id", chunk);
+        if (error) throw error;
+        if (data) results.push(...data);
+      }
+      return results;
     },
-    enabled: !!user,
+    enabled: !!user && projectTaskIds.length > 0,
   });
 
   // Project data
