@@ -587,18 +587,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
   };
 
-  // ── Create task in a stream subproject ──
-  const handleCreateTask = async (title: string, groupId: string) => {
+  // ── Create task in a stream subproject, optionally with a gate tag ──
+  const handleCreateTask = async (title: string, groupId: string, gateTagId?: string) => {
     if (!title.trim() || !user) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const currentUserId = sessionData?.session?.user?.id;
     if (!currentUserId) { toast.error("Сессия истекла"); return; }
-    const { error } = await supabase.from("tasks").insert({
+    const { data: newTask, error } = await supabase.from("tasks").insert({
       title: title.trim(),
       user_id: currentUserId,
       group_id: groupId,
-    });
+    }).select("id").single();
     if (error) { toast.error("Ошибка: " + error.message); return; }
+    // Assign gate tag to the task
+    if (gateTagId && newTask) {
+      await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: gateTagId });
+    }
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     toast.success("Задача создана");
   };
