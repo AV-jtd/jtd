@@ -598,9 +598,6 @@ export default function NpdSwimlaneMatrix() {
                             {completedCount}/{tasks.length}
                           </span>
                         )}
-                        {currentGate && (
-                          <div className={cn("h-2 w-2 rounded-full shrink-0", NPD_GATES.find(g => g.key === currentGate)?.color)} />
-                        )}
                       </div>
                     </button>
                   </div>
