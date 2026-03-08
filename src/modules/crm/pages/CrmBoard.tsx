@@ -2432,9 +2432,9 @@ function CrmCard({
         </span>
       )}
       {variant === "sales" && task.client && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[100px]" title={task.client.name}>
           <Briefcase className="h-2.5 w-2.5 shrink-0" />
-          {task.client.name}
+          <span className="truncate">{task.client.name}</span>
         </span>
       )}
       {totalSteps > 0 && (
