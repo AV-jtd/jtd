@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, type Task } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import TaskItem from "@/components/TaskItem";
 import {
   Loader2, Folder, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
-  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid,
+  Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks,
 } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
 import { toast } from "sonner";
