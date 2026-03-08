@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Loader2, LayoutDashboard, GanttChart, Flag, Users, BarChart3 } from "lucide-react";
@@ -7,6 +7,8 @@ import AppHeader from "@/components/AppHeader";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
 import AiAssistant from "@/components/AiAssistant";
+import MessengerPanel from "@/components/MessengerPanel";
+import GlobalSearch from "@/components/GlobalSearch";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
