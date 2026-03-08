@@ -608,6 +608,20 @@ export default function NpdBoard() {
                 </PopoverContent>
               </Popover>
 
+              {/* Swimlane toggle */}
+              <button
+                onClick={() => setSwimlaneMode((p) => !p)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                  swimlaneMode
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Swimlanes
+              </button>
+
               {(searchQuery || activeStreams.size > 0) && (
                 <button
                   onClick={() => { setSearchQuery(""); setActiveStreams(new Set()); }}
