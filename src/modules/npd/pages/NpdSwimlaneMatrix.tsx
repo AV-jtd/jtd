@@ -890,7 +890,7 @@ export default function NpdSwimlaneMatrix() {
                         </div>
                       {/* Unmatched subprojects */}
                       {inboxData.unmatchedSubs.map(sub => {
-                        const subTasks = allTasks.filter(t => t.group_id === sub.id);
+                        const subTasks = allTasks.filter(t => t.group_id === sub.id && !getTaskStream(t.id));
                         const displayName = sub.name.includes("/") ? sub.name.split("/").pop()!.trim() : sub.name;
                         return (
                           <div key={sub.id} className="space-y-1">
