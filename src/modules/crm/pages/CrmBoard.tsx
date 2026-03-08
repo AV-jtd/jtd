@@ -1909,244 +1909,210 @@ function CrmCard({
   onToggleImportant: () => void;
   onCardClick?: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
 
-  if (variant === "sales") {
-    return (
-      <div
-        onClick={onCardClick}
-        className={cn(
-          "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow cursor-pointer",
-          isDragging ? "shadow-lg" : "hover:shadow-md"
-        )}
-      >
-        {/* Row 1: title + drag handle */}
-        <div className="flex items-start gap-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
-            className={cn(
-              "h-5 w-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
-              task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-            )}
-          >
-            {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
-          </button>
-          <h4 className="flex-1 text-sm font-medium text-foreground leading-tight line-clamp-2 min-w-0">
-            {task.title}
-          </h4>
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleImportant(); }}
-            className={cn("p-1 rounded transition-colors shrink-0", task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning")}
-          >
-            <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
-          </button>
-          <button
-            {...dragHandleProps}
-            onClick={(e) => e.stopPropagation()}
-            className="p-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-        </div>
+  const displayName = variant === "funnel" ? (task.client?.name || task.title) : task.title;
+  const hasDetails = !!(
+    (tags.length > 0) ||
+    (task.client && (task.client.contact_name || task.client.phone || task.client.email)) ||
+    (totalSteps > 0) ||
+    (variant === "funnel" && group)
+  );
 
-        {/* Row 2: deadline + assignee + project — compact info line */}
-        <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground flex-wrap">
-          {task.deadline && (
-            <span className={cn("inline-flex items-center gap-1", new Date(task.deadline) < new Date() ? "text-destructive" : "")}>
-              <Calendar className="h-3 w-3" />
-              {format(parseISO(task.deadline), "d MMM", { locale: ru })}
-            </span>
-          )}
-          {task.assignee && (
-            <span className="inline-flex items-center gap-1 truncate max-w-[120px]">
-              <User className="h-3 w-3 shrink-0" />
-              {task.assignee.display_name || task.assignee.email || "?"}
-            </span>
-          )}
-          {group && (
-            <span className="inline-flex items-center gap-1 truncate max-w-[120px]">
-              <FolderOpen className="h-3 w-3 shrink-0" />
-              {group.icon ? `${group.icon} ` : ""}{group.name}
-            </span>
-          )}
-        </div>
+  const toggleExpand = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpanded((p) => !p);
+  }, []);
 
-        {/* Row 3: client name if available */}
-        {task.client && (
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Briefcase className="h-3 w-3 shrink-0" />
-            <span className="truncate">{task.client.name}</span>
-          </div>
-        )}
+  // Compact info badges (always visible)
+  const compactInfo = (
+    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground flex-wrap">
+      {task.deadline && (
+        <span className={cn("inline-flex items-center gap-0.5", new Date(task.deadline) < new Date() ? "text-destructive" : "")}>
+          <Calendar className="h-2.5 w-2.5" />
+          {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+        </span>
+      )}
+      {task.assignee && (
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+          <User className="h-2.5 w-2.5 shrink-0" />
+          {task.assignee.display_name || task.assignee.email || "?"}
+        </span>
+      )}
+      {variant === "sales" && group && (
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+          <FolderOpen className="h-2.5 w-2.5 shrink-0" />
+          {group.icon ? `${group.icon} ` : ""}{group.name}
+        </span>
+      )}
+      {variant === "sales" && task.client && (
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+          <Briefcase className="h-2.5 w-2.5 shrink-0" />
+          {task.client.name}
+        </span>
+      )}
+      {totalSteps > 0 && (
+        <span className="inline-flex items-center gap-0.5">
+          {completedSteps}/{totalSteps}
+        </span>
+      )}
+    </div>
+  );
 
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: tag.color ? `${tag.color}20` : undefined,
-                  color: tag.color || undefined,
-                }}
-              >
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Funnel variant (original)
   return (
     <div
       onClick={onCardClick}
       className={cn(
-      "rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow cursor-pointer",
-      isDragging ? "shadow-lg" : "hover:shadow-md"
-    )}>
-      <div className="flex items-start gap-2">
+        "rounded-lg border border-border bg-card shadow-sm transition-all cursor-pointer",
+        expanded ? "p-3" : "px-2.5 py-1.5",
+        isDragging ? "shadow-lg" : "hover:shadow-md"
+      )}
+    >
+      {/* Compact row — always visible */}
+      <div className="flex items-center gap-1.5">
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleComplete();
-          }}
+          onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
           className={cn(
-            "h-5 w-5 mt-0.5 rounded-full border-2 flex items-center justify-center transition-colors",
+            "h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
             task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
           )}
-          title="Завершить"
         >
-          {task.is_completed && <Check className="h-3 w-3 text-primary-foreground" />}
+          {task.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <h4 className="text-sm font-medium text-foreground leading-tight line-clamp-2">
-              {task.client?.name || task.title}
-            </h4>
-          </div>
-        </div>
+        {variant === "funnel" && <Briefcase className="h-3 w-3 text-muted-foreground shrink-0" />}
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleImportant();
-          }}
-          className={cn(
-            "p-1 rounded transition-colors",
-            task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning"
-          )}
-          title="Важная"
-        >
-          <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
-        </button>
+        <h4 className="flex-1 text-xs font-medium text-foreground leading-tight truncate min-w-0">
+          {displayName}
+        </h4>
+
+        {task.is_important && (
+          <Star className="h-3 w-3 text-warning fill-current shrink-0" />
+        )}
+
+        {hasDetails && (
+          <button
+            onClick={toggleExpand}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
+          </button>
+        )}
 
         <button
           {...dragHandleProps}
           onClick={(e) => e.stopPropagation()}
-          className="p-1 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
-          title="Перетащить"
+          className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {group && (
-        <div className="mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted text-foreground">
-          <FolderOpen className="h-3 w-3" />
-          <span className="truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>
-        </div>
-      )}
+      {/* Compact info line — always visible */}
+      {!expanded && compactInfo}
 
-      {tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <span
-              key={tag.id}
-              className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full"
-              style={{
-                backgroundColor: tag.color ? `${tag.color}20` : undefined,
-                color: tag.color || undefined,
-              }}
+      {/* Expanded details */}
+      {expanded && (
+        <div className="mt-2 space-y-1.5">
+          {/* Important toggle when expanded */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleImportant(); }}
+              className={cn("p-0.5 rounded transition-colors", task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning")}
             >
-              {tag.name}
-            </span>
-          ))}
-        </div>
-      )}
+              <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
+            </button>
+            {task.deadline && (
+              <span className={cn("text-[11px] inline-flex items-center gap-1", new Date(task.deadline) < new Date() ? "text-destructive" : "text-muted-foreground")}>
+                <Calendar className="h-3 w-3" />
+                {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+              </span>
+            )}
+            {task.assignee && (
+              <span className="text-[11px] inline-flex items-center gap-1 text-muted-foreground truncate max-w-[120px]">
+                <User className="h-3 w-3 shrink-0" />
+                {task.assignee.display_name || task.assignee.email || "?"}
+              </span>
+            )}
+          </div>
 
-      {task.client && (
-        <div className="flex flex-col gap-1 mt-2">
-          {task.client.contact_name && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <User className="h-3 w-3 shrink-0" />
-              <span className="truncate">{task.client.contact_name}</span>
+          {group && (
+            <div className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-muted text-foreground">
+              <FolderOpen className="h-3 w-3" />
+              <span className="truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>
             </div>
           )}
-          {task.client.phone && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Phone className="h-3 w-3 shrink-0" />
-              <span className="truncate">{task.client.phone}</span>
-            </div>
-          )}
-          {task.client.email && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Mail className="h-3 w-3 shrink-0" />
-              <span className="truncate">{task.client.email}</span>
-            </div>
-          )}
-        </div>
-      )}
 
-      {totalSteps > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground">{completedSteps}/{totalSteps} шагов</span>
-            {(() => {
-              const nextDeadline = task.subtasks
-                .filter((s) => !s.is_completed && s.deadline)
-                .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
-              if (!nextDeadline) return null;
-              const isOverdue = new Date(nextDeadline.deadline!) < new Date();
-              return (
-                <span className={cn("text-[10px] flex items-center gap-0.5", isOverdue ? "text-destructive" : "text-muted-foreground")}>
-                  <Calendar className="h-2.5 w-2.5" />
-                  {format(parseISO(nextDeadline.deadline!), "d MMM", { locale: ru })}
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: tag.color ? `${tag.color}20` : undefined,
+                    color: tag.color || undefined,
+                  }}
+                >
+                  {tag.name}
                 </span>
-              );
-            })()}
-          </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-            />
-          </div>
+              ))}
+            </div>
+          )}
+
+          {task.client && (
+            <div className="flex flex-col gap-0.5">
+              {task.client.contact_name && (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{task.client.contact_name}</span>
+                </div>
+              )}
+              {task.client.phone && (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Phone className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{task.client.phone}</span>
+                </div>
+              )}
+              {task.client.email && (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Mail className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{task.client.email}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {totalSteps > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] text-muted-foreground">{completedSteps}/{totalSteps} шагов</span>
+                {(() => {
+                  const nextDeadline = task.subtasks
+                    .filter((s) => !s.is_completed && s.deadline)
+                    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0];
+                  if (!nextDeadline) return null;
+                  const isOverdue = new Date(nextDeadline.deadline!) < new Date();
+                  return (
+                    <span className={cn("text-[10px] flex items-center gap-0.5", isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                      <Calendar className="h-2.5 w-2.5" />
+                      {format(parseISO(nextDeadline.deadline!), "d MMM", { locale: ru })}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      <div className="flex items-center justify-between gap-2 mt-2">
-        {task.deadline && (
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <Calendar className="h-3 w-3" />
-            {format(parseISO(task.deadline), "d MMM", { locale: ru })}
-          </div>
-        )}
-        {task.assignee && (
-          <div className="flex items-center gap-1.5 ml-auto">
-            <User className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-              {task.assignee.display_name || task.assignee.email || "?"}
-            </span>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
