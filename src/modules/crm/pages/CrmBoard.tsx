@@ -2420,21 +2420,21 @@ function CrmCard({
         </span>
       )}
       {task.assignee && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[100px]" title={task.assignee.display_name || task.assignee.email || "?"}>
           <User className="h-2.5 w-2.5 shrink-0" />
-          {task.assignee.display_name || task.assignee.email || "?"}
+          <span className="truncate">{task.assignee.display_name || task.assignee.email || "?"}</span>
         </span>
       )}
       {variant === "sales" && group && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[110px]" title={`${group.icon ? `${group.icon} ` : ""}${group.name}`}>
           <FolderOpen className="h-2.5 w-2.5 shrink-0" />
-          {group.icon ? `${group.icon} ` : ""}{group.name}
+          <span className="truncate">{group.icon ? `${group.icon} ` : ""}{group.name}</span>
         </span>
       )}
       {variant === "sales" && task.client && (
-        <span className="inline-flex items-center gap-0.5 truncate max-w-[90px]">
+        <span className="inline-flex items-center gap-0.5 truncate max-w-[100px]" title={task.client.name}>
           <Briefcase className="h-2.5 w-2.5 shrink-0" />
-          {task.client.name}
+          <span className="truncate">{task.client.name}</span>
         </span>
       )}
       {totalSteps > 0 && (
@@ -2471,7 +2471,7 @@ function CrmCard({
         <h4 className={cn(
           "flex-1 text-xs font-medium text-foreground leading-tight min-w-0",
           expanded ? "whitespace-normal break-words" : "truncate"
-        )}>
+        )} title={displayName}>
           {displayName}
         </h4>
 
@@ -2520,9 +2520,9 @@ function CrmCard({
               </span>
             )}
             {task.assignee && (
-              <span className="text-[11px] inline-flex items-center gap-1 text-muted-foreground truncate max-w-[120px]">
+              <span className="text-[11px] inline-flex items-center gap-1 text-muted-foreground truncate max-w-[140px]" title={task.assignee.display_name || task.assignee.email || "?"}>
                 <User className="h-3 w-3 shrink-0" />
-                {task.assignee.display_name || task.assignee.email || "?"}
+                <span className="truncate">{task.assignee.display_name || task.assignee.email || "?"}</span>
               </span>
             )}
           </div>
