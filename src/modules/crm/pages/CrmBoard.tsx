@@ -1914,12 +1914,7 @@ function CrmCard({
   const totalSteps = task.subtasks.length;
 
   const displayName = variant === "funnel" ? (task.client?.name || task.title) : task.title;
-  const hasDetails = !!(
-    (tags.length > 0) ||
-    (task.client && (task.client.contact_name || task.client.phone || task.client.email)) ||
-    (totalSteps > 0) ||
-    (variant === "funnel" && group)
-  );
+  const hasDetails = true;
 
   const toggleExpand = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
