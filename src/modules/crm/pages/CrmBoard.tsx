@@ -167,6 +167,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
   const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
+  const [filterTerritoryIds, setFilterTerritoryIds] = useState<string[]>([]);
+  const [filterRetailTypeIds, setFilterRetailTypeIds] = useState<string[]>([]);
+  const [filterRankIds, setFilterRankIds] = useState<string[]>([]);
+  const [filterManagerIds, setFilterManagerIds] = useState<string[]>([]);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
