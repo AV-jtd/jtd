@@ -198,49 +198,50 @@ export default function NpdSwimlaneMatrix() {
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
-  // Fetch group_tags — scoped to project + subprojects to avoid 1000-row limit
-  const projectAndSubIds = useMemo(() => {
-    const ids = [projectId, ...allGroups.filter(g => g.parent_id === projectId).map(g => g.id)].filter(Boolean) as string[];
-    return ids;
-  }, [projectId, allGroups]);
-
+  // Fetch group_tags (all — needed for stream mapping + gate detection)
   const { data: allGroupTags = [] } = useQuery({
-    queryKey: ["npd-group-tags", projectId, projectAndSubIds.length],
+    queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
-      if (projectAndSubIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("group_tags" as any)
-        .select("group_id, tag_id")
-        .in("group_id", projectAndSubIds) as { data: { group_id: string; tag_id: string }[] | null; error: any };
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user && projectAndSubIds.length > 0,
-  });
-
-  // Fetch task_tags for gate-level task placement — scoped to project tasks
-  const projectTaskIds = useMemo(() => {
-    return allTasks.filter(t => t.group_id && projectAndSubIds.includes(t.group_id)).map(t => t.id);
-  }, [allTasks, projectAndSubIds]);
-
-  const { data: allTaskTags = [] } = useQuery({
-    queryKey: ["npd-task-tags", projectId, projectTaskIds.length],
-    queryFn: async () => {
-      if (projectTaskIds.length === 0) return [];
-      // Batch in chunks of 200 to avoid URL length limits
-      const results: { task_id: string; tag_id: string }[] = [];
-      for (let i = 0; i < projectTaskIds.length; i += 200) {
-        const chunk = projectTaskIds.slice(i, i + 200);
+      const results: { group_id: string; tag_id: string }[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
         const { data, error } = await supabase
-          .from("task_tags")
-          .select("task_id, tag_id")
-          .in("task_id", chunk);
+          .from("group_tags" as any)
+          .select("group_id, tag_id")
+          .range(from, from + pageSize - 1) as { data: { group_id: string; tag_id: string }[] | null; error: any };
         if (error) throw error;
-        if (data) results.push(...data);
+        if (!data || data.length === 0) break;
+        results.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
       }
       return results;
     },
-    enabled: !!user && projectTaskIds.length > 0,
+    enabled: !!user,
+  });
+
+  // Fetch task_tags (all — needed for gate-level task placement)
+  const { data: allTaskTags = [] } = useQuery({
+    queryKey: ["npd-task-tags", user?.id],
+    queryFn: async () => {
+      const results: { task_id: string; tag_id: string }[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("task_tags")
+          .select("task_id, tag_id")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        results.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return results;
+    },
+    enabled: !!user,
   });
 
   // Project data
