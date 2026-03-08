@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, Profile } from "@/hooks/useTasks";
+import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile } from "@/hooks/useTasks";
+import TaskItem from "@/components/TaskItem";
 import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
