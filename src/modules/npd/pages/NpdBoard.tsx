@@ -15,7 +15,8 @@ import {
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
 } from "lucide-react";
-import { isPast, parseISO } from "date-fns";
+import { isPast, parseISO, format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor,
@@ -1408,6 +1409,27 @@ function DraggableProjectCard({
   );
 }
 
+// ── Dashboard-style helpers ──
+function getTimingStatus(tasks: Task[]): "on-track" | "at-risk" | "overdue" | "completed" {
+  const active = tasks.filter(t => !t.is_completed);
+  if (active.length === 0 && tasks.length > 0) return "completed";
+  if (active.length === 0) return "on-track";
+  const now = new Date();
+  if (active.some(t => t.deadline && new Date(t.deadline) < now)) return "overdue";
+  if (active.some(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)) return "at-risk";
+  return "on-track";
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  "on-track": "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400",
+  "at-risk": "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400",
+  "overdue": "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400",
+  "completed": "text-muted-foreground bg-muted border-border",
+};
+const STATUS_LABEL: Record<string, string> = {
+  "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён",
+};
+
 // ── Project Card ──
 function ProjectCard({
   project, streamTagById, isDragging, dragHandleProps, onCardClick,
@@ -1419,16 +1441,39 @@ function ProjectCard({
   onCardClick?: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const allGroups = useTaskGroups().data || [];
+  const [detailTab, setDetailTab] = useState<"dashboard" | "settings">("dashboard");
+  const { data: allGroups = [] } = useTaskGroups();
+  const { data: allTasks = [] } = useTasks(project.id);
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  // Dashboard data
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const subprojects = allGroups.filter(g => g.parent_id === project.id);
+
+  // Collect tasks from subprojects too
+  const allProjectTasks = useMemo(() => {
+    const subIds = subprojects.map(s => s.id);
+    return allTasks.filter(t => t.group_id === project.id || (t.group_id && subIds.includes(t.group_id)));
+  }, [allTasks, project.id, subprojects]);
+
+  const activeTasks = allProjectTasks.filter(t => !t.is_completed);
+  const overdueTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now);
+  const upcomingTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+  const driftTasks = activeTasks
+    .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }));
+
+  const timingStatus = getTimingStatus(allProjectTasks);
 
   return (
     <div
       className={cn(
         "rounded-lg border border-border bg-card shadow-sm transition-all",
-        isDragging ? "shadow-lg" : "hover:shadow-md"
+        isDragging ? "shadow-lg" : "hover:shadow-md",
+        detailOpen && "shadow-md"
       )}
     >
       <div
@@ -1438,6 +1483,9 @@ function ProjectCard({
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
           <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+          <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0", STATUS_BADGE[timingStatus])}>
+            {STATUS_LABEL[timingStatus]}
+          </span>
           <button
             onClick={(e) => { e.stopPropagation(); setDetailOpen(!detailOpen); }}
             className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
@@ -1467,23 +1515,6 @@ function ProjectCard({
           </div>
         )}
 
-        {/* Stream subprojects breakdown */}
-        {project.streamStats.length > 0 && (
-          <div className="mt-2 space-y-0.5">
-            {project.streamStats.filter(s => s.total > 0).slice(0, 4).map((s) => (
-              <div key={s.name} className="flex items-center gap-1.5 text-[10px]">
-                <span className="text-muted-foreground truncate flex-1">{s.name}</span>
-                <span className={cn("font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-foreground")}>
-                  {s.completed}/{s.total}
-                </span>
-              </div>
-            ))}
-            {project.streamStats.filter(s => s.total > 0).length > 4 && (
-              <div className="text-[10px] text-muted-foreground">+{project.streamStats.filter(s => s.total > 0).length - 4} стримов</div>
-            )}
-          </div>
-        )}
-
         {/* Progress */}
         {project.stats.total > 0 && (
           <div className="mt-2">
@@ -1497,12 +1528,18 @@ function ProjectCard({
           </div>
         )}
 
-        {/* Stats */}
+        {/* Stats row */}
         <div className="flex items-center gap-2 mt-1.5 text-[10px]">
           {project.stats.overdue > 0 && (
             <span className="flex items-center gap-0.5 text-destructive">
               <AlertTriangle className="h-3 w-3" />
               {project.stats.overdue}
+            </span>
+          )}
+          {driftTasks.length > 0 && (
+            <span className="flex items-center gap-0.5 text-amber-500">
+              <Clock className="h-3 w-3" />
+              {driftTasks.length} drift
             </span>
           )}
           {project.stats.total === 0 && (
@@ -1511,11 +1548,113 @@ function ProjectCard({
         </div>
       </div>
 
-      {/* Expandable detail panel */}
+      {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
-        <div className="border-t border-border px-2 py-2 animate-fade-in">
-          <ProjectDetailPanel group={group} />
+        <div className="border-t border-border animate-fade-in">
+          {/* Tab switcher */}
+          <div className="flex border-b border-border">
+            <button
+              onClick={(e) => { e.stopPropagation(); setDetailTab("dashboard"); }}
+              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "dashboard" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
+            >
+              Обзор
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setDetailTab("settings"); }}
+              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "settings" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
+            >
+              Настройки
+            </button>
+          </div>
+
+          <div className="px-3 py-3 space-y-3">
+            {detailTab === "dashboard" ? (
+              <>
+                {/* Overdue tasks */}
+                {overdueTasks.length > 0 && (
+                  <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+                    {overdueTasks.map(t => (
+                      <DashboardTaskRow key={t.id} task={t} />
+                    ))}
+                  </DashboardSection>
+                )}
+
+                {/* Upcoming deadlines */}
+                {upcomingTasks.length > 0 && (
+                  <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+                    {upcomingTasks.map(t => (
+                      <DashboardTaskRow key={t.id} task={t} />
+                    ))}
+                  </DashboardSection>
+                )}
+
+                {/* Drift */}
+                {driftTasks.length > 0 && (
+                  <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
+                    {driftTasks.map(({ task: t, driftDays }) => (
+                      <DashboardTaskRow key={t.id} task={t} drift={driftDays} />
+                    ))}
+                  </DashboardSection>
+                )}
+
+                {/* Subprojects with stream stats */}
+                {subprojects.length > 0 && (
+                  <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
+                    {project.streamStats.filter(s => s.total > 0).map((s) => (
+                      <div key={s.name} className="flex items-center gap-2 px-2 py-1">
+                        <span className="text-xs text-foreground truncate flex-1">{s.name}</span>
+                        <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-primary" style={{ width: s.total > 0 ? `${(s.completed / s.total) * 100}%` : '0%' }} />
+                        </div>
+                        <span className={cn("text-[10px] font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+                          {s.completed}/{s.total}
+                        </span>
+                      </div>
+                    ))}
+                  </DashboardSection>
+                )}
+
+                {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
+                )}
+              </>
+            ) : (
+              <ProjectDetailPanel group={group} />
+            )}
+          </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardSection({ title, count, children, variant }: { title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className={cn("text-[11px] font-semibold", variant === "destructive" ? "text-red-500" : variant === "warning" ? "text-amber-500" : "text-foreground")}>{title}</span>
+        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+      </div>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function DashboardTaskRow({ task, drift }: { task: Task; drift?: number }) {
+  const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
+  return (
+    <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors">
+      <CheckCircle2 className={cn("h-3 w-3 shrink-0", task.is_completed ? "text-emerald-500" : "text-muted-foreground/40")} />
+      <span className={cn("text-xs truncate flex-1", isOverdue && "text-red-600 dark:text-red-400")}>{task.title}</span>
+      {drift !== undefined && (
+        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-red-500" : "text-emerald-500")}>
+          {drift > 0 ? `+${drift}д` : `${drift}д`}
+        </span>
+      )}
+      {task.deadline && (
+        <span className="text-[10px] text-muted-foreground shrink-0">
+          {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+        </span>
       )}
     </div>
   );
