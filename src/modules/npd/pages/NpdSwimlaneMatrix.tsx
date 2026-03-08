@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import TaskItem from "@/components/TaskItem";
 import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
