@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
-  Briefcase, FlaskConical, Target, FileBarChart,
+  Briefcase, FlaskConical, Target, FileBarChart, Download,
 } from "lucide-react";
 import { addDays } from "date-fns";
 import { toast } from "sonner";
@@ -66,6 +66,7 @@ interface AiAssistantProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   moduleContext?: ModuleContext;
+  onRequestImport?: () => void;
 }
 
 const MODULE_CONFIG: Record<string, {
@@ -125,6 +126,7 @@ const MODULE_CONFIG: Record<string, {
     subtitle: "Клиенты • Воронка • Продажи",
     quickActions: [
       { icon: Target, label: "Новый клиент", prompt: "Добавь клиента и создай задачу: " },
+      { icon: Download, label: "Импорт клиентов", prompt: "__import_crm__" },
       { icon: Zap, label: "Задача продаж", prompt: "Создай задачу продаж: " },
       { icon: FileBarChart, label: "Сценарий", prompt: "Спланируй сценарий работы с клиентом: " },
     ],
@@ -136,7 +138,7 @@ const MODULE_CONFIG: Record<string, {
   },
 };
 
-export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAssistantProps) {
+export default function AiAssistant({ open, onOpenChange, moduleContext, onRequestImport }: AiAssistantProps) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
@@ -173,8 +175,14 @@ export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAss
     activeProjectName: moduleContext?.activeProjectName || null,
   }), [groups, users, tags, currentModule, moduleContext]);
 
-  const detectAction = (text: string): "parse_task" | "plan_project" | "chat" => {
+  const detectAction = (text: string): "parse_task" | "plan_project" | "import_crm" | "chat" => {
     const lower = text.toLowerCase();
+    
+    if (currentModule === "crm") {
+      const importKeywords = ["импорт", "загрузи клиент", "загрузить клиент", "импортируй", "загрузи список", "загрузи базу"];
+      if (importKeywords.some(k => lower.includes(k))) return "import_crm";
+    }
+    
     const planKeywords = ["спланируй", "план проекта", "создай проект", "структура проекта", "запланируй проект", "проект на", "план запуска", "npd проект", "сценарий", "воронк"];
     if (planKeywords.some(k => lower.includes(k))) return "plan_project";
     
@@ -193,6 +201,18 @@ export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAss
 
     try {
       const action = detectAction(text);
+
+      // Handle CRM import
+      if (action === "import_crm") {
+        if (onRequestImport) {
+          setMessages(prev => [...prev, { role: "assistant", content: "📥 Открываю диалог импорта клиентов..." }]);
+          onOpenChange(false);
+          setTimeout(() => onRequestImport(), 300);
+        } else {
+          setMessages(prev => [...prev, { role: "assistant", content: "Импорт недоступен в текущем контексте." }]);
+        }
+        return;
+      }
 
       if (action === "parse_task" || action === "plan_project") {
         const { data, error } = await supabase.functions.invoke("ai-assistant", {
@@ -462,6 +482,11 @@ export default function AiAssistant({ open, onOpenChange, moduleContext }: AiAss
                   <button
                     key={qa.label}
                     onClick={() => {
+                      if (qa.prompt === "__import_crm__" && onRequestImport) {
+                        onOpenChange(false);
+                        setTimeout(() => onRequestImport(), 300);
+                        return;
+                      }
                       setInput(qa.prompt);
                       inputRef.current?.focus();
                     }}

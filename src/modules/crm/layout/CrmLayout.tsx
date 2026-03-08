@@ -8,6 +8,7 @@ import CrmBoard from "@/modules/crm/pages/CrmBoard";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();
@@ -15,6 +16,7 @@ export default function CrmLayout() {
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -79,7 +81,16 @@ export default function CrmLayout() {
         )}
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigateToTask={() => {}} onNavigateToProject={() => {}} onNavigateToTag={() => {}} />
-      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "crm" }} />
+      <AiAssistant
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        moduleContext={{ module: "crm" }}
+        onRequestImport={() => setImportOpen(true)}
+      />
+      <CrmSmartImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+      />
     </div>
   );
 }
