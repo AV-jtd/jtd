@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
