@@ -261,6 +261,8 @@ export default function NpdSwimlaneMatrix() {
     });
   };
 
+  const [inboxOpen, setInboxOpen] = useState(false);
+
   const isLoading = groupsLoading || tasksLoading || !npdTagData;
 
   if (isLoading) {
