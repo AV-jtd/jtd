@@ -367,47 +367,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
-  // ── Compute secondary active gates per project ──
-  // A project's primary gate is the tag on the parent group.
-  // Secondary gates are gates where stream subprojects have active (incomplete) tasks
-  // but the stream subproject carries a different gate tag.
-  const projectSecondaryGates = useMemo(() => {
-    const m = new Map<string, { gateKey: string; activeCount: number; totalCount: number; streams: string[] }[]>();
-    for (const project of filteredProjects) {
-      const primaryGate = getProjectGate(project);
-      const subs = streamSubprojectsMap.get(project.id) || [];
-      const gateMap = new Map<string, { active: number; total: number; streams: string[] }>();
-
-      for (const sub of subs) {
-        // Find gate tag on this subproject
-        const subTags = allGroupTags.filter((gt) => gt.group_id === sub.id);
-        const subGateTagId = subTags.find((gt) => gateTagIds.has(gt.tag_id))?.tag_id;
-        const subGateKey = subGateTagId ? tagIdToGateKey.get(subGateTagId) : null;
-        if (!subGateKey || subGateKey === primaryGate) continue;
-
-        const subTasks = allTasks.filter((t) => t.group_id === sub.id);
-        const activeTasks = subTasks.filter((t) => !t.is_completed);
-        if (activeTasks.length === 0 && subTasks.length === 0) continue;
-
-        if (!gateMap.has(subGateKey)) gateMap.set(subGateKey, { active: 0, total: 0, streams: [] });
-        const entry = gateMap.get(subGateKey)!;
-        entry.active += activeTasks.length;
-        entry.total += subTasks.length;
-        if (sub.streamName) entry.streams.push(sub.streamName);
-      }
-
-      if (gateMap.size > 0) {
-        m.set(project.id, Array.from(gateMap.entries()).map(([gateKey, data]) => ({
-          gateKey,
-          activeCount: data.active,
-          totalCount: data.total,
-          streams: data.streams,
-        })));
-      }
-    }
-    return m;
-  }, [filteredProjects, streamSubprojectsMap, allGroupTags, allTasks, gateTagIds, tagIdToGateKey]);
-
   // ── Columns ──
   const gateColumns = useMemo(() => {
     const grouped: Record<string, NpdProject[]> = {};
@@ -421,29 +380,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     }
     return grouped;
   }, [filteredProjects, tagIdToGateKey]);
-
-  // Ghost badges: projects that appear as secondary in a gate
-  const ghostColumns = useMemo(() => {
-    const grouped: Record<string, { project: NpdProject; activeCount: number; totalCount: number; streams: string[]; primaryGate: string }[]> = {};
-    for (const gate of NPD_GATES) grouped[gate.key] = [];
-
-    for (const project of filteredProjects) {
-      const primaryGate = getProjectGate(project);
-      const secondaries = projectSecondaryGates.get(project.id) || [];
-      for (const sec of secondaries) {
-        if (grouped[sec.gateKey]) {
-          grouped[sec.gateKey].push({
-            project,
-            activeCount: sec.activeCount,
-            totalCount: sec.totalCount,
-            streams: sec.streams,
-            primaryGate: primaryGate || "inbox",
-          });
-        }
-      }
-    }
-    return grouped;
-  }, [filteredProjects, projectSecondaryGates]);
 
   const inboxProjects = useMemo(
     () => filteredProjects.filter((p) => getProjectGate(p) === null && p.stats.total > 0 || getProjectGate(p) === null),
@@ -814,7 +750,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     key={gate.key}
                     gate={gate}
                     projects={gateColumns[gate.key] || []}
-                    ghosts={ghostColumns[gate.key] || []}
                     isOver={overColumn === gate.key}
                     isMoving={moveMutation.isPending}
                     streamTagById={streamTagById}
@@ -1152,11 +1087,10 @@ function SwimlaneStreamRow({
 
 // ── Gate Column ──
 function GateColumn({
-  gate, projects, ghosts, isOver, isMoving, streamTagById, onCardClick, onCreate,
+  gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
 }: {
   gate: GateStage;
   projects: NpdProject[];
-  ghosts: { project: NpdProject; activeCount: number; totalCount: number; streams: string[]; primaryGate: string }[];
   isOver: boolean;
   isMoving: boolean;
   streamTagById: Map<string, string>;
@@ -1165,7 +1099,6 @@ function GateColumn({
 }) {
   const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
-  const navigate = useNavigate();
 
   return (
     <div
@@ -1200,19 +1133,7 @@ function GateColumn({
               onCardClick={() => onCardClick(p.id)}
             />
           ))}
-          {/* Ghost badges for projects primarily in another gate */}
-          {ghosts.map((g) => (
-            <GhostProjectBadge
-              key={`ghost-${g.project.id}`}
-              project={g.project}
-              activeCount={g.activeCount}
-              totalCount={g.totalCount}
-              streams={g.streams}
-              primaryGate={g.primaryGate}
-              onCardClick={() => navigate(`/npd/matrix/${g.project.id}`)}
-            />
-          ))}
-          {projects.length === 0 && ghosts.length === 0 && (
+          {projects.length === 0 && (
             <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
           )}
         </div>
@@ -1309,72 +1230,6 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
         </ScrollArea>
       )}
     </div>
-  );
-}
-
-// ── Ghost Project Badge (compact card for secondary gate presence) ──
-function GhostProjectBadge({
-  project, activeCount, totalCount, streams, primaryGate, onCardClick,
-}: {
-  project: NpdProject;
-  activeCount: number;
-  totalCount: number;
-  streams: string[];
-  primaryGate: string;
-  onCardClick: () => void;
-}) {
-  const primaryGateDef = NPD_GATES.find((g) => g.key === primaryGate);
-  const pct = totalCount > 0 ? Math.round(((totalCount - activeCount) / totalCount) * 100) : 0;
-
-  return (
-    <button
-      onClick={onCardClick}
-      className={cn(
-        "group w-full text-left rounded-lg border border-dashed border-border/60 bg-muted/20",
-        "px-2.5 py-2 transition-all hover:bg-muted/50 hover:border-border hover:shadow-sm",
-      )}
-    >
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="opacity-40 group-hover:opacity-70 transition-opacity">
-          <ProjectIcon project={project} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground truncate transition-colors">
-              {project.name}
-            </span>
-            {primaryGateDef && (
-              <span className={cn(
-                "text-[8px] px-1 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap",
-                primaryGateDef.bgLight, primaryGateDef.textColor, "border-transparent"
-              )}>
-                ← {primaryGateDef.short}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <div className="flex-1 max-w-[80px]">
-              <div className="h-0.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-primary/50 transition-all" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-            <span className="text-[9px] text-muted-foreground/70 shrink-0 font-mono">
-              {activeCount} акт.
-            </span>
-          </div>
-        </div>
-      </div>
-      {streams.length > 0 && (
-        <div className="flex flex-wrap gap-0.5 mt-1 ml-9">
-          {streams.slice(0, 3).map((s) => (
-            <span key={s} className="text-[8px] px-1 py-0 rounded bg-muted text-muted-foreground/70">{s}</span>
-          ))}
-          {streams.length > 3 && (
-            <span className="text-[8px] text-muted-foreground/50">+{streams.length - 3}</span>
-          )}
-        </div>
-      )}
-    </button>
   );
 }
 
