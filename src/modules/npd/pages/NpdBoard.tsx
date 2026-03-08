@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, type Task, type TaskGroup } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -1441,12 +1441,16 @@ function ProjectCard({
   onCardClick?: () => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<"dashboard" | "settings">("dashboard");
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks(project.id);
+  const { data: members = [] } = useGroupMembers(project.id);
+  const { data: availableUsers = [] } = useAvailableUsers();
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
+
+  const assignee = members.find(m => m.role === "assignee");
+  const assigneeName = assignee ? (availableUsers.find(u => u.id === assignee.user_id)?.display_name || assignee.user_id.slice(0, 8)) : null;
 
   // Dashboard data
   const now = new Date();
@@ -1458,6 +1462,11 @@ function ProjectCard({
     const subIds = subprojects.map(s => s.id);
     return allTasks.filter(t => t.group_id === project.id || (t.group_id && subIds.includes(t.group_id)));
   }, [allTasks, project.id, subprojects]);
+
+  const getAssigneeName = (userId: string | null) => {
+    if (!userId) return null;
+    return availableUsers.find(u => u.id === userId)?.display_name || userId.slice(0, 8);
+  };
 
   const activeTasks = allProjectTasks.filter(t => !t.is_completed);
   const overdueTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now);
@@ -1551,75 +1560,63 @@ function ProjectCard({
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
         <div className="border-t border-border animate-fade-in">
-          {/* Tab switcher */}
-          <div className="flex border-b border-border">
-            <button
-              onClick={(e) => { e.stopPropagation(); setDetailTab("dashboard"); }}
-              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "dashboard" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
-            >
-              Обзор
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setDetailTab("settings"); }}
-              className={cn("flex-1 text-[11px] font-medium py-2 transition-colors border-b-2", detailTab === "settings" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
-            >
-              Настройки
-            </button>
-          </div>
-
           <div className="px-3 py-3 space-y-3">
-            {detailTab === "dashboard" ? (
-              <>
-                {/* Overdue tasks */}
-                {overdueTasks.length > 0 && (
-                  <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
-                    {overdueTasks.map(t => (
-                      <DashboardTaskRow key={t.id} task={t} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Assignee */}
+            {assigneeName && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-muted-foreground">Ответственный:</span>
+                <span className="text-xs text-foreground font-medium">{assigneeName}</span>
+              </div>
+            )}
 
-                {/* Upcoming deadlines */}
-                {upcomingTasks.length > 0 && (
-                  <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
-                    {upcomingTasks.map(t => (
-                      <DashboardTaskRow key={t.id} task={t} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Overdue tasks */}
+            {overdueTasks.length > 0 && (
+              <DashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+                {overdueTasks.map(t => (
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {/* Drift */}
-                {driftTasks.length > 0 && (
-                  <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
-                    {driftTasks.map(({ task: t, driftDays }) => (
-                      <DashboardTaskRow key={t.id} task={t} drift={driftDays} />
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Upcoming deadlines */}
+            {upcomingTasks.length > 0 && (
+              <DashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+                {upcomingTasks.map(t => (
+                  <DashboardTaskRow key={t.id} task={t} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {/* Subprojects with stream stats */}
-                {subprojects.length > 0 && (
-                  <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
-                    {project.streamStats.filter(s => s.total > 0).map((s) => (
-                      <div key={s.name} className="flex items-center gap-2 px-2 py-1">
-                        <span className="text-xs text-foreground truncate flex-1">{s.name}</span>
-                        <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full bg-primary" style={{ width: s.total > 0 ? `${(s.completed / s.total) * 100}%` : '0%' }} />
-                        </div>
-                        <span className={cn("text-[10px] font-medium", s.completed === s.total && s.total > 0 ? "text-emerald-500" : "text-muted-foreground")}>
-                          {s.completed}/{s.total}
-                        </span>
-                      </div>
-                    ))}
-                  </DashboardSection>
-                )}
+            {/* Drift */}
+            {driftTasks.length > 0 && (
+              <DashboardSection title="Deadline Drift" count={driftTasks.length} variant="warning">
+                {driftTasks.map(({ task: t, driftDays }) => (
+                  <DashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={getAssigneeName(t.assigned_to)} />
+                ))}
+              </DashboardSection>
+            )}
 
-                {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
-                )}
-              </>
-            ) : (
-              <ProjectDetailPanel group={group} />
+            {/* Subprojects with stream stats — expandable */}
+            {subprojects.length > 0 && (
+              <DashboardSection title="Подпроекты (стримы)" count={subprojects.length}>
+                {subprojects.filter(sub => {
+                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
+                  return st ? st.total > 0 : true;
+                }).map((sub) => {
+                  const st = project.streamStats.find(s => sub.name.includes(s.name) || s.name === sub.name);
+                  return (
+                    <ExpandableSubprojectRow
+                      key={sub.id}
+                      subproject={sub}
+                      stats={st || { name: sub.name, total: 0, completed: 0 }}
+                    />
+                  );
+                })}
+              </DashboardSection>
+            )}
+
+            {overdueTasks.length === 0 && upcomingTasks.length === 0 && driftTasks.length === 0 && subprojects.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">Нет событий</p>
             )}
           </div>
         </div>
@@ -1640,14 +1637,17 @@ function DashboardSection({ title, count, children, variant }: { title: string; 
   );
 }
 
-function DashboardTaskRow({ task, drift }: { task: Task; drift?: number }) {
+function DashboardTaskRow({ task, drift, assigneeName }: { task: Task; drift?: number; assigneeName?: string | null }) {
   const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   return (
     <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors">
       <CheckCircle2 className={cn("h-3 w-3 shrink-0", task.is_completed ? "text-emerald-500" : "text-muted-foreground/40")} />
-      <span className={cn("text-xs truncate flex-1", isOverdue && "text-red-600 dark:text-red-400")}>{task.title}</span>
+      <span className={cn("text-xs truncate flex-1", isOverdue && "text-destructive")}>{task.title}</span>
+      {assigneeName && (
+        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate">{assigneeName}</span>
+      )}
       {drift !== undefined && (
-        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-red-500" : "text-emerald-500")}>
+        <span className={cn("text-[10px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-emerald-500")}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
       )}
@@ -1655,6 +1655,38 @@ function DashboardTaskRow({ task, drift }: { task: Task; drift?: number }) {
         <span className="text-[10px] text-muted-foreground shrink-0">
           {format(parseISO(task.deadline), "d MMM", { locale: ru })}
         </span>
+      )}
+    </div>
+  );
+}
+
+function ExpandableSubprojectRow({ subproject, stats }: { subproject: TaskGroup; stats: { name: string; total: number; completed: number } }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasTasks = stats.total > 0;
+
+  return (
+    <div>
+      <div
+        className={cn("flex items-center gap-2 px-2 py-1 rounded-md transition-colors", hasTasks && "cursor-pointer hover:bg-muted/50")}
+        onClick={() => hasTasks && setExpanded(!expanded)}
+      >
+        {hasTasks ? (
+          expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        ) : (
+          <div className="w-3 shrink-0" />
+        )}
+        <span className="text-xs text-foreground truncate flex-1">{stats.name}</span>
+        <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-primary" style={{ width: stats.total > 0 ? `${(stats.completed / stats.total) * 100}%` : '0%' }} />
+        </div>
+        <span className={cn("text-[10px] font-medium", stats.completed === stats.total && stats.total > 0 ? "text-emerald-500" : "text-muted-foreground")}>
+          {stats.completed}/{stats.total}
+        </span>
+      </div>
+      {expanded && hasTasks && (
+        <div className="pl-4 pt-1 pb-1 animate-fade-in">
+          <ProjectDetailPanel group={subproject} />
+        </div>
       )}
     </div>
   );
