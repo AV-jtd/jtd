@@ -99,6 +99,18 @@ export default function NpdSwimlaneMatrix() {
     return m;
   }, [gateTags, tagNameToGateKey]);
 
+  // Reverse: tagId → gateKey
+  const tagIdToGateKey = useMemo(() => {
+    const m = new Map<string, string>();
+    gateTags.forEach(t => {
+      const k = tagNameToGateKey.get(t.name);
+      if (k) m.set(t.id, k);
+    });
+    return m;
+  }, [gateTags, tagNameToGateKey]);
+
+  const gateTagIdSet = useMemo(() => new Set(gateTags.map(t => t.id)), [gateTags]);
+
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
@@ -109,6 +121,19 @@ export default function NpdSwimlaneMatrix() {
       const { data, error } = await supabase
         .from("group_tags" as any)
         .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch task_tags for gate-level task placement
+  const { data: allTaskTags = [] } = useQuery({
+    queryKey: ["npd-task-tags", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_tags")
+        .select("task_id, tag_id");
       if (error) throw error;
       return data || [];
     },
@@ -156,6 +181,16 @@ export default function NpdSwimlaneMatrix() {
     }
     return m;
   }, [subprojects, allTasks]);
+
+  // Map task → gateKey using task_tags
+  const getTaskGate = useCallback((taskId: string): string | null => {
+    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
+    for (const tt of tTags) {
+      const gk = tagIdToGateKey.get(tt.tag_id);
+      if (gk) return gk;
+    }
+    return null;
+  }, [allTaskTags, tagIdToGateKey]);
 
   // Inbox: tasks directly on parent project + unmatched subprojects
   const inboxData = useMemo(() => {
@@ -245,6 +280,14 @@ export default function NpdSwimlaneMatrix() {
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
 
+      // Assign gate tag to task so it appears in the correct cell
+      if (gateKey && data) {
+        const gateTagId = gateKeyToTagId.get(gateKey);
+        if (gateTagId) {
+          await supabase.from("task_tags").insert({ task_id: data.id, tag_id: gateTagId });
+        }
+      }
+
       if (params.assigneeId && data) {
         await supabase.from("task_participants").upsert({
           task_id: data.id,
@@ -254,6 +297,7 @@ export default function NpdSwimlaneMatrix() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
       toast.success("Задача создана");
     }
   };
@@ -410,19 +454,24 @@ export default function NpdSwimlaneMatrix() {
                   {/* Gate cells */}
                   {NPD_GATES.map(gate => {
                     const isCurrentGate = currentGate === gate.key;
-                    const cellTasks = isCurrentGate ? tasks : [];
+                    // Show tasks that have this gate tag, OR (if no task-level gate tag) fall back to subproject gate
+                    const cellTasks = sub ? tasks.filter(t => {
+                      const taskGate = getTaskGate(t.id);
+                      return taskGate ? taskGate === gate.key : isCurrentGate;
+                    }) : [];
+                    const hasTasks = cellTasks.length > 0;
 
                     return (
                       <div
                         key={gate.key}
                         className={cn(
                           "min-w-[280px] w-[280px] shrink-0 border-r border-border transition-colors",
-                          isCurrentGate ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
+                          (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
                       >
                         {!isCollapsed && (
                           <div className="px-2 py-2 min-h-[60px]">
-                             {isCurrentGate ? (
+                             {sub ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
                                   <MatrixTaskRow
@@ -461,20 +510,11 @@ export default function NpdSwimlaneMatrix() {
                                     }}
                                   />
                                 ))}
-                                {sub && (
-                                  <QuickCreateForm
-                                    users={users}
-                                    onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
-                                  />
-                                )}
-                              </div>
-                            ) : sub ? (
-                              /* Stream exists but is in another gate — compact + */
-                              <div className="flex items-center justify-center min-h-[40px]">
                                 <QuickCreateForm
                                   users={users}
+                                  singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
-                                  compact
+                                  compact={cellTasks.length === 0}
                                 />
                               </div>
                             ) : (
@@ -490,10 +530,10 @@ export default function NpdSwimlaneMatrix() {
                             )}
                           </div>
                         )}
-                        {isCollapsed && isCurrentGate && (
+                        {isCollapsed && (hasTasks || isCurrentGate) && (
                           <div className="px-2 py-1.5 flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">{tasks.length} задач</span>
-                            {activeTasks.some(t => t.deadline && isPast(parseISO(t.deadline))) && (
+                            <span className="text-[10px] text-muted-foreground">{cellTasks.length} задач</span>
+                            {cellTasks.some(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))) && (
                               <AlertTriangle className="h-3 w-3 text-destructive" />
                             )}
                           </div>
