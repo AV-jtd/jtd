@@ -126,6 +126,7 @@ const MODULE_CONFIG: Record<string, {
     subtitle: "Клиенты • Воронка • Продажи",
     quickActions: [
       { icon: Target, label: "Новый клиент", prompt: "Добавь клиента и создай задачу: " },
+      { icon: Download, label: "Импорт клиентов", prompt: "__import_crm__" },
       { icon: Zap, label: "Задача продаж", prompt: "Создай задачу продаж: " },
       { icon: FileBarChart, label: "Сценарий", prompt: "Спланируй сценарий работы с клиентом: " },
     ],
