@@ -1034,20 +1034,35 @@ function SwimlaneGrid({
                 <span className="text-[10px] text-muted-foreground ml-auto">{totalInRow}</span>
               </button>
               {!isCollapsed && projectFilter && streamSub ? (
-                /* When project is filtered: show all tasks from this stream subproject */
-                <div className="flex-1 px-3 py-2 border-r border-border overflow-hidden">
-                  <div className="flex flex-col gap-1.5">
-                    {streamTasks.map((task) => (
-                      <TaskItem key={task.id} task={task} />
-                    ))}
-                    {streamTasks.length === 0 && (
-                      <div className="text-[10px] text-muted-foreground/50 py-1">Нет задач</div>
-                    )}
-                    <InlineTaskAdder
-                      onAdd={(title) => onCreateTask(title, streamSub.id)}
-                    />
-                  </div>
-                </div>
+                /* When project is filtered: show tasks split by gate columns */
+                visibleGates.map((gate) => {
+                  const gateTagId = gateKeyToTagId.get(gate.key);
+                  // Filter tasks that have this gate tag in their task_tags
+                  const cellTasks = streamTasks.filter((t) => {
+                    const taskTagIds = (t.task_tags || []).map((tt) => tt.tag_id);
+                    const taskGateKey = taskTagIds.find((tid) => gateTagIds.has(tid));
+                    if (taskGateKey) {
+                      return tagIdToGateKey.get(taskGateKey) === gate.key;
+                    }
+                    // Tasks without a gate tag go into the first visible gate
+                    return gate.key === visibleGates[0]?.key;
+                  });
+                  return (
+                    <div key={gate.key} className={cn("shrink-0 px-2 py-2 border-r border-border", colWidth)}>
+                      <div className="flex flex-col gap-1.5">
+                        {cellTasks.map((task) => (
+                          <TaskItem key={task.id} task={task} />
+                        ))}
+                        {cellTasks.length === 0 && (
+                          <div className="text-center py-3 text-[10px] text-muted-foreground/30">—</div>
+                        )}
+                        <InlineTaskAdder
+                          onAdd={(title) => onCreateTask(title, streamSub.id, gateTagId)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
               ) : !isCollapsed ? visibleGates.map((gate) => {
                 const cellProjects = gridData[stream]?.[gate.key] || [];
                 return (
