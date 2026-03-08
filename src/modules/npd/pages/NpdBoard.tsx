@@ -72,6 +72,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   onProjectFilterChange?: (id: string | null) => void;
 } = {}) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
