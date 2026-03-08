@@ -202,6 +202,18 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     try {
       const action = detectAction(text);
 
+      // Handle CRM import
+      if (action === "import_crm") {
+        if (onRequestImport) {
+          setMessages(prev => [...prev, { role: "assistant", content: "📥 Открываю диалог импорта клиентов..." }]);
+          onOpenChange(false);
+          setTimeout(() => onRequestImport(), 300);
+        } else {
+          setMessages(prev => [...prev, { role: "assistant", content: "Импорт недоступен в текущем контексте." }]);
+        }
+        return;
+      }
+
       if (action === "parse_task" || action === "plan_project") {
         const { data, error } = await supabase.functions.invoke("ai-assistant", {
           body: { message: text, context: getContext(), action },
