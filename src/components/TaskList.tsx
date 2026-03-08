@@ -5,6 +5,7 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import ProjectChat from "./ProjectChat";
 import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search, Sparkles } from "lucide-react";
+import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { isToday, parseISO, format } from "date-fns";
