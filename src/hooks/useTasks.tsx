@@ -394,13 +394,21 @@ export function useTaskMutations() {
         .single();
       if (tagError) throw tagError;
 
-      const { error } = await supabase.from("task_groups").insert({
+      const { data: groupData, error } = await supabase.from("task_groups").insert({
         name,
         user_id: user!.id,
         linked_tag_id: tagData.id,
         parent_id: parent_id || null,
-      } as any);
+      } as any).select().single();
       if (error) throw error;
+
+      // Auto-add creator as group member (owner)
+      await supabase.from("group_members").insert({
+        group_id: groupData.id,
+        user_id: user!.id,
+        invited_by: user!.id,
+        role: "owner",
+      });
     },
     onMutate: async ({ name, parent_id }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
@@ -610,6 +618,15 @@ export function useTaskMutations() {
               project_type: 'crm',
             } as any).select().single();
             resolvedGroupId = (newProject as any)?.id || null;
+            // Auto-add creator as group member
+            if (resolvedGroupId) {
+              await supabase.from("group_members").insert({
+                group_id: resolvedGroupId,
+                user_id: user!.id,
+                invited_by: user!.id,
+                role: "owner",
+              });
+            }
           }
         }
 
