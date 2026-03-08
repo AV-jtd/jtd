@@ -787,6 +787,30 @@ export default function AppSidebar({
                     </form>
                   )}
 
+                  {/* NPD virtual folder */}
+                  {npdRootGroups.length > 0 && (
+                    <div>
+                      <div
+                        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors"
+                        onClick={() => toggleFolderExpand("__npd__")}
+                      >
+                        <span className="shrink-0">
+                          {expandedFolders.has("__npd__") ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        </span>
+                        <span className="shrink-0">🧪</span>
+                        <span className="truncate flex-1 text-left font-medium">NPD</span>
+                        <span className="text-[10px] text-sidebar-fg/40">{npdRootGroups.length}</span>
+                      </div>
+                      {expandedFolders.has("__npd__") && (
+                        <div className="space-y-0.5">
+                          {npdRootGroups.map(g => (
+                            <GroupItem key={g.id} group={g} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Folders with projects */}
                   {folders.map(folder => {
                     const folderProjects = getGroupsInFolder(folder.id);
