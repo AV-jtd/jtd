@@ -632,10 +632,24 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     return [...map.values()];
   }, [tasks]);
 
+  // Unique managers from clients
+  const usedManagers = useMemo(() => {
+    const map = new Map<string, { id: string; display_name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.client?.manager_id) {
+        const profile = usedAssignees.find(a => a.id === t.client!.manager_id);
+        if (profile) map.set(t.client.manager_id, profile);
+      }
+    }
+    // Also check profiles from all assignees
+    if (map.size === 0) return [];
+    return [...map.values()];
+  }, [tasks, usedAssignees]);
+
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
-  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0;
+  const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0 || filterTerritoryIds.length > 0 || filterRetailTypeIds.length > 0 || filterRankIds.length > 0 || filterManagerIds.length > 0;
 
   const toggleFilterTag = (tagId: string) =>
     setFilterTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
@@ -643,6 +657,14 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     setFilterGroupIds((prev) => prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
   const toggleFilterAssignee = (userId: string) =>
     setFilterAssigneeIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
+  const toggleFilterTerritory = (tagId: string) =>
+    setFilterTerritoryIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterRetailType = (tagId: string) =>
+    setFilterRetailTypeIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterRank = (tagId: string) =>
+    setFilterRankIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
+  const toggleFilterManager = (userId: string) =>
+    setFilterManagerIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]);
 
   // CRM projects for the "create task" picker
   const crmProjectOptions = useMemo(() => {
