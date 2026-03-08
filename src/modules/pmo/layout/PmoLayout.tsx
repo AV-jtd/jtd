@@ -56,7 +56,12 @@ export default function PmoLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader onAiOpen={() => setAiOpen(true)}>
+      <AppHeader
+        onSearchOpen={() => setSearchOpen(true)}
+        onAiOpen={() => setAiOpen(true)}
+        onMessengerToggle={() => setMessengerOpen(prev => !prev)}
+        messengerOpen={messengerOpen}
+      >
         <nav className="flex items-center gap-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
