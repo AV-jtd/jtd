@@ -229,10 +229,10 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
 
       {expanded && (
         <div className="border-t border-border px-4 pb-4 pt-3 space-y-4 animate-fade-in">
-          {stats.subprojects.length > 0 && (
-            <Section title="Подпроекты" count={stats.subprojects.length}>
+          {stats.subprojects.filter(sp => sp.total > 0).length > 0 && (
+            <Section title="Подпроекты" count={stats.subprojects.filter(sp => sp.total > 0).length}>
               <div className="space-y-2">
-                {stats.subprojects.map(sp => (
+                {stats.subprojects.filter(sp => sp.total > 0).map(sp => (
                   <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} />
                 ))}
               </div>
