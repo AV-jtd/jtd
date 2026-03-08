@@ -557,8 +557,23 @@ export default function NpdSwimlaneMatrix() {
         <div className="min-w-max">
           {/* Column headers */}
           <div className="flex sticky top-0 z-10 bg-card border-b border-border">
-            <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-2.5 border-r border-border">
+            <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-2.5 border-r border-border flex items-center justify-between">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Стрим</span>
+              <button
+                onClick={() => {
+                  setCollapsed(prev => {
+                    const allCollapsed = NPD_STREAMS.every(s => prev.has(s));
+                    return allCollapsed ? new Set() : new Set(NPD_STREAMS);
+                  });
+                }}
+                className="text-muted-foreground/50 hover:text-foreground transition-colors p-0.5 rounded"
+                title={collapsed.size === NPD_STREAMS.length ? "Развернуть все" : "Свернуть все"}
+              >
+                {collapsed.size === NPD_STREAMS.length
+                  ? <ChevronRight className="h-3.5 w-3.5" />
+                  : <ChevronDown className="h-3.5 w-3.5" />
+                }
+              </button>
             </div>
             {NPD_GATES.map(gate => (
               <div key={gate.key} className={cn("min-w-[220px] w-[220px] shrink-0 px-3 py-2.5 border-r border-border", gate.bgLight)}>
