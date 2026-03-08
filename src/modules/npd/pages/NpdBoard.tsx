@@ -790,6 +790,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     streamTagById={streamTagById}
                     onCardClick={handleCardClick}
                     onCreate={(name) => handleCreateProject(name, gate.key)}
+                    gateKeyToTagId={gateKeyToTagId}
+                    allGroupTags={allGroupTags}
                   />
                 ))}
                 {showArchive && (
@@ -1123,6 +1125,7 @@ function SwimlaneStreamRow({
 // ── Gate Column ──
 function GateColumn({
   gate, projects, isOver, isMoving, streamTagById, onCardClick, onCreate,
+  gateKeyToTagId, allGroupTags,
 }: {
   gate: GateStage;
   projects: { project: NpdProject; isPrimary: boolean }[];
@@ -1131,6 +1134,8 @@ function GateColumn({
   streamTagById: Map<string, string>;
   onCardClick: (id: string) => void;
   onCreate: (name: string) => void;
+  gateKeyToTagId: Map<string, string>;
+  allGroupTags: { group_id: string; tag_id: string }[];
 }) {
   const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
@@ -1168,6 +1173,8 @@ function GateColumn({
               onCardClick={() => onCardClick(p.id)}
               isSecondary={!isPrimary}
               currentGate={gate}
+              gateKeyToTagId={gateKeyToTagId}
+              allGroupTags={allGroupTags}
             />
           ))}
           {projects.length === 0 && (
@@ -1273,6 +1280,7 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
 // ── Draggable project card ──
 function DraggableProjectCard({
   project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
+  gateKeyToTagId, allGroupTags,
 }: {
   project: NpdProject;
   isMoving: boolean;
@@ -1280,6 +1288,8 @@ function DraggableProjectCard({
   onCardClick: () => void;
   isSecondary?: boolean;
   currentGate?: GateStage;
+  gateKeyToTagId?: Map<string, string>;
+  allGroupTags?: { group_id: string; tag_id: string }[];
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
@@ -1292,6 +1302,8 @@ function DraggableProjectCard({
         onCardClick={onCardClick}
         isSecondary={isSecondary}
         currentGate={currentGate}
+        gateKeyToTagId={gateKeyToTagId}
+        allGroupTags={allGroupTags}
       />
     </div>
   );
@@ -1321,6 +1333,7 @@ const STATUS_LABEL: Record<string, string> = {
 // ── Project Card ──
 function ProjectCard({
   project, streamTagById, isDragging, dragHandleProps, onCardClick, isSecondary, currentGate,
+  gateKeyToTagId, allGroupTags: externalGroupTags,
 }: {
   project: NpdProject;
   streamTagById: Map<string, string>;
@@ -1329,6 +1342,8 @@ function ProjectCard({
   onCardClick?: () => void;
   isSecondary?: boolean;
   currentGate?: GateStage;
+  gateKeyToTagId?: Map<string, string>;
+  allGroupTags?: { group_id: string; tag_id: string }[];
 }) {
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -1345,6 +1360,23 @@ function ProjectCard({
   const primaryGateKey = project.allGateKeys[project.allGateKeys.length - 1];
   const otherGates = project.allGateKeys.filter((k) => k !== currentGate?.key);
   const otherGateLabels = otherGates.map((k) => NPD_GATES.find((g) => g.key === k)?.short).filter(Boolean);
+
+  // Gate-specific task counts for secondary cards
+  const gateTaskStats = useMemo(() => {
+    if (!isSecondary || !currentGate || !gateKeyToTagId || !externalGroupTags) return null;
+    const gateTagId = gateKeyToTagId.get(currentGate.key);
+    if (!gateTagId) return null;
+    // Find child subprojects that have this gate tag
+    const subprojects = allGroups.filter(g => g.parent_id === project.id);
+    const subsWithGate = subprojects.filter(sub =>
+      externalGroupTags.some(gt => gt.group_id === sub.id && gt.tag_id === gateTagId)
+    );
+    const subIds = subsWithGate.map(s => s.id);
+    const gateTasks = allTasks.filter(t => t.group_id && subIds.includes(t.group_id));
+    const active = gateTasks.filter(t => !t.is_completed).length;
+    const overdue = gateTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
+    return { active, overdue, total: gateTasks.length };
+  }, [isSecondary, currentGate, gateKeyToTagId, externalGroupTags, allGroups, allTasks, project.id]);
 
   const assignee = members.find(m => m.role === "assignee");
   const assigneeName = assignee ? (availableUsers.find(u => u.id === assignee.user_id)?.display_name || assignee.user_id.slice(0, 8)) : null;
@@ -1387,9 +1419,20 @@ function ProjectCard({
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
           <h4 className="flex-1 text-xs font-medium text-muted-foreground truncate">{project.name}</h4>
+          {gateTaskStats && gateTaskStats.active > 0 && (
+            <span className={cn(
+              "text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
+              gateTaskStats.overdue > 0
+                ? "bg-destructive/10 text-destructive border border-destructive/20"
+                : "bg-primary/10 text-primary border border-primary/20"
+            )}>
+              {gateTaskStats.overdue > 0 && <AlertTriangle className="h-2.5 w-2.5 inline mr-0.5 -mt-px" />}
+              {gateTaskStats.active} актив.
+            </span>
+          )}
           {otherGateLabels.length > 0 && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0">
-              также в {otherGateLabels.join(", ")}
+              → {otherGateLabels.join(", ")}
             </span>
           )}
         </div>
