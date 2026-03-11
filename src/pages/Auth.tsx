@@ -218,7 +218,7 @@ export default function Auth() {
                       <p className="text-sm font-medium text-foreground">Как зарегистрироваться:</p>
                       <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
                         <li>
-                          Откройте <a href="https://t.me/scope_to_do_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@scope_to-do_bot</a> в Telegram и нажмите <span className="font-medium text-foreground">/start</span>
+                          Откройте <a href="https://t.me/JustTODOit_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@JustTODOit_bot</a> в Telegram и нажмите <span className="font-medium text-foreground">/start</span>
                         </li>
                         <li>Заполните форму ниже — укажите имя, Telegram username, email и пароль</li>
                         <li>Нажмите «Получить код в Telegram» — бот пришлёт 6-значный код</li>
