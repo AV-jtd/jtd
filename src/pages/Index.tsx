@@ -19,7 +19,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export default function Index() {
-  const { user, loading } = useAuth();
+  const { user, loading, isApproved } = useAuth();
   const [activeView, setActiveView] = useState("all");
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
