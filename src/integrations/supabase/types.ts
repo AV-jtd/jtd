@@ -307,6 +307,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          is_approved: boolean
           telegram_chat_id: number | null
           telegram_username: string | null
           username: string | null
@@ -317,6 +318,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          is_approved?: boolean
           telegram_chat_id?: number | null
           telegram_username?: string | null
           username?: string | null
@@ -327,6 +329,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          is_approved?: boolean
           telegram_chat_id?: number | null
           telegram_username?: string | null
           username?: string | null
@@ -1064,6 +1067,24 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       vapid_keys: {
         Row: {
           created_at: string
@@ -1120,6 +1141,13 @@ export type Database = {
           parent_id: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_tag_access: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
@@ -1171,7 +1199,7 @@ export type Database = {
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1298,6 +1326,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
