@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import ResetPassword from "./pages/ResetPassword";
+import PendingApproval from "./pages/PendingApproval";
 import NotFound from "./pages/NotFound";
 import Pmo from "./pages/Pmo";
 import Crm from "./pages/Crm";
