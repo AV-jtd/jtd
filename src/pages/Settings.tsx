@@ -321,6 +321,9 @@ export default function Settings() {
             <div className="border-t border-border pt-6">
               <TeamSection />
             </div>
+
+            {/* Admin approval */}
+            <AdminApproval />
           </div>
         )}
       </div>
