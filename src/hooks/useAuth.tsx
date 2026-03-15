@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isApproved: boolean;
+  isAdmin: boolean;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -17,6 +19,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isApproved, setIsApproved] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const fetchProfile = async (userId: string) => {
+    const [profileRes, roleRes, adminCountRes] = await Promise.all([
+      supabase.from("profiles").select("is_approved").eq("id", userId).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+      supabase.from("user_roles").select("id", { count: "exact", head: true }),
+    ]);
+    
+    // If no admins exist, first user becomes admin
+    const noAdminsExist = (adminCountRes.count ?? 0) === 0;
+    if (noAdminsExist) {
+      await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
+      setIsAdmin(true);
+      // Auto-approve the first admin
+      await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
+      setIsApproved(true);
+      return;
+    }
+    
+    setIsApproved((profileRes.data as any)?.is_approved ?? false);
+    setIsAdmin(!!roleRes.data);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -25,6 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        setTimeout(() => fetchProfile(session.user.id), 0);
+      } else {
+        setIsApproved(false);
+        setIsAdmin(false);
+      }
     });
 
     supabase.auth.getSession()
@@ -32,9 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
+        if (session?.user) {
+          fetchProfile(session.user.id).finally(() => {
+            if (isMounted) setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -67,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isApproved, isAdmin, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

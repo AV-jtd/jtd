@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import TeamSection from "@/components/TeamSection";
+import AdminApproval from "@/components/AdminApproval";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
@@ -320,6 +321,9 @@ export default function Settings() {
             <div className="border-t border-border pt-6">
               <TeamSection />
             </div>
+
+            {/* Admin approval */}
+            <AdminApproval />
           </div>
         )}
       </div>
