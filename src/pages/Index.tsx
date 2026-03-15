@@ -55,6 +55,9 @@ export default function Index() {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  const { isApproved } = useAuth();
+  if (!isApproved) return <Navigate to="/pending" replace />;
+
   const handleNavAction = () => {};
 
   const handleToggleTag = (id: string) => {
