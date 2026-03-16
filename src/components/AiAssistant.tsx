@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTags, useAvailableUsers, useTaskMutations } from "@/hooks/useTasks";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useAiConversation } from "@/hooks/useAiConversation";
 import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
   Briefcase, FlaskConical, Target, FileBarChart, Download,
