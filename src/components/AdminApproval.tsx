@@ -23,7 +23,7 @@ export default function AdminApproval() {
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name, email, created_at, is_approved")
+      .select("id, display_name, email, telegram_username, created_at, is_approved")
       .order("created_at", { ascending: false });
 
     if (!error && data) {
