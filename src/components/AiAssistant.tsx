@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useAiConversation } from "@/hooks/useAiConversation";
 import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
-  Briefcase, FlaskConical, Target, FileBarChart, Download,
+  Briefcase, FlaskConical, Target, FileBarChart, Download, HelpCircle, Trash2,
 } from "lucide-react";
 import { addDays } from "date-fns";
 import { toast } from "sonner";
@@ -81,15 +81,17 @@ const MODULE_CONFIG: Record<string, {
   tasks: {
     label: "AI-помощник",
     gradient: "from-violet-500 to-blue-500",
-    subtitle: "Постановка задач • Планирование",
+    subtitle: "Задачи • Проекты • Советы",
     quickActions: [
       { icon: Zap, label: "Быстрая задача", prompt: "Создай задачу: " },
       { icon: LayoutList, label: "План проекта", prompt: "Спланируй проект: " },
+      { icon: HelpCircle, label: "Что ты умеешь?", prompt: "Что ты умеешь? Какие у тебя возможности?" },
     ],
     examples: [
       "Подготовить презентацию к пятнице для Иванова",
       "Спланируй проект запуска нового продукта на 2 месяца",
-      "Позвонить клиенту завтра, приоритет высокий",
+      "Как организовать работу по методологии GTD?",
+      "Дай 5 советов по приоритизации задач",
     ],
   },
   pmo: {
@@ -219,16 +221,27 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         },
       });
 
-      if (error) throw error;
-
-      if (data.error === "rate_limited") {
-        toast.error("Слишком много запросов, попробуйте позже");
-        addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
-        return;
+      // supabase.functions.invoke puts non-2xx body in error
+      if (error) {
+        const errBody = typeof error === "object" && error !== null ? error : {};
+        const errMsg = (errBody as any)?.context?.body
+          ? JSON.parse((errBody as any).context.body)
+          : errBody;
+        if ((errMsg as any)?.error === "rate_limited" || (error as any)?.status === 429) {
+          toast.error("Слишком много запросов, попробуйте позже");
+          addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
+          return;
+        }
+        if ((errMsg as any)?.error === "payment_required" || (error as any)?.status === 402) {
+          toast.error("Необходимо пополнить баланс AI");
+          addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
+          return;
+        }
+        throw error;
       }
-      if (data.error === "payment_required") {
-        toast.error("Необходимо пополнить баланс AI");
-        addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
+
+      if (!data) {
+        addMessage({ role: "assistant", content: "Не удалось получить ответ. Попробуйте ещё раз." });
         return;
       }
 
@@ -399,6 +412,11 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
             <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
             <p className="text-[10px] text-muted-foreground">{config.subtitle}</p>
           </div>
+          {messages.length > 0 && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearConversation} title="Очистить чат">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
           </Button>
