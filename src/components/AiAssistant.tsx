@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useAiConversation } from "@/hooks/useAiConversation";
 import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
-  Briefcase, FlaskConical, Target, FileBarChart, Download,
+  Briefcase, FlaskConical, Target, FileBarChart, Download, HelpCircle, Trash2,
 } from "lucide-react";
 import { addDays } from "date-fns";
 import { toast } from "sonner";
