@@ -177,6 +177,15 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
               </option>
             ))}
           </select>
+          {chatMessages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="p-1.5 rounded-lg border border-border hover:bg-destructive/10 transition-colors shrink-0"
+              title="Очистить чат"
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
       )}
 
