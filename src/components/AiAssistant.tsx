@@ -379,7 +379,7 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         });
       }
 
-      setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, created: true } : m));
+      updateMessage(msgIndex, { created: true });
       const totalTasks = (plan.subprojects || []).reduce((s, sp) => s + sp.tasks.length, 0) + (plan.tasks || []).length;
       toast.success(`Проект "${plan.project_name}" создан! (${totalTasks} задач)`);
     } catch (e: any) {
