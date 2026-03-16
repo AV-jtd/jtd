@@ -147,6 +147,9 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
   const { data: users = [] } = useAvailableUsers();
   const { addTask, addGroup } = useTaskMutations();
 
+  const currentModule = moduleContext?.module || "tasks";
+  const config = MODULE_CONFIG[currentModule];
+
   const {
     messages, addMessage, updateMessage, clearConversation, loading: historyLoading,
   } = useAiConversation({ contextType: "assistant", contextId: currentModule });
@@ -155,9 +158,6 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const currentModule = moduleContext?.module || "tasks";
-  const config = MODULE_CONFIG[currentModule];
 
   useEffect(() => {
     if (open && inputRef.current) {
