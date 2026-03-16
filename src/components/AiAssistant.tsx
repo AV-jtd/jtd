@@ -191,18 +191,18 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     if (!input.trim() || loading) return;
     const text = input.trim();
     setInput("");
-    setMessages(prev => [...prev, { role: "user", content: text }]);
+    addMessage({ role: "user", content: text });
     setLoading(true);
 
     try {
       // Handle CRM import (UI action, not AI)
       if (isCrmImport(text)) {
         if (onRequestImport) {
-          setMessages(prev => [...prev, { role: "assistant", content: "📥 Открываю диалог импорта клиентов..." }]);
+          addMessage({ role: "assistant", content: "📥 Открываю диалог импорта клиентов..." });
           onOpenChange(false);
           setTimeout(() => onRequestImport(), 300);
         } else {
-          setMessages(prev => [...prev, { role: "assistant", content: "Импорт недоступен в текущем контексте." }]);
+          addMessage({ role: "assistant", content: "Импорт недоступен в текущем контексте." });
         }
         return;
       }
@@ -223,12 +223,12 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
 
       if (data.error === "rate_limited") {
         toast.error("Слишком много запросов, попробуйте позже");
-        setMessages(prev => [...prev, { role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." }]);
+        addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
         return;
       }
       if (data.error === "payment_required") {
         toast.error("Необходимо пополнить баланс AI");
-        setMessages(prev => [...prev, { role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." }]);
+        addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
         return;
       }
 
@@ -242,7 +242,7 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         if (task.subtasks?.length) summary += `📝 Подзадачи: ${task.subtasks.length} шт.\n`;
         summary += `\nНажмите ✅ чтобы создать задачу.`;
 
-        setMessages(prev => [...prev, { role: "assistant", content: summary, parsedTask: task }]);
+        addMessage({ role: "assistant", content: summary, parsedTask: task });
       } else if (data.action === "plan_project" && data.plan) {
         const plan = data.plan as ProjectPlan;
         let summary = `📊 **Проект: ${plan.project_name}**\n`;
@@ -265,16 +265,15 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         const totalTasks = (plan.subprojects || []).reduce((s, sp) => s + sp.tasks.length, 0) + (plan.tasks || []).length;
         summary += `\nВсего: ${plan.subprojects?.length || 0} подпроектов, ${totalTasks} задач.\nНажмите ✅ чтобы создать проект.`;
 
-        setMessages(prev => [...prev, { role: "assistant", content: summary, projectPlan: plan }]);
+        addMessage({ role: "assistant", content: summary, projectPlan: plan });
       } else if (data.action === "chat" && data.content) {
-        // Fallback: model responded with text (no tool called)
-        setMessages(prev => [...prev, { role: "assistant", content: data.content }]);
+        addMessage({ role: "assistant", content: data.content });
       } else {
-        setMessages(prev => [...prev, { role: "assistant", content: "Не удалось разобрать запрос. Попробуйте переформулировать." }]);
+        addMessage({ role: "assistant", content: "Не удалось разобрать запрос. Попробуйте переформулировать." });
       }
     } catch (e: any) {
       console.error("AI assistant error:", e);
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." }]);
+      addMessage({ role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." });
     } finally {
       setLoading(false);
     }
