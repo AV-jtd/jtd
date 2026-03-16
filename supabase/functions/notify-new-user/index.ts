@@ -48,15 +48,29 @@ Deno.serve(async (req) => {
 
     const adminUserIds = adminRoles.map((r: any) => r.user_id);
 
-    // Get admin telegram_chat_ids
+    // Get admin telegram usernames
     const { data: adminProfiles } = await supabase
       .from("profiles")
-      .select("telegram_chat_id")
+      .select("telegram_username")
       .in("id", adminUserIds)
-      .not("telegram_chat_id", "is", null);
+      .not("telegram_username", "is", null);
 
     if (!adminProfiles || adminProfiles.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, reason: "no admin chat_ids" }), {
+      return new Response(JSON.stringify({ sent: 0, reason: "no admin telegram_usernames" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const usernames = adminProfiles.map((p: any) => p.telegram_username.toLowerCase());
+
+    // Get personal chat IDs from telegram_bot_chats (always personal chats)
+    const { data: botChats } = await supabase
+      .from("telegram_bot_chats")
+      .select("chat_id, telegram_username")
+      .in("telegram_username", usernames);
+
+    if (!botChats || botChats.length === 0) {
+      return new Response(JSON.stringify({ sent: 0, reason: "no admin bot chats" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
