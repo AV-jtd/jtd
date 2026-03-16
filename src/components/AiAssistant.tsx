@@ -401,6 +401,11 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
             <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
             <p className="text-[10px] text-muted-foreground">{config.subtitle}</p>
           </div>
+          {messages.length > 0 && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearConversation} title="Очистить чат">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
           </Button>
