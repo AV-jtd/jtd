@@ -221,16 +221,27 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         },
       });
 
-      if (error) throw error;
-
-      if (data.error === "rate_limited") {
-        toast.error("Слишком много запросов, попробуйте позже");
-        addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
-        return;
+      // supabase.functions.invoke puts non-2xx body in error
+      if (error) {
+        const errBody = typeof error === "object" && error !== null ? error : {};
+        const errMsg = (errBody as any)?.context?.body
+          ? JSON.parse((errBody as any).context.body)
+          : errBody;
+        if ((errMsg as any)?.error === "rate_limited" || (error as any)?.status === 429) {
+          toast.error("Слишком много запросов, попробуйте позже");
+          addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
+          return;
+        }
+        if ((errMsg as any)?.error === "payment_required" || (error as any)?.status === 402) {
+          toast.error("Необходимо пополнить баланс AI");
+          addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
+          return;
+        }
+        throw error;
       }
-      if (data.error === "payment_required") {
-        toast.error("Необходимо пополнить баланс AI");
-        addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
+
+      if (!data) {
+        addMessage({ role: "assistant", content: "Не удалось получить ответ. Попробуйте ещё раз." });
         return;
       }
 
