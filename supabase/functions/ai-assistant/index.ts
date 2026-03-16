@@ -552,6 +552,154 @@ ${activeProjectInfo}
     }
 
 
+    // === SMART ACTION: LLM-based intent detection with all tools ===
+    if (action === "smart") {
+      const smartResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt + `\n\nЕсли пользователь просит создать задачу — вызови create_task.\nЕсли просит спланировать проект — вызови plan_project.\nЕсли просто задаёт вопрос или ведёт диалог — ответь текстом, не вызывая функции.` },
+            ...(context?.history || []),
+            { role: "user", content: message },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "create_task",
+                description: "Создать структурированную задачу из текста пользователя. Вызывай только когда пользователь явно хочет создать/поставить задачу.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", description: "Чёткое название задачи" },
+                    description: { type: "string", description: "Описание задачи" },
+                    deadline: { type: "string", description: "Дедлайн YYYY-MM-DD или null" },
+                    priority: { type: "number", description: "1=высокий 2=средний 3=низкий" },
+                    project_id: { type: "string", description: "ID проекта из списка" },
+                    project_name: { type: "string", description: "Название проекта" },
+                    assigned_to_id: { type: "string", description: "ID ответственного" },
+                    assigned_to_name: { type: "string", description: "Имя ответственного" },
+                    tag_ids: { type: "array", items: { type: "string" } },
+                    is_important: { type: "boolean" },
+                    subtasks: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["title"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            {
+              type: "function",
+              function: {
+                name: "plan_project",
+                description: "Спланировать проект с подпроектами и задачами. Вызывай когда пользователь просит спланировать, создать проект, спроектировать структуру.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    project_name: { type: "string" },
+                    description: { type: "string" },
+                    project_type: { type: "string", enum: ["standard", "npd", "crm"] },
+                    subprojects: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" },
+                          tasks: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                title: { type: "string" },
+                                deadline_offset_days: { type: "number" },
+                                priority: { type: "number" },
+                                subtasks: { type: "array", items: { type: "string" } },
+                              },
+                              required: ["title"],
+                              additionalProperties: false,
+                            },
+                          },
+                        },
+                        required: ["name", "tasks"],
+                        additionalProperties: false,
+                      },
+                    },
+                    tasks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          title: { type: "string" },
+                          deadline_offset_days: { type: "number" },
+                          priority: { type: "number" },
+                          subtasks: { type: "array", items: { type: "string" } },
+                        },
+                        required: ["title"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["project_name"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: "auto",
+        }),
+      });
+
+      if (!smartResponse.ok) {
+        if (smartResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (smartResponse.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await smartResponse.text();
+        console.error("AI gateway error:", smartResponse.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const smartData = await smartResponse.json();
+      const smartMsg = smartData.choices?.[0]?.message;
+
+      if (smartMsg?.tool_calls?.[0]) {
+        const tc = smartMsg.tool_calls[0];
+        try {
+          const parsed = JSON.parse(tc.function.arguments);
+          if (tc.function.name === "create_task") {
+            return new Response(JSON.stringify({ action: "create_task", task: parsed }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (tc.function.name === "plan_project") {
+            return new Response(JSON.stringify({ action: "plan_project", plan: parsed }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } catch (parseErr) {
+          console.error("Tool call parse error:", parseErr);
+          // Fallback to text response
+        }
+      }
+
+      // Fallback: return text response from model
+      const fallbackContent = smartMsg?.content || "Не удалось обработать запрос. Попробуйте переформулировать.";
+      return new Response(JSON.stringify({ action: "chat", content: fallbackContent }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
       const { projectContext, history: chatHistory } = context || {};
       
       let contextInfo = "";

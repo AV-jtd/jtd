@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useTaskGroups, useAvailableUsers, useTasks } from "@/hooks/useTasks";
 import { useGroupMessages } from "@/hooks/useGroupChat";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +10,7 @@ import {
   FolderOpen, CheckSquare, BarChart3, HelpCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { streamChat, StreamChatError } from "@/lib/streamChat";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -46,13 +46,13 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
 
   const selectedGroup = allGroups.find(g => g.id === selectedGroupId);
 
-  // Build project context
   const buildContext = useCallback(() => {
     if (!selectedGroupId) return null;
 
     const group = allGroups.find(g => g.id === selectedGroupId);
     if (!group) return null;
 
+    const subprojectIds = allGroups.filter(g => g.parent_id === selectedGroupId).map(g => g.id);
     const subprojects = allGroups
       .filter(g => g.parent_id === selectedGroupId)
       .map(sp => {
@@ -64,21 +64,8 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
         };
       });
 
-    const projectTasks = allTasks
-      .filter(t => t.group_id === selectedGroupId || subprojects.some(sp => allGroups.find(g => g.name === sp.name && g.parent_id === selectedGroupId)?.id === t.group_id))
-      .map(t => ({
-        title: t.title,
-        is_completed: t.is_completed,
-        deadline: t.deadline,
-        priority: t.priority,
-        assigned_to_name: t.assigned_to ? allUsers.find(u => u.id === t.assigned_to)?.display_name : null,
-        subtasks: t.subtasks?.map(s => ({ title: s.title, is_completed: s.is_completed })),
-      }));
-
-    // Also include tasks from subprojects
-    const subprojectIds = allGroups.filter(g => g.parent_id === selectedGroupId).map(g => g.id);
-    const subTasks = allTasks
-      .filter(t => t.group_id && subprojectIds.includes(t.group_id) && !projectTasks.some(pt => pt.title === t.title))
+    const allProjectTasks = allTasks
+      .filter(t => t.group_id === selectedGroupId || (t.group_id && subprojectIds.includes(t.group_id)))
       .map(t => ({
         title: t.title,
         is_completed: t.is_completed,
@@ -100,7 +87,7 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
         project_type: (group as any).project_type,
       },
       subprojects,
-      tasks: [...projectTasks, ...subTasks],
+      tasks: allProjectTasks,
       participants: allUsers.filter(u =>
         allTasks.some(t => (t.group_id === selectedGroupId || subprojectIds.includes(t.group_id || "")) && (t.user_id === u.id || t.assigned_to === u.id))
       ).map(u => ({ name: u.display_name || "Без имени" })),
@@ -122,115 +109,51 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
 
     let assistantContent = "";
 
+    const upsertAssistant = (chunk: string) => {
+      assistantContent += chunk;
+      setChatMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
+        }
+        return [...prev, { role: "assistant", content: assistantContent }];
+      });
+    };
+
     try {
       const projectContext = buildContext();
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      await streamChat({
+        url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
+        body: {
+          message: input,
+          action: "context_chat",
+          context: {
+            projectContext,
+            history: chatMessages.map(m => ({ role: m.role, content: m.content })),
           },
-          body: JSON.stringify({
-            message: input,
-            action: "context_chat",
-            context: {
-              projectContext,
-              history: chatMessages.map(m => ({ role: m.role, content: m.content })),
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
+        },
+        onDelta: upsertAssistant,
+        onDone: () => {},
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      if (e.name === "AbortError") return;
+      console.error("AI chat error:", e);
 
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        if (resp.status === 429) {
+      if (e instanceof StreamChatError) {
+        if (e.status === 429) {
           setChatMessages(prev => [...prev, { role: "assistant", content: "⚠️ Слишком много запросов. Попробуйте через минуту." }]);
           return;
         }
-        if (resp.status === 402) {
+        if (e.status === 402) {
           setChatMessages(prev => [...prev, { role: "assistant", content: "⚠️ Недостаточно кредитов AI. Пополните баланс." }]);
           return;
         }
-        throw new Error(errData.error || "AI error");
       }
 
-      if (!resp.body) throw new Error("No stream body");
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setChatMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Final flush
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw || raw.startsWith(":") || !raw.startsWith("data: ")) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
-              setChatMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    } catch (e: any) {
-      if (e.name !== "AbortError") {
-        console.error("AI chat error:", e);
-        if (!assistantContent) {
-          setChatMessages(prev => [...prev, { role: "assistant", content: "❌ Произошла ошибка. Попробуйте ещё раз." }]);
-        }
+      if (!assistantContent) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: "❌ Произошла ошибка. Попробуйте ещё раз." }]);
       }
     } finally {
       setIsStreaming(false);
@@ -238,7 +161,6 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
     }
   }, [draft, isStreaming, chatMessages, buildContext]);
 
-  // Top-level project selector
   const topLevelGroups = allGroups.filter(g => !g.parent_id);
 
   return (

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { addDays } from "date-fns";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface ParsedTask {
   title: string;
@@ -175,21 +176,11 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     activeProjectName: moduleContext?.activeProjectName || null,
   }), [groups, users, tags, currentModule, moduleContext]);
 
-  const detectAction = (text: string): "parse_task" | "plan_project" | "import_crm" | "chat" => {
+  const isCrmImport = (text: string): boolean => {
+    if (currentModule !== "crm") return false;
     const lower = text.toLowerCase();
-    
-    if (currentModule === "crm") {
-      const importKeywords = ["импорт", "загрузи клиент", "загрузить клиент", "импортируй", "загрузи список", "загрузи базу"];
-      if (importKeywords.some(k => lower.includes(k))) return "import_crm";
-    }
-    
-    const planKeywords = ["спланируй", "план проекта", "создай проект", "структура проекта", "запланируй проект", "проект на", "план запуска", "npd проект", "сценарий", "воронк"];
-    if (planKeywords.some(k => lower.includes(k))) return "plan_project";
-    
-    const taskKeywords = ["задач", "сделать", "подготовить", "отправить", "написать", "позвонить", "связаться", "купить", "проверить", "обновить", "назначить", "запланировать", "организовать", "создать задач", "добавь клиент"];
-    if (taskKeywords.some(k => lower.includes(k))) return "parse_task";
-    
-    return "chat";
+    const importKeywords = ["импорт", "загрузи клиент", "загрузить клиент", "импортируй", "загрузи список", "загрузи базу"];
+    return importKeywords.some(k => lower.includes(k));
   };
 
   const handleSend = async () => {
@@ -200,10 +191,8 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     setLoading(true);
 
     try {
-      const action = detectAction(text);
-
-      // Handle CRM import
-      if (action === "import_crm") {
+      // Handle CRM import (UI action, not AI)
+      if (isCrmImport(text)) {
         if (onRequestImport) {
           setMessages(prev => [...prev, { role: "assistant", content: "📥 Открываю диалог импорта клиентов..." }]);
           onOpenChange(false);
@@ -214,120 +203,70 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         return;
       }
 
-      if (action === "parse_task" || action === "plan_project") {
-        const { data, error } = await supabase.functions.invoke("ai-assistant", {
-          body: { message: text, context: getContext(), action },
-        });
-
-        if (error) throw error;
-
-        if (data.error === "rate_limited") {
-          toast.error("Слишком много запросов, попробуйте позже");
-          setMessages(prev => [...prev, { role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." }]);
-          return;
-        }
-        if (data.error === "payment_required") {
-          toast.error("Необходимо пополнить баланс AI");
-          setMessages(prev => [...prev, { role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." }]);
-          return;
-        }
-
-        if (action === "parse_task" && data.task) {
-          const task = data.task as ParsedTask;
-          let summary = `📋 **${task.title}**\n`;
-          if (task.deadline) summary += `📅 Дедлайн: ${task.deadline}\n`;
-          if (task.priority) summary += `🔥 Приоритет: ${task.priority === 1 ? "Высокий" : task.priority === 2 ? "Средний" : "Низкий"}\n`;
-          if (task.project_name) summary += `📁 Проект: ${task.project_name}\n`;
-          if (task.assigned_to_name) summary += `👤 Ответственный: ${task.assigned_to_name}\n`;
-          if (task.subtasks?.length) summary += `📝 Подзадачи: ${task.subtasks.length} шт.\n`;
-          summary += `\nНажмите ✅ чтобы создать задачу.`;
-
-          setMessages(prev => [...prev, { role: "assistant", content: summary, parsedTask: task }]);
-        } else if (action === "plan_project" && data.plan) {
-          const plan = data.plan as ProjectPlan;
-          let summary = `📊 **Проект: ${plan.project_name}**\n`;
-          if (plan.description) summary += `${plan.description}\n`;
-          summary += `\n`;
-          if (plan.subprojects?.length) {
-            plan.subprojects.forEach((sp) => {
-              summary += `📂 **${sp.name}** (${sp.tasks.length} задач)\n`;
-              sp.tasks.slice(0, 3).forEach(t => {
-                summary += `  • ${t.title}`;
-                if (t.deadline_offset_days) summary += ` (через ${t.deadline_offset_days} дн.)`;
-                summary += `\n`;
-              });
-              if (sp.tasks.length > 3) summary += `  ...и ещё ${sp.tasks.length - 3}\n`;
-            });
-          }
-          if (plan.tasks?.length) {
-            summary += `📋 Задачи проекта: ${plan.tasks.length}\n`;
-          }
-          const totalTasks = (plan.subprojects || []).reduce((s, sp) => s + sp.tasks.length, 0) + (plan.tasks || []).length;
-          summary += `\nВсего: ${plan.subprojects?.length || 0} подпроектов, ${totalTasks} задач.\nНажмите ✅ чтобы создать проект.`;
-
-          setMessages(prev => [...prev, { role: "assistant", content: summary, projectPlan: plan }]);
-        } else {
-          setMessages(prev => [...prev, { role: "assistant", content: "Не удалось разобрать запрос. Попробуйте переформулировать." }]);
-        }
-      } else {
-        // Streaming chat
-        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
-        const resp = await fetch(CHAT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      // Smart action: LLM decides intent
+      const { data, error } = await supabase.functions.invoke("ai-assistant", {
+        body: {
+          message: text,
+          context: {
+            ...getContext(),
+            history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           },
-          body: JSON.stringify({
-            message: text,
-            context: { ...getContext(), history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })) },
-            action: "chat",
-          }),
-        });
+          action: "smart",
+        },
+      });
 
-        if (!resp.ok || !resp.body) throw new Error("Stream failed");
+      if (error) throw error;
 
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let textBuffer = "";
-        let assistantSoFar = "";
+      if (data.error === "rate_limited") {
+        toast.error("Слишком много запросов, попробуйте позже");
+        setMessages(prev => [...prev, { role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." }]);
+        return;
+      }
+      if (data.error === "payment_required") {
+        toast.error("Необходимо пополнить баланс AI");
+        setMessages(prev => [...prev, { role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." }]);
+        return;
+      }
 
-        const upsertAssistant = (chunk: string) => {
-          assistantSoFar += chunk;
-          setMessages(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === "assistant" && !last.parsedTask && !last.projectPlan) {
-              return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-            }
-            return [...prev, { role: "assistant", content: assistantSoFar }];
+      if (data.action === "create_task" && data.task) {
+        const task = data.task as ParsedTask;
+        let summary = `📋 **${task.title}**\n`;
+        if (task.deadline) summary += `📅 Дедлайн: ${task.deadline}\n`;
+        if (task.priority) summary += `🔥 Приоритет: ${task.priority === 1 ? "Высокий" : task.priority === 2 ? "Средний" : "Низкий"}\n`;
+        if (task.project_name) summary += `📁 Проект: ${task.project_name}\n`;
+        if (task.assigned_to_name) summary += `👤 Ответственный: ${task.assigned_to_name}\n`;
+        if (task.subtasks?.length) summary += `📝 Подзадачи: ${task.subtasks.length} шт.\n`;
+        summary += `\nНажмите ✅ чтобы создать задачу.`;
+
+        setMessages(prev => [...prev, { role: "assistant", content: summary, parsedTask: task }]);
+      } else if (data.action === "plan_project" && data.plan) {
+        const plan = data.plan as ProjectPlan;
+        let summary = `📊 **Проект: ${plan.project_name}**\n`;
+        if (plan.description) summary += `${plan.description}\n`;
+        summary += `\n`;
+        if (plan.subprojects?.length) {
+          plan.subprojects.forEach((sp) => {
+            summary += `📂 **${sp.name}** (${sp.tasks.length} задач)\n`;
+            sp.tasks.slice(0, 3).forEach(t => {
+              summary += `  • ${t.title}`;
+              if (t.deadline_offset_days) summary += ` (через ${t.deadline_offset_days} дн.)`;
+              summary += `\n`;
+            });
+            if (sp.tasks.length > 3) summary += `  ...и ещё ${sp.tasks.length - 3}\n`;
           });
-        };
-
-        let streamDone = false;
-        while (!streamDone) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          textBuffer += decoder.decode(value, { stream: true });
-
-          let newlineIndex: number;
-          while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-            let line = textBuffer.slice(0, newlineIndex);
-            textBuffer = textBuffer.slice(newlineIndex + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (line.startsWith(":") || line.trim() === "") continue;
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") { streamDone = true; break; }
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-              if (content) upsertAssistant(content);
-            } catch {
-              textBuffer = line + "\n" + textBuffer;
-              break;
-            }
-          }
         }
+        if (plan.tasks?.length) {
+          summary += `📋 Задачи проекта: ${plan.tasks.length}\n`;
+        }
+        const totalTasks = (plan.subprojects || []).reduce((s, sp) => s + sp.tasks.length, 0) + (plan.tasks || []).length;
+        summary += `\nВсего: ${plan.subprojects?.length || 0} подпроектов, ${totalTasks} задач.\nНажмите ✅ чтобы создать проект.`;
+
+        setMessages(prev => [...prev, { role: "assistant", content: summary, projectPlan: plan }]);
+      } else if (data.action === "chat" && data.content) {
+        // Fallback: model responded with text (no tool called)
+        setMessages(prev => [...prev, { role: "assistant", content: data.content }]);
+      } else {
+        setMessages(prev => [...prev, { role: "assistant", content: "Не удалось разобрать запрос. Попробуйте переформулировать." }]);
       }
     } catch (e: any) {
       console.error("AI assistant error:", e);
@@ -379,7 +318,6 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
     try {
       const projectType = plan.project_type || (currentModule === "npd" ? "npd" : currentModule === "crm" ? "crm" : "standard");
       
-      // Create main project
       await addGroup.mutateAsync({ name: plan.project_name });
 
       await new Promise(r => setTimeout(r, 500));
@@ -395,12 +333,10 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
       const projectId = createdGroups?.[0]?.id;
       if (!projectId) throw new Error("Не удалось найти созданный проект");
 
-      // Set project_type if not standard
       if (projectType !== "standard") {
         await supabase.from("task_groups").update({ project_type: projectType } as any).eq("id", projectId);
       }
 
-      // Create subprojects and their tasks
       for (const sp of plan.subprojects || []) {
         await addGroup.mutateAsync({ name: sp.name, parent_id: projectId });
         
@@ -429,7 +365,6 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         }
       }
 
-      // Create root-level tasks
       for (const t of plan.tasks || []) {
         await addTask.mutateAsync({
           title: t.title,
@@ -520,11 +455,15 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground",
               )}>
-                <div className="whitespace-pre-wrap text-xs leading-relaxed">
-                  {msg.content.split("**").map((part, j) =>
-                    j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-                  )}
-                </div>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-[10px] [&_pre]:text-[10px]">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap text-xs leading-relaxed">
+                    {msg.content}
+                  </div>
+                )}
 
                 {msg.parsedTask && !msg.created && (
                   <div className="mt-2 flex gap-2">
