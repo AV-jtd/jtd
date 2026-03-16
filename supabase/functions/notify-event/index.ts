@@ -1,4 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  ApplicationServer,
+  importVapidKeys,
+  type PushSubscription as WPPushSubscription,
+  PushMessageError,
+  Urgency,
+} from "jsr:@negrel/webpush@0.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,17 +119,43 @@ Deno.serve(async (req) => {
     const title = titles[event] || "Уведомление";
     const body = taskTitle || "";
 
-    // Get VAPID keys for push
+    // Get VAPID keys and build ApplicationServer
     const { data: vapid } = await serviceClient
       .from("vapid_keys")
       .select("*")
       .eq("id", 1)
       .single();
 
+    let appServer: ApplicationServer | null = null;
+    if (vapid) {
+      try {
+        const privateKeyJwk = JSON.parse(vapid.private_key) as JsonWebKey;
+        // Reconstruct public JWK from private JWK (it contains x, y)
+        const publicJwk: JsonWebKey = {
+          kty: privateKeyJwk.kty,
+          crv: privateKeyJwk.crv,
+          x: privateKeyJwk.x,
+          y: privateKeyJwk.y,
+          ext: true,
+          key_ops: [],
+        };
+        const vapidKeys = await importVapidKeys({
+          privateKey: privateKeyJwk,
+          publicKey: publicJwk,
+        });
+        appServer = await ApplicationServer.new({
+          contactInformation: "mailto:push@lovable.app",
+          vapidKeys,
+        });
+      } catch (err) {
+        console.error("Failed to init ApplicationServer:", err);
+      }
+    }
+
     // Get Telegram bot token
     const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 
-    // Get profiles for telegram usernames (for Telegram notifications)
+    // Get profiles for telegram usernames
     const { data: targetProfiles } = await serviceClient
       .from("profiles")
       .select("id, telegram_username")
@@ -152,13 +185,12 @@ Deno.serve(async (req) => {
 
     for (const targetUserId of filteredTargets) {
       const userPrefs = allPrefs?.find((p: any) => p.user_id === targetUserId);
-      // Default enabled for assigned, completed, participant_added, added_to_group
       const defaultEnabled = ["task_assigned", "task_completed", "task_participant_added", "added_to_group"].includes(event);
       const pushEnabled = userPrefs ? !!(userPrefs as any)[prefColumn] : defaultEnabled;
       const telegramEnabled = userPrefs && telegramPrefColumn ? !!(userPrefs as any)[telegramPrefColumn] : false;
 
-      // --- Push notification ---
-      if (pushEnabled && vapid) {
+      // --- Push notification (RFC 8291 encrypted) ---
+      if (pushEnabled && appServer) {
         const { data: subs } = await serviceClient
           .from("push_subscriptions")
           .select("*")
@@ -167,30 +199,30 @@ Deno.serve(async (req) => {
         if (subs) {
           for (const sub of subs) {
             try {
-              const pushPayload = JSON.stringify({ title, body });
-              const vapidJwt = await buildVapidJwt(
-                new URL(sub.endpoint).origin,
-                JSON.parse(vapid.private_key)
-              );
-              const response = await fetch(sub.endpoint, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/octet-stream",
-                  "Content-Encoding": "aes128gcm",
-                  TTL: "86400",
-                  Authorization: `vapid t=${vapidJwt}, k=${vapid.public_key}`,
+              const pushSub: WPPushSubscription = {
+                endpoint: sub.endpoint,
+                keys: {
+                  p256dh: sub.p256dh,
+                  auth: sub.auth,
                 },
-                body: new TextEncoder().encode(pushPayload),
+              };
+              const subscriber = appServer.subscribe(pushSub);
+              const pushPayload = JSON.stringify({ title, body });
+
+              await subscriber.pushTextMessage(pushPayload, {
+                ttl: 86400,
+                urgency: Urgency.High,
+                topic: "",
               });
 
-              if (response.status === 201 || response.status === 200) {
-                totalSent++;
-              } else if (response.status === 410 || response.status === 404) {
-                await serviceClient.from("push_subscriptions").delete().eq("id", sub.id);
-              }
-              await response.text();
+              totalSent++;
             } catch (err) {
-              console.error("Push error for sub", sub.id, err);
+              if (err instanceof PushMessageError && err.isGone()) {
+                // Subscription expired, remove it
+                await serviceClient.from("push_subscriptions").delete().eq("id", sub.id);
+              } else {
+                console.error("Push error for sub", sub.id, err);
+              }
             }
           }
         }
@@ -231,39 +263,13 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("notify-event error:", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
-
-async function buildVapidJwt(audience: string, privateKeyJwk: JsonWebKey): Promise<string> {
-  const header = { typ: "JWT", alg: "ES256" };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = { aud: audience, exp: now + 12 * 60 * 60, sub: "mailto:push@lovable.app" };
-
-  const key = await crypto.subtle.importKey(
-    "jwk", privateKeyJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]
-  );
-
-  const enc = new TextEncoder();
-  const headerB64 = uint8ArrayToBase64Url(enc.encode(JSON.stringify(header)));
-  const payloadB64 = uint8ArrayToBase64Url(enc.encode(JSON.stringify(payload)));
-  const unsigned = `${headerB64}.${payloadB64}`;
-
-  const signature = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" }, key, enc.encode(unsigned)
-  );
-
-  return `${unsigned}.${uint8ArrayToBase64Url(new Uint8Array(signature))}`;
-}
-
-function uint8ArrayToBase64Url(arr: Uint8Array): string {
-  let binary = "";
-  for (const byte of arr) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 function escapeHtml(text: string): string {
   return text
