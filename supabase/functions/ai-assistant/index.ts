@@ -554,6 +554,7 @@ ${activeProjectInfo}
 
     // === SMART ACTION: LLM-based intent detection with all tools ===
     if (action === "smart") {
+      // First, try non-streaming with tool_choice auto
       const smartResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -563,7 +564,24 @@ ${activeProjectInfo}
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [
-            { role: "system", content: systemPrompt + `\n\nЕсли пользователь просит создать задачу — вызови create_task.\nЕсли просит спланировать проект — вызови plan_project.\nЕсли просто задаёт вопрос или ведёт диалог — ответь текстом, не вызывая функции.` },
+            { role: "system", content: systemPrompt + `\n\nВажные правила:
+1. Если пользователь просит СОЗДАТЬ задачу (поставить, добавить, запланировать задачу) — вызови create_task.
+2. Если пользователь просит СПЛАНИРОВАТЬ ПРОЕКТ (создать проект, разработать план) — вызови plan_project.
+3. Для ВСЕХ остальных запросов — просто отвечай текстом БЕЗ вызова функций. Сюда входят:
+   - Вопросы "что ты умеешь?", "помощь", "привет"
+   - Вопросы о методологиях (GTD, Agile, Scrum и т.д.)
+   - Советы по продуктивности и управлению
+   - Любые общие вопросы и беседа
+   - Анализ, рекомендации, объяснения
+
+Ты — универсальный помощник. Ты можешь:
+- Создавать задачи и проекты через функции
+- Отвечать на любые вопросы по управлению проектами, продуктивности, методологиям
+- Давать советы и рекомендации
+- Объяснять функционал приложения JustTODOit
+- Вести свободный диалог
+
+Всегда используй markdown для форматирования ответов.` },
             ...(context?.history || []),
             { role: "user", content: message },
           ],
@@ -572,7 +590,7 @@ ${activeProjectInfo}
               type: "function",
               function: {
                 name: "create_task",
-                description: "Создать структурированную задачу из текста пользователя. Вызывай только когда пользователь явно хочет создать/поставить задачу.",
+                description: "Создать структурированную задачу. Вызывай ТОЛЬКО когда пользователь ЯВНО просит создать/поставить/добавить конкретную задачу.",
                 parameters: {
                   type: "object",
                   properties: {
@@ -597,7 +615,7 @@ ${activeProjectInfo}
               type: "function",
               function: {
                 name: "plan_project",
-                description: "Спланировать проект с подпроектами и задачами. Вызывай когда пользователь просит спланировать, создать проект, спроектировать структуру.",
+                description: "Спланировать проект с подпроектами и задачами. Вызывай ТОЛЬКО когда пользователь ЯВНО просит спланировать/создать целый проект.",
                 parameters: {
                   type: "object",
                   properties: {
@@ -667,7 +685,9 @@ ${activeProjectInfo}
         }
         const t = await smartResponse.text();
         console.error("AI gateway error:", smartResponse.status, t);
-        throw new Error("AI gateway error");
+        return new Response(JSON.stringify({ action: "chat", content: "Произошла временная ошибка. Попробуйте ещё раз через несколько секунд." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const smartData = await smartResponse.json();
@@ -689,11 +709,10 @@ ${activeProjectInfo}
           }
         } catch (parseErr) {
           console.error("Tool call parse error:", parseErr);
-          // Fallback to text response
         }
       }
 
-      // Fallback: return text response from model
+      // Text response from model (general chat)
       const fallbackContent = smartMsg?.content || "Не удалось обработать запрос. Попробуйте переформулировать.";
       return new Response(JSON.stringify({ action: "chat", content: fallbackContent }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
