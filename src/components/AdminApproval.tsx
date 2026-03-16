@@ -10,6 +10,7 @@ interface PendingUser {
   id: string;
   display_name: string | null;
   email: string | null;
+  telegram_username: string | null;
   created_at: string;
   is_approved: boolean;
 }
