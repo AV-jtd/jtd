@@ -2,17 +2,16 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useAvailableUsers, useTasks } from "@/hooks/useTasks";
 import { useGroupMessages } from "@/hooks/useGroupChat";
+import { useAiConversation } from "@/hooks/useAiConversation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Send, Loader2, Bot, User, AlertCircle,
-  FolderOpen, CheckSquare, BarChart3, HelpCircle,
+  FolderOpen, CheckSquare, BarChart3, HelpCircle, Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
-
-type Msg = { role: "user" | "assistant"; content: string };
 
 interface AiChatThreadProps {
   groupId?: string | null;
@@ -31,12 +30,17 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
   const { data: allTasks = [] } = useTasks();
-  const { data: groupMessages = [] } = useGroupMessages(groupId || "");
 
-  const [chatMessages, setChatMessages] = useState<Msg[]>([]);
-  const [draft, setDraft] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
+  const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
+
+  const {
+    messages: chatMessages, addMessage, updateLastAssistant, clearConversation,
+    loading: historyLoading,
+  } = useAiConversation({ contextType: "project_chat", contextId: selectedGroupId });
+
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -99,8 +103,7 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
     const input = (text || draft).trim();
     if (!input || isStreaming) return;
 
-    const userMsg: Msg = { role: "user", content: input };
-    setChatMessages(prev => [...prev, userMsg]);
+    addMessage({ role: "user", content: input });
     setDraft("");
     setIsStreaming(true);
 
@@ -111,13 +114,7 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
 
     const upsertAssistant = (chunk: string) => {
       assistantContent += chunk;
-      setChatMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant") {
-          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-        }
-        return [...prev, { role: "assistant", content: assistantContent }];
-      });
+      updateLastAssistant(assistantContent);
     };
 
     try {
@@ -143,23 +140,23 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
 
       if (e instanceof StreamChatError) {
         if (e.status === 429) {
-          setChatMessages(prev => [...prev, { role: "assistant", content: "⚠️ Слишком много запросов. Попробуйте через минуту." }]);
+          addMessage({ role: "assistant", content: "⚠️ Слишком много запросов. Попробуйте через минуту." });
           return;
         }
         if (e.status === 402) {
-          setChatMessages(prev => [...prev, { role: "assistant", content: "⚠️ Недостаточно кредитов AI. Пополните баланс." }]);
+          addMessage({ role: "assistant", content: "⚠️ Недостаточно кредитов AI. Пополните баланс." });
           return;
         }
       }
 
       if (!assistantContent) {
-        setChatMessages(prev => [...prev, { role: "assistant", content: "❌ Произошла ошибка. Попробуйте ещё раз." }]);
+        addMessage({ role: "assistant", content: "❌ Произошла ошибка. Попробуйте ещё раз." });
       }
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
     }
-  }, [draft, isStreaming, chatMessages, buildContext]);
+  }, [draft, isStreaming, chatMessages, buildContext, addMessage, updateLastAssistant]);
 
   const topLevelGroups = allGroups.filter(g => !g.parent_id);
 
@@ -167,11 +164,11 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
     <div className="flex flex-col h-full">
       {/* Project selector */}
       {!groupId && (
-        <div className="px-4 py-2 border-b border-border shrink-0">
+        <div className="px-4 py-2 border-b border-border shrink-0 flex gap-2">
           <select
             value={selectedGroupId || ""}
-            onChange={e => { setSelectedGroupId(e.target.value || null); setChatMessages([]); }}
-            className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/20"
+            onChange={e => { setSelectedGroupId(e.target.value || null); }}
+            className="flex-1 text-sm bg-muted/50 border border-border rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="">Выберите проект для контекста...</option>
             {topLevelGroups.map(g => (
@@ -180,6 +177,15 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
               </option>
             ))}
           </select>
+          {chatMessages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="p-1.5 rounded-lg border border-border hover:bg-destructive/10 transition-colors shrink-0"
+              title="Очистить чат"
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
       )}
 
