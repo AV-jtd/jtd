@@ -146,7 +146,10 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
   const { data: users = [] } = useAvailableUsers();
   const { addTask, addGroup } = useTaskMutations();
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const {
+    messages, addMessage, updateMessage, clearConversation, loading: historyLoading,
+  } = useAiConversation({ contextType: "assistant", contextId: currentModule });
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
