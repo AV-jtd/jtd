@@ -700,6 +700,8 @@ ${activeProjectInfo}
       });
     }
 
+    // === CONTEXT CHAT: project-aware streaming chat ===
+    if (action === "context_chat") {
       const { projectContext, history: chatHistory } = context || {};
       
       let contextInfo = "";
