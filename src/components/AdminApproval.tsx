@@ -36,31 +36,17 @@ export default function AdminApproval() {
     if (isAdmin) fetchUsers();
   }, [isAdmin]);
 
-  const handleApprove = async (userId: string) => {
+  const handleToggleApproval = async (userId: string, approve: boolean) => {
     const { error } = await supabase
       .from("profiles")
-      .update({ is_approved: true } as any)
+      .update({ is_approved: approve } as any)
       .eq("id", userId);
 
     if (error) {
       toast.error("Ошибка: " + error.message);
     } else {
-      toast.success("Пользователь одобрен");
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: true } : u));
-    }
-  };
-
-  const handleReject = async (userId: string) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_approved: false } as any)
-      .eq("id", userId);
-
-    if (error) {
-      toast.error("Ошибка: " + error.message);
-    } else {
-      toast.success("Доступ отклонён");
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: false } : u));
+      toast.success(approve ? "Пользователь активирован" : "Пользователь деактивирован");
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: approve } : u));
     }
   };
 
@@ -89,7 +75,7 @@ export default function AdminApproval() {
               </p>
               {pending.map(u => (
                 <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                <div className="min-w-0">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
                     {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
                     {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
@@ -98,13 +84,9 @@ export default function AdminApproval() {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <Button size="sm" onClick={() => handleApprove(u.id)} className="gap-1">
+                    <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
                       <UserCheck className="h-3.5 w-3.5" />
                       Одобрить
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleReject(u.id)} className="gap-1">
-                      <UserX className="h-3.5 w-3.5" />
-                      Отклонить
                     </Button>
                   </div>
                 </div>
@@ -126,7 +108,13 @@ export default function AdminApproval() {
                     {new Date(u.created_at).toLocaleDateString("ru-RU")}
                   </p>
                 </div>
-                <Badge variant="secondary" className="text-xs shrink-0">Активен</Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="secondary" className="text-xs">Активен</Badge>
+                  <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
+                    <UserX className="h-3.5 w-3.5" />
+                    Деактивировать
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
