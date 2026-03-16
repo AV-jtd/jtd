@@ -118,13 +118,15 @@ export default function AdminApproval() {
             </p>
             {approved.map(u => (
               <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                  {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                  {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
                   <p className="text-xs text-muted-foreground">
                     {new Date(u.created_at).toLocaleDateString("ru-RU")}
                   </p>
                 </div>
-                <Badge variant="secondary" className="text-xs">Активен</Badge>
+                <Badge variant="secondary" className="text-xs shrink-0">Активен</Badge>
               </div>
             ))}
           </div>
