@@ -309,7 +309,7 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
         task_type: "standard",
       });
       
-      setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, created: true } : m));
+      updateMessage(msgIndex, { created: true });
       toast.success(`Задача "${task.title}" создана!`);
     } catch (e: any) {
       toast.error("Ошибка создания: " + e.message);
