@@ -2,17 +2,16 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useAvailableUsers, useTasks } from "@/hooks/useTasks";
 import { useGroupMessages } from "@/hooks/useGroupChat";
+import { useAiConversation } from "@/hooks/useAiConversation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Send, Loader2, Bot, User, AlertCircle,
-  FolderOpen, CheckSquare, BarChart3, HelpCircle,
+  FolderOpen, CheckSquare, BarChart3, HelpCircle, Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
-
-type Msg = { role: "user" | "assistant"; content: string };
 
 interface AiChatThreadProps {
   groupId?: string | null;
@@ -31,12 +30,17 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
   const { data: allTasks = [] } = useTasks();
-  const { data: groupMessages = [] } = useGroupMessages(groupId || "");
 
-  const [chatMessages, setChatMessages] = useState<Msg[]>([]);
-  const [draft, setDraft] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
+  const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
+
+  const {
+    messages: chatMessages, addMessage, updateLastAssistant, clearConversation,
+    loading: historyLoading,
+  } = useAiConversation({ contextType: "project_chat", contextId: selectedGroupId });
+
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
