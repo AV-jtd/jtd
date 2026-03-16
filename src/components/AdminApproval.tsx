@@ -88,13 +88,15 @@ export default function AdminApproval() {
               </p>
               {pending.map(u => (
                 <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div>
+                <div className="min-w-0">
                     <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
                     <p className="text-xs text-muted-foreground">
                       {new Date(u.created_at).toLocaleDateString("ru-RU")}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button size="sm" onClick={() => handleApprove(u.id)} className="gap-1">
                       <UserCheck className="h-3.5 w-3.5" />
                       Одобрить
