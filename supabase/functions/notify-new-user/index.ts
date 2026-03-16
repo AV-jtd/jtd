@@ -85,13 +85,13 @@ Deno.serve(async (req) => {
 
     let totalSent = 0;
 
-    for (const profile of adminProfiles) {
+    for (const chat of botChats) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            chat_id: profile.telegram_chat_id,
+            chat_id: chat.chat_id,
             text: message,
             parse_mode: "HTML",
           }),
