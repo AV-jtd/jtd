@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, type Task, type TaskGroup } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, useTaskMutations, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
