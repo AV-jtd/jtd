@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, type Task, type TaskGroup } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, useTaskMutations, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -1844,17 +1844,89 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
   );
 }
 
+const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
+  { label: "Работа", emojis: ["📁", "💼", "📊", "📈", "📉", "📋", "🗂️", "📑", "🏢", "💻", "🖥️", "⚙️", "🔧", "🛠️", "📝", "✏️", "📌", "🗓️", "📅", "🗃️", "🖊️", "📎", "🧾", "📤", "📥", "📮", "🏗️", "🏭", "👔", "🪪", "📇", "🗄️"] },
+  { label: "Идеи", emojis: ["💡", "🚀", "🎯", "⭐", "✨", "💎", "🔮", "🧩", "🎲", "🏆", "🥇", "🎖️", "🧠", "💭", "❓", "🔑", "🪄", "🎪", "🔭", "🧬", "💫", "🌟", "🏅", "🎓", "📡", "🛸", "⚗️", "🧲", "🔆", "♟️", "🎰", "🪂"] },
+  { label: "Природа", emojis: ["🌿", "🌊", "🌸", "🌻", "🍀", "🌈", "☀️", "🌙", "⛰️", "🌍", "🔥", "❄️", "🌾", "🍂", "🌵", "🌴", "🌺", "🍁", "🌲", "🏔️", "🌤️", "⛅", "🌪️", "💧", "🦋", "🐝", "🌱", "🪻", "🪷", "🍃", "🦜", "🐚"] },
+  { label: "Еда", emojis: ["🍕", "🍔", "🌮", "🍣", "🍰", "🍩", "☕", "🍷", "🥗", "🍎", "🧀", "🍫", "🥐", "🍜", "🥩", "🍦", "🧁", "🥑", "🍇", "🥝", "🫐", "🍋", "🥥", "🧃", "🍺", "🥤", "🫕", "🍪", "🥖", "🫒", "🧆", "🍿"] },
+  { label: "Жизнь", emojis: ["🏠", "🎨", "🎵", "📚", "🎬", "📷", "🎮", "🏋️", "🧘", "🚗", "✈️", "🎂", "❤️", "😊", "🐱", "🐶", "🏡", "🛋️", "🎸", "🎹", "🎧", "🎤", "📱", "⌚", "🚲", "🛹", "🏄", "🎿", "⚽", "🎾", "🧳", "🪴"] },
+  { label: "Символы", emojis: ["✅", "❌", "⚡", "🔒", "🔔", "📣", "💬", "🏷️", "🚩", "♻️", "⏳", "🎁", "📦", "🧪", "🔬", "🌐", "🛡️", "⚠️", "🚫", "💯", "🔴", "🟢", "🔵", "🟡", "🟣", "⬛", "🔶", "🔷", "💠", "☑️", "🔗", "🏴"] },
+];
+
 function ProjectIcon({ project }: { project: NpdProject }) {
-  if (project.icon && project.icon !== "list") {
-    return <span className="text-sm leading-none">{project.icon}</span>;
-  }
-  return (
+  const [open, setOpen] = useState(false);
+  const [emojiTab, setEmojiTab] = useState(0);
+  const { updateGroupAppearance } = useTaskMutations();
+
+  const iconContent = project.icon && project.icon !== "list" ? (
+    <span className="text-sm leading-none">{project.icon}</span>
+  ) : (
     <div
       className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
       style={{ backgroundColor: (project.color || "#8b5cf6") + "18", color: project.color || "#8b5cf6" }}
     >
       <Folder className="h-3.5 w-3.5" />
     </div>
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          {iconContent}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-64 p-2 z-[60]"
+        side="bottom"
+        align="start"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex gap-1 mb-2 flex-wrap">
+          {EMOJI_CATEGORIES.map((cat, i) => (
+            <button
+              key={cat.label}
+              onClick={() => setEmojiTab(i)}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] transition-colors",
+                emojiTab === i ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-8 gap-0.5 mb-2">
+          {EMOJI_CATEGORIES[emojiTab].emojis.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => {
+                updateGroupAppearance.mutate({ id: project.id, icon: emoji });
+                setOpen(false);
+              }}
+              className={cn(
+                "p-1 rounded hover:bg-accent text-sm",
+                project.icon === emoji && "bg-accent ring-1 ring-primary"
+              )}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => {
+            updateGroupAppearance.mutate({ id: project.id, icon: "list" });
+            setOpen(false);
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground block"
+        >
+          Сбросить иконку
+        </button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
