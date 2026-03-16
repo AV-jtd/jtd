@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ sent: totalSent }), {
+    return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
