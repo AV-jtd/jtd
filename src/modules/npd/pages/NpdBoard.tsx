@@ -438,6 +438,30 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [allGroups, npdProjects, allGroupTags, streamTagIds, streamTagById]);
 
+  // ── Unique assignees across NPD projects (for filter dropdown) ──
+  const npdAssignees = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of npdProjects) {
+      if (p.assigneeUserId) ids.add(p.assigneeUserId);
+    }
+    return [...ids].map((id) => {
+      const u = availableUsers.find((u) => u.id === id);
+      return { id, name: u?.display_name || id.slice(0, 8) };
+    });
+  }, [npdProjects, availableUsers]);
+
+  // ── Unique non-gate/stream tags across NPD projects (for filter dropdown) ──
+  const npdFilterTags = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of npdProjects) {
+      for (const tid of p.otherTagIds) ids.add(tid);
+    }
+    return [...ids].map((id) => {
+      const t = allTagsRaw.find((t) => t.id === id);
+      return { id, name: t?.name || "?", color: t?.color || null };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [npdProjects, allTagsRaw]);
+
   // ── Filter ──
   const filteredProjects = useMemo(() => {
     let result = npdProjects;
@@ -454,8 +478,14 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         return name && activeStreams.has(name);
       }));
     }
+    if (filterAssignee) {
+      result = result.filter((p) => p.assigneeUserId === filterAssignee);
+    }
+    if (filterTagIds.length > 0) {
+      result = result.filter((p) => filterTagIds.every((tid) => p.otherTagIds.includes(tid)));
+    }
     return result;
-  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter]);
+  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter, filterAssignee, filterTagIds]);
 
   // ── Tasks grouped by stream subproject (for swimlane task view) ──
   const streamSubprojectTasks = useMemo(() => {
