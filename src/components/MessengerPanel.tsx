@@ -25,12 +25,17 @@ function formatThreadDate(dateStr: string | null) {
   return format(d, "d MMM", { locale: ru });
 }
 
-export default function MessengerPanel({ onClose }: MessengerPanelProps) {
+export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+
+  const handleOpenThread = (thread: Thread) => {
+    setActiveThread(thread);
+    markThreadRead?.(thread.id);
+  };
 
   const filtered = search.trim()
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
