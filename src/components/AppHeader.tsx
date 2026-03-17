@@ -26,6 +26,7 @@ export default function AppHeader({
   onAiOpen,
   onMessengerToggle,
   messengerOpen,
+  unreadCount = 0,
   children,
 }: AppHeaderProps) {
   const location = useLocation();
