@@ -44,6 +44,7 @@ export function computeCascadeUpdates(
   // BFS to propagate
   const visited = new Set<string>();
   const queue: { entityId: string; pushDays: number }[] = [{ entityId: changedEntityId, pushDays: daysDelta }];
+  const isForward = daysDelta > 0;
 
   while (queue.length > 0) {
     const { entityId, pushDays } = queue.shift()!;
@@ -56,8 +57,10 @@ export function computeCascadeUpdates(
       const entity = entities.get(succ.successor_id);
       if (!entity) continue;
 
-      const effectivePush = pushDays + succ.lag_days;
-      if (effectivePush <= 0) continue;
+      // For forward: effectivePush = pushDays + lag (must be > 0)
+      // For backward: propagate the same delta without adding lag (lag only applies to positive shifts)
+      const effectivePush = isForward ? pushDays + succ.lag_days : pushDays;
+      if (effectivePush === 0) continue;
 
       const update: CascadeUpdate = {};
 
