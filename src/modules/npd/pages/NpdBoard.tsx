@@ -380,6 +380,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         streamStats.push({ name: sName, total: cTasks.length, completed: cTasks.filter((t) => t.is_completed).length });
       }
 
+      // Other tags (non-gate, non-stream) for filtering
+      const otherTagIds = groupTagIds.filter((id) => !gateTagIds.has(id) && !streamTagIds.has(id));
+
+      // Find assignee from group_members
+      const assigneeMember = allGroupMembers.find((m) => m.group_id === g.id && m.role === "assignee");
+      const assigneeUserId = assigneeMember?.user_id || null;
+
       return {
         id: g.id,
         name: g.name,
@@ -391,11 +398,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         gateTags: projectGateTags,
         allGateKeys,
         streamTags: projectStreamTags,
+        otherTagIds,
+        assigneeUserId,
         stats: { total, completed, overdue },
         streamStats,
       };
     });
-  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
+  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById, allGroupMembers]);
 
   // ── Gate assignment ──
   // Primary gate = most advanced (highest index) from allGateKeys
