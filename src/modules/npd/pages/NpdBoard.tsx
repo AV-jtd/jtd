@@ -120,6 +120,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const [showInbox, setShowInbox] = useState(true);
   const [showArchive, setShowArchive] = useState(false);
   const [showColumnFilter, setShowColumnFilter] = useState(false);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [swimlaneMode, setSwimlaneMode] = useState(() => {
     try { return localStorage.getItem("npd-swimlane") === "true"; } catch { return false; }
   });
