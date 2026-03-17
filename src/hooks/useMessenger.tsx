@@ -69,6 +69,7 @@ export function useThreads() {
               lastMessage: info.content,
               lastMessageAt: info.created_at,
               lastMessageAuthor: profileMap.get(info.user_id) || null,
+              lastMessageUserId: info.user_id,
               messageCount: info.count,
               groupId: g.id,
             });
