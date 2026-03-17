@@ -24,7 +24,7 @@ import {
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
-import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 
@@ -1102,6 +1102,43 @@ export default function NpdSwimlaneMatrix() {
               predecessor_entity_type: depDialogState.predecessorEntityType,
               successor_entity_type: depDialogState.successorEntityType,
             });
+
+            // Auto-set successor's start_at and deadline based on predecessor's end date (FS only)
+            if (type === "FS") {
+              let predEndDate: Date | null = null;
+              if (depDialogState.predecessorEntityType === "task") {
+                const predTask = allTasks.find(t => t.id === depDialogState.predecessorId);
+                if (predTask?.deadline) predEndDate = parseISO(predTask.deadline);
+              } else if (depDialogState.predecessorEntityType === "project") {
+                const gTasks = allTasks.filter(t => t.group_id === depDialogState.predecessorId);
+                const latest = gTasks.reduce((max, t) => {
+                  const d = t.deadline || t.created_at;
+                  return d > max ? d : max;
+                }, "");
+                if (latest) predEndDate = parseISO(latest);
+              }
+
+              if (predEndDate && depDialogState.successorEntityType === "task") {
+                const newStart = addDays(predEndDate, Math.max(lag, 1));
+                const succTask = allTasks.find(t => t.id === depDialogState.successorId);
+                if (succTask) {
+                  const oldStart = succTask.start_at ? parseISO(succTask.start_at) : parseISO(succTask.created_at);
+                  // Only move successor forward, never backward
+                  if (newStart > oldStart) {
+                    const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
+                    if (succTask.deadline) {
+                      const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
+                      updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
+                    } else {
+                      updates.deadline = addDays(newStart, 1).toISOString();
+                    }
+                    updateTask.mutate(updates);
+                    toast.info("Даты преемника обновлены по зависимости");
+                  }
+                }
+              }
+            }
+
             setDepDialogState(null);
           }}
         />
