@@ -36,6 +36,7 @@ export default function GlobalSearch({
   onNavigateToTag,
 }: GlobalSearchProps) {
   const { user } = useAuth();
+  const linkedTagIds = useLinkedTagIds();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
