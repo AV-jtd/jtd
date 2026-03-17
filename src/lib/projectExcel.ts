@@ -116,7 +116,7 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
   const rows: ExportRow[] = [];
   rows.push({
     type: "project", project: group.name, subproject: "", title: "",
-    description: group.description || "", deadline: "", original_deadline: "",
+    description: group.description || "", start_at: "", deadline: "", original_deadline: "",
     priority: "", status: "", assigned_to: "", tags: "", subtasks: "", recurrence: "",
   });
   subgroups.forEach(sg => {
