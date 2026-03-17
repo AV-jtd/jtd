@@ -29,6 +29,7 @@ export default function Index() {
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const isMobile = useIsMobile();
