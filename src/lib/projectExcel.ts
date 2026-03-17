@@ -9,6 +9,7 @@ interface ExportRow {
   subproject: string;
   title: string;
   description: string;
+  start_at: string;
   deadline: string;
   original_deadline: string;
   priority: string;
@@ -32,6 +33,7 @@ const HEADERS: { key: keyof ExportRow; label: string; width: number }[] = [
   { key: "subproject", label: "Подпроект", width: 20 },
   { key: "title", label: "Задача", width: 36 },
   { key: "description", label: "Описание", width: 40 },
+  { key: "start_at", label: "Старт", width: 14 },
   { key: "deadline", label: "Дедлайн", width: 14 },
   { key: "original_deadline", label: "Исх. дедлайн", width: 14 },
   { key: "priority", label: "Приоритет", width: 12 },
@@ -114,13 +116,13 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
   const rows: ExportRow[] = [];
   rows.push({
     type: "project", project: group.name, subproject: "", title: "",
-    description: group.description || "", deadline: "", original_deadline: "",
+    description: group.description || "", start_at: "", deadline: "", original_deadline: "",
     priority: "", status: "", assigned_to: "", tags: "", subtasks: "", recurrence: "",
   });
   subgroups.forEach(sg => {
     rows.push({
       type: "subproject", project: group.name, subproject: sg.name, title: "",
-      description: sg.description || "", deadline: "", original_deadline: "",
+      description: sg.description || "", start_at: "", deadline: "", original_deadline: "",
       priority: "", status: "", assigned_to: "", tags: "", subtasks: "", recurrence: "",
     });
   });
@@ -134,6 +136,7 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
       type: "task", project: group.name,
       subproject: t.group_id !== groupId ? (subgroupMap.get(t.group_id!) || "") : "",
       title: t.title, description: t.description || "",
+      start_at: t.start_at ? new Date(t.start_at).toISOString().split("T")[0] : "",
       deadline: t.deadline ? new Date(t.deadline).toISOString().split("T")[0] : "",
       original_deadline: t.original_deadline ? new Date(t.original_deadline).toISOString().split("T")[0] : "",
       priority: t.priority != null ? String(t.priority) : "",
@@ -285,10 +288,10 @@ export async function parseExcelForPreview(file: File): Promise<ImportPreview> {
     // Map Russian labels back to keys
     const labelToKey: Record<string, string> = {
       "тип": "type", "проект": "project", "подпроект": "subproject",
-      "задача": "title", "описание": "description", "дедлайн": "deadline",
-      "исх. дедлайн": "original_deadline", "приоритет": "priority",
-      "статус": "status", "ответственный": "assigned_to", "теги": "tags",
-      "подзадачи": "subtasks", "повтор": "recurrence",
+      "задача": "title", "описание": "description", "старт": "start_at",
+      "дедлайн": "deadline", "исх. дедлайн": "original_deadline",
+      "приоритет": "priority", "статус": "status", "ответственный": "assigned_to",
+      "теги": "tags", "подзадачи": "subtasks", "повтор": "recurrence",
     };
     const key = labelToKey[val] || val;
     headerMap.set(key, colNumber);
@@ -312,6 +315,7 @@ export async function parseExcelForPreview(file: File): Promise<ImportPreview> {
       subproject: getField(row, "subproject"),
       title: getField(row, "title"),
       description: getField(row, "description"),
+      start_at: getField(row, "start_at"),
       deadline: getField(row, "deadline"),
       original_deadline: getField(row, "original_deadline"),
       priority: getField(row, "priority"),

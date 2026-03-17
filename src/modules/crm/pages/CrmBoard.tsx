@@ -27,6 +27,8 @@ import {
   Globe,
   
   SlidersHorizontal,
+  Download,
+  FileDown,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -655,6 +657,24 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
+
+  const [crmExporting, setCrmExporting] = useState(false);
+  const handleCrmExport = async () => {
+    setCrmExporting(true);
+    try {
+      const { exportCrmToExcel, downloadExcel } = await import("@/lib/crmExcel");
+      const ids = filteredTasks.map(t => t.id);
+      if (ids.length === 0) { toast.error("Нет задач для экспорта"); setCrmExporting(false); return; }
+      const blob = await exportCrmToExcel(ids);
+      downloadExcel(blob, "CRM_Экспорт.xlsx");
+      toast.success("Excel экспортирован");
+    } catch (e: any) { toast.error("Ошибка экспорта: " + e.message); }
+    finally { setCrmExporting(false); }
+  };
+  const handleCrmTemplateDownload = async () => {
+    const { downloadCrmTemplate } = await import("@/lib/crmExcel");
+    downloadCrmTemplate();
+  };
 
   const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0 || filterTerritoryIds.length > 0 || filterRetailTypeIds.length > 0 || filterRankIds.length > 0 || filterManagerIds.length > 0;
   const activeFilterCount = filterTagIds.length + filterGroupIds.length + filterAssigneeIds.length + filterTerritoryIds.length + filterRetailTypeIds.length + filterRankIds.length + filterManagerIds.length;
@@ -1344,6 +1364,25 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                 Сбросить
               </button>
             )}
+
+            <div className="h-4 w-px bg-border" />
+
+            {/* Export / Import */}
+            <button
+              onClick={handleCrmExport}
+              disabled={crmExporting}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              {crmExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+              Excel
+            </button>
+            <button
+              onClick={handleCrmTemplateDownload}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <FileDown className="h-3 w-3" />
+              Шаблон
+            </button>
           </div>
         </div>
         )}

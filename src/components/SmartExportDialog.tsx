@@ -21,6 +21,7 @@ const ALL_COLUMNS = [
   { key: "subproject", label: "Подпроект", default: true },
   { key: "title", label: "Задача", default: true },
   { key: "description", label: "Описание", default: true },
+  { key: "start_at", label: "Старт", default: true },
   { key: "deadline", label: "Дедлайн", default: true },
   { key: "original_deadline", label: "Исх. дедлайн", default: false },
   { key: "priority", label: "Приоритет", default: true },

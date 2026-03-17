@@ -20,6 +20,7 @@ interface ColumnMapping {
 const FIELD_OPTIONS = [
   { value: "title", label: "Задача" },
   { value: "description", label: "Описание" },
+  { value: "start_at", label: "Старт" },
   { value: "deadline", label: "Дедлайн" },
   { value: "priority", label: "Приоритет" },
   { value: "status", label: "Статус" },
@@ -132,6 +133,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
           subproject: get("subproject") || "",
           title: get("title") || "",
           description: get("description") || "",
+          start_at: get("start_at") || "",
           deadline: get("deadline") || "",
           original_deadline: "",
           priority: get("priority") || "",
@@ -172,7 +174,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Шаблон");
     
-    const templateHeaders = ["Задача", "Описание", "Дедлайн", "Приоритет", "Ответственный", "Теги"];
+    const templateHeaders = ["Задача", "Описание", "Старт", "Дедлайн", "Приоритет", "Ответственный", "Теги"];
     const headerRow = ws.addRow(templateHeaders);
     headerRow.eachCell(cell => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -181,13 +183,13 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
 
     ws.columns = [
       { width: 36 }, { width: 40 }, { width: 14 },
-      { width: 12 }, { width: 20 }, { width: 24 },
+      { width: 14 }, { width: 12 }, { width: 20 }, { width: 24 },
     ];
 
     // Sample rows
-    ws.addRow(["Подготовить презентацию", "Для ежемесячного отчёта", "2026-03-15", "Высокий", "Иванов", "маркетинг"]);
-    ws.addRow(["Позвонить клиенту", "", "2026-03-10", "Средний", "", "продажи"]);
-    ws.addRow(["Обновить документацию", "Раздел API", "", "Низкий", "Петров", ""]);
+    ws.addRow(["Подготовить презентацию", "Для ежемесячного отчёта", "2026-03-01", "2026-03-15", "Высокий", "Иванов", "маркетинг"]);
+    ws.addRow(["Позвонить клиенту", "", "", "2026-03-10", "Средний", "", "продажи"]);
+    ws.addRow(["Обновить документацию", "Раздел API", "2026-03-05", "", "Низкий", "Петров", ""]);
 
     wb.xlsx.writeBuffer().then(buf => {
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });

@@ -10,7 +10,9 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload } from "lucide-react";
+import SmartImportDialog from "@/components/SmartImportDialog";
+import SmartExportDialog from "@/components/SmartExportDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
@@ -687,6 +689,33 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
             <FolderPlus className="h-3 w-3" />
             <span className="hidden sm:inline">Проект</span>
           </button>
+        )}
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* Import / Export */}
+        {selectedProjectId && (
+          <>
+            <SmartExportDialog
+              groupId={selectedProjectId}
+              groupName={rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"}
+              trigger={
+                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Download className="h-3 w-3" />
+                  <span className="hidden sm:inline">Excel</span>
+                </button>
+              }
+            />
+            <SmartImportDialog
+              targetGroupId={selectedProjectId}
+              trigger={
+                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Upload className="h-3 w-3" />
+                  <span className="hidden sm:inline">Импорт</span>
+                </button>
+              }
+            />
+          </>
         )}
 
         <span className="text-xs text-muted-foreground ml-auto">
