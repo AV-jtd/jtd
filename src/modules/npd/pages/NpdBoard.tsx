@@ -1744,6 +1744,12 @@ function ProjectCard({
 
         {/* Stats row */}
         <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+          {assigneeName && (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate max-w-[80px]">{assigneeName}</span>
+            </span>
+          )}
           {project.stats.overdue > 0 && (
             <span className="flex items-center gap-0.5 text-destructive">
               <AlertTriangle className="h-3 w-3" />
@@ -1756,7 +1762,7 @@ function ProjectCard({
               {driftTasks.length} drift
             </span>
           )}
-          {project.stats.total === 0 && (
+          {project.stats.total === 0 && !assigneeName && (
             <span className="text-muted-foreground">Нет задач</span>
           )}
         </div>
