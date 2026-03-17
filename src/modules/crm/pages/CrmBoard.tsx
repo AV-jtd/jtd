@@ -1344,6 +1344,25 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
                 Сбросить
               </button>
             )}
+
+            <div className="h-4 w-px bg-border" />
+
+            {/* Export / Import */}
+            <button
+              onClick={handleCrmExport}
+              disabled={crmExporting}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              {crmExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+              Excel
+            </button>
+            <button
+              onClick={handleCrmTemplateDownload}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <FileDown className="h-3 w-3" />
+              Шаблон
+            </button>
           </div>
         </div>
         )}
