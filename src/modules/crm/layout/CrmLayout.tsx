@@ -79,7 +79,7 @@ export default function CrmLayout() {
         </main>
         {messengerOpen && (
           <div className="w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} />
           </div>
         )}
       </div>
