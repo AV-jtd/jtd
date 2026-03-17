@@ -20,6 +20,7 @@ interface ColumnMapping {
 const FIELD_OPTIONS = [
   { value: "title", label: "Задача" },
   { value: "description", label: "Описание" },
+  { value: "start_at", label: "Старт" },
   { value: "deadline", label: "Дедлайн" },
   { value: "priority", label: "Приоритет" },
   { value: "status", label: "Статус" },
