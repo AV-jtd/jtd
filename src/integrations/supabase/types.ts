@@ -1197,6 +1197,10 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      is_message_in_parent_member_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_parent_of_member_group: {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
@@ -1207,6 +1211,14 @@ export type Database = {
       }
       is_supervisor_of_user: {
         Args: { _supervisor_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_task_in_parent_member_group: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_task_in_parent_owner_group: {
+        Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
       is_task_in_user_group: {
