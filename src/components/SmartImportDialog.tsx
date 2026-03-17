@@ -133,6 +133,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
           subproject: get("subproject") || "",
           title: get("title") || "",
           description: get("description") || "",
+          start_at: get("start_at") || "",
           deadline: get("deadline") || "",
           original_deadline: "",
           priority: get("priority") || "",
