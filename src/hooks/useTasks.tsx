@@ -271,7 +271,7 @@ export function useLinkedTagIds(): Set<string> {
   );
 }
 
-
+export function useTagCategories() {
   const { user, loading } = useAuth();
   return useQuery({
     queryKey: ["tag_categories", user?.id],
