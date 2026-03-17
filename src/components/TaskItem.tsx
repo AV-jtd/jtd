@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, Profile } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
 import UserPicker from "@/components/UserPicker";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +57,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
+  const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
@@ -88,8 +89,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const completedSubs = subtasks.filter(s => s.is_completed).length;
   const linkedTagId = task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id : null;
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
-  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId);
-  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
+  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
+  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
 
   const fetchTagSuggestions = useCallback(async () => {
     if (suggestionsLoaded.current || availableTags.length === 0) return;

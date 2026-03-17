@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useLinkedTagIds } from "@/hooks/useTasks";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { List, FolderOpen, Users, Tag, CheckCircle2, Search, FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export default function GlobalSearch({
   onNavigateToTag,
 }: GlobalSearchProps) {
   const { user } = useAuth();
+  const linkedTagIds = useLinkedTagIds();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -129,7 +131,7 @@ export default function GlobalSearch({
         tasks: [...taskMap.values()].slice(0, 10),
         groups: groupsRes.data || [],
         clients: clientsRes.data || [],
-        tags: tagsRes.data || [],
+        tags: (tagsRes.data || []).filter((t: any) => !linkedTagIds.has(t.id)),
       };
     },
     enabled: !!user && open && query.trim().length > 0,
