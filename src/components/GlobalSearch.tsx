@@ -131,7 +131,7 @@ export default function GlobalSearch({
         tasks: [...taskMap.values()].slice(0, 10),
         groups: groupsRes.data || [],
         clients: clientsRes.data || [],
-        tags: tagsRes.data || [],
+        tags: (tagsRes.data || []).filter((t: any) => !linkedTagIds.has(t.id)),
       };
     },
     enabled: !!user && open && query.trim().length > 0,
