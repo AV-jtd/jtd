@@ -32,6 +32,7 @@ const HEADERS: { key: keyof ExportRow; label: string; width: number }[] = [
   { key: "subproject", label: "Подпроект", width: 20 },
   { key: "title", label: "Задача", width: 36 },
   { key: "description", label: "Описание", width: 40 },
+  { key: "start_at", label: "Старт", width: 14 },
   { key: "deadline", label: "Дедлайн", width: 14 },
   { key: "original_deadline", label: "Исх. дедлайн", width: 14 },
   { key: "priority", label: "Приоритет", width: 12 },
