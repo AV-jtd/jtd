@@ -42,6 +42,7 @@ export default function NpdLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       />
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <main className="flex-1 overflow-hidden">
