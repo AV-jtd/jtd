@@ -136,6 +136,7 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
       type: "task", project: group.name,
       subproject: t.group_id !== groupId ? (subgroupMap.get(t.group_id!) || "") : "",
       title: t.title, description: t.description || "",
+      start_at: t.start_at ? new Date(t.start_at).toISOString().split("T")[0] : "",
       deadline: t.deadline ? new Date(t.deadline).toISOString().split("T")[0] : "",
       original_deadline: t.original_deadline ? new Date(t.original_deadline).toISOString().split("T")[0] : "",
       priority: t.priority != null ? String(t.priority) : "",
