@@ -259,7 +259,19 @@ export function useTags() {
   });
 }
 
-export function useTagCategories() {
+/**
+ * Returns a Set of tag IDs that are auto-linked to projects (technical tags).
+ * These should be hidden from sidebar filters and tag pickers.
+ */
+export function useLinkedTagIds(): Set<string> {
+  const { data: groups = [] } = useTaskGroups();
+  return useMemo(
+    () => new Set(groups.map(g => g.linked_tag_id).filter(Boolean) as string[]),
+    [groups]
+  );
+}
+
+
   const { user, loading } = useAuth();
   return useQuery({
     queryKey: ["tag_categories", user?.id],
