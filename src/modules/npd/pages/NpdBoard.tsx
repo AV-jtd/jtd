@@ -83,6 +83,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
+  const { data: availableUsers = [] } = useAvailableUsers();
+
+  // Fetch all tags for filtering
+  const { data: allTagsRaw = [] } = useQuery({
+    queryKey: ["all-tags-for-npd-filter", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tags").select("id, name, color");
+      if (error) throw error;
+      return data as { id: string; name: string; color: string | null }[];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch all group members for NPD projects (for assignee filter)
+  const { data: allGroupMembers = [] } = useQuery({
+    queryKey: ["npd-all-group-members", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("group_members").select("group_id, user_id, role");
+      if (error) throw error;
+      return data as { group_id: string; user_id: string; role: string }[];
+    },
+    enabled: !!user,
+  });
 
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
