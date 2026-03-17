@@ -9,6 +9,7 @@ interface ExportRow {
   subproject: string;
   title: string;
   description: string;
+  start_at: string;
   deadline: string;
   original_deadline: string;
   priority: string;
