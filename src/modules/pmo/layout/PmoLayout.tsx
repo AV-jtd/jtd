@@ -63,6 +63,7 @@ export default function PmoLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       >
         <nav className="flex items-center gap-0.5 whitespace-nowrap">
           {navItems.map((item) => {
