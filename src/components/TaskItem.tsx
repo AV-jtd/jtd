@@ -57,6 +57,7 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
+  const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
