@@ -18,6 +18,7 @@ export default function CrmLayout() {
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
