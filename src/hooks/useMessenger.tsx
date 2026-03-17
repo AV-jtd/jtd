@@ -11,6 +11,7 @@ export type Thread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   lastMessageAuthor: string | null;
+  lastMessageUserId: string | null;
   messageCount: number;
   /** For group threads */
   groupId?: string;
