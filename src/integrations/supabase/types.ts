@@ -1185,6 +1185,10 @@ export type Database = {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
       }
+      is_delegatee_in_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_director_of_user: {
         Args: { _director_id: string; _user_id: string }
         Returns: boolean
@@ -1205,12 +1209,28 @@ export type Database = {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
       }
+      is_subgroup_of_member_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_subgroup_of_owner_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_subgroup_owner: {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
       }
       is_supervisor_of_user: {
         Args: { _supervisor_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_supervisor_task_in_shared_group: {
+        Args: { _supervisor_id: string; _task_id: string }
+        Returns: boolean
+      }
+      is_task_in_member_group: {
+        Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
       is_task_in_parent_member_group: {
@@ -1242,6 +1262,10 @@ export type Database = {
         Returns: boolean
       }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
+      task_has_tag_access: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
