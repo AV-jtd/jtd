@@ -18,7 +18,7 @@ import {
   Loader2, Folder, FolderPlus, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
-  GanttChart, Grid3X3, PanelLeft,
+  GanttChart, Grid3X3, PanelLeft, User, Tag,
 } from "lucide-react";
 import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -69,6 +69,8 @@ type NpdProject = {
   gateTags: string[];  // tag_ids that are gate tags (own)
   allGateKeys: string[]; // all gate keys from own + child subproject tags
   streamTags: string[]; // tag_ids that are stream tags
+  otherTagIds: string[]; // non-gate, non-stream tag ids for filtering
+  assigneeUserId: string | null; // project-level assignee (from group_members)
   stats: { total: number; completed: number; overdue: number };
   streamStats: { name: string; total: number; completed: number }[];
 };
@@ -83,6 +85,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
+  const { data: availableUsers = [] } = useAvailableUsers();
+
+  // Fetch all tags for filtering
+  const { data: allTagsRaw = [] } = useQuery({
+    queryKey: ["all-tags-for-npd-filter", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tags").select("id, name, color");
+      if (error) throw error;
+      return data as { id: string; name: string; color: string | null }[];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch all group members for NPD projects (for assignee filter)
+  const { data: allGroupMembers = [] } = useQuery({
+    queryKey: ["npd-all-group-members", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("group_members").select("group_id, user_id, role");
+      if (error) throw error;
+      return data as { group_id: string; user_id: string; role: string }[];
+    },
+    enabled: !!user,
+  });
 
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -97,6 +122,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const [showInbox, setShowInbox] = useState(true);
   const [showArchive, setShowArchive] = useState(false);
   const [showColumnFilter, setShowColumnFilter] = useState(false);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [swimlaneMode, setSwimlaneMode] = useState(() => {
     try { return localStorage.getItem("npd-swimlane") === "true"; } catch { return false; }
   });
@@ -353,6 +380,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         streamStats.push({ name: sName, total: cTasks.length, completed: cTasks.filter((t) => t.is_completed).length });
       }
 
+      // Other tags (non-gate, non-stream) for filtering
+      const otherTagIds = groupTagIds.filter((id) => !gateTagIds.has(id) && !streamTagIds.has(id));
+
+      // Find assignee from group_members
+      const assigneeMember = allGroupMembers.find((m) => m.group_id === g.id && m.role === "assignee");
+      const assigneeUserId = assigneeMember?.user_id || null;
+
       return {
         id: g.id,
         name: g.name,
@@ -364,11 +398,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         gateTags: projectGateTags,
         allGateKeys,
         streamTags: projectStreamTags,
+        otherTagIds,
+        assigneeUserId,
         stats: { total, completed, overdue },
         streamStats,
       };
     });
-  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById]);
+  }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById, allGroupMembers]);
 
   // ── Gate assignment ──
   // Primary gate = most advanced (highest index) from allGateKeys
@@ -402,6 +438,30 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [allGroups, npdProjects, allGroupTags, streamTagIds, streamTagById]);
 
+  // ── Unique assignees across NPD projects (for filter dropdown) ──
+  const npdAssignees = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of npdProjects) {
+      if (p.assigneeUserId) ids.add(p.assigneeUserId);
+    }
+    return [...ids].map((id) => {
+      const u = availableUsers.find((u) => u.id === id);
+      return { id, name: u?.display_name || id.slice(0, 8) };
+    });
+  }, [npdProjects, availableUsers]);
+
+  // ── Unique non-gate/stream tags across NPD projects (for filter dropdown) ──
+  const npdFilterTags = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of npdProjects) {
+      for (const tid of p.otherTagIds) ids.add(tid);
+    }
+    return [...ids].map((id) => {
+      const t = allTagsRaw.find((t) => t.id === id);
+      return { id, name: t?.name || "?", color: t?.color || null };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [npdProjects, allTagsRaw]);
+
   // ── Filter ──
   const filteredProjects = useMemo(() => {
     let result = npdProjects;
@@ -418,8 +478,14 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         return name && activeStreams.has(name);
       }));
     }
+    if (filterAssignee) {
+      result = result.filter((p) => p.assigneeUserId === filterAssignee);
+    }
+    if (filterTagIds.length > 0) {
+      result = result.filter((p) => filterTagIds.every((tid) => p.otherTagIds.includes(tid)));
+    }
     return result;
-  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter]);
+  }, [npdProjects, searchQuery, activeStreams, streamTagById, projectFilter, filterAssignee, filterTagIds]);
 
   // ── Tasks grouped by stream subproject (for swimlane task view) ──
   const streamSubprojectTasks = useMemo(() => {
@@ -788,6 +854,121 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   </Tooltip>
                 ))}
               </div>
+
+              <div className="h-4 w-px bg-border" />
+
+              {/* Assignee filter */}
+              {npdAssignees.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                      filterAssignee
+                        ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    )}>
+                      <User className="h-3 w-3" />
+                      {filterAssignee
+                        ? (availableUsers.find(u => u.id === filterAssignee)?.display_name || "Ответственный")
+                        : "Ответственный"
+                      }
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-52 p-2" side="bottom">
+                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      <button
+                        onClick={() => setFilterAssignee(null)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          !filterAssignee ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        Все
+                        {!filterAssignee && <Check className="h-3 w-3 ml-auto" />}
+                      </button>
+                      {npdAssignees.map(a => (
+                        <button
+                          key={a.id}
+                          onClick={() => setFilterAssignee(filterAssignee === a.id ? null : a.id)}
+                          className={cn(
+                            "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                            filterAssignee === a.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                          )}
+                        >
+                          <span className="truncate">{a.name}</span>
+                          {filterAssignee === a.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Tag filter */}
+              {npdFilterTags.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                      filterTagIds.length > 0
+                        ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    )}>
+                      <Tag className="h-3 w-3" />
+                      {filterTagIds.length > 0
+                        ? `Теги (${filterTagIds.length})`
+                        : "Теги"
+                      }
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" side="bottom">
+                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      {filterTagIds.length > 0 && (
+                        <button
+                          onClick={() => setFilterTagIds([])}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Сбросить все
+                        </button>
+                      )}
+                      {npdFilterTags.map(t => {
+                        const active = filterTagIds.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setFilterTagIds(prev =>
+                              active ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                            )}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                            )}
+                          >
+                            <div
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: t.color || "hsl(var(--primary))" }}
+                            />
+                            <span className="truncate">{t.name}</span>
+                            {active && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Active filter reset */}
+              {(filterAssignee || filterTagIds.length > 0) && (
+                <button
+                  onClick={() => { setFilterAssignee(null); setFilterTagIds([]); }}
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1563,6 +1744,12 @@ function ProjectCard({
 
         {/* Stats row */}
         <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+          {assigneeName && (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate max-w-[80px]">{assigneeName}</span>
+            </span>
+          )}
           {project.stats.overdue > 0 && (
             <span className="flex items-center gap-0.5 text-destructive">
               <AlertTriangle className="h-3 w-3" />
@@ -1575,7 +1762,7 @@ function ProjectCard({
               {driftTasks.length} drift
             </span>
           )}
-          {project.stats.total === 0 && (
+          {project.stats.total === 0 && !assigneeName && (
             <span className="text-muted-foreground">Нет задач</span>
           )}
         </div>
