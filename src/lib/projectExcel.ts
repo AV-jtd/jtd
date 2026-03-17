@@ -288,10 +288,10 @@ export async function parseExcelForPreview(file: File): Promise<ImportPreview> {
     // Map Russian labels back to keys
     const labelToKey: Record<string, string> = {
       "тип": "type", "проект": "project", "подпроект": "subproject",
-      "задача": "title", "описание": "description", "дедлайн": "deadline",
-      "исх. дедлайн": "original_deadline", "приоритет": "priority",
-      "статус": "status", "ответственный": "assigned_to", "теги": "tags",
-      "подзадачи": "subtasks", "повтор": "recurrence",
+      "задача": "title", "описание": "description", "старт": "start_at",
+      "дедлайн": "deadline", "исх. дедлайн": "original_deadline",
+      "приоритет": "priority", "статус": "status", "ответственный": "assigned_to",
+      "теги": "tags", "подзадачи": "subtasks", "повтор": "recurrence",
     };
     const key = labelToKey[val] || val;
     headerMap.set(key, colNumber);
@@ -315,6 +315,7 @@ export async function parseExcelForPreview(file: File): Promise<ImportPreview> {
       subproject: getField(row, "subproject"),
       title: getField(row, "title"),
       description: getField(row, "description"),
+      start_at: getField(row, "start_at"),
       deadline: getField(row, "deadline"),
       original_deadline: getField(row, "original_deadline"),
       priority: getField(row, "priority"),
