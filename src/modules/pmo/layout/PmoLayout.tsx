@@ -9,6 +9,7 @@ import GanttView from "@/modules/pmo/pages/GanttView";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 

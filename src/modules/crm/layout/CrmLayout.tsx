@@ -9,6 +9,7 @@ import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();

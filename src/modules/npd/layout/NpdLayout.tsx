@@ -7,6 +7,7 @@ import NpdBoard from "@/modules/npd/pages/NpdBoard";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export default function NpdLayout() {
   const { user, loading } = useAuth();

@@ -7,6 +7,7 @@ import NpdSwimlaneMatrix from "@/modules/npd/pages/NpdSwimlaneMatrix";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export default function NpdMatrix() {
   const { user, loading } = useAuth();

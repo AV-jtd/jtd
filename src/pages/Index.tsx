@@ -14,6 +14,7 @@ import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import AiAssistant from "@/components/AiAssistant";
 import { useTaskGroups } from "@/hooks/useTasks";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
