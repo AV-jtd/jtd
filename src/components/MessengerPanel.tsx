@@ -13,6 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessengerPanelProps {
   onClose: () => void;
+  markThreadRead?: (threadId: string) => void;
+  isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
 }
 
 function formatThreadDate(dateStr: string | null) {
