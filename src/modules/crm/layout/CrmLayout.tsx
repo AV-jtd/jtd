@@ -45,6 +45,7 @@ export default function CrmLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       >
         <div className="flex items-center text-sm font-semibold tracking-tight">
           <button
