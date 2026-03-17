@@ -9,6 +9,7 @@ interface AppHeaderProps {
   onAiOpen?: () => void;
   onMessengerToggle?: () => void;
   messengerOpen?: boolean;
+  unreadCount?: number;
   /** Extra elements rendered between module nav and right actions (e.g. sub-nav tabs) */
   children?: React.ReactNode;
 }
