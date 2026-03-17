@@ -207,21 +207,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         existingStreamTags = refreshed;
       }
 
-      // IMPORTANT: also include tags with same names from OTHER users (e.g. project owner's tags)
-      const gateNames = NPD_GATES.map(g => g.tagName);
-      const { data: allGateTagsByName } = await supabase
-        .from("tags")
-        .select("id, name")
-        .in("name", gateNames);
-
-      const { data: allStreamTagsByName } = await supabase
-        .from("tags")
-        .select("id, name")
-        .in("name", NPD_STREAMS);
-
       return {
-        gateTags: (allGateTagsByName || []) as { id: string; name: string }[],
-        streamTags: (allStreamTagsByName || []) as { id: string; name: string }[],
+        gateTags: (existingGateTags || []) as { id: string; name: string }[],
+        streamTags: (existingStreamTags || []) as { id: string; name: string }[],
         gatesCategoryId: gatesCatId,
         streamsCategoryId: streamsCatId,
       };
