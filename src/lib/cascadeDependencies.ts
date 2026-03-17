@@ -28,7 +28,7 @@ export function computeCascadeUpdates(
   const updates = new Map<string, CascadeUpdate>();
   const daysDelta = differenceInCalendarDays(newDeadline, oldDeadline);
   
-  if (daysDelta === 0 || daysDelta < 0) return updates;
+  if (daysDelta === 0) return updates;
 
   // Build successor adjacency
   const successorMap = new Map<string, { successor_id: string; dependency_type: string; lag_days: number }[]>();
