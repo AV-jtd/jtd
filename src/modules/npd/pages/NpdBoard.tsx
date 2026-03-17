@@ -854,6 +854,121 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   </Tooltip>
                 ))}
               </div>
+
+              <div className="h-4 w-px bg-border" />
+
+              {/* Assignee filter */}
+              {npdAssignees.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                      filterAssignee
+                        ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    )}>
+                      <User className="h-3 w-3" />
+                      {filterAssignee
+                        ? (availableUsers.find(u => u.id === filterAssignee)?.display_name || "Ответственный")
+                        : "Ответственный"
+                      }
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-52 p-2" side="bottom">
+                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      <button
+                        onClick={() => setFilterAssignee(null)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                          !filterAssignee ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
+                      >
+                        Все
+                        {!filterAssignee && <Check className="h-3 w-3 ml-auto" />}
+                      </button>
+                      {npdAssignees.map(a => (
+                        <button
+                          key={a.id}
+                          onClick={() => setFilterAssignee(filterAssignee === a.id ? null : a.id)}
+                          className={cn(
+                            "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                            filterAssignee === a.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                          )}
+                        >
+                          <span className="truncate">{a.name}</span>
+                          {filterAssignee === a.id && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Tag filter */}
+              {npdFilterTags.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                      filterTagIds.length > 0
+                        ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    )}>
+                      <Tag className="h-3 w-3" />
+                      {filterTagIds.length > 0
+                        ? `Теги (${filterTagIds.length})`
+                        : "Теги"
+                      }
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" side="bottom">
+                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      {filterTagIds.length > 0 && (
+                        <button
+                          onClick={() => setFilterTagIds([])}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Сбросить все
+                        </button>
+                      )}
+                      {npdFilterTags.map(t => {
+                        const active = filterTagIds.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setFilterTagIds(prev =>
+                              active ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                            )}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                            )}
+                          >
+                            <div
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: t.color || "hsl(var(--primary))" }}
+                            />
+                            <span className="truncate">{t.name}</span>
+                            {active && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Active filter reset */}
+              {(filterAssignee || filterTagIds.length > 0) && (
+                <button
+                  onClick={() => { setFilterAssignee(null); setFilterTagIds([]); }}
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
 
