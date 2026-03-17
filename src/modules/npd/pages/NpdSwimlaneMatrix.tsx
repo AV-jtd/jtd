@@ -24,7 +24,7 @@ import {
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
 } from "lucide-react";
-import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 
