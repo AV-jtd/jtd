@@ -9,6 +9,7 @@ import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export default function CrmLayout() {
   const { user, loading } = useAuth();
@@ -17,6 +18,7 @@ export default function CrmLayout() {
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -43,6 +45,7 @@ export default function CrmLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       >
         <div className="flex items-center text-sm font-semibold tracking-tight">
           <button
@@ -76,7 +79,7 @@ export default function CrmLayout() {
         </main>
         {messengerOpen && (
           <div className="w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} />
           </div>
         )}
       </div>

@@ -11,6 +11,7 @@ export type Thread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   lastMessageAuthor: string | null;
+  lastMessageUserId: string | null;
   messageCount: number;
   /** For group threads */
   groupId?: string;
@@ -68,6 +69,7 @@ export function useThreads() {
               lastMessage: info.content,
               lastMessageAt: info.created_at,
               lastMessageAuthor: profileMap.get(info.user_id) || null,
+              lastMessageUserId: info.user_id,
               messageCount: info.count,
               groupId: g.id,
             });
@@ -126,6 +128,7 @@ export function useThreads() {
               lastMessage: info.content,
               lastMessageAt: info.created_at,
               lastMessageAuthor: profileMap.get(info.user_id) || null,
+              lastMessageUserId: info.user_id,
               messageCount: info.count,
               taskId: t.id,
               groupName: t.group_id ? taskGroupMap.get(t.group_id) || undefined : undefined,

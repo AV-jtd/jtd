@@ -14,6 +14,7 @@ import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import AiAssistant from "@/components/AiAssistant";
 import { useTaskGroups } from "@/hooks/useTasks";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -28,6 +29,7 @@ export default function Index() {
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -87,6 +89,7 @@ export default function Index() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       />
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
@@ -153,7 +156,7 @@ export default function Index() {
         {/* Messenger panel */}
         {messengerOpen && (
           <div className="w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} />
           </div>
         )}
       </div>

@@ -13,6 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessengerPanelProps {
   onClose: () => void;
+  markThreadRead?: (threadId: string) => void;
+  isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
 }
 
 function formatThreadDate(dateStr: string | null) {
@@ -23,12 +25,17 @@ function formatThreadDate(dateStr: string | null) {
   return format(d, "d MMM", { locale: ru });
 }
 
-export default function MessengerPanel({ onClose }: MessengerPanelProps) {
+export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+
+  const handleOpenThread = (thread: Thread) => {
+    setActiveThread(thread);
+    markThreadRead?.(thread.id);
+  };
 
   const filtered = search.trim()
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
@@ -123,47 +130,58 @@ export default function MessengerPanel({ onClose }: MessengerPanelProps) {
             </div>
           ) : (
             <div className="py-1">
-              {filtered.map(thread => (
-                <button
-                  key={thread.id}
-                  onClick={() => setActiveThread(thread)}
-                  className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-                >
-                  <div className={cn(
-                    "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
-                    thread.type === "group" ? "bg-primary/10" : "bg-accent"
-                  )}>
-                    {thread.type === "group"
-                      ? <FolderOpen className="h-4 w-4 text-primary" />
-                      : <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">
-                        {thread.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {formatThreadDate(thread.lastMessageAt)}
-                      </span>
+              {filtered.map(thread => {
+                const unread = isThreadUnread?.(thread.id, thread.lastMessageAt, thread.lastMessageUserId) ?? false;
+                return (
+                  <button
+                    key={thread.id}
+                    onClick={() => handleOpenThread(thread)}
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <div className="relative">
+                      <div className={cn(
+                        "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                        thread.type === "group" ? "bg-primary/10" : "bg-accent"
+                      )}>
+                        {thread.type === "group"
+                          ? <FolderOpen className="h-4 w-4 text-primary" />
+                          : <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                        }
+                      </div>
+                      {unread && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+                      )}
                     </div>
-                    {thread.groupName && thread.type === "task" && (
-                      <p className="text-[10px] text-muted-foreground/60 truncate">{thread.groupName}</p>
-                    )}
-                    {thread.lastMessage && (
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {thread.lastMessageAuthor && (
-                          <span className="font-medium text-foreground/60">{thread.lastMessageAuthor}: </span>
-                        )}
-                        {thread.lastMessage}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 shrink-0 mt-1">
-                    {thread.messageCount}
-                  </span>
-                </button>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn("text-sm truncate", unread ? "font-bold text-foreground" : "font-medium text-foreground")}>
+                          {thread.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {formatThreadDate(thread.lastMessageAt)}
+                        </span>
+                      </div>
+                      {thread.groupName && thread.type === "task" && (
+                        <p className="text-[10px] text-muted-foreground/60 truncate">{thread.groupName}</p>
+                      )}
+                      {thread.lastMessage && (
+                        <p className={cn("text-xs truncate mt-0.5", unread ? "text-foreground/80 font-medium" : "text-muted-foreground")}>
+                          {thread.lastMessageAuthor && (
+                            <span className="font-medium text-foreground/60">{thread.lastMessageAuthor}: </span>
+                          )}
+                          {thread.lastMessage}
+                        </p>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "text-[10px] rounded-full px-1.5 py-0.5 shrink-0 mt-1",
+                      unread ? "bg-destructive text-destructive-foreground font-bold" : "text-muted-foreground bg-muted"
+                    )}>
+                      {thread.messageCount}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </ScrollArea>

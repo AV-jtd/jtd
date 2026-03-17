@@ -7,6 +7,7 @@ import NpdBoard from "@/modules/npd/pages/NpdBoard";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export default function NpdLayout() {
   const { user, loading } = useAuth();
@@ -14,6 +15,7 @@ export default function NpdLayout() {
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -40,6 +42,7 @@ export default function NpdLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       />
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <main className="flex-1 overflow-hidden">
@@ -47,7 +50,7 @@ export default function NpdLayout() {
         </main>
         {messengerOpen && (
           <div className="w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} />
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ import GanttView from "@/modules/pmo/pages/GanttView";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
@@ -30,6 +31,7 @@ export default function PmoLayout() {
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -61,6 +63,7 @@ export default function PmoLayout() {
         onAiOpen={() => setAiOpen(true)}
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
+        unreadCount={unreadCount}
       >
         <nav className="flex items-center gap-0.5 whitespace-nowrap">
           {navItems.map((item) => {
@@ -95,7 +98,7 @@ export default function PmoLayout() {
         </main>
         {messengerOpen && (
           <div className="w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} />
           </div>
         )}
       </div>

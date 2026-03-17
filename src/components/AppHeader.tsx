@@ -9,6 +9,7 @@ interface AppHeaderProps {
   onAiOpen?: () => void;
   onMessengerToggle?: () => void;
   messengerOpen?: boolean;
+  unreadCount?: number;
   /** Extra elements rendered between module nav and right actions (e.g. sub-nav tabs) */
   children?: React.ReactNode;
 }
@@ -25,6 +26,7 @@ export default function AppHeader({
   onAiOpen,
   onMessengerToggle,
   messengerOpen,
+  unreadCount = 0,
   children,
 }: AppHeaderProps) {
   const location = useLocation();
@@ -128,7 +130,7 @@ export default function AppHeader({
           <button
             onClick={onMessengerToggle}
             className={cn(
-              "p-1.5 rounded-lg transition-colors",
+              "p-1.5 rounded-lg transition-colors relative",
               messengerOpen
                 ? "text-primary bg-primary/10"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -136,6 +138,11 @@ export default function AppHeader({
             title="Сообщения"
           >
             <MessageCircle className="h-4 w-4" />
+            {unreadCount > 0 && !messengerOpen && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none animate-in zoom-in-50">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
         )}
 
