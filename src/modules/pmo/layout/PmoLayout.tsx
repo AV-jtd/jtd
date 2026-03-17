@@ -31,6 +31,7 @@ export default function PmoLayout() {
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
