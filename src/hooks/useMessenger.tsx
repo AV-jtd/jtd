@@ -128,6 +128,7 @@ export function useThreads() {
               lastMessage: info.content,
               lastMessageAt: info.created_at,
               lastMessageAuthor: profileMap.get(info.user_id) || null,
+              lastMessageUserId: info.user_id,
               messageCount: info.count,
               taskId: t.id,
               groupName: t.group_id ? taskGroupMap.get(t.group_id) || undefined : undefined,
