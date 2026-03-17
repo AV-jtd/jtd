@@ -658,6 +658,24 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
+  const [crmExporting, setCrmExporting] = useState(false);
+  const handleCrmExport = async () => {
+    setCrmExporting(true);
+    try {
+      const { exportCrmToExcel, downloadExcel } = await import("@/lib/crmExcel");
+      const ids = filteredTasks.map(t => t.id);
+      if (ids.length === 0) { toast.error("Нет задач для экспорта"); setCrmExporting(false); return; }
+      const blob = await exportCrmToExcel(ids);
+      downloadExcel(blob, "CRM_Экспорт.xlsx");
+      toast.success("Excel экспортирован");
+    } catch (e: any) { toast.error("Ошибка экспорта: " + e.message); }
+    finally { setCrmExporting(false); }
+  };
+  const handleCrmTemplateDownload = async () => {
+    const { downloadCrmTemplate } = await import("@/lib/crmExcel");
+    downloadCrmTemplate();
+  };
+
   const hasFilters = searchQuery || filterTagIds.length > 0 || filterGroupIds.length > 0 || filterAssigneeIds.length > 0 || filterTerritoryIds.length > 0 || filterRetailTypeIds.length > 0 || filterRankIds.length > 0 || filterManagerIds.length > 0;
   const activeFilterCount = filterTagIds.length + filterGroupIds.length + filterAssigneeIds.length + filterTerritoryIds.length + filterRetailTypeIds.length + filterRankIds.length + filterManagerIds.length;
 
