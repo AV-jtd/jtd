@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, QueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
