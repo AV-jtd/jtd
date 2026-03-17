@@ -691,6 +691,33 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
           </button>
         )}
 
+        <div className="h-4 w-px bg-border" />
+
+        {/* Import / Export */}
+        {selectedProjectId && (
+          <>
+            <SmartExportDialog
+              groupId={selectedProjectId}
+              groupName={rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"}
+              trigger={
+                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Download className="h-3 w-3" />
+                  <span className="hidden sm:inline">Excel</span>
+                </button>
+              }
+            />
+            <SmartImportDialog
+              targetGroupId={selectedProjectId}
+              trigger={
+                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <Upload className="h-3 w-3" />
+                  <span className="hidden sm:inline">Импорт</span>
+                </button>
+              }
+            />
+          </>
+        )}
+
         <span className="text-xs text-muted-foreground ml-auto">
           {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
         </span>
