@@ -1,10 +1,28 @@
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, LogOut } from "lucide-react";
 
 export default function PendingApproval() {
   const { user, loading, isApproved, signOut } = useAuth();
+
+  // Poll approval status every 5 seconds
+  useEffect(() => {
+    if (!user || isApproved) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_approved")
+        .eq("id", user.id)
+        .single();
+      if (data?.is_approved) {
+        window.location.href = "/";
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [user, isApproved]);
 
   if (loading) {
     return (
