@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useLinkedTagIds } from "@/hooks/useTasks";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { List, FolderOpen, Users, Tag, CheckCircle2, Search, FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
