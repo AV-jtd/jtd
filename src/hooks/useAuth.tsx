@@ -47,31 +47,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    // Restore session first, then listen for changes
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id).finally(() => {
+          if (isMounted) setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
-      } else {
-        setIsApproved(false);
-        setIsAdmin(false);
-      }
-    });
-
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        if (!isMounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
+        // Set loading while profile is being fetched to prevent premature redirects
+        setLoading(true);
+        setTimeout(() => {
           fetchProfile(session.user.id).finally(() => {
             if (isMounted) setLoading(false);
           });
-        } else {
-          setLoading(false);
-        }
-      });
+        }, 0);
+      } else {
+        setIsApproved(false);
+        setIsAdmin(false);
+        setLoading(false);
+      }
+    });
 
     return () => {
       isMounted = false;
