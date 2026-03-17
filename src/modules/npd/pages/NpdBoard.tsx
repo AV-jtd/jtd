@@ -218,8 +218,45 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     staleTime: 1000 * 60 * 30,
   });
 
-  const gateTags = npdTagData?.gateTags || [];
-  const streamTags = npdTagData?.streamTags || [];
+  // ── Fetch ALL gate/stream tags across all users (for shared projects) ──
+  const { data: allNpdTags } = useQuery({
+    queryKey: ["npd-all-gate-stream-tags"],
+    queryFn: async () => {
+      const gateNames = NPD_GATES.map((g) => g.tagName);
+      const { data: allGates } = await supabase
+        .from("tags")
+        .select("id, name")
+        .in("name", gateNames);
+      const { data: allStreams } = await supabase
+        .from("tags")
+        .select("id, name")
+        .in("name", NPD_STREAMS);
+      return {
+        allGateTags: (allGates || []) as { id: string; name: string }[],
+        allStreamTags: (allStreams || []) as { id: string; name: string }[],
+      };
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const ownGateTags = npdTagData?.gateTags || [];
+  const ownStreamTags = npdTagData?.streamTags || [];
+
+  // Merge own + all users' tags (deduplicated by id)
+  const gateTags = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const t of ownGateTags) map.set(t.id, t);
+    for (const t of (allNpdTags?.allGateTags || [])) map.set(t.id, t);
+    return [...map.values()];
+  }, [ownGateTags, allNpdTags]);
+
+  const streamTags = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const t of ownStreamTags) map.set(t.id, t);
+    for (const t of (allNpdTags?.allStreamTags || [])) map.set(t.id, t);
+    return [...map.values()];
+  }, [ownStreamTags, allNpdTags]);
 
   // Map tag name -> gate key
   const tagNameToGateKey = useMemo(() => {
@@ -230,17 +267,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, []);
 
-  // Map gate key -> tag id
+  // Map gate key -> tag id (prefer own user's tag id for mutations)
   const gateKeyToTagId = useMemo(() => {
     const m = new Map<string, string>();
     for (const tag of gateTags) {
       const key = tagNameToGateKey.get(tag.name);
       if (key) m.set(key, tag.id);
     }
+    // Overwrite with own tags so mutations use own tag ids
+    for (const tag of ownGateTags) {
+      const key = tagNameToGateKey.get(tag.name);
+      if (key) m.set(key, tag.id);
+    }
     return m;
-  }, [gateTags, tagNameToGateKey]);
+  }, [gateTags, ownGateTags, tagNameToGateKey]);
 
-  // Tag id -> gate key
+  // Tag id -> gate key (includes ALL users' tags)
   const tagIdToGateKey = useMemo(() => {
     const m = new Map<string, string>();
     for (const tag of gateTags) {

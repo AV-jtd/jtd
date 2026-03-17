@@ -146,18 +146,16 @@ export default function NpdSwimlaneMatrix() {
         );
       }
 
-      // IMPORTANT: also include legacy tags with same names from other categories
+      // IMPORTANT: include tags with same names from ALL users (for shared projects)
       const gateNames = NPD_GATES.map(g => g.tagName);
       const { data: allGateTagsByName } = await supabase
         .from("tags")
         .select("id, name")
-        .eq("user_id", user.id)
         .in("name", gateNames);
 
       const { data: allStreamTagsByName } = await supabase
         .from("tags")
         .select("id, name")
-        .eq("user_id", user.id)
         .in("name", NPD_STREAMS);
 
       return {
