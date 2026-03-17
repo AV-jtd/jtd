@@ -32,15 +32,18 @@ describe("computeCascadeUpdates", () => {
     expect(new Date(bUpdate.start_at!).toISOString()).toBe("2026-03-09T00:00:00.000Z");
   });
 
-  it("should NOT cascade when deadline moves backward (negative delta)", () => {
+  it("should cascade backward when deadline moves backward (negative delta)", () => {
     const deps = [makeDep("A", "B")];
     const entities = new Map([
-      ["A", { id: "A", deadline: "2026-03-10T00:00:00Z", created_at: "2026-03-01T00:00:00Z" }],
-      ["B", { id: "B", deadline: "2026-03-15T00:00:00Z", created_at: "2026-03-11T00:00:00Z" }],
+      ["A", { id: "A", deadline: "2026-03-10T00:00:00Z", start_at: "2026-03-06T00:00:00Z", created_at: "2026-03-01T00:00:00Z" }],
+      ["B", { id: "B", deadline: "2026-03-15T00:00:00Z", start_at: "2026-03-11T00:00:00Z", created_at: "2026-03-11T00:00:00Z" }],
     ]);
-    // Move A deadline backward from Mar 10 to Mar 7
+    // Move A deadline backward from Mar 10 to Mar 7 (-3 days)
     const result = computeCascadeUpdates("A", new Date("2026-03-07"), new Date("2026-03-10"), deps, entities);
-    expect(result.size).toBe(0);
+    expect(result.size).toBe(1);
+    const bUpdate = result.get("B")!;
+    expect(new Date(bUpdate.deadline!).toISOString()).toBe("2026-03-12T00:00:00.000Z");
+    expect(new Date(bUpdate.start_at!).toISOString()).toBe("2026-03-08T00:00:00.000Z");
   });
 
   it("should cascade through a chain A→B→C", () => {
