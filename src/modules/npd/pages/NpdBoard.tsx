@@ -69,6 +69,8 @@ type NpdProject = {
   gateTags: string[];  // tag_ids that are gate tags (own)
   allGateKeys: string[]; // all gate keys from own + child subproject tags
   streamTags: string[]; // tag_ids that are stream tags
+  otherTagIds: string[]; // non-gate, non-stream tag ids for filtering
+  assigneeUserId: string | null; // project-level assignee (from group_members)
   stats: { total: number; completed: number; overdue: number };
   streamStats: { name: string; total: number; completed: number }[];
 };
