@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, useRef, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,74 +21,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
     const [profileRes, roleRes, adminCountRes] = await Promise.all([
       supabase.from("profiles").select("is_approved").eq("id", userId).single(),
       supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
       supabase.from("user_roles").select("id", { count: "exact", head: true }),
     ]);
-    
+
+    // Only apply results if this is still the latest fetch and component is mounted
+    if (fetchIdRef.current !== fetchId || !isMounted()) return;
+
     // If no admins exist, first user becomes admin
     const noAdminsExist = (adminCountRes.count ?? 0) === 0;
     if (noAdminsExist) {
       await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
+      if (fetchIdRef.current !== fetchId || !isMounted()) return;
       setIsAdmin(true);
-      // Auto-approve the first admin
       await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
+      if (fetchIdRef.current !== fetchId || !isMounted()) return;
       setIsApproved(true);
+      setLoading(false);
       return;
     }
-    
+
     setIsApproved((profileRes.data as any)?.is_approved ?? false);
     setIsAdmin(!!roleRes.data);
+    setLoading(false);
   };
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    const isMounted = () => mounted;
+    let initialSessionHandled = false;
 
-    // Restore session first, then listen for changes
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => {
-          if (isMounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
+    // Set up onAuthStateChange FIRST — it fires INITIAL_SESSION synchronously
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!mounted) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        // Set loading while profile is being fetched to prevent premature redirects
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+
+      if (newSession?.user) {
+        // Always set loading true while fetching profile
         setLoading(true);
+        const id = ++fetchIdRef.current;
+        // Use setTimeout to avoid blocking the auth state change callback
         setTimeout(() => {
-          fetchProfile(session.user.id).finally(() => {
-            if (isMounted) setLoading(false);
-          });
+          fetchProfile(newSession.user.id, id, isMounted);
         }, 0);
       } else {
         setIsApproved(false);
         setIsAdmin(false);
         setLoading(false);
       }
+
+      initialSessionHandled = true;
     });
 
+    // Fallback: if onAuthStateChange didn't fire synchronously (shouldn't happen, but just in case)
+    setTimeout(() => {
+      if (!initialSessionHandled && mounted) {
+        supabase.auth.getSession().then(({ data: { session: s } }) => {
+          if (!mounted || initialSessionHandled) return;
+          setSession(s);
+          setUser(s?.user ?? null);
+          if (s?.user) {
+            const id = ++fetchIdRef.current;
+            fetchProfile(s.user.id, id, isMounted);
+          } else {
+            setLoading(false);
+          }
+        });
+      }
+    }, 100);
+
     return () => {
-      isMounted = false;
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signUp = async (email: string, password: string, displayName: string, telegramUsername?: string) => {
     const cleanUsername = telegramUsername?.replace(/^@/, "").toLowerCase().trim() || undefined;
-    const { data: signUpData, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -96,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: window.location.origin,
       },
     });
-    
     return { error: error as Error | null };
   };
 
