@@ -89,8 +89,8 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
   const completedSubs = subtasks.filter(s => s.is_completed).length;
   const linkedTagId = task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id : null;
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
-  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId);
-  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id));
+  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
+  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
 
   const fetchTagSuggestions = useCallback(async () => {
     if (suggestionsLoaded.current || availableTags.length === 0) return;
