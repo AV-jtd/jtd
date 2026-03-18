@@ -3,18 +3,16 @@ import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers }
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search, Sparkles } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { isToday, parseISO, format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { isToday, parseISO } from "date-fns";
 import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import ConfirmDelete from "@/components/ConfirmDelete";
+import TaskCreateBar from "@/components/task-list/TaskCreateBar";
+import TaskFiltersBar from "@/components/task-list/TaskFiltersBar";
 import {
   DndContext,
   closestCenter,
