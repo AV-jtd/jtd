@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef, memo } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,7 +142,7 @@ const MODULE_CONFIG: Record<string, {
   },
 };
 
-export default function AiAssistant({ open, onOpenChange, moduleContext, onRequestImport }: AiAssistantProps) {
+const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function AiAssistantInner({ open, onOpenChange, moduleContext, onRequestImport }, _ref) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
@@ -558,4 +558,7 @@ export default function AiAssistant({ open, onOpenChange, moduleContext, onReque
       </SheetContent>
     </Sheet>
   );
-}
+});
+
+const AiAssistant = memo(AiAssistantInner);
+export default AiAssistant;
