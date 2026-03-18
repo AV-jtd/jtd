@@ -142,7 +142,7 @@ const MODULE_CONFIG: Record<string, {
   },
 };
 
-export default function AiAssistant({ open, onOpenChange, moduleContext, onRequestImport }: AiAssistantProps) {
+const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function AiAssistantInner({ open, onOpenChange, moduleContext, onRequestImport }, _ref) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: tags = [] } = useTags();
