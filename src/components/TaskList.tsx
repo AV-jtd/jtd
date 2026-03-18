@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
@@ -203,8 +203,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(q));
   }
 
-  const activeTasks = filteredTasks.filter(t => !t.is_completed);
-  const completedTasks = filteredTasks.filter(t => t.is_completed);
+  const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
+  const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

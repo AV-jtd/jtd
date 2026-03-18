@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
@@ -53,7 +53,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
-export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
@@ -1238,3 +1238,15 @@ export default function TaskItem({ task, sortable, initialOpen, onOpened, onTagC
     </div>
   );
 }
+
+const TaskItem = memo(TaskItemInner, (prev, next) => {
+  return (
+    prev.task === next.task &&
+    prev.sortable === next.sortable &&
+    prev.initialOpen === next.initialOpen &&
+    prev.selected === next.selected &&
+    prev.selectable === next.selectable
+  );
+});
+
+export default TaskItem;
