@@ -118,7 +118,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const selectAll = useCallback(() => {
     const allIds = activeTasks.map(t => t.id);
     setSelectedIds(new Set(allIds));
-  }, []);
+  }, [activeTasks]);
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
