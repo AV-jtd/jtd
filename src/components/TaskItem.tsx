@@ -1238,3 +1238,15 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
     </div>
   );
 }
+
+const TaskItem = memo(TaskItemInner, (prev, next) => {
+  return (
+    prev.task === next.task &&
+    prev.sortable === next.sortable &&
+    prev.initialOpen === next.initialOpen &&
+    prev.selected === next.selected &&
+    prev.selectable === next.selectable
+  );
+});
+
+export default TaskItem;
