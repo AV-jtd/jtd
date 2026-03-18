@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useDeferredValue, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,6 @@ import { useLinkedTagIds } from "@/hooks/useTasks";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { List, FolderOpen, Users, Tag, CheckCircle2, Search, FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface GlobalSearchProps {
@@ -40,6 +39,7 @@ export default function GlobalSearch({
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const deferredQuery = useDeferredValue(query.trim());
 
   useEffect(() => {
     if (!open) {
@@ -48,13 +48,20 @@ export default function GlobalSearch({
     }
   }, [open]);
 
-  const { data: results } = useQuery({
-    queryKey: ["global-search", query, user?.id],
-    queryFn: async () => {
-      if (!user || !query.trim()) return { tasks: [], groups: [], clients: [], tags: [] };
-      const q = query.trim();
+  const handleSelect = useCallback((item: { type: string; id: string; data: any }) => {
+    onOpenChange(false);
+    if (item.type === "task") onNavigateToTask?.(item.id);
+    else if (item.type === "group") onNavigateToProject?.(item.id);
+    else if (item.type === "client") navigate("/crm");
+    else if (item.type === "tag") onNavigateToTag?.(item.id);
+  }, [navigate, onNavigateToProject, onNavigateToTag, onNavigateToTask, onOpenChange]);
 
-      // Search tasks by title OR description
+  const { data: results } = useQuery({
+    queryKey: ["global-search", deferredQuery, user?.id],
+    queryFn: async () => {
+      if (!user || !deferredQuery) return { tasks: [], groups: [], clients: [], tags: [] };
+      const q = deferredQuery;
+
       const [titleRes, descRes, groupsRes, clientsRes, tagsRes, subtasksRes] = await Promise.all([
         supabase
           .from("tasks")
@@ -91,38 +98,37 @@ export default function GlobalSearch({
           .limit(6),
       ]);
 
-      // Merge task results, dedup by id
       const taskMap = new Map<string, TaskResult>();
 
-      for (const t of titleRes.data || []) {
-        taskMap.set(t.id, { ...t, matchType: "title" });
+      for (const task of titleRes.data || []) {
+        taskMap.set(task.id, { ...task, matchType: "title" });
       }
-      for (const t of descRes.data || []) {
-        if (!taskMap.has(t.id)) {
-          taskMap.set(t.id, { ...t, matchType: "description" });
+      for (const task of descRes.data || []) {
+        if (!taskMap.has(task.id)) {
+          taskMap.set(task.id, { ...task, matchType: "description" });
         }
       }
 
-      // Subtask matches — load parent tasks
       const subtaskRows = subtasksRes.data || [];
       if (subtaskRows.length > 0) {
-        const parentIds = [...new Set(subtaskRows.map(s => s.task_id))].filter(id => !taskMap.has(id));
+        const parentIds = [...new Set(subtaskRows.map((subtask) => subtask.task_id))].filter(id => !taskMap.has(id));
         if (parentIds.length > 0) {
           const { data: parentTasks } = await supabase
             .from("tasks")
             .select("id, title, description, is_completed, group_id")
             .in("id", parentIds);
-          for (const t of parentTasks || []) {
-            const matchingSub = subtaskRows.find(s => s.task_id === t.id);
-            taskMap.set(t.id, { ...t, matchType: "subtask", subtaskMatch: matchingSub?.title });
+
+          for (const task of parentTasks || []) {
+            const matchingSubtask = subtaskRows.find((subtask) => subtask.task_id === task.id);
+            taskMap.set(task.id, { ...task, matchType: "subtask", subtaskMatch: matchingSubtask?.title });
           }
         }
-        // Also annotate already-found tasks with subtask info
-        for (const s of subtaskRows) {
-          const existing = taskMap.get(s.task_id);
-          if (existing && existing.matchType !== "title") {
-            existing.matchType = "subtask";
-            existing.subtaskMatch = s.title;
+
+        for (const subtask of subtaskRows) {
+          const existingTask = taskMap.get(subtask.task_id);
+          if (existingTask && existingTask.matchType !== "title") {
+            existingTask.matchType = "subtask";
+            existingTask.subtaskMatch = subtask.title;
           }
         }
       }
@@ -131,21 +137,24 @@ export default function GlobalSearch({
         tasks: [...taskMap.values()].slice(0, 10),
         groups: groupsRes.data || [],
         clients: clientsRes.data || [],
-        tags: (tagsRes.data || []).filter((t: any) => !linkedTagIds.has(t.id)),
+        tags: (tagsRes.data || []).filter((tag: { id: string }) => !linkedTagIds.has(tag.id)),
       };
     },
-    enabled: !!user && open && query.trim().length > 0,
-    staleTime: 1000,
+    enabled: !!user && open && deferredQuery.length > 0,
+    staleTime: 3000,
   });
 
-  // Flatten results for keyboard navigation
-  const allItems: { type: string; id: string; data: any }[] = [];
-  if (results) {
-    for (const t of results.tasks) allItems.push({ type: "task", id: t.id, data: t });
-    for (const g of results.groups) allItems.push({ type: "group", id: g.id, data: g });
-    for (const c of results.clients) allItems.push({ type: "client", id: c.id, data: c });
-    for (const t of results.tags) allItems.push({ type: "tag", id: t.id, data: t });
-  }
+  const allItems = useMemo(() => {
+    const items: { type: string; id: string; data: any }[] = [];
+    if (!results) return items;
+
+    for (const task of results.tasks) items.push({ type: "task", id: task.id, data: task });
+    for (const group of results.groups) items.push({ type: "group", id: group.id, data: group });
+    for (const client of results.clients) items.push({ type: "client", id: client.id, data: client });
+    for (const tag of results.tags) items.push({ type: "tag", id: tag.id, data: tag });
+
+    return items;
+  }, [results]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -153,6 +162,7 @@ export default function GlobalSearch({
 
   useEffect(() => {
     if (!open) return;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -165,17 +175,10 @@ export default function GlobalSearch({
         handleSelect(allItems[selectedIndex]);
       }
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, allItems.length, selectedIndex]);
-
-  const handleSelect = (item: { type: string; id: string; data: any }) => {
-    onOpenChange(false);
-    if (item.type === "task") onNavigateToTask?.(item.id);
-    else if (item.type === "group") onNavigateToProject?.(item.id);
-    else if (item.type === "client") navigate("/crm");
-    else if (item.type === "tag") onNavigateToTag?.(item.id);
-  };
+  }, [allItems, handleSelect, open, selectedIndex]);
 
   const hasResults = allItems.length > 0;
 

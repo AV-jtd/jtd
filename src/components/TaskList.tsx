@@ -3,18 +3,16 @@ import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers }
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import ProjectChat from "./ProjectChat";
-import { Plus, List, Star, CalendarDays, Users, CalendarIcon, Inbox, Expand, Flag, X, MessageCircle, Clock, CheckSquare, Trash2, FolderOpen, Tag, User, Layers, Briefcase, Search, Sparkles } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { isToday, parseISO, format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { isToday, parseISO } from "date-fns";
 import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import ConfirmDelete from "@/components/ConfirmDelete";
+import TaskCreateBar from "@/components/task-list/TaskCreateBar";
+import TaskFiltersBar from "@/components/task-list/TaskFiltersBar";
 import {
   DndContext,
   closestCenter,
@@ -58,11 +56,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
-  const [newTitle, setNewTitle] = useState("");
-  const [newDeadline, setNewDeadline] = useState<Date | undefined>();
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
-  const [newClientName, setNewClientName] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
@@ -121,9 +114,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }, []);
 
   const selectAll = useCallback(() => {
-    const allIds = activeTasks.map(t => t.id);
-    setSelectedIds(new Set(allIds));
-  }, []);
+    setSelectedIds(new Set(tasks.map(t => t.id)));
+  }, [tasks]);
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
@@ -155,53 +147,57 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
-  const now = new Date();
+  const filteredTasks = useMemo(() => {
+    const now = new Date();
+    let nextTasks = tasks;
 
-  let filteredTasks = tasks;
-  if (activeView === "inbox") {
-    filteredTasks = tasks.filter(t => !t.group_id);
-  } else if (activeView === "important") {
-    filteredTasks = tasks.filter(t => t.is_important);
-  } else if (activeView === "today") {
-    filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
-  } else if (activeView === "assigned") {
-    filteredTasks = tasks.filter(t => t.assigned_to);
-  } else if (activeView === "deferred") {
-    filteredTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
-  } else {
-    filteredTasks = filteredTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
-  }
-
-  if (priorityFilter !== null) {
-    if (priorityFilter === "important") {
-      filteredTasks = filteredTasks.filter(t => t.is_important);
+    if (activeView === "inbox") {
+      nextTasks = tasks.filter(t => !t.group_id);
+    } else if (activeView === "important") {
+      nextTasks = tasks.filter(t => t.is_important);
+    } else if (activeView === "today") {
+      nextTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
+    } else if (activeView === "assigned") {
+      nextTasks = tasks.filter(t => t.assigned_to);
+    } else if (activeView === "deferred") {
+      nextTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
     } else {
-      filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+      nextTasks = tasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
     }
-  }
 
-  if (assigneeFilter !== null) {
-    if (assigneeFilter === "me") {
-      filteredTasks = filteredTasks.filter(t => t.assigned_to === user?.id);
-    } else if (assigneeFilter === "unassigned") {
-      filteredTasks = filteredTasks.filter(t => !t.assigned_to);
-    } else {
-      filteredTasks = filteredTasks.filter(t => t.assigned_to === assigneeFilter);
+    if (priorityFilter !== null) {
+      if (priorityFilter === "important") {
+        nextTasks = nextTasks.filter(t => t.is_important);
+      } else {
+        nextTasks = nextTasks.filter(t => (t as any).priority === priorityFilter);
+      }
     }
-  }
 
-  if (projectFilter !== null) {
-    if (projectFilter === "none") {
-      filteredTasks = filteredTasks.filter(t => !t.group_id);
-    } else {
-      filteredTasks = filteredTasks.filter(t => t.group_id === projectFilter);
+    if (assigneeFilter !== null) {
+      if (assigneeFilter === "me") {
+        nextTasks = nextTasks.filter(t => t.assigned_to === user?.id);
+      } else if (assigneeFilter === "unassigned") {
+        nextTasks = nextTasks.filter(t => !t.assigned_to);
+      } else {
+        nextTasks = nextTasks.filter(t => t.assigned_to === assigneeFilter);
+      }
     }
-  }
 
-  if (searchFilter.trim()) {
-    const q = searchFilter.toLowerCase();
-    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(q));
-  }
+    if (projectFilter !== null) {
+      if (projectFilter === "none") {
+        nextTasks = nextTasks.filter(t => !t.group_id);
+      } else {
+        nextTasks = nextTasks.filter(t => t.group_id === projectFilter);
+      }
+    }
+
+    const normalizedSearch = searchFilter.trim().toLowerCase();
+    if (normalizedSearch) {
+      nextTasks = nextTasks.filter(t => t.title.toLowerCase().includes(normalizedSearch));
+    }
+
+    return nextTasks;
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
@@ -221,23 +217,15 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
   }, [activeTasks, reorderTasks]);
 
-  const handleAddTask = () => {
-    if (newTitle.trim()) {
-      const isCrm = newTaskType === 'crm';
-      if (isCrm && !newClientName.trim()) return;
-      addTask.mutate({
-        title: newTitle.trim(),
-        group_id: activeView === "group" ? activeGroupId : null,
-        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : null,
-        task_type: newTaskType,
-        client_name: isCrm ? newClientName.trim() : undefined,
-      });
-      setNewTitle("");
-      setNewDeadline(undefined);
-      setNewTaskType("standard");
-      setNewClientName("");
-    }
-  };
+  const handleCreateTask = useCallback((payload: {
+    title: string;
+    group_id: string | null;
+    deadline: string | null;
+    task_type: "standard" | "crm";
+    client_name?: string;
+  }) => {
+    addTask.mutate(payload);
+  }, [addTask]);
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -408,223 +396,28 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* Filters */}
         {!batchMode && (
-          <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-            {/* Inline search */}
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <input
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Поиск..."
-                className="h-7 w-32 focus:w-44 transition-all pl-7 pr-6 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              {searchFilter && (
-                <button onClick={() => setSearchFilter("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-            {/* Priority filters */}
-            {[
-              { value: 1 as number | "important", label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "flag" },
-              { value: "important" as number | "important", label: "Важные", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
-            ].map(p => (
-              <button
-                key={String(p.value)}
-                onClick={() => setPriorityFilter(prev => prev === p.value ? null : p.value)}
-                className={cn(
-                  "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
-                  priorityFilter === p.value
-                    ? p.color
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                )}
-              >
-                {p.icon === "star" ? <Star className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
-                {p.label}
-              </button>
-            ))}
-
-            {/* Assignee filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
-                    assigneeFilter !== null
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                  )}
-                >
-                  <User className="h-3 w-3" />
-                  {assigneeFilter === null
-                    ? "Ответственный"
-                    : assigneeFilter === "me"
-                      ? "Мои"
-                      : assigneeFilter === "unassigned"
-                        ? "Без ответственного"
-                        : availableUsers.find(u => u.id === assigneeFilter)?.display_name || "Пользователь"}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
-                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Ответственный</p>
-                <button
-                  onClick={() => setAssigneeFilter(prev => prev === "me" ? null : "me")}
-                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "me" && "bg-primary/10 text-primary")}
-                >
-                  Назначены мне
-                </button>
-                <button
-                  onClick={() => setAssigneeFilter(prev => prev === "unassigned" ? null : "unassigned")}
-                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "unassigned" && "bg-primary/10 text-primary")}
-                >
-                  Без ответственного
-                </button>
-                {availableUsers.filter(u => u.id !== user?.id).map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => setAssigneeFilter(prev => prev === u.id ? null : u.id)}
-                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", assigneeFilter === u.id && "bg-primary/10 text-primary")}
-                  >
-                    {u.display_name || u.email || "—"}
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
-
-            {/* Project filter */}
-            {activeView !== "group" && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    className={cn(
-                      "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
-                      projectFilter !== null
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                    )}
-                  >
-                    <Layers className="h-3 w-3" />
-                    {projectFilter === null
-                      ? "Проект"
-                      : projectFilter === "none"
-                        ? "Без проекта"
-                        : groups.find(g => g.id === projectFilter)?.name || "Проект"}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
-                  <p className="text-xs font-medium text-muted-foreground px-2 py-1">Проект</p>
-                  <button
-                    onClick={() => setProjectFilter(prev => prev === "none" ? null : "none")}
-                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground", projectFilter === "none" && "bg-primary/10 text-primary")}
-                  >
-                    Без проекта
-                  </button>
-                  {groups.map(g => (
-                    <button
-                      key={g.id}
-                      onClick={() => setProjectFilter(prev => prev === g.id ? null : g.id)}
-                      className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === g.id && "bg-primary/10 text-primary")}
-                    >
-                      {g.name}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            )}
-
-            {/* Reset */}
-            {(priorityFilter !== null || assigneeFilter !== null || projectFilter !== null) && (
-              <button
-                onClick={() => { setPriorityFilter(null); setAssigneeFilter(null); setProjectFilter(null); }}
-                className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                <X className="h-3 w-3" /> Сбросить
-              </button>
-            )}
-          </div>
+          <TaskFiltersBar
+            searchValue={searchFilter}
+            onSearchChange={setSearchFilter}
+            priorityFilter={priorityFilter}
+            onPriorityFilterChange={setPriorityFilter}
+            assigneeFilter={assigneeFilter}
+            onAssigneeFilterChange={setAssigneeFilter}
+            projectFilter={projectFilter}
+            onProjectFilterChange={setProjectFilter}
+            availableUsers={availableUsers}
+            groups={groups}
+            currentUserId={user?.id}
+            activeView={activeView}
+          />
         )}
 
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleAddTask(); }}
-          className="mb-6 bg-card rounded-xl border border-border shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all"
-        >
-          <div className="flex items-center gap-3 p-3">
-            <button
-              type="submit"
-              disabled={!newTitle.trim() || (newTaskType === 'crm' && !newClientName.trim())}
-              className="h-8 w-8 rounded-full border-2 border-primary/30 flex items-center justify-center shrink-0 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20 touch-manipulation"
-            >
-              <Plus className="h-4 w-4 text-primary" />
-            </button>
-            <Input
-              ref={inputRef}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Добавить задачу...  (N)"
-              enterKeyHint="done"
-              className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
-            />
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Task type toggle */}
-              <button
-                type="button"
-                onClick={() => { setNewTaskType(prev => prev === 'standard' ? 'crm' : 'standard'); setNewClientName(""); }}
-                className={cn(
-                  "flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                  newTaskType === 'crm'
-                    ? "border-red-500/30 bg-red-500/10 text-red-500"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                )}
-                title="Тип задачи: CRM"
-              >
-                <Briefcase className="h-3.5 w-3.5" />
-                {newTaskType === 'crm' ? 'CRM' : ''}
-              </button>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                      newDeadline
-                        ? "border-primary/30 bg-primary/5 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                    )}
-                  >
-                    <CalendarIcon className="h-3.5 w-3.5" />
-                    {newDeadline ? format(newDeadline, "d MMM", { locale: ru }) : "Срок"}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={newDeadline}
-                    onSelect={(date) => { setNewDeadline(date); setCalendarOpen(false); }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-          {/* CRM client name field */}
-          {newTaskType === 'crm' && (
-            <div className="px-3 pb-3 pt-0">
-              <div className="flex items-center gap-2 pl-11">
-                <Briefcase className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                <Input
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  placeholder="Название клиента..."
-                  className="border-0 shadow-none p-0 h-auto focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60"
-                />
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 pl-11 mt-1">
-                Автоматически создаст тег и карточку клиента + шаги воронки
-              </p>
-            </div>
-          )}
-        </form>
+        <TaskCreateBar
+          inputRef={inputRef}
+          activeView={activeView}
+          activeGroupId={activeGroupId}
+          onCreateTask={handleCreateTask}
+        />
 
         {/* Subprojects dashboard */}
         {activeView === "group" && activeGroupId && (
