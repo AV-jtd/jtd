@@ -150,53 +150,57 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
-  const now = new Date();
+  const filteredTasks = useMemo(() => {
+    const now = new Date();
+    let nextTasks = tasks;
 
-  let filteredTasks = tasks;
-  if (activeView === "inbox") {
-    filteredTasks = tasks.filter(t => !t.group_id);
-  } else if (activeView === "important") {
-    filteredTasks = tasks.filter(t => t.is_important);
-  } else if (activeView === "today") {
-    filteredTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
-  } else if (activeView === "assigned") {
-    filteredTasks = tasks.filter(t => t.assigned_to);
-  } else if (activeView === "deferred") {
-    filteredTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
-  } else {
-    filteredTasks = filteredTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
-  }
-
-  if (priorityFilter !== null) {
-    if (priorityFilter === "important") {
-      filteredTasks = filteredTasks.filter(t => t.is_important);
+    if (activeView === "inbox") {
+      nextTasks = tasks.filter(t => !t.group_id);
+    } else if (activeView === "important") {
+      nextTasks = tasks.filter(t => t.is_important);
+    } else if (activeView === "today") {
+      nextTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
+    } else if (activeView === "assigned") {
+      nextTasks = tasks.filter(t => t.assigned_to);
+    } else if (activeView === "deferred") {
+      nextTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
     } else {
-      filteredTasks = filteredTasks.filter(t => (t as any).priority === priorityFilter);
+      nextTasks = tasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
     }
-  }
 
-  if (assigneeFilter !== null) {
-    if (assigneeFilter === "me") {
-      filteredTasks = filteredTasks.filter(t => t.assigned_to === user?.id);
-    } else if (assigneeFilter === "unassigned") {
-      filteredTasks = filteredTasks.filter(t => !t.assigned_to);
-    } else {
-      filteredTasks = filteredTasks.filter(t => t.assigned_to === assigneeFilter);
+    if (priorityFilter !== null) {
+      if (priorityFilter === "important") {
+        nextTasks = nextTasks.filter(t => t.is_important);
+      } else {
+        nextTasks = nextTasks.filter(t => (t as any).priority === priorityFilter);
+      }
     }
-  }
 
-  if (projectFilter !== null) {
-    if (projectFilter === "none") {
-      filteredTasks = filteredTasks.filter(t => !t.group_id);
-    } else {
-      filteredTasks = filteredTasks.filter(t => t.group_id === projectFilter);
+    if (assigneeFilter !== null) {
+      if (assigneeFilter === "me") {
+        nextTasks = nextTasks.filter(t => t.assigned_to === user?.id);
+      } else if (assigneeFilter === "unassigned") {
+        nextTasks = nextTasks.filter(t => !t.assigned_to);
+      } else {
+        nextTasks = nextTasks.filter(t => t.assigned_to === assigneeFilter);
+      }
     }
-  }
 
-  if (searchFilter.trim()) {
-    const q = searchFilter.toLowerCase();
-    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(q));
-  }
+    if (projectFilter !== null) {
+      if (projectFilter === "none") {
+        nextTasks = nextTasks.filter(t => !t.group_id);
+      } else {
+        nextTasks = nextTasks.filter(t => t.group_id === projectFilter);
+      }
+    }
+
+    const normalizedSearch = searchFilter.trim().toLowerCase();
+    if (normalizedSearch) {
+      nextTasks = nextTasks.filter(t => t.title.toLowerCase().includes(normalizedSearch));
+    }
+
+    return nextTasks;
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
@@ -216,23 +220,15 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
   }, [activeTasks, reorderTasks]);
 
-  const handleAddTask = () => {
-    if (newTitle.trim()) {
-      const isCrm = newTaskType === 'crm';
-      if (isCrm && !newClientName.trim()) return;
-      addTask.mutate({
-        title: newTitle.trim(),
-        group_id: activeView === "group" ? activeGroupId : null,
-        deadline: newDeadline ? format(newDeadline, "yyyy-MM-dd") : null,
-        task_type: newTaskType,
-        client_name: isCrm ? newClientName.trim() : undefined,
-      });
-      setNewTitle("");
-      setNewDeadline(undefined);
-      setNewTaskType("standard");
-      setNewClientName("");
-    }
-  };
+  const handleCreateTask = useCallback((payload: {
+    title: string;
+    group_id: string | null;
+    deadline: string | null;
+    task_type: "standard" | "crm";
+    client_name?: string;
+  }) => {
+    addTask.mutate(payload);
+  }, [addTask]);
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
