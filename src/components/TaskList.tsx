@@ -58,11 +58,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const { data: allTags = [] } = useTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
-  const [newTitle, setNewTitle] = useState("");
-  const [newDeadline, setNewDeadline] = useState<Date | undefined>();
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [newTaskType, setNewTaskType] = useState<"standard" | "crm">("standard");
-  const [newClientName, setNewClientName] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
