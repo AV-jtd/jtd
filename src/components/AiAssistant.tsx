@@ -558,4 +558,7 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
       </SheetContent>
     </Sheet>
   );
-}
+});
+
+const AiAssistant = memo(AiAssistantInner);
+export default AiAssistant;
