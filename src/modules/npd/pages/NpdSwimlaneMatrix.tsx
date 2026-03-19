@@ -413,7 +413,57 @@ export default function NpdSwimlaneMatrix() {
     };
   }, [allTasks, projectId, subprojects, streamSubMap, getTaskStream]);
 
-  // Move stream subproject to a gate
+  // ── Compute start date for each gate in each stream ──
+  // Gate 0 → project created_at; Gate N → MAX(deadline) of tasks in Gate N-1 for that stream
+  const getGateStartDate = useCallback((streamName: string, gateKey: string): Date | undefined => {
+    const gateIdx = NPD_GATES.findIndex(g => g.key === gateKey);
+    if (gateIdx < 0) return undefined;
+
+    // Gate 0 — start from project creation
+    if (gateIdx === 0) {
+      return project?.created_at ? new Date(project.created_at) : undefined;
+    }
+
+    // Previous gate key
+    const prevGateKey = NPD_GATES[gateIdx - 1].key;
+
+    // Find the stream subproject
+    const sub = streamSubMap.get(streamName);
+    if (!sub) return project?.created_at ? new Date(project.created_at) : undefined;
+
+    const tasks = tasksByGroup.get(sub.id) || [];
+    // Also include stream-tagged tasks from parent group
+    const streamTaggedTasks = streamTaggedTasksByStream.get(streamName) || [];
+    const allStreamTasks = [...tasks, ...streamTaggedTasks];
+
+    // Filter tasks in the previous gate
+    const prevGateTasks = allStreamTasks.filter(t => {
+      const tg = getTaskGate(t.id);
+      if (tg) return tg === prevGateKey;
+      // Fallback: if no task-level gate, check subproject gate
+      const subGate = getSubprojectGate(sub.id);
+      return subGate === prevGateKey;
+    });
+
+    if (prevGateTasks.length === 0) {
+      // No tasks in previous gate — recurse to find earlier gate boundary
+      return getGateStartDate(streamName, prevGateKey);
+    }
+
+    // MAX(deadline) of previous gate tasks
+    let maxDeadline: Date | undefined;
+    for (const t of prevGateTasks) {
+      if (t.deadline) {
+        const d = parseISO(t.deadline);
+        if (!maxDeadline || d > maxDeadline) maxDeadline = d;
+      }
+    }
+
+    // If no deadlines set in previous gate, fall back to project creation
+    return maxDeadline || (project?.created_at ? new Date(project.created_at) : undefined);
+  }, [project, streamSubMap, tasksByGroup, streamTaggedTasksByStream, getTaskGate, getSubprojectGate]);
+
+
   const moveStreamToGate = async (subId: string, gateKey: string) => {
     const gateTagId = gateKeyToTagId.get(gateKey);
     if (!gateTagId) return;
