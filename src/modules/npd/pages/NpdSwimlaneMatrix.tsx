@@ -553,6 +553,8 @@ export default function NpdSwimlaneMatrix() {
       };
       if (params.deadline) insertData.deadline = params.deadline.toISOString();
       if (params.assigneeId) insertData.assigned_to = params.assigneeId;
+      // Set start_at from gate boundary (template — user can adjust later via dependencies)
+      if (params.startFrom) insertData.start_at = params.startFrom.toISOString();
 
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
