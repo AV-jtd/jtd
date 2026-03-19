@@ -194,6 +194,21 @@ export default function QuickCreateForm({
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[60]" align="start">
+                  <div className="flex gap-1 px-3 pt-2 flex-wrap">
+                    {[3, 5, 7, 14, 30].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => { setDeadline(addDays(new Date(), d)); setCalOpen(false); }}
+                        className={cn(
+                          "text-[10px] px-2 py-1 rounded-md border transition-colors",
+                          "border-border text-muted-foreground hover:text-primary hover:border-primary/30"
+                        )}
+                      >
+                        {d}д
+                      </button>
+                    ))}
+                  </div>
                   <Calendar
                     mode="single"
                     selected={deadline}
