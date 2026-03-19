@@ -484,7 +484,7 @@ export default function NpdSwimlaneMatrix() {
 
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
-    params: { type: QuickCreateType; title: string; deadline?: Date; assigneeId?: string },
+    params: QuickCreateResult,
     groupId: string,
     streamName?: string,
     gateKey?: string,
