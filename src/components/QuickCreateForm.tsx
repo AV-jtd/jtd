@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { addDays } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import UserPicker from "@/components/UserPicker";
 import type { Profile } from "@/hooks/useTasks";
@@ -58,6 +59,7 @@ export default function QuickCreateForm({
   const [selectedType, setSelectedType] = useState<QuickCreateType>("task");
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>();
+  const [daysInput, setDaysInput] = useState<number>(7);
   const [assigneeId, setAssigneeId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
@@ -193,28 +195,48 @@ export default function QuickCreateForm({
                     {deadline ? format(deadline, "d MMM", { locale: ru }) : "Срок"}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[60]" align="start">
-                  <div className="flex gap-1 px-3 pt-2 flex-wrap">
-                    {[3, 5, 7, 14, 30].map(d => (
+                <PopoverContent className="w-64 p-0 z-[60]" align="start">
+                  <div className="p-3 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Через</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={daysInput}
+                        onChange={(e) => {
+                          const v = Math.max(1, Math.min(365, Number(e.target.value) || 1));
+                          setDaysInput(v);
+                        }}
+                        className="w-12 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      />
+                      <span className="text-[10px] text-muted-foreground">дн.</span>
                       <button
-                        key={d}
                         type="button"
-                        onClick={() => { setDeadline(addDays(new Date(), d)); setCalOpen(false); }}
-                        className={cn(
-                          "text-[10px] px-2 py-1 rounded-md border transition-colors",
-                          "border-border text-muted-foreground hover:text-primary hover:border-primary/30"
-                        )}
+                        onClick={() => { setDeadline(addDays(new Date(), daysInput)); setCalOpen(false); }}
+                        className="ml-auto text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
-                        {d}д
+                        ОК
                       </button>
-                    ))}
+                    </div>
+                    <Slider
+                      min={1}
+                      max={90}
+                      step={1}
+                      value={[Math.min(daysInput, 90)]}
+                      onValueChange={([v]) => setDaysInput(v)}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                      <span>1д</span><span>30д</span><span>90д</span>
+                    </div>
                   </div>
                   <Calendar
                     mode="single"
                     selected={deadline}
                     onSelect={(d) => { setDeadline(d || undefined); setCalOpen(false); }}
                     initialFocus
-                    className={cn("p-3 pointer-events-auto")}
+                    className={cn("p-3 pt-0 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
