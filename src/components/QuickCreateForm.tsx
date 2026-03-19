@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { addDays } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import UserPicker from "@/components/UserPicker";
 import type { Profile } from "@/hooks/useTasks";
