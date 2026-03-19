@@ -18,7 +18,7 @@ import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
-import type { QuickCreateType } from "@/components/QuickCreateForm";
+import type { QuickCreateType, QuickCreateResult } from "@/components/QuickCreateForm";
 import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
