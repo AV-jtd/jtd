@@ -838,6 +838,8 @@ export default function NpdSwimlaneMatrix() {
                                   singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact={cellTasks.length === 0}
+                                  startFrom={getGateStartDate(stream, gate.key)}
+                                  startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
                                 />
                               </div>
                             ) : (
