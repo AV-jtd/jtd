@@ -18,7 +18,7 @@ import UserPicker from "@/components/UserPicker";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
-import type { QuickCreateType } from "@/components/QuickCreateForm";
+import type { QuickCreateType, QuickCreateResult } from "@/components/QuickCreateForm";
 import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
@@ -413,7 +413,57 @@ export default function NpdSwimlaneMatrix() {
     };
   }, [allTasks, projectId, subprojects, streamSubMap, getTaskStream]);
 
-  // Move stream subproject to a gate
+  // ── Compute start date for each gate in each stream ──
+  // Gate 0 → project created_at; Gate N → MAX(deadline) of tasks in Gate N-1 for that stream
+  const getGateStartDate = useCallback((streamName: string, gateKey: string): Date | undefined => {
+    const gateIdx = NPD_GATES.findIndex(g => g.key === gateKey);
+    if (gateIdx < 0) return undefined;
+
+    // Gate 0 — start from project creation
+    if (gateIdx === 0) {
+      return project?.created_at ? new Date(project.created_at) : undefined;
+    }
+
+    // Previous gate key
+    const prevGateKey = NPD_GATES[gateIdx - 1].key;
+
+    // Find the stream subproject
+    const sub = streamSubMap.get(streamName);
+    if (!sub) return project?.created_at ? new Date(project.created_at) : undefined;
+
+    const tasks = tasksByGroup.get(sub.id) || [];
+    // Also include stream-tagged tasks from parent group
+    const streamTaggedTasks = streamTaggedTasksByStream.get(streamName) || [];
+    const allStreamTasks = [...tasks, ...streamTaggedTasks];
+
+    // Filter tasks in the previous gate
+    const prevGateTasks = allStreamTasks.filter(t => {
+      const tg = getTaskGate(t.id);
+      if (tg) return tg === prevGateKey;
+      // Fallback: if no task-level gate, check subproject gate
+      const subGate = getSubprojectGate(sub.id);
+      return subGate === prevGateKey;
+    });
+
+    if (prevGateTasks.length === 0) {
+      // No tasks in previous gate — recurse to find earlier gate boundary
+      return getGateStartDate(streamName, prevGateKey);
+    }
+
+    // MAX(deadline) of previous gate tasks
+    let maxDeadline: Date | undefined;
+    for (const t of prevGateTasks) {
+      if (t.deadline) {
+        const d = parseISO(t.deadline);
+        if (!maxDeadline || d > maxDeadline) maxDeadline = d;
+      }
+    }
+
+    // If no deadlines set in previous gate, fall back to project creation
+    return maxDeadline || (project?.created_at ? new Date(project.created_at) : undefined);
+  }, [project, streamSubMap, tasksByGroup, streamTaggedTasksByStream, getTaskGate, getSubprojectGate]);
+
+
   const moveStreamToGate = async (subId: string, gateKey: string) => {
     const gateTagId = gateKeyToTagId.get(gateKey);
     if (!gateTagId) return;
@@ -434,7 +484,7 @@ export default function NpdSwimlaneMatrix() {
 
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
-    params: { type: QuickCreateType; title: string; deadline?: Date; assigneeId?: string },
+    params: QuickCreateResult,
     groupId: string,
     streamName?: string,
     gateKey?: string,
@@ -503,6 +553,8 @@ export default function NpdSwimlaneMatrix() {
       };
       if (params.deadline) insertData.deadline = params.deadline.toISOString();
       if (params.assigneeId) insertData.assigned_to = params.assigneeId;
+      // Set start_at from gate boundary (template — user can adjust later via dependencies)
+      if (params.startFrom) insertData.start_at = params.startFrom.toISOString();
 
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
@@ -786,6 +838,8 @@ export default function NpdSwimlaneMatrix() {
                                   singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, sub.id, stream, gate.key)}
                                   compact={cellTasks.length === 0}
+                                  startFrom={getGateStartDate(stream, gate.key)}
+                                  startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
                                 />
                               </div>
                             ) : (
@@ -796,6 +850,8 @@ export default function NpdSwimlaneMatrix() {
                                   singleType="task"
                                   onCreate={(p) => handleQuickCreate(p, projectId!, stream, gate.key)}
                                   compact
+                                  startFrom={getGateStartDate(stream, gate.key)}
+                                  startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
                                 />
                               </div>
                             )}

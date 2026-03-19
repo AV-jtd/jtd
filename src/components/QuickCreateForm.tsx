@@ -1,14 +1,13 @@
 import { useState, useRef } from "react";
-import { addDays } from "date-fns";
+import { addDays, format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import UserPicker from "@/components/UserPicker";
 import type { Profile } from "@/hooks/useTasks";
-import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type QuickCreateType = "task" | "subproject";
@@ -24,16 +23,20 @@ const DEFAULT_OPTIONS: QuickCreateOption[] = [
   { type: "subproject", label: "Подпроект", icon: <FolderPlus className="h-3.5 w-3.5" /> },
 ];
 
+export interface QuickCreateResult {
+  type: QuickCreateType;
+  title: string;
+  deadline?: Date;
+  assigneeId?: string;
+  /** Suggested start date (template). User can override via dependencies later. */
+  startFrom?: Date;
+}
+
 interface QuickCreateFormProps {
   /** Available users for assignee picker */
   users: Profile[];
   /** Called when user submits. Return promise — spinner shown until resolved. */
-  onCreate: (params: {
-    type: QuickCreateType;
-    title: string;
-    deadline?: Date;
-    assigneeId?: string;
-  }) => Promise<void>;
+  onCreate: (params: QuickCreateResult) => Promise<void>;
   /** Which create options to show. Defaults to task + subproject. */
   options?: QuickCreateOption[];
   /** If only one option, skip the type selection step */
@@ -43,6 +46,14 @@ interface QuickCreateFormProps {
   /** Align popover */
   align?: "start" | "center" | "end";
   side?: "top" | "bottom" | "left" | "right";
+  /**
+   * Suggested start date for the task (template).
+   * Days slider will count from this date instead of today.
+   * Shown as a visual hint in the form.
+   */
+  startFrom?: Date;
+  /** Label explaining where startFrom comes from, e.g. "после Gate 1" */
+  startFromLabel?: string;
 }
 
 export default function QuickCreateForm({
@@ -53,6 +64,8 @@ export default function QuickCreateForm({
   compact = false,
   align = "start",
   side = "bottom",
+  startFrom,
+  startFromLabel,
 }: QuickCreateFormProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [step, setStep] = useState<"choose" | "form">("choose");
@@ -65,6 +78,9 @@ export default function QuickCreateForm({
   const [calOpen, setCalOpen] = useState(false);
   const [userPickerOpen, setUserPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Base date for the days slider: startFrom (gate boundary) or today
+  const baseDate = startFrom || new Date();
 
   const reset = () => {
     setStep("choose");
@@ -95,7 +111,13 @@ export default function QuickCreateForm({
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      await onCreate({ type: selectedType, title: title.trim(), deadline, assigneeId });
+      await onCreate({
+        type: selectedType,
+        title: title.trim(),
+        deadline,
+        assigneeId,
+        startFrom,
+      });
       // Stay open for rapid creation — reset form
       setTitle("");
       setDeadline(undefined);
@@ -169,6 +191,21 @@ export default function QuickCreateForm({
               )}
             </div>
 
+            {/* Start-from hint */}
+            {startFrom && selectedType === "task" && (
+              <div className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-accent/50 border border-accent">
+                <PlayCircle className="h-3 w-3 text-primary shrink-0" />
+                <span className="text-[10px] text-foreground">
+                  Старт: <strong>{format(startFrom, "d MMM", { locale: ru })}</strong>
+                </span>
+                {startFromLabel && (
+                  <span className="text-[9px] text-muted-foreground ml-auto truncate">
+                    {startFromLabel}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Title */}
             <Input
               ref={inputRef}
@@ -197,8 +234,17 @@ export default function QuickCreateForm({
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-0 z-[60]" align="start">
                   <div className="p-3 space-y-2.5">
+                    {startFrom && (
+                      <div className="text-[9px] text-muted-foreground flex items-center gap-1">
+                        <PlayCircle className="h-2.5 w-2.5" />
+                        от {format(baseDate, "d MMM", { locale: ru })}
+                        {startFromLabel && <span>({startFromLabel})</span>}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Через</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        {startFrom ? "+" : "Через"}
+                      </span>
                       <input
                         type="number"
                         min={1}
@@ -213,7 +259,7 @@ export default function QuickCreateForm({
                       <span className="text-[10px] text-muted-foreground">дн.</span>
                       <button
                         type="button"
-                        onClick={() => { setDeadline(addDays(new Date(), daysInput)); setCalOpen(false); }}
+                        onClick={() => { setDeadline(addDays(baseDate, daysInput)); setCalOpen(false); }}
                         className="ml-auto text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
                         ОК
