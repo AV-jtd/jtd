@@ -59,6 +59,7 @@ export default function QuickCreateForm({
   const [selectedType, setSelectedType] = useState<QuickCreateType>("task");
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>();
+  const [daysInput, setDaysInput] = useState<number>(7);
   const [assigneeId, setAssigneeId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
