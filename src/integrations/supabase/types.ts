@@ -68,6 +68,27 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_read_status: {
+        Row: {
+          id: string
+          last_read_at: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           city: string | null

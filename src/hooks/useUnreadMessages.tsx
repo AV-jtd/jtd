@@ -4,34 +4,69 @@ import { useAuth } from "./useAuth";
 
 const STORAGE_KEY = "jtd_last_read";
 
-function getLastRead(): Record<string, string> {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
+/** Migrate localStorage data to DB (one-time per device) */
+async function migrateLocalStorageToDB(userId: string) {
+  const migrationKey = "jtd_read_migrated";
+  if (localStorage.getItem(migrationKey)) return;
 
-function setLastRead(threadId: string, timestamp: string) {
-  const data = getLastRead();
-  data[threadId] = timestamp;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { localStorage.setItem(migrationKey, "1"); return; }
+
+    const data: Record<string, string> = JSON.parse(raw);
+    const rows = Object.entries(data).map(([thread_id, last_read_at]) => ({
+      user_id: userId,
+      thread_id,
+      last_read_at,
+    }));
+
+    if (rows.length > 0) {
+      // Upsert — keep the newer timestamp
+      for (const row of rows) {
+        await (supabase as any).from("chat_read_status").upsert(row, {
+          onConflict: "user_id,thread_id",
+        });
+      }
+    }
+
+    localStorage.setItem(migrationKey, "1");
+  } catch {
+    // Ignore migration errors
+  }
 }
 
 /**
  * Tracks unread messages across group chats and task comments.
- * Returns total unread count + a function to mark a thread as read.
+ * Stores read timestamps in DB so they sync across devices.
  */
 export function useUnreadMessages() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const lastReadRef = useRef(getLastRead());
+  const lastReadRef = useRef<Record<string, string>>({});
+  const migrated = useRef(false);
+
+  // Load read status from DB
+  const loadReadStatus = useCallback(async () => {
+    if (!user) return {};
+    const { data } = await (supabase as any)
+      .from("chat_read_status")
+      .select("thread_id, last_read_at")
+      .eq("user_id", user.id);
+
+    const map: Record<string, string> = {};
+    if (data) {
+      for (const row of data) {
+        map[row.thread_id] = row.last_read_at;
+      }
+    }
+    lastReadRef.current = map;
+    return map;
+  }, [user]);
 
   const computeUnread = useCallback(async () => {
     if (!user) { setUnreadCount(0); return; }
 
-    const lastRead = getLastRead();
-    lastReadRef.current = lastRead;
+    const lastRead = await loadReadStatus();
     let count = 0;
 
     // Check group messages — get latest per group
@@ -46,7 +81,6 @@ export function useUnreadMessages() {
       for (const m of groupMsgs) {
         if (seen.has(m.group_id)) continue;
         seen.add(m.group_id);
-        // Skip own messages
         if (m.user_id === user.id) continue;
         const threadId = `group-${m.group_id}`;
         const lr = lastRead[threadId];
@@ -78,14 +112,22 @@ export function useUnreadMessages() {
     }
 
     setUnreadCount(count);
-  }, [user]);
+  }, [user, loadReadStatus]);
 
-  // Initial compute + periodic refresh
+  // Migration + initial compute
   useEffect(() => {
+    if (!user || migrated.current) return;
+    migrated.current = true;
+    migrateLocalStorageToDB(user.id).then(() => computeUnread());
+  }, [user, computeUnread]);
+
+  // Periodic refresh
+  useEffect(() => {
+    if (!user) return;
     computeUnread();
     const interval = setInterval(computeUnread, 30000);
     return () => clearInterval(interval);
-  }, [computeUnread]);
+  }, [computeUnread, user]);
 
   // Realtime subscriptions for instant badge updates
   useEffect(() => {
@@ -104,16 +146,30 @@ export function useUnreadMessages() {
     return () => { supabase.removeChannel(channel); };
   }, [user, computeUnread]);
 
-  const markThreadRead = useCallback((threadId: string) => {
-    setLastRead(threadId, new Date().toISOString());
-    lastReadRef.current = getLastRead();
+  const markThreadRead = useCallback(async (threadId: string) => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    lastReadRef.current[threadId] = now;
+
+    // Also update localStorage as fallback
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      data[threadId] = now;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {}
+
+    // Upsert to DB
+    await (supabase as any).from("chat_read_status").upsert(
+      { user_id: user.id, thread_id: threadId, last_read_at: now },
+      { onConflict: "user_id,thread_id" }
+    );
+
     // Recompute after marking
     computeUnread();
-  }, [computeUnread]);
+  }, [user, computeUnread]);
 
   const isThreadUnread = useCallback((threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => {
     if (!lastMessageAt) return false;
-    // Own messages don't count as unread
     if (lastMessageUserId === user?.id) return false;
     const lr = lastReadRef.current[threadId];
     if (!lr) return true;
