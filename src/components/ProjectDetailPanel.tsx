@@ -4,6 +4,7 @@ import TaskItem from "@/components/TaskItem";
 import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -219,9 +220,13 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-48 p-2" side="bottom">
-              <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
-                {allGroups.filter(g => g.id !== group.id && !g.parent_id).map(g => (
+              <PopoverSearchList
+                items={allGroups.filter(g => g.id !== group.id && !g.parent_id)}
+                searchKey={(g) => g.name}
+                header={<p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>}
+                placeholder="Найти проект..."
+                emptyText="Нет проектов"
+                renderItem={(g) => (
                   <button
                     key={g.id}
                     onClick={() => updateGroupParent.mutate({ id: group.id, parent_id: g.id })}
@@ -230,11 +235,8 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
                     <FolderOpen className="h-3 w-3 text-muted-foreground" />
                     {g.name}
                   </button>
-                ))}
-                {allGroups.filter(g => g.id !== group.id && !g.parent_id).length === 0 && (
-                  <p className="text-xs text-muted-foreground px-2 py-1">Нет проектов</p>
                 )}
-              </div>
+              />
             </PopoverContent>
           </Popover>
         </div>
@@ -463,11 +465,12 @@ function TasksSection({ groupId }: { groupId: string }) {
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2" side="bottom" align="start">
-                <div className="max-h-40 overflow-y-auto space-y-0.5">
-                  {assignableUsers.length === 0 && (
-                    <p className="text-xs text-muted-foreground px-2 py-1">Нет участников</p>
-                  )}
-                  {assignableUsers.map(u => (
+                <PopoverSearchList
+                  items={assignableUsers}
+                  searchKey={(u) => u.display_name || u.email || ""}
+                  placeholder="Найти..."
+                  emptyText="Нет участников"
+                  renderItem={(u) => (
                     <button
                       key={u.id}
                       onClick={() => { setNewAssignee(u.id); setAssigneePickerOpen(false); }}
@@ -475,8 +478,8 @@ function TasksSection({ groupId }: { groupId: string }) {
                     >
                       {u.display_name || "Без имени"}
                     </button>
-                  ))}
-                </div>
+                  )}
+                />
               </PopoverContent>
             </Popover>
             {newAssignee && (
