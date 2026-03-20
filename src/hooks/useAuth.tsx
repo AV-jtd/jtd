@@ -24,17 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
-    const [profileRes, roleRes, adminCountRes] = await Promise.all([
+    const [profileRes, roleRes, adminExistsRes] = await Promise.all([
       supabase.from("profiles").select("is_approved").eq("id", userId).single(),
       supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
-      supabase.from("user_roles").select("id", { count: "exact", head: true }),
+      supabase.rpc("admin_exists"),
     ]);
 
     // Only apply results if this is still the latest fetch and component is mounted
     if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
     // If no admins exist, first user becomes admin
-    const noAdminsExist = (adminCountRes.count ?? 0) === 0;
+    const noAdminsExist = adminExistsRes.data === false;
     if (noAdminsExist) {
       await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
