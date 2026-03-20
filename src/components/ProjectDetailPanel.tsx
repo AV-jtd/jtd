@@ -465,11 +465,12 @@ function TasksSection({ groupId }: { groupId: string }) {
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2" side="bottom" align="start">
-                <div className="max-h-40 overflow-y-auto space-y-0.5">
-                  {assignableUsers.length === 0 && (
-                    <p className="text-xs text-muted-foreground px-2 py-1">Нет участников</p>
-                  )}
-                  {assignableUsers.map(u => (
+                <PopoverSearchList
+                  items={assignableUsers}
+                  searchKey={(u) => u.display_name || u.email || ""}
+                  placeholder="Найти..."
+                  emptyText="Нет участников"
+                  renderItem={(u) => (
                     <button
                       key={u.id}
                       onClick={() => { setNewAssignee(u.id); setAssigneePickerOpen(false); }}
@@ -477,8 +478,8 @@ function TasksSection({ groupId }: { groupId: string }) {
                     >
                       {u.display_name || "Без имени"}
                     </button>
-                  ))}
-                </div>
+                  )}
+                />
               </PopoverContent>
             </Popover>
             {newAssignee && (
