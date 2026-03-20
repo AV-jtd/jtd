@@ -1072,8 +1072,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           footer={sub.assigned_to ? (
                             <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
                               className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
-                          )}
-                        </div>
+                          ) : undefined}
+                        />
                       </PopoverContent>
                     </Popover>
                   </div>
