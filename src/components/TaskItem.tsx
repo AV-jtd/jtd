@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";
@@ -804,9 +805,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-48 p-2 z-[60]" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()} onWheel={(e) => e.stopPropagation()}>
-                  <div className="space-y-0.5 max-h-48 overflow-y-auto overscroll-contain" onWheelCapture={(e) => e.stopPropagation()} onTouchMoveCapture={(e) => e.stopPropagation()}>
-                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>
-                    {allGroups.filter(g => g.id !== task.group_id).map(g => (
+                  <PopoverSearchList
+                    items={allGroups.filter(g => g.id !== task.group_id)}
+                    searchKey={(g) => g.name}
+                    header={<p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>}
+                    placeholder="Найти проект..."
+                    emptyText="Нет проектов"
+                    renderItem={(g) => (
                       <button
                         key={g.id}
                         onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
@@ -815,11 +820,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         <FolderOpen className="h-3 w-3 text-muted-foreground" />
                         {g.name}
                       </button>
-                    ))}
-                    {allGroups.filter(g => g.id !== task.group_id).length === 0 && (
-                      <p className="text-xs text-muted-foreground px-2 py-1">Нет проектов</p>
                     )}
-                  </div>
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -1058,18 +1060,21 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-56 p-2" side="bottom" align="start">
-                        <div className="max-h-40 overflow-y-auto space-y-0.5">
-                          {availableUsers.map(u => (
+                        <PopoverSearchList
+                          items={availableUsers}
+                          searchKey={(u) => u.display_name || u.email || ""}
+                          placeholder="Найти..."
+                          renderItem={(u) => (
                             <button key={u.id}
                               onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: u.id })}
                               className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
                             >{u.display_name || "Без имени"}</button>
-                          ))}
-                          {sub.assigned_to && (
-                            <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
-                              className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors">Убрать</button>
                           )}
-                        </div>
+                          footer={sub.assigned_to ? (
+                            <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
+                              className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
+                          ) : undefined}
+                        />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1188,18 +1193,21 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-56 p-2" side="bottom" align="start">
-                      <div className="max-h-40 overflow-y-auto space-y-0.5">
-                        {availableUsers.map(u => (
+                      <PopoverSearchList
+                        items={availableUsers}
+                        searchKey={(u) => u.display_name || u.email || ""}
+                        placeholder="Найти..."
+                        renderItem={(u) => (
                           <button key={u.id}
                             onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: u.id })}
                             className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
                           >{u.display_name || "Без имени"}</button>
-                        ))}
-                        {sub.assigned_to && (
-                          <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
-                            className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors">Убрать</button>
                         )}
-                      </div>
+                        footer={sub.assigned_to ? (
+                          <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
+                            className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
+                        ) : undefined}
+                      />
                     </PopoverContent>
                   </Popover>
                 </div>

@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import { Flag, Layers, Search, Star, User, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import type { Profile, TaskGroup } from "@/hooks/useTasks";
 
@@ -127,9 +128,11 @@ function TaskFiltersBar({
           >
             Без ответственного
           </button>
-          {availableUsers
-            .filter((user) => user.id !== currentUserId)
-            .map((user) => (
+          <PopoverSearchList
+            items={availableUsers.filter((user) => user.id !== currentUserId)}
+            searchKey={(user) => user.display_name || user.email || ""}
+            placeholder="Найти..."
+            renderItem={(user) => (
               <button
                 key={user.id}
                 onClick={() => onAssigneeFilterChange((prev) => (prev === user.id ? null : user.id))}
@@ -137,7 +140,8 @@ function TaskFiltersBar({
               >
                 {user.display_name || user.email || "—"}
               </button>
-            ))}
+            )}
+          />
         </PopoverContent>
       </Popover>
 
@@ -168,15 +172,20 @@ function TaskFiltersBar({
             >
               Без проекта
             </button>
-            {groups.map((group) => (
-              <button
-                key={group.id}
-                onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
-                className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
-              >
-                {group.name}
-              </button>
-            ))}
+            <PopoverSearchList
+              items={groups}
+              searchKey={(group) => group.name}
+              placeholder="Найти проект..."
+              renderItem={(group) => (
+                <button
+                  key={group.id}
+                  onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
+                >
+                  {group.name}
+                </button>
+              )}
+            />
           </PopoverContent>
         </Popover>
       )}

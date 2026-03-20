@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
@@ -363,11 +364,11 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="start">
-        <div className="max-h-56 overflow-y-auto space-y-0.5">
-          {items.length === 0 && (
-            <p className="text-xs text-muted-foreground px-2 py-1">Пусто</p>
-          )}
-          {items.map(item => (
+        <PopoverSearchList
+          items={items}
+          searchKey={(item) => item.label}
+          placeholder="Поиск..."
+          renderItem={(item) => (
             <button
               key={item.id}
               onClick={() => onToggle(item.id)}
@@ -381,8 +382,8 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
                 <span className="text-xs truncate">{item.label}</span>
               )}
             </button>
-          ))}
-        </div>
+          )}
+        />
         {hasSelection && (
           <button
             onClick={() => selectedIds.forEach(id => onToggle(id))}
