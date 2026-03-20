@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
