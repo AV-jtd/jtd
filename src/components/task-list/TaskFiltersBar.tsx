@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import { Flag, Layers, Search, Star, User, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import type { Profile, TaskGroup } from "@/hooks/useTasks";
 
