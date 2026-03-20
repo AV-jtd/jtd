@@ -1179,6 +1179,7 @@ export type Database = {
       }
     }
     Functions: {
+      admin_exists: { Args: never; Returns: boolean }
       can_access_dependency: {
         Args: { _dep_id: string; _user_id: string }
         Returns: boolean

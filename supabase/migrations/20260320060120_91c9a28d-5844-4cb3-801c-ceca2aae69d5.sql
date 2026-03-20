@@ -1,0 +1,2 @@
+DELETE FROM public.user_roles WHERE user_id = '0930ffb8-f82c-4eef-8af0-a7d292a9b1fe' AND role = 'admin';
+UPDATE public.profiles SET is_approved = false WHERE id = '0930ffb8-f82c-4eef-8af0-a7d292a9b1fe';
