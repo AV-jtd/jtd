@@ -128,9 +128,11 @@ function TaskFiltersBar({
           >
             Без ответственного
           </button>
-          {availableUsers
-            .filter((user) => user.id !== currentUserId)
-            .map((user) => (
+          <PopoverSearchList
+            items={availableUsers.filter((user) => user.id !== currentUserId)}
+            searchKey={(user) => user.display_name || user.email || ""}
+            placeholder="Найти..."
+            renderItem={(user) => (
               <button
                 key={user.id}
                 onClick={() => onAssigneeFilterChange((prev) => (prev === user.id ? null : user.id))}
@@ -138,7 +140,8 @@ function TaskFiltersBar({
               >
                 {user.display_name || user.email || "—"}
               </button>
-            ))}
+            )}
+          />
         </PopoverContent>
       </Popover>
 
