@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";

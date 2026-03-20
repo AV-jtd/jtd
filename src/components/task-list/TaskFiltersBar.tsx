@@ -172,15 +172,20 @@ function TaskFiltersBar({
             >
               Без проекта
             </button>
-            {groups.map((group) => (
-              <button
-                key={group.id}
-                onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
-                className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
-              >
-                {group.name}
-              </button>
-            ))}
+            <PopoverSearchList
+              items={groups}
+              searchKey={(group) => group.name}
+              placeholder="Найти проект..."
+              renderItem={(group) => (
+                <button
+                  key={group.id}
+                  onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
+                >
+                  {group.name}
+                </button>
+              )}
+            />
           </PopoverContent>
         </Popover>
       )}
