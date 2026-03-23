@@ -160,7 +160,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const { data: allProjectGroups = [] } = useTaskGroups();
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
-  const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
@@ -186,11 +185,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     },
     enabled: !!selectedTaskId,
   });
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
-  );
 
   const { data: crmGroups = [] } = useQuery({
     queryKey: ["crm-groups-list", user?.id],
