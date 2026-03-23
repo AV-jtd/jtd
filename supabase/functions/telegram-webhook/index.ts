@@ -912,6 +912,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === /ai in private chat ===
+    if (message.text.startsWith("/ai")) {
+      const aiQuestion = message.text.replace(/^\/ai\s*/, "").trim();
+      if (!aiQuestion) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "✨ Формат: `/ai Ваш вопрос`\n\nПримеры:\n• `/ai Какие задачи просрочены?`\n• `/ai Что сделать сегодня?`\n• `/ai Подскажи как организовать задачи`", "Markdown");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      await handleAiChat(supabase, BOT_TOKEN, chatId, userId, aiQuestion, null, null);
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
     // === Parse message for task creation (private chat) ===
     let text = message.text;
 
