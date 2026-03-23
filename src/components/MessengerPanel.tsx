@@ -26,7 +26,7 @@ function formatThreadDate(dateStr: string | null) {
   return format(d, "d MMM", { locale: ru });
 }
 
-export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread }: MessengerPanelProps) {
+export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread, onNavigateToProject }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
