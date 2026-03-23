@@ -327,6 +327,35 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
+        // === AI Enrichment: if no assignee or deadline found, ask AI ===
+        let aiEnrichment: AiTaskEnrichment | null = null;
+        let aiApplied: string[] = [];
+        if (!assignedTo || !deadline.date) {
+          const members = await getProjectMembers(supabase, groupId, linkedGroup.user_id);
+          if (members.length > 0) {
+            aiEnrichment = await aiEnrichTask(taskText, members, linkedGroup.name);
+            if (aiEnrichment) {
+              // Apply assignee if not set manually
+              if (!assignedTo && aiEnrichment.assigned_to_id) {
+                // Verify this ID is actually a member
+                const memberIds = members.map(m => m.id);
+                if (memberIds.includes(aiEnrichment.assigned_to_id)) {
+                  assignedTo = aiEnrichment.assigned_to_id;
+                  assigneeUsername = aiEnrichment.assigned_to_name || null;
+                  aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
+                }
+              }
+              // Apply deadline if not set manually
+              if (!deadline.date && aiEnrichment.deadline) {
+                try {
+                  deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
+                  aiApplied.push(`📅 ${formatDate(deadline.date)}`);
+                } catch { /* ignore bad date */ }
+              }
+            }
+          }
+        }
+
         const taskData: Record<string, any> = {
           title: taskText.substring(0, 500),
           user_id: userId,
@@ -335,6 +364,7 @@ Deno.serve(async (req) => {
         };
         if (deadline.date) taskData.deadline = deadline.date.toISOString();
         if (assignedTo) taskData.assigned_to = assignedTo;
+        if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
         const { data: newTask, error: taskError } = await supabase
           .from("tasks")
@@ -355,6 +385,18 @@ Deno.serve(async (req) => {
           role: "creator",
         });
 
+        // Add AI-suggested subtasks
+        if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
+          for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
+            await supabase.from("subtasks").insert({
+              task_id: newTask.id,
+              title: aiEnrichment.subtasks[i],
+              position: i,
+            });
+          }
+          aiApplied.push(`📋 ${aiEnrichment.subtasks.length} шагов`);
+        }
+
         // Add tags
         for (const tagName of tagNames) {
           let { data: tag } = await supabase.from("tags").select("id").eq("user_id", linkedGroup.user_id).ilike("name", tagName).single();
@@ -372,10 +414,11 @@ Deno.serve(async (req) => {
         if (isImportant) extras.push("⭐ важная");
         if (deadline.date) extras.push(`📅 ${formatDate(deadline.date)}`);
         if (assigneeUsername) {
-          extras.push(assignedTo ? `👤 @${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
+          extras.push(assignedTo ? `👤 ${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
         }
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
+        if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
 
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -947,6 +990,39 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === AI Enrichment for private chat ===
+    let aiEnrichment: AiTaskEnrichment | null = null;
+    let aiApplied: string[] = [];
+    if (groupId && (!assignedTo || !deadline.date)) {
+      // Get project owner to fetch members
+      const { data: groupInfo } = await supabase
+        .from("task_groups")
+        .select("user_id, name")
+        .eq("id", groupId)
+        .single();
+      if (groupInfo) {
+        const members = await getProjectMembers(supabase, groupId, groupInfo.user_id);
+        if (members.length > 0) {
+          aiEnrichment = await aiEnrichTask(text, members, groupInfo.name);
+          if (aiEnrichment) {
+            if (!assignedTo && aiEnrichment.assigned_to_id) {
+              const memberIds = members.map(m => m.id);
+              if (memberIds.includes(aiEnrichment.assigned_to_id)) {
+                assignedTo = aiEnrichment.assigned_to_id;
+                aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
+              }
+            }
+            if (!deadline.date && aiEnrichment.deadline) {
+              try {
+                deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
+                aiApplied.push(`📅 ${formatDate(deadline.date)}`);
+              } catch { /* ignore */ }
+            }
+          }
+        }
+      }
+    }
+
     // Create the task
     const taskData: Record<string, any> = {
       title: text.substring(0, 500),
@@ -958,6 +1034,7 @@ Deno.serve(async (req) => {
     if (deadline.date) taskData.deadline = deadline.date.toISOString();
     if (groupId) taskData.group_id = groupId;
     if (assignedTo) taskData.assigned_to = assignedTo;
+    if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
     const { data: newTask, error: taskError } = await supabase
       .from("tasks")
@@ -974,10 +1051,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Add AI-suggested subtasks
+    if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
+      for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
+        await supabase.from("subtasks").insert({
+          task_id: newTask.id,
+          title: aiEnrichment.subtasks[i],
+          position: i,
+        });
+      }
+      aiApplied.push(`📋 ${aiEnrichment.subtasks.length} шагов`);
+    }
+
     // Add tags
     if (tagNames.length > 0 && newTask) {
       for (const tagName of tagNames) {
-        // Find or create tag
         let { data: tag } = await supabase
           .from("tags")
           .select("id")
@@ -1018,6 +1106,7 @@ Deno.serve(async (req) => {
     }
     if (groupId) extras.push("📂 в проекте");
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
+    if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
 
     await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
@@ -1030,6 +1119,115 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// === AI Task Enrichment ===
+
+interface AiTaskEnrichment {
+  assigned_to_id?: string | null;
+  assigned_to_name?: string | null;
+  deadline?: string | null;
+  priority?: number | null;
+  subtasks?: string[];
+}
+
+async function aiEnrichTask(
+  taskText: string,
+  users: { id: string; name: string; telegram_username: string | null }[],
+  projectName?: string,
+): Promise<AiTaskEnrichment | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return null;
+
+  const userList = users
+    .map(u => `- "${u.name}" (id: ${u.id}${u.telegram_username ? `, tg: @${u.telegram_username}` : ""})`)
+    .join("\n");
+
+  const today = new Date().toISOString().split("T")[0];
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Ты — AI-помощник для обогащения задач. Анализируй текст задачи и определяй:
+1. Кто должен быть ответственным (из списка участников) — по смыслу задачи, упоминанию имени/роли
+2. Какой разумный срок (deadline) — по контексту ("срочно" = завтра, "на этой неделе" = конец недели, и т.д.)
+3. Приоритет (1=высокий, 2=средний, 3=низкий)
+4. Подзадачи, если задача комплексная
+
+Если не удаётся определить — оставляй null. Не выдумывай.
+${projectName ? `Проект: "${projectName}"` : ""}
+
+Доступные участники:
+${userList || "нет участников"}
+
+Текущая дата: ${today}`,
+          },
+          {
+            role: "user",
+            content: `Обогати задачу: "${taskText}"`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "enrich_task",
+              description: "Обогатить задачу: назначить ответственного, определить срок, приоритет и подзадачи",
+              parameters: {
+                type: "object",
+                properties: {
+                  assigned_to_id: { type: "string", description: "ID ответственного из списка участников, или null" },
+                  assigned_to_name: { type: "string", description: "Имя ответственного" },
+                  deadline: { type: "string", description: "Дедлайн в формате YYYY-MM-DD, или null" },
+                  priority: { type: "number", description: "Приоритет: 1=высокий, 2=средний, 3=низкий, null=не определён" },
+                  subtasks: { type: "array", items: { type: "string" }, description: "Подзадачи, если задача комплексная" },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "enrich_task" } },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI enrich error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      return JSON.parse(toolCall.function.arguments);
+    }
+  } catch (e) {
+    console.error("AI enrich failed:", e);
+  }
+  return null;
+}
+
+async function getProjectMembers(supabase: any, groupId: string, ownerId: string) {
+  const memberIds = await getGroupMemberIds(supabase, groupId, ownerId);
+  if (memberIds.length === 0) return [];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .in("id", memberIds);
+  return (profiles || []).map((p: any) => ({
+    id: p.id,
+    name: p.display_name || "Без имени",
+    telegram_username: p.telegram_username,
+  }));
+}
 
 // === Helpers ===
 
