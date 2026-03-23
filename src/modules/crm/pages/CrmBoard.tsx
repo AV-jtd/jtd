@@ -39,19 +39,10 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  pointerWithin,
-  type DragStartEvent,
-  type DragEndEvent,
-  type DragOverEvent,
-} from "@dnd-kit/core";
-import { useDroppable, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
+import { useBoardDnd } from "@/hooks/useBoardDnd";
+import { BoardColumn } from "@/components/board/BoardColumn";
+import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 type BoardStage = {
   key: string;
