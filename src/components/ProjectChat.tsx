@@ -14,6 +14,8 @@ interface ProjectChatProps {
   onClose: () => void;
   /** When true, hides the header (used inside MessengerPanel) */
   embedded?: boolean;
+  /** Navigate to the project detail view */
+  onNavigateToProject?: (groupId: string) => void;
 }
 
 function formatMsgDate(dateStr: string) {
