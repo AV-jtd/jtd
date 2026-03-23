@@ -233,21 +233,25 @@ export default function NpdSwimlaneMatrix() {
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
-  // Fetch group_tags (all — needed for stream mapping + gate detection)
+  // Fetch group_tags with tag names (needed for stream mapping + gate detection across users)
   const { data: allGroupTags = [] } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
-      const results: { group_id: string; tag_id: string }[] = [];
+      const results: { group_id: string; tag_id: string; tag_name: string | null }[] = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase
           .from("group_tags" as any)
-          .select("group_id, tag_id")
-          .range(from, from + pageSize - 1) as { data: { group_id: string; tag_id: string }[] | null; error: any };
+          .select("group_id, tag_id, tags(name)")
+          .range(from, from + pageSize - 1) as { data: any[] | null; error: any };
         if (error) throw error;
         if (!data || data.length === 0) break;
-        results.push(...data);
+        results.push(...data.map((d: any) => ({
+          group_id: d.group_id as string,
+          tag_id: d.tag_id as string,
+          tag_name: (d.tags?.name ?? null) as string | null,
+        })));
         if (data.length < pageSize) break;
         from += pageSize;
       }
@@ -281,8 +285,14 @@ export default function NpdSwimlaneMatrix() {
     const m = new Map<string, TaskGroup>(); // streamName -> subproject
     for (const sub of subprojects) {
       const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-      const sTagId = gTags.find(gt => streamTagIds.has(gt.tag_id))?.tag_id;
-      const sName = sTagId ? streamTagById.get(sTagId) : null;
+      // Match by tag name first (cross-user), then by tag ID
+      const streamGTag = gTags.find(gt => {
+        if (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) return true;
+        return streamTagIds.has(gt.tag_id);
+      });
+      const sName = streamGTag
+        ? (streamGTag.tag_name && NPD_STREAMS.includes(streamGTag.tag_name) ? streamGTag.tag_name : streamTagById.get(streamGTag.tag_id) ?? null)
+        : null;
       if (sName) {
         m.set(sName, sub);
       }
@@ -329,7 +339,7 @@ export default function NpdSwimlaneMatrix() {
       let changed = false;
       for (const [streamName, sub] of streamSubMap.entries()) {
         const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-        const hasStreamTag = gTags.some(gt => streamTagIds.has(gt.tag_id));
+        const hasStreamTag = gTags.some(gt => (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) || streamTagIds.has(gt.tag_id));
         if (hasStreamTag) continue;
 
         const streamTag = streamTags.find(t => t.name === streamName);
@@ -344,10 +354,16 @@ export default function NpdSwimlaneMatrix() {
     })();
   }, [streamSubMap, streamTags, allGroupTags, streamTagIds, subprojects, repaired, queryClient]);
 
-  // Get gate for a subproject
+  // Get gate for a subproject — match by tag NAME to work across users
   const getSubprojectGate = useCallback((subId: string): string | null => {
     const gTags = allGroupTags.filter(gt => gt.group_id === subId);
     for (const gt of gTags) {
+      // First try by tag name (works across different users' gate tags)
+      if (gt.tag_name) {
+        const k = tagNameToGateKey.get(gt.tag_name);
+        if (k) return k;
+      }
+      // Fallback: match by tag ID against known gateTags
       for (const tag of gateTags) {
         if (gt.tag_id === tag.id) {
           const k = tagNameToGateKey.get(tag.name);
@@ -487,10 +503,11 @@ export default function NpdSwimlaneMatrix() {
     const gateTagId = gateKeyToTagId.get(gateKey);
     if (!gateTagId) return;
 
-    // Remove old gate tags
+    // Remove old gate tags (match by name to handle cross-user tags)
+    const gateNameSet = new Set(NPD_GATES.map(g => g.tagName));
     const gTags = allGroupTags.filter(gt => gt.group_id === subId);
     for (const gt of gTags) {
-      const isGate = gateTags.some(g => g.id === gt.tag_id);
+      const isGate = (gt.tag_name && gateNameSet.has(gt.tag_name)) || gateTags.some(g => g.id === gt.tag_id);
       if (isGate) {
         await supabase.from("group_tags" as any).delete().eq("group_id", subId).eq("tag_id", gt.tag_id);
       }
@@ -672,28 +689,8 @@ export default function NpdSwimlaneMatrix() {
 
   const projectName = project.name;
 
-  // DEBUG: log matrix data state
-  console.log("[NPD Matrix Debug]", {
-    projectId,
-    projectName: project?.name,
-    subprojectsCount: subprojects.length,
-    allTasksCount: allTasks.length,
-    allGroupTagsCount: allGroupTags.length,
-    gateTagsCount: gateTags.length,
-    streamTagsCount: streamTags.length,
-    streamSubMapSize: streamSubMap.size,
-    streams: NPD_STREAMS.map(stream => {
-      const sub = streamSubMap.get(stream);
-      const parentProjectGate = projectId ? getSubprojectGate(projectId) : null;
-      const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
-      const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
-      return { stream, subId: sub?.id, currentGate, tasksCount: subTasks.length };
-    }),
-    groupTagsForProject: allGroupTags.filter(gt => 
-      gt.group_id === projectId || subprojects.some(s => s.id === gt.group_id)
-    ),
-    gateTagIds: gateTags.map(t => ({ id: t.id, name: t.name })),
-  });
+
+
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
