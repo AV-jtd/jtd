@@ -39,8 +39,10 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import { DndContext, DragOverlay, useDroppable, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
+import { BoardColumn } from "@/components/board/BoardColumn";
+import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 type BoardStage = {
   key: string;
@@ -1596,7 +1598,6 @@ function DroppableColumn({
   onCreateTask: (title: string, groupId: string | null, stageKey: string) => void;
   onCreateProject: (name: string) => Promise<string | null>;
 }) {
-  const { setNodeRef } = useDroppable({ id: stage.key });
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
@@ -1615,126 +1616,118 @@ function DroppableColumn({
     }
   }, [crmProjectOptions, selectedGroupId]);
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full min-h-0 w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
-        isOver && "bg-primary/5"
+  const columnHeader = (
+    <div className="flex items-center gap-2 px-4 py-3">
+      <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
+      <span className="text-sm font-semibold text-foreground">{stage.title}</span>
+      <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
+      {allowCreate && (
+        <button
+          onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title={createLabel}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       )}
-    >
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
-        <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
-        <span className="text-sm font-semibold text-foreground">{stage.title}</span>
-        <span className="text-xs text-muted-foreground ml-auto">{tasks.length}</span>
-        {allowCreate && (
-          <button
-            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title={createLabel}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1 min-h-0 pb-2">
-        <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {allowCreate && adding && (
-            <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
-              <Input
-                ref={inputRef}
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder={createPlaceholder}
-                className="h-7 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newTitle.trim()) {
-                    onCreateTask(newTitle, selectedGroupId, stage.key);
-                    setNewTitle("");
-                    setAdding(false);
-                  }
-                  if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
-                }}
-              />
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={selectedGroupId || ""}
-                  onChange={(e) => setSelectedGroupId(e.target.value || null)}
-                  className="flex-1 h-6 text-[11px] rounded border border-border bg-background px-1.5"
-                >
-                  {crmProjectOptions.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setCreatingProject(true)}
-                  className="text-[10px] text-primary hover:underline whitespace-nowrap"
-                >
-                  + Проект
-                </button>
-              </div>
-              {creatingProject && (
-                <Input
-                  autoFocus
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Название проекта..."
-                  className="h-7 text-xs"
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter" && newProjectName.trim()) {
-                      const newId = await onCreateProject(newProjectName);
-                      if (newId) setSelectedGroupId(newId);
-                      setNewProjectName("");
-                      setCreatingProject(false);
-                    }
-                    if (e.key === "Escape") { setCreatingProject(false); setNewProjectName(""); }
-                  }}
-                />
-              )}
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => {
-                    if (newTitle.trim()) {
-                      onCreateTask(newTitle, selectedGroupId, stage.key);
-                      setNewTitle("");
-                      setAdding(false);
-                    }
-                  }}
-                  className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Добавить
-                </button>
-                <button
-                  onClick={() => { setAdding(false); setNewTitle(""); setCreatingProject(false); }}
-                  className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          )}
-          {tasks.map((task) => (
-            <DraggableCard
-              key={task.id}
-              task={task}
-              isMoving={isMoving}
-              variant={cardVariant}
-              tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
-              group={task.group_id ? groupById.get(task.group_id) || null : null}
-              onToggleComplete={() => onToggleComplete(task)}
-              onToggleImportant={() => onToggleImportant(task)}
-              onCardClick={() => onCardClick(task.id)}
-            />
-          ))}
-          {tasks.length === 0 && !adding && (
-            <div className="text-center py-8 text-xs text-muted-foreground/50">
-              {allowCreate ? "Нет клиентов" : "Нет задач"}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
     </div>
+  );
+
+  return (
+    <BoardColumn columnKey={stage.key} isOver={isOver} header={columnHeader}>
+      {allowCreate && adding && (
+        <div className="rounded-lg border border-primary/30 bg-card p-2.5 space-y-2">
+          <Input
+            ref={inputRef}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder={createPlaceholder}
+            className="h-7 text-xs"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newTitle.trim()) {
+                onCreateTask(newTitle, selectedGroupId, stage.key);
+                setNewTitle("");
+                setAdding(false);
+              }
+              if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+            }}
+          />
+          <div className="flex items-center gap-1.5">
+            <select
+              value={selectedGroupId || ""}
+              onChange={(e) => setSelectedGroupId(e.target.value || null)}
+              className="flex-1 h-6 text-[11px] rounded border border-border bg-background px-1.5"
+            >
+              {crmProjectOptions.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setCreatingProject(true)}
+              className="text-[10px] text-primary hover:underline whitespace-nowrap"
+            >
+              + Проект
+            </button>
+          </div>
+          {creatingProject && (
+            <Input
+              autoFocus
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="Название проекта..."
+              className="h-7 text-xs"
+              onKeyDown={async (e) => {
+                if (e.key === "Enter" && newProjectName.trim()) {
+                  const newId = await onCreateProject(newProjectName);
+                  if (newId) setSelectedGroupId(newId);
+                  setNewProjectName("");
+                  setCreatingProject(false);
+                }
+                if (e.key === "Escape") { setCreatingProject(false); setNewProjectName(""); }
+              }}
+            />
+          )}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => {
+                if (newTitle.trim()) {
+                  onCreateTask(newTitle, selectedGroupId, stage.key);
+                  setNewTitle("");
+                  setAdding(false);
+                }
+              }}
+              className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Добавить
+            </button>
+            <button
+              onClick={() => { setAdding(false); setNewTitle(""); setCreatingProject(false); }}
+              className="text-xs px-2 py-1 rounded text-muted-foreground hover:text-foreground"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+      {tasks.map((task) => (
+        <DraggableCard
+          key={task.id}
+          task={task}
+          isMoving={isMoving}
+          variant={cardVariant}
+          tags={(task.task_tags || []).map((tt) => tagById.get(tt.tag_id)).filter((t): t is CrmTag => !!t && !crmLinkedTagIds.has(t.id) && !crmGroupNames.has(t.name.trim().toLowerCase()))}
+          group={task.group_id ? groupById.get(task.group_id) || null : null}
+          onToggleComplete={() => onToggleComplete(task)}
+          onToggleImportant={() => onToggleImportant(task)}
+          onCardClick={() => onCardClick(task.id)}
+        />
+      ))}
+      {tasks.length === 0 && !adding && (
+        <div className="text-center py-8 text-xs text-muted-foreground/50">
+          {allowCreate ? "Нет клиентов" : "Нет задач"}
+        </div>
+      )}
+    </BoardColumn>
   );
 }
 
@@ -2353,25 +2346,22 @@ function DraggableCard({
   onToggleImportant: () => void;
   onCardClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.id,
-    disabled: isMoving,
-  });
-
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}> 
-      <CrmCard
-        task={task}
-        tags={tags}
-        group={group}
-        variant={variant}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        onToggleComplete={onToggleComplete}
-        onToggleImportant={onToggleImportant}
-        onCardClick={onCardClick}
-      />
-    </div>
+    <DraggableWrapper id={task.id} disabled={isMoving}>
+      {({ isDragging, dragHandleProps }) => (
+        <CrmCard
+          task={task}
+          tags={tags}
+          group={group}
+          variant={variant}
+          isDragging={isDragging}
+          dragHandleProps={dragHandleProps}
+          onToggleComplete={onToggleComplete}
+          onToggleImportant={onToggleImportant}
+          onCardClick={onCardClick}
+        />
+      )}
+    </DraggableWrapper>
   );
 }
 
