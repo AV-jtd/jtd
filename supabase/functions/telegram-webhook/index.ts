@@ -1258,6 +1258,174 @@ async function getProjectMembers(supabase: any, groupId: string, ownerId: string
   }));
 }
 
+async function handleAiChat(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  userId: string,
+  question: string,
+  groupId: string | null,
+  projectName: string | null,
+) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    await sendTelegramMessage(botToken, chatId, "❌ ИИ-ассистент временно недоступен.");
+    return;
+  }
+
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const contextParts: string[] = [];
+
+    if (groupId) {
+      // Focused project context
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("title, deadline, is_completed, assigned_to, is_important, priority")
+        .eq("group_id", groupId)
+        .order("position")
+        .limit(50);
+
+      if (tasks && tasks.length > 0) {
+        const openTasks = tasks.filter((t: any) => !t.is_completed);
+        const doneTasks = tasks.filter((t: any) => t.is_completed);
+        const overdue = openTasks.filter((t: any) => t.deadline && new Date(t.deadline) < new Date());
+
+        contextParts.push(`Проект: "${projectName}"`);
+        contextParts.push(`Открытых задач: ${openTasks.length}, Завершённых: ${doneTasks.length}, Просрочено: ${overdue.length}`);
+
+        if (openTasks.length > 0) {
+          const taskList = openTasks.slice(0, 20).map((t: any) => {
+            const dl = t.deadline ? ` (📅 ${t.deadline.split("T")[0]})` : "";
+            const imp = t.is_important ? " ⭐" : "";
+            return `• ${t.title}${dl}${imp}`;
+          }).join("\n");
+          contextParts.push(`\nОткрытые задачи:\n${taskList}`);
+        }
+
+        if (overdue.length > 0) {
+          const overdueList = overdue.map((t: any) => `• ${t.title} (📅 ${t.deadline.split("T")[0]})`).join("\n");
+          contextParts.push(`\n⚠️ Просроченные:\n${overdueList}`);
+        }
+      }
+
+      const { data: groupInfo } = await supabase.from("task_groups").select("user_id").eq("id", groupId).single();
+      if (groupInfo) {
+        const members = await getProjectMembers(supabase, groupId, groupInfo.user_id);
+        if (members.length > 0) {
+          contextParts.push(`\nУчастники: ${members.map((m: any) => m.name).join(", ")}`);
+        }
+      }
+
+      const { data: subprojects } = await supabase
+        .from("task_groups")
+        .select("name, icon")
+        .eq("parent_id", groupId)
+        .order("position")
+        .limit(10);
+      if (subprojects && subprojects.length > 0) {
+        contextParts.push(`\nПодпроекты: ${subprojects.map((s: any) => `${s.icon || "📁"} ${s.name}`).join(", ")}`);
+      }
+    } else {
+      // Broad context: all user projects
+      const { data: groups } = await supabase
+        .from("task_groups")
+        .select("id, name, icon, parent_id")
+        .eq("user_id", userId)
+        .is("parent_id", null)
+        .order("position")
+        .limit(15);
+
+      if (groups && groups.length > 0) {
+        const projectSummaries: string[] = [];
+        for (const g of groups) {
+          const { count: openCount } = await supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("group_id", g.id)
+            .eq("is_completed", false);
+          const { count: overdueCount } = await supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("group_id", g.id)
+            .eq("is_completed", false)
+            .lt("deadline", today);
+          projectSummaries.push(`${g.icon || "📁"} ${g.name}: ${openCount || 0} задач${overdueCount ? `, ⚠️${overdueCount} просрочено` : ""}`);
+        }
+        contextParts.push(`Ваши проекты:\n${projectSummaries.join("\n")}`);
+      }
+
+      const { data: todayTasks } = await supabase
+        .from("tasks")
+        .select("title, deadline, group_id")
+        .eq("user_id", userId)
+        .eq("is_completed", false)
+        .lte("deadline", new Date().toISOString())
+        .order("deadline")
+        .limit(10);
+
+      if (todayTasks && todayTasks.length > 0) {
+        contextParts.push(`\n⚠️ Задачи на сегодня и просроченные:\n${todayTasks.map((t: any) => `• ${t.title}`).join("\n")}`);
+      }
+    }
+
+    const contextStr = contextParts.length > 0 ? contextParts.join("\n") : "Нет данных о проектах.";
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Ты — ИИ-ассистент для управления проектами JustTODOit, доступный через Telegram.
+Отвечай кратко, по делу, на русском языке.
+Используй данные из контекста для ответа. Не придумывай данные, которых нет.
+Форматируй ответ для Telegram (без Markdown-ссылок, используй эмодзи для наглядности).
+Максимум 500 символов, если не требуется развёрнутый ответ.
+
+Текущая дата: ${today}
+
+Контекст:
+${contextStr}`,
+          },
+          { role: "user", content: question },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      await response.text();
+      if (status === 429) {
+        await sendTelegramMessage(botToken, chatId, "⏳ Слишком много запросов. Попробуйте через минуту.");
+      } else if (status === 402) {
+        await sendTelegramMessage(botToken, chatId, "💳 Лимит ИИ-запросов исчерпан.");
+      } else {
+        await sendTelegramMessage(botToken, chatId, "❌ Ошибка ИИ-ассистента. Попробуйте позже.");
+      }
+      return;
+    }
+
+    const data = await response.json();
+    const aiText = data.choices?.[0]?.message?.content;
+
+    if (aiText) {
+      const truncated = aiText.length > 4000 ? aiText.substring(0, 4000) + "..." : aiText;
+      await sendTelegramMessage(botToken, chatId, `✨ ${truncated}`);
+    } else {
+      await sendTelegramMessage(botToken, chatId, "🤔 Не удалось получить ответ. Попробуйте переформулировать.");
+    }
+  } catch (e) {
+    console.error("AI chat error:", e);
+    await sendTelegramMessage(botToken, chatId, "❌ Ошибка ИИ-ассистента.");
+  }
+}
+
 // === Helpers ===
 
 function extractBotCommand(text: string): { command: string; args: string } | null {
