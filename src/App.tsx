@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,18 +9,24 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { idbPersister } from "@/lib/queryPersist";
 import { usePrefetchData } from "@/hooks/usePrefetch";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Settings from "./pages/Settings";
-import ResetPassword from "./pages/ResetPassword";
-import PendingApproval from "./pages/PendingApproval";
-import NotFound from "./pages/NotFound";
-import Pmo from "./pages/Pmo";
-import Crm from "./pages/Crm";
-import Npd from "./pages/Npd";
-import NpdMatrix from "./pages/NpdMatrix";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "./components/OnlineStatus";
 import PendingSync from "./components/PendingSync";
+import { Loader2 } from "lucide-react";
+
+// Eagerly loaded (critical path)
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+
+// Lazy-loaded modules
+const Settings = lazy(() => import("./pages/Settings"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const PendingApproval = lazy(() => import("./pages/PendingApproval"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Pmo = lazy(() => import("./pages/Pmo"));
+const Crm = lazy(() => import("./pages/Crm"));
+const Npd = lazy(() => import("./pages/Npd"));
+const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
 
 // Sync onlineManager with browser online/offline events
 onlineManager.setEventListener((setOnline) => {
@@ -48,6 +55,14 @@ const queryClient = new QueryClient({
   },
 });
 
+function LazyFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
 function AppContent() {
   usePrefetchData();
   return (
@@ -55,18 +70,22 @@ function AppContent() {
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/pending" element={<PendingApproval />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/pmo" element={<Pmo />} />
-          <Route path="/crm" element={<Crm />} />
-          <Route path="/npd" element={<Npd />} />
-          <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ErrorBoundary fallbackTitle="Ошибка приложения">
+          <Suspense fallback={<LazyFallback />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/pending" element={<PendingApproval />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/pmo" element={<Pmo />} />
+              <Route path="/crm" element={<Crm />} />
+              <Route path="/npd" element={<Npd />} />
+              <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
         <OnlineStatus />
         <PendingSync />
       </BrowserRouter>
