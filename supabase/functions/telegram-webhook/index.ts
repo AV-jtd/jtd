@@ -618,6 +618,17 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      // === /ai — AI assistant in group chat ===
+      if (command === "ai") {
+        if (!args.trim()) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "✨ Формат: `/ai Ваш вопрос`\n\nПримеры:\n• `/ai Какой статус проекта?`\n• `/ai Какие задачи просрочены?`\n• `/ai Что нужно сделать на этой неделе?`", "Markdown");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const aiResponse = await handleAiChat(supabase, BOT_TOKEN, chatId, userId, args, groupId, linkedGroup.name);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       // === /help in group ===
       if (command === "help") {
         await sendTelegramMessage(
@@ -630,6 +641,7 @@ Deno.serve(async (req) => {
           "✅ `/done 1` — выполнить задачу по номеру\n" +
           "👤 `/assign 1 @user` — назначить ответственного\n" +
           "👤 `/my` — мои задачи\n" +
+          "✨ `/ai Вопрос` — ИИ\\-ассистент\n" +
           "📂 `/projects` — список проектов\n\n" +
           "*В тексте задачи:*\n" +
           "• `!` в начале — важная\n" +
