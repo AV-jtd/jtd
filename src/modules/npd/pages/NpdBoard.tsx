@@ -573,45 +573,31 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     },
   });
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveProjectId(event.active.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const overId = event.over?.id as string | undefined;
-    if (overId && allDropKeys.includes(overId)) {
-      setOverColumn(overId);
-    } else {
-      setOverColumn(null);
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    const lastOverColumn = overColumn;
-    setActiveProjectId(null);
-    setOverColumn(null);
-
-    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
-      ? (over.id as string)
-      : lastOverColumn;
-    if (!dropKey) return;
-
-    const projectId = active.id as string;
-    const project = npdProjects.find((p) => p.id === projectId);
+  const handleNpdDrop = useCallback((activeId: string, dropKey: string) => {
+    const project = npdProjects.find((p) => p.id === activeId);
     if (!project) return;
 
     if (dropKey === "inbox") {
       const currentGate = getProjectGate(project);
       if (!currentGate) return;
-      moveToInboxMutation.mutate({ projectId });
+      moveToInboxMutation.mutate({ projectId: activeId });
       return;
     }
 
     const currentGate = getProjectGate(project);
     if (currentGate === dropKey) return;
-    moveMutation.mutate({ projectId, targetGateKey: dropKey });
-  };
+    moveMutation.mutate({ projectId: activeId, targetGateKey: dropKey });
+  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation]);
+
+  const {
+    overColumn,
+    activeId: activeProjectId,
+    isDragging: isNpdDragging,
+    dndContextProps,
+  } = useBoardDnd({
+    dropKeys: allDropKeys,
+    onDrop: handleNpdDrop,
+  });
 
   // ── Toggle gate visibility ──
   const toggleGate = (key: string) => {
