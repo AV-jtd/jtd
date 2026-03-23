@@ -107,8 +107,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     enabled: !!user,
   });
 
-  const [overColumn, setOverColumn] = useState<string | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hiddenGates, setHiddenGates] = useState<Set<string>>(() => {
     try {
