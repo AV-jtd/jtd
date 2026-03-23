@@ -683,28 +683,8 @@ export default function NpdSwimlaneMatrix() {
 
   const projectName = project.name;
 
-  // DEBUG: log matrix data state
-  console.log("[NPD Matrix Debug]", {
-    projectId,
-    projectName: project?.name,
-    subprojectsCount: subprojects.length,
-    allTasksCount: allTasks.length,
-    allGroupTagsCount: allGroupTags.length,
-    gateTagsCount: gateTags.length,
-    streamTagsCount: streamTags.length,
-    streamSubMapSize: streamSubMap.size,
-    streams: NPD_STREAMS.map(stream => {
-      const sub = streamSubMap.get(stream);
-      const parentProjectGate = projectId ? getSubprojectGate(projectId) : null;
-      const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
-      const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
-      return { stream, subId: sub?.id, currentGate, tasksCount: subTasks.length };
-    }),
-    groupTagsForProject: allGroupTags.filter(gt => 
-      gt.group_id === projectId || subprojects.some(s => s.id === gt.group_id)
-    ),
-    gateTagIds: gateTags.map(t => ({ id: t.id, name: t.name })),
-  });
+
+
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
