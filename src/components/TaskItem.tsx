@@ -410,8 +410,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
         </div>
 
-        {/* Actions — always visible compact row */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        {/* Actions — always visible 3×2 grid */}
+        <div className="grid grid-cols-3 gap-0.5 shrink-0" style={{ width: 'auto' }}>
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className={cn(
