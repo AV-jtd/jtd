@@ -1473,21 +1473,22 @@ function DraggableProjectCard({
   gateKeyToTagId?: Map<string, string>;
   allGroupTags?: { group_id: string; tag_id: string }[];
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
-      <ProjectCard
-        project={project}
-        streamTagById={streamTagById}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        onCardClick={onCardClick}
-        isSecondary={isSecondary}
-        currentGate={currentGate}
-        gateKeyToTagId={gateKeyToTagId}
-        allGroupTags={allGroupTags}
-      />
-    </div>
+    <DraggableWrapper id={project.id} disabled={isMoving}>
+      {({ isDragging, dragHandleProps }) => (
+        <ProjectCard
+          project={project}
+          streamTagById={streamTagById}
+          isDragging={isDragging}
+          dragHandleProps={dragHandleProps}
+          onCardClick={onCardClick}
+          isSecondary={isSecondary}
+          currentGate={currentGate}
+          gateKeyToTagId={gateKeyToTagId}
+          allGroupTags={allGroupTags}
+        />
+      )}
+    </DraggableWrapper>
   );
 }
 
