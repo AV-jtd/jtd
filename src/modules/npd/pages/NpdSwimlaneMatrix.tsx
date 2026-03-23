@@ -750,7 +750,8 @@ export default function NpdSwimlaneMatrix() {
           {NPD_STREAMS.map(stream => {
             const sub = streamSubMap.get(stream);
             const isCollapsed = collapsed.has(stream);
-            const currentGate = sub ? getSubprojectGate(sub.id) : null;
+            const parentProjectGate = projectId ? getSubprojectGate(projectId) : null;
+            const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
             const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
             const taggedStreamTasks = streamTaggedTasksByStream.get(stream) || [];
             const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
@@ -761,7 +762,6 @@ export default function NpdSwimlaneMatrix() {
             return (
               <div key={stream} className="border-b border-border">
                 <div className="flex">
-                  {/* Stream label */}
                   <div className={cn(
                     "min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50",
                     isCollapsed && overdueTasks.length > 0 && "bg-destructive/5"
@@ -791,14 +791,12 @@ export default function NpdSwimlaneMatrix() {
                     </button>
                   </div>
 
-                  {/* Gate cells */}
                   {NPD_GATES.map(gate => {
                     const isCurrentGate = currentGate === gate.key;
-                    // Show tasks that have this gate tag, OR (if no task-level gate tag) fall back to subproject gate
-                    const cellTasks = sub ? tasks.filter(t => {
+                    const cellTasks = tasks.filter(t => {
                       const taskGate = getTaskGate(t.id);
-                      return taskGate ? taskGate === gate.key : isCurrentGate;
-                    }) : [];
+                      return taskGate ? taskGate === gate.key : currentGate === gate.key;
+                    });
                     const hasTasks = cellTasks.length > 0;
 
                     return (
@@ -811,7 +809,7 @@ export default function NpdSwimlaneMatrix() {
                       >
                         {!isCollapsed && (
                           <div className="px-2 py-2 min-h-[60px]">
-                             {sub ? (
+                            {sub ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
                                   <MatrixTaskRow
@@ -862,7 +860,6 @@ export default function NpdSwimlaneMatrix() {
                                 />
                               </div>
                             ) : (
-                              /* No subproject for this stream — offer both options */
                               <div className="flex items-center justify-center min-h-[40px]">
                                 <QuickCreateForm
                                   users={users}
@@ -884,9 +881,10 @@ export default function NpdSwimlaneMatrix() {
                             <div
                               onClick={() => toggleCollapse(stream)}
                               className={cn(
-                              "px-2.5 py-2 flex items-center gap-2 cursor-pointer hover:bg-muted/40 transition-colors",
-                              cellOverdue > 0 && "bg-destructive/5 hover:bg-destructive/10"
-                            )}>
+                                "px-2.5 py-2 flex items-center gap-2 cursor-pointer hover:bg-muted/40 transition-colors",
+                                cellOverdue > 0 && "bg-destructive/5 hover:bg-destructive/10"
+                              )}
+                            >
                               {cellTasks.length > 0 ? (
                                 <>
                                   <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
@@ -913,201 +911,24 @@ export default function NpdSwimlaneMatrix() {
               </div>
             );
           })}
-          {/* Inbox row — unmatched tasks & subprojects */}
-          {inboxData.totalCount > 0 && (
-            <div className="border-b border-border">
-              <div className="flex">
-                <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50">
-                  <button
-                    onClick={() => setInboxOpen(prev => !prev)}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
-                  >
-                    {inboxOpen
-                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    }
-                    <Inbox className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground truncate">Входящие</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{inboxData.totalCount}</span>
-                  </button>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {inboxOpen && (
-                    <div className="px-3 py-2 space-y-1.5">
-                      {/* Tasks directly on parent project */}
-                        <div className="space-y-1">
-                          {inboxData.parentTasks.length > 0 && (
-                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Задачи проекта</span>
-                          )}
-                          {inboxData.parentTasks.map(task => (
-                            <MatrixTaskRow
-                              key={task.id}
-                              task={task}
-                              users={users}
-                              allDependencies={allDependencies}
-                              allTasks={allTasks}
-                              projectGroupIds={projectGroupIds}
-                              onDeadlineChange={handleDeadlineChange}
-                              onAssigneeChange={(taskId, userId) => {
-                                updateTask.mutate({ id: taskId, assigned_to: userId });
-                                if (userId) {
-                                  supabase.from("task_participants").upsert({
-                                    task_id: taskId, user_id: userId, role: "assignee",
-                                  }, { onConflict: "task_id,user_id" });
-                                }
-                              }}
-                              onToggle={(taskId) => {
-                                const t = allTasks.find(x => x.id === taskId);
-                                if (!t) return;
-                                updateTask.mutate({
-                                  id: taskId,
-                                  is_completed: !t.is_completed,
-                                  completed_at: !t.is_completed ? new Date().toISOString() : null,
-                                });
-                              }}
-                              onAddDependency={(predId, succId) => {
-                                const pred = allTasks.find(t => t.id === predId);
-                                const succ = allTasks.find(t => t.id === succId);
-                                setDepDialogState({
-                                  predecessorId: predId, successorId: succId,
-                                  predecessorLabel: pred?.title || predId,
-                                  successorLabel: succ?.title || succId,
-                                  predecessorEntityType: "task", successorEntityType: "task",
-                                });
-                              }}
-                              onExpand={(id) => setDetailTaskId(id)}
-                            />
-                          ))}
-                          {projectId && (
-                            <QuickCreateForm
-                              users={users}
-                              onCreate={(p) => handleQuickCreate(p, projectId)}
-                            />
-                          )}
-                        </div>
-                      {/* Unmatched subprojects */}
-                      {inboxData.unmatchedSubs.map(sub => {
-                        const subTasks = allTasks.filter(t => t.group_id === sub.id && !getTaskStream(t.id));
-                        const displayName = sub.name.includes("/") ? sub.name.split("/").pop()!.trim() : sub.name;
-                        return (
-                          <div key={sub.id} className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm leading-none">{sub.icon && sub.icon !== "list" ? sub.icon : "📋"}</span>
-                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{displayName}</span>
-                              <span className="text-[10px] text-muted-foreground">{subTasks.length} задач</span>
-                            </div>
-                            {subTasks.map(task => (
-                              <MatrixTaskRow
-                                key={task.id}
-                                task={task}
-                                users={users}
-                                allDependencies={allDependencies}
-                                allTasks={allTasks}
-                                projectGroupIds={projectGroupIds}
-                                onDeadlineChange={handleDeadlineChange}
-                                onAssigneeChange={(taskId, userId) => {
-                                  updateTask.mutate({ id: taskId, assigned_to: userId });
-                                  if (userId) {
-                                    supabase.from("task_participants").upsert({
-                                      task_id: taskId, user_id: userId, role: "assignee",
-                                    }, { onConflict: "task_id,user_id" });
-                                  }
-                                }}
-                                onToggle={(taskId) => {
-                                  const t = allTasks.find(x => x.id === taskId);
-                                  if (!t) return;
-                                  updateTask.mutate({
-                                    id: taskId,
-                                    is_completed: !t.is_completed,
-                                    completed_at: !t.is_completed ? new Date().toISOString() : null,
-                                  });
-                                }}
-                                onAddDependency={(predId, succId) => {
-                                  const pred = allTasks.find(t => t.id === predId);
-                                  const succ = allTasks.find(t => t.id === succId);
-                                  setDepDialogState({
-                                    predecessorId: predId, successorId: succId,
-                                    predecessorLabel: pred?.title || predId,
-                                    successorLabel: succ?.title || succId,
-                                    predecessorEntityType: "task", successorEntityType: "task",
-                                  });
-                                }}
-                                onExpand={(id) => setDetailTaskId(id)}
-                              />
-                            ))}
-                            <QuickCreateForm
-                              users={users}
-                              onCreate={(p) => handleQuickCreate(p, sub.id)}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {!inboxOpen && (
-                    <div className="px-3 py-2.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                      {inboxData.parentTasks.length > 0 && <span>{inboxData.parentTasks.length} задач</span>}
-                      {inboxData.unmatchedSubs.length > 0 && <span>{inboxData.unmatchedSubs.length} подпроектов</span>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Summary footer row */}
-          <div className="flex border-t-2 border-border bg-card sticky bottom-0 z-10">
-            <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-3 border-r border-border">
-              <span className="text-xs font-bold text-foreground">Итого</span>
-              {(() => {
-                const totalTasks = NPD_STREAMS.reduce((acc, s) => {
-                  const sub = streamSubMap.get(s);
-                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).length : 0);
-                }, 0);
-                const totalCompleted = NPD_STREAMS.reduce((acc, s) => {
-                  const sub = streamSubMap.get(s);
-                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).filter(t => t.is_completed).length : 0);
-                }, 0);
-                const totalOverdue = NPD_STREAMS.reduce((acc, s) => {
-                  const sub = streamSubMap.get(s);
-                  return acc + (sub ? (tasksByGroup.get(sub.id) || []).filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length : 0);
-                }, 0);
-                const pct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
-                return (
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-mono text-muted-foreground">{pct}%</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">{totalCompleted}/{totalTasks} задач</span>
-                      {totalOverdue > 0 && (
-                        <span className="text-[10px] text-destructive flex items-center gap-0.5">
-                          <AlertTriangle className="h-2.5 w-2.5" />
-                          {totalOverdue}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+
+          <div className="flex border-t border-border bg-card/40">
+            <div className="min-w-[200px] w-[200px] shrink-0 px-3 py-3 border-r border-border text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Итого по гейтам
             </div>
             {NPD_GATES.map(gate => {
-              // Count tasks per gate using the SAME logic as cell rendering
               let gateTotalTasks = 0;
               let gateCompletedTasks = 0;
               let gateOverdue = 0;
               const streamsInGate: string[] = [];
+              const parentProjectGate = projectId ? getSubprojectGate(projectId) : null;
 
               NPD_STREAMS.forEach(s => {
                 const sub = streamSubMap.get(s);
-                if (!sub) return;
-                const tasks = tasksByGroup.get(sub.id) || [];
-                const currentGate = getSubprojectGate(sub.id);
+                const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
+                const taggedStreamTasks = streamTaggedTasksByStream.get(s) || [];
+                const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
+                const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
 
                 const cellTasks = tasks.filter(t => {
                   const taskGate = getTaskGate(t.id);
