@@ -233,21 +233,25 @@ export default function NpdSwimlaneMatrix() {
   const streamTagIds = useMemo(() => new Set(streamTags.map(t => t.id)), [streamTags]);
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
-  // Fetch group_tags (all — needed for stream mapping + gate detection)
+  // Fetch group_tags with tag names (needed for stream mapping + gate detection across users)
   const { data: allGroupTags = [] } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
-      const results: { group_id: string; tag_id: string }[] = [];
+      const results: { group_id: string; tag_id: string; tag_name: string | null }[] = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
         const { data, error } = await supabase
           .from("group_tags" as any)
-          .select("group_id, tag_id")
-          .range(from, from + pageSize - 1) as { data: { group_id: string; tag_id: string }[] | null; error: any };
+          .select("group_id, tag_id, tags(name)")
+          .range(from, from + pageSize - 1) as { data: any[] | null; error: any };
         if (error) throw error;
         if (!data || data.length === 0) break;
-        results.push(...data);
+        results.push(...data.map((d: any) => ({
+          group_id: d.group_id as string,
+          tag_id: d.tag_id as string,
+          tag_name: (d.tags?.name ?? null) as string | null,
+        })));
         if (data.length < pageSize) break;
         from += pageSize;
       }
