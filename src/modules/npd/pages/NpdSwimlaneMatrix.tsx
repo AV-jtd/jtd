@@ -497,10 +497,11 @@ export default function NpdSwimlaneMatrix() {
     const gateTagId = gateKeyToTagId.get(gateKey);
     if (!gateTagId) return;
 
-    // Remove old gate tags
+    // Remove old gate tags (match by name to handle cross-user tags)
+    const gateNameSet = new Set(NPD_GATES.map(g => g.tagName));
     const gTags = allGroupTags.filter(gt => gt.group_id === subId);
     for (const gt of gTags) {
-      const isGate = gateTags.some(g => g.id === gt.tag_id);
+      const isGate = (gt.tag_name && gateNameSet.has(gt.tag_name)) || gateTags.some(g => g.id === gt.tag_id);
       if (isGate) {
         await supabase.from("group_tags" as any).delete().eq("group_id", subId).eq("tag_id", gt.tag_id);
       }
