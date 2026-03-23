@@ -29,7 +29,7 @@ function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
