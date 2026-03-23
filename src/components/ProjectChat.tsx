@@ -74,10 +74,14 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
       {/* Header */}
       {!embedded && (
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => onNavigateToProject?.(groupId)}
+            className="flex items-center gap-2 min-w-0 hover:opacity-70 transition-opacity"
+            title="Открыть проект"
+          >
             <MessageCircle className="h-4 w-4 text-primary shrink-0" />
             <span className="text-sm font-semibold text-foreground truncate">{groupName}</span>
-          </div>
+          </button>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
