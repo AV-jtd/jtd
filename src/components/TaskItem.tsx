@@ -411,7 +411,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         </div>
 
         {/* Actions — 3×2 grid on hover */}
-        <div className="grid grid-cols-3 gap-0.5 shrink-0 touch-visible opacity-0 group-hover:opacity-100 transition-opacity"
+        <div className="grid grid-cols-3 gap-0.5 shrink-0 touch-visible opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
              style={{ width: 'auto' }}>
           {/* Row 1: Expand, Participant, Assignee */}
           <button
