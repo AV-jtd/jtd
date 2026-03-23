@@ -23,12 +23,10 @@ import {
 import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import {
-  DndContext, DragOverlay, MouseSensor, TouchSensor,
-  useSensor, useSensors, pointerWithin,
-  type DragStartEvent, type DragEndEvent, type DragOverEvent,
-} from "@dnd-kit/core";
-import { useDroppable, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
+import { useBoardDnd } from "@/hooks/useBoardDnd";
+import { BoardColumn } from "@/components/board/BoardColumn";
+import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 // ── Gate definitions ──
 type GateStage = {
@@ -109,8 +107,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     enabled: !!user,
   });
 
-  const [overColumn, setOverColumn] = useState<string | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hiddenGates, setHiddenGates] = useState<Set<string>>(() => {
     try {
@@ -131,11 +127,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   useEffect(() => {
     localStorage.setItem("npd-swimlane", String(swimlaneMode));
   }, [swimlaneMode]);
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
-  );
 
   // Save hidden gates to localStorage
   useEffect(() => {
@@ -580,45 +571,31 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     },
   });
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveProjectId(event.active.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const overId = event.over?.id as string | undefined;
-    if (overId && allDropKeys.includes(overId)) {
-      setOverColumn(overId);
-    } else {
-      setOverColumn(null);
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    const lastOverColumn = overColumn;
-    setActiveProjectId(null);
-    setOverColumn(null);
-
-    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
-      ? (over.id as string)
-      : lastOverColumn;
-    if (!dropKey) return;
-
-    const projectId = active.id as string;
-    const project = npdProjects.find((p) => p.id === projectId);
+  const handleNpdDrop = useCallback((activeId: string, dropKey: string) => {
+    const project = npdProjects.find((p) => p.id === activeId);
     if (!project) return;
 
     if (dropKey === "inbox") {
       const currentGate = getProjectGate(project);
       if (!currentGate) return;
-      moveToInboxMutation.mutate({ projectId });
+      moveToInboxMutation.mutate({ projectId: activeId });
       return;
     }
 
     const currentGate = getProjectGate(project);
     if (currentGate === dropKey) return;
-    moveMutation.mutate({ projectId, targetGateKey: dropKey });
-  };
+    moveMutation.mutate({ projectId: activeId, targetGateKey: dropKey });
+  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation]);
+
+  const {
+    overColumn,
+    activeId: activeProjectId,
+    isDragging: isNpdDragging,
+    dndContextProps,
+  } = useBoardDnd({
+    dropKeys: allDropKeys,
+    onDrop: handleNpdDrop,
+  });
 
   // ── Toggle gate visibility ──
   const toggleGate = (key: string) => {
@@ -764,13 +741,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const isLoading = !npdTagData;
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext {...dndContextProps}>
       <div className="flex flex-col h-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -1360,52 +1331,46 @@ function GateColumn({
   gateKeyToTagId: Map<string, string>;
   allGroupTags: { group_id: string; tag_id: string }[];
 }) {
-  const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full min-h-0 w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
-        isOver && "bg-primary/5"
-      )}
-    >
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
-        <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-        <span className="text-sm font-semibold text-foreground">{gate.short}</span>
-        <span className="text-xs text-muted-foreground/60">·</span>
-        <span className="text-xs text-muted-foreground truncate">{gate.shortTitle}</span>
-        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-        <QuickCreateForm
-          users={users}
-          singleType="subproject"
-          options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-          compact
-          onCreate={async (p) => { onCreate(p.title); }}
-        />
-      </div>
-      <ScrollArea className="flex-1 min-h-0 pb-2">
-        <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {projects.map(({ project: p, isPrimary }) => (
-            <DraggableProjectCard
-              key={p.id}
-              project={p}
-              isMoving={isMoving}
-              streamTagById={streamTagById}
-              onCardClick={() => onCardClick(p.id)}
-              isSecondary={!isPrimary}
-              currentGate={gate}
-              gateKeyToTagId={gateKeyToTagId}
-              allGroupTags={allGroupTags}
-            />
-          ))}
-          {projects.length === 0 && (
-            <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
-          )}
+    <BoardColumn
+      columnKey={gate.key}
+      isOver={isOver}
+      header={
+        <div className="flex items-center gap-2 px-4 py-3">
+          <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+          <span className="text-sm font-semibold text-foreground">{gate.short}</span>
+          <span className="text-xs text-muted-foreground/60">·</span>
+          <span className="text-xs text-muted-foreground truncate">{gate.shortTitle}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
+          <QuickCreateForm
+            users={users}
+            singleType="subproject"
+            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+            compact
+            onCreate={async (p) => { onCreate(p.title); }}
+          />
         </div>
-      </ScrollArea>
-    </div>
+      }
+    >
+      {projects.map(({ project: p, isPrimary }) => (
+        <DraggableProjectCard
+          key={p.id}
+          project={p}
+          isMoving={isMoving}
+          streamTagById={streamTagById}
+          onCardClick={() => onCardClick(p.id)}
+          isSecondary={!isPrimary}
+          currentGate={gate}
+          gateKeyToTagId={gateKeyToTagId}
+          allGroupTags={allGroupTags}
+        />
+      ))}
+      {projects.length === 0 && (
+        <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
+      )}
+    </BoardColumn>
   );
 }
 
@@ -1418,52 +1383,46 @@ function InboxColumn({
   onCardClick: (id: string) => void;
   onCreate: (name: string) => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
   const { data: users = [] } = useAvailableUsers();
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
-        collapsed ? "w-16" : "w-72 md:w-80",
-        isOver && "bg-primary/5"
-      )}
+    <BoardColumn
+      columnKey="inbox"
+      isOver={isOver}
+      className={cn(collapsed ? "w-16" : "w-72 md:w-80")}
+      scrollable={!collapsed}
+      header={
+        <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
+          <button
+            onClick={() => setCollapsed((prev) => !prev)}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+          >
+            <Inbox className="h-4 w-4 text-primary shrink-0" />
+            {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+            <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
+          </button>
+          {!collapsed && (
+            <QuickCreateForm
+              users={users}
+              singleType="subproject"
+              options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+              compact
+              onCreate={async (p) => { onCreate(p.title); }}
+            />
+          )}
+        </div>
+      }
     >
-      <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
-        <button
-          onClick={() => setCollapsed((prev) => !prev)}
-          className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
-        >
-          <Inbox className="h-4 w-4 text-primary shrink-0" />
-          {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
-          <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
-        </button>
-        {!collapsed && (
-          <QuickCreateForm
-            users={users}
-            singleType="subproject"
-            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-            compact
-            onCreate={async (p) => { onCreate(p.title); }}
-          />
+      {!collapsed && (<>
+        {projects.map((p) => (
+          <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
+        ))}
+        {projects.length === 0 && (
+          <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
         )}
-      </div>
-
-      {!collapsed && (
-        <ScrollArea className="flex-1 min-h-0 py-2">
-          <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-            {projects.map((p) => (
-              <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
-            ))}
-            {projects.length === 0 && (
-              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+      </>)}
+    </BoardColumn>
   );
 }
 
@@ -1514,21 +1473,22 @@ function DraggableProjectCard({
   gateKeyToTagId?: Map<string, string>;
   allGroupTags?: { group_id: string; tag_id: string }[];
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: isMoving });
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
-      <ProjectCard
-        project={project}
-        streamTagById={streamTagById}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        onCardClick={onCardClick}
-        isSecondary={isSecondary}
-        currentGate={currentGate}
-        gateKeyToTagId={gateKeyToTagId}
-        allGroupTags={allGroupTags}
-      />
-    </div>
+    <DraggableWrapper id={project.id} disabled={isMoving}>
+      {({ isDragging, dragHandleProps }) => (
+        <ProjectCard
+          project={project}
+          streamTagById={streamTagById}
+          isDragging={isDragging}
+          dragHandleProps={dragHandleProps}
+          onCardClick={onCardClick}
+          isSecondary={isSecondary}
+          currentGate={currentGate}
+          gateKeyToTagId={gateKeyToTagId}
+          allGroupTags={allGroupTags}
+        />
+      )}
+    </DraggableWrapper>
   );
 }
 

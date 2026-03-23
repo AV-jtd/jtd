@@ -39,19 +39,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  pointerWithin,
-  type DragStartEvent,
-  type DragEndEvent,
-  type DragOverEvent,
-} from "@dnd-kit/core";
-import { useDroppable, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useDroppable, useDraggable } from "@dnd-kit/core";
+import { useBoardDnd } from "@/hooks/useBoardDnd";
 
 type BoardStage = {
   key: string;
@@ -169,7 +158,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const { data: allProjectGroups = [] } = useTaskGroups();
 
   const [activeTask, setActiveTask] = useState<CrmTask | null>(null);
-  const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
@@ -195,11 +183,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     },
     enabled: !!selectedTaskId,
   });
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
-  );
 
   const { data: crmGroups = [] } = useQuery({
     queryKey: ["crm-groups-list", user?.id],
@@ -557,53 +540,26 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const activeDropKeys = boardView === "funnel" ? STAGE_ORDER : SALES_DROP_KEYS;
   const allDropKeys = useMemo(() => ["inbox", ...activeDropKeys], [activeDropKeys]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const task = tasks.find((t) => t.id === event.active.id);
-    setActiveTask(task || null);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const overId = event.over?.id as string | undefined;
-    if (overId && allDropKeys.includes(overId)) {
-      setOverColumn(overId);
-    } else {
-      setOverColumn(null);
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    const lastOverColumn = overColumn;
+  const handleCrmDrop = useCallback((activeId: string, dropKey: string) => {
+    const task = tasks.find((t) => t.id === activeId);
     setActiveTask(null);
-    setOverColumn(null);
-
-    // Use over.id if it's a valid drop key, otherwise fall back to last tracked overColumn
-    const dropKey = (over?.id && allDropKeys.includes(over.id as string))
-      ? (over.id as string)
-      : lastOverColumn;
-    if (!dropKey) return;
-
-    const task = tasks.find((t) => t.id === active.id);
     if (!task) return;
 
     const taskIsInbox = isInboxTask(task);
 
-    // Dropping on inbox = move back to inbox (only if task has inbox tags)
     if (dropKey === "inbox") {
-      if (taskIsInbox) return; // already inbox
-      // Check task has inbox tags before allowing move
+      if (taskIsInbox) return;
       const taskTagNames = (task.task_tags || [])
         .map((tt) => tagById.get(tt.tag_id)?.name?.trim().toLowerCase())
         .filter(Boolean) as string[];
       const hasInboxTag = taskTagNames.some((n) => INBOX_TAG_NAMES.has(n));
-      if (!hasInboxTag) return; // can't move to inbox without inbox tags
+      if (!hasInboxTag) return;
       moveToInboxMutation.mutate({ task });
       return;
     }
 
     if (boardView === "funnel") {
       const currentStage = getTaskStage(task.subtasks);
-      // Skip same-stage only if NOT coming from inbox
       if (!taskIsInbox && currentStage === dropKey) return;
       moveMutation.mutate({ task, targetStage: dropKey });
       return;
@@ -615,7 +571,21 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     const targetStage = SALES_TO_CRM_STAGE[dropKey];
     if (!targetStage) return;
     moveMutation.mutate({ task, targetStage });
-  };
+  }, [tasks, isInboxTask, tagById, INBOX_TAG_NAMES, moveToInboxMutation, boardView, moveMutation]);
+
+  const {
+    overColumn,
+    activeId: activeDragId,
+    dndContextProps,
+  } = useBoardDnd({
+    dropKeys: allDropKeys,
+    onDragStart: (id) => {
+      const task = tasks.find((t) => t.id === id);
+      setActiveTask(task || null);
+    },
+    onDrop: handleCrmDrop,
+    onDragCancel: () => setActiveTask(null),
+  });
 
   // Unique groups used by CRM tasks
   const usedGroups = useMemo(() => {
@@ -853,13 +823,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext {...dndContextProps}>
       <div className="flex flex-col h-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
