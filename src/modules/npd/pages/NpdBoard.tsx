@@ -1383,52 +1383,46 @@ function InboxColumn({
   onCardClick: (id: string) => void;
   onCreate: (name: string) => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: "inbox" });
   const [collapsed, setCollapsed] = useState(true);
   const { data: users = [] } = useAvailableUsers();
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full min-h-0 shrink-0 border-r border-border transition-all",
-        collapsed ? "w-16" : "w-72 md:w-80",
-        isOver && "bg-primary/5"
-      )}
+    <BoardColumn
+      columnKey="inbox"
+      isOver={isOver}
+      className={cn(collapsed ? "w-16" : "w-72 md:w-80")}
+      scrollable={!collapsed}
+      header={
+        <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
+          <button
+            onClick={() => setCollapsed((prev) => !prev)}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
+          >
+            <Inbox className="h-4 w-4 text-primary shrink-0" />
+            {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
+            <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
+          </button>
+          {!collapsed && (
+            <QuickCreateForm
+              users={users}
+              singleType="subproject"
+              options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+              compact
+              onCreate={async (p) => { onCreate(p.title); }}
+            />
+          )}
+        </div>
+      }
     >
-      <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
-        <button
-          onClick={() => setCollapsed((prev) => !prev)}
-          className="flex items-center gap-2 flex-1 min-w-0 hover:bg-muted/50 rounded-md transition-colors -ml-1 px-1 py-0.5"
-        >
-          <Inbox className="h-4 w-4 text-primary shrink-0" />
-          {!collapsed && <span className="text-sm font-semibold text-foreground">Входящие</span>}
-          <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{projects.length}</span>
-        </button>
-        {!collapsed && (
-          <QuickCreateForm
-            users={users}
-            singleType="subproject"
-            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-            compact
-            onCreate={async (p) => { onCreate(p.title); }}
-          />
+      {!collapsed && (<>
+        {projects.map((p) => (
+          <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
+        ))}
+        {projects.length === 0 && (
+          <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
         )}
-      </div>
-
-      {!collapsed && (
-        <ScrollArea className="flex-1 min-h-0 py-2">
-          <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-            {projects.map((p) => (
-              <DraggableProjectCard key={p.id} project={p} isMoving={false} streamTagById={new Map()} onCardClick={() => onCardClick(p.id)} />
-            ))}
-            {projects.length === 0 && (
-              <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+      </>)}
+    </BoardColumn>
   );
 }
 
