@@ -130,11 +130,6 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     localStorage.setItem("npd-swimlane", String(swimlaneMode));
   }, [swimlaneMode]);
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
-  );
-
   // Save hidden gates to localStorage
   useEffect(() => {
     localStorage.setItem("npd-hidden-gates", JSON.stringify([...hiddenGates]));
