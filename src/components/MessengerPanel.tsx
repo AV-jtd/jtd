@@ -15,6 +15,7 @@ interface MessengerPanelProps {
   onClose: () => void;
   markThreadRead?: (threadId: string) => void;
   isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
+  onNavigateToProject?: (groupId: string) => void;
 }
 
 function formatThreadDate(dateStr: string | null) {
