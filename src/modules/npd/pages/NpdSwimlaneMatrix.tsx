@@ -339,7 +339,7 @@ export default function NpdSwimlaneMatrix() {
       let changed = false;
       for (const [streamName, sub] of streamSubMap.entries()) {
         const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-        const hasStreamTag = gTags.some(gt => streamTagIds.has(gt.tag_id));
+        const hasStreamTag = gTags.some(gt => (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) || streamTagIds.has(gt.tag_id));
         if (hasStreamTag) continue;
 
         const streamTag = streamTags.find(t => t.name === streamName);
