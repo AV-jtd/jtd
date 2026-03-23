@@ -542,7 +542,6 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     const grouped: Record<string, CrmTask[]> = { kp: [], samples: [], os: [], negotiation: [], shipping: [] };
     for (const task of nonInboxTasks) {
       const stage = getTaskStage(task.subtasks);
-      if (stage === "done") continue;
       if (grouped[stage]) grouped[stage].push(task);
     }
     return grouped;
