@@ -414,6 +414,25 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         return;
       }
 
+      // Check which template steps are missing and need to be created
+      const existingStages = new Set(
+        mappedSubtasks.map((sub) => SUBTASK_STAGE_MAP[sub.title])
+      );
+      const missingInserts = CRM_STAGE_TEMPLATE
+        .map((title, index) => ({ title, index, stage: SUBTASK_STAGE_MAP[title] }))
+        .filter((item) => item.stage && !existingStages.has(item.stage))
+        .map((item) => ({
+          task_id: task.id,
+          title: item.title,
+          position: sorted.length + item.index,
+          is_completed: STAGE_ORDER.indexOf(item.stage) < targetIdx,
+        }));
+
+      if (missingInserts.length > 0) {
+        const { error } = await supabase.from("subtasks").insert(missingInserts);
+        if (error) throw error;
+      }
+
       const updates = mappedSubtasks
         .map((sub) => {
           const subStage = SUBTASK_STAGE_MAP[sub.title];
