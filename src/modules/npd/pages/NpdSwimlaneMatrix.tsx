@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type Task, type TaskGroup, type Profile } from "@/hooks/useTasks";
+import { useTaskGroups, useTaskMutations, useAvailableUsers, type Task, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,7 +48,36 @@ export default function NpdSwimlaneMatrix() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: allGroups = [], isLoading: groupsLoading } = useTaskGroups();
-  const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
+
+  // Fetch tasks specifically for this project's subgroups (not global useTasks which has 1000 row limit)
+  const subGroupIds = useMemo(() => {
+    if (!projectId) return [];
+    const ids = allGroups.filter(g => g.parent_id === projectId).map(g => g.id);
+    if (projectId) ids.push(projectId);
+    return ids;
+  }, [allGroups, projectId]);
+
+  const { data: allTasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["npd-matrix-tasks", projectId, subGroupIds],
+    queryFn: async () => {
+      if (subGroupIds.length === 0) return [];
+      const results: Task[] = [];
+      // Fetch in batches of group IDs to avoid URL length limits
+      for (let i = 0; i < subGroupIds.length; i += 10) {
+        const batch = subGroupIds.slice(i, i + 10);
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .in("group_id", batch)
+          .order("position");
+        if (error) throw error;
+        if (data) results.push(...(data as Task[]));
+      }
+      return results;
+    },
+    enabled: !!user && !!projectId && subGroupIds.length > 0,
+    staleTime: 1000 * 15,
+  });
   const { data: users = [] } = useAvailableUsers();
   const { data: allDependencies = [] } = useDependencies();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
