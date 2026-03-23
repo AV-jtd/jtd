@@ -327,6 +327,35 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
+        // === AI Enrichment: if no assignee or deadline found, ask AI ===
+        let aiEnrichment: AiTaskEnrichment | null = null;
+        let aiApplied: string[] = [];
+        if (!assignedTo || !deadline.date) {
+          const members = await getProjectMembers(supabase, groupId, linkedGroup.user_id);
+          if (members.length > 0) {
+            aiEnrichment = await aiEnrichTask(taskText, members, linkedGroup.name);
+            if (aiEnrichment) {
+              // Apply assignee if not set manually
+              if (!assignedTo && aiEnrichment.assigned_to_id) {
+                // Verify this ID is actually a member
+                const memberIds = members.map(m => m.id);
+                if (memberIds.includes(aiEnrichment.assigned_to_id)) {
+                  assignedTo = aiEnrichment.assigned_to_id;
+                  assigneeUsername = aiEnrichment.assigned_to_name || null;
+                  aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
+                }
+              }
+              // Apply deadline if not set manually
+              if (!deadline.date && aiEnrichment.deadline) {
+                try {
+                  deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
+                  aiApplied.push(`📅 ${formatDate(deadline.date)}`);
+                } catch { /* ignore bad date */ }
+              }
+            }
+          }
+        }
+
         const taskData: Record<string, any> = {
           title: taskText.substring(0, 500),
           user_id: userId,
@@ -335,6 +364,7 @@ Deno.serve(async (req) => {
         };
         if (deadline.date) taskData.deadline = deadline.date.toISOString();
         if (assignedTo) taskData.assigned_to = assignedTo;
+        if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
         const { data: newTask, error: taskError } = await supabase
           .from("tasks")
@@ -355,6 +385,18 @@ Deno.serve(async (req) => {
           role: "creator",
         });
 
+        // Add AI-suggested subtasks
+        if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
+          for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
+            await supabase.from("subtasks").insert({
+              task_id: newTask.id,
+              title: aiEnrichment.subtasks[i],
+              position: i,
+            });
+          }
+          aiApplied.push(`📋 ${aiEnrichment.subtasks.length} шагов`);
+        }
+
         // Add tags
         for (const tagName of tagNames) {
           let { data: tag } = await supabase.from("tags").select("id").eq("user_id", linkedGroup.user_id).ilike("name", tagName).single();
@@ -372,10 +414,11 @@ Deno.serve(async (req) => {
         if (isImportant) extras.push("⭐ важная");
         if (deadline.date) extras.push(`📅 ${formatDate(deadline.date)}`);
         if (assigneeUsername) {
-          extras.push(assignedTo ? `👤 @${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
+          extras.push(assignedTo ? `👤 ${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
         }
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
+        if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
 
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
