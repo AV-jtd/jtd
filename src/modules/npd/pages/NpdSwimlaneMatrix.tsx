@@ -348,10 +348,16 @@ export default function NpdSwimlaneMatrix() {
     })();
   }, [streamSubMap, streamTags, allGroupTags, streamTagIds, subprojects, repaired, queryClient]);
 
-  // Get gate for a subproject
+  // Get gate for a subproject — match by tag NAME to work across users
   const getSubprojectGate = useCallback((subId: string): string | null => {
     const gTags = allGroupTags.filter(gt => gt.group_id === subId);
     for (const gt of gTags) {
+      // First try by tag name (works across different users' gate tags)
+      if (gt.tag_name) {
+        const k = tagNameToGateKey.get(gt.tag_name);
+        if (k) return k;
+      }
+      // Fallback: match by tag ID against known gateTags
       for (const tag of gateTags) {
         if (gt.tag_id === tag.id) {
           const k = tagNameToGateKey.get(tag.name);
