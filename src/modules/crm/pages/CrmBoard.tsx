@@ -137,11 +137,11 @@ function getTaskStage(subtasks: CrmTask["subtasks"]): string {
   const mapped = sorted.filter((s) => SUBTASK_STAGE_MAP[s.title]);
   if (mapped.length === 0) return "kp";
 
-  const allDone = mapped.every((s) => s.is_completed);
-  if (allDone) return "done";
-
   const firstIncomplete = mapped.find((s) => !s.is_completed);
-  if (!firstIncomplete) return "kp";
+  if (!firstIncomplete) {
+    // All CRM steps completed — show in last stage instead of hiding
+    return "shipping";
+  }
   return SUBTASK_STAGE_MAP[firstIncomplete.title] || "kp";
 }
 
