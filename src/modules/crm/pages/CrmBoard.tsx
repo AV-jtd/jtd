@@ -2355,25 +2355,22 @@ function DraggableCard({
   onToggleImportant: () => void;
   onCardClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task.id,
-    disabled: isMoving,
-  });
-
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}> 
-      <CrmCard
-        task={task}
-        tags={tags}
-        group={group}
-        variant={variant}
-        isDragging={isDragging}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        onToggleComplete={onToggleComplete}
-        onToggleImportant={onToggleImportant}
-        onCardClick={onCardClick}
-      />
-    </div>
+    <DraggableWrapper id={task.id} disabled={isMoving}>
+      {({ isDragging, dragHandleProps }) => (
+        <CrmCard
+          task={task}
+          tags={tags}
+          group={group}
+          variant={variant}
+          isDragging={isDragging}
+          dragHandleProps={dragHandleProps}
+          onToggleComplete={onToggleComplete}
+          onToggleImportant={onToggleImportant}
+          onCardClick={onCardClick}
+        />
+      )}
+    </DraggableWrapper>
   );
 }
 
