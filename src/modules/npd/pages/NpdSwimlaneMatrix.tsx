@@ -256,28 +256,18 @@ export default function NpdSwimlaneMatrix() {
     enabled: !!user,
   });
 
-  // Fetch task_tags (all — needed for gate-level task placement)
-  const { data: allTaskTags = [] } = useQuery({
-    queryKey: ["npd-task-tags", user?.id],
-    queryFn: async () => {
-      const results: { task_id: string; tag_id: string }[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("task_tags")
-          .select("task_id, tag_id")
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        results.push(...data);
-        if (data.length < pageSize) break;
-        from += pageSize;
+  // Build task_tags index from embedded data in allTasks (already fetched with task_tags(tag_id))
+  const allTaskTags = useMemo(() => {
+    const result: { task_id: string; tag_id: string }[] = [];
+    for (const task of allTasks) {
+      if (task.task_tags) {
+        for (const tt of task.task_tags) {
+          result.push({ task_id: task.id, tag_id: tt.tag_id });
+        }
       }
-      return results;
-    },
-    enabled: !!user,
-  });
+    }
+    return result;
+  }, [allTasks]);
 
   // Project data
   const project = allGroups.find(g => g.id === projectId);
