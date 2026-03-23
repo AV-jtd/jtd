@@ -410,192 +410,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
         </div>
 
-        {/* Actions — 3×2 grid on hover */}
-        <div className="grid grid-cols-3 gap-0.5 shrink-0 touch-visible opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
-             style={{ width: 'auto' }}>
-          {/* Row 1: Expand, Participant, Assignee */}
+        {/* Actions — always visible row */}
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className={cn(
               "p-1.5 rounded transition-colors",
-              detailsOpen ? "text-primary opacity-100" : "text-muted-foreground hover:text-foreground"
+              detailsOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
             title="Детали"
           >
             <Expand className="h-3.5 w-3.5" />
           </button>
 
-          <UserPicker
-            users={availableUsers}
-            excludeIds={participantIds}
-            open={userPickerOpen === "quick-participant"}
-            onOpenChange={(open) => setUserPickerOpen(open ? "quick-participant" : null)}
-            onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
-            trigger={
-              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
-                <UserPlus className="h-3.5 w-3.5" />
-              </button>
-            }
-          />
-
-          <UserPicker
-            users={availableUsers}
-            excludeIds={participantIds}
-            title="🪄 Назначить ответственного"
-            placeholder="Кому поручить?"
-            open={userPickerOpen === "quick-assignee"}
-            onOpenChange={(open) => setUserPickerOpen(open ? "quick-assignee" : null)}
-            onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}
-            trigger={
-              <button className={cn(
-                "p-1.5 rounded transition-colors",
-                task.assigned_to ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )} title="Ответственный">
-                <Wand2 className="h-3.5 w-3.5" />
-              </button>
-            }
-          />
-
-          {/* Row 2: Deadline, Tag, Star */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className={cn(
-                "p-1.5 rounded transition-colors",
-                task.deadline ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground hover:text-foreground"
-              )} title="Срок">
-                <Calendar className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1.5 bg-popover border-border z-50" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
-              {[
-                { label: "Сегодня", days: 0 },
-                { label: "Завтра", days: 1 },
-                { label: "Через 3 дня", days: 3 },
-                { label: "Через неделю", days: 7 },
-              ].map(opt => {
-                const d = new Date();
-                d.setDate(d.getDate() + opt.days);
-                const val = format(d, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={opt.days}
-                    onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-              <div className="border-t border-border mt-1 pt-1">
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
-                />
-              </div>
-              {task.deadline && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
-                >
-                  Убрать срок
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
-
-          <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
-            <PopoverTrigger asChild>
-              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Тэг">
-                <Tag className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2 bg-popover border-border z-50" side="left" onOpenAutoFocus={(e) => e.preventDefault()}>
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  placeholder="Найти тэг..."
-                  value={tagSearch}
-                  onChange={(e) => setTagSearch(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
-                  autoFocus
-                />
-                <div className="max-h-48 overflow-y-auto space-y-0.5">
-                  {/* AI Suggestions */}
-                  {!tagSearch && suggestedTagIds.length > 0 && (
-                    <>
-                      <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-primary" /> ИИ-рекомендации
-                      </p>
-                      {availableTags
-                        .filter(t => suggestedTagIds.includes(t.id))
-                        .map(tag => (
-                          <button
-                            key={`ai-${tag.id}`}
-                            onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
-                            className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
-                          >
-                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                            <span className="truncate">{tag.name}</span>
-                            <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
-                          </button>
-                        ))}
-                      <div className="border-t border-border my-1" />
-                    </>
-                  )}
-                  {!tagSearch && loadingSuggestions && (
-                    <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
-                    </p>
-                  )}
-                  {/* All tags */}
-                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
-                    <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
-                  )}
-                  {availableTags
-                    .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
-                    .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
-                    .map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => { addTaskTag.mutate({ task_id: task.id, tag_id: tag.id }); setTagSearch(""); }}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                      >
-                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                        <span className="truncate">{tag.name}</span>
-                      </button>
-                    ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
           <button
             onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
             className={cn(
               "p-1.5 rounded transition-colors",
-              task.is_important ? "text-warning opacity-100" : "text-muted-foreground hover:text-warning"
+              task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning"
             )}
             title="Важная"
           >
             <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
           </button>
-        </div>
-
-        {/* Always-visible indicators for active states */}
-        <div className="flex items-center gap-0.5 shrink-0 group-hover:hidden">
-          {detailsOpen && (
-            <button onClick={() => setDetailsOpen(false)} className="p-1.5 text-primary">
-              <Expand className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {task.is_important && (
-            <span className="p-1.5 text-warning">
-              <Star className="h-3.5 w-3.5 fill-current" />
-            </span>
-          )}
         </div>
       </div>
 
