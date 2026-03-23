@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
         { command: "projects", description: "📂 Список проектов" },
         { command: "project", description: "📁 Выбрать проект" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
+        { command: "ai", description: "✨ ИИ-ассистент" },
       ];
       const groupCommands = [
         { command: "link", description: "🔗 Привязать чат к проекту" },
@@ -49,6 +50,7 @@ Deno.serve(async (req) => {
         { command: "done", description: "✅ Выполнить задачу" },
         { command: "assign", description: "👤 Назначить ответственного" },
         { command: "my", description: "🙋 Мои задачи" },
+        { command: "ai", description: "✨ ИИ-ассистент" },
         { command: "projects", description: "📂 Список проектов" },
         { command: "help", description: "📖 Справка" },
       ];
