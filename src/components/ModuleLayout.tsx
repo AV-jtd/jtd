@@ -10,7 +10,7 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 interface ModuleLayoutProps {
   /** Module key for AI assistant context */
-  moduleContext: string;
+  moduleContext: "tasks" | "pmo" | "npd" | "crm";
   /** Sub-navigation rendered inside AppHeader (e.g. PMO tabs, CRM view toggle) */
   headerChildren?: ReactNode;
   /** The main content area */
