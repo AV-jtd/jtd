@@ -823,13 +823,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext {...dndContextProps}>
       <div className="flex flex-col h-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
