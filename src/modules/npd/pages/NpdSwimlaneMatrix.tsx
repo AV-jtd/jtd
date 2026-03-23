@@ -285,8 +285,14 @@ export default function NpdSwimlaneMatrix() {
     const m = new Map<string, TaskGroup>(); // streamName -> subproject
     for (const sub of subprojects) {
       const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-      const sTagId = gTags.find(gt => streamTagIds.has(gt.tag_id))?.tag_id;
-      const sName = sTagId ? streamTagById.get(sTagId) : null;
+      // Match by tag name first (cross-user), then by tag ID
+      const streamGTag = gTags.find(gt => {
+        if (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) return true;
+        return streamTagIds.has(gt.tag_id);
+      });
+      const sName = streamGTag
+        ? (streamGTag.tag_name && NPD_STREAMS.includes(streamGTag.tag_name) ? streamGTag.tag_name : streamTagById.get(streamGTag.tag_id) ?? null)
+        : null;
       if (sName) {
         m.set(sName, sub);
       }
