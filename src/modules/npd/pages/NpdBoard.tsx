@@ -1331,52 +1331,46 @@ function GateColumn({
   gateKeyToTagId: Map<string, string>;
   allGroupTags: { group_id: string; tag_id: string }[];
 }) {
-  const { setNodeRef } = useDroppable({ id: gate.key });
   const { data: users = [] } = useAvailableUsers();
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full min-h-0 w-72 md:w-80 shrink-0 border-r border-border last:border-r-0 transition-colors",
-        isOver && "bg-primary/5"
-      )}
-    >
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
-        <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
-        <span className="text-sm font-semibold text-foreground">{gate.short}</span>
-        <span className="text-xs text-muted-foreground/60">·</span>
-        <span className="text-xs text-muted-foreground truncate">{gate.shortTitle}</span>
-        <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
-        <QuickCreateForm
-          users={users}
-          singleType="subproject"
-          options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
-          compact
-          onCreate={async (p) => { onCreate(p.title); }}
-        />
-      </div>
-      <ScrollArea className="flex-1 min-h-0 pb-2">
-        <div className="flex flex-col gap-2 px-2 w-[calc(theme(width.72)-0px)] md:w-[calc(theme(width.80)-0px)]">
-          {projects.map(({ project: p, isPrimary }) => (
-            <DraggableProjectCard
-              key={p.id}
-              project={p}
-              isMoving={isMoving}
-              streamTagById={streamTagById}
-              onCardClick={() => onCardClick(p.id)}
-              isSecondary={!isPrimary}
-              currentGate={gate}
-              gateKeyToTagId={gateKeyToTagId}
-              allGroupTags={allGroupTags}
-            />
-          ))}
-          {projects.length === 0 && (
-            <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
-          )}
+    <BoardColumn
+      columnKey={gate.key}
+      isOver={isOver}
+      header={
+        <div className="flex items-center gap-2 px-4 py-3">
+          <div className={cn("h-2.5 w-2.5 rounded-full", gate.color)} />
+          <span className="text-sm font-semibold text-foreground">{gate.short}</span>
+          <span className="text-xs text-muted-foreground/60">·</span>
+          <span className="text-xs text-muted-foreground truncate">{gate.shortTitle}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{projects.length}</span>
+          <QuickCreateForm
+            users={users}
+            singleType="subproject"
+            options={[{ type: "subproject", label: "Проект", icon: <FolderPlus className="h-3.5 w-3.5" /> }]}
+            compact
+            onCreate={async (p) => { onCreate(p.title); }}
+          />
         </div>
-      </ScrollArea>
-    </div>
+      }
+    >
+      {projects.map(({ project: p, isPrimary }) => (
+        <DraggableProjectCard
+          key={p.id}
+          project={p}
+          isMoving={isMoving}
+          streamTagById={streamTagById}
+          onCardClick={() => onCardClick(p.id)}
+          isSecondary={!isPrimary}
+          currentGate={gate}
+          gateKeyToTagId={gateKeyToTagId}
+          allGroupTags={allGroupTags}
+        />
+      ))}
+      {projects.length === 0 && (
+        <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
+      )}
+    </BoardColumn>
   );
 }
 
