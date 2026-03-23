@@ -990,6 +990,39 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === AI Enrichment for private chat ===
+    let aiEnrichment: AiTaskEnrichment | null = null;
+    let aiApplied: string[] = [];
+    if (groupId && (!assignedTo || !deadline.date)) {
+      // Get project owner to fetch members
+      const { data: groupInfo } = await supabase
+        .from("task_groups")
+        .select("user_id, name")
+        .eq("id", groupId)
+        .single();
+      if (groupInfo) {
+        const members = await getProjectMembers(supabase, groupId, groupInfo.user_id);
+        if (members.length > 0) {
+          aiEnrichment = await aiEnrichTask(text, members, groupInfo.name);
+          if (aiEnrichment) {
+            if (!assignedTo && aiEnrichment.assigned_to_id) {
+              const memberIds = members.map(m => m.id);
+              if (memberIds.includes(aiEnrichment.assigned_to_id)) {
+                assignedTo = aiEnrichment.assigned_to_id;
+                aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
+              }
+            }
+            if (!deadline.date && aiEnrichment.deadline) {
+              try {
+                deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
+                aiApplied.push(`📅 ${formatDate(deadline.date)}`);
+              } catch { /* ignore */ }
+            }
+          }
+        }
+      }
+    }
+
     // Create the task
     const taskData: Record<string, any> = {
       title: text.substring(0, 500),
@@ -1001,6 +1034,7 @@ Deno.serve(async (req) => {
     if (deadline.date) taskData.deadline = deadline.date.toISOString();
     if (groupId) taskData.group_id = groupId;
     if (assignedTo) taskData.assigned_to = assignedTo;
+    if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
     const { data: newTask, error: taskError } = await supabase
       .from("tasks")
@@ -1017,10 +1051,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Add AI-suggested subtasks
+    if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
+      for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
+        await supabase.from("subtasks").insert({
+          task_id: newTask.id,
+          title: aiEnrichment.subtasks[i],
+          position: i,
+        });
+      }
+      aiApplied.push(`📋 ${aiEnrichment.subtasks.length} шагов`);
+    }
+
     // Add tags
     if (tagNames.length > 0 && newTask) {
       for (const tagName of tagNames) {
-        // Find or create tag
         let { data: tag } = await supabase
           .from("tags")
           .select("id")
@@ -1061,6 +1106,7 @@ Deno.serve(async (req) => {
     }
     if (groupId) extras.push("📂 в проекте");
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
+    if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
 
     await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
