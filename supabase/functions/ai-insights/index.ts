@@ -99,7 +99,7 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" (просрочена на ${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (просрочена на ${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
