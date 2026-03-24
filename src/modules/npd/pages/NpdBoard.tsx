@@ -492,6 +492,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
+  // ── Fetch per-user card positions ──
+  const { data: cardPositions = [] } = useQuery({
+    queryKey: ["npd-card-positions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("npd_card_positions" as any)
+        .select("gate_key, group_id, position")
+        .eq("user_id", user!.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data || []) as { gate_key: string; group_id: string; position: number }[];
+    },
+    enabled: !!user,
+  });
+
+  const positionMap = useMemo(() => {
+    const m = new Map<string, number>(); // "gateKey:groupId" -> position
+    for (const cp of cardPositions) {
+      m.set(`${cp.gate_key}:${cp.group_id}`, cp.position);
+    }
+    return m;
+  }, [cardPositions]);
+
   // ── Columns (project appears in ALL active gates) ──
   const gateColumns = useMemo(() => {
     const grouped: Record<string, { project: NpdProject; isPrimary: boolean }[]> = {};
@@ -507,15 +530,24 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
           }
         }
       } else {
-        // Fallback: single gate from own tag
         const gate = primaryGate;
         if (gate && grouped[gate]) {
           grouped[gate].push({ project, isPrimary: true });
         }
       }
     }
+
+    // Sort by saved positions (items without position go to end)
+    for (const gateKey of Object.keys(grouped)) {
+      grouped[gateKey].sort((a, b) => {
+        const posA = positionMap.get(`${gateKey}:${a.project.id}`) ?? 999999;
+        const posB = positionMap.get(`${gateKey}:${b.project.id}`) ?? 999999;
+        return posA - posB;
+      });
+    }
+
     return grouped;
-  }, [filteredProjects, tagIdToGateKey]);
+  }, [filteredProjects, tagIdToGateKey, positionMap]);
 
   const inboxProjects = useMemo(
     () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
