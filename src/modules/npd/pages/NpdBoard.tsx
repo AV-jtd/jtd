@@ -1937,6 +1937,37 @@ function ProjectCard({
               <Grid3X3 className="h-3.5 w-3.5" />
               <span>Матрица</span>
             </button>
+            <NpdAiTasksPopover
+              projectName={project.name}
+              projectDescription={project.description}
+              projectId={project.id}
+              gateName={currentGate?.title}
+              streams={streamNames.length > 0 ? streamNames : undefined}
+              existingTasks={allProjectTasks.map(t => t.title)}
+              onApply={(tasks) => {
+                const subprojects = allGroups.filter(g => g.parent_id === project.id);
+                let created = 0;
+                for (const task of tasks) {
+                  // Find matching subproject by stream name
+                  const sub = subprojects.find(s => s.name.toLowerCase().includes(task.stream_name.toLowerCase()));
+                  const groupId = sub?.id || project.id;
+                  addTask.mutate({ title: task.title, group_id: groupId, deadline: task.deadline });
+                  created++;
+                }
+                if (created > 0) {
+                  toast.success(`Создано ${created} задач`);
+                }
+              }}
+            >
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                title="ИИ-задачи по стримам"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>ИИ</span>
+              </button>
+            </NpdAiTasksPopover>
           </div>
           {/* Assignee */}
           {assigneeName && (
