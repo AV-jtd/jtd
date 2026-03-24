@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isToday, parseISO } from "date-fns";
 import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import TaskCreateBar from "@/components/task-list/TaskCreateBar";
