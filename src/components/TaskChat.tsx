@@ -46,7 +46,7 @@ export default function TaskChat({ taskId, taskTitle, availableUsers }: TaskChat
   };
 
   return (
-    <div className="space-y-1.5">
+    <div id={`task-chat-${taskId}`} className="space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
         <MessageCircle className="h-3 w-3" /> Чат {comments.length > 0 && `(${comments.length})`}
       </p>
