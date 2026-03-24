@@ -464,8 +464,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
         </div>
 
-        {/* Actions — always visible 3×2 grid */}
-        <div className="grid grid-cols-3 gap-0.5 shrink-0" style={{ width: 'auto' }}>
+        {/* Actions — visible on hover */}
+        <div className="grid grid-cols-3 gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" style={{ width: 'auto' }}>
           <button
             onClick={() => setDetailsOpen(!detailsOpen)}
             className={cn(
