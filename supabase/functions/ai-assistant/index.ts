@@ -461,6 +461,110 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "npd_risk_radar") {
+      const { projects } = context;
+
+      const projectsInfo = (projects || []).map((p: any) =>
+        `Проект: "${p.name}"${p.description ? ` (${p.description})` : ""}
+  Задач: ${p.total_tasks}, Завершено: ${p.completed_tasks}, Просрочено: ${p.overdue_tasks}
+  Гейты: ${p.current_gates?.join(", ") || "нет"}
+  Стримы: ${(p.streams || []).map((s: any) => `${s.name} (${s.completed}/${s.total})`).join(", ")}`
+      ).join("\n\n");
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по NPD (New Product Development) и управлению рисками.
+Проанализируй портфель NPD-проектов и выяви горячие точки (риски).
+
+Правила анализа:
+- Просроченные задачи = высокий риск
+- Стримы без задач или с 0% прогрессом = средний риск
+- Дисбаланс прогресса между стримами = средний риск
+- Проекты без назначенного гейта = риск
+- Будь конкретным: указывай проект и проблему
+- Максимум 6 рисков, сортируй по severity (high → low)
+- summary = одно предложение о состоянии портфеля (до 80 символов)
+- Отвечай только через tool call`,
+            },
+            {
+              role: "user",
+              content: `Портфель NPD проектов:\n\n${projectsInfo}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "report_risks",
+                description: "Отчёт о рисках портфеля NPD проектов",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    summary: { type: "string", description: "Краткое резюме состояния портфеля (до 80 символов)" },
+                    risks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          project_name: { type: "string", description: "Название проекта" },
+                          severity: { type: "string", enum: ["high", "medium", "low"] },
+                          issue: { type: "string", description: "Описание проблемы (1-2 предложения)" },
+                          recommendation: { type: "string", description: "Рекомендация (1 предложение)" },
+                        },
+                        required: ["project_name", "severity", "issue", "recommendation"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["summary", "risks"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "report_risks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ summary: parsed.summary, risks: parsed.risks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
       const { headers: excelHeaders, sampleRows } = context;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

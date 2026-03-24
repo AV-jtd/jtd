@@ -30,6 +30,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import NpdAiTasksPopover from "@/modules/npd/components/NpdAiTasksPopover";
+import NpdRiskRadar from "@/modules/npd/components/NpdRiskRadar";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 // ── Gate definitions ──
@@ -1071,6 +1072,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
               />
             </div>
           </div>
+
+          {/* Risk Radar */}
+          <NpdRiskRadar projects={npdProjects} />
 
           {/* Board: flat columns or swimlane grid */}
           <div className="flex-1 overflow-auto">
