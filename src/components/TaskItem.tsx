@@ -4,6 +4,7 @@ import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskPar
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
+import UserPicker from "@/components/UserPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
