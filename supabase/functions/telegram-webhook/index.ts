@@ -387,6 +387,34 @@ Deno.serve(async (req) => {
           role: "creator",
         });
 
+        // Add AI-suggested participants
+        if (aiEnrichment?.participant_ids && aiEnrichment.participant_ids.length > 0 && newTask) {
+          const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
+          const validParticipants = aiEnrichment.participant_ids.filter(
+            pid => memberIds.includes(pid) && pid !== userId && pid !== assignedTo
+          );
+          for (const pid of validParticipants) {
+            await supabase.from("task_participants").insert({
+              task_id: newTask.id,
+              user_id: pid,
+              role: "participant",
+            });
+          }
+          if (validParticipants.length > 0) {
+            const names = aiEnrichment.participant_names?.slice(0, validParticipants.length) || [];
+            aiApplied.push(`👥 ${names.join(", ") || validParticipants.length + " уч."}`);
+          }
+        }
+
+        // Add assignee as participant
+        if (assignedTo && assignedTo !== userId && newTask) {
+          await supabase.from("task_participants").insert({
+            task_id: newTask.id,
+            user_id: assignedTo,
+            role: "assignee",
+          });
+        }
+
         // Add AI-suggested subtasks
         if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
           for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
