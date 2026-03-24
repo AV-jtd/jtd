@@ -128,7 +128,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
         };
 
         return {
-          type: get("type") || "Задача",
+          type: get("type") || "task",
           project: get("project") || fileName.replace(/\.(xlsx|xls)$/i, ""),
           subproject: get("subproject") || "",
           title: get("title") || "",
