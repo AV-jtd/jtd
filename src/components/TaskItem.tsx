@@ -353,25 +353,39 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               ) : null;
             })()}
-            {participants.length > 0 && (() => {
-              const MAX_SHOWN = 2;
-              const shown = participants.slice(0, MAX_SHOWN);
-              const rest = participants.length - MAX_SHOWN;
-              return (
-                <span className="text-xs flex items-center gap-1 text-muted-foreground truncate" title={participants.map(p => getProfileName(p.user_id)).join(", ")}>
-                  <Users className="h-3 w-3 shrink-0" />
-                  {shown.map((p, i) => (
-                    <span key={p.id} className="shrink-0">
-                      {i > 0 && ", "}
-                      <span className={p.role === "assignee" ? "text-primary font-semibold" : ""}>
-                        {getProfileName(p.user_id).split(" ")[0]}
-                      </span>
-                    </span>
-                  ))}
-                  {rest > 0 && <span className="shrink-0 text-muted-foreground/60">+{rest}</span>}
+            {participants.length > 0 && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Users className="h-3 w-3 shrink-0" />
+                <span className={participants.find(p => p.role === "assignee") ? "text-primary font-semibold" : ""}>
+                  {getProfileName(participants.find(p => p.role === "assignee")?.user_id || participants[0].user_id).split(" ")[0]}
                 </span>
-              );
-            })()}
+                {participants.length > 1 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors px-0.5"
+                      >
+                        +{participants.length - 1}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-1.5 bg-popover border-border z-50" side="top" align="start">
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">Участники</p>
+                      {participants.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-xs">
+                          <span className={cn(
+                            p.role === "assignee" ? "text-primary font-semibold" : "text-foreground"
+                          )}>
+                            {getProfileName(p.user_id)}
+                          </span>
+                          {p.role === "assignee" && <span className="text-[9px] text-primary/60">отв.</span>}
+                        </div>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </span>
+            )}
             {/* Project badge */}
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
