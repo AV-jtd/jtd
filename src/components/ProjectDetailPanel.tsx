@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import SmartImportDialog from "@/components/SmartImportDialog";
+import MigrateToNpdDialog from "@/components/MigrateToNpdDialog";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
