@@ -502,7 +502,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         .eq("user_id", user!.id)
         .order("position", { ascending: true });
       if (error) throw error;
-      return (data || []) as { gate_key: string; group_id: string; position: number }[];
+      return (data || []) as unknown as { gate_key: string; group_id: string; position: number }[];
     },
     enabled: !!user,
   });
