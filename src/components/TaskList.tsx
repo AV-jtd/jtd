@@ -322,7 +322,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              📤 Поручил я
+              📤 Поручил я{delegationCounts.byMe > 0 && ` (${delegationCounts.byMe})`}
             </button>
             <button
               onClick={() => setDelegationTab("to_me")}
@@ -333,7 +333,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              📥 Поручено мне
+              📥 Поручено мне{delegationCounts.toMe > 0 && ` (${delegationCounts.toMe})`}
             </button>
           </div>
         )}
