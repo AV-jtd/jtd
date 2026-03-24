@@ -5,9 +5,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import UserPicker from "@/components/UserPicker";
 import type { Profile } from "@/hooks/useTasks";
-import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle } from "lucide-react";
+import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type QuickCreateType = "task" | "subproject";
@@ -77,7 +78,10 @@ export default function QuickCreateForm({
   const [saving, setSaving] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
   const [userPickerOpen, setUserPickerOpen] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchText, setBatchText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Base date for the days slider: startFrom (gate boundary) or today
   const baseDate = startFrom || new Date();
@@ -89,6 +93,8 @@ export default function QuickCreateForm({
     setDeadline(undefined);
     setAssigneeId(undefined);
     setSaving(false);
+    setBatchMode(false);
+    setBatchText("");
   };
 
   const handleOpen = (open: boolean) => {
@@ -127,6 +133,32 @@ export default function QuickCreateForm({
       setSaving(false);
     }
   };
+
+  const handleBatchSubmit = async () => {
+    const lines = batchText
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0 || saving) return;
+    setSaving(true);
+    try {
+      for (const line of lines) {
+        await onCreate({
+          type: selectedType,
+          title: line,
+          deadline,
+          assigneeId,
+          startFrom,
+        });
+      }
+      setBatchText("");
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const batchLineCount = batchText.split("\n").filter(l => l.trim()).length;
 
   const assignee = users.find(u => u.id === assigneeId);
   const selectedOption = options.find(o => o.type === selectedType);
@@ -173,13 +205,35 @@ export default function QuickCreateForm({
 
         {step === "form" && (
           <div className="p-2.5 space-y-2">
-            {/* Type badge */}
+            {/* Type badge + batch toggle */}
             <div className="flex items-center gap-1.5">
               {selectedOption && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   {selectedOption.icon}
                   {selectedOption.label}
                 </span>
+              )}
+              {selectedType === "task" && (
+                <button
+                  onClick={() => {
+                    setBatchMode(!batchMode);
+                    if (!batchMode) {
+                      setTimeout(() => textareaRef.current?.focus(), 100);
+                    } else {
+                      setTimeout(() => inputRef.current?.focus(), 100);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors",
+                    batchMode
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground/60 hover:text-foreground hover:bg-muted"
+                  )}
+                  title="Массовое добавление — каждая строка = задача"
+                >
+                  <ListChecks className="h-3 w-3" />
+                  {batchMode ? "Пакет" : ""}
+                </button>
               )}
               {!singleType && (
                 <button
@@ -206,19 +260,43 @@ export default function QuickCreateForm({
               </div>
             )}
 
-            {/* Title */}
-            <Input
-              ref={inputRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи..."}
-              className="h-8 text-xs"
-              disabled={saving}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
-                if (e.key === "Escape") handleOpen(false);
-              }}
-            />
+            {/* Single mode: title input */}
+            {!batchMode && (
+              <Input
+                ref={inputRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи..."}
+                className="h-8 text-xs"
+                disabled={saving}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmit();
+                  if (e.key === "Escape") handleOpen(false);
+                }}
+              />
+            )}
+
+            {/* Batch mode: textarea */}
+            {batchMode && (
+              <div className="space-y-1">
+                <Textarea
+                  ref={textareaRef}
+                  value={batchText}
+                  onChange={(e) => setBatchText(e.target.value)}
+                  placeholder={"Каждая строка — новая задача:\nРазработка прототипа\nТестирование образцов\nСогласование спецификации"}
+                  className="text-xs min-h-[80px] max-h-[200px] resize-y"
+                  disabled={saving}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") handleOpen(false);
+                  }}
+                />
+                {batchLineCount > 0 && (
+                  <p className="text-[10px] text-muted-foreground/60 px-0.5">
+                    {batchLineCount} {batchLineCount === 1 ? "задача" : batchLineCount < 5 ? "задачи" : "задач"}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Deadline + Assignee row */}
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -308,12 +386,12 @@ export default function QuickCreateForm({
             {/* Actions */}
             <div className="flex items-center gap-1.5 pt-0.5">
               <button
-                onClick={handleSubmit}
-                disabled={saving || !title.trim()}
+                onClick={batchMode ? handleBatchSubmit : handleSubmit}
+                disabled={saving || (batchMode ? batchLineCount === 0 : !title.trim())}
                 className="flex-1 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
               >
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                {saving ? "Создаю..." : "Создать"}
+                {saving ? "Создаю..." : batchMode ? `Создать ${batchLineCount > 0 ? batchLineCount : ""}` : "Создать"}
               </button>
               <button
                 onClick={() => handleOpen(false)}
