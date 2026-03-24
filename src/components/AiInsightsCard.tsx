@@ -110,10 +110,30 @@ function AiInsightsCardInner({
           )}
         </div>
 
-        {/* Focus of day preview */}
-        <div className="flex items-center gap-2 pl-6">
+        {/* Focus of day preview — clickable */}
+        <div
+          className={cn(
+            "flex items-center gap-2 pl-6",
+            (insights.focusTaskId || insights.focusGroupId) && "cursor-pointer"
+          )}
+          onClick={(insights.focusTaskId || insights.focusGroupId) ? (e) => {
+            e.stopPropagation();
+            if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
+            else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
+          } : undefined}
+        >
           <Target className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-xs text-foreground/60 line-clamp-2">{insights.focusOfDay}</span>
+          <span className={cn(
+            "text-xs line-clamp-2",
+            (insights.focusTaskId || insights.focusGroupId)
+              ? "text-primary/70 underline underline-offset-2 decoration-primary/30"
+              : "text-foreground/60"
+          )}>
+            {insights.focusOfDay}
+          </span>
+          {(insights.focusTaskId || insights.focusGroupId) && (
+            <ExternalLink className="h-3 w-3 shrink-0 text-primary/40" />
+          )}
         </div>
       </button>
 
@@ -183,22 +203,28 @@ function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
   onNavigateToProject?: (id: string) => void;
 }) {
   const hasLink = item.task_id || item.group_id;
+  const handleNavigate = () => {
+    if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
+    else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
+  };
 
   return (
-    <div className="flex items-start gap-1.5 text-xs group">
+    <div
+      className={cn(
+        "flex items-start gap-1.5 text-xs",
+        hasLink && "cursor-pointer active:bg-muted/50 rounded-md -mx-1 px-1 py-0.5"
+      )}
+      onClick={hasLink ? handleNavigate : undefined}
+    >
       <span className="shrink-0 mt-0.5">{item.emoji}</span>
-      <span className="text-foreground/80 leading-relaxed flex-1">{item.text}</span>
+      <span className={cn(
+        "leading-relaxed flex-1",
+        hasLink ? "text-primary/80 underline underline-offset-2 decoration-primary/30" : "text-foreground/80"
+      )}>
+        {item.text}
+      </span>
       {hasLink && (
-        <button
-          onClick={() => {
-            if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
-            else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
-          }}
-          className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-          title={item.task_id ? "Перейти к задаче" : "Перейти к проекту"}
-        >
-          <ExternalLink className="h-3 w-3" />
-        </button>
+        <ExternalLink className="h-3 w-3 shrink-0 mt-0.5 text-primary/50" />
       )}
     </div>
   );
