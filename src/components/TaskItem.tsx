@@ -372,7 +372,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
-            )}
             {/* Project badge */}
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
