@@ -187,6 +187,8 @@ serve(async (req) => {
                       properties: {
                         emoji: { type: "string", description: "Эмодзи для пункта (🔴, ⚡, 📅, etc)" },
                         text: { type: "string", description: "Краткий текст пункта" },
+                        task_id: { type: "string", description: "UUID задачи из контекста [task_id:...], если упоминается конкретная задача" },
+                        group_id: { type: "string", description: "UUID проекта из контекста [group_id:...], если задача принадлежит проекту" },
                       },
                       required: ["emoji", "text"],
                       additionalProperties: false,
