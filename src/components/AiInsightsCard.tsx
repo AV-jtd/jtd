@@ -5,6 +5,7 @@ import {
   ChevronDown, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AiInsightsCardProps {
   insights: DailyInsights | null;
