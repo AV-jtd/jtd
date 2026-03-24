@@ -353,39 +353,58 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               ) : null;
             })()}
-            {participants.length > 0 && (
-              <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                <Users className="h-3 w-3 shrink-0" />
-                <span className={participants.find(p => p.role === "assignee") ? "text-primary font-semibold" : ""}>
-                  {getProfileName(participants.find(p => p.role === "assignee")?.user_id || participants[0].user_id).split(" ")[0]}
-                </span>
-                {participants.length > 1 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors px-0.5"
-                      >
-                        +{participants.length - 1}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-44 p-1.5 bg-popover border-border z-50" side="top" align="start">
-                      <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">Участники</p>
-                      {participants.map(p => (
-                        <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-xs">
-                          <span className={cn(
-                            p.role === "assignee" ? "text-primary font-semibold" : "text-foreground"
-                          )}>
-                            {getProfileName(p.user_id)}
-                          </span>
-                          {p.role === "assignee" && <span className="text-[9px] text-primary/60">отв.</span>}
-                        </div>
+            {participants.length > 0 && (() => {
+              const MAX_CHIPS = 2;
+              const assignee = participants.find(p => p.role === "assignee");
+              const sorted = assignee
+                ? [assignee, ...participants.filter(p => p.id !== assignee.id)]
+                : participants;
+              const shown = sorted.slice(0, MAX_CHIPS);
+              const rest = sorted.length - MAX_CHIPS;
+
+              return (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      className="inline-flex items-center gap-1 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {shown.map(p => (
+                        <span
+                          key={p.id}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full transition-colors",
+                            p.role === "assignee"
+                              ? "bg-primary/15 text-primary font-semibold"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {getProfileName(p.user_id).split(" ")[0]}
+                        </span>
                       ))}
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </span>
-            )}
+                      {rest > 0 && (
+                        <span className="text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60">
+                          +{rest}
+                        </span>
+                      )}
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-44 p-1.5 bg-popover border-border z-50" side="top" align="start">
+                    <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">Участники</p>
+                    {sorted.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-xs">
+                        <span className={cn(
+                          p.role === "assignee" ? "text-primary font-semibold" : "text-foreground"
+                        )}>
+                          {getProfileName(p.user_id)}
+                        </span>
+                        {p.role === "assignee" && <span className="text-[9px] text-primary/60">отв.</span>}
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              );
+            })()}
             {/* Project badge */}
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
