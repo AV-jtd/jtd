@@ -1154,6 +1154,8 @@ Deno.serve(async (req) => {
 interface AiTaskEnrichment {
   assigned_to_id?: string | null;
   assigned_to_name?: string | null;
+  participant_ids?: string[];
+  participant_names?: string[];
   deadline?: string | null;
   priority?: number | null;
   subtasks?: string[];
