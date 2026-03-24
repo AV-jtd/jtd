@@ -341,6 +341,18 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </div>
         )}
 
+        {/* AI Insights — show on inbox/today/all views */}
+        {!batchMode && (activeView === "inbox" || activeView === "today" || activeView === "all") && (
+          <AiInsightsCard
+            insights={insights}
+            loading={insightsLoading}
+            error={insightsError}
+            dismissed={insightsDismissed}
+            onRefresh={refreshInsights}
+            onDismiss={dismissInsights}
+          />
+        )}
+
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
