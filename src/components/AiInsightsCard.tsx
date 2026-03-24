@@ -44,52 +44,53 @@ function AiInsightsCardInner({
 
   return (
     <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-hidden">
-      {/* Collapsed header — always visible */}
+      {/* Collapsed header — always visible, taller like a task item */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+        className="w-full flex flex-col gap-1 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
       >
-        <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-        <p className="text-xs text-foreground/80 leading-relaxed flex-1 truncate">
-          {insights.greeting}
-        </p>
+        {/* Top row: icon + greeting + actions */}
+        <div className="flex items-center gap-2 w-full">
+          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+          <p className="text-[13px] font-medium text-foreground leading-snug flex-1 line-clamp-2">
+            {insights.greeting}
+          </p>
 
-        {/* Mini stats in header */}
-        <div className="flex items-center gap-2 shrink-0">
-          {stats.overdue > 0 && (
-            <span className="flex items-center gap-0.5">
-              <AlertTriangle className="h-3 w-3 text-destructive" />
-              <span className="text-[11px] font-semibold text-destructive tabular-nums">{stats.overdue}</span>
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+              className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Обновить"
+            >
+              <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
             </span>
-          )}
-          <span className="flex items-center gap-0.5">
-            <TrendingUp className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{stats.active}</span>
-          </span>
+            <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+              className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Скрыть"
+            >
+              <X className="h-3 w-3" />
+            </span>
+            <ChevronDown className={cn(
+              "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+              expanded && "rotate-180"
+            )} />
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <span
-            role="button"
-            onClick={(e) => { e.stopPropagation(); onRefresh(); }}
-            className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Обновить"
-          >
-            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-          </span>
-          <span
-            role="button"
-            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-            className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Скрыть"
-          >
-            <X className="h-3 w-3" />
-          </span>
-          <ChevronDown className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-            expanded && "rotate-180"
-          )} />
+        {/* Bottom row: stats badges */}
+        <div className="flex items-center gap-3 pl-5">
+          <StatBadge icon={TrendingUp} label="Активных" value={stats.active} variant="default" />
+          {stats.overdue > 0 && (
+            <StatBadge icon={AlertTriangle} label="Просрочено" value={stats.overdue} variant="danger" />
+          )}
+          <StatBadge icon={Target} label="На неделе" value={stats.dueThisWeek} variant="warning" />
+          {stats.completedRecently > 0 && (
+            <StatBadge icon={CheckCircle2} label="Сделано" value={stats.completedRecently} variant="success" />
+          )}
         </div>
       </button>
 
