@@ -605,9 +605,50 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     },
   });
 
+  // ── Reorder mutation (per-user card positions) ──
+  const reorderMutation = useMutation({
+    mutationFn: async ({ gateKey, orderedIds }: { gateKey: string; orderedIds: string[] }) => {
+      if (!user) return;
+      // Delete old positions for this gate, then insert new
+      await supabase.from("npd_card_positions" as any).delete().eq("user_id", user.id).eq("gate_key", gateKey);
+      const rows = orderedIds.map((groupId, idx) => ({
+        user_id: user.id,
+        gate_key: gateKey,
+        group_id: groupId,
+        position: idx,
+      }));
+      if (rows.length > 0) {
+        const { error } = await supabase.from("npd_card_positions" as any).insert(rows);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["npd-card-positions"] });
+    },
+  });
+
+  // Find which gate a project is currently displayed in
+  const findProjectGateKey = useCallback((projectId: string): string | null => {
+    for (const gateKey of GATE_ORDER) {
+      if (gateColumns[gateKey]?.some(({ project: p }) => p.id === projectId)) {
+        return gateKey;
+      }
+    }
+    if (inboxProjects.some(p => p.id === projectId)) return "inbox";
+    return null;
+  }, [gateColumns, inboxProjects]);
+
   const handleNpdDrop = useCallback((activeId: string, dropKey: string) => {
     const project = npdProjects.find((p) => p.id === activeId);
     if (!project) return;
+
+    const sourceGate = findProjectGateKey(activeId);
+
+    // Within same column → reorder
+    if (sourceGate === dropKey && dropKey !== "inbox") {
+      // Reorder handled by sortable onDragEnd below
+      return;
+    }
 
     if (dropKey === "inbox") {
       const currentGate = getProjectGate(project);
@@ -619,17 +660,57 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     const currentGate = getProjectGate(project);
     if (currentGate === dropKey) return;
     moveMutation.mutate({ projectId: activeId, targetGateKey: dropKey });
-  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation]);
+  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation, findProjectGateKey]);
 
   const {
     overColumn,
     activeId: activeProjectId,
     isDragging: isNpdDragging,
-    dndContextProps,
+    dndContextProps: baseDndContextProps,
   } = useBoardDnd({
     dropKeys: allDropKeys,
     onDrop: handleNpdDrop,
   });
+
+  // Wrap dndContextProps to also handle sortable reorder
+  const dndContextProps = useMemo(() => ({
+    ...baseDndContextProps,
+    onDragEnd: (event: any) => {
+      const { active, over } = event;
+      if (!active || !over) {
+        baseDndContextProps.onDragEnd(event);
+        return;
+      }
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      // Check if overId is another project card (not a column droppable)
+      const isOverACard = !allDropKeys.includes(overId);
+      if (isOverACard) {
+        // Find the gate that both cards belong to
+        const sourceGate = findProjectGateKey(activeId);
+        const targetGate = findProjectGateKey(overId);
+
+        if (sourceGate && sourceGate === targetGate && sourceGate !== "inbox") {
+          const column = gateColumns[sourceGate];
+          if (column) {
+            const oldIndex = column.findIndex(c => c.project.id === activeId);
+            const newIndex = column.findIndex(c => c.project.id === overId);
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+              const newOrder = arrayMove(column, oldIndex, newIndex);
+              reorderMutation.mutate({
+                gateKey: sourceGate,
+                orderedIds: newOrder.map(c => c.project.id),
+              });
+            }
+          }
+        }
+      }
+
+      baseDndContextProps.onDragEnd(event);
+    },
+  }), [baseDndContextProps, allDropKeys, findProjectGateKey, gateColumns, reorderMutation]);
 
   // ── Toggle gate visibility ──
   const toggleGate = (key: string) => {
