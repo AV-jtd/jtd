@@ -353,19 +353,25 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               ) : null;
             })()}
-            {participants.length > 0 && (
-              <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                <Users className="h-3 w-3" />
-                {participants.map((p, i) => (
-                  <span key={p.id}>
-                    {i > 0 && ", "}
-                    <span className={p.role === "assignee" ? "text-primary font-semibold" : ""}>
-                      {getProfileName(p.user_id)}
+            {participants.length > 0 && (() => {
+              const MAX_SHOWN = 2;
+              const shown = participants.slice(0, MAX_SHOWN);
+              const rest = participants.length - MAX_SHOWN;
+              return (
+                <span className="text-xs flex items-center gap-1 text-muted-foreground truncate" title={participants.map(p => getProfileName(p.user_id)).join(", ")}>
+                  <Users className="h-3 w-3 shrink-0" />
+                  {shown.map((p, i) => (
+                    <span key={p.id} className="shrink-0">
+                      {i > 0 && ", "}
+                      <span className={p.role === "assignee" ? "text-primary font-semibold" : ""}>
+                        {getProfileName(p.user_id).split(" ")[0]}
+                      </span>
                     </span>
-                  </span>
-                ))}
-              </span>
-            )}
+                  ))}
+                  {rest > 0 && <span className="shrink-0 text-muted-foreground/60">+{rest}</span>}
+                </span>
+              );
+            })()}
             {/* Project badge */}
             {task.group_id && (() => {
               const group = allGroups.find(g => g.id === task.group_id);
