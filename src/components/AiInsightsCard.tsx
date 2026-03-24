@@ -44,15 +44,15 @@ function AiInsightsCardInner({
 
   return (
     <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-hidden">
-      {/* Collapsed header — always visible, taller like a task item */}
+      {/* Collapsed header — always visible */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex flex-col gap-1 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+        className="w-full flex flex-col gap-2 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
       >
         {/* Top row: icon + greeting + actions */}
-        <div className="flex items-center gap-2 w-full">
-          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-          <p className="text-[13px] font-medium text-foreground leading-snug flex-1 line-clamp-2">
+        <div className="flex items-start gap-2 w-full">
+          <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-sm font-medium text-foreground leading-snug flex-1">
             {insights.greeting}
           </p>
 
@@ -61,28 +61,28 @@ function AiInsightsCardInner({
             <span
               role="button"
               onClick={(e) => { e.stopPropagation(); onRefresh(); }}
-              className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title="Обновить"
             >
-              <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             </span>
             <span
               role="button"
               onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-              className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title="Скрыть"
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </span>
             <ChevronDown className={cn(
-              "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
               expanded && "rotate-180"
             )} />
           </div>
         </div>
 
-        {/* Bottom row: stats badges */}
-        <div className="flex items-center gap-3 pl-5">
+        {/* Stats row */}
+        <div className="flex items-center gap-4 pl-6">
           <StatBadge icon={TrendingUp} label="Активных" value={stats.active} variant="default" />
           {stats.overdue > 0 && (
             <StatBadge icon={AlertTriangle} label="Просрочено" value={stats.overdue} variant="danger" />
@@ -91,6 +91,12 @@ function AiInsightsCardInner({
           {stats.completedRecently > 0 && (
             <StatBadge icon={CheckCircle2} label="Сделано" value={stats.completedRecently} variant="success" />
           )}
+        </div>
+
+        {/* Focus of day preview */}
+        <div className="flex items-center gap-2 pl-6">
+          <Target className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-xs text-foreground/60 truncate">{insights.focusOfDay}</span>
         </div>
       </button>
 
