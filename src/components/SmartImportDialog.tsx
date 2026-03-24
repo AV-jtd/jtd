@@ -121,14 +121,22 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }:
       // Convert raw data using mapping
       const fieldMap = new Map(mapping.filter(m => m.field !== "skip").map(m => [m.field, rawHeaders.indexOf(m.excel_column)]));
 
+      const normalizeType = (t: string): string => {
+        const lower = t.toLowerCase().trim();
+        if (["проект", "project"].includes(lower)) return "project";
+        if (["подпроект", "subproject", "этап"].includes(lower)) return "subproject";
+        return "task";
+      };
+
       const rows = allRows.map(row => {
         const get = (field: string) => {
           const idx = fieldMap.get(field);
           return idx !== undefined ? String(row[idx] || "") : "";
         };
 
+        const rawType = get("type");
         return {
-          type: get("type") || "task",
+          type: rawType ? normalizeType(rawType) : "task",
           project: get("project") || fileName.replace(/\.(xlsx|xls)$/i, ""),
           subproject: get("subproject") || "",
           title: get("title") || "",
