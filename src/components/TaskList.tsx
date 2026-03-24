@@ -382,23 +382,47 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   Переместить
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-2 bg-popover border-border z-50" side="bottom">
-                <p className="text-xs font-medium text-muted-foreground px-2 py-1">В проект</p>
-                <button
-                  onClick={() => handleBatchMove(null)}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
-                >
-                  Без проекта
-                </button>
-                {groups.map(g => (
-                  <button
-                    key={g.id}
-                    onClick={() => handleBatchMove(g.id)}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {g.name}
-                  </button>
-                ))}
+              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom">
+                <PopoverSearchList
+                  items={[{ id: "__none__", name: "Без проекта", icon: null, color: null, parent_id: null } as any, ...groups.filter(g => !g.parent_id)]}
+                  searchKey={(g: any) => g.name}
+                  placeholder="Найти проект..."
+                  emptyText="Нет проектов"
+                  renderItem={(g: any) => {
+                    if (g.id === "__none__") {
+                      return (
+                        <button
+                          key="__none__"
+                          onClick={() => handleBatchMove(null)}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground"
+                        >
+                          Без проекта
+                        </button>
+                      );
+                    }
+                    const subs = groups.filter(s => s.parent_id === g.id);
+                    return (
+                      <div key={g.id}>
+                        <button
+                          onClick={() => handleBatchMove(g.id)}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                        >
+                          <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
+                          <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
+                        </button>
+                        {subs.map(sub => (
+                          <button
+                            key={sub.id}
+                            onClick={() => handleBatchMove(sub.id)}
+                            className="flex items-center gap-2 w-full pl-6 pr-2 py-1 rounded text-xs hover:bg-muted transition-colors text-muted-foreground"
+                          >
+                            <span className="truncate" style={{ color: sub.color || undefined }}>{sub.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
               </PopoverContent>
             </Popover>
 
