@@ -29,6 +29,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
+import NpdAiTasksPopover from "@/modules/npd/components/NpdAiTasksPopover";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 // ── Gate definitions ──
