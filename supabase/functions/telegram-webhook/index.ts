@@ -1219,6 +1219,8 @@ ${userList || "нет участников"}
                 properties: {
                   assigned_to_id: { type: "string", description: "ID ответственного из списка участников, или null" },
                   assigned_to_name: { type: "string", description: "Имя ответственного" },
+                  participant_ids: { type: "array", items: { type: "string" }, description: "IDs участников (кроме ответственного), которые упомянуты или задействованы" },
+                  participant_names: { type: "array", items: { type: "string" }, description: "Имена участников" },
                   deadline: { type: "string", description: "Дедлайн в формате YYYY-MM-DD, или null" },
                   priority: { type: "number", description: "Приоритет: 1=высокий, 2=средний, 3=низкий, null=не определён" },
                   subtasks: { type: "array", items: { type: "string" }, description: "Подзадачи, если задача комплексная" },
