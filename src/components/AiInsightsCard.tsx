@@ -113,7 +113,7 @@ function AiInsightsCardInner({
         {/* Focus of day preview */}
         <div className="flex items-center gap-2 pl-6">
           <Target className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-xs text-foreground/60 truncate">{insights.focusOfDay}</span>
+          <span className="text-xs text-foreground/60 line-clamp-2">{insights.focusOfDay}</span>
         </div>
       </button>
 
