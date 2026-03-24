@@ -64,12 +64,14 @@ function getSmartSuggestions(props: {
   // Content-aware suggestions based on task text
   if (text.match(/отч[её]т|report|аналитик/)) {
     suggestions.push("Какие данные нужны?");
+  } else if (text.match(/продаж|дистрибуц|каналы сбыт|сбыт/)) {
+    suggestions.push("Ключевые метрики продаж?");
+  } else if (text.match(/изуч|анализ|исследов|аудит|мониторинг/)) {
+    suggestions.push("Методология анализа?");
   } else if (text.match(/встреч|совещ|meeting|созвон/)) {
     suggestions.push("Повестка встречи?");
   } else if (text.match(/презент|presentation|слайд/)) {
     suggestions.push("Структура презентации?");
-  } else if (text.match(/анализ|исследов|аудит/)) {
-    suggestions.push("Методология анализа?");
   } else if (text.match(/дизайн|макет|прототип|ui|ux/)) {
     suggestions.push("Чек-лист для дизайна?");
   } else if (text.match(/тест|qa|проверк|баг/)) {
@@ -82,6 +84,12 @@ function getSmartSuggestions(props: {
     suggestions.push("Как оценить бюджет?");
   } else if (text.match(/обучен|тренинг|онбординг/)) {
     suggestions.push("План обучения?");
+  } else if (text.match(/конкурент|бенчмарк|рынок|рыноч/)) {
+    suggestions.push("Что сравнивать?");
+  } else if (text.match(/производ[ис]|поставщик|сырь|рецепт/)) {
+    suggestions.push("Критерии оценки?");
+  } else if (text.match(/клиент|заказчик|партн[её]р|контрагент/)) {
+    suggestions.push("Что уточнить у клиента?");
   }
 
   // No description → suggest clarification
