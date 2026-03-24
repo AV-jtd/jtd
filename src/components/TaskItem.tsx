@@ -360,20 +360,33 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 ? [assignee, ...participants.filter(p => p.id !== assignee.id)]
                 : participants;
               const shown = sorted.slice(0, MAX_CHIPS);
-              const rest = sorted.length - MAX_CHIPS;
+              const hidden = sorted.slice(MAX_CHIPS);
 
               return (
-                <Popover>
-                  <PopoverTrigger asChild>
+                <span className="inline-flex items-center gap-1 group/participants">
+                  {shown.map(p => (
                     <span
-                      className="inline-flex items-center gap-1 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
+                      key={p.id}
+                      className={cn(
+                        "inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full transition-colors",
+                        p.role === "assignee"
+                          ? "bg-primary/15 text-primary font-semibold"
+                          : "bg-muted text-muted-foreground"
+                      )}
                     >
-                      {shown.map(p => (
+                      {getProfileName(p.user_id).split(" ")[0]}
+                    </span>
+                  ))}
+                  {hidden.length > 0 && (
+                    <>
+                      <span className="text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60 group-hover/participants:hidden transition-all">
+                        +{hidden.length}
+                      </span>
+                      {hidden.map(p => (
                         <span
                           key={p.id}
                           className={cn(
-                            "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full transition-colors",
+                            "hidden group-hover/participants:inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full animate-scale-in transition-all",
                             p.role === "assignee"
                               ? "bg-primary/15 text-primary font-semibold"
                               : "bg-muted text-muted-foreground"
@@ -382,27 +395,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           {getProfileName(p.user_id).split(" ")[0]}
                         </span>
                       ))}
-                      {rest > 0 && (
-                        <span className="text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60">
-                          +{rest}
-                        </span>
-                      )}
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-44 p-1.5 bg-popover border-border z-50" side="top" align="start">
-                    <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">Участники</p>
-                    {sorted.map(p => (
-                      <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-xs">
-                        <span className={cn(
-                          p.role === "assignee" ? "text-primary font-semibold" : "text-foreground"
-                        )}>
-                          {getProfileName(p.user_id)}
-                        </span>
-                        {p.role === "assignee" && <span className="text-[9px] text-primary/60">отв.</span>}
-                      </div>
-                    ))}
-                  </PopoverContent>
-                </Popover>
+                    </>
+                  )}
+                </span>
               );
             })()}
             {/* Project badge */}
