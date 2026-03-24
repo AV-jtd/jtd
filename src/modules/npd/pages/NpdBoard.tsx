@@ -30,6 +30,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import NpdAiTasksPopover from "@/modules/npd/components/NpdAiTasksPopover";
+import NpdRiskRadar from "@/modules/npd/components/NpdRiskRadar";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 
 // ── Gate definitions ──
