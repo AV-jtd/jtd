@@ -714,16 +714,18 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </PopoverContent>
           </Popover>
 
-          <button
-            onClick={() => { setDetailsOpen(true); handleDecompose(); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              loadingDecompose ? "text-primary" : "text-muted-foreground hover:text-primary"
-            )}
-            title="ИИ-декомпозиция"
+          <TaskAiPopover
+            taskTitle={task.title}
+            taskDescription={task.description}
+            subtasks={subtasks.map(s => s.title)}
           >
-            {loadingDecompose ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          </button>
+            <button
+              className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
+              title="ИИ-помощник"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+            </button>
+          </TaskAiPopover>
         </div>
       </div>
 
