@@ -110,10 +110,30 @@ function AiInsightsCardInner({
           )}
         </div>
 
-        {/* Focus of day preview */}
-        <div className="flex items-center gap-2 pl-6">
+        {/* Focus of day preview — clickable */}
+        <div
+          className={cn(
+            "flex items-center gap-2 pl-6",
+            (insights.focusTaskId || insights.focusGroupId) && "cursor-pointer"
+          )}
+          onClick={(insights.focusTaskId || insights.focusGroupId) ? (e) => {
+            e.stopPropagation();
+            if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
+            else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
+          } : undefined}
+        >
           <Target className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-xs text-foreground/60 line-clamp-2">{insights.focusOfDay}</span>
+          <span className={cn(
+            "text-xs line-clamp-2",
+            (insights.focusTaskId || insights.focusGroupId)
+              ? "text-primary/70 underline underline-offset-2 decoration-primary/30"
+              : "text-foreground/60"
+          )}>
+            {insights.focusOfDay}
+          </span>
+          {(insights.focusTaskId || insights.focusGroupId) && (
+            <ExternalLink className="h-3 w-3 shrink-0 text-primary/40" />
+          )}
         </div>
       </button>
 
