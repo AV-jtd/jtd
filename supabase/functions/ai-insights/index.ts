@@ -116,7 +116,7 @@ serve(async (req) => {
     if (highPriority.length > 0) {
       context += `\n⭐ Приоритетные:\n`;
       highPriority.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}"${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
