@@ -1583,7 +1583,48 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
   );
 }
 
-// ── Draggable project card ──
+// ── Sortable project card (for gate columns with reorder) ──
+function SortableProjectCard({
+  project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
+  gateKeyToTagId, allGroupTags,
+}: {
+  project: NpdProject;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
+  gateKeyToTagId?: Map<string, string>;
+  allGroupTags?: { group_id: string; tag_id: string }[];
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: project.id,
+    disabled: isMoving,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-30")}>
+      <ProjectCard
+        project={project}
+        streamTagById={streamTagById}
+        isDragging={isDragging}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        onCardClick={onCardClick}
+        isSecondary={isSecondary}
+        currentGate={currentGate}
+        gateKeyToTagId={gateKeyToTagId}
+        allGroupTags={allGroupTags}
+      />
+    </div>
+  );
+}
+
+// ── Draggable project card (for inbox/swimlane without sortable) ──
 function DraggableProjectCard({
   project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
   gateKeyToTagId, allGroupTags,
