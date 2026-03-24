@@ -148,6 +148,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
+  const delegationCounts = useMemo(() => {
+    const byMe = tasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id && !t.is_completed).length;
+    const toMe = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id && !t.is_completed).length;
+    return { byMe, toMe };
+  }, [tasks, user?.id]);
+
   const filteredTasks = useMemo(() => {
     const now = new Date();
     let nextTasks = tasks;
