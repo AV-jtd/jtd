@@ -248,6 +248,31 @@ serve(async (req) => {
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       const insights = JSON.parse(toolCall.function.arguments);
+
+      const allContextTasks = [...overdue, ...dueThisWeek, ...highPriority, ...delegatedToMe, ...delegatedByMe];
+      const uniqueTasks = Array.from(new Map(allContextTasks.map((task: any) => [task.id, task])).values());
+
+      const resolveIdsFromText = (text?: string) => {
+        if (!text) return { task_id: undefined, group_id: undefined };
+        const normalized = text.toLowerCase();
+        const matchedTask = uniqueTasks.find((task: any) => normalized.includes(task.title.toLowerCase()));
+        return {
+          task_id: matchedTask?.id,
+          group_id: matchedTask?.group_id ?? undefined,
+        };
+      };
+
+      insights.urgentItems = (insights.urgentItems || []).map((item: any) => {
+        if (item.task_id || item.group_id) return item;
+        return { ...item, ...resolveIdsFromText(item.text) };
+      });
+
+      if (!insights.focusTaskId && !insights.focusGroupId) {
+        const fallbackFocus = resolveIdsFromText(insights.focusOfDay);
+        insights.focusTaskId = fallbackFocus.task_id;
+        insights.focusGroupId = fallbackFocus.group_id;
+      }
+
       return new Response(JSON.stringify({ insights }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

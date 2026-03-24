@@ -353,17 +353,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
             onNavigateToTask={(taskId) => {
-              // Find the task to determine its group
               const task = tasks.find(t => t.id === taskId);
-              if (task?.group_id && onProjectClick) {
-                onProjectClick(task.group_id);
-              }
-              // Highlight & scroll to the task
-              if (onHighlightClear) onHighlightClear();
-              setTimeout(() => {
-                const el = document.querySelector(`[data-task-id="${taskId}"]`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-              }, 200);
+              onInsightTaskNavigate?.(taskId, task?.group_id ?? null);
             }}
             onNavigateToProject={onProjectClick}
           />
