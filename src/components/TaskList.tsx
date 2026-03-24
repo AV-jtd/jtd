@@ -351,6 +351,15 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             dismissed={insightsDismissed}
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
+            onNavigateToTask={(taskId) => {
+              if (onHighlightClear) onHighlightClear();
+              // Set highlight to scroll to task
+              setTimeout(() => {
+                const el = document.querySelector(`[data-task-id="${taskId}"]`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }, 100);
+            }}
+            onNavigateToProject={onProjectClick}
           />
         )}
 
