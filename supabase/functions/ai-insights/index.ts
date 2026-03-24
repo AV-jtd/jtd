@@ -132,7 +132,7 @@ serve(async (req) => {
       context += `\n📤 Мои поручения другим:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
-        context += `- "${t.title}" → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
