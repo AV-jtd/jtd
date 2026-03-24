@@ -24,6 +24,8 @@ import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
@@ -490,6 +492,29 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     return m;
   }, [projectFilter, streamSubprojectsMap, allTasks]);
 
+  // ── Fetch per-user card positions ──
+  const { data: cardPositions = [] } = useQuery({
+    queryKey: ["npd-card-positions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("npd_card_positions" as any)
+        .select("gate_key, group_id, position")
+        .eq("user_id", user!.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data || []) as unknown as { gate_key: string; group_id: string; position: number }[];
+    },
+    enabled: !!user,
+  });
+
+  const positionMap = useMemo(() => {
+    const m = new Map<string, number>(); // "gateKey:groupId" -> position
+    for (const cp of cardPositions) {
+      m.set(`${cp.gate_key}:${cp.group_id}`, cp.position);
+    }
+    return m;
+  }, [cardPositions]);
+
   // ── Columns (project appears in ALL active gates) ──
   const gateColumns = useMemo(() => {
     const grouped: Record<string, { project: NpdProject; isPrimary: boolean }[]> = {};
@@ -505,15 +530,24 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
           }
         }
       } else {
-        // Fallback: single gate from own tag
         const gate = primaryGate;
         if (gate && grouped[gate]) {
           grouped[gate].push({ project, isPrimary: true });
         }
       }
     }
+
+    // Sort by saved positions (items without position go to end)
+    for (const gateKey of Object.keys(grouped)) {
+      grouped[gateKey].sort((a, b) => {
+        const posA = positionMap.get(`${gateKey}:${a.project.id}`) ?? 999999;
+        const posB = positionMap.get(`${gateKey}:${b.project.id}`) ?? 999999;
+        return posA - posB;
+      });
+    }
+
     return grouped;
-  }, [filteredProjects, tagIdToGateKey]);
+  }, [filteredProjects, tagIdToGateKey, positionMap]);
 
   const inboxProjects = useMemo(
     () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
@@ -571,9 +605,50 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     },
   });
 
+  // ── Reorder mutation (per-user card positions) ──
+  const reorderMutation = useMutation({
+    mutationFn: async ({ gateKey, orderedIds }: { gateKey: string; orderedIds: string[] }) => {
+      if (!user) return;
+      // Delete old positions for this gate, then insert new
+      await supabase.from("npd_card_positions" as any).delete().eq("user_id", user.id).eq("gate_key", gateKey);
+      const rows = orderedIds.map((groupId, idx) => ({
+        user_id: user.id,
+        gate_key: gateKey,
+        group_id: groupId,
+        position: idx,
+      }));
+      if (rows.length > 0) {
+        const { error } = await supabase.from("npd_card_positions" as any).insert(rows);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["npd-card-positions"] });
+    },
+  });
+
+  // Find which gate a project is currently displayed in
+  const findProjectGateKey = useCallback((projectId: string): string | null => {
+    for (const gateKey of GATE_ORDER) {
+      if (gateColumns[gateKey]?.some(({ project: p }) => p.id === projectId)) {
+        return gateKey;
+      }
+    }
+    if (inboxProjects.some(p => p.id === projectId)) return "inbox";
+    return null;
+  }, [gateColumns, inboxProjects]);
+
   const handleNpdDrop = useCallback((activeId: string, dropKey: string) => {
     const project = npdProjects.find((p) => p.id === activeId);
     if (!project) return;
+
+    const sourceGate = findProjectGateKey(activeId);
+
+    // Within same column → reorder
+    if (sourceGate === dropKey && dropKey !== "inbox") {
+      // Reorder handled by sortable onDragEnd below
+      return;
+    }
 
     if (dropKey === "inbox") {
       const currentGate = getProjectGate(project);
@@ -585,17 +660,57 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     const currentGate = getProjectGate(project);
     if (currentGate === dropKey) return;
     moveMutation.mutate({ projectId: activeId, targetGateKey: dropKey });
-  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation]);
+  }, [npdProjects, getProjectGate, moveToInboxMutation, moveMutation, findProjectGateKey]);
 
   const {
     overColumn,
     activeId: activeProjectId,
     isDragging: isNpdDragging,
-    dndContextProps,
+    dndContextProps: baseDndContextProps,
   } = useBoardDnd({
     dropKeys: allDropKeys,
     onDrop: handleNpdDrop,
   });
+
+  // Wrap dndContextProps to also handle sortable reorder
+  const dndContextProps = useMemo(() => ({
+    ...baseDndContextProps,
+    onDragEnd: (event: any) => {
+      const { active, over } = event;
+      if (!active || !over) {
+        baseDndContextProps.onDragEnd(event);
+        return;
+      }
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      // Check if overId is another project card (not a column droppable)
+      const isOverACard = !allDropKeys.includes(overId);
+      if (isOverACard) {
+        // Find the gate that both cards belong to
+        const sourceGate = findProjectGateKey(activeId);
+        const targetGate = findProjectGateKey(overId);
+
+        if (sourceGate && sourceGate === targetGate && sourceGate !== "inbox") {
+          const column = gateColumns[sourceGate];
+          if (column) {
+            const oldIndex = column.findIndex(c => c.project.id === activeId);
+            const newIndex = column.findIndex(c => c.project.id === overId);
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+              const newOrder = arrayMove(column, oldIndex, newIndex);
+              reorderMutation.mutate({
+                gateKey: sourceGate,
+                orderedIds: newOrder.map(c => c.project.id),
+              });
+            }
+          }
+        }
+      }
+
+      baseDndContextProps.onDragEnd(event);
+    },
+  }), [baseDndContextProps, allDropKeys, findProjectGateKey, gateColumns, reorderMutation]);
 
   // ── Toggle gate visibility ──
   const toggleGate = (key: string) => {
@@ -1332,6 +1447,7 @@ function GateColumn({
   allGroupTags: { group_id: string; tag_id: string }[];
 }) {
   const { data: users = [] } = useAvailableUsers();
+  const sortableIds = useMemo(() => projects.map(({ project: p }) => p.id), [projects]);
 
   return (
     <BoardColumn
@@ -1354,19 +1470,21 @@ function GateColumn({
         </div>
       }
     >
-      {projects.map(({ project: p, isPrimary }) => (
-        <DraggableProjectCard
-          key={p.id}
-          project={p}
-          isMoving={isMoving}
-          streamTagById={streamTagById}
-          onCardClick={() => onCardClick(p.id)}
-          isSecondary={!isPrimary}
-          currentGate={gate}
-          gateKeyToTagId={gateKeyToTagId}
-          allGroupTags={allGroupTags}
-        />
-      ))}
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        {projects.map(({ project: p, isPrimary }) => (
+          <SortableProjectCard
+            key={p.id}
+            project={p}
+            isMoving={isMoving}
+            streamTagById={streamTagById}
+            onCardClick={() => onCardClick(p.id)}
+            isSecondary={!isPrimary}
+            currentGate={gate}
+            gateKeyToTagId={gateKeyToTagId}
+            allGroupTags={allGroupTags}
+          />
+        ))}
+      </SortableContext>
       {projects.length === 0 && (
         <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
       )}
@@ -1465,7 +1583,48 @@ function ArchiveColumn({ projects, onCardClick }: { projects: NpdProject[]; onCa
   );
 }
 
-// ── Draggable project card ──
+// ── Sortable project card (for gate columns with reorder) ──
+function SortableProjectCard({
+  project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
+  gateKeyToTagId, allGroupTags,
+}: {
+  project: NpdProject;
+  isMoving: boolean;
+  streamTagById: Map<string, string>;
+  onCardClick: () => void;
+  isSecondary?: boolean;
+  currentGate?: GateStage;
+  gateKeyToTagId?: Map<string, string>;
+  allGroupTags?: { group_id: string; tag_id: string }[];
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: project.id,
+    disabled: isMoving,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-30")}>
+      <ProjectCard
+        project={project}
+        streamTagById={streamTagById}
+        isDragging={isDragging}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        onCardClick={onCardClick}
+        isSecondary={isSecondary}
+        currentGate={currentGate}
+        gateKeyToTagId={gateKeyToTagId}
+        allGroupTags={allGroupTags}
+      />
+    </div>
+  );
+}
+
+// ── Draggable project card (for inbox/swimlane without sortable) ──
 function DraggableProjectCard({
   project, isMoving, streamTagById, onCardClick, isSecondary, currentGate,
   gateKeyToTagId, allGroupTags,

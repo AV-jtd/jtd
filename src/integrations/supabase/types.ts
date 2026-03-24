@@ -355,6 +355,41 @@ export type Database = {
         }
         Relationships: []
       }
+      npd_card_positions: {
+        Row: {
+          created_at: string
+          gate_key: string
+          group_id: string
+          id: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gate_key: string
+          group_id: string
+          id?: string
+          position?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gate_key?: string
+          group_id?: string
+          id?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npd_card_positions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
