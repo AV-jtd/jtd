@@ -82,7 +82,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   useEffect(() => {
     if (initialOpen && itemRef.current) {
       itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      onOpened?.();
+      setHighlighted(true);
+      const timer = setTimeout(() => {
+        setHighlighted(false);
+        onOpened?.();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [initialOpen]);
 
