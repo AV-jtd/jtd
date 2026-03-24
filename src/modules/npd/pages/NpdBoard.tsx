@@ -1073,6 +1073,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             </div>
           </div>
 
+          {/* Risk Radar */}
+          <NpdRiskRadar projects={npdProjects} />
+
           {/* Board: flat columns or swimlane grid */}
           <div className="flex-1 overflow-auto">
             {swimlaneMode ? (
