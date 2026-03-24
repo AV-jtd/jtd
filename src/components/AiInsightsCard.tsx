@@ -61,27 +61,44 @@ function AiInsightsCardInner({
 
   if (loading && !insights) {
     return (
-      <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4 space-y-3">
-        <div className="flex items-start gap-2">
-          <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5 animate-pulse" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-3/4 bg-primary/10" />
-            <Skeleton className="h-4 w-1/2 bg-primary/10" />
+      <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-hidden">
+        <div className="w-full flex flex-col gap-2 px-4 py-3.5">
+          {/* Ghost greeting */}
+          <div className="flex items-start gap-2 w-full">
+            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5 animate-pulse" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-3/4 bg-primary/10" />
+              <Skeleton className="h-3.5 w-1/2 bg-primary/10" />
+            </div>
           </div>
+
+          {/* Ghost stats */}
+          <div className="flex items-center gap-4 pl-6 flex-wrap">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-foreground/20" />
+              <Skeleton className="h-4 w-6 bg-primary/8" />
+            </div>
+            <div className="flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 text-foreground/20" />
+              <Skeleton className="h-4 w-6 bg-primary/8" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Target className="h-3 w-3 text-foreground/20" />
+              <Skeleton className="h-4 w-6 bg-primary/8" />
+            </div>
+          </div>
+
+          {/* Ghost focus */}
+          <div className="flex items-start gap-2 pl-6">
+            <Target className="h-3.5 w-3.5 text-primary/30 shrink-0 mt-0.5" />
+            <Skeleton className="h-3.5 w-4/5 bg-primary/8" />
+          </div>
+
+          <p className="text-[11px] text-muted-foreground pl-6 flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            ИИ анализирует ваши задачи...
+          </p>
         </div>
-        <div className="flex items-center gap-4 pl-6">
-          <Skeleton className="h-4 w-14 rounded-full bg-primary/8" />
-          <Skeleton className="h-4 w-14 rounded-full bg-primary/8" />
-          <Skeleton className="h-4 w-14 rounded-full bg-primary/8" />
-        </div>
-        <div className="flex items-center gap-2 pl-6">
-          <Skeleton className="h-3.5 w-3.5 rounded-full bg-primary/8" />
-          <Skeleton className="h-3.5 w-4/5 bg-primary/8" />
-        </div>
-        <p className="text-[11px] text-muted-foreground pl-6 flex items-center gap-1.5">
-          <Loader2 className="h-3 w-3 animate-spin text-primary" />
-          ИИ анализирует ваши задачи...
-        </p>
       </div>
     );
   }
