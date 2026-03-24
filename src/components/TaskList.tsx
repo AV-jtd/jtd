@@ -304,7 +304,34 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           )}
         </div>
 
-        {/* Batch actions toolbar */}
+        {/* Delegation tabs */}
+        {activeView === "assigned" && (
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit">
+            <button
+              onClick={() => setDelegationTab("by_me")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                delegationTab === "by_me"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              📤 Поручил я
+            </button>
+            <button
+              onClick={() => setDelegationTab("to_me")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                delegationTab === "to_me"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              📥 Поручено мне
+            </button>
+          </div>
+        )}
+
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
