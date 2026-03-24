@@ -602,10 +602,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 }
               }
             }}
-            className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              chatComments.length > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
             title="Чат"
           >
-            <MessageCircle className="h-3.5 w-3.5" />
+            <MessageCircle className={cn("h-3.5 w-3.5", chatComments.length > 0 && "fill-primary/20")} />
           </button>
 
           <Popover>
