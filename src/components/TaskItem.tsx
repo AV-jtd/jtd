@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import TaskChat from "@/components/TaskChat";
+import { useTaskComments } from "@/hooks/useComments";
 import UserPicker from "@/components/UserPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -62,6 +63,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
+  const { data: chatComments = [] } = useTaskComments(task.id);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   const [highlighted, setHighlighted] = useState(false);
@@ -600,10 +602,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 }
               }
             }}
-            className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              chatComments.length > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
             title="Чат"
           >
-            <MessageCircle className="h-3.5 w-3.5" />
+            <MessageCircle className={cn("h-3.5 w-3.5", chatComments.length > 0 && "fill-primary/20")} />
           </button>
 
           <Popover>
