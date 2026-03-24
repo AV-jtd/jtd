@@ -159,7 +159,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     } else if (activeView === "today") {
       nextTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
     } else if (activeView === "assigned") {
-      nextTasks = tasks.filter(t => t.assigned_to);
+      if (delegationTab === "by_me") {
+        nextTasks = tasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id);
+      } else {
+        nextTasks = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id);
+      }
     } else if (activeView === "deferred") {
       nextTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
     } else {
