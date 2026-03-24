@@ -1714,6 +1714,7 @@ function ProjectCard({
   const { data: allTasks = [] } = useTasks();
   const { data: members = [] } = useGroupMembers(project.id);
   const { data: availableUsers = [] } = useAvailableUsers();
+  const { addTask } = useTaskMutations();
   const group = allGroups.find(g => g.id === project.id);
   const progress = project.stats.total > 0 ? Math.round((project.stats.completed / project.stats.total) * 100) : 0;
   const streamNames = project.streamTags.map((id) => streamTagById.get(id)).filter(Boolean) as string[];
