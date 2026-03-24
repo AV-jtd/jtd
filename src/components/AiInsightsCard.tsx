@@ -18,6 +18,39 @@ interface AiInsightsCardProps {
   onNavigateToProject?: (groupId: string) => void;
 }
 
+function getNavigationLabel(taskId?: string, groupId?: string) {
+  if (taskId) return "К задаче";
+  if (groupId) return "К проекту";
+  return "Открыть";
+}
+
+function InsightLinkAction({
+  label,
+  onClick,
+  compact = false,
+}: {
+  label: string;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/15 bg-primary/10 font-medium text-primary transition-colors hover:bg-primary/15",
+        compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1 text-[11px]"
+      )}
+    >
+      <span>{label}</span>
+      <ExternalLink className="h-3 w-3" />
+    </button>
+  );
+}
+
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
   onNavigateToTask, onNavigateToProject,
@@ -26,7 +59,6 @@ function AiInsightsCardInner({
 
   if (dismissed) return null;
 
-  // Loading state
   if (loading && !insights) {
     return (
       <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4 space-y-3">
@@ -54,43 +86,52 @@ function AiInsightsCardInner({
     );
   }
 
-  // Error or no data — don't show anything
   if (error || !insights) return null;
 
   const { stats } = insights;
+  const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
+  const navigateToFocus = () => {
+    if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
+    else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
+  };
 
   return (
     <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-hidden">
-      {/* Collapsed header — always visible */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex flex-col gap-2 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+        className="w-full flex flex-col gap-2 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors cursor-pointer"
       >
-        {/* Top row: icon + greeting + actions */}
         <div className="flex items-start gap-2 w-full">
           <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <p className="text-sm font-medium text-foreground leading-snug flex-1">
             {insights.greeting}
           </p>
 
-          {/* Actions */}
           <div className="flex items-center gap-0.5 shrink-0">
-            <span
-              role="button"
+            <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onRefresh(); }}
               className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title="Обновить"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-            </span>
-            <span
-              role="button"
+            </button>
+            <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onDismiss(); }}
               className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title="Скрыть"
             >
               <X className="h-3.5 w-3.5" />
-            </span>
+            </button>
             <ChevronDown className={cn(
               "h-4 w-4 text-muted-foreground transition-transform duration-200",
               expanded && "rotate-180"
@@ -98,8 +139,7 @@ function AiInsightsCardInner({
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="flex items-center gap-4 pl-6">
+        <div className="flex items-center gap-4 pl-6 flex-wrap">
           <StatBadge icon={TrendingUp} label="Активных" value={stats.active} variant="default" />
           {stats.overdue > 0 && (
             <StatBadge icon={AlertTriangle} label="Просрочено" value={stats.overdue} variant="danger" />
@@ -110,42 +150,28 @@ function AiInsightsCardInner({
           )}
         </div>
 
-        {/* Focus of day preview — clickable */}
-        <div
-          className={cn(
-            "flex items-center gap-2 pl-6",
-            (insights.focusTaskId || insights.focusGroupId) && "cursor-pointer"
-          )}
-          onClick={(insights.focusTaskId || insights.focusGroupId) ? (e) => {
-            e.stopPropagation();
-            if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
-            else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
-          } : undefined}
-        >
-          <Target className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className={cn(
-            "text-xs line-clamp-2",
-            (insights.focusTaskId || insights.focusGroupId)
-              ? "text-primary/70 underline underline-offset-2 decoration-primary/30"
-              : "text-foreground/60"
-          )}>
+        <div className="flex items-start gap-2 pl-6 min-w-0">
+          <Target className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+          <span className="text-xs line-clamp-2 text-foreground/70 flex-1 leading-relaxed min-w-0">
             {insights.focusOfDay}
           </span>
-          {(insights.focusTaskId || insights.focusGroupId) && (
-            <ExternalLink className="h-3 w-3 shrink-0 text-primary/40" />
+          {hasFocusLink && (
+            <InsightLinkAction
+              compact
+              label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+              onClick={navigateToFocus}
+            />
           )}
         </div>
-      </button>
+      </div>
 
-      {/* Expandable content */}
       <div className={cn(
         "grid transition-all duration-200 ease-in-out",
         expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
       )}>
         <div className="overflow-hidden border-t border-border/50">
-          {/* Urgent Items */}
           {insights.urgentItems.length > 0 && (
-            <div className="px-3 pt-2 pb-1 space-y-1">
+            <div className="px-3 pt-2 pb-1 space-y-1.5">
               {insights.urgentItems.map((item, i) => (
                 <InsightRow
                   key={i}
@@ -157,28 +183,22 @@ function AiInsightsCardInner({
             </div>
           )}
 
-          {/* Focus of Day */}
-          <div className="mx-3 my-1.5 px-2.5 py-1.5 rounded-lg bg-primary/8 border border-primary/10">
+          <div className="mx-3 my-1.5 px-2.5 py-2 rounded-lg bg-primary/8 border border-primary/10">
             <div className="flex items-center gap-1.5">
               <Target className="h-3 w-3 text-primary shrink-0" />
               <span className="text-[11px] font-medium text-primary">Фокус дня</span>
-              {(insights.focusTaskId || insights.focusGroupId) && (
-                <button
-                  onClick={() => {
-                    if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
-                    else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
-                  }}
-                  className="ml-auto p-0.5 rounded hover:bg-primary/10 text-primary/60 hover:text-primary transition-colors"
-                  title="Перейти"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </button>
+              {hasFocusLink && (
+                <div className="ml-auto">
+                  <InsightLinkAction
+                    label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+                    onClick={navigateToFocus}
+                  />
+                </div>
               )}
             </div>
-            <p className="text-xs text-foreground/70 mt-0.5 leading-relaxed">{insights.focusOfDay}</p>
+            <p className="text-xs text-foreground/70 mt-1 leading-relaxed">{insights.focusOfDay}</p>
           </div>
 
-          {/* Tips */}
           {insights.tips && insights.tips.length > 0 && (
             <div className="px-3 py-1 space-y-0.5">
               {insights.tips.map((tip, i) => (
@@ -187,7 +207,6 @@ function AiInsightsCardInner({
             </div>
           )}
 
-          {/* Motivation */}
           <div className="px-3 pb-2.5 pt-1">
             <p className="text-[11px] text-muted-foreground/70 italic">{insights.motivation}</p>
           </div>
@@ -202,29 +221,22 @@ function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
   onNavigateToTask?: (id: string) => void;
   onNavigateToProject?: (id: string) => void;
 }) {
-  const hasLink = item.task_id || item.group_id;
+  const hasLink = Boolean(item.task_id || item.group_id);
   const handleNavigate = () => {
     if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
     else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
   };
 
   return (
-    <div
-      className={cn(
-        "flex items-start gap-1.5 text-xs",
-        hasLink && "cursor-pointer active:bg-muted/50 rounded-md -mx-1 px-1 py-0.5"
-      )}
-      onClick={hasLink ? handleNavigate : undefined}
-    >
+    <div className="flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/20 transition-colors">
       <span className="shrink-0 mt-0.5">{item.emoji}</span>
-      <span className={cn(
-        "leading-relaxed flex-1",
-        hasLink ? "text-primary/80 underline underline-offset-2 decoration-primary/30" : "text-foreground/80"
-      )}>
-        {item.text}
-      </span>
+      <p className="text-xs leading-relaxed flex-1 text-foreground/80 min-w-0">{item.text}</p>
       {hasLink && (
-        <ExternalLink className="h-3 w-3 shrink-0 mt-0.5 text-primary/50" />
+        <InsightLinkAction
+          compact
+          label={getNavigationLabel(item.task_id, item.group_id)}
+          onClick={handleNavigate}
+        />
       )}
     </div>
   );

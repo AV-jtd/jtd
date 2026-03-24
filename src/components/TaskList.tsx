@@ -46,10 +46,11 @@ interface TaskListProps {
   onHighlightClear?: () => void;
   onTagClick?: (tagId: string) => void;
   onProjectClick?: (groupId: string) => void;
+  onInsightTaskNavigate?: (taskId: string, groupId: string | null) => void;
   onAiOpen?: () => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onAiOpen }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen }: TaskListProps) {
   const { user } = useAuth();
   const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
   const { data: tasks = [], isLoading } = useTasks(
@@ -352,17 +353,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
             onNavigateToTask={(taskId) => {
-              // Find the task to determine its group
               const task = tasks.find(t => t.id === taskId);
-              if (task?.group_id && onProjectClick) {
-                onProjectClick(task.group_id);
-              }
-              // Highlight & scroll to the task
-              if (onHighlightClear) onHighlightClear();
-              setTimeout(() => {
-                const el = document.querySelector(`[data-task-id="${taskId}"]`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-              }, 200);
+              onInsightTaskNavigate?.(taskId, task?.group_id ?? null);
             }}
             onNavigateToProject={onProjectClick}
           />

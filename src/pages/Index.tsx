@@ -138,6 +138,20 @@ export default function Index() {
                 onHighlightClear={() => setHighlightTaskId(null)}
                 onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
                 onProjectClick={(groupId) => { setActiveGroupId(groupId); setActiveView("group"); setActiveTagFilters([]); }}
+                onInsightTaskNavigate={(taskId, groupId) => {
+                  setHighlightTaskId(null);
+                  window.requestAnimationFrame(() => {
+                    setActiveTagFilters([]);
+                    if (groupId) {
+                      setActiveGroupId(groupId);
+                      setActiveView("group");
+                    } else {
+                      setActiveGroupId(null);
+                      setActiveView("all");
+                    }
+                    setHighlightTaskId(taskId);
+                  });
+                }}
                 onAiOpen={() => setAiOpen(true)}
               />
               {chatOpen && activeGroupId && activeView === "group" && (
