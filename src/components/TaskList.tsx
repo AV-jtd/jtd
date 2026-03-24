@@ -140,7 +140,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     inbox: { title: "Входящие", icon: Inbox, emptyTitle: "Входящие пусты", emptyDesc: "Задачи без проекта попадают сюда" },
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
-    assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
+    assigned: { title: "Делегированные", icon: Users, emptyTitle: delegationTab === "by_me" ? "Вы не поручали задач" : "Вам ничего не поручено", emptyDesc: delegationTab === "by_me" ? "Назначьте задачу другому пользователю" : "Когда вам назначат задачу, она появится здесь" },
     deferred: { title: "Отложенные", icon: Clock, emptyTitle: "Нет отложенных", emptyDesc: "Установите дату начала, чтобы отложить задачу" },
     group: { title: activeGroup?.name || "Проект", icon: List, emptyTitle: "Проект пуст", emptyDesc: "Добавьте задачи в этот проект" },
   };
