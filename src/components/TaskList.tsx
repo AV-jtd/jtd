@@ -202,7 +202,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     }
 
     return nextTasks;
-  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id]);
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
