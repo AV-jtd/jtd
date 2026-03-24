@@ -120,8 +120,8 @@ export default function TaskAiPopover({
   }, [open]);
 
   const smartSuggestions = useMemo(() => getSmartSuggestions({
-    taskTitle, deadline, assignedToName, subtasks, participantNames,
-  }), [taskTitle, deadline, assignedToName, subtasks, participantNames]);
+    taskTitle, taskDescription, deadline, assignedToName, subtasks, participantNames,
+  }), [taskTitle, taskDescription, deadline, assignedToName, subtasks, participantNames]);
 
   const systemContext = useMemo(() => {
     const parts = [
