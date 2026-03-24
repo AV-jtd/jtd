@@ -1447,6 +1447,7 @@ function GateColumn({
   allGroupTags: { group_id: string; tag_id: string }[];
 }) {
   const { data: users = [] } = useAvailableUsers();
+  const sortableIds = useMemo(() => projects.map(({ project: p }) => p.id), [projects]);
 
   return (
     <BoardColumn
@@ -1469,19 +1470,21 @@ function GateColumn({
         </div>
       }
     >
-      {projects.map(({ project: p, isPrimary }) => (
-        <DraggableProjectCard
-          key={p.id}
-          project={p}
-          isMoving={isMoving}
-          streamTagById={streamTagById}
-          onCardClick={() => onCardClick(p.id)}
-          isSecondary={!isPrimary}
-          currentGate={gate}
-          gateKeyToTagId={gateKeyToTagId}
-          allGroupTags={allGroupTags}
-        />
-      ))}
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        {projects.map(({ project: p, isPrimary }) => (
+          <SortableProjectCard
+            key={p.id}
+            project={p}
+            isMoving={isMoving}
+            streamTagById={streamTagById}
+            onCardClick={() => onCardClick(p.id)}
+            isSecondary={!isPrimary}
+            currentGate={gate}
+            gateKeyToTagId={gateKeyToTagId}
+            allGroupTags={allGroupTags}
+          />
+        ))}
+      </SortableContext>
       {projects.length === 0 && (
         <div className="text-center py-8 text-xs text-muted-foreground/50">Нет проектов</div>
       )}
