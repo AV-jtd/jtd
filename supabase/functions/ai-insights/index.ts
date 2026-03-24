@@ -82,7 +82,7 @@ serve(async (req) => {
     const delegatedByMe = activeTasks.filter((t: any) => t.user_id === userId && t.assigned_to && t.assigned_to !== userId);
     const noDeadline = activeTasks.filter((t: any) => !t.deadline);
 
-    // Build context for AI
+    // Build context for AI — include task_id and group_id so AI can reference them
     let context = `📊 Сводка на ${todayStr}:\n`;
     context += `- Всего активных задач: ${activeTasks.length}\n`;
     context += `- Выполнено за 3 дня: ${completedRecently.length}\n`;
@@ -99,7 +99,7 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" (просрочена на ${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (просрочена на ${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
@@ -109,14 +109,14 @@ serve(async (req) => {
         const d = new Date(t.deadline);
         const dayLabel = d.toISOString().split("T")[0];
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
       });
     }
 
     if (highPriority.length > 0) {
       context += `\n⭐ Приоритетные:\n`;
       highPriority.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}"${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -124,7 +124,7 @@ serve(async (req) => {
       context += `\n📥 Новые поручения мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
-        context += `- "${t.title}" от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -132,7 +132,7 @@ serve(async (req) => {
       context += `\n📤 Мои поручения другим:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
-        context += `- "${t.title}" → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -161,6 +161,7 @@ serve(async (req) => {
 8. Используй markdown для форматирования
 9. Тон — дружелюбный, мотивирующий, но конкретный
 10. НЕ повторяй просто список задач — анализируй и дай рекомендации
+11. ВАЖНО: В urgentItems ОБЯЗАТЕЛЬНО указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]. Это позволит пользователю перейти к конкретной задаче или проекту.
 
 Если задач мало (< 5) — предложи спланировать день/неделю.
 Если всё в порядке — отметь это и предложи стратегический фокус.`,
@@ -187,13 +188,16 @@ serve(async (req) => {
                       properties: {
                         emoji: { type: "string", description: "Эмодзи для пункта (🔴, ⚡, 📅, etc)" },
                         text: { type: "string", description: "Краткий текст пункта" },
+                        task_id: { type: "string", description: "UUID задачи из контекста [task_id:...], если упоминается конкретная задача. Копируй UUID точно." },
+                        group_id: { type: "string", description: "UUID проекта из контекста [group_id:...], если задача принадлежит проекту. Копируй UUID точно." },
                       },
                       required: ["emoji", "text"],
-                      additionalProperties: false,
                     },
-                    description: "1-4 срочных/важных пункта на которые стоит обратить внимание",
+                    description: "1-4 срочных/важных пункта на которые стоит обратить внимание. Включай task_id и group_id где возможно.",
                   },
                   focusOfDay: { type: "string", description: "Рекомендованный фокус дня (1 предложение)" },
+                  focusTaskId: { type: "string", description: "UUID задачи для фокуса дня из контекста [task_id:...], если фокус на конкретной задаче" },
+                  focusGroupId: { type: "string", description: "UUID проекта для фокуса дня из контекста [group_id:...], если фокус на проекте" },
                   tips: {
                     type: "array",
                     items: { type: "string" },
