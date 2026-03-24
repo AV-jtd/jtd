@@ -244,21 +244,41 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       </div>
 
       {/* CRM toggle */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="crm-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 cursor-pointer">
-            <Briefcase className="h-3 w-3" /> Показывать в CRM
-          </Label>
-          <Switch
-            id="crm-toggle"
-            checked={(group as any).project_type === "crm"}
-            onCheckedChange={(checked) => {
-              updateGroupProjectType.mutate({ id: group.id, project_type: checked ? "crm" : "standard" });
-            }}
-          />
+      {(group as any).project_type !== "npd" && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="crm-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 cursor-pointer">
+              <Briefcase className="h-3 w-3" /> Показывать в CRM
+            </Label>
+            <Switch
+              id="crm-toggle"
+              checked={(group as any).project_type === "crm"}
+              onCheckedChange={(checked) => {
+                updateGroupProjectType.mutate({ id: group.id, project_type: checked ? "crm" : "standard" });
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground/70">Задачи проекта будут отображаться на CRM-доске</p>
         </div>
-        <p className="text-[11px] text-muted-foreground/70">Задачи проекта будут отображаться на CRM-доске</p>
-      </div>
+      )}
+
+      {/* Migrate to NPD */}
+      {(group as any).project_type !== "npd" && !group.parent_id && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Layers className="h-3 w-3" /> NPD
+          </p>
+          <MigrateToNpdDialog
+            groupId={group.id}
+            trigger={
+              <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                <Layers className="h-3 w-3" /> Перевести в NPD
+              </button>
+            }
+          />
+          <p className="text-[11px] text-muted-foreground/70">Проект появится на NPD-доске с маппингом стримов и гейтов</p>
+        </div>
+      )}
 
       {/* Assignee */}
       <div className="space-y-1.5">
