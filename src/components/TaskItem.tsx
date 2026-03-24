@@ -582,47 +582,84 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
           </button>
 
-          {/* Move to project — only for inbox tasks (GTD processing) */}
-          {!task.group_id && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors" title="В проект">
-                  <FolderOpen className="h-3.5 w-3.5" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="left">
-                <PopoverSearchList
-                  items={allGroups.filter(g => !g.parent_id)}
-                  searchKey={(g) => g.name}
-                  placeholder="Найти проект..."
-                  emptyText="Нет проектов"
-                  renderItem={(g) => {
-                    const subs = allGroups.filter(s => s.parent_id === g.id);
-                    return (
-                      <div key={g.id}>
+          {/* Row 3: Chat, Project, AI */}
+          <button
+            onClick={() => { setDetailsOpen(true); setTimeout(() => { const el = document.getElementById(`task-chat-${task.id}`); el?.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100); }}
+            className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+            title="Чат"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+          </button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "p-1.5 rounded transition-colors",
+                  task.group_id ? "text-primary" : "text-muted-foreground hover:text-primary"
+                )}
+                title={task.group_id ? "Сменить проект" : "В проект"}
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="left">
+              <PopoverSearchList
+                items={allGroups.filter(g => !g.parent_id)}
+                searchKey={(g) => g.name}
+                placeholder="Найти проект..."
+                emptyText="Нет проектов"
+                renderItem={(g) => {
+                  const subs = allGroups.filter(s => s.parent_id === g.id);
+                  return (
+                    <div key={g.id}>
+                      <button
+                        onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
+                          task.group_id === g.id && "bg-primary/10 text-primary"
+                        )}
+                      >
+                        <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
+                        <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
+                      </button>
+                      {subs.map(sub => (
                         <button
-                          onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
-                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                          key={sub.id}
+                          onClick={() => updateTask.mutate({ id: task.id, group_id: sub.id })}
+                          className={cn(
+                            "flex items-center gap-2 w-full pl-6 pr-2 py-1 rounded text-xs hover:bg-muted transition-colors text-muted-foreground",
+                            task.group_id === sub.id && "bg-primary/10 text-primary"
+                          )}
                         >
-                          <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
-                          <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
+                          <span className="truncate" style={{ color: sub.color || undefined }}>{sub.name}</span>
                         </button>
-                        {subs.map(sub => (
-                          <button
-                            key={sub.id}
-                            onClick={() => updateTask.mutate({ id: task.id, group_id: sub.id })}
-                            className="flex items-center gap-2 w-full pl-6 pr-2 py-1 rounded text-xs hover:bg-muted transition-colors text-muted-foreground"
-                          >
-                            <span className="truncate" style={{ color: sub.color || undefined }}>{sub.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+                      ))}
+                    </div>
+                  );
+                }}
+              />
+              {task.group_id && (
+                <button
+                  onClick={() => updateTask.mutate({ id: task.id, group_id: null })}
+                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1 border-t border-border pt-1.5"
+                >
+                  Убрать из проекта
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+
+          <button
+            onClick={() => { setDetailsOpen(true); handleDecompose(); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              loadingDecompose ? "text-primary" : "text-muted-foreground hover:text-primary"
+            )}
+            title="ИИ-декомпозиция"
+          >
+            {loadingDecompose ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          </button>
         </div>
       </div>
 
