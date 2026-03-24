@@ -31,16 +31,18 @@ interface TaskAiPopoverProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 
-/** Generate context-aware quick suggestions */
+/** Generate context-aware quick suggestions based on full task content */
 function getSmartSuggestions(props: {
   taskTitle: string;
+  taskDescription?: string | null;
   deadline?: string | null;
   assignedToName?: string | null;
   subtasks?: string[];
   participantNames?: string[];
 }): string[] {
-  const { taskTitle, deadline, assignedToName, subtasks = [], participantNames = [] } = props;
+  const { taskTitle, taskDescription, deadline, assignedToName, subtasks = [], participantNames = [] } = props;
   const suggestions: string[] = [];
+  const text = `${taskTitle} ${taskDescription || ""}`.toLowerCase();
 
   // No assignee → suggest
   if (!assignedToName && participantNames.length > 0) {
@@ -52,21 +54,39 @@ function getSmartSuggestions(props: {
     suggestions.push("Какой срок поставить?");
   }
 
-  // Has subtasks → ask about priority
-  if (subtasks.length > 3) {
+  // No subtasks → suggest decomposition
+  if (subtasks.length === 0) {
+    suggestions.push("Разбей на шаги");
+  } else if (subtasks.length > 3) {
     suggestions.push("С чего начать?");
   }
 
-  // General suggestions based on title keywords
-  const lower = taskTitle.toLowerCase();
-  if (lower.includes("отчёт") || lower.includes("отчет") || lower.includes("report")) {
+  // Content-aware suggestions based on task text
+  if (text.match(/отч[её]т|report|аналитик/)) {
     suggestions.push("Какие данные нужны?");
-  } else if (lower.includes("встреч") || lower.includes("совещ") || lower.includes("meeting")) {
+  } else if (text.match(/встреч|совещ|meeting|созвон/)) {
     suggestions.push("Повестка встречи?");
-  } else if (lower.includes("презент") || lower.includes("presentation")) {
+  } else if (text.match(/презент|presentation|слайд/)) {
     suggestions.push("Структура презентации?");
-  } else if (lower.includes("анализ") || lower.includes("исследов")) {
+  } else if (text.match(/анализ|исследов|аудит/)) {
     suggestions.push("Методология анализа?");
+  } else if (text.match(/дизайн|макет|прототип|ui|ux/)) {
+    suggestions.push("Чек-лист для дизайна?");
+  } else if (text.match(/тест|qa|проверк|баг/)) {
+    suggestions.push("Критерии приёмки?");
+  } else if (text.match(/запуск|релиз|launch|деплой/)) {
+    suggestions.push("Чек-лист запуска?");
+  } else if (text.match(/договор|контракт|соглаш|юрид/)) {
+    suggestions.push("Ключевые пункты?");
+  } else if (text.match(/бюджет|смет|расход|закупк/)) {
+    suggestions.push("Как оценить бюджет?");
+  } else if (text.match(/обучен|тренинг|онбординг/)) {
+    suggestions.push("План обучения?");
+  }
+
+  // No description → suggest clarification
+  if (!taskDescription && suggestions.length < 3) {
+    suggestions.push("Опиши задачу подробнее");
   }
 
   // Fill remaining with defaults
@@ -100,8 +120,8 @@ export default function TaskAiPopover({
   }, [open]);
 
   const smartSuggestions = useMemo(() => getSmartSuggestions({
-    taskTitle, deadline, assignedToName, subtasks, participantNames,
-  }), [taskTitle, deadline, assignedToName, subtasks, participantNames]);
+    taskTitle, taskDescription, deadline, assignedToName, subtasks, participantNames,
+  }), [taskTitle, taskDescription, deadline, assignedToName, subtasks, participantNames]);
 
   const systemContext = useMemo(() => {
     const parts = [
