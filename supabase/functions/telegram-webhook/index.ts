@@ -387,6 +387,34 @@ Deno.serve(async (req) => {
           role: "creator",
         });
 
+        // Add AI-suggested participants
+        if (aiEnrichment?.participant_ids && aiEnrichment.participant_ids.length > 0 && newTask) {
+          const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
+          const validParticipants = aiEnrichment.participant_ids.filter(
+            pid => memberIds.includes(pid) && pid !== userId && pid !== assignedTo
+          );
+          for (const pid of validParticipants) {
+            await supabase.from("task_participants").insert({
+              task_id: newTask.id,
+              user_id: pid,
+              role: "participant",
+            });
+          }
+          if (validParticipants.length > 0) {
+            const names = aiEnrichment.participant_names?.slice(0, validParticipants.length) || [];
+            aiApplied.push(`👥 ${names.join(", ") || validParticipants.length + " уч."}`);
+          }
+        }
+
+        // Add assignee as participant
+        if (assignedTo && assignedTo !== userId && newTask) {
+          await supabase.from("task_participants").insert({
+            task_id: newTask.id,
+            user_id: assignedTo,
+            role: "assignee",
+          });
+        }
+
         // Add AI-suggested subtasks
         if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
           for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
@@ -1080,6 +1108,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Add AI-suggested participants
+    if (aiEnrichment?.participant_ids && aiEnrichment.participant_ids.length > 0 && newTask && groupId) {
+      const { data: groupInfo2 } = await supabase.from("task_groups").select("user_id").eq("id", groupId).single();
+      if (groupInfo2) {
+        const memberIds = await getGroupMemberIds(supabase, groupId, groupInfo2.user_id);
+        const validParticipants = aiEnrichment.participant_ids.filter(
+          pid => memberIds.includes(pid) && pid !== userId && pid !== assignedTo
+        );
+        for (const pid of validParticipants) {
+          await supabase.from("task_participants").insert({
+            task_id: newTask.id,
+            user_id: pid,
+            role: "participant",
+          });
+        }
+        if (validParticipants.length > 0) {
+          const names = aiEnrichment.participant_names?.slice(0, validParticipants.length) || [];
+          aiApplied.push(`👥 ${names.join(", ") || validParticipants.length + " уч."}`);
+        }
+      }
+    }
+
+    // Add assignee as participant
+    if (assignedTo && assignedTo !== userId && newTask) {
+      await supabase.from("task_participants").insert({
+        task_id: newTask.id,
+        user_id: assignedTo,
+        role: "assignee",
+      });
+    }
+
     // Add AI-suggested subtasks
     if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
       for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
@@ -1154,6 +1213,8 @@ Deno.serve(async (req) => {
 interface AiTaskEnrichment {
   assigned_to_id?: string | null;
   assigned_to_name?: string | null;
+  participant_ids?: string[];
+  participant_names?: string[];
   deadline?: string | null;
   priority?: number | null;
   subtasks?: string[];
@@ -1181,16 +1242,18 @@ async function aiEnrichTask(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",
             content: `Ты — AI-помощник для обогащения задач. Анализируй текст задачи и определяй:
-1. Кто должен быть ответственным (из списка участников) — по смыслу задачи, упоминанию имени/роли
-2. Какой разумный срок (deadline) — по контексту ("срочно" = завтра, "на этой неделе" = конец недели, и т.д.)
-3. Приоритет (1=высокий, 2=средний, 3=низкий)
-4. Подзадачи, если задача комплексная
+1. Кто должен быть ответственным (assigned_to) — по смыслу задачи, упоминанию имени/роли
+2. Кто ещё должен участвовать (participants) — все, кто упомянут или задействован по контексту
+3. Какой разумный срок (deadline) — по контексту ("срочно" = завтра, "на этой неделе" = конец недели, и т.д.)
+4. Приоритет (1=высокий, 2=средний, 3=низкий)
+5. Подзадачи, если задача комплексная
 
+ВАЖНО: Если в тексте упоминаются имена людей или роли (@username, имя) — обязательно распознай их и назначь как ответственного или участника.
 Если не удаётся определить — оставляй null. Не выдумывай.
 ${projectName ? `Проект: "${projectName}"` : ""}
 
@@ -1215,6 +1278,8 @@ ${userList || "нет участников"}
                 properties: {
                   assigned_to_id: { type: "string", description: "ID ответственного из списка участников, или null" },
                   assigned_to_name: { type: "string", description: "Имя ответственного" },
+                  participant_ids: { type: "array", items: { type: "string" }, description: "IDs участников (кроме ответственного), которые упомянуты или задействованы" },
+                  participant_names: { type: "array", items: { type: "string" }, description: "Имена участников" },
                   deadline: { type: "string", description: "Дедлайн в формате YYYY-MM-DD, или null" },
                   priority: { type: "number", description: "Приоритет: 1=высокий, 2=средний, 3=низкий, null=не определён" },
                   subtasks: { type: "array", items: { type: "string" }, description: "Подзадачи, если задача комплексная" },
