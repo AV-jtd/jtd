@@ -99,22 +99,10 @@ function AiInsightsCardInner({
         "grid transition-all duration-200 ease-in-out",
         expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
       )}>
-        <div className="overflow-hidden">
-          {/* Stats bar */}
-          <div className="flex gap-3 px-3 py-1.5 border-t border-border/50">
-            <StatBadge icon={TrendingUp} label="Активных" value={stats.active} variant="default" />
-            {stats.overdue > 0 && (
-              <StatBadge icon={AlertTriangle} label="Просрочено" value={stats.overdue} variant="danger" />
-            )}
-            <StatBadge icon={Target} label="На неделе" value={stats.dueThisWeek} variant="warning" />
-            {stats.completedRecently > 0 && (
-              <StatBadge icon={CheckCircle2} label="Сделано" value={stats.completedRecently} variant="success" />
-            )}
-          </div>
-
+        <div className="overflow-hidden border-t border-border/50">
           {/* Urgent Items */}
           {insights.urgentItems.length > 0 && (
-            <div className="px-3 py-1.5 space-y-1">
+            <div className="px-3 pt-2 pb-1 space-y-1">
               {insights.urgentItems.map((item, i) => (
                 <InsightRow
                   key={i}
