@@ -64,7 +64,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { data: allGroups = [] } = useTaskGroups();
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
-  const [newSubtask, setNewSubtask] = useState("");
+  const [highlighted, setHighlighted] = useState(false);
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
