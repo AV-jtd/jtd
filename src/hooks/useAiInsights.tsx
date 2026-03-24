@@ -2,10 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+export interface InsightItem {
+  emoji: string;
+  text: string;
+  task_id?: string;
+  group_id?: string;
+}
+
 export interface DailyInsights {
   greeting: string;
-  urgentItems: { emoji: string; text: string }[];
+  urgentItems: InsightItem[];
   focusOfDay: string;
+  focusTaskId?: string;
+  focusGroupId?: string;
   tips?: string[];
   motivation: string;
   stats: {
