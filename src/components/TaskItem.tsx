@@ -502,7 +502,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
 
           <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
-              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Тэг">
+              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Тэги / Проект">
                 <Tag className="h-3.5 w-3.5" />
               </button>
             </PopoverTrigger>
@@ -510,13 +510,62 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               <div className="space-y-1">
                 <input
                   type="text"
-                  placeholder="Найти тэг..."
+                  placeholder="Найти тэг или проект..."
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
                   className="w-full px-2 py-1.5 text-sm bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
                   autoFocus
                 />
-                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                <div className="max-h-56 overflow-y-auto space-y-0.5 overscroll-contain">
+                  {/* Projects section */}
+                  {(() => {
+                    const rootGroups = allGroups.filter(g => !g.parent_id);
+                    const filteredGroups = tagSearch
+                      ? rootGroups.filter(g => g.name.toLowerCase().includes(tagSearch.toLowerCase()) || allGroups.some(s => s.parent_id === g.id && s.name.toLowerCase().includes(tagSearch.toLowerCase())))
+                      : rootGroups;
+                    if (filteredGroups.length === 0) return null;
+                    return (
+                      <>
+                        <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
+                          <FolderOpen className="h-3 w-3" /> Проекты
+                        </p>
+                        {filteredGroups.map(g => {
+                          const subs = allGroups.filter(s => s.parent_id === g.id);
+                          return (
+                            <div key={g.id}>
+                              <button
+                                onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
+                                className={cn(
+                                  "flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors",
+                                  task.group_id === g.id && "bg-primary/10 text-primary"
+                                )}
+                              >
+                                <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
+                                <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
+                                {task.group_id === g.id && <Check className="h-3 w-3 ml-auto shrink-0 text-primary" />}
+                              </button>
+                              {subs.map(sub => (
+                                <button
+                                  key={sub.id}
+                                  onClick={() => updateTask.mutate({ id: task.id, group_id: sub.id })}
+                                  className={cn(
+                                    "flex items-center gap-2 w-full pl-6 pr-2 py-1 rounded text-xs hover:bg-muted transition-colors text-muted-foreground",
+                                    task.group_id === sub.id && "bg-primary/10 text-primary"
+                                  )}
+                                >
+                                  <span className="truncate" style={{ color: sub.color || undefined }}>{sub.name}</span>
+                                  {task.group_id === sub.id && <Check className="h-3 w-3 ml-auto shrink-0 text-primary" />}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })}
+                        <div className="border-t border-border my-1" />
+                      </>
+                    );
+                  })()}
+
+                  {/* AI tag suggestions */}
                   {!tagSearch && suggestedTagIds.length > 0 && (
                     <>
                       <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
@@ -543,8 +592,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
                     </p>
                   )}
-                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
+                  {/* Tags section */}
+                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && !tagSearch && (
                     <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
+                  )}
+                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length > 0 && (
+                    <p className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 flex items-center gap-1">
+                      <Tag className="h-3 w-3" /> Тэги
+                    </p>
                   )}
                   {availableTags
                     .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
@@ -574,48 +629,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           >
             <Star className={cn("h-3.5 w-3.5", task.is_important && "fill-current")} />
           </button>
-
-          {/* Move to project — only for inbox tasks (GTD processing) */}
-          {!task.group_id && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors" title="В проект">
-                  <FolderOpen className="h-3.5 w-3.5" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="left">
-                <PopoverSearchList
-                  items={allGroups.filter(g => !g.parent_id)}
-                  searchKey={(g) => g.name}
-                  placeholder="Найти проект..."
-                  emptyText="Нет проектов"
-                  renderItem={(g) => {
-                    const subs = allGroups.filter(s => s.parent_id === g.id);
-                    return (
-                      <div key={g.id}>
-                        <button
-                          onClick={() => updateTask.mutate({ id: task.id, group_id: g.id })}
-                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                        >
-                          <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
-                          <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
-                        </button>
-                        {subs.map(sub => (
-                          <button
-                            key={sub.id}
-                            onClick={() => updateTask.mutate({ id: task.id, group_id: sub.id })}
-                            className="flex items-center gap-2 w-full pl-6 pr-2 py-1 rounded text-xs hover:bg-muted transition-colors text-muted-foreground"
-                          >
-                            <span className="truncate" style={{ color: sub.color || undefined }}>{sub.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
         </div>
       </div>
 
