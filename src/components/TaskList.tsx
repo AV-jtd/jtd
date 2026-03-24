@@ -148,6 +148,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const view = viewConfig[activeView] || viewConfig.all;
   const Icon = view.icon;
 
+  const delegationCounts = useMemo(() => {
+    const byMe = tasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id && !t.is_completed).length;
+    const toMe = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id && !t.is_completed).length;
+    return { byMe, toMe };
+  }, [tasks, user?.id]);
+
   const filteredTasks = useMemo(() => {
     const now = new Date();
     let nextTasks = tasks;
@@ -316,7 +322,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              📤 Поручил я
+              📤 Поручил я{delegationCounts.byMe > 0 && ` (${delegationCounts.byMe})`}
             </button>
             <button
               onClick={() => setDelegationTab("to_me")}
@@ -327,7 +333,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              📥 Поручено мне
+              📥 Поручено мне{delegationCounts.toMe > 0 && ` (${delegationCounts.toMe})`}
             </button>
           </div>
         )}
