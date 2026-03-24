@@ -3,6 +3,8 @@ import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers }
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
+import AiInsightsCard from "./AiInsightsCard";
+import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +50,7 @@ interface TaskListProps {
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onAiOpen }: TaskListProps) {
   const { user } = useAuth();
+  const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
   const { data: tasks = [], isLoading } = useTasks(
     activeView === "group" ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined
@@ -336,6 +339,18 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               📥 Поручено мне{delegationCounts.toMe > 0 && ` (${delegationCounts.toMe})`}
             </button>
           </div>
+        )}
+
+        {/* AI Insights — show on inbox/today/all views */}
+        {!batchMode && (activeView === "inbox" || activeView === "today" || activeView === "all") && (
+          <AiInsightsCard
+            insights={insights}
+            loading={insightsLoading}
+            error={insightsError}
+            dismissed={insightsDismissed}
+            onRefresh={refreshInsights}
+            onDismiss={dismissInsights}
+          />
         )}
 
         {batchMode && (
