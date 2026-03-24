@@ -355,20 +355,25 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             })()}
             {participants.length > 0 && (() => {
               const MAX_CHIPS = 2;
+              const MAX_EXPAND = 3;
               const assignee = participants.find(p => p.role === "assignee");
               const sorted = assignee
                 ? [assignee, ...participants.filter(p => p.id !== assignee.id)]
                 : participants;
               const shown = sorted.slice(0, MAX_CHIPS);
-              const hidden = sorted.slice(MAX_CHIPS);
+              const expandable = sorted.slice(MAX_CHIPS, MAX_CHIPS + MAX_EXPAND);
+              const remaining = sorted.length - MAX_CHIPS - expandable.length;
 
               return (
-                <span className="inline-flex items-center gap-1 group/participants">
+                <span
+                  className="inline-flex items-center gap-1 group/participants"
+                  title={sorted.map(p => getProfileName(p.user_id)).join(", ")}
+                >
                   {shown.map(p => (
                     <span
                       key={p.id}
                       className={cn(
-                        "inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full transition-colors",
+                        "inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full transition-colors shrink-0",
                         p.role === "assignee"
                           ? "bg-primary/15 text-primary font-semibold"
                           : "bg-muted text-muted-foreground"
@@ -377,16 +382,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       {getProfileName(p.user_id).split(" ")[0]}
                     </span>
                   ))}
-                  {hidden.length > 0 && (
+                  {(expandable.length > 0 || remaining > 0) && (
                     <>
-                      <span className="text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60 group-hover/participants:hidden transition-all">
-                        +{hidden.length}
+                      <span className="text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60 group-hover/participants:hidden transition-all shrink-0">
+                        +{expandable.length + remaining}
                       </span>
-                      {hidden.map(p => (
+                      {expandable.map(p => (
                         <span
                           key={p.id}
                           className={cn(
-                            "hidden group-hover/participants:inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full animate-scale-in transition-all",
+                            "hidden group-hover/participants:inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full animate-scale-in shrink-0",
                             p.role === "assignee"
                               ? "bg-primary/15 text-primary font-semibold"
                               : "bg-muted text-muted-foreground"
@@ -395,6 +400,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           {getProfileName(p.user_id).split(" ")[0]}
                         </span>
                       ))}
+                      {remaining > 0 && (
+                        <span className="hidden group-hover/participants:inline-flex text-[10px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground/60 animate-scale-in shrink-0">
+                          +{remaining}
+                        </span>
+                      )}
                     </>
                   )}
                 </span>
