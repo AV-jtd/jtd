@@ -584,7 +584,22 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
 
           {/* Row 3: Chat, Project, AI */}
           <button
-            onClick={() => { setDetailsOpen(true); setTimeout(() => { const el = document.getElementById(`task-chat-${task.id}`); el?.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100); }}
+            onClick={() => {
+              if (!detailsOpen) {
+                setDetailsOpen(true);
+                setTimeout(() => {
+                  const el = document.getElementById(`task-chat-${task.id}`);
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el?.querySelector("input")?.focus();
+                }, 150);
+              } else {
+                const el = document.getElementById(`task-chat-${task.id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el.querySelector("input")?.focus();
+                }
+              }
+            }}
             className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
             title="Чат"
           >
