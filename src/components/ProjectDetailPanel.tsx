@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
 import TaskItem from "@/components/TaskItem";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import SmartImportDialog from "@/components/SmartImportDialog";
+import MigrateToNpdDialog from "@/components/MigrateToNpdDialog";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
@@ -243,21 +244,41 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       </div>
 
       {/* CRM toggle */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="crm-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 cursor-pointer">
-            <Briefcase className="h-3 w-3" /> Показывать в CRM
-          </Label>
-          <Switch
-            id="crm-toggle"
-            checked={(group as any).project_type === "crm"}
-            onCheckedChange={(checked) => {
-              updateGroupProjectType.mutate({ id: group.id, project_type: checked ? "crm" : "standard" });
-            }}
-          />
+      {(group as any).project_type !== "npd" && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="crm-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 cursor-pointer">
+              <Briefcase className="h-3 w-3" /> Показывать в CRM
+            </Label>
+            <Switch
+              id="crm-toggle"
+              checked={(group as any).project_type === "crm"}
+              onCheckedChange={(checked) => {
+                updateGroupProjectType.mutate({ id: group.id, project_type: checked ? "crm" : "standard" });
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground/70">Задачи проекта будут отображаться на CRM-доске</p>
         </div>
-        <p className="text-[11px] text-muted-foreground/70">Задачи проекта будут отображаться на CRM-доске</p>
-      </div>
+      )}
+
+      {/* Migrate to NPD */}
+      {(group as any).project_type !== "npd" && !group.parent_id && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Layers className="h-3 w-3" /> NPD
+          </p>
+          <MigrateToNpdDialog
+            groupId={group.id}
+            trigger={
+              <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                <Layers className="h-3 w-3" /> Перевести в NPD
+              </button>
+            }
+          />
+          <p className="text-[11px] text-muted-foreground/70">Проект появится на NPD-доске с маппингом стримов и гейтов</p>
+        </div>
+      )}
 
       {/* Assignee */}
       <div className="space-y-1.5">

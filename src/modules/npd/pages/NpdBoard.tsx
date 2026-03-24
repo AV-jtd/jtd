@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import MigrateToNpdDialog from "@/components/MigrateToNpdDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
@@ -1055,6 +1056,18 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                   <X className="h-3 w-3" />
                 </button>
               )}
+
+              <div className="ml-auto" />
+
+              {/* Import existing project to NPD */}
+              <MigrateToNpdDialog
+                trigger={
+                  <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                    <FolderPlus className="h-3 w-3" />
+                    Добавить проект
+                  </button>
+                }
+              />
             </div>
           </div>
 
