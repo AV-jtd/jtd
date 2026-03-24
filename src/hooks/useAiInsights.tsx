@@ -25,7 +25,7 @@ export interface DailyInsights {
   };
 }
 
-const CACHE_KEY = "ai_insights_cache";
+const CACHE_KEY = "ai_insights_cache_v2";
 const CACHE_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 function getCached(): { insights: DailyInsights; ts: number } | null {
