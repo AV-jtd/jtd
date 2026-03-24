@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import MigrateToNpdDialog from "@/components/MigrateToNpdDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType } from "@/components/QuickCreateForm";
 import {
