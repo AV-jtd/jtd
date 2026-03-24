@@ -209,10 +209,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
       className={cn(
-        "group bg-card rounded-xl border transition-[border-color,opacity] duration-200 will-change-auto",
+        "group bg-card rounded-xl border transition-all duration-300 will-change-auto",
         selected ? "border-primary/40 bg-primary/5" : "border-border",
         task.is_completed ? "opacity-50 hover:opacity-70" : "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
-        isDragging && "opacity-70 shadow-lg z-50 relative"
+        isDragging && "opacity-70 shadow-lg z-50 relative",
+        highlighted && "ring-2 ring-primary/40 border-primary/30 shadow-lg shadow-primary/10"
       )}
       onContextMenu={(e) => {
         if (onLongPress && !selectable) {
