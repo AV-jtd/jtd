@@ -719,6 +719,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             taskTitle={task.title}
             taskDescription={task.description}
             subtasks={subtasks.map(s => s.title)}
+            deadline={task.deadline}
+            assignedToName={task.assigned_to ? getProfileName(task.assigned_to) : null}
+            participantNames={participants.map(p => getProfileName(p.user_id))}
+            groupMemberNames={availableUsers.map(u => u.display_name || u.id.slice(0, 8))}
+            memberMap={Object.fromEntries(availableUsers.map(u => [u.display_name || u.id.slice(0, 8), u.id]))}
+            onAssign={(userId) => updateTask.mutate({ id: task.id, assigned_to: userId })}
+            onSetDeadline={(date) => updateTask.mutate({ id: task.id, deadline: date })}
           >
             <button
               className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"

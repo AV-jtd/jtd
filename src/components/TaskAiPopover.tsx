@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sparkles, Send, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, Send, Loader2, Trash2, UserCheck, CalendarCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { format, addDays } from "date-fns";
+import { ru } from "date-fns/locale";
 
 interface Msg {
   role: "user" | "assistant";
@@ -16,12 +18,72 @@ interface TaskAiPopoverProps {
   taskTitle: string;
   taskDescription?: string | null;
   subtasks?: string[];
+  deadline?: string | null;
+  assignedToName?: string | null;
+  participantNames?: string[];
+  groupMemberNames?: string[];
   children: React.ReactNode;
+  onAssign?: (userId: string) => void;
+  onSetDeadline?: (date: string) => void;
+  /** Map of display_name -> user_id for applying suggestions */
+  memberMap?: Record<string, string>;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 
-export default function TaskAiPopover({ taskTitle, taskDescription, subtasks = [], children }: TaskAiPopoverProps) {
+/** Generate context-aware quick suggestions */
+function getSmartSuggestions(props: {
+  taskTitle: string;
+  deadline?: string | null;
+  assignedToName?: string | null;
+  subtasks?: string[];
+  participantNames?: string[];
+}): string[] {
+  const { taskTitle, deadline, assignedToName, subtasks = [], participantNames = [] } = props;
+  const suggestions: string[] = [];
+
+  // No assignee → suggest
+  if (!assignedToName && participantNames.length > 0) {
+    suggestions.push("Кому лучше назначить?");
+  }
+
+  // No deadline → suggest
+  if (!deadline) {
+    suggestions.push("Какой срок поставить?");
+  }
+
+  // Has subtasks → ask about priority
+  if (subtasks.length > 3) {
+    suggestions.push("С чего начать?");
+  }
+
+  // General suggestions based on title keywords
+  const lower = taskTitle.toLowerCase();
+  if (lower.includes("отчёт") || lower.includes("отчет") || lower.includes("report")) {
+    suggestions.push("Какие данные нужны?");
+  } else if (lower.includes("встреч") || lower.includes("совещ") || lower.includes("meeting")) {
+    suggestions.push("Повестка встречи?");
+  } else if (lower.includes("презент") || lower.includes("presentation")) {
+    suggestions.push("Структура презентации?");
+  } else if (lower.includes("анализ") || lower.includes("исследов")) {
+    suggestions.push("Методология анализа?");
+  }
+
+  // Fill remaining with defaults
+  const defaults = ["Как лучше выполнить?", "Оцени сложность", "Риски?"];
+  for (const d of defaults) {
+    if (suggestions.length >= 3) break;
+    if (!suggestions.includes(d)) suggestions.push(d);
+  }
+
+  return suggestions.slice(0, 3);
+}
+
+export default function TaskAiPopover({
+  taskTitle, taskDescription, subtasks = [], deadline, assignedToName,
+  participantNames = [], groupMemberNames = [], children,
+  onAssign, onSetDeadline, memberMap = {},
+}: TaskAiPopoverProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
@@ -37,12 +99,67 @@ export default function TaskAiPopover({ taskTitle, taskDescription, subtasks = [
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
-  const systemContext = `Контекст задачи:
-Название: ${taskTitle}
-${taskDescription ? `Описание: ${taskDescription}` : ""}
-${subtasks.length > 0 ? `Шаги: ${subtasks.join(", ")}` : ""}
+  const smartSuggestions = useMemo(() => getSmartSuggestions({
+    taskTitle, deadline, assignedToName, subtasks, participantNames,
+  }), [taskTitle, deadline, assignedToName, subtasks, participantNames]);
 
-Ты — краткий помощник по этой задаче. Отвечай по делу, коротко, на русском.`;
+  const systemContext = useMemo(() => {
+    const parts = [
+      `Контекст задачи:`,
+      `Название: ${taskTitle}`,
+      taskDescription ? `Описание: ${taskDescription}` : null,
+      subtasks.length > 0 ? `Шаги: ${subtasks.join(", ")}` : null,
+      deadline ? `Дедлайн: ${deadline}` : `Дедлайн: не установлен`,
+      assignedToName ? `Ответственный: ${assignedToName}` : `Ответственный: не назначен`,
+      participantNames.length > 0 ? `Участники: ${participantNames.join(", ")}` : null,
+      groupMemberNames.length > 0 ? `Доступные члены команды: ${groupMemberNames.join(", ")}` : null,
+      ``,
+      `Ты — краткий помощник по этой задаче. Отвечай по делу, коротко, на русском.`,
+      `Если спрашивают кому назначить — предложи конкретного человека из участников/членов команды и объясни почему.`,
+      `Если спрашивают про срок — предложи конкретную дату и объясни почему.`,
+    ];
+    return parts.filter(Boolean).join("\n");
+  }, [taskTitle, taskDescription, subtasks, deadline, assignedToName, participantNames, groupMemberNames]);
+
+  // Parse actionable items from AI response
+  const parseActions = useCallback((content: string) => {
+    const actions: { type: "assign" | "deadline"; label: string; value: string }[] = [];
+
+    // Try to find suggested person from memberMap
+    if (onAssign && Object.keys(memberMap).length > 0) {
+      for (const [name, userId] of Object.entries(memberMap)) {
+        if (content.toLowerCase().includes(name.toLowerCase())) {
+          actions.push({ type: "assign", label: name, value: userId });
+          break;
+        }
+      }
+    }
+
+    // Try to find suggested deadline patterns like "3 дня", "неделю", specific dates
+    if (onSetDeadline && !deadline) {
+      const dayPatterns = [
+        { regex: /(\d+)\s*дн/i, handler: (m: RegExpMatchArray) => addDays(new Date(), parseInt(m[1])) },
+        { regex: /недел[юиь]/i, handler: () => addDays(new Date(), 7) },
+        { regex: /завтра/i, handler: () => addDays(new Date(), 1) },
+        { regex: /2\s*недел/i, handler: () => addDays(new Date(), 14) },
+        { regex: /месяц/i, handler: () => addDays(new Date(), 30) },
+      ];
+      for (const { regex, handler } of dayPatterns) {
+        const match = content.match(regex);
+        if (match) {
+          const date = handler(match);
+          actions.push({
+            type: "deadline",
+            label: format(date, "d MMM", { locale: ru }),
+            value: format(date, "yyyy-MM-dd"),
+          });
+          break;
+        }
+      }
+    }
+
+    return actions;
+  }, [onAssign, onSetDeadline, memberMap, deadline]);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -91,6 +208,10 @@ ${subtasks.length > 0 ? `Шаги: ${subtasks.join(", ")}` : ""}
     }
   }, [draft, streaming, messages, systemContext]);
 
+  // Get actions for the last assistant message
+  const lastAssistantMsg = messages.filter(m => m.role === "assistant").pop();
+  const actions = lastAssistantMsg && !streaming ? parseActions(lastAssistantMsg.content) : [];
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
@@ -124,7 +245,7 @@ ${subtasks.length > 0 ? `Шаги: ${subtasks.join(", ")}` : ""}
                 Спросите что-нибудь по задаче
               </p>
               <div className="flex flex-wrap gap-1 justify-center">
-                {["Как лучше выполнить?", "Оцени сложность", "Риски?"].map(q => (
+                {smartSuggestions.map(q => (
                   <button
                     key={q}
                     onClick={() => { setDraft(q); setTimeout(() => inputRef.current?.focus(), 50); }}
@@ -165,6 +286,35 @@ ${subtasks.length > 0 ? `Шаги: ${subtasks.join(", ")}` : ""}
           )}
           <div ref={bottomRef} />
         </ScrollArea>
+
+        {/* Action buttons from AI response */}
+        {actions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+            {actions.map((action, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if (action.type === "assign" && onAssign) {
+                    onAssign(action.value);
+                    toast.success(`Назначен: ${action.label}`);
+                  } else if (action.type === "deadline" && onSetDeadline) {
+                    onSetDeadline(action.value);
+                    toast.success(`Срок: ${action.label}`);
+                  }
+                }}
+                className={cn(
+                  "flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors font-medium",
+                  action.type === "assign"
+                    ? "border-blue-500/30 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400"
+                    : "border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+                )}
+              >
+                {action.type === "assign" ? <UserCheck className="h-3 w-3" /> : <CalendarCheck className="h-3 w-3" />}
+                {action.type === "assign" ? `Назначить: ${action.label}` : `Срок: ${action.label}`}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Input */}
         <div className="flex items-center gap-1.5 px-2 py-2 border-t border-border">
