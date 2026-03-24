@@ -124,7 +124,7 @@ serve(async (req) => {
       context += `\n📥 Новые поручения мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
-        context += `- "${t.title}" от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
