@@ -60,6 +60,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
+  const [delegationTab, setDelegationTab] = useState<"by_me" | "to_me">("by_me");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -139,7 +140,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     inbox: { title: "Входящие", icon: Inbox, emptyTitle: "Входящие пусты", emptyDesc: "Задачи без проекта попадают сюда" },
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
-    assigned: { title: "Делегированные", icon: Users, emptyTitle: "Нет делегированных", emptyDesc: "Назначьте задачу другому пользователю" },
+    assigned: { title: "Делегированные", icon: Users, emptyTitle: delegationTab === "by_me" ? "Вы не поручали задач" : "Вам ничего не поручено", emptyDesc: delegationTab === "by_me" ? "Назначьте задачу другому пользователю" : "Когда вам назначат задачу, она появится здесь" },
     deferred: { title: "Отложенные", icon: Clock, emptyTitle: "Нет отложенных", emptyDesc: "Установите дату начала, чтобы отложить задачу" },
     group: { title: activeGroup?.name || "Проект", icon: List, emptyTitle: "Проект пуст", emptyDesc: "Добавьте задачи в этот проект" },
   };
@@ -158,7 +159,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     } else if (activeView === "today") {
       nextTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
     } else if (activeView === "assigned") {
-      nextTasks = tasks.filter(t => t.assigned_to);
+      if (delegationTab === "by_me") {
+        nextTasks = tasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id);
+      } else {
+        nextTasks = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id);
+      }
     } else if (activeView === "deferred") {
       nextTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
     } else {
@@ -197,7 +202,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     }
 
     return nextTasks;
-  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id]);
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
@@ -299,7 +304,34 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           )}
         </div>
 
-        {/* Batch actions toolbar */}
+        {/* Delegation tabs */}
+        {activeView === "assigned" && (
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit">
+            <button
+              onClick={() => setDelegationTab("by_me")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                delegationTab === "by_me"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              📤 Поручил я
+            </button>
+            <button
+              onClick={() => setDelegationTab("to_me")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                delegationTab === "to_me"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              📥 Поручено мне
+            </button>
+          </div>
+        )}
+
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
