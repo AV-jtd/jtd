@@ -351,7 +351,116 @@ ${activeProjectInfo}
       });
     }
 
-    if (action === "map_excel_columns") {
+    if (action === "npd_generate_tasks") {
+      const { projectName, projectDescription, gateName, streams, existingTasks } = context;
+
+      const existingInfo = existingTasks?.length
+        ? `\nУже существующие задачи (НЕ дублируй их):\n${existingTasks.map((t: string) => `- ${t}`).join("\n")}`
+        : "";
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по NPD (New Product Development) по методологии Stage-Gate.
+Сгенерируй задачи для NPD-проекта по стримам.
+
+Правила:
+- Каждая задача привязана к стриму (отделу)
+- Задачи должны быть конкретными действиями (глагол + объект)
+- Учитывай текущий гейт проекта — задачи должны соответствовать этапу
+- 2-4 задачи на стрим — только самые важные
+- Не дублируй существующие задачи
+- Для каждой задачи предложи deadline_offset_days (дни от сегодня)
+- Отвечай только через tool call`,
+            },
+            {
+              role: "user",
+              content: `NPD Проект: "${projectName}"${projectDescription ? `\nОписание: ${projectDescription}` : ""}
+Текущий гейт: ${gateName || "не определён"}
+Стримы: ${streams?.join(", ") || "Продакт, Реклама, RnD, СКК, Производство, Закупки, Продажи"}${existingInfo}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "suggest_npd_tasks",
+                description: "Предложить задачи по стримам для NPD проекта",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    streams: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          stream_name: { type: "string", description: "Название стрима" },
+                          tasks: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                title: { type: "string", description: "Название задачи" },
+                                deadline_offset_days: { type: "number", description: "Дни от сегодня до дедлайна" },
+                              },
+                              required: ["title"],
+                              additionalProperties: false,
+                            },
+                          },
+                        },
+                        required: ["stream_name", "tasks"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["streams"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "suggest_npd_tasks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ action: "npd_generate_tasks", streams: parsed.streams }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
       const { headers: excelHeaders, sampleRows } = context;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
