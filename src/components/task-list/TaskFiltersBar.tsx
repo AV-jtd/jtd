@@ -76,8 +76,8 @@ function TaskFiltersBar({
       </div>
 
       {[
-        { value: 1 as number | "important", label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "flag" },
-        { value: "important" as number | "important", label: "Важные", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "overdue" as number | "important" | "overdue", label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
+        { value: "important" as number | "important" | "overdue", label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
       ].map((priority) => (
         <button
           key={String(priority.value)}
@@ -89,7 +89,7 @@ function TaskFiltersBar({
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
           )}
         >
-          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
+          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           {priority.label}
         </button>
       ))}
