@@ -184,6 +184,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     if (priorityFilter !== null) {
       if (priorityFilter === "important") {
         nextTasks = nextTasks.filter(t => t.is_important);
+      } else if (priorityFilter === "overdue") {
+        nextTasks = nextTasks.filter(t => t.deadline && !t.is_completed && new Date(t.deadline) < now);
       } else {
         nextTasks = nextTasks.filter(t => (t as any).priority === priorityFilter);
       }
