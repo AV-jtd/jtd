@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Flag, Layers, Search, Star, User, X } from "lucide-react";
+import { Clock, Layers, Search, Star, User, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
@@ -8,8 +8,8 @@ import type { Profile, TaskGroup } from "@/hooks/useTasks";
 interface TaskFiltersBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  priorityFilter: number | "important" | null;
-  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | null>>;
+  priorityFilter: number | "important" | "overdue" | null;
+  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | null>>;
   assigneeFilter: string | null;
   onAssigneeFilterChange: React.Dispatch<React.SetStateAction<string | null>>;
   projectFilter: string | null;
@@ -76,8 +76,8 @@ function TaskFiltersBar({
       </div>
 
       {[
-        { value: 1 as number | "important", label: "P1", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "flag" },
-        { value: "important" as number | "important", label: "Важные", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "overdue" as number | "important" | "overdue", label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
+        { value: "important" as number | "important" | "overdue", label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
       ].map((priority) => (
         <button
           key={String(priority.value)}
@@ -89,7 +89,7 @@ function TaskFiltersBar({
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
           )}
         >
-          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
+          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           {priority.label}
         </button>
       ))}
