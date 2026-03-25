@@ -8,8 +8,8 @@ import type { Profile, TaskGroup } from "@/hooks/useTasks";
 interface TaskFiltersBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  priorityFilter: number | "important" | null;
-  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | null>>;
+  priorityFilter: number | "important" | "overdue" | null;
+  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | null>>;
   assigneeFilter: string | null;
   onAssigneeFilterChange: React.Dispatch<React.SetStateAction<string | null>>;
   projectFilter: string | null;
