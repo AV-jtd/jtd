@@ -1,0 +1,1 @@
+ALTER TABLE public.tasks ADD COLUMN delegated_from uuid DEFAULT NULL;

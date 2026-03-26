@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
@@ -8,7 +9,7 @@ import UserPicker from "@/components/UserPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
@@ -57,6 +58,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
@@ -72,7 +74,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | null>(null);
+  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | "reassign" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const [tagSearch, setTagSearch] = useState("");
@@ -353,6 +355,22 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   P{p.value}
                 </span>
               ) : null;
+            })()}
+            {/* Delegation chain chip */}
+            {task.delegated_from && task.assigned_to && (() => {
+              const fromName = getProfileName(task.delegated_from).split(" ")[0];
+              const toName = getProfileName(task.assigned_to).split(" ")[0];
+              return (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-accent/50 text-accent-foreground shrink-0"
+                  title={`Делегировано: ${getProfileName(task.delegated_from)} \u2192 ${getProfileName(task.assigned_to)}`}
+                >
+                  <Forward className="h-2.5 w-2.5 shrink-0" />
+                  {fromName}
+                  <ArrowRight className="h-2 w-2 shrink-0 text-muted-foreground" />
+                  {toName}
+                </span>
+              );
             })()}
             {participants.length > 0 && (() => {
               const MAX_CHIPS = 2;
@@ -776,15 +794,45 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </p>
             {(() => {
               const assignee = participants.find(p => p.role === "assignee");
+              const canReassign = assignee && currentUser && assignee.user_id === currentUser.id;
+              const delegatedFromName = task.delegated_from ? getProfileName(task.delegated_from) : null;
               return assignee ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-primary font-semibold">{getProfileName(assignee.user_id)}</span>
-                  <button
-                    onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
-                    className="text-xs text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-primary font-semibold">{getProfileName(assignee.user_id)}</span>
+                    <button
+                      onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {delegatedFromName && (
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Forward className="h-3 w-3" />
+                      <span>Делегировано от <span className="font-medium text-foreground">{delegatedFromName}</span></span>
+                    </div>
+                  )}
+                  {canReassign && (
+                    <UserPicker
+                      users={availableUsers}
+                      excludeIds={[...participantIds, currentUser!.id]}
+                      title="Переназначить задачу"
+                      placeholder="Кому передать?"
+                      open={userPickerOpen === "reassign"}
+                      onOpenChange={(open) => setUserPickerOpen(open ? "reassign" : null)}
+                      onSelect={(u) => {
+                        updateTask.mutate({ id: task.id, assigned_to: u.id, delegated_from: currentUser!.id });
+                        addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" });
+                      }}
+                      side="bottom"
+                      trigger={
+                        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                          <Forward className="h-2.5 w-2.5" /> Переназначить
+                        </button>
+                      }
+                    />
+                  )}
                 </div>
               ) : (
                 <UserPicker
