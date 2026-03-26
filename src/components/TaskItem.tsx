@@ -363,7 +363,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               return (
                 <span
                   className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-accent/50 text-accent-foreground shrink-0"
-                  title={`Делегировано: ${getProfileName(task.delegated_from)} → ${getProfileName(task.assigned_to)}`}
+                  title={`Делегировано: ${getProfileName(task.delegated_from)} \u2192 ${getProfileName(task.assigned_to)}`}
                 >
                   <Forward className="h-2.5 w-2.5 shrink-0" />
                   {fromName}
@@ -372,6 +372,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
+            {participants.length > 0 && (() => {
               const MAX_CHIPS = 2;
               const MAX_EXPAND = 3;
               const assignee = participants.find(p => p.role === "assignee");
