@@ -356,7 +356,22 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               ) : null;
             })()}
-            {participants.length > 0 && (() => {
+            {/* Delegation chain chip */}
+            {task.delegated_from && task.assigned_to && (() => {
+              const fromName = getProfileName(task.delegated_from).split(" ")[0];
+              const toName = getProfileName(task.assigned_to).split(" ")[0];
+              return (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-accent/50 text-accent-foreground shrink-0"
+                  title={`Делегировано: ${getProfileName(task.delegated_from)} → ${getProfileName(task.assigned_to)}`}
+                >
+                  <Forward className="h-2.5 w-2.5 shrink-0" />
+                  {fromName}
+                  <ArrowRight className="h-2 w-2 shrink-0 text-muted-foreground" />
+                  {toName}
+                </span>
+              );
+            })()}
               const MAX_CHIPS = 2;
               const MAX_EXPAND = 3;
               const assignee = participants.find(p => p.role === "assignee");
