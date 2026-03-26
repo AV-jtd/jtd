@@ -313,7 +313,7 @@ export default function TaskAiPopover({
             </div>
           )}
           <div ref={bottomRef} />
-        </ScrollArea>
+        </div>
 
         {/* Action buttons from AI response */}
         {actions.length > 0 && (
