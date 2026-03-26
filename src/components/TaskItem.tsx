@@ -357,7 +357,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               ) : null;
             })()}
             {/* Delegation chain chip */}
-            {task.delegated_from && task.assigned_to && (() => {
+            {task.delegated_from && task.assigned_to && task.delegated_from !== task.assigned_to && (() => {
               const fromName = getProfileName(task.delegated_from).split(" ")[0];
               const toName = getProfileName(task.assigned_to).split(" ")[0];
               return (
