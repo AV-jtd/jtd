@@ -58,6 +58,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
   const { data: allTags = [] } = useTags();
@@ -73,7 +74,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | null>(null);
+  const [userPickerOpen, setUserPickerOpen] = useState<"assignee" | "participant" | "quick-participant" | "quick-assignee" | "reassign" | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
   const [tagSearch, setTagSearch] = useState("");
