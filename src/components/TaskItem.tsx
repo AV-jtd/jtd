@@ -794,15 +794,45 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </p>
             {(() => {
               const assignee = participants.find(p => p.role === "assignee");
+              const canReassign = assignee && currentUser && assignee.user_id === currentUser.id;
+              const delegatedFromName = task.delegated_from ? getProfileName(task.delegated_from) : null;
               return assignee ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-primary font-semibold">{getProfileName(assignee.user_id)}</span>
-                  <button
-                    onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
-                    className="text-xs text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-primary font-semibold">{getProfileName(assignee.user_id)}</span>
+                    <button
+                      onClick={() => removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id })}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {delegatedFromName && (
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Forward className="h-3 w-3" />
+                      <span>Делегировано от <span className="font-medium text-foreground">{delegatedFromName}</span></span>
+                    </div>
+                  )}
+                  {canReassign && (
+                    <UserPicker
+                      users={availableUsers}
+                      excludeIds={[...participantIds, currentUser!.id]}
+                      title="Переназначить задачу"
+                      placeholder="Кому передать?"
+                      open={userPickerOpen === "reassign"}
+                      onOpenChange={(open) => setUserPickerOpen(open ? "reassign" : null)}
+                      onSelect={(u) => {
+                        updateTask.mutate({ id: task.id, assigned_to: u.id, delegated_from: currentUser!.id });
+                        addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" });
+                      }}
+                      side="bottom"
+                      trigger={
+                        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                          <Forward className="h-2.5 w-2.5" /> Переназначить
+                        </button>
+                      }
+                    />
+                  )}
                 </div>
               ) : (
                 <UserPicker
