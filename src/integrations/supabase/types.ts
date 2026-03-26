@@ -919,6 +919,7 @@ export type Database = {
           created_at: string
           deadline: string | null
           deferred_until: string | null
+          delegated_from: string | null
           description: string | null
           group_id: string | null
           id: string
@@ -943,6 +944,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deferred_until?: string | null
+          delegated_from?: string | null
           description?: string | null
           group_id?: string | null
           id?: string
@@ -967,6 +969,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           deferred_until?: string | null
+          delegated_from?: string | null
           description?: string | null
           group_id?: string | null
           id?: string
