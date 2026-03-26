@@ -757,6 +757,7 @@ export function useTaskMutations() {
         task_type: task.task_type || 'standard',
         start_at: null,
         client_id: null,
+        delegated_from: null,
         subtasks: [],
         task_tags: [],
       };
