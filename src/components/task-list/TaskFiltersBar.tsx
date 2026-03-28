@@ -215,7 +215,7 @@ function TaskFiltersBar({
                 : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
             )}
           >
-            <Group className="h-3 w-3" />
+            <LayoutList className="h-3 w-3" />
             {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
           </button>
         </PopoverTrigger>
