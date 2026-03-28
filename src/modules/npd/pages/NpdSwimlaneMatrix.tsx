@@ -524,6 +524,65 @@ export default function NpdSwimlaneMatrix() {
     toast.success("Стрим перемещён в " + NPD_GATES.find(g => g.key === gateKey)?.title);
   };
 
+  // ── Drag-and-drop tasks between gates ──
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
+  const [dndOverGate, setDndOverGate] = useState<string | null>(null);
+  const [dndActiveId, setDndActiveId] = useState<string | null>(null);
+
+  const handleDndOver = useCallback((event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId && NPD_GATES.some(g => g.key === overId)) {
+      setDndOverGate(overId);
+    } else {
+      setDndOverGate(null);
+    }
+  }, []);
+
+  const moveTaskToGate = useCallback(async (taskId: string, newGateKey: string) => {
+    const newGateTagId = gateKeyToTagId.get(newGateKey);
+    if (!newGateTagId) return;
+
+    // Remove all existing gate tags from this task
+    const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
+    const gateTagIdsToRemove = taskTagEntries
+      .filter(tt => gateTagIdSet.has(tt.tag_id))
+      .map(tt => tt.tag_id);
+
+    for (const tagId of gateTagIdsToRemove) {
+      await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tagId);
+    }
+
+    // Add new gate tag
+    await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newGateTagId }, { onConflict: "task_id,tag_id" });
+
+    queryClient.invalidateQueries({ queryKey: ["npd-matrix-tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
+    const gateName = NPD_GATES.find(g => g.key === newGateKey)?.short ?? newGateKey;
+    toast.success(`Задача перемещена в ${gateName}`);
+  }, [gateKeyToTagId, allTaskTags, gateTagIdSet, queryClient]);
+
+  const handleDndEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    const lastOver = dndOverGate;
+    setDndActiveId(null);
+    setDndOverGate(null);
+
+    const dropGate = (over?.id && NPD_GATES.some(g => g.key === over.id))
+      ? (over.id as string)
+      : lastOver;
+    if (!dropGate) return;
+
+    const taskId = active.id as string;
+    // Don't move if same gate
+    const currentGate = getTaskGate(taskId);
+    if (currentGate === dropGate) return;
+
+    moveTaskToGate(taskId, dropGate);
+  }, [dndOverGate, getTaskGate, moveTaskToGate]);
+
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
     params: QuickCreateResult,
