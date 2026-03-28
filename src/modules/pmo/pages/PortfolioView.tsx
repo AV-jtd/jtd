@@ -413,13 +413,14 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   const children = groups.filter((g) => g.parent_id === project.id);
                   const isExpanded = expandedIds.has(project.id);
                   const isEven = globalIdx % 2 === 0;
+                  const isCritical = hasAnyCritical(project.id);
 
                   return (
                     <Fragment key={project.id}>
                       <tr
                         className={cn(
                           "border-b border-border/50 cursor-pointer group/row transition-colors hover:bg-muted/50",
-                          isEven && "bg-muted/30"
+                          isCritical ? "bg-destructive/5 hover:bg-destructive/10" : isEven && "bg-muted/30"
                         )}
                         onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
                       >
