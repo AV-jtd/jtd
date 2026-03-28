@@ -973,7 +973,11 @@ export function useTaskMutations() {
       }).eq("id", id);
       if (error) throw error;
       if (taskData.group_id && (taskData as any).closure_result) {
-        const content = `## Результат\n\n${(taskData as any).closure_result}\n\n---\n\n**Задача:** ${taskData.title}\n**Дата закрытия:** ${new Date().toLocaleDateString("ru-RU")}\n**Исполнитель:** ${taskData.assigned_to || taskData.user_id}`;
+        const attachments = Array.isArray((taskData as any).closure_attachments) ? (taskData as any).closure_attachments as string[] : [];
+        const attachmentsMd = attachments.length > 0
+          ? `\n\n## Вложения\n\n${attachments.map((url: string) => /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url) ? `![вложение](${url})` : `[📎 ${decodeURIComponent(url.split("/").pop() || "файл")}](${url})`).join("\n\n")}`
+          : "";
+        const content = `## Результат\n\n${(taskData as any).closure_result}${attachmentsMd}\n\n---\n\n**Задача:** ${taskData.title}\n**Дата закрытия:** ${new Date().toLocaleDateString("ru-RU")}\n**Исполнитель:** ${taskData.assigned_to || taskData.user_id}`;
         await supabase.from("wiki_pages").insert({
           group_id: taskData.group_id,
           user_id: user!.id,
