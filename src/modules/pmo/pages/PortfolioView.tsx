@@ -1,8 +1,10 @@
-import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, type Profile } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
