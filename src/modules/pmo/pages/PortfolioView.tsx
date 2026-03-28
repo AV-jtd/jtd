@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3, Grid3X3, CreditCard } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
-import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import PmoInlineGantt from "@/modules/pmo/components/PmoInlineGantt";
 import PmoInlineMatrix from "@/modules/pmo/components/PmoInlineMatrix";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
@@ -45,7 +44,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [expandedView, setExpandedView] = useState<Record<string, "card" | "gantt" | "matrix" | null>>({});
+  const [expandedView, setExpandedView] = useState<Record<string, "card" | "gantt" | "matrix">>({});
 
   useEffect(() => {
     const t = window.setTimeout(() => { if (draftSearch !== search) setSearch(draftSearch); }, 150);
@@ -578,7 +577,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       </tr>
                       {/* Expanded — tabbed preview */}
                       {isExpanded && (() => {
-                        const currentView = expandedView[project.id] ?? null;
+                        const currentView = expandedView[project.id] || "card";
                         const isNpd = project.project_type === "npd";
                         const childIds = children.map((c) => c.id);
                         const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
@@ -586,7 +585,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
 
                         const setView = (v: "card" | "gantt" | "matrix") => {
-                          setExpandedView((prev) => ({ ...prev, [project.id]: prev[project.id] === v ? null : v }));
+                          setExpandedView((prev) => ({ ...prev, [project.id]: v }));
                         };
 
                         return (
@@ -635,45 +634,103 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   </Tooltip>
                                 </div>
 
-                                {/* Content — task summary by default, full panel on tab click */}
-                                {!currentView && (
-                                  <div className="px-6 pb-3">
-                                    {(() => {
-                                      const now = new Date();
-                                      const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) < now);
-                                      const upcoming = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) >= now)
-                                        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
-                                        .slice(0, 3);
-                                      const completed = projectTasks.filter((t) => t.is_completed).length;
-                                      return (
-                                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                                          {overdue.length > 0 && (
-                                            <span className="text-destructive font-medium">🔴 Просрочено: {overdue.length}</span>
-                                          )}
-                                          {upcoming.length > 0 && (
-                                            <span>⏳ Ближайшие: {upcoming.map((t) => t.title).join(", ")}</span>
-                                          )}
-                                          <span>✅ Завершено: {completed}/{projectTasks.length}</span>
+                                {/* Content */}
+                                <div className="px-6 pb-3 space-y-3">
+                                  {currentView === "card" && (() => {
+                                    const now = new Date();
+                                    const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+                                    const active = projectTasks.filter((t) => !t.is_completed);
+                                    const overdue = active.filter((t) => t.deadline && new Date(t.deadline) < now);
+                                    const upcoming = active.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+                                    const drifted = active
+                                      .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+                                      .map((t) => ({ task: t, days: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000) }));
+
+                                    const userName = (uid: string | null) => {
+                                      if (!uid) return null;
+                                      const p = userMap.get(uid);
+                                      return p?.display_name || p?.email?.split("@")[0] || null;
+                                    };
+
+                                    if (active.length === 0 && projectTasks.length > 0) {
+                                      return <p className="text-xs text-muted-foreground text-center py-1">✅ Все задачи завершены</p>;
+                                    }
+                                    if (projectTasks.length === 0) {
+                                      return <p className="text-xs text-muted-foreground text-center py-1">Нет задач</p>;
+                                    }
+
+                                    return (
+                                      <>
+                                        {overdue.length > 0 && (
+                                          <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
+                                            {overdue.map((t) => (
+                                              <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => setSelectedTaskId(t.id)} />
+                                            ))}
+                                          </PmoDashboardSection>
+                                        )}
+                                        {upcoming.length > 0 && (
+                                          <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
+                                            {upcoming.map((t) => (
+                                              <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
+                                            ))}
+                                          </PmoDashboardSection>
+                                        )}
+                                        {drifted.length > 0 && (
+                                          <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
+                                            {drifted.map(({ task: t, days }) => (
+                                              <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
+                                            ))}
+                                          </PmoDashboardSection>
+                                        )}
+                                        {overdue.length === 0 && upcoming.length === 0 && drifted.length === 0 && (
+                                          <p className="text-[11px] text-success text-center py-1">✅ Все задачи в графике</p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+
+                                  {currentView === "gantt" && (
+                                    <PmoInlineGantt tasks={projectTasks} userMap={userMap} onTaskClick={(id) => setSelectedTaskId(id)} />
+                                  )}
+
+                                  {currentView === "matrix" && isNpd && (
+                                    <PmoInlineMatrix projectId={project.id} children={children} allTasks={allTasks} />
+                                  )}
+
+                                  {/* Subproject breakdown (always visible in card mode) */}
+                                  {currentView === "card" && children.length > 0 && (() => {
+                                    const cards = children
+                                      .map((child) => {
+                                        const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
+                                        const childTasks = allTasks.filter((t) => t.group_id === child.id);
+                                        const grandchildren = groups.filter((g) => g.parent_id === child.id);
+                                        const grandTasks = grandchildren.flatMap((gc) => allTasks.filter((t) => t.group_id === gc.id));
+                                        const allChildTasks = [...childTasks, ...grandTasks];
+                                        return { child, childName, allChildTasks };
+                                      })
+                                      .filter((c) => c.allChildTasks.length > 0);
+                                    if (cards.length === 0) return null;
+                                    return (
+                                      <div className="pt-1 border-t border-border/20">
+                                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Подпроекты</p>
+                                        <div className="space-y-1.5">
+                                          {cards.map(({ child, childName, allChildTasks }) => (
+                                            <PmoSubprojectCard
+                                              key={child.id}
+                                              name={childName}
+                                              color={child.color}
+                                              icon={child.icon}
+                                              tasks={allChildTasks}
+                                              onOpenGantt={() => onOpenGantt?.(child.id)}
+                                              userMap={userMap}
+                                              onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+                                            />
+                                          ))}
                                         </div>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                                {currentView === "card" && (
-                                  <div className="px-6 pb-3">
-                                    <ProjectDetailPanel group={project} />
-                                  </div>
-                                )}
-                                {currentView === "gantt" && (
-                                  <div className="px-6 pb-3">
-                                    <PmoInlineGantt tasks={projectTasks} userMap={userMap} onTaskClick={setSelectedTaskId} />
-                                  </div>
-                                )}
-                                {currentView === "matrix" && isNpd && (
-                                  <div className="px-6 pb-3">
-                                    <PmoInlineMatrix projectId={project.id} children={children} allTasks={projectTasks} />
-                                  </div>
-                                )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </td>
                           </tr>
