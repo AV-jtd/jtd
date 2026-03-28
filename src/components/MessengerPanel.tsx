@@ -113,7 +113,7 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-sm font-medium text-foreground">ИИ-ассистент</span>
-              <p className="text-[10px] text-muted-foreground">Анализ проекта, саммари, риски</p>
+              <p className="text-[10px] text-muted-foreground">Обзор проектов, приоритеты, аналитика</p>
             </div>
           </button>
         </div>
