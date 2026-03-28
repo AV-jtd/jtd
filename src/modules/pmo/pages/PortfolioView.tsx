@@ -421,7 +421,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               <Fragment key={group.key || "all"}>
                 {group.label && (
                   <tr>
-                    <td colSpan={7} className="px-3 pt-4 pb-1.5">
+                    <td colSpan={6} className="px-3 pt-4 pb-1.5">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{group.label} <span className="text-foreground/50 font-medium">({group.projects.length})</span></span>
                     </td>
                   </tr>
