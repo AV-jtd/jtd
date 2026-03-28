@@ -456,20 +456,24 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const cStage = getStage(cs);
                         const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
                         return (
-                          <tr key={child.id} className="border-b border-border/30 bg-muted/10 cursor-pointer hover:bg-muted/30 transition-colors"
+                          <tr key={child.id} className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors"
                             onClick={() => onOpenGantt?.(child.id)}>
                             <td className="px-2 py-1"></td>
-                            <td className="px-2 py-1 pl-8">
-                              <div className="flex items-center gap-2">
+                            <td className="px-2 py-1 pl-6">
+                              <div className="flex items-center gap-2 border-l-2 border-primary/20 pl-2">
                                 <StatusDot status={cHealth.deadlines} />
                                 <span className="text-muted-foreground truncate max-w-[240px]" title={child.name}>{childName}</span>
                               </div>
                             </td>
                             <td className="px-2 py-1 hidden lg:table-cell text-muted-foreground">{getManagerName(child.id)}</td>
                             <td className="px-2 py-1 hidden xl:table-cell"><span className={cn("font-medium", cStage.color)}>{cStage.label}</span></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.deadlines} /></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.tasks} /></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.milestones} /></td>
+                            <td className="px-2 py-1 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <StatusDot status={cHealth.deadlines} />
+                                <StatusDot status={cHealth.tasks} />
+                                <StatusDot status={cHealth.milestones} />
+                              </div>
+                            </td>
                             <td className="px-2 py-1"><ProgressBar progress={cp} stats={cs} compact /></td>
                             <td className="px-1 py-1"></td>
                           </tr>
