@@ -97,14 +97,14 @@ function TaskFiltersBar({
           key={String(priority.value)}
           onClick={() => onPriorityFilterChange((prev) => (prev === priority.value ? null : priority.value))}
           className={cn(
-            "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+            "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
             priorityFilter === priority.value
               ? priority.color
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
           )}
         >
           {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-          {priority.label}
+          <span className="hidden sm:inline">{priority.label}</span>
         </button>
       ))}
 
