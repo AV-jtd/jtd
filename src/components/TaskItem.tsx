@@ -1305,6 +1305,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
             <span>· создал: {getProfileName(task.user_id)}</span>
           </div>
+          </div>
         );
         
         return isMobile ? (
