@@ -294,7 +294,7 @@ export default function SubprojectCards({ parentId, onNavigate }: { parentId: st
           <SubprojectDashboardCard
             key={sub.id}
             group={sub}
-            allTasks={allTasks}
+            allTasks={scopedTasks}
             allGroups={allGroups}
             users={availableUsers}
             onNavigate={onNavigate}
