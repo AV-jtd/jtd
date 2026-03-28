@@ -36,6 +36,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const { sendMessage, deleteMessage } = useGroupChatMutations();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
+  const [showAi, setShowAi] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
