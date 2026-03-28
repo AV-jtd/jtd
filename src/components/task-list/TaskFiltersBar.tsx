@@ -226,6 +226,7 @@ function TaskFiltersBar({
       <Popover>
         <PopoverTrigger asChild>
           <button
+            title={groupBy === "none" ? "Группировка" : activeGroupByOption.label}
             className={cn(
               "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
               groupBy !== "none"
