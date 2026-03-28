@@ -355,7 +355,15 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
               </button>
             }
           />
-        </div>
+      </div>
+
+      {/* Wiki / Knowledge Base */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <BookOpen className="h-3 w-3" /> База знаний
+        </p>
+        <ProjectWikiTab groupId={group.id} groupName={group.name} compact />
+      </div>
       </div>
 
       {/* Subprojects */}
