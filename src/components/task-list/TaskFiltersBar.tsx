@@ -174,6 +174,11 @@ function TaskFiltersBar({
         <Popover>
           <PopoverTrigger asChild>
             <button
+              title={projectFilter === null
+                ? "Проект"
+                : projectFilter === "none"
+                  ? "Без проекта"
+                  : groups.find((group) => group.id === projectFilter)?.name || "Проект"}
               className={cn(
                 "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
                 projectFilter !== null
