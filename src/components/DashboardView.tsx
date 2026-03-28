@@ -3,8 +3,10 @@ import { useTasks, useTaskGroups, useAvailableUsers, useTags, Task, TaskGroup, P
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen
 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
@@ -169,6 +171,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
   level?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
   const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
   const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
 
@@ -277,8 +280,29 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
           {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
+
+          {/* Wiki quick access */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
+          >
+            <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
+          </button>
         </div>
       )}
+
+      <Dialog open={wikiOpen} onOpenChange={setWikiOpen}>
+        <DialogContent className="max-w-[90vw] w-[90vw] h-[85vh] p-4 flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <ProjectWikiTab
+              groupId={stats.group.id}
+              groupName={stats.group.name}
+              groupDescription={stats.group.description || undefined}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
