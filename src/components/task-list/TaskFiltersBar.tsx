@@ -96,6 +96,7 @@ function TaskFiltersBar({
       ].map((priority) => (
         <button
           key={String(priority.value)}
+          title={priority.label || "Важные"}
           onClick={() => onPriorityFilterChange((prev) => (prev === priority.value ? null : priority.value))}
           className={cn(
             "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
