@@ -267,7 +267,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
             {groupByOptions.map(opt => {
               const Icon = opt.icon;
               return (
-                <button key={opt.key} onClick={() => setGroupBy(opt.key)}
+                <button key={opt.key} onClick={() => setGroupBy(prev => prev === opt.key && opt.key !== "none" ? "none" : opt.key)}
                   className={cn("flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors", groupBy === opt.key ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-muted")}>
                   <Icon className="h-3.5 w-3.5" />{opt.label}
                 </button>
