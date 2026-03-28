@@ -727,6 +727,7 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "wiki_autofill") {
       const { sectionKey, projectName, projectDescription, tasksInfo, membersInfo, existingContent } = context;
 
       const sectionLabels: Record<string, string> = {
@@ -1245,6 +1246,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
             contextInfo += `\n- "${d.predecessor}" → "${d.successor}" (${d.type}${d.lag_days ? `, лаг: ${d.lag_days}д` : ""})`;
           });
         }
+        if (participants?.length) {
           contextInfo += `\n\n👥 Участники: ${participants.map((p: any) => p.name).join(", ")}`;
         }
         if (recentMessages?.length) {
