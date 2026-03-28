@@ -636,11 +636,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                 </div>
 
                                 {/* Content */}
-                                <div className="px-6 pb-3 space-y-3">
-                                  {currentView === "card" && (
-                                    <ProjectDetailPanel group={project} />
-                                  )}
-                                </div>
+                                {currentView && (
+                                  <div className="px-6 pb-3 space-y-3">
+                                    {currentView === "card" && (
+                                      <ProjectDetailPanel group={project} />
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
