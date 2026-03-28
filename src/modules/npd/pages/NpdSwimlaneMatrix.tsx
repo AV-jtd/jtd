@@ -1328,3 +1328,37 @@ function MatrixTaskRow({
     </div>
   );
 }
+
+// ── Droppable gate cell wrapper ──
+function DroppableGateCell({ gateKey, isHighlighted, className, children }: {
+  gateKey: string;
+  isHighlighted?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: gateKey });
+  return (
+    <div ref={setNodeRef} className={className}>
+      {children}
+    </div>
+  );
+}
+
+// ── Draggable task row wrapper ──
+function DraggableTaskRow({ taskId, children }: { taskId: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: taskId });
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className="flex items-start gap-0.5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="shrink-0 mt-1.5 cursor-grab text-muted-foreground/0 hover:text-muted-foreground/60 active:cursor-grabbing transition-colors"
+        >
+          <GripVertical className="h-3 w-3" />
+        </button>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
