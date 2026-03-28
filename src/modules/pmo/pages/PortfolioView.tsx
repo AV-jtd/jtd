@@ -63,7 +63,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const rootProjects = useMemo(() => groups.filter((g) => !g.parent_id), [groups]);
 
   const projectStats = useMemo(() => {
-    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number }> = {};
+    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; totalDelayDays: number }> = {};
     for (const project of groups) {
       const tasks = allTasks.filter((t) => t.group_id === project.id);
       const total = tasks.length;
@@ -72,19 +72,36 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       const driftCount = tasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
       const weekFromNow = new Date(); weekFromNow.setDate(weekFromNow.getDate() + 7);
       const upcoming = tasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) <= weekFromNow && !isPast(parseISO(t.deadline))).length;
-      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming };
+
+      // Earliest planned start
+      const startDates = tasks.map((t) => t.start_at).filter(Boolean) as string[];
+      const deadlineDates = tasks.map((t) => t.deadline).filter(Boolean) as string[];
+      const allDates = [...startDates, ...deadlineDates].sort();
+      const earliestStart = allDates.length > 0 ? allDates[0] : null;
+
+      // Total delay days (sum of drift across tasks)
+      let totalDelayDays = 0;
+      for (const t of tasks) {
+        if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) {
+          totalDelayDays += differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+        }
+      }
+
+      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming, earliestStart, totalDelayDays };
     }
     return statsMap;
   }, [groups, allTasks]);
 
   const getAggregatedStats = useCallback((projectId: string) => {
     const childIds = groups.filter((g) => g.parent_id === projectId).map((g) => g.id);
+    const base = { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null as string | null, totalDelayDays: 0 };
     return [projectId, ...childIds].reduce(
       (acc, id) => {
-        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0 };
-        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming };
+        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null, totalDelayDays: 0 };
+        const earliest = !acc.earliestStart ? s.earliestStart : !s.earliestStart ? acc.earliestStart : acc.earliestStart < s.earliestStart ? acc.earliestStart : s.earliestStart;
+        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming, earliestStart: earliest, totalDelayDays: acc.totalDelayDays + s.totalDelayDays };
       },
-      { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0 }
+      base
     );
   }, [groups, projectStats]);
 
