@@ -1306,11 +1306,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </div>
           </SheetContent>
         </Sheet>
-      ) : detailsOpen ? (
+      )}
+      {detailsOpen && !isMobile && (
         <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
-          {/* Desktop inline details — same content duplicated for non-mobile */}
+          {/* This is the desktop inline version - content is rendered in the mobile sheet above */}
         </div>
-      ) : null}
+      )}
 
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
