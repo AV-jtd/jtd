@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useAvailableUsers, useTasks } from "@/hooks/useTasks";
+import { useMilestones } from "@/hooks/useMilestones";
+import { useDependencies } from "@/hooks/useDependencies";
 import { useGroupMessages } from "@/hooks/useGroupChat";
 import { useAiConversation } from "@/hooks/useAiConversation";
 import { ScrollArea } from "@/components/ui/scroll-area";
