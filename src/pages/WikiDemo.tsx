@@ -346,7 +346,7 @@ function NotesKanbanVariant() {
       </div>
 
       {/* Kanban board */}
-      <ScrollArea className="h-[calc(100%-48px)]" orientation="horizontal">
+      <ScrollArea className="h-[calc(100%-48px)]">
         <div className="flex gap-3 p-4 h-full">
           {columns.map(col => (
             <div key={col.title} className={`w-64 shrink-0 rounded-lg border ${col.color} bg-muted/20 flex flex-col`}>
