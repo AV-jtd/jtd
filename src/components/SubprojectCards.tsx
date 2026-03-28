@@ -239,11 +239,45 @@ function DashboardTaskRow({ task, userName, variant, drift }: {
 
 export default function SubprojectCards({ parentId, onNavigate }: { parentId: string; onNavigate?: (groupId: string) => void }) {
   const { data: allGroups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
-  const { data: availableUsers = [] } = useAvailableUsers();
+  const { user } = useAuth();
+
+  // Collect all descendant group IDs (parent + children + grandchildren)
+  const scopeGroupIds = useMemo(() => {
+    const ids = [parentId];
+    const collect = (pid: string) => {
+      allGroups.filter(g => g.parent_id === pid).forEach(g => {
+        ids.push(g.id);
+        collect(g.id);
+      });
+    };
+    collect(parentId);
+    return ids;
+  }, [parentId, allGroups]);
+
+  // Fetch tasks scoped to this project hierarchy (bypasses 1000-row global limit)
+  const { data: scopedTasks = [] } = useQuery({
+    queryKey: ["subproject-tasks", parentId, scopeGroupIds],
+    queryFn: async () => {
+      const results: Task[] = [];
+      for (let i = 0; i < scopeGroupIds.length; i += 10) {
+        const batch = scopeGroupIds.slice(i, i + 10);
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .in("group_id", batch)
+          .order("position");
+        if (error) throw error;
+        if (data) results.push(...(data as Task[]));
+      }
+      return results;
+    },
+    enabled: !!user && scopeGroupIds.length > 0,
+    staleTime: 1000 * 15,
+  });
+
   const subprojects = allGroups.filter(g => g.parent_id === parentId)
     .filter(g => {
-      const stats = computeSubprojectStats(g.id, allTasks, allGroups);
+      const stats = computeSubprojectStats(g.id, scopedTasks, allGroups);
       return stats.total > 0;
     });
 
