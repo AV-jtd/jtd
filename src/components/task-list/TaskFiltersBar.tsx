@@ -113,6 +113,13 @@ function TaskFiltersBar({
       <Popover>
         <PopoverTrigger asChild>
           <button
+            title={assigneeFilter === null
+              ? "Ответственный"
+              : assigneeFilter === "me"
+                ? "Мои"
+                : assigneeFilter === "unassigned"
+                  ? "Без ответственного"
+                  : availableUsers.find((user) => user.id === assigneeFilter)?.display_name || "Пользователь"}
             className={cn(
               "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
               assigneeFilter !== null
