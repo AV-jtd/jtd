@@ -512,7 +512,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* My Day sub-tabs */}
         {activeView === "myday" && (
-          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit flex-wrap">
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit overflow-x-auto scrollbar-none max-w-full">
             {([
               { key: "all" as const, label: "Все", emoji: "📋" },
               { key: "important" as const, label: "Важные", emoji: "⭐" },
