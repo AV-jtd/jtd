@@ -246,15 +246,73 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }, [addTask]);
 
   return (
+    // Build breadcrumb chain for subprojects
+    const breadcrumbChain = useMemo(() => {
+      if (activeView !== "group" || !activeGroup) return [];
+      const chain: TaskGroup[] = [];
+      let current: TaskGroup | undefined = activeGroup;
+      while (current) {
+        chain.unshift(current);
+        current = current.parent_id ? groups.find(g => g.id === current!.parent_id) : undefined;
+      }
+      return chain;
+    }, [activeView, activeGroup, groups]);
+
+    const parentGroup = activeGroup?.parent_id ? groups.find(g => g.id === activeGroup.parent_id) : null;
+    const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
+
+    return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
+        {/* Breadcrumbs for subprojects */}
+        {activeView === "group" && breadcrumbChain.length > 1 && (
+          <nav className="flex items-center gap-1 mb-3 text-xs text-muted-foreground overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => onProjectClick?.(parentGroup!.id)}
+              className="p-1 rounded-md hover:bg-muted transition-colors shrink-0"
+              title="Назад"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            {breadcrumbChain.map((g, i) => {
+              const isLast = i === breadcrumbChain.length - 1;
+              return (
+                <span key={g.id} className="flex items-center gap-1 shrink-0">
+                  {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
+                  {isLast ? (
+                    <span className="font-medium text-foreground">{displayName(g.name)}</span>
+                  ) : (
+                    <button
+                      onClick={() => onProjectClick?.(g.id)}
+                      className="hover:text-foreground transition-colors hover:underline underline-offset-2"
+                    >
+                      {displayName(g.name)}
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+        )}
+
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
+          {activeView === "group" && parentGroup && (
+            <button
+              onClick={() => onProjectClick?.(parentGroup.id)}
+              className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
+              title="Назад к родительскому проекту"
+            >
+              <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+            </button>
+          )}
           <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground leading-tight">{view.title}</h1>
+            <h1 className="text-xl font-semibold text-foreground leading-tight">
+              {activeView === "group" && activeGroup ? displayName(activeGroup.name) : view.title}
+            </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {pluralizeRu(activeTasks.length, "задача", "задачи", "задач")}
               {!batchMode && (
