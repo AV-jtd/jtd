@@ -518,6 +518,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         />
       </div>
 
+      <div className="relative w-full overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full caption-bottom text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
