@@ -591,6 +591,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                           tasks={allChildTasks}
                                           onOpenGantt={() => onOpenGantt?.(child.id)}
                                           userMap={userMap}
+                                          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
                                         />
                                       ))}
                                     </div>
