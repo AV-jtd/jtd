@@ -314,8 +314,8 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <ClipboardPaste className="h-3 w-3" />
-            <span>Ctrl+V — вставить скриншот из буфера</span>
+            <Upload className="h-3 w-3" />
+            <span>Перетащите файлы или Ctrl+V для скриншота</span>
           </div>
         </div>
         <DialogFooter>
