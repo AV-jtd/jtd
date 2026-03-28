@@ -284,6 +284,8 @@ export default function SubprojectCards({ parentId, onNavigate }: { parentId: st
   const { data: availableUsers = [] } = useAvailableUsers();
 
   if (subprojects.length === 0) return null;
+
+  return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
         <FolderOpen className="h-3 w-3" /> Подпроекты
