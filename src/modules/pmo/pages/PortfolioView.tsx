@@ -584,7 +584,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const allProjectIds = [project.id, ...childIds, ...grandIds];
                         const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
 
-                        const setView = (v: "card" | "gantt" | "matrix") => {
+                        const setView = (v: "card" | "matrix") => {
                           setExpandedView((prev) => ({ ...prev, [project.id]: v }));
                         };
 
