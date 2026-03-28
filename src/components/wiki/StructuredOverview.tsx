@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useStructuredSections, useWikiMutations, StructuredSection } from "@/hooks/useWiki";
+import { useState } from "react";
+import { useStructuredSections, useWikiMutations } from "@/hooks/useWiki";
 import { useTasks, useGroupMembers, useAvailableUsers } from "@/hooks/useTasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   FileText, Target, AlertTriangle, Link2, Users, TrendingUp, Clock,
-  CheckCircle2, Edit3, Save, X, ExternalLink, Hash
+  CheckCircle2, Edit3, Save, X, Hash, Sparkles, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { differenceInDays, startOfDay } from "date-fns";
+import { differenceInDays, startOfDay, format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const SECTIONS = [
   { key: "description", label: "Описание", icon: FileText, placeholder: "Опишите проект..." },
@@ -24,9 +26,10 @@ interface StructuredOverviewProps {
   groupId: string;
   groupName: string;
   compact?: boolean;
+  groupDescription?: string;
 }
 
-export default function StructuredOverview({ groupId, groupName, compact }: StructuredOverviewProps) {
+export default function StructuredOverview({ groupId, groupName, compact, groupDescription }: StructuredOverviewProps) {
   const { data: sections = [] } = useStructuredSections(groupId);
   const { upsertSection } = useWikiMutations(groupId);
   const { data: tasks = [] } = useTasks(groupId);
@@ -34,6 +37,7 @@ export default function StructuredOverview({ groupId, groupName, compact }: Stru
   const { data: users = [] } = useAvailableUsers();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [fillingKey, setFillingKey] = useState<string | null>(null);
 
   const sectionMap = Object.fromEntries(sections.map(s => [s.section_key, s.content]));
 
@@ -61,7 +65,47 @@ export default function StructuredOverview({ groupId, groupName, compact }: Stru
     setEditingKey(null);
   };
 
-  // Determine time status
+  const handleAutofill = async (sectionKey: string) => {
+    setFillingKey(sectionKey);
+    try {
+      const tasksInfo = tasks.slice(0, 30).map(t =>
+        `- ${t.title}${t.is_completed ? " ✅" : ""}${t.deadline ? ` (срок: ${format(new Date(t.deadline), "dd.MM.yyyy")})` : ""}${t.assigned_to ? ` → ${getProfileName(t.assigned_to)}` : ""}`
+      ).join("\n");
+
+      const membersInfo = members.map(m => getProfileName(m.user_id)).join(", ");
+
+      const { data, error } = await supabase.functions.invoke("ai-assistant", {
+        body: {
+          message: "",
+          action: "wiki_autofill",
+          context: {
+            sectionKey,
+            projectName: groupName,
+            projectDescription: groupDescription || "",
+            tasksInfo,
+            membersInfo,
+            existingContent: sectionMap[sectionKey] || "",
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (data?.content) {
+        // Open in edit mode with generated content
+        setEditingKey(sectionKey);
+        setEditDraft(data.content);
+        toast.success("ИИ сгенерировал контент — проверьте и сохраните");
+      } else {
+        toast.error("ИИ не смог сгенерировать контент");
+      }
+    } catch (e: any) {
+      console.error("Autofill error:", e);
+      toast.error("Ошибка автозаполнения");
+    } finally {
+      setFillingKey(null);
+    }
+  };
+
   const getTimeStatus = () => {
     if (tasks.length > 0 && completedTasks.length === tasks.length) return { label: "Завершено", color: "bg-green-500/10 text-green-600 border-green-500/20" };
     if (overdue.length > 0) return { label: "Просрочено", color: "bg-red-500/10 text-red-600 border-red-500/20" };
@@ -107,29 +151,46 @@ export default function StructuredOverview({ groupId, groupName, compact }: Stru
         {/* Editable sections */}
         <div className="grid grid-cols-2 gap-3">
           {SECTIONS.map(sec => (
-            <Card key={sec.key}>
+            <Card key={sec.key} className="group">
               <CardHeader className="pb-2 p-3">
                 <CardTitle className="text-xs flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <sec.icon className="h-3.5 w-3.5" /> {sec.label}
                   </span>
-                  {editingKey === sec.key ? (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={saveEdit}>
-                        <Save className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingKey(null)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100" onClick={() => startEdit(sec.key)}>
-                      <Edit3 className="h-3 w-3" />
+                  <div className="flex gap-0.5">
+                    {/* AI autofill button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleAutofill(sec.key)}
+                      disabled={fillingKey === sec.key}
+                      title="Заполнить с помощью ИИ"
+                    >
+                      {fillingKey === sec.key ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      ) : (
+                        <Sparkles className="h-3 w-3 text-primary" />
+                      )}
                     </Button>
-                  )}
+                    {editingKey === sec.key ? (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={saveEdit}>
+                          <Save className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingKey(null)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => startEdit(sec.key)}>
+                        <Edit3 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 pt-0 group">
+              <CardContent className="p-3 pt-0">
                 {editingKey === sec.key ? (
                   <Textarea
                     autoFocus

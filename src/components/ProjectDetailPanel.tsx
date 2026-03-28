@@ -362,7 +362,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <BookOpen className="h-3 w-3" /> База знаний
         </p>
-        <ProjectWikiTab groupId={group.id} groupName={group.name} compact />
+        <ProjectWikiTab groupId={group.id} groupName={group.name} groupDescription={group.description || undefined} compact />
       </div>
       </div>
 
