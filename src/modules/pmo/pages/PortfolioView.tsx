@@ -792,21 +792,21 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
           {overdueTasks.length > 0 && (
             <PmoDashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
               {overdueTasks.map((t) => (
-                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
           {upcomingTasks.length > 0 && (
             <PmoDashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
               {upcomingTasks.map((t) => (
-                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
           {driftTasks.length > 0 && (
             <PmoDashboardSection title="Переносы" count={driftTasks.length} variant="warning">
               {driftTasks.map(({ task: t, driftDays }) => (
-                <PmoDashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} />
+                <PmoDashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
@@ -817,7 +817,7 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
             return (
               <PmoDashboardSection title="Активные" count={otherTasks.length}>
                 {otherTasks.map((t) => (
-                  <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                  <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
                 ))}
               </PmoDashboardSection>
             );
