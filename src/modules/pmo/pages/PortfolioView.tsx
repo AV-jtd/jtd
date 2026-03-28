@@ -536,6 +536,22 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
 /* ─── Shared ─── */
 
+const stageBadgeStyles: Record<string, string> = {
+  "Новый": "bg-primary/10 text-primary",
+  "Подготовка": "bg-warning/10 text-warning",
+  "Выполнение": "bg-success/10 text-success",
+  "Завершён": "bg-muted text-muted-foreground",
+};
+
+function StageBadge({ label, small }: { label: string; small?: boolean }) {
+  const style = stageBadgeStyles[label] || "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("inline-flex items-center rounded-md font-medium", style, small ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5")}>
+      {label}
+    </span>
+  );
+}
+
 function StatusDot({ status, size = "sm" }: { status: HealthStatus; size?: "sm" | "md" }) {
   return (
     <div className={cn(
