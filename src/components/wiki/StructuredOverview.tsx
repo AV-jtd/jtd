@@ -71,7 +71,7 @@ export default function StructuredOverview({ groupId, groupName, compact }: Stru
   const timeStatus = getTimeStatus();
 
   return (
-    <ScrollArea className={compact ? "h-[400px]" : "h-[520px]"}>
+    <ScrollArea className={compact ? "h-[400px]" : "h-[calc(85vh-120px)]"}>
       <div className="p-4 space-y-4">
         {/* Header with status */}
         <div className="flex items-center justify-between">

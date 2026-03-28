@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BookOpen, LayoutGrid, Download, FileDown, Presentation } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { BookOpen, LayoutGrid, FileDown, Presentation, Maximize2, Minimize2 } from "lucide-react";
 import WikiEditor from "./WikiEditor";
 import StructuredOverview from "./StructuredOverview";
 import { useWikiPages } from "@/hooks/useWiki";
@@ -17,6 +18,8 @@ interface ProjectWikiTabProps {
 
 export default function ProjectWikiTab({ groupId, groupName, compact }: ProjectWikiTabProps) {
   const [exporting, setExporting] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [activeTab, setActiveTab] = useState("wiki");
   const { data: pages = [] } = useWikiPages(groupId);
   const { data: tasks = [] } = useTasks(groupId);
 
@@ -60,49 +63,61 @@ export default function ProjectWikiTab({ groupId, groupName, compact }: ProjectW
     }
   };
 
-  return (
-    <div className="space-y-2">
-      <Tabs defaultValue="wiki">
-        <div className="flex items-center justify-between">
-          <TabsList className="h-8">
-            <TabsTrigger value="wiki" className="text-xs gap-1 h-7 px-3">
-              <BookOpen className="h-3 w-3" /> Wiki
-            </TabsTrigger>
-            <TabsTrigger value="structured" className="text-xs gap-1 h-7 px-3">
-              <LayoutGrid className="h-3 w-3" /> Обзор
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={handleExportPdf}
-              disabled={exporting}
-            >
-              <FileDown className="h-3 w-3" /> PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={handleExportPptHtml}
-              disabled={exporting}
-            >
-              <Presentation className="h-3 w-3" /> PPT
-            </Button>
-          </div>
-        </div>
-
-        <TabsContent value="wiki" className="mt-2">
-          <WikiEditor groupId={groupId} groupName={groupName} compact={compact} />
-        </TabsContent>
-
-        <TabsContent value="structured" className="mt-2">
-          <StructuredOverview groupId={groupId} groupName={groupName} compact={compact} />
-        </TabsContent>
-      </Tabs>
+  const toolbar = (
+    <div className="flex gap-1">
+      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleExportPdf} disabled={exporting}>
+        <FileDown className="h-3 w-3" /> PDF
+      </Button>
+      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleExportPptHtml} disabled={exporting}>
+        <Presentation className="h-3 w-3" /> PPT
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs gap-1"
+        onClick={() => setFullscreen(!fullscreen)}
+      >
+        {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+      </Button>
     </div>
+  );
+
+  const wikiContent = (isFullscreen: boolean) => (
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="flex items-center justify-between">
+        <TabsList className="h-8">
+          <TabsTrigger value="wiki" className="text-xs gap-1 h-7 px-3">
+            <BookOpen className="h-3 w-3" /> Wiki
+          </TabsTrigger>
+          <TabsTrigger value="structured" className="text-xs gap-1 h-7 px-3">
+            <LayoutGrid className="h-3 w-3" /> Обзор
+          </TabsTrigger>
+        </TabsList>
+        {toolbar}
+      </div>
+      <TabsContent value="wiki" className="mt-2">
+        <WikiEditor groupId={groupId} groupName={groupName} compact={!isFullscreen} />
+      </TabsContent>
+      <TabsContent value="structured" className="mt-2">
+        <StructuredOverview groupId={groupId} groupName={groupName} compact={!isFullscreen} />
+      </TabsContent>
+    </Tabs>
+  );
+
+  return (
+    <>
+      <div className="space-y-2">
+        {wikiContent(false)}
+      </div>
+
+      <Dialog open={fullscreen} onOpenChange={setFullscreen}>
+        <DialogContent className="max-w-[90vw] w-[90vw] h-[85vh] p-4 flex flex-col">
+          <div className="flex-1 overflow-hidden">
+            {wikiContent(true)}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
