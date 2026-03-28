@@ -709,6 +709,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           inputRef={inputRef}
           activeView={activeView}
           activeGroupId={activeGroupId}
+          availableUsers={availableUsers}
           onCreateTask={handleCreateTask}
         />
 
