@@ -842,10 +842,13 @@ function PmoDashboardSection({ title, count, children, variant }: { title: strin
   );
 }
 
-function PmoDashboardTaskRow({ task, drift, assigneeName, variant }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue" }) {
+function PmoDashboardTaskRow({ task, drift, assigneeName, variant, onClick }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue"; onClick?: () => void }) {
   const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0">
+    <div
+      className={cn("flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0", onClick && "cursor-pointer")}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+    >
       <span className={cn(
         "text-[11px] truncate flex-1 min-w-0",
         isOverdue ? "text-destructive" : "text-foreground",
