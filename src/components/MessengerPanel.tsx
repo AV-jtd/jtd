@@ -65,7 +65,7 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
-          <AiChatThread />
+          <AiChatThread mode="assistant" />
         </div>
       </div>
     );
