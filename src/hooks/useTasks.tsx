@@ -761,6 +761,7 @@ export function useTaskMutations() {
         requires_approval: false,
         approval_status: null,
         closure_result: null,
+        closure_attachments: [],
         subtasks: [],
         task_tags: [],
       };
@@ -927,10 +928,21 @@ export function useTaskMutations() {
 
   // Submit task for approval (instead of direct completion)
   const submitForApproval = useMutation({
-    mutationFn: async ({ id, closure_result }: { id: string; closure_result: string }) => {
+    mutationFn: async ({ id, closure_result, files }: { id: string; closure_result: string; files?: File[] }) => {
+      let attachmentUrls: string[] = [];
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const filePath = `${user!.id}/${id}/${Date.now()}_${file.name}`;
+          const { error: upErr } = await supabase.storage.from("task-attachments").upload(filePath, file);
+          if (upErr) throw upErr;
+          const { data: urlData } = supabase.storage.from("task-attachments").getPublicUrl(filePath);
+          attachmentUrls.push(urlData.publicUrl);
+        }
+      }
       const { error } = await supabase.from("tasks").update({
         approval_status: "pending",
         closure_result,
+        closure_attachments: attachmentUrls,
       }).eq("id", id);
       if (error) throw error;
       const { data: taskData } = await supabase.from("tasks").select("title, user_id").eq("id", id).single();
@@ -961,7 +973,11 @@ export function useTaskMutations() {
       }).eq("id", id);
       if (error) throw error;
       if (taskData.group_id && (taskData as any).closure_result) {
-        const content = `## Результат\n\n${(taskData as any).closure_result}\n\n---\n\n**Задача:** ${taskData.title}\n**Дата закрытия:** ${new Date().toLocaleDateString("ru-RU")}\n**Исполнитель:** ${taskData.assigned_to || taskData.user_id}`;
+        const attachments = Array.isArray((taskData as any).closure_attachments) ? (taskData as any).closure_attachments as string[] : [];
+        const attachmentsMd = attachments.length > 0
+          ? `\n\n## Вложения\n\n${attachments.map((url: string) => /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url) ? `![вложение](${url})` : `[📎 ${decodeURIComponent(url.split("/").pop() || "файл")}](${url})`).join("\n\n")}`
+          : "";
+        const content = `## Результат\n\n${(taskData as any).closure_result}${attachmentsMd}\n\n---\n\n**Задача:** ${taskData.title}\n**Дата закрытия:** ${new Date().toLocaleDateString("ru-RU")}\n**Исполнитель:** ${taskData.assigned_to || taskData.user_id}`;
         await supabase.from("wiki_pages").insert({
           group_id: taskData.group_id,
           user_id: user!.id,
@@ -997,6 +1013,7 @@ export function useTaskMutations() {
       const { error } = await supabase.from("tasks").update({
         approval_status: null,
         closure_result: null,
+        closure_attachments: [],
       }).eq("id", id);
       if (error) throw error;
       if (taskData?.assigned_to) {

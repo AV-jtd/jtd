@@ -1176,6 +1176,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               <TaskApprovalActions
                 taskTitle={task.title}
                 closureResult={task.closure_result}
+                closureAttachments={Array.isArray(task.closure_attachments) ? (task.closure_attachments as string[]) : []}
                 onApprove={() => { approveTask.mutate({ id: task.id }); toast.success("Задача утверждена, результат сохранён в Wiki"); }}
                 onReject={() => { rejectTask.mutate({ id: task.id }); toast.info("Задача отклонена, возвращена исполнителю"); }}
               />
@@ -1510,8 +1511,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       open={closureDialogOpen}
       onOpenChange={setClosureDialogOpen}
       taskTitle={task.title}
-      onSubmit={(result) => {
-        submitForApproval.mutate({ id: task.id, closure_result: result });
+      onSubmit={(result, files) => {
+        submitForApproval.mutate({ id: task.id, closure_result: result, files });
         toast.success("Отправлено на утверждение");
       }}
     />
