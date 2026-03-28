@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen } from "lucide-react";
+import { Clock, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
