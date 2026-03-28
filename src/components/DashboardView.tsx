@@ -171,6 +171,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
   level?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
   const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
   const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
 
