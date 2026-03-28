@@ -934,14 +934,17 @@ export default function NpdSwimlaneMatrix() {
                     });
                     const hasTasks = cellTasks.length > 0;
 
+                    const cellId = makeCellId(stream, gate.key);
+                    const isCellOver = dndOverCell === cellId;
+
                     return (
                       <DroppableGateCell
                         key={gate.key}
-                        gateKey={gate.key}
-                        isHighlighted={dndOverGate === gate.key}
+                        gateKey={cellId}
+                        isHighlighted={isCellOver}
                         className={cn(
                           "min-w-[220px] w-[220px] shrink-0 border-r border-border transition-colors",
-                          dndOverGate === gate.key
+                          isCellOver
                             ? "bg-primary/10 ring-1 ring-primary/30"
                             : (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
