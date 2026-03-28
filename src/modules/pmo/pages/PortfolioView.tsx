@@ -606,7 +606,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                 </button>
                                 <button
                                   disabled={project.project_type !== "npd"}
-                                  onClick={(e) => { e.stopPropagation(); window.location.href = `/npd?project=${project.id}`; }}
+                                  onClick={(e) => { e.stopPropagation(); window.location.href = `/npd/matrix/${project.id}`; }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
                                     project.project_type === "npd"
