@@ -261,6 +261,11 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
               {files.length}/{MAX_FILES} • макс. 10 МБ
             </span>
           </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <ClipboardPaste className="h-3 w-3" />
+            <span>Ctrl+V — вставить скриншот из буфера</span>
+          </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
