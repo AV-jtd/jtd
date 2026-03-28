@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LayoutDashboard, GanttChart, Flag, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,11 +23,27 @@ export default function PmoLayout() {
   const initialView = initialProject ? "gantt" : "portfolio";
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
   const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
+  const [cameFromPortfolio, setCameFromPortfolio] = useState(false);
 
-  const handleOpenGantt = (projectId: string) => {
+  const handleOpenGantt = useCallback((projectId: string) => {
     setFocusProjectId(projectId);
+    setCameFromPortfolio(true);
     setActiveView("gantt");
-  };
+  }, []);
+
+  const handleBackToPortfolio = useCallback(() => {
+    setActiveView("portfolio");
+    setCameFromPortfolio(false);
+    setFocusProjectId(null);
+  }, []);
+
+  const handleNavClick = useCallback((id: PmoView) => {
+    setActiveView(id);
+    if (id !== "gantt") {
+      setCameFromPortfolio(false);
+      setFocusProjectId(null);
+    }
+  }, []);
 
   return (
     <ModuleLayout
@@ -40,7 +56,7 @@ export default function PmoLayout() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveView(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 className={cn(
                   "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
                   isActive
@@ -57,7 +73,7 @@ export default function PmoLayout() {
       }
     >
       {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
-      {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
+      {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} />}
       {activeView === "milestones" && <MilestonesView />}
       {activeView === "resources" && <PlaceholderView icon={Users} title="Ресурсы" description="Загрузка участников и распределение по проектам" />}
       {activeView === "reports" && <PlaceholderView icon={BarChart3} title="Отчёты" description="Burndown, SPI/CPI, отклонения от плана" />}
