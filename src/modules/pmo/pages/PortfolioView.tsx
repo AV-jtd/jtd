@@ -2,8 +2,8 @@ import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Profil
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, CalendarClock, RefreshCw } from "lucide-react";
-import { isPast, parseISO, format, differenceInDays } from "date-fns";
+import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw } from "lucide-react";
+import { isPast, parseISO, differenceInDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -402,18 +402,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   Руководитель <SortIcon col="manager" />
                 </button>
               </th>
-              <th className="px-3 py-2.5 text-left hidden xl:table-cell">
-                <button onClick={() => toggleSort("stage")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
-                  Этап <SortIcon col="stage" />
-                </button>
-              </th>
               <th className="px-3 py-2.5 text-center">
                 <button onClick={() => toggleSort("health")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors mx-auto">
                   <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
                   <SortIcon col="health" />
                 </button>
               </th>
-              <th className="px-3 py-2.5 min-w-[180px]">
+              <th className="px-3 py-2.5 min-w-[220px]">
                 <button onClick={() => toggleSort("progress")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Прогресс <SortIcon col="progress" />
                 </button>
@@ -426,7 +421,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               <Fragment key={group.key || "all"}>
                 {group.label && (
                   <tr>
-                    <td colSpan={7} className="px-3 pt-4 pb-1.5">
+                    <td colSpan={6} className="px-3 pt-4 pb-1.5">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{group.label} <span className="text-foreground/50 font-medium">({group.projects.length})</span></span>
                     </td>
                   </tr>
@@ -461,36 +456,26 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             ) : (
                               <StatusDot status={health.deadlines} size="md" />
                             )}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
-                                  {project.name}
-                                </span>
-                                {children.length > 0 && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3 mt-0.5">
-                                {stats.earliestStart && (
-                                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Планируемый старт">
-                                    <CalendarClock className="h-3 w-3 shrink-0" />
-                                    {format(parseISO(stats.earliestStart), "dd.MM.yy")}
-                                  </span>
-                                )}
-                                {stats.driftCount > 0 && (
-                                  <span className={cn("flex items-center gap-1 text-[11px]", stats.totalDelayDays > 0 ? "text-destructive" : "text-warning")} title={`${stats.driftCount} переносов, ${stats.totalDelayDays > 0 ? "+" : ""}${stats.totalDelayDays}д суммарно`}>
-                                    <RefreshCw className="h-3 w-3 shrink-0" />
+                            <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
+                              {project.name}
+                            </span>
+                            {children.length > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
+                            )}
+                            {stats.driftCount > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={cn("flex items-center gap-1 text-[11px] shrink-0 ml-1", stats.totalDelayDays > 0 ? "text-destructive" : "text-warning")}>
+                                    <RefreshCw className="h-3 w-3" />
                                     {stats.driftCount} · {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д
                                   </span>
-                                )}
-                              </div>
-                            </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="text-xs">{stats.driftCount} переносов, {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д суммарно</TooltipContent>
+                              </Tooltip>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
-                        <td className="px-3 py-2.5 hidden xl:table-cell">
-                          <StageBadge label={stage.label} />
-                        </td>
                         <td className="px-3 py-2.5 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <StatusDot status={health.deadlines} size="md" />
@@ -529,7 +514,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                               </div>
                             </td>
                             <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}</td>
-                            <td className="px-3 py-2 hidden xl:table-cell"><StageBadge label={cStage.label} small /></td>
+                            
                             <td className="px-3 py-2 text-center">
                               <div className="flex items-center justify-center gap-1.5">
                                 <StatusDot status={cHealth.deadlines} />
@@ -603,12 +588,17 @@ function StatusDot({ status, size = "sm" }: { status: HealthStatus; size?: "sm" 
 function ProgressBar({ progress, stats, compact }: { progress: number; stats: { total: number; completed: number; overdue: number }; compact?: boolean }) {
   const barColor = stats.overdue > 0 ? "bg-destructive" : progress === 100 ? "bg-success" : "bg-primary";
   return (
-    <div className="flex items-center gap-2.5">
-      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2.5")}>
+    <div className="flex items-center gap-3">
+      <div className={cn("flex-1 rounded-full bg-muted/60 overflow-hidden relative", compact ? "h-2" : "h-3.5")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
+        {!compact && progress > 8 && (
+          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-primary-foreground mix-blend-difference">
+            {progress}%
+          </span>
+        )}
       </div>
-      <span className={cn("font-medium text-right shrink-0 tabular-nums", compact ? "text-[11px] w-8 text-muted-foreground" : "text-xs w-20 text-muted-foreground")}>
-        {compact ? `${progress}%` : `${progress}% · ${stats.completed}/${stats.total}`}
+      <span className={cn("font-medium text-right shrink-0 tabular-nums", compact ? "text-[11px] w-8 text-muted-foreground" : "text-xs w-12 text-muted-foreground")}>
+        {compact ? `${progress}%` : `${stats.completed}/${stats.total}`}
       </span>
     </div>
   );
