@@ -252,8 +252,27 @@ serve(async (req) => {
       const allContextTasks = [...overdue, ...dueThisWeek, ...highPriority, ...delegatedToMe, ...delegatedByMe];
       const uniqueTasks = Array.from(new Map(allContextTasks.map((task: any) => [task.id, task])).values());
 
+      const TASK_ID_RE = /\[task_id:([0-9a-f-]{36})\]/gi;
+      const GROUP_ID_RE = /\[group_id:([0-9a-f-]{36})\]/gi;
+
+      const extractAndClean = (text?: string) => {
+        if (!text) return { clean: "", task_id: undefined as string | undefined, group_id: undefined as string | undefined };
+        let task_id: string | undefined;
+        let group_id: string | undefined;
+        const taskMatch = TASK_ID_RE.exec(text);
+        if (taskMatch) task_id = taskMatch[1];
+        TASK_ID_RE.lastIndex = 0;
+        const groupMatch = GROUP_ID_RE.exec(text);
+        if (groupMatch) group_id = groupMatch[1];
+        GROUP_ID_RE.lastIndex = 0;
+        const clean = text.replace(TASK_ID_RE, "").replace(GROUP_ID_RE, "").replace(/\s{2,}/g, " ").trim();
+        return { clean, task_id, group_id };
+      };
+
       const resolveIdsFromText = (text?: string) => {
         if (!text) return { task_id: undefined, group_id: undefined };
+        const extracted = extractAndClean(text);
+        if (extracted.task_id || extracted.group_id) return { task_id: extracted.task_id, group_id: extracted.group_id };
         const normalized = text.toLowerCase();
         const matchedTask = uniqueTasks.find((task: any) => normalized.includes(task.title.toLowerCase()));
         return {
@@ -263,14 +282,27 @@ serve(async (req) => {
       };
 
       insights.urgentItems = (insights.urgentItems || []).map((item: any) => {
-        if (item.task_id || item.group_id) return item;
-        return { ...item, ...resolveIdsFromText(item.text) };
+        const extracted = extractAndClean(item.text);
+        const task_id = item.task_id || extracted.task_id;
+        const group_id = item.group_id || extracted.group_id;
+        const text = extracted.clean || item.text;
+        if (task_id || group_id) return { ...item, text, task_id, group_id };
+        const fallback = resolveIdsFromText(item.text);
+        return { ...item, text, ...fallback };
       });
 
+      // Clean focusOfDay text too
+      const focusExtracted = extractAndClean(insights.focusOfDay);
+      insights.focusOfDay = focusExtracted.clean || insights.focusOfDay;
+
       if (!insights.focusTaskId && !insights.focusGroupId) {
-        const fallbackFocus = resolveIdsFromText(insights.focusOfDay);
-        insights.focusTaskId = fallbackFocus.task_id;
-        insights.focusGroupId = fallbackFocus.group_id;
+        insights.focusTaskId = focusExtracted.task_id;
+        insights.focusGroupId = focusExtracted.group_id;
+        if (!insights.focusTaskId && !insights.focusGroupId) {
+          const fallbackFocus = resolveIdsFromText(insights.focusOfDay);
+          insights.focusTaskId = fallbackFocus.task_id;
+          insights.focusGroupId = fallbackFocus.group_id;
+        }
       }
 
       return new Response(JSON.stringify({ insights }), {
