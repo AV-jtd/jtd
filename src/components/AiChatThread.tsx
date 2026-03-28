@@ -65,9 +65,22 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const selectedGroup = allGroups.find(g => g.id === selectedGroupId);
+  const selectedGroup = isGeneral ? null : allGroups.find(g => g.id === selectedGroupId);
 
   const buildContext = useCallback(() => {
+    if (isGeneral) {
+      // Cross-project context for general assistant
+      const topGroups = allGroups.filter(g => !g.parent_id);
+      const projectSummaries = topGroups.map(g => {
+        const subIds = allGroups.filter(sg => sg.parent_id === g.id).map(sg => sg.id);
+        const projectTasks = allTasks.filter(t => t.group_id === g.id || (t.group_id && subIds.includes(t.group_id)));
+        const total = projectTasks.length;
+        const completed = projectTasks.filter(t => t.is_completed).length;
+        const overdue = projectTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length;
+        return { name: g.name, total, completed, overdue, project_type: (g as any).project_type };
+      });
+      return { mode: "general", projects: projectSummaries, totalTasks: allTasks.length };
+    }
     if (!selectedGroupId) return null;
 
     const group = allGroups.find(g => g.id === selectedGroupId);
