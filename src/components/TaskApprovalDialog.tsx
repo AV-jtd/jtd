@@ -202,7 +202,21 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent ref={dialogRef} className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        ref={dialogRef}
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto relative"
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {/* Drop overlay */}
+        {dragging && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+            <Upload className="h-8 w-8 text-primary mb-2" />
+            <p className="text-sm font-medium text-primary">Перетащите файлы сюда</p>
+          </div>
+        )}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-primary" />
