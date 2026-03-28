@@ -497,7 +497,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         )}
 
         {/* AI Insights — show on inbox/today/all views */}
-        {!batchMode && (activeView === "inbox" || activeView === "today" || activeView === "all") && (
+        {!batchMode && (activeView === "inbox" || activeView === "myday" || activeView === "today" || activeView === "all") && (
           <AiInsightsCard
             insights={insights}
             loading={insightsLoading}
