@@ -204,7 +204,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       switch (sortKey) {
         case "name": cmp = a.name.localeCompare(b.name, "ru"); break;
         case "manager": cmp = getManagerName(a.id).localeCompare(getManagerName(b.id), "ru"); break;
-        case "stage": cmp = getStage(getAggregatedStats(a.id)).order - getStage(getAggregatedStats(b.id)).order; break;
         case "health": cmp = getHealthScore(a.id) - getHealthScore(b.id); break;
         case "progress": {
           const pa = getAggregatedStats(a.id); const pb = getAggregatedStats(b.id);
