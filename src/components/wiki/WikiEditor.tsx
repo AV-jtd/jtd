@@ -74,7 +74,7 @@ export default function WikiEditor({ groupId, groupName, compact }: WikiEditorPr
     setEditing(false);
   };
 
-  const height = compact ? "h-[400px]" : "h-[520px]";
+  const height = compact ? "h-[400px]" : "h-[calc(85vh-120px)]";
 
   return (
     <div className={`flex ${height} border rounded-xl overflow-hidden bg-background`}>
