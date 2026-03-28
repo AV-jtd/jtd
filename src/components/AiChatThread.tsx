@@ -173,7 +173,7 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
           return;
         }
         if (e.status === 402) {
-          addMessage({ role: "assistant", content: "⚠️ Недостаточно кредитов AI. Пополните баланс." });
+          addMessage({ role: "assistant", content: "⚠️ ИИ временно недоступен. Попробуйте позже." });
           return;
         }
       }

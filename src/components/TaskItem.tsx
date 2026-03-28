@@ -157,7 +157,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       }
       if (data?.error === "payment_required") {
         const { toast } = await import("sonner");
-        toast.error("Недостаточно кредитов AI");
+        toast.error("ИИ временно недоступен. Попробуйте позже.");
         return;
       }
       if (data?.subtasks?.length) {

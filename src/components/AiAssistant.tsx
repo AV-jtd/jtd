@@ -79,7 +79,7 @@ const MODULE_CONFIG: Record<string, {
   examples: string[];
 }> = {
   tasks: {
-    label: "AI-помощник",
+    label: "ИИ-помощник",
     gradient: "from-violet-500 to-blue-500",
     subtitle: "Задачи • Проекты • Советы",
     quickActions: [
@@ -233,8 +233,8 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
           return;
         }
         if ((errMsg as any)?.error === "payment_required" || (error as any)?.status === 402) {
-          toast.error("Необходимо пополнить баланс AI");
-          addMessage({ role: "assistant", content: "💳 Необходимо пополнить баланс для использования AI." });
+          toast.error("ИИ временно недоступен");
+          addMessage({ role: "assistant", content: "⚠️ ИИ временно недоступен. Попробуйте позже." });
           return;
         }
         throw error;

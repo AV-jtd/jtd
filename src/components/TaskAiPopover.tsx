@@ -228,7 +228,7 @@ export default function TaskAiPopover({
       setStreaming(false);
       if (e instanceof StreamChatError) {
         if (e.status === 429) toast.error("Слишком много запросов, попробуйте позже");
-        else if (e.status === 402) toast.error("Недостаточно кредитов AI");
+        else if (e.status === 402) toast.error("ИИ временно недоступен. Попробуйте позже.");
         else toast.error(e.message);
       } else {
         toast.error("Ошибка ИИ");
