@@ -302,6 +302,7 @@ export type Database = {
           push_task_assigned: boolean
           push_task_commented: boolean
           push_task_completed: boolean
+          push_task_delegated: boolean
           push_task_participant_added: boolean
           telegram_added_to_group: boolean
           telegram_deadline_approaching: boolean
@@ -309,6 +310,7 @@ export type Database = {
           telegram_task_assigned: boolean
           telegram_task_commented: boolean
           telegram_task_completed: boolean
+          telegram_task_delegated: boolean
           telegram_task_participant_added: boolean
           updated_at: string
           user_id: string
@@ -322,6 +324,7 @@ export type Database = {
           push_task_assigned?: boolean
           push_task_commented?: boolean
           push_task_completed?: boolean
+          push_task_delegated?: boolean
           push_task_participant_added?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
@@ -329,6 +332,7 @@ export type Database = {
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
           telegram_task_completed?: boolean
+          telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
           updated_at?: string
           user_id: string
@@ -342,6 +346,7 @@ export type Database = {
           push_task_assigned?: boolean
           push_task_commented?: boolean
           push_task_completed?: boolean
+          push_task_delegated?: boolean
           push_task_participant_added?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
@@ -349,6 +354,7 @@ export type Database = {
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
           telegram_task_completed?: boolean
+          telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
           updated_at?: string
           user_id?: string
