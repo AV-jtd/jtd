@@ -635,12 +635,43 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   </Tooltip>
                                 </div>
 
-                                {/* Content */}
-                                {currentView && (
-                                  <div className="px-6 pb-3 space-y-3">
-                                    {currentView === "card" && (
-                                      <ProjectDetailPanel group={project} />
-                                    )}
+                                {/* Content — task summary by default, full panel on tab click */}
+                                {!currentView && (
+                                  <div className="px-6 pb-3">
+                                    {(() => {
+                                      const now = new Date();
+                                      const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+                                      const upcoming = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) >= now)
+                                        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+                                        .slice(0, 3);
+                                      const completed = projectTasks.filter((t) => t.is_completed).length;
+                                      return (
+                                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                                          {overdue.length > 0 && (
+                                            <span className="text-destructive font-medium">🔴 Просрочено: {overdue.length}</span>
+                                          )}
+                                          {upcoming.length > 0 && (
+                                            <span>⏳ Ближайшие: {upcoming.map((t) => t.title).join(", ")}</span>
+                                          )}
+                                          <span>✅ Завершено: {completed}/{projectTasks.length}</span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                                {currentView === "card" && (
+                                  <div className="px-6 pb-3">
+                                    <ProjectDetailPanel group={project} />
+                                  </div>
+                                )}
+                                {currentView === "gantt" && (
+                                  <div className="px-6 pb-3">
+                                    <PmoInlineGantt tasks={projectTasks} onTaskClick={setSelectedTaskId} />
+                                  </div>
+                                )}
+                                {currentView === "matrix" && isNpd && (
+                                  <div className="px-6 pb-3">
+                                    <PmoInlineMatrix groupId={project.id} tasks={projectTasks} subGroups={children} />
                                   </div>
                                 )}
                               </div>
