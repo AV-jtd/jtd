@@ -510,7 +510,44 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </div>
         )}
 
-        {/* AI Insights — show on inbox/today/all views */}
+        {/* My Day sub-tabs */}
+        {activeView === "myday" && (
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit flex-wrap">
+            {([
+              { key: "all" as const, label: "Все", emoji: "📋" },
+              { key: "important" as const, label: "Важные", emoji: "⭐" },
+              { key: "today" as const, label: "Сегодня", emoji: "📅" },
+              { key: "overdue" as const, label: "Просроченные", emoji: "🔴" },
+            ]).map(tab => {
+              const now = new Date();
+              const mydayAll = tasks.filter(t =>
+                t.is_important ||
+                (t.deadline && isToday(parseISO(t.deadline))) ||
+                (t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now)))
+              );
+              const count = tab.key === "all" ? mydayAll.length
+                : tab.key === "important" ? mydayAll.filter(t => t.is_important).length
+                : tab.key === "today" ? mydayAll.filter(t => t.deadline && isToday(parseISO(t.deadline))).length
+                : mydayAll.filter(t => t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now))).length;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setMydayTab(tab.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    mydayTab === tab.key
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.emoji} {tab.label}{count > 0 ? ` (${count})` : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* AI Insights — show on inbox/myday/all views */}
         {!batchMode && (activeView === "inbox" || activeView === "myday" || activeView === "today" || activeView === "all") && (
           <AiInsightsCard
             insights={insights}
