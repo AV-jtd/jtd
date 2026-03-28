@@ -67,7 +67,7 @@ function TaskFiltersBar({
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
   return (
-    <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+    <div className="flex items-center gap-1.5 mb-4 flex-wrap md:flex-wrap overflow-x-auto scrollbar-none pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
       <div className="relative">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
         <input
