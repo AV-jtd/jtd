@@ -892,11 +892,15 @@ export default function NpdSwimlaneMatrix() {
                     const hasTasks = cellTasks.length > 0;
 
                     return (
-                      <div
+                      <DroppableGateCell
                         key={gate.key}
+                        gateKey={gate.key}
+                        isHighlighted={dndOverGate === gate.key}
                         className={cn(
                           "min-w-[220px] w-[220px] shrink-0 border-r border-border transition-colors",
-                          (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
+                          dndOverGate === gate.key
+                            ? "bg-primary/10 ring-1 ring-primary/30"
+                            : (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
                       >
                         {!isCollapsed && (
