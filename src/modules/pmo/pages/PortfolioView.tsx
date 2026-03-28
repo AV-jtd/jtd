@@ -109,6 +109,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const getManagerId = useCallback((projectId: string): string => {
     const assignee = allGroupMembers.find((m) => m.group_id === projectId && m.role === "assignee");
     if (assignee) return assignee.user_id;
+    const ownerOrAdmin = allGroupMembers.find((m) => m.group_id === projectId && (m.role === "owner" || m.role === "admin"));
+    if (ownerOrAdmin) return ownerOrAdmin.user_id;
     return groups.find((g) => g.id === projectId)?.user_id || "";
   }, [allGroupMembers, groups]);
 
@@ -502,6 +504,21 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         <tr>
                           <td colSpan={6} className="px-0 py-0">
                             <div className="bg-muted/10 border-t border-border/30 px-6 py-3 space-y-2 animate-fade-in">
+                              {/* Tasks directly on the parent project (not in subprojects) */}
+                              {(() => {
+                                const directTasks = allTasks.filter((t) => t.group_id === project.id);
+                                if (directTasks.length === 0) return null;
+                                return (
+                                  <PmoSubprojectCard
+                                    name="Общие задачи"
+                                    color={project.color}
+                                    icon={project.icon}
+                                    tasks={directTasks}
+                                    onOpenGantt={() => onOpenGantt?.(project.id)}
+                                    userMap={userMap}
+                                  />
+                                );
+                              })()}
                               {/* Subproject cards — hide those with 0 tasks */}
                               {children
                                 .map((child) => {
@@ -513,7 +530,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   return { child, childName, allChildTasks, grandchildren };
                                 })
                                 .filter((c) => c.allChildTasks.length > 0)
-                                .map(({ child, childName, allChildTasks, grandchildren }) => (
+                                .map(({ child, childName, allChildTasks }) => (
                                   <PmoSubprojectCard
                                     key={child.id}
                                     name={childName}
@@ -524,12 +541,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     userMap={userMap}
                                   />
                                 ))}
-                              {children.every((c) => {
+                              {allTasks.filter((t) => t.group_id === project.id).length === 0 && children.every((c) => {
                                 const ct = allTasks.filter((t) => t.group_id === c.id);
                                 const gc = groups.filter((g) => g.parent_id === c.id).flatMap((g) => allTasks.filter((t) => t.group_id === g.id));
                                 return ct.length + gc.length === 0;
                               }) && (
-                                <p className="text-xs text-muted-foreground text-center py-2">Нет задач в подпроектах</p>
+                                <p className="text-xs text-muted-foreground text-center py-2">Нет задач</p>
                               )}
                             </div>
                           </td>
