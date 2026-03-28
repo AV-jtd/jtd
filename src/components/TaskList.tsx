@@ -5,7 +5,7 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard from "./AiInsightsCard";
 import { useAiInsights } from "@/hooks/useAiInsights";
-import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isToday, parseISO } from "date-fns";
