@@ -167,6 +167,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
     if (activeView === "inbox") {
       nextTasks = tasks.filter(t => !t.group_id);
+    } else if (activeView === "myday") {
+      nextTasks = tasks.filter(t => t.is_important || (t.deadline && isToday(parseISO(t.deadline))));
     } else if (activeView === "important") {
       nextTasks = tasks.filter(t => t.is_important);
     } else if (activeView === "today") {
