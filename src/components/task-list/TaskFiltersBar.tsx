@@ -96,6 +96,7 @@ function TaskFiltersBar({
       ].map((priority) => (
         <button
           key={String(priority.value)}
+          title={priority.label || "Важные"}
           onClick={() => onPriorityFilterChange((prev) => (prev === priority.value ? null : priority.value))}
           className={cn(
             "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
@@ -112,6 +113,13 @@ function TaskFiltersBar({
       <Popover>
         <PopoverTrigger asChild>
           <button
+            title={assigneeFilter === null
+              ? "Ответственный"
+              : assigneeFilter === "me"
+                ? "Мои"
+                : assigneeFilter === "unassigned"
+                  ? "Без ответственного"
+                  : availableUsers.find((user) => user.id === assigneeFilter)?.display_name || "Пользователь"}
             className={cn(
               "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
               assigneeFilter !== null
@@ -166,6 +174,11 @@ function TaskFiltersBar({
         <Popover>
           <PopoverTrigger asChild>
             <button
+              title={projectFilter === null
+                ? "Проект"
+                : projectFilter === "none"
+                  ? "Без проекта"
+                  : groups.find((group) => group.id === projectFilter)?.name || "Проект"}
               className={cn(
                 "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
                 projectFilter !== null
@@ -213,6 +226,7 @@ function TaskFiltersBar({
       <Popover>
         <PopoverTrigger asChild>
           <button
+            title={groupBy === "none" ? "Группировка" : activeGroupByOption.label}
             className={cn(
               "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
               groupBy !== "none"
