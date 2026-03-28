@@ -115,6 +115,17 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return { deadlines, tasks, milestones: ms };
   }, [getAggregatedStats, milestones]);
 
+  const getHealthScore = useCallback((projectId: string): number => {
+    const h = getHealthDot(projectId);
+    const scoreMap: Record<HealthStatus, number> = { red: 3, yellow: 2, green: 1, gray: 0 };
+    return scoreMap[h.deadlines] * 10 + scoreMap[h.tasks] * 5 + scoreMap[h.milestones] * 3;
+  }, [getHealthDot]);
+
+  const hasAnyCritical = useCallback((projectId: string): boolean => {
+    const h = getHealthDot(projectId);
+    return h.deadlines === "red" || h.milestones === "red";
+  }, [getHealthDot]);
+
   const managerOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const p of rootProjects) {
