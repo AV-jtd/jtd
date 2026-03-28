@@ -804,10 +804,11 @@ export function useTaskMutations() {
       const { error } = await supabase.from("tasks").update(updates).eq("id", id);
       if (error) throw error;
 
-      // Notify on assignment
+      // Notify on assignment or delegation
       if (updates.assigned_to && updates.assigned_to !== user?.id) {
         const { data: taskData } = await supabase.from("tasks").select("title").eq("id", id).single();
-        notifyEvent("task_assigned", taskData?.title || "", [updates.assigned_to as string]);
+        const event = updates.delegated_from ? "task_delegated" : "task_assigned";
+        notifyEvent(event, taskData?.title || "", [updates.assigned_to as string]);
       }
     },
     onMutate: async ({ id, ...updates }) => {
