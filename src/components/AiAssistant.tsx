@@ -79,7 +79,7 @@ const MODULE_CONFIG: Record<string, {
   examples: string[];
 }> = {
   tasks: {
-    label: "AI-помощник",
+    label: "ИИ-помощник",
     gradient: "from-violet-500 to-blue-500",
     subtitle: "Задачи • Проекты • Советы",
     quickActions: [
