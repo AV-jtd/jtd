@@ -27,6 +27,7 @@ const Pmo = lazy(() => import("./pages/Pmo"));
 const Crm = lazy(() => import("./pages/Crm"));
 const Npd = lazy(() => import("./pages/Npd"));
 const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
+const WikiDemo = lazy(() => import("./pages/WikiDemo"));
 
 // Sync onlineManager with browser online/offline events
 onlineManager.setEventListener((setOnline) => {
