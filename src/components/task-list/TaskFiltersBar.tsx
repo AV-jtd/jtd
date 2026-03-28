@@ -249,27 +249,21 @@ function TaskFiltersBar({
             </div>
           )}
 
-          {/* Group by section */}
+          {/* Pending approval */}
           <div className="p-2">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Группировка</p>
-            {groupByOptions.map(opt => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.key}
-                  onClick={() => onGroupByChange(opt.key)}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
-                    groupBy === opt.key
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {opt.label}
-                </button>
-              );
-            })}
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Статус</p>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "pending_approval" ? null : "pending_approval"))}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
+                priorityFilter === "pending_approval"
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-foreground hover:bg-muted"
+              )}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              На утверждении
+            </button>
           </div>
 
           {/* Reset */}
