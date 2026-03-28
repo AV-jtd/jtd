@@ -188,11 +188,12 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
   }, [draft, isStreaming, chatMessages, buildContext, addMessage, updateLastAssistant]);
 
   const topLevelGroups = allGroups.filter(g => !g.parent_id);
+  const canChat = isGeneral || !!selectedGroupId;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project selector */}
-      {!groupId && (
+      {/* Project selector — only for project_chat mode without fixed groupId */}
+      {!isGeneral && !groupId && (
         <div className="px-4 py-2 border-b border-border shrink-0 flex gap-2">
           <select
             value={selectedGroupId || ""}
@@ -218,6 +219,19 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
         </div>
       )}
 
+      {/* Clear button for general mode or fixed project */}
+      {(isGeneral || groupId) && chatMessages.length > 0 && (
+        <div className="px-4 py-2 border-b border-border shrink-0 flex justify-end">
+          <button
+            onClick={clearConversation}
+            className="p-1.5 rounded-lg border border-border hover:bg-destructive/10 transition-colors shrink-0"
+            title="Очистить чат"
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-3">
         {chatMessages.length === 0 ? (
@@ -226,15 +240,19 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
             <div className="text-center space-y-1">
-              <p className="text-sm font-medium text-foreground">ИИ-ассистент проекта</p>
+              <p className="text-sm font-medium text-foreground">
+                {isGeneral ? "ИИ-ассистент" : "ИИ-ассистент проекта"}
+              </p>
               <p className="text-xs text-muted-foreground max-w-[250px]">
-                {selectedGroupId
-                  ? `Анализирую проект «${selectedGroup?.name || ""}». Задайте вопрос!`
-                  : "Выберите проект выше, чтобы я мог анализировать его данные"
+                {isGeneral
+                  ? "Кросс-проектная аналитика, приоритеты и рекомендации"
+                  : selectedGroupId
+                    ? `Анализирую проект «${selectedGroup?.name || ""}». Задайте вопрос!`
+                    : "Выберите проект выше, чтобы я мог анализировать его данные"
                 }
               </p>
             </div>
-            {selectedGroupId && (
+            {canChat && (
               <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
                 {QUICK_PROMPTS.map((qp, i) => (
                   <button
@@ -302,14 +320,14 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
         <Input
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          placeholder={selectedGroupId ? "Спросите о проекте..." : "Выберите проект..."}
-          disabled={!selectedGroupId || isStreaming}
+          placeholder={isGeneral ? "Спросите о проектах..." : selectedGroupId ? "Спросите о проекте..." : "Выберите проект..."}
+          disabled={!canChat || isStreaming}
           className="flex-1 text-sm"
           autoComplete="off"
         />
         <button
           type="submit"
-          disabled={!draft.trim() || isStreaming || !selectedGroupId}
+          disabled={!draft.trim() || isStreaming || !canChat}
           className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-all"
         >
           {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
