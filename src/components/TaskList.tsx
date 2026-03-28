@@ -553,6 +553,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             groups={groups}
             currentUserId={user?.id}
             activeView={activeView}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
           />
         )}
 
