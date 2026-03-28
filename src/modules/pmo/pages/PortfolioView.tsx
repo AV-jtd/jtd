@@ -547,7 +547,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     {upcoming.length > 0 && (
                                       <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
                                         {upcoming.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
