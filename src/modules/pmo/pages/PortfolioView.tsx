@@ -420,7 +420,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                               {project.name}
                             </span>
                             {children.length > 0 && (
-                              <span className="text-[10px] text-muted-foreground shrink-0">{children.length}</span>
+                              <span className="text-[9px] px-1.5 py-0 rounded-full bg-muted text-muted-foreground shrink-0">{children.length}</span>
                             )}
                           </div>
                         </td>
