@@ -213,14 +213,14 @@ function TaskFiltersBar({
         <PopoverTrigger asChild>
           <button
             className={cn(
-              "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+              "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
               groupBy !== "none"
                 ? "border-primary/40 bg-primary/10 text-primary"
                 : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
             )}
           >
             <LayoutList className="h-3 w-3" />
-            {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
+            <span className="hidden sm:inline">{groupBy === "none" ? "Группировка" : activeGroupByOption.label}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom" align="start">
