@@ -3,8 +3,10 @@ import { useTasks, useTaskGroups, useAvailableUsers, useTags, Task, TaskGroup, P
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen
 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
