@@ -2,8 +2,8 @@ import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Profil
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen } from "lucide-react";
-import { isPast, parseISO } from "date-fns";
+import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, CalendarClock, RefreshCw } from "lucide-react";
+import { isPast, parseISO, format, differenceInDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,7 +63,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const rootProjects = useMemo(() => groups.filter((g) => !g.parent_id), [groups]);
 
   const projectStats = useMemo(() => {
-    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number }> = {};
+    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; totalDelayDays: number }> = {};
     for (const project of groups) {
       const tasks = allTasks.filter((t) => t.group_id === project.id);
       const total = tasks.length;
@@ -72,19 +72,36 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       const driftCount = tasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
       const weekFromNow = new Date(); weekFromNow.setDate(weekFromNow.getDate() + 7);
       const upcoming = tasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) <= weekFromNow && !isPast(parseISO(t.deadline))).length;
-      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming };
+
+      // Earliest planned start
+      const startDates = tasks.map((t) => t.start_at).filter(Boolean) as string[];
+      const deadlineDates = tasks.map((t) => t.deadline).filter(Boolean) as string[];
+      const allDates = [...startDates, ...deadlineDates].sort();
+      const earliestStart = allDates.length > 0 ? allDates[0] : null;
+
+      // Total delay days (sum of drift across tasks)
+      let totalDelayDays = 0;
+      for (const t of tasks) {
+        if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) {
+          totalDelayDays += differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+        }
+      }
+
+      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming, earliestStart, totalDelayDays };
     }
     return statsMap;
   }, [groups, allTasks]);
 
   const getAggregatedStats = useCallback((projectId: string) => {
     const childIds = groups.filter((g) => g.parent_id === projectId).map((g) => g.id);
+    const base = { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null as string | null, totalDelayDays: 0 };
     return [projectId, ...childIds].reduce(
       (acc, id) => {
-        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0 };
-        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming };
+        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null, totalDelayDays: 0 };
+        const earliest = !acc.earliestStart ? s.earliestStart : !s.earliestStart ? acc.earliestStart : acc.earliestStart < s.earliestStart ? acc.earliestStart : s.earliestStart;
+        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming, earliestStart: earliest, totalDelayDays: acc.totalDelayDays + s.totalDelayDays };
       },
-      { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0 }
+      base
     );
   }, [groups, projectStats]);
 
@@ -444,12 +461,30 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             ) : (
                               <StatusDot status={health.deadlines} size="md" />
                             )}
-                            <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
-                              {project.name}
-                            </span>
-                            {children.length > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
-                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
+                                  {project.name}
+                                </span>
+                                {children.length > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                {stats.earliestStart && (
+                                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Планируемый старт">
+                                    <CalendarClock className="h-3 w-3 shrink-0" />
+                                    {format(parseISO(stats.earliestStart), "dd.MM.yy")}
+                                  </span>
+                                )}
+                                {stats.driftCount > 0 && (
+                                  <span className={cn("flex items-center gap-1 text-[11px]", stats.totalDelayDays > 0 ? "text-destructive" : "text-warning")} title={`${stats.driftCount} переносов, ${stats.totalDelayDays > 0 ? "+" : ""}${stats.totalDelayDays}д суммарно`}>
+                                    <RefreshCw className="h-3 w-3 shrink-0" />
+                                    {stats.driftCount} · {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
