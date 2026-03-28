@@ -71,7 +71,13 @@ export default function WikiHubView() {
         const hasContent = groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
         const isActive = groupActivityMap.get(group.id) ?? true;
 
-        return { group, pageCount: pages.length, sectionCount: filledSections.length, lastUpdated, hasContent, isActive };
+        // Build a short preview from the first filled section
+        const previewSection = filledSections[0];
+        const previewText = previewSection?.content
+          ? previewSection.content.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 120)
+          : null;
+
+        return { group, pageCount: pages.length, sectionCount: filledSections.length, lastUpdated, hasContent, isActive, previewText };
       })
       .filter(item => {
         if (!item.hasContent) return false;
@@ -212,6 +218,11 @@ export default function WikiHubView() {
                       </span>
                     )}
                   </div>
+                  {item.previewText && (
+                    <p className="text-[11px] text-muted-foreground/70 mt-1 line-clamp-2 leading-relaxed">
+                      {item.previewText}{item.previewText.length >= 120 ? "…" : ""}
+                    </p>
+                  )}
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </button>
@@ -229,6 +240,7 @@ export default function WikiHubView() {
                 groupId={openGroup.id}
                 groupName={openGroup.name}
                 groupDescription={openGroup.description || undefined}
+                defaultTab="structured"
               />
             )}
           </div>
