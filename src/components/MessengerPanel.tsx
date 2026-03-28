@@ -58,14 +58,14 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               ИИ-ассистент
             </p>
-            <p className="text-[10px] text-muted-foreground">Контекстный анализ проекта</p>
+            <p className="text-[10px] text-muted-foreground">Кросс-проектная аналитика</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
-          <AiChatThread />
+          <AiChatThread mode="assistant" />
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-sm font-medium text-foreground">ИИ-ассистент</span>
-              <p className="text-[10px] text-muted-foreground">Анализ проекта, саммари, риски</p>
+              <p className="text-[10px] text-muted-foreground">Обзор проектов, приоритеты, аналитика</p>
             </div>
           </button>
         </div>

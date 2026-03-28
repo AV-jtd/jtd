@@ -14,18 +14,30 @@ import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
 
 interface AiChatThreadProps {
+  /** Fixed project context — locks to this project */
   groupId?: string | null;
   groupName?: string;
+  /** "assistant" = general cross-project, "project_chat" = project-specific */
+  mode?: "assistant" | "project_chat";
 }
 
-const QUICK_PROMPTS = [
+const PROJECT_PROMPTS = [
   { icon: BarChart3, label: "Статус проекта", prompt: "Какой текущий статус проекта? Покажи прогресс, просроченные задачи и ближайшие дедлайны." },
   { icon: AlertCircle, label: "Риски", prompt: "Проанализируй риски проекта. Какие задачи просрочены или могут быть заблокированы?" },
   { icon: CheckSquare, label: "Саммари", prompt: "Сделай краткое саммари проекта: что сделано, что в работе, что предстоит." },
   { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению управления этим проектом." },
 ];
 
-export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) {
+const GENERAL_PROMPTS = [
+  { icon: BarChart3, label: "Обзор проектов", prompt: "Дай обзор всех моих проектов: прогресс, просроченные задачи, ближайшие дедлайны." },
+  { icon: AlertCircle, label: "Просроченные", prompt: "Покажи все просроченные задачи по всем проектам." },
+  { icon: CheckSquare, label: "Приоритеты", prompt: "Какие задачи самые важные сейчас? На чём стоит сфокусироваться?" },
+  { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению продуктивности и управления проектами." },
+];
+
+export default function AiChatThread({ groupId, groupName, mode = "project_chat" }: AiChatThreadProps) {
+  const isGeneral = mode === "assistant";
+  const QUICK_PROMPTS = isGeneral ? GENERAL_PROMPTS : PROJECT_PROMPTS;
   const { user } = useAuth();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
@@ -34,10 +46,14 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
   const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
 
+  const contextType = isGeneral ? "assistant" : "project_chat";
+  const contextId = isGeneral ? null : selectedGroupId;
+
   const {
     messages: chatMessages, addMessage, updateLastAssistant, clearConversation,
     loading: historyLoading,
-  } = useAiConversation({ contextType: "project_chat", contextId: selectedGroupId });
+  } = useAiConversation({ contextType, contextId });
+
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -48,9 +64,22 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const selectedGroup = allGroups.find(g => g.id === selectedGroupId);
+  const selectedGroup = isGeneral ? null : allGroups.find(g => g.id === selectedGroupId);
 
   const buildContext = useCallback(() => {
+    if (isGeneral) {
+      // Cross-project context for general assistant
+      const topGroups = allGroups.filter(g => !g.parent_id);
+      const projectSummaries = topGroups.map(g => {
+        const subIds = allGroups.filter(sg => sg.parent_id === g.id).map(sg => sg.id);
+        const projectTasks = allTasks.filter(t => t.group_id === g.id || (t.group_id && subIds.includes(t.group_id)));
+        const total = projectTasks.length;
+        const completed = projectTasks.filter(t => t.is_completed).length;
+        const overdue = projectTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length;
+        return { name: g.name, total, completed, overdue, project_type: (g as any).project_type };
+      });
+      return { mode: "general", projects: projectSummaries, totalTasks: allTasks.length };
+    }
     if (!selectedGroupId) return null;
 
     const group = allGroups.find(g => g.id === selectedGroupId);
@@ -97,7 +126,7 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
       ).map(u => ({ name: u.display_name || "Без имени" })),
       recentMessages: recentMsgs,
     };
-  }, [selectedGroupId, allGroups, allTasks, allUsers, groupMessages]);
+  }, [isGeneral, selectedGroupId, allGroups, allTasks, allUsers, groupMessages]);
 
   const handleSend = useCallback(async (text?: string) => {
     const input = (text || draft).trim();
@@ -159,11 +188,12 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
   }, [draft, isStreaming, chatMessages, buildContext, addMessage, updateLastAssistant]);
 
   const topLevelGroups = allGroups.filter(g => !g.parent_id);
+  const canChat = isGeneral || !!selectedGroupId;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project selector */}
-      {!groupId && (
+      {/* Project selector — only for project_chat mode without fixed groupId */}
+      {!isGeneral && !groupId && (
         <div className="px-4 py-2 border-b border-border shrink-0 flex gap-2">
           <select
             value={selectedGroupId || ""}
@@ -189,6 +219,19 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
         </div>
       )}
 
+      {/* Clear button for general mode or fixed project */}
+      {(isGeneral || groupId) && chatMessages.length > 0 && (
+        <div className="px-4 py-2 border-b border-border shrink-0 flex justify-end">
+          <button
+            onClick={clearConversation}
+            className="p-1.5 rounded-lg border border-border hover:bg-destructive/10 transition-colors shrink-0"
+            title="Очистить чат"
+          >
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-3">
         {chatMessages.length === 0 ? (
@@ -197,15 +240,19 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
             <div className="text-center space-y-1">
-              <p className="text-sm font-medium text-foreground">ИИ-ассистент проекта</p>
+              <p className="text-sm font-medium text-foreground">
+                {isGeneral ? "ИИ-ассистент" : "ИИ-ассистент проекта"}
+              </p>
               <p className="text-xs text-muted-foreground max-w-[250px]">
-                {selectedGroupId
-                  ? `Анализирую проект «${selectedGroup?.name || ""}». Задайте вопрос!`
-                  : "Выберите проект выше, чтобы я мог анализировать его данные"
+                {isGeneral
+                  ? "Кросс-проектная аналитика, приоритеты и рекомендации"
+                  : selectedGroupId
+                    ? `Анализирую проект «${selectedGroup?.name || ""}». Задайте вопрос!`
+                    : "Выберите проект выше, чтобы я мог анализировать его данные"
                 }
               </p>
             </div>
-            {selectedGroupId && (
+            {canChat && (
               <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
                 {QUICK_PROMPTS.map((qp, i) => (
                   <button
@@ -273,14 +320,14 @@ export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) 
         <Input
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          placeholder={selectedGroupId ? "Спросите о проекте..." : "Выберите проект..."}
-          disabled={!selectedGroupId || isStreaming}
+          placeholder={isGeneral ? "Спросите о проектах..." : selectedGroupId ? "Спросите о проекте..." : "Выберите проект..."}
+          disabled={!canChat || isStreaming}
           className="flex-1 text-sm"
           autoComplete="off"
         />
         <button
           type="submit"
-          disabled={!draft.trim() || isStreaming || !selectedGroupId}
+          disabled={!draft.trim() || isStreaming || !canChat}
           className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-all"
         >
           {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
