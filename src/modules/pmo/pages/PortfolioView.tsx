@@ -476,7 +476,48 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     <div className="p-4 md:p-6 scrollbar-thin">
       {filtersBar}
 
-      <div className="relative w-full overflow-x-auto rounded-xl border border-border bg-card">
+      {/* AI widgets */}
+      <div className="flex flex-wrap items-start gap-2 mb-3">
+        <PmoRiskRadar
+          projects={filteredProjects.map(p => {
+            const s = getAggregatedStats(p.id);
+            const ms = milestones.filter(m => m.group_id === p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description || null,
+              stats: { total: s.total, completed: s.completed, overdue: s.overdue },
+              driftCount: s.driftCount,
+              totalDelayDays: s.totalDelayDays,
+              milestoneStats: ms.length > 0 ? {
+                total: ms.length,
+                completed: ms.filter(m => m.status === "completed").length,
+                overdue: ms.filter(m => m.status !== "completed" && m.planned_date && new Date(m.planned_date) < new Date()).length,
+              } : undefined,
+            };
+          })}
+        />
+        <PmoPortfolioSummary
+          projects={filteredProjects.map(p => {
+            const s = getAggregatedStats(p.id);
+            const ms = milestones.filter(m => m.group_id === p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description || null,
+              stats: { total: s.total, completed: s.completed, overdue: s.overdue },
+              driftCount: s.driftCount,
+              totalDelayDays: s.totalDelayDays,
+              milestoneStats: ms.length > 0 ? {
+                total: ms.length,
+                completed: ms.filter(m => m.status === "completed").length,
+                overdue: ms.filter(m => m.status !== "completed" && m.planned_date && new Date(m.planned_date) < new Date()).length,
+              } : undefined,
+            };
+          })}
+        />
+      </div>
+
         <table className="w-full caption-bottom text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
