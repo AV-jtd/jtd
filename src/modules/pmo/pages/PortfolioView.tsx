@@ -475,7 +475,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
+                        <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}{stats.total > 0 && stats.completed === stats.total && " 🏅"}</td>
                         <td className="px-3 py-2.5 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <StatusDot status={health.deadlines} size="md" />
