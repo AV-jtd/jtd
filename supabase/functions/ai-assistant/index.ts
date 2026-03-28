@@ -1232,7 +1232,19 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
             }
           });
         }
-        if (participants?.length) {
+        if (projectContext.milestones?.length) {
+          contextInfo += `\n\n🏁 Вехи (${projectContext.milestones.length}):`;
+          projectContext.milestones.forEach((m: any) => {
+            const status = m.status === "completed" ? "✅" : m.planned_date && new Date(m.planned_date) < new Date() ? "🔴" : "⬜";
+            contextInfo += `\n- ${status} "${m.name}" [план: ${m.planned_date}]${m.actual_date ? ` [факт: ${m.actual_date}]` : ""}`;
+          });
+        }
+        if (projectContext.dependencies?.length) {
+          contextInfo += `\n\n🔗 Зависимости (${projectContext.dependencies.length}):`;
+          projectContext.dependencies.forEach((d: any) => {
+            contextInfo += `\n- "${d.predecessor}" → "${d.successor}" (${d.type}${d.lag_days ? `, лаг: ${d.lag_days}д` : ""})`;
+          });
+        }
           contextInfo += `\n\n👥 Участники: ${participants.map((p: any) => p.name).join(", ")}`;
         }
         if (recentMessages?.length) {
