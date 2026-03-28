@@ -461,12 +461,30 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             ) : (
                               <StatusDot status={health.deadlines} size="md" />
                             )}
-                            <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
-                              {project.name}
-                            </span>
-                            {children.length > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
-                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
+                                  {project.name}
+                                </span>
+                                {children.length > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                {stats.earliestStart && (
+                                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Планируемый старт">
+                                    <CalendarClock className="h-3 w-3 shrink-0" />
+                                    {format(parseISO(stats.earliestStart), "dd.MM.yy")}
+                                  </span>
+                                )}
+                                {stats.driftCount > 0 && (
+                                  <span className={cn("flex items-center gap-1 text-[11px]", stats.totalDelayDays > 0 ? "text-destructive" : "text-warning")} title={`${stats.driftCount} переносов, ${stats.totalDelayDays > 0 ? "+" : ""}${stats.totalDelayDays}д суммарно`}>
+                                    <RefreshCw className="h-3 w-3 shrink-0" />
+                                    {stats.driftCount} · {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
