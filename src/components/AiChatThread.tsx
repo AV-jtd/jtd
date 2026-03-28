@@ -14,15 +14,25 @@ import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
 
 interface AiChatThreadProps {
+  /** Fixed project context — locks to this project */
   groupId?: string | null;
   groupName?: string;
+  /** "assistant" = general cross-project, "project_chat" = project-specific */
+  mode?: "assistant" | "project_chat";
 }
 
-const QUICK_PROMPTS = [
+const PROJECT_PROMPTS = [
   { icon: BarChart3, label: "Статус проекта", prompt: "Какой текущий статус проекта? Покажи прогресс, просроченные задачи и ближайшие дедлайны." },
   { icon: AlertCircle, label: "Риски", prompt: "Проанализируй риски проекта. Какие задачи просрочены или могут быть заблокированы?" },
   { icon: CheckSquare, label: "Саммари", prompt: "Сделай краткое саммари проекта: что сделано, что в работе, что предстоит." },
   { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению управления этим проектом." },
+];
+
+const GENERAL_PROMPTS = [
+  { icon: BarChart3, label: "Обзор проектов", prompt: "Дай обзор всех моих проектов: прогресс, просроченные задачи, ближайшие дедлайны." },
+  { icon: AlertCircle, label: "Просроченные", prompt: "Покажи все просроченные задачи по всем проектам." },
+  { icon: CheckSquare, label: "Приоритеты", prompt: "Какие задачи самые важные сейчас? На чём стоит сфокусироваться?" },
+  { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению продуктивности и управления проектами." },
 ];
 
 export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) {
