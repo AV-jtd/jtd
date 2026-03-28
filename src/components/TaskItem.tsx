@@ -1510,8 +1510,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       open={closureDialogOpen}
       onOpenChange={setClosureDialogOpen}
       taskTitle={task.title}
-      onSubmit={(result) => {
-        submitForApproval.mutate({ id: task.id, closure_result: result });
+      onSubmit={(result, files) => {
+        submitForApproval.mutate({ id: task.id, closure_result: result, files });
         toast.success("Отправлено на утверждение");
       }}
     />
