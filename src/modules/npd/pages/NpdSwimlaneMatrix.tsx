@@ -908,43 +908,44 @@ export default function NpdSwimlaneMatrix() {
                             {sub ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
-                                  <MatrixTaskRow
-                                    key={task.id}
-                                    task={task}
-                                    users={users}
-                                    allDependencies={allDependencies}
-                                    allTasks={allTasks}
-                                    projectGroupIds={projectGroupIds}
-                                    onDeadlineChange={handleDeadlineChange}
-                                    onAssigneeChange={(taskId, userId) => {
-                                      updateTask.mutate({ id: taskId, assigned_to: userId });
-                                      if (userId) {
-                                        supabase.from("task_participants").upsert({
-                                          task_id: taskId, user_id: userId, role: "assignee",
-                                        }, { onConflict: "task_id,user_id" });
-                                      }
-                                    }}
-                                    onToggle={(taskId) => {
-                                      const t = allTasks.find(x => x.id === taskId);
-                                      if (!t) return;
-                                      updateTask.mutate({
-                                        id: taskId,
-                                        is_completed: !t.is_completed,
-                                        completed_at: !t.is_completed ? new Date().toISOString() : null,
-                                      });
-                                    }}
-                                    onAddDependency={(predId, succId) => {
-                                      const pred = allTasks.find(t => t.id === predId);
-                                      const succ = allTasks.find(t => t.id === succId);
-                                      setDepDialogState({
-                                        predecessorId: predId, successorId: succId,
-                                        predecessorLabel: pred?.title || predId,
-                                        successorLabel: succ?.title || succId,
-                                        predecessorEntityType: "task", successorEntityType: "task",
-                                      });
-                                    }}
-                                    onExpand={(id) => setDetailTaskId(id)}
-                                  />
+                                  <DraggableTaskRow key={task.id} taskId={task.id}>
+                                    <MatrixTaskRow
+                                      task={task}
+                                      users={users}
+                                      allDependencies={allDependencies}
+                                      allTasks={allTasks}
+                                      projectGroupIds={projectGroupIds}
+                                      onDeadlineChange={handleDeadlineChange}
+                                      onAssigneeChange={(taskId, userId) => {
+                                        updateTask.mutate({ id: taskId, assigned_to: userId });
+                                        if (userId) {
+                                          supabase.from("task_participants").upsert({
+                                            task_id: taskId, user_id: userId, role: "assignee",
+                                          }, { onConflict: "task_id,user_id" });
+                                        }
+                                      }}
+                                      onToggle={(taskId) => {
+                                        const t = allTasks.find(x => x.id === taskId);
+                                        if (!t) return;
+                                        updateTask.mutate({
+                                          id: taskId,
+                                          is_completed: !t.is_completed,
+                                          completed_at: !t.is_completed ? new Date().toISOString() : null,
+                                        });
+                                      }}
+                                      onAddDependency={(predId, succId) => {
+                                        const pred = allTasks.find(t => t.id === predId);
+                                        const succ = allTasks.find(t => t.id === succId);
+                                        setDepDialogState({
+                                          predecessorId: predId, successorId: succId,
+                                          predecessorLabel: pred?.title || predId,
+                                          successorLabel: succ?.title || succId,
+                                          predecessorEntityType: "task", successorEntityType: "task",
+                                        });
+                                      }}
+                                      onExpand={(id) => setDetailTaskId(id)}
+                                    />
+                                  </DraggableTaskRow>
                                 ))}
                                 <QuickCreateForm
                                   users={users}
