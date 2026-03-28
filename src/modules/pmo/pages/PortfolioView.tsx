@@ -109,6 +109,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const getManagerId = useCallback((projectId: string): string => {
     const assignee = allGroupMembers.find((m) => m.group_id === projectId && m.role === "assignee");
     if (assignee) return assignee.user_id;
+    const ownerOrAdmin = allGroupMembers.find((m) => m.group_id === projectId && (m.role === "owner" || m.role === "admin"));
+    if (ownerOrAdmin) return ownerOrAdmin.user_id;
     return groups.find((g) => g.id === projectId)?.user_id || "";
   }, [allGroupMembers, groups]);
 
