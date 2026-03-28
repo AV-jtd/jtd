@@ -565,7 +565,168 @@ ${activeProjectInfo}
       });
     }
 
-    if (action === "wiki_autofill") {
+    // === PMO Risk Radar ===
+    if (action === "pmo_risk_radar") {
+      const { projects } = context;
+
+      const projectsInfo = (projects || []).map((p: any) =>
+        `Проект: "${p.name}"${p.description ? ` (${p.description})` : ""}
+  Задач: ${p.total_tasks}, Завершено: ${p.completed_tasks}, Просрочено: ${p.overdue_tasks}
+  Переносы: ${p.drift_count || 0}, Суммарная задержка: ${p.total_delay_days || 0} дн.
+  ${p.milestones ? `Вехи: ${p.milestones.total} (завершено: ${p.milestones.completed}, просрочено: ${p.milestones.overdue})` : ""}`
+      ).join("\n\n");
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по управлению проектами (PMO) и анализу рисков портфеля.
+Проанализируй портфель проектов и выяви горячие точки (риски).
+
+Правила анализа:
+- Просроченные задачи = высокий риск
+- Проекты с большим количеством переносов = средний/высокий риск
+- Просроченные вехи = высокий риск
+- Низкий прогресс при приближающихся сроках = средний риск
+- Проекты без задач = низкий риск (не начат)
+- Будь конкретным: указывай проект и проблему
+- Максимум 8 рисков, сортируй по severity (high → low)
+- summary = одно предложение о состоянии портфеля (до 80 символов)
+- Отвечай только через tool call`,
+            },
+            {
+              role: "user",
+              content: `Портфель проектов:\n\n${projectsInfo}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "report_risks",
+                description: "Отчёт о рисках портфеля проектов",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    summary: { type: "string", description: "Краткое резюме состояния портфеля (до 80 символов)" },
+                    risks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          project_name: { type: "string" },
+                          severity: { type: "string", enum: ["high", "medium", "low"] },
+                          issue: { type: "string", description: "Описание проблемы (1-2 предложения)" },
+                          recommendation: { type: "string", description: "Рекомендация (1 предложение)" },
+                        },
+                        required: ["project_name", "severity", "issue", "recommendation"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["summary", "risks"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "report_risks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: "payment_required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ summary: parsed.summary, risks: parsed.risks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === PMO Portfolio Summary ===
+    if (action === "pmo_portfolio_summary") {
+      const { projects } = context;
+
+      const projectsInfo = (projects || []).map((p: any) =>
+        `Проект: "${p.name}"${p.description ? ` — ${p.description}` : ""}
+  Прогресс: ${p.completed_tasks}/${p.total_tasks} задач
+  Просрочено: ${p.overdue_tasks}, Переносы: ${p.drift_count || 0} (${p.total_delay_days || 0} дн.)
+  ${p.milestones ? `Вехи: ${p.milestones.completed}/${p.milestones.total}${p.milestones.overdue > 0 ? ` (просрочено: ${p.milestones.overdue})` : ""}` : ""}`
+      ).join("\n\n");
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт PMO (проектный офис). Сформируй еженедельную сводку по портфелю проектов.
+
+Структура отчёта:
+1. **Общий статус** — одно предложение о состоянии портфеля
+2. **Ключевые достижения** — что продвинулось за неделю (2-3 пункта)
+3. **Требуют внимания** — проекты с рисками, просрочками, блокерами (2-4 пункта)
+4. **Рекомендации** — конкретные действия на следующую неделю (2-3 пункта)
+
+Правила:
+- Пиши кратко, по делу, с конкретными цифрами
+- Ссылайся на реальные проекты по имени
+- Используй эмоджи для акцентов
+- Отвечай на русском языке
+- Формат: markdown`,
+            },
+            {
+              role: "user",
+              content: `Дата отчёта: ${new Date().toISOString().split("T")[0]}\n\nПортфель проектов:\n\n${projectsInfo}`,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: "payment_required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        return new Response(JSON.stringify({ action: "pmo_portfolio_summary", content }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
       const { sectionKey, projectName, projectDescription, tasksInfo, membersInfo, existingContent } = context;
 
       const sectionLabels: Record<string, string> = {
@@ -1071,7 +1232,19 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
             }
           });
         }
-        if (participants?.length) {
+        if (projectContext.milestones?.length) {
+          contextInfo += `\n\n🏁 Вехи (${projectContext.milestones.length}):`;
+          projectContext.milestones.forEach((m: any) => {
+            const status = m.status === "completed" ? "✅" : m.planned_date && new Date(m.planned_date) < new Date() ? "🔴" : "⬜";
+            contextInfo += `\n- ${status} "${m.name}" [план: ${m.planned_date}]${m.actual_date ? ` [факт: ${m.actual_date}]` : ""}`;
+          });
+        }
+        if (projectContext.dependencies?.length) {
+          contextInfo += `\n\n🔗 Зависимости (${projectContext.dependencies.length}):`;
+          projectContext.dependencies.forEach((d: any) => {
+            contextInfo += `\n- "${d.predecessor}" → "${d.successor}" (${d.type}${d.lag_days ? `, лаг: ${d.lag_days}д` : ""})`;
+          });
+        }
           contextInfo += `\n\n👥 Участники: ${participants.map((p: any) => p.name).join(", ")}`;
         }
         if (recentMessages?.length) {
@@ -1096,12 +1269,14 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
 ${contextInfo}
 
 Отвечай на русском языке. Используй markdown для форматирования. Будь конкретным — ссылайся на реальные данные.`
-        : `Ты — контекстный AI-помощник проекта в приложении JustTODOit.
-У тебя есть полный доступ к данным проекта. Ты можешь:
+        : `Ты — контекстный ИИ-помощник проекта в приложении JustTODOit.
+У тебя есть полный доступ к данным проекта, включая задачи, вехи (milestones), зависимости между задачами, участников и историю чата. Ты можешь:
 1. Отвечать на вопросы о статусе проекта, задачах, дедлайнах
 2. Анализировать прогресс и выявлять риски
-3. Давать рекомендации по управлению проектом
-4. Формировать саммари и отчёты
+3. Анализировать вехи и их выполнение
+4. Учитывать зависимости между задачами при рекомендациях
+5. Давать рекомендации по управлению проектом
+6. Формировать саммари и отчёты
 
 Текущая дата: ${new Date().toISOString().split("T")[0]}
 ${contextInfo}

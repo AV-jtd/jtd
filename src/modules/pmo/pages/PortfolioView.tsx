@@ -6,6 +6,8 @@ import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, Chevro
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
+import PmoRiskRadar from "@/modules/pmo/components/PmoRiskRadar";
+import PmoPortfolioSummary from "@/modules/pmo/components/PmoPortfolioSummary";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -473,6 +475,48 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   return (
     <div className="p-4 md:p-6 scrollbar-thin">
       {filtersBar}
+
+      {/* AI widgets */}
+      <div className="flex flex-wrap items-start gap-2 mb-3">
+        <PmoRiskRadar
+          projects={filteredProjects.map(p => {
+            const s = getAggregatedStats(p.id);
+            const ms = milestones.filter(m => m.group_id === p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description || null,
+              stats: { total: s.total, completed: s.completed, overdue: s.overdue },
+              driftCount: s.driftCount,
+              totalDelayDays: s.totalDelayDays,
+              milestoneStats: ms.length > 0 ? {
+                total: ms.length,
+                completed: ms.filter(m => m.status === "completed").length,
+                overdue: ms.filter(m => m.status !== "completed" && m.planned_date && new Date(m.planned_date) < new Date()).length,
+              } : undefined,
+            };
+          })}
+        />
+        <PmoPortfolioSummary
+          projects={filteredProjects.map(p => {
+            const s = getAggregatedStats(p.id);
+            const ms = milestones.filter(m => m.group_id === p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description || null,
+              stats: { total: s.total, completed: s.completed, overdue: s.overdue },
+              driftCount: s.driftCount,
+              totalDelayDays: s.totalDelayDays,
+              milestoneStats: ms.length > 0 ? {
+                total: ms.length,
+                completed: ms.filter(m => m.status === "completed").length,
+                overdue: ms.filter(m => m.status !== "completed" && m.planned_date && new Date(m.planned_date) < new Date()).length,
+              } : undefined,
+            };
+          })}
+        />
+      </div>
 
       <div className="relative w-full overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full caption-bottom text-sm">

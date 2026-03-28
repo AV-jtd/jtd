@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useAvailableUsers, useTasks } from "@/hooks/useTasks";
+import { useMilestones } from "@/hooks/useMilestones";
+import { useDependencies } from "@/hooks/useDependencies";
 import { useGroupMessages } from "@/hooks/useGroupChat";
 import { useAiConversation } from "@/hooks/useAiConversation";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,6 +44,8 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
   const { data: allTasks = [] } = useTasks();
+  const { data: allMilestones = [] } = useMilestones();
+  const { data: allDependencies = [] } = useDependencies();
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
   const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
@@ -113,6 +117,27 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
       content: m.content,
     }));
 
+    // Milestones for this project
+    const projectMilestones = allMilestones
+      .filter(m => m.group_id === selectedGroupId || subprojectIds.includes(m.group_id))
+      .map(m => ({
+        name: m.name,
+        planned_date: m.planned_date,
+        actual_date: m.actual_date,
+        status: m.status,
+      }));
+
+    // Dependencies for project tasks
+    const projectTaskIds = new Set(allProjectTasks.map((_, i) => allTasks.filter(t => t.group_id === selectedGroupId || (t.group_id && subprojectIds.includes(t.group_id)))[i]?.id).filter(Boolean));
+    const projectDeps = allDependencies
+      .filter(d => projectTaskIds.has(d.predecessor_id) || projectTaskIds.has(d.successor_id))
+      .map(d => ({
+        type: d.dependency_type,
+        predecessor: allTasks.find(t => t.id === d.predecessor_id)?.title || d.predecessor_id,
+        successor: allTasks.find(t => t.id === d.successor_id)?.title || d.successor_id,
+        lag_days: d.lag_days,
+      }));
+
     return {
       project: {
         name: group.name,
@@ -121,6 +146,8 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
       },
       subprojects,
       tasks: allProjectTasks,
+      milestones: projectMilestones,
+      dependencies: projectDeps,
       participants: allUsers.filter(u =>
         allTasks.some(t => (t.group_id === selectedGroupId || subprojectIds.includes(t.group_id || "")) && (t.user_id === u.id || t.assigned_to === u.id))
       ).map(u => ({ name: u.display_name || "Без имени" })),
