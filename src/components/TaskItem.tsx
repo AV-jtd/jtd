@@ -1515,6 +1515,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         toast.success("Отправлено на утверждение");
       }}
     />
+    </>
   );
 }
 
