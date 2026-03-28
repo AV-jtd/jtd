@@ -403,21 +403,21 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         )}
 
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           {activeView === "group" && parentGroup && (
             <button
               onClick={() => onProjectClick?.(parentGroup.id)}
-              className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
               title="Назад к родительскому проекту"
             >
               <ChevronLeft className="h-5 w-5 text-muted-foreground" />
             </button>
           )}
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </div>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground leading-tight">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight truncate">
               {activeView === "group" && activeGroup ? displayName(activeGroup.name) : view.title}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -512,7 +512,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* My Day sub-tabs */}
         {activeView === "myday" && (
-          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit flex-wrap">
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit overflow-x-auto scrollbar-none max-w-full">
             {([
               { key: "all" as const, label: "Все", emoji: "📋" },
               { key: "important" as const, label: "Важные", emoji: "⭐" },
@@ -534,7 +534,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   key={tab.key}
                   onClick={() => setMydayTab(tab.key)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0",
                     mydayTab === tab.key
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
