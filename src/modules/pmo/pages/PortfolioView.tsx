@@ -40,6 +40,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
