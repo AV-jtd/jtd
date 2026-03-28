@@ -404,7 +404,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       <tr
                         className={cn(
                           "border-b border-border/50 cursor-pointer group/row transition-colors hover:bg-muted/50",
-                          isEven && "bg-muted/20"
+                          isEven && "bg-muted/30"
                         )}
                         onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
                       >
