@@ -131,9 +131,9 @@ function TaskFiltersBar({
         </Tooltip>
 
         <Popover>
-          <PopoverTrigger asChild>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
                 <button
                   className={cn(
                     "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
@@ -144,12 +144,12 @@ function TaskFiltersBar({
                 >
                   <LayoutList className="h-4 w-4" />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
-              </TooltipContent>
-            </Tooltip>
-          </PopoverTrigger>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
+            </TooltipContent>
+          </Tooltip>
           <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom" align="start">
             {groupByOptions.map(opt => {
               const Icon = opt.icon;
