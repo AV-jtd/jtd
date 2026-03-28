@@ -21,7 +21,7 @@ interface ProjectWikiTabProps {
 export default function ProjectWikiTab({ groupId, groupName, groupDescription, compact, defaultTab }: ProjectWikiTabProps) {
   const [exporting, setExporting] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultTab || "wiki");
+  const [activeTab, setActiveTab] = useState<string>(defaultTab || "wiki");
   const { data: pages = [] } = useWikiPages(groupId);
   const { data: tasks = [] } = useTasks(groupId);
 
