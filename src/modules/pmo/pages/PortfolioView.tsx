@@ -58,6 +58,38 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     enabled: !!user,
   });
 
+  const { data: folders = [] } = useQuery({
+    queryKey: ["pmo-project-folders"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_folders").select("id, name, color");
+      if (error) throw error;
+      return data as { id: string; name: string; color: string | null }[];
+    },
+    enabled: !!user,
+  });
+
+  const { data: folderItems = [] } = useQuery({
+    queryKey: ["pmo-folder-items"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_folder_items").select("folder_id, group_id");
+      if (error) throw error;
+      return data as { folder_id: string; group_id: string }[];
+    },
+    enabled: !!user,
+  });
+
+  const projectFolderMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const fi of folderItems) m.set(fi.group_id, fi.folder_id);
+    return m;
+  }, [folderItems]);
+
+  const folderMap = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; color: string | null }>();
+    for (const f of folders) m.set(f.id, f);
+    return m;
+  }, [folders]);
+
   const userMap = useMemo(() => {
     const m = new Map<string, Profile>();
     for (const u of users) m.set(u.id, u);
