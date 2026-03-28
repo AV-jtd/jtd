@@ -759,11 +759,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       </div>
 
       {/* Expandable details panel */}
-      {detailsOpen && isMobile && (
-        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <SheetContent side="bottom" className="h-[90dvh] rounded-t-2xl p-0 overflow-y-auto">
-            <div className="px-4 pb-4 pt-6 space-y-3">
-              <h2 className="text-sm font-semibold text-foreground mb-2 pr-8">{task.title}</h2>
+      {detailsOpen && (() => {
+        const detailsContent = (
+          <div className={cn(
+            "space-y-3",
+            isMobile ? "px-4 pb-4 pt-2" : "px-3.5 pb-3 ml-8 border-t border-border pt-3"
+          )}>
+            {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
           {/* Description */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
