@@ -158,7 +158,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getManagerId, getManagerName, getStage]);
+  }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getHealthScore, getManagerId, getManagerName, getStage]);
 
   // Grouping
   const groupedProjects = useMemo(() => {
