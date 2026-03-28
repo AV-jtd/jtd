@@ -922,6 +922,7 @@ export type Database = {
           approval_status: string | null
           assigned_to: string | null
           client_id: string | null
+          closure_attachments: Json | null
           closure_result: string | null
           completed_at: string | null
           created_at: string
@@ -950,6 +951,7 @@ export type Database = {
           approval_status?: string | null
           assigned_to?: string | null
           client_id?: string | null
+          closure_attachments?: Json | null
           closure_result?: string | null
           completed_at?: string | null
           created_at?: string
@@ -978,6 +980,7 @@ export type Database = {
           approval_status?: string | null
           assigned_to?: string | null
           client_id?: string | null
+          closure_attachments?: Json | null
           closure_result?: string | null
           completed_at?: string | null
           created_at?: string
