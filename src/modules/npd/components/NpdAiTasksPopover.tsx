@@ -63,7 +63,7 @@ export default function NpdAiTasksPopover({
         return;
       }
       if (data?.error === "payment_required") {
-        toast.error("Недостаточно кредитов AI");
+        toast.error("ИИ временно недоступен. Попробуйте позже.");
         return;
       }
 

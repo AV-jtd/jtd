@@ -465,7 +465,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               <button
                 onClick={onAiOpen}
                 className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                title="AI-помощник"
+                title="ИИ-помощник"
               >
                 <Sparkles className="h-4 w-4" />
               </button>
