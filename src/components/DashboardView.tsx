@@ -544,20 +544,20 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов</p>
           </div>
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
           <SummaryCard icon={TrendingUp} value={`${summary.completionRate}%`} label="Общий прогресс" color="bg-primary" />
           <SummaryCard icon={CalendarClock} value={summary.tasksThisWeek} label="Дедлайнов на неделе" color="bg-blue-500" />
           <SummaryCard icon={AlertTriangle} value={summary.overdueProjects} label="Проектов с просрочкой" color="bg-red-500" />
@@ -623,7 +623,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
         {/* Status filters */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {FILTER_OPTIONS.map(opt => (
             <button

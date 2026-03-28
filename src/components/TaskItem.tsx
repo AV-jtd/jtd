@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 interface TaskItemProps {
   task: Task;
@@ -58,6 +60,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
@@ -756,8 +759,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       </div>
 
       {/* Expandable details panel */}
-      {detailsOpen && (
-        <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
+      {detailsOpen && (() => {
+        const detailsContent = (
+          <div className={cn(
+            "space-y-3",
+            isMobile ? "px-4 pb-4 pt-2" : "px-3.5 pb-3 ml-8 border-t border-border pt-3"
+          )}>
+            {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
           {/* Description */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
@@ -1297,8 +1305,17 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
             <span>· создал: {getProfileName(task.user_id)}</span>
           </div>
-        </div>
-      )}
+          </div>
+        );
+        
+        return isMobile ? (
+          <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <SheetContent side="bottom" className="h-[90dvh] rounded-t-2xl p-0 overflow-y-auto">
+              {detailsContent}
+            </SheetContent>
+          </Sheet>
+        ) : detailsContent;
+      })()}
 
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
