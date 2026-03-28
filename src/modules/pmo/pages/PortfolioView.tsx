@@ -428,9 +428,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         <td className="px-2 py-1.5 hidden xl:table-cell">
                           <span className={cn("font-medium", stage.color)}>{stage.label}</span>
                         </td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.deadlines} size="md" /></td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.tasks} size="md" /></td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.milestones} size="md" /></td>
+                        <td className="px-2 py-1.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <StatusDot status={health.deadlines} size="md" />
+                            <StatusDot status={health.tasks} size="md" />
+                            <StatusDot status={health.milestones} size="md" />
+                          </div>
+                        </td>
                         <td className="px-2 py-1.5"><ProgressBar progress={progress} stats={stats} /></td>
                         <td className="px-1 py-1.5 text-center">
                           <Tooltip>
