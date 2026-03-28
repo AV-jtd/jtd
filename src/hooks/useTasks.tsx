@@ -761,6 +761,7 @@ export function useTaskMutations() {
         requires_approval: false,
         approval_status: null,
         closure_result: null,
+        closure_attachments: [],
         subtasks: [],
         task_tags: [],
       };
