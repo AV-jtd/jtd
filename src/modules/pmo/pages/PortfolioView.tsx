@@ -719,6 +719,19 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   </div>
                                 );
                               })()}
+                              </>)}
+                              {/* Matrix tab content (NPD only) */}
+                              {(expandedTab[project.id]) === "matrix" && project.project_type === "npd" && (
+                                <div className="text-center py-6">
+                                  <p className="text-sm text-muted-foreground">Матрица NPD для «{project.name}»</p>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); window.location.href = `/npd?project=${project.id}`; }}
+                                    className="mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    Открыть в полном виде →
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>
