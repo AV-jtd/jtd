@@ -29,7 +29,7 @@ const ROW_HEIGHT = 36;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 600;
 
-export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
+export default function GanttView({ initialProjectId, onBack }: { initialProjectId?: string | null; onBack?: () => void }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
