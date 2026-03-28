@@ -15,7 +15,7 @@ import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import TaskCreateBar from "@/components/task-list/TaskCreateBar";
-import TaskFiltersBar from "@/components/task-list/TaskFiltersBar";
+import TaskFiltersBar, { type GroupByOption } from "@/components/task-list/TaskFiltersBar";
 import {
   DndContext,
   closestCenter,
