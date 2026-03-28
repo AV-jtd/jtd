@@ -1,7 +1,8 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen, ShieldCheck } from "lucide-react";
+import { Clock, Filter, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Profile, TaskGroup } from "@/hooks/useTasks";
 
@@ -59,220 +60,211 @@ function TaskFiltersBar({
         onSearchChange(draftSearch);
       }
     }, 150);
-
     return () => window.clearTimeout(timeoutId);
   }, [draftSearch, onSearchChange, searchValue]);
 
+  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || groupBy !== "none";
   const hasActiveFilters = priorityFilter !== null || assigneeFilter !== null || projectFilter !== null;
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
+  const activeSecondaryCount = [
+    assigneeFilter !== null,
+    projectFilter !== null,
+    groupBy !== "none",
+  ].filter(Boolean).length;
+
   return (
-    <div className="flex items-center gap-1.5 mb-4 flex-wrap md:flex-wrap overflow-x-auto scrollbar-none pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
-      <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+    <div className="flex items-center gap-1 mb-4 -mx-1 px-1 md:mx-0 md:px-0">
+      {/* Search */}
+      <div className="relative flex-1 min-w-0 max-w-[200px]">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <input
           value={draftSearch}
           onChange={(e) => setDraftSearch(e.target.value)}
           placeholder="Поиск..."
-          className="h-7 w-32 focus:w-44 transition-all pl-7 pr-6 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="h-8 w-full pl-8 pr-7 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all"
         />
         {draftSearch && (
           <button
-            onClick={() => {
-              setDraftSearch("");
-              onSearchChange("");
-            }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => { setDraftSearch(""); onSearchChange(""); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>
         )}
       </div>
 
-      {[
-        { value: "overdue" as const, label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
-        { value: "important" as const, label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
-        { value: "pending_approval" as const, label: "На утверждении", color: "text-primary border-primary/40 bg-primary/10", icon: "shield" },
-      ].map((priority) => (
-        <button
-          key={String(priority.value)}
-          title={priority.label || "Важные"}
-          onClick={() => onPriorityFilterChange((prev) => (prev === priority.value ? null : priority.value))}
-          className={cn(
-            "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
-            priorityFilter === priority.value
-              ? priority.color
-              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-          )}
-        >
-          {priority.icon === "star" ? <Star className="h-3 w-3" /> : priority.icon === "shield" ? <ShieldCheck className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-          <span className="hidden sm:inline">{priority.label}</span>
-        </button>
-      ))}
+      {/* Quick icon buttons: overdue, important, pending */}
+      <div className="flex items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "overdue" ? null : "overdue"))}
+              className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                priorityFilter === "overdue"
+                  ? "bg-red-500/10 text-red-500"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Просроченные</TooltipContent>
+        </Tooltip>
 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "important" ? null : "important"))}
+              className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                priorityFilter === "important"
+                  ? "bg-amber-500/10 text-amber-500"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Star className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Важные</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "pending_approval" ? null : "pending_approval"))}
+              className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                priorityFilter === "pending_approval"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">На утверждении</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Filter popover with assignee, project, grouping */}
       <Popover>
         <PopoverTrigger asChild>
           <button
-            title={assigneeFilter === null
-              ? "Ответственный"
-              : assigneeFilter === "me"
-                ? "Мои"
-                : assigneeFilter === "unassigned"
-                  ? "Без ответственного"
-                  : availableUsers.find((user) => user.id === assigneeFilter)?.display_name || "Пользователь"}
             className={cn(
-              "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
-              assigneeFilter !== null
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+              "h-8 rounded-lg flex items-center justify-center transition-all relative",
+              hasSecondaryFilters
+                ? "bg-primary/10 text-primary px-2.5 gap-1"
+                : "w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            <User className="h-3 w-3" />
-            <span className="hidden sm:inline">
-            {assigneeFilter === null
-              ? "Ответственный"
-              : assigneeFilter === "me"
-                ? "Мои"
-                : assigneeFilter === "unassigned"
-                  ? "Без ответственного"
-                  : availableUsers.find((user) => user.id === assigneeFilter)?.display_name || "Пользователь"}
-            </span>
+            <Filter className="h-4 w-4" />
+            {activeSecondaryCount > 0 && (
+              <span className="text-[10px] font-semibold">{activeSecondaryCount}</span>
+            )}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
-          <p className="text-xs font-medium text-muted-foreground px-2 py-1">Ответственный</p>
-          <button
-            onClick={() => onAssigneeFilterChange((prev) => (prev === "me" ? null : "me"))}
-            className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "me" && "bg-primary/10 text-primary")}
-          >
-            Назначены мне
-          </button>
-          <button
-            onClick={() => onAssigneeFilterChange((prev) => (prev === "unassigned" ? null : "unassigned"))}
-            className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors", assigneeFilter === "unassigned" && "bg-primary/10 text-primary")}
-          >
-            Без ответственного
-          </button>
-          <PopoverSearchList
-            items={availableUsers.filter((user) => user.id !== currentUserId)}
-            searchKey={(user) => user.display_name || user.email || ""}
-            placeholder="Найти..."
-            renderItem={(user) => (
-              <button
-                key={user.id}
-                onClick={() => onAssigneeFilterChange((prev) => (prev === user.id ? null : user.id))}
-                className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", assigneeFilter === user.id && "bg-primary/10 text-primary")}
-              >
-                {user.display_name || user.email || "—"}
-              </button>
-            )}
-          />
-        </PopoverContent>
-      </Popover>
-
-      {activeView !== "group" && groupBy !== "project" && (
-        <Popover>
-          <PopoverTrigger asChild>
+        <PopoverContent className="w-64 p-0 bg-popover border-border z-50" side="bottom" align="end">
+          {/* Assignee section */}
+          <div className="p-2 border-b border-border">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Ответственный</p>
             <button
-              title={projectFilter === null
-                ? "Проект"
-                : projectFilter === "none"
-                  ? "Без проекта"
-                  : groups.find((group) => group.id === projectFilter)?.name || "Проект"}
-              className={cn(
-                "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
-                projectFilter !== null
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-              )}
+              onClick={() => onAssigneeFilterChange((prev) => (prev === "me" ? null : "me"))}
+              className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", assigneeFilter === "me" && "bg-primary/10 text-primary")}
             >
-              <Layers className="h-3 w-3" />
-              <span className="hidden sm:inline">
-              {projectFilter === null
-                ? "Проект"
-                : projectFilter === "none"
-                  ? "Без проекта"
-                  : groups.find((group) => group.id === projectFilter)?.name || "Проект"}
-              </span>
+              <User className="h-3.5 w-3.5" /> Назначены мне
             </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
-            <p className="text-xs font-medium text-muted-foreground px-2 py-1">Проект</p>
             <button
-              onClick={() => onProjectFilterChange((prev) => (prev === "none" ? null : "none"))}
-              className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors text-muted-foreground", projectFilter === "none" && "bg-primary/10 text-primary")}
+              onClick={() => onAssigneeFilterChange((prev) => (prev === "unassigned" ? null : "unassigned"))}
+              className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", assigneeFilter === "unassigned" && "bg-primary/10 text-primary")}
             >
-              Без проекта
+              <User className="h-3.5 w-3.5 opacity-40" /> Без ответственного
             </button>
             <PopoverSearchList
-              items={groups}
-              searchKey={(group) => group.name}
-              placeholder="Найти проект..."
-              renderItem={(group) => (
+              items={availableUsers.filter((user) => user.id !== currentUserId)}
+              searchKey={(user) => user.display_name || user.email || ""}
+              placeholder="Найти..."
+              renderItem={(user) => (
                 <button
-                  key={group.id}
-                  onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
-                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
+                  key={user.id}
+                  onClick={() => onAssigneeFilterChange((prev) => (prev === user.id ? null : user.id))}
+                  className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors truncate", assigneeFilter === user.id && "bg-primary/10 text-primary")}
                 >
-                  {group.name}
+                  {user.display_name || user.email || "—"}
                 </button>
               )}
             />
-          </PopoverContent>
-        </Popover>
-      )}
+          </div>
 
-      {/* Group by dropdown */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            title={groupBy === "none" ? "Группировка" : activeGroupByOption.label}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 shrink-0",
-              groupBy !== "none"
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-            )}
-          >
-            <LayoutList className="h-3 w-3" />
-            <span className="hidden sm:inline">{groupBy === "none" ? "Группировка" : activeGroupByOption.label}</span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom" align="start">
-          {groupByOptions.map(opt => {
-            const Icon = opt.icon;
-            return (
+          {/* Project section */}
+          {activeView !== "group" && groupBy !== "project" && (
+            <div className="p-2 border-b border-border">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Проект</p>
               <button
-                key={opt.key}
-                onClick={() => onGroupByChange(opt.key)}
-                className={cn(
-                  "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors",
-                  groupBy === opt.key
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-foreground hover:bg-muted"
-                )}
+                onClick={() => onProjectFilterChange((prev) => (prev === "none" ? null : "none"))}
+                className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors text-muted-foreground", projectFilter === "none" && "bg-primary/10 text-primary !text-primary")}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {opt.label}
+                <FolderOpen className="h-3.5 w-3.5" /> Без проекта
               </button>
-            );
-          })}
+              <PopoverSearchList
+                items={groups}
+                searchKey={(group) => group.name}
+                placeholder="Найти проект..."
+                renderItem={(group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => onProjectFilterChange((prev) => (prev === group.id ? null : group.id))}
+                    className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors truncate", projectFilter === group.id && "bg-primary/10 text-primary")}
+                  >
+                    {group.name}
+                  </button>
+                )}
+              />
+            </div>
+          )}
+
+          {/* Group by section */}
+          <div className="p-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Группировка</p>
+            {groupByOptions.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => onGroupByChange(opt.key)}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
+                    groupBy === opt.key
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Reset */}
+          {(hasActiveFilters || groupBy !== "none") && (
+            <div className="p-2 border-t border-border">
+              <button
+                onClick={() => {
+                  onPriorityFilterChange(null);
+                  onAssigneeFilterChange(null);
+                  onProjectFilterChange(null);
+                  onGroupByChange("none");
+                }}
+                className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="h-3.5 w-3.5" /> Сбросить все фильтры
+              </button>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
-
-      {(hasActiveFilters || groupBy !== "none") && (
-        <button
-          onClick={() => {
-            onPriorityFilterChange(null);
-            onAssigneeFilterChange(null);
-            onProjectFilterChange(null);
-            onGroupByChange("none");
-          }}
-          className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-        >
-          <X className="h-3 w-3" /> Сбросить
-        </button>
-      )}
     </div>
   );
 }
