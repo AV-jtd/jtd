@@ -58,7 +58,7 @@ export default function PmoLayout() {
     >
       {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
       {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} />}
-      {activeView === "milestones" && <PlaceholderView icon={Flag} title="Вехи" description="Ключевые точки проектов и gate-review" />}
+      {activeView === "milestones" && <MilestonesView />}
       {activeView === "resources" && <PlaceholderView icon={Users} title="Ресурсы" description="Загрузка участников и распределение по проектам" />}
       {activeView === "reports" && <PlaceholderView icon={BarChart3} title="Отчёты" description="Burndown, SPI/CPI, отклонения от плана" />}
     </ModuleLayout>
