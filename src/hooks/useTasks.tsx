@@ -928,21 +928,11 @@ export function useTaskMutations() {
 
   // Submit task for approval (instead of direct completion)
   const submitForApproval = useMutation({
-    mutationFn: async ({ id, closure_result, files }: { id: string; closure_result: string; files?: File[] }) => {
-      let attachmentUrls: string[] = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const filePath = `${user!.id}/${id}/${Date.now()}_${file.name}`;
-          const { error: upErr } = await supabase.storage.from("task-attachments").upload(filePath, file);
-          if (upErr) throw upErr;
-          const { data: urlData } = supabase.storage.from("task-attachments").getPublicUrl(filePath);
-          attachmentUrls.push(urlData.publicUrl);
-        }
-      }
+    mutationFn: async ({ id, closure_result, attachmentUrls }: { id: string; closure_result: string; attachmentUrls?: string[] }) => {
       const { error } = await supabase.from("tasks").update({
         approval_status: "pending",
         closure_result,
-        closure_attachments: attachmentUrls,
+        closure_attachments: attachmentUrls || [],
       }).eq("id", id);
       if (error) throw error;
       const { data: taskData } = await supabase.from("tasks").select("title, user_id").eq("id", id).single();
