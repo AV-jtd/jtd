@@ -90,8 +90,9 @@ function TaskFiltersBar({
       </div>
 
       {[
-        { value: "overdue" as number | "important" | "overdue", label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
-        { value: "important" as number | "important" | "overdue", label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "overdue" as const, label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
+        { value: "important" as const, label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "pending_approval" as const, label: "На утверждении", color: "text-primary border-primary/40 bg-primary/10", icon: "shield" },
       ].map((priority) => (
         <button
           key={String(priority.value)}
