@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
-import { TaskGroup, useTasks, useTaskGroups, useAvailableUsers, Profile, Task } from "@/hooks/useTasks";
+import { TaskGroup, useTaskGroups, useAvailableUsers, Profile, Task } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { FolderOpen, ChevronDown, ChevronRight, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
