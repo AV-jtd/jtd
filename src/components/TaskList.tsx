@@ -349,6 +349,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     title: string;
     group_id: string | null;
     deadline: string | null;
+    assigned_to?: string | null;
     task_type: "standard" | "crm";
     client_name?: string;
   }) => {
