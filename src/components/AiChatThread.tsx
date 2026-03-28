@@ -46,10 +46,15 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
   const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
 
+  const contextType = isGeneral ? "assistant" : "project_chat";
+  const contextId = isGeneral ? null : selectedGroupId;
+
   const {
     messages: chatMessages, addMessage, updateLastAssistant, clearConversation,
     loading: historyLoading,
-  } = useAiConversation({ contextType: "project_chat", contextId: selectedGroupId });
+  } = useAiConversation({ contextType, contextId });
+
+  const selectedGroup = allGroups.find(g => g.id === selectedGroupId);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [draft, setDraft] = useState("");
