@@ -87,7 +87,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const suggestionsLoaded = useRef(false);
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
+
+  const isCreator = currentUser?.id === task.user_id;
+  const isPendingApproval = task.approval_status === "pending";
 
   useEffect(() => {
     if (initialOpen && itemRef.current) {
