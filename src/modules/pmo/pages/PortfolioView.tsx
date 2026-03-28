@@ -578,7 +578,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       </tr>
                       {/* Expanded — tabbed preview */}
                       {isExpanded && (() => {
-                        const currentView = expandedView[project.id] || "card";
+                        const currentView = expandedView[project.id] ?? null;
                         const isNpd = project.project_type === "npd";
                         const childIds = children.map((c) => c.id);
                         const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
