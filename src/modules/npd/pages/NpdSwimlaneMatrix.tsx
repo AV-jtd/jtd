@@ -1072,6 +1072,7 @@ export default function NpdSwimlaneMatrix() {
             })}
           </div>
         </div>
+        </DndContext>
       </div>
 
       {/* Dependency dialog */}
