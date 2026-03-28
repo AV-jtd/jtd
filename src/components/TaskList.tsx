@@ -5,17 +5,17 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard from "./AiInsightsCard";
 import { useAiInsights } from "@/hooks/useAiInsights";
-import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isToday, parseISO } from "date-fns";
+import { isToday, parseISO, isBefore, startOfDay, isThisWeek } from "date-fns";
 import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import TaskCreateBar from "@/components/task-list/TaskCreateBar";
-import TaskFiltersBar from "@/components/task-list/TaskFiltersBar";
+import TaskFiltersBar, { type GroupByOption } from "@/components/task-list/TaskFiltersBar";
 import {
   DndContext,
   closestCenter,
@@ -66,6 +66,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [delegationTab, setDelegationTab] = useState<"by_me" | "to_me">("by_me");
+  const [groupBy, setGroupBy] = useState<GroupByOption>("none");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -219,6 +220,96 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
+
+  // Grouped sections
+  type GroupedSection = { key: string; label: string; color?: string; tasks: typeof activeTasks };
+  const groupedSections = useMemo((): GroupedSection[] => {
+    if (groupBy === "none") return [];
+    const now = new Date();
+
+    if (groupBy === "project") {
+      const byProject = new Map<string, typeof activeTasks>();
+      activeTasks.forEach(t => {
+        const key = t.group_id || "__none__";
+        if (!byProject.has(key)) byProject.set(key, []);
+        byProject.get(key)!.push(t);
+      });
+      const sections: GroupedSection[] = [];
+      byProject.forEach((tasks, key) => {
+        const group = groups.find(g => g.id === key);
+        sections.push({
+          key,
+          label: key === "__none__" ? "Без проекта" : group?.name || "Проект",
+          color: group?.color || undefined,
+          tasks,
+        });
+      });
+      return sections.sort((a, b) => {
+        if (a.key === "__none__") return 1;
+        if (b.key === "__none__") return -1;
+        return a.label.localeCompare(b.label);
+      });
+    }
+
+    if (groupBy === "deadline") {
+      const overdue: typeof activeTasks = [];
+      const today: typeof activeTasks = [];
+      const thisWeek: typeof activeTasks = [];
+      const later: typeof activeTasks = [];
+      const noDeadline: typeof activeTasks = [];
+
+      activeTasks.forEach(t => {
+        if (!t.deadline) { noDeadline.push(t); return; }
+        const d = parseISO(t.deadline);
+        if (isBefore(d, startOfDay(now))) overdue.push(t);
+        else if (isToday(d)) today.push(t);
+        else if (isThisWeek(d, { weekStartsOn: 1 })) thisWeek.push(t);
+        else later.push(t);
+      });
+
+      return [
+        { key: "overdue", label: "🔴 Просрочено", tasks: overdue },
+        { key: "today", label: "🟡 Сегодня", tasks: today },
+        { key: "week", label: "📅 На этой неделе", tasks: thisWeek },
+        { key: "later", label: "📆 Позже", tasks: later },
+        { key: "none", label: "Без срока", tasks: noDeadline },
+      ].filter(s => s.tasks.length > 0);
+    }
+
+    if (groupBy === "assignee") {
+      const byAssignee = new Map<string, typeof activeTasks>();
+      activeTasks.forEach(t => {
+        const key = t.assigned_to || "__unassigned__";
+        if (!byAssignee.has(key)) byAssignee.set(key, []);
+        byAssignee.get(key)!.push(t);
+      });
+      const sections: GroupedSection[] = [];
+      byAssignee.forEach((tasks, key) => {
+        const user = availableUsers.find(u => u.id === key);
+        sections.push({
+          key,
+          label: key === "__unassigned__" ? "Не назначено" : user?.display_name || "Пользователь",
+          tasks,
+        });
+      });
+      return sections.sort((a, b) => {
+        if (a.key === "__unassigned__") return 1;
+        if (b.key === "__unassigned__") return -1;
+        return a.label.localeCompare(b.label);
+      });
+    }
+
+    return [];
+  }, [groupBy, activeTasks, groups, availableUsers]);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleCollapse = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -552,6 +643,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             groups={groups}
             currentUserId={user?.id}
             activeView={activeView}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
           />
         )}
 
@@ -592,9 +685,81 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <p className="text-base font-medium text-muted-foreground">{view.emptyTitle}</p>
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
           </div>
+        ) : groupBy !== "none" && groupedSections.length > 0 ? (
+          <div className="space-y-3">
+            {groupedSections.map(section => {
+              const isCollapsed = collapsedGroups.has(section.key);
+              return (
+                <div key={section.key} className="animate-fade-in">
+                  <button
+                    onClick={() => toggleCollapse(section.key)}
+                    className="flex items-center gap-2 w-full px-1 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isCollapsed && "-rotate-90")} />
+                    {section.color && (
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: section.color }} />
+                    )}
+                    <span className="text-xs font-semibold text-foreground truncate">{section.label}</span>
+                    <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded-full bg-muted">
+                      {section.tasks.length}
+                    </span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-1.5 mt-1">
+                      {section.tasks.map(task => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          initialOpen={task.id === highlightTaskId}
+                          onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                          onTagClick={onTagClick}
+                          onProjectClick={onProjectClick}
+                          selectable={batchMode}
+                          selected={selectedIds.has(task.id)}
+                          onToggleSelect={() => toggleSelect(task.id)}
+                          onLongPress={() => toggleSelect(task.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {completedTasks.length > 0 && (
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleCollapse("__completed__")}
+                  className="flex items-center gap-2 w-full px-1 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", collapsedGroups.has("__completed__") && "-rotate-90")} />
+                  <span className="text-xs font-semibold text-muted-foreground">Выполнено</span>
+                  <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded-full bg-muted">
+                    {completedTasks.length}
+                  </span>
+                </button>
+                {!collapsedGroups.has("__completed__") && (
+                  <div className="space-y-1.5 mt-1">
+                    {completedTasks.map(task => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        initialOpen={task.id === highlightTaskId}
+                        onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                        onTagClick={onTagClick}
+                        onProjectClick={onProjectClick}
+                        selectable={batchMode}
+                        selected={selectedIds.has(task.id)}
+                        onToggleSelect={() => toggleSelect(task.id)}
+                        onLongPress={() => toggleSelect(task.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-1.5">
-            {/* Active tasks */}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
@@ -615,8 +780,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 ))}
               </SortableContext>
             </DndContext>
-
-            {/* Completed tasks */}
             {completedTasks.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
