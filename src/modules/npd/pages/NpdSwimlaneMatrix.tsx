@@ -798,6 +798,13 @@ export default function NpdSwimlaneMatrix() {
 
       {/* Matrix */}
       <div className="flex-1 overflow-auto">
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={pointerWithin}
+          onDragStart={(e) => setDndActiveId(e.active.id as string)}
+          onDragOver={handleDndOver}
+          onDragEnd={handleDndEnd}
+        >
         <div className="min-w-max">
           {/* Column headers */}
           <div className="flex sticky top-0 z-10 bg-card border-b border-border">
