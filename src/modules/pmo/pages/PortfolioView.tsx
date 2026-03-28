@@ -497,37 +497,44 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                           </Tooltip>
                         </td>
                       </tr>
-                      {/* Expanded subprojects */}
-                      {isExpanded && children.map((child) => {
-                        const cs = getAggregatedStats(child.id);
-                        const cp = cs.total > 0 ? Math.round((cs.completed / cs.total) * 100) : 0;
-                        const cHealth = getHealthDot(child.id);
-                        const cStage = getStage(cs);
-                        const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
-                        return (
-                          <tr key={child.id} className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors bg-muted/10"
-                            onClick={() => onOpenGantt?.(child.id)}>
-                            <td className="px-3 py-2"></td>
-                            <td className="px-3 py-2 pl-8">
-                              <div className="flex items-center gap-2 border-l-2 border-primary/30 pl-3">
-                                <StatusDot status={cHealth.deadlines} />
-                                <span className="text-muted-foreground truncate max-w-[280px] text-[13px]" title={child.name}>{childName}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}{cs.total > 0 && cs.completed === cs.total && " 🏅"}</td>
-                            
-                            <td className="px-3 py-2 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <StatusDot status={cHealth.deadlines} />
-                                <StatusDot status={cHealth.tasks} />
-                                <StatusDot status={cHealth.milestones} />
-                              </div>
-                            </td>
-                            <td className="px-3 py-2"><ProgressBar progress={cp} stats={cs} compact /></td>
-                            <td className="px-1 py-2"></td>
-                          </tr>
-                        );
-                      })}
+                      {/* Expanded — NPD-style dashboard */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-0 py-0">
+                            <div className="bg-muted/10 border-t border-border/30 px-6 py-3 space-y-2 animate-fade-in">
+                              {/* Subproject cards — hide those with 0 tasks */}
+                              {children
+                                .map((child) => {
+                                  const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
+                                  const childTasks = allTasks.filter((t) => t.group_id === child.id);
+                                  const grandchildren = groups.filter((g) => g.parent_id === child.id);
+                                  const grandTasks = grandchildren.flatMap((gc) => allTasks.filter((t) => t.group_id === gc.id));
+                                  const allChildTasks = [...childTasks, ...grandTasks];
+                                  return { child, childName, allChildTasks, grandchildren };
+                                })
+                                .filter((c) => c.allChildTasks.length > 0)
+                                .map(({ child, childName, allChildTasks, grandchildren }) => (
+                                  <PmoSubprojectCard
+                                    key={child.id}
+                                    name={childName}
+                                    color={child.color}
+                                    icon={child.icon}
+                                    tasks={allChildTasks}
+                                    onOpenGantt={() => onOpenGantt?.(child.id)}
+                                    userMap={userMap}
+                                  />
+                                ))}
+                              {children.every((c) => {
+                                const ct = allTasks.filter((t) => t.group_id === c.id);
+                                const gc = groups.filter((g) => g.parent_id === c.id).flatMap((g) => allTasks.filter((t) => t.group_id === g.id));
+                                return ct.length + gc.length === 0;
+                              }) && (
+                                <p className="text-xs text-muted-foreground text-center py-2">Нет задач в подпроектах</p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                   );
                 })}
