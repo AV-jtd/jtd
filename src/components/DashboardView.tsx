@@ -280,8 +280,29 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
           {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
+
+          {/* Wiki quick access */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
+          >
+            <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
+          </button>
         </div>
       )}
+
+      <Dialog open={wikiOpen} onOpenChange={setWikiOpen}>
+        <DialogContent className="max-w-[90vw] w-[90vw] h-[85vh] p-4 flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <ProjectWikiTab
+              groupId={stats.group.id}
+              groupName={stats.group.name}
+              groupDescription={stats.group.description || undefined}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
