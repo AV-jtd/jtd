@@ -10,7 +10,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
@@ -29,7 +29,7 @@ const ROW_HEIGHT = 36;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 600;
 
-export default function GanttView({ initialProjectId }: { initialProjectId?: string | null }) {
+export default function GanttView({ initialProjectId, onBack }: { initialProjectId?: string | null; onBack?: () => void }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
@@ -578,6 +578,13 @@ export default function GanttView({ initialProjectId }: { initialProjectId?: str
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 flex-wrap">
+        {onBack && (
+          <button onClick={onBack} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Портфель</span>
+          </button>
+        )}
+        {onBack && <div className="h-4 w-px bg-border" />}
         <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
           {(["day", "week", "month"] as Scale[]).map(s => (
             <button
