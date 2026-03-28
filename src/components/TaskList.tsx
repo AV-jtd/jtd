@@ -66,6 +66,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [delegationTab, setDelegationTab] = useState<"by_me" | "to_me">("by_me");
+  const [groupBy, setGroupBy] = useState<GroupByOption>("none");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
