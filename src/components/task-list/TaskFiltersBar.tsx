@@ -119,6 +119,7 @@ function TaskFiltersBar({
             )}
           >
             <User className="h-3 w-3" />
+            <span className="hidden sm:inline">
             {assigneeFilter === null
               ? "Ответственный"
               : assigneeFilter === "me"
@@ -126,6 +127,7 @@ function TaskFiltersBar({
                 : assigneeFilter === "unassigned"
                   ? "Без ответственного"
                   : availableUsers.find((user) => user.id === assigneeFilter)?.display_name || "Пользователь"}
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-52 p-2 bg-popover border-border z-50" side="bottom" align="start">
