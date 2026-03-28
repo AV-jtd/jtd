@@ -805,7 +805,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               </div>
             )}
           </div>
-        )
+        )}
       </div>
     </main>
   );
