@@ -554,7 +554,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     {drifted.length > 0 && (
                                       <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
                                         {drifted.map(({ task: t, days }) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} />
+                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
