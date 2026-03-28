@@ -540,7 +540,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     {overdue.length > 0 && (
                                       <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
                                         {overdue.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
