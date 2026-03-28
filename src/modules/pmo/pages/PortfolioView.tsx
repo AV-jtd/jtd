@@ -263,7 +263,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         next.delete(id);
       } else {
         next.add(id);
-        setExpandedTab((t) => ({ ...t, [id]: "card" }));
+        // no tab state needed
       }
       return next;
     });
