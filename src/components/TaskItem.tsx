@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 interface TaskItemProps {
   task: Task;
