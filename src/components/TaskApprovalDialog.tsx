@@ -16,7 +16,7 @@ interface TaskClosureDialogProps {
   onOpenChange: (open: boolean) => void;
   taskTitle: string;
   taskId: string;
-  onSubmit: (result: string, files: File[], summary?: string) => void;
+  onSubmit: (result: string, uploadedUrls: string[], summary?: string) => void;
 }
 
 export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSubmit }: TaskClosureDialogProps) {
