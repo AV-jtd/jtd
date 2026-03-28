@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle, ClipboardPaste } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -28,6 +28,41 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
   const [validationError, setValidationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          const named = new File([file], `screenshot_${Date.now()}.png`, { type: file.type });
+          imageFiles.push(named);
+        }
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      const available = MAX_FILES - files.length;
+      if (available <= 0) return;
+      const toAdd = imageFiles.slice(0, available);
+      for (const f of toAdd) {
+        const err = validateClientSide(f);
+        if (err) { toast.error(err); return; }
+      }
+      uploadAndValidate(toAdd);
+    }
+  }, [files.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = dialogRef.current;
+    if (!el) return;
+    el.addEventListener("paste", handlePaste as EventListener);
+    return () => el.removeEventListener("paste", handlePaste as EventListener);
+  }, [open, handlePaste]);
 
   const handleSubmit = () => {
     if (result.trim()) {
@@ -129,7 +164,7 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent ref={dialogRef} className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-primary" />
@@ -225,6 +260,10 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             <span className="text-[11px] text-muted-foreground">
               {files.length}/{MAX_FILES} • макс. 10 МБ
             </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <ClipboardPaste className="h-3 w-3" />
+            <span>Ctrl+V — вставить скриншот из буфера</span>
           </div>
         </div>
         <DialogFooter>
