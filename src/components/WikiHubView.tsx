@@ -1,21 +1,24 @@
 import { useState, useMemo } from "react";
-import { useTaskGroups } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { BookOpen, ChevronRight, FileText, LayoutGrid, Loader2, Search } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, LayoutGrid, Loader2, Search, Archive, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { cn } from "@/lib/utils";
 
+type StatusFilter = "all" | "active" | "archived";
+
 export default function WikiHubView() {
   const { user } = useAuth();
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
+  const { data: allTasks = [] } = useTasks();
   const [search, setSearch] = useState("");
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-  // Fetch all wiki pages + structured sections counts per group
   const { data: wikiPages = [], isLoading: pagesLoading } = useQuery({
     queryKey: ["wiki-hub-pages", user?.id],
     queryFn: async () => {
@@ -44,45 +47,46 @@ export default function WikiHubView() {
 
   const isLoading = groupsLoading || pagesLoading || sectionsLoading;
 
-  // Build list of groups that have wiki content
-  const projectsWithWiki = useMemo(() => {
-    const groupMap = new Map(groups.map(g => [g.id, g]));
+  // Determine if a project is "archived" (all tasks completed, has tasks)
+  const groupActivityMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    groups.forEach(g => {
+      const groupTasks = allTasks.filter(t => t.group_id === g.id);
+      const activeTasks = groupTasks.filter(t => !t.is_completed);
+      map.set(g.id, groupTasks.length === 0 || activeTasks.length > 0);
+    });
+    return map;
+  }, [groups, allTasks]);
 
-    // Collect group IDs that have content
+  const projectsForWiki = useMemo(() => {
     const groupIdsWithPages = new Set(wikiPages.map(p => p.group_id));
     const groupIdsWithSections = new Set(structuredSections.map(s => s.group_id));
-    const allGroupIds = new Set([...groupIdsWithPages, ...groupIdsWithSections]);
 
-    return Array.from(allGroupIds)
-      .map(gId => {
-        const group = groupMap.get(gId);
-        if (!group) return null;
-
-        const pages = wikiPages.filter(p => p.group_id === gId);
-        const sections = structuredSections.filter(s => s.group_id === gId);
+    return groups
+      .map(group => {
+        const pages = wikiPages.filter(p => p.group_id === group.id);
+        const sections = structuredSections.filter(s => s.group_id === group.id);
         const filledSections = sections.filter(s => s.content && s.content.trim().length > 0);
         const lastUpdated = pages[0]?.updated_at || null;
+        const hasContent = groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
+        const isActive = groupActivityMap.get(group.id) ?? true;
 
-        return {
-          group,
-          pageCount: pages.length,
-          sectionCount: filledSections.length,
-          lastUpdated,
-        };
+        return { group, pageCount: pages.length, sectionCount: filledSections.length, lastUpdated, hasContent, isActive };
       })
-      .filter(Boolean)
       .filter(item => {
+        if (!item.hasContent) return false;
+        if (statusFilter === "active" && !item.isActive) return false;
+        if (statusFilter === "archived" && item.isActive) return false;
         if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return item!.group.name.toLowerCase().includes(q);
+        return item.group.name.toLowerCase().includes(search.toLowerCase());
       })
       .sort((a, b) => {
-        // Sort by last updated
-        const aDate = a!.lastUpdated ? new Date(a!.lastUpdated).getTime() : 0;
-        const bDate = b!.lastUpdated ? new Date(b!.lastUpdated).getTime() : 0;
+        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+        const aDate = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+        const bDate = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
         return bDate - aDate;
-      }) as { group: typeof groups[0]; pageCount: number; sectionCount: number; lastUpdated: string | null }[];
-  }, [groups, wikiPages, structuredSections, search]);
+      });
+  }, [groups, wikiPages, structuredSections, search, statusFilter, groupActivityMap]);
 
   const openGroup = openGroupId ? groups.find(g => g.id === openGroupId) : null;
 
@@ -108,40 +112,65 @@ export default function WikiHubView() {
           <div className="flex-1">
             <h1 className="text-xl font-semibold text-foreground leading-tight">База знаний</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {projectsWithWiki.length} {projectsWithWiki.length === 1 ? "проект" : "проектов"} с контентом
+              {projectsForWiki.length} {projectsForWiki.length === 1 ? "проект" : "проектов"} с контентом
             </p>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Поиск проекта..."
-            className="pl-9 h-9"
-          />
+        {/* Search + status filter */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Поиск проекта..."
+              className="pl-9 h-9"
+            />
+          </div>
+          <div className="flex items-center gap-0.5 p-0.5 bg-muted/50 rounded-lg shrink-0">
+            {([
+              { key: "all" as StatusFilter, label: "Все" },
+              { key: "active" as StatusFilter, label: "Активные" },
+              { key: "archived" as StatusFilter, label: "Архив" },
+            ]).map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setStatusFilter(opt.key)}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                  statusFilter === opt.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Project cards */}
         <div className="space-y-2">
-          {projectsWithWiki.length === 0 ? (
+          {projectsForWiki.length === 0 ? (
             <div className="text-center py-12">
               <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                {search ? "Нет проектов по запросу" : "Ни один проект ещё не имеет базы знаний"}
+                {search ? "Нет проектов по запросу" : statusFilter !== "all" ? "Нет проектов с таким статусом" : "Ни один проект ещё не имеет базы знаний"}
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 Откройте проект → вкладка «База знаний» чтобы начать
               </p>
             </div>
           ) : (
-            projectsWithWiki.map(item => (
+            projectsForWiki.map(item => (
               <button
                 key={item.group.id}
                 onClick={() => setOpenGroupId(item.group.id)}
-                className="w-full flex items-center gap-3 p-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all text-left group"
+                className={cn(
+                  "w-full flex items-center gap-3 p-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all text-left group",
+                  !item.isActive && "opacity-60"
+                )}
               >
                 <div
                   className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 text-white text-sm font-semibold"
@@ -153,9 +182,22 @@ export default function WikiHubView() {
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium text-sm text-foreground truncate block">
-                    {item.group.name}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm text-foreground truncate">
+                      {item.group.name}
+                    </span>
+                    {item.isActive ? (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium shrink-0">
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        Активный
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border font-medium shrink-0">
+                        <Archive className="h-2.5 w-2.5" />
+                        Архив
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
                     {item.pageCount > 0 && (
                       <span className="flex items-center gap-1">
