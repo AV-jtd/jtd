@@ -1,9 +1,11 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, Layers, Search, Star, User, X } from "lucide-react";
+import { Clock, Group, Layers, Search, Star, User, X, CalendarDays, FolderOpen } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
 import type { Profile, TaskGroup } from "@/hooks/useTasks";
+
+export type GroupByOption = "none" | "project" | "deadline" | "assignee";
 
 interface TaskFiltersBarProps {
   searchValue: string;
@@ -18,7 +20,16 @@ interface TaskFiltersBarProps {
   groups: TaskGroup[];
   currentUserId?: string;
   activeView: string;
+  groupBy: GroupByOption;
+  onGroupByChange: (value: GroupByOption) => void;
 }
+
+const groupByOptions: { key: GroupByOption; label: string; icon: React.ElementType }[] = [
+  { key: "none", label: "Без группировки", icon: Layers },
+  { key: "project", label: "По проекту", icon: FolderOpen },
+  { key: "deadline", label: "По дедлайну", icon: CalendarDays },
+  { key: "assignee", label: "По ответственному", icon: User },
+];
 
 function TaskFiltersBar({
   searchValue,
@@ -33,6 +44,8 @@ function TaskFiltersBar({
   groups,
   currentUserId,
   activeView,
+  groupBy,
+  onGroupByChange,
 }: TaskFiltersBarProps) {
   const [draftSearch, setDraftSearch] = useState(searchValue);
 
@@ -51,6 +64,7 @@ function TaskFiltersBar({
   }, [draftSearch, onSearchChange, searchValue]);
 
   const hasActiveFilters = priorityFilter !== null || assigneeFilter !== null || projectFilter !== null;
+  const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
   return (
     <div className="flex items-center gap-1.5 mb-4 flex-wrap">
@@ -190,12 +204,50 @@ function TaskFiltersBar({
         </Popover>
       )}
 
-      {hasActiveFilters && (
+      {/* Group by dropdown */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1",
+              groupBy !== "none"
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+            )}
+          >
+            <Group className="h-3 w-3" />
+            {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom" align="start">
+          {groupByOptions.map(opt => {
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onGroupByChange(opt.key)}
+                className={cn(
+                  "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors",
+                  groupBy === opt.key
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-foreground hover:bg-muted"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {opt.label}
+              </button>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+
+      {(hasActiveFilters || groupBy !== "none") && (
         <button
           onClick={() => {
             onPriorityFilterChange(null);
             onAssigneeFilterChange(null);
             onProjectFilterChange(null);
+            onGroupByChange("none");
           }}
           className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
         >
