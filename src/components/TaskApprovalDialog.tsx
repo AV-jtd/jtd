@@ -2,46 +2,134 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle2, XCircle, Paperclip, Image, X, FileIcon } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 5;
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".pptx", ".txt"];
 
 interface TaskClosureDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   taskTitle: string;
-  onSubmit: (result: string, files: File[]) => void;
+  taskId: string;
+  onSubmit: (result: string, uploadedUrls: string[], summary?: string) => void;
 }
 
-export function TaskClosureDialog({ open, onOpenChange, taskTitle, onSubmit }: TaskClosureDialogProps) {
+export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSubmit }: TaskClosureDialogProps) {
   const [result, setResult] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
 
   const handleSubmit = () => {
     if (result.trim()) {
-      onSubmit(result.trim(), files);
+      onSubmit(result.trim(), uploadedUrls, summary || undefined);
       setResult("");
       setFiles([]);
+      setUploadedUrls([]);
+      setSummary(null);
+      setValidationError(null);
       onOpenChange(false);
+    }
+  };
+
+  const validateClientSide = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return `${file.name}: превышает 10 МБ (${(file.size / 1024 / 1024).toFixed(1)} МБ)`;
+    }
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return `${file.name}: недопустимый тип файла`;
+    }
+    return null;
+  };
+
+  const uploadAndValidate = async (newFiles: File[]) => {
+    if (!user) return;
+    setValidating(true);
+    setValidationError(null);
+    setSummary(null);
+
+    try {
+      // Upload files to storage
+      const newUrls: string[] = [];
+      for (const file of newFiles) {
+        const filePath = `${user.id}/${taskId}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from("task-attachments").upload(filePath, file);
+        if (upErr) throw new Error(`Ошибка загрузки ${file.name}: ${upErr.message}`);
+        const { data: urlData } = supabase.storage.from("task-attachments").getPublicUrl(filePath);
+        newUrls.push(urlData.publicUrl);
+      }
+
+      // Server-side validation + AI summary
+      const { data, error } = await supabase.functions.invoke("process-attachment", {
+        body: { fileUrls: newUrls, taskTitle },
+      });
+
+      if (error) {
+        setValidationError("Ошибка валидации файлов на сервере");
+        return;
+      }
+
+      if (data && !data.valid) {
+        setValidationError(data.errors?.join("; ") || "Файлы не прошли проверку");
+        return;
+      }
+
+      setFiles(prev => [...prev, ...newFiles]);
+      setUploadedUrls(prev => [...prev, ...newUrls]);
+      if (data?.summary) {
+        setSummary(data.summary);
+      }
+    } catch (e: any) {
+      console.error("Upload/validation error:", e);
+      setValidationError(e.message || "Ошибка обработки файлов");
+    } finally {
+      setValidating(false);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles].slice(0, 5));
+      const incoming = Array.from(e.target.files);
+      const total = [...files, ...incoming].slice(0, MAX_FILES);
+      const newOnly = total.slice(files.length);
+
+      // Client-side pre-validation
+      for (const f of newOnly) {
+        const err = validateClientSide(f);
+        if (err) {
+          toast.error(err);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+      }
+
+      uploadAndValidate(newOnly);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeFile = (idx: number) => {
     setFiles(prev => prev.filter((_, i) => i !== idx));
+    if (files.length <= 1) {
+      setSummary(null);
+    }
   };
 
   const isImage = (file: File) => file.type.startsWith("image/");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-primary" />
@@ -57,7 +145,7 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, onSubmit }: T
             value={result}
             onChange={(e) => setResult(e.target.value)}
             placeholder="Что было сделано, какой результат..."
-            className="min-h-[120px] resize-none"
+            className="min-h-[100px] resize-none"
           />
 
           {/* File previews */}
@@ -86,6 +174,33 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, onSubmit }: T
             </div>
           )}
 
+          {/* Validation error */}
+          {validationError && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-destructive">{validationError}</p>
+            </div>
+          )}
+
+          {/* AI Summary */}
+          {summary && (
+            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-medium text-primary flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                ИИ-саммари вложений
+              </p>
+              <p className="text-xs text-foreground/80">{summary}</p>
+            </div>
+          )}
+
+          {/* Validating indicator */}
+          {validating && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Проверка и анализ файлов...
+            </div>
+          )}
+
           {/* Attach button */}
           <div className="flex items-center gap-2">
             <input
@@ -101,20 +216,20 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, onSubmit }: T
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={files.length >= 5}
+              disabled={files.length >= MAX_FILES || validating}
               className="gap-1.5 text-xs"
             >
               <Paperclip className="h-3.5 w-3.5" />
               Прикрепить файл
             </Button>
             <span className="text-[11px] text-muted-foreground">
-              {files.length}/5 файлов (макс. 20 МБ)
+              {files.length}/{MAX_FILES} • макс. 10 МБ
             </span>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={handleSubmit} disabled={!result.trim()}>
+          <Button onClick={handleSubmit} disabled={!result.trim() || validating}>
             Отправить на утверждение
           </Button>
         </DialogFooter>
