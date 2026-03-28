@@ -624,6 +624,21 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           <LegendItem color="bg-muted-foreground/40" label="Нет данных" />
         </div>
       )}
+
+      {/* Task detail sheet */}
+      <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
+          {selectedTaskId && (() => {
+            const task = allTasks.find((t) => t.id === selectedTaskId);
+            if (!task) return null;
+            return (
+              <div className="p-4">
+                <TaskItem task={task} initialOpen />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
