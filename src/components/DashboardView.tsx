@@ -623,7 +623,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
         {/* Status filters */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {FILTER_OPTIONS.map(opt => (
             <button
