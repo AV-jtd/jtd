@@ -615,3 +615,172 @@ function ProgressBar({ progress, stats, compact }: { progress: number; stats: { 
 function LegendItem({ color, label }: { color: string; label: string }) {
   return <div className="flex items-center gap-1.5"><div className={cn("w-2 h-2 rounded-full", color)} /><span>{label}</span></div>;
 }
+
+/* ─── NPD-style subproject card for PMO expanded view ─── */
+
+type PmoTask = { id: string; title: string; is_completed: boolean; deadline: string | null; original_deadline: string | null; assigned_to: string | null; user_id: string; start_at: string | null };
+
+const STATUS_BADGE_PMO: Record<string, string> = {
+  "on-track": "border-success/40 bg-success/10 text-success",
+  "at-risk": "border-warning/40 bg-warning/10 text-warning",
+  "overdue": "border-destructive/40 bg-destructive/10 text-destructive",
+  "completed": "border-muted-foreground/30 bg-muted text-muted-foreground",
+};
+const STATUS_LABEL_PMO: Record<string, string> = {
+  "on-track": "В графике", "at-risk": "Смещение", "overdue": "Просрочено", "completed": "Завершено",
+};
+
+function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap }: {
+  name: string;
+  color: string | null;
+  icon: string | null;
+  tasks: PmoTask[];
+  onOpenGantt: () => void;
+  userMap: Map<string, Profile>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const total = tasks.length;
+  const completed = tasks.filter((t) => t.is_completed).length;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+  const activeTasks = tasks.filter((t) => !t.is_completed);
+  const overdueTasks = activeTasks.filter((t) => t.deadline && new Date(t.deadline) < now);
+  const upcomingTasks = activeTasks.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+  const driftTasks = activeTasks
+    .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .map((t) => ({
+      task: t,
+      driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000),
+    }));
+
+  const timingStatus = (() => {
+    if (activeTasks.length === 0 && total > 0) return "completed";
+    if (overdueTasks.length > 0) return "overdue";
+    if (driftTasks.length > 0) return "at-risk";
+    return "on-track";
+  })();
+
+  const userName = (userId: string | null) => {
+    if (!userId) return null;
+    const p = userMap.get(userId);
+    return p?.display_name || p?.email?.split("@")[0] || null;
+  };
+
+  return (
+    <div className={cn("bg-card rounded-lg border border-dashed border-border overflow-hidden transition-shadow", expanded && "shadow-sm")}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors min-w-0"
+      >
+        <div
+          className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[9px] font-semibold"
+          style={{ backgroundColor: (color || "hsl(var(--primary))") + "18", color: color || "hsl(var(--primary))" }}
+        >
+          {icon && icon !== "list" ? <span className="text-xs">{icon}</span> : name.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-medium text-[12px] truncate">{name}</span>
+            <span className={cn("text-[9px] px-1.5 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap", STATUS_BADGE_PMO[timingStatus])}>
+              {STATUS_LABEL_PMO[timingStatus]}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex-1 max-w-[100px]">
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-success" : overdueTasks.length > 0 ? "bg-destructive" : "bg-primary")} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+            <span className="text-[10px] text-muted-foreground shrink-0">{completed}/{total}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground">
+          {overdueTasks.length > 0 && <span className="text-destructive font-semibold">{overdueTasks.length}!</span>}
+          <button onClick={(e) => { e.stopPropagation(); onOpenGantt(); }} className="hover:text-primary transition-colors">
+            <GanttChart className="h-3.5 w-3.5" />
+          </button>
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border px-3 pb-2 pt-2 space-y-2 animate-fade-in">
+          {overdueTasks.length > 0 && (
+            <PmoDashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
+              {overdueTasks.map((t) => (
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {upcomingTasks.length > 0 && (
+            <PmoDashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
+              {upcomingTasks.map((t) => (
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {driftTasks.length > 0 && (
+            <PmoDashboardSection title="Переносы" count={driftTasks.length} variant="warning">
+              {driftTasks.map(({ task: t, driftDays }) => (
+                <PmoDashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {(() => {
+            const categorizedIds = new Set([...overdueTasks.map((t) => t.id), ...upcomingTasks.map((t) => t.id), ...driftTasks.map((d) => d.task.id)]);
+            const otherTasks = activeTasks.filter((t) => !categorizedIds.has(t.id));
+            if (otherTasks.length === 0) return null;
+            return (
+              <PmoDashboardSection title="Активные" count={otherTasks.length}>
+                {otherTasks.map((t) => (
+                  <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                ))}
+              </PmoDashboardSection>
+            );
+          })()}
+          {activeTasks.length === 0 && (
+            <p className="text-[10px] text-muted-foreground text-center py-1">✅ Все задачи завершены</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PmoDashboardSection({ title, count, children, variant }: { title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={cn("text-[11px] font-semibold", variant === "destructive" ? "text-destructive" : variant === "warning" ? "text-warning" : "text-foreground")}>{title}</span>
+        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+      </div>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function PmoDashboardTaskRow({ task, drift, assigneeName, variant }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue" }) {
+  const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0">
+      <span className={cn(
+        "text-[11px] truncate flex-1 min-w-0",
+        isOverdue ? "text-destructive" : "text-foreground",
+        task.is_completed && "line-through text-muted-foreground"
+      )}>{task.title}</span>
+      {assigneeName && <span className="text-[9px] text-muted-foreground shrink-0">{assigneeName}</span>}
+      {drift !== undefined && (
+        <span className={cn("text-[9px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-success")}>
+          {drift > 0 ? `+${drift}д` : `${drift}д`}
+        </span>
+      )}
+      {task.deadline && (
+        <span className="text-[9px] text-muted-foreground shrink-0">
+          {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+        </span>
+      )}
+    </div>
+  );
+}
