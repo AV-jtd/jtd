@@ -2,11 +2,9 @@ import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, 
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3, Grid3X3, CreditCard } from "lucide-react";
+import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
-import ProjectDetailPanel from "@/components/ProjectDetailPanel";
-import PmoInlineMatrix from "@/modules/pmo/components/PmoInlineMatrix";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +42,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [expandedView, setExpandedView] = useState<Record<string, "card" | "matrix">>({});
 
   useEffect(() => {
     const t = window.setTimeout(() => { if (draftSearch !== search) setSearch(draftSearch); }, 150);
@@ -575,77 +572,106 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                           </Tooltip>
                         </td>
                       </tr>
-                      {/* Expanded — tabbed preview */}
-                      {isExpanded && (() => {
-                        const currentView = expandedView[project.id] || "card";
-                        const isNpd = project.project_type === "npd";
-                        const childIds = children.map((c) => c.id);
-                        const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
-                        const allProjectIds = [project.id, ...childIds, ...grandIds];
-                        const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
+                      {/* Expanded — NPD-style dashboard */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-0 py-0">
+                            <div className="bg-muted/10 border-t border-border/30 px-6 py-3 space-y-3 animate-fade-in">
+                              {/* Project-level summary across ALL tasks */}
+                              {(() => {
+                                const childIds = children.map((c) => c.id);
+                                const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
+                                const allProjectIds = [project.id, ...childIds, ...grandIds];
+                                const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
+                                const now = new Date();
+                                const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+                                const active = projectTasks.filter((t) => !t.is_completed);
+                                const overdue = active.filter((t) => t.deadline && new Date(t.deadline) < now);
+                                const upcoming = active.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+                                const drifted = active
+                                  .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+                                  .map((t) => ({ task: t, days: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000) }));
 
-                        const setView = (v: "card" | "matrix") => {
-                          setExpandedView((prev) => ({ ...prev, [project.id]: v }));
-                        };
+                                const userName = (uid: string | null) => {
+                                  if (!uid) return null;
+                                  const p = userMap.get(uid);
+                                  return p?.display_name || p?.email?.split("@")[0] || null;
+                                };
 
-                        return (
-                          <tr>
-                            <td colSpan={6} className="px-0 py-0">
-                              <div className="bg-muted/10 border-t border-border/30 animate-fade-in">
-                                {/* Tabs */}
-                                <div className="flex items-center gap-0.5 px-6 pt-2.5 pb-1">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setView("card"); }}
-                                    className={cn(
-                                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                                      currentView === "card" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                if (active.length === 0 && projectTasks.length > 0) {
+                                  return <p className="text-xs text-muted-foreground text-center py-1">✅ Все задачи завершены</p>;
+                                }
+                                if (projectTasks.length === 0) {
+                                  return <p className="text-xs text-muted-foreground text-center py-1">Нет задач</p>;
+                                }
+
+                                return (
+                                  <>
+                                    {overdue.length > 0 && (
+                                      <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
+                                        {overdue.map((t) => (
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => setSelectedTaskId(t.id)} />
+                                        ))}
+                                      </PmoDashboardSection>
                                     )}
-                                  >
-                                    <CreditCard className="h-3 w-3" />
-                                    Карточка
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
-                                  >
-                                    <GanttChart className="h-3 w-3" />
-                                    Гантт
-                                  </button>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); if (isNpd) setView("matrix"); }}
-                                        className={cn(
-                                          "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                                          !isNpd
-                                            ? "text-muted-foreground/30 cursor-not-allowed"
-                                            : currentView === "matrix" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                        )}
-                                        disabled={!isNpd}
-                                      >
-                                        <Grid3X3 className="h-3 w-3" />
-                                        Матрица
-                                      </button>
-                                    </TooltipTrigger>
-                                    {!isNpd && <TooltipContent className="text-xs">Только для NPD-проектов</TooltipContent>}
-                                  </Tooltip>
-                                </div>
+                                    {upcoming.length > 0 && (
+                                      <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
+                                        {upcoming.map((t) => (
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
+                                        ))}
+                                      </PmoDashboardSection>
+                                    )}
+                                    {drifted.length > 0 && (
+                                      <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
+                                        {drifted.map(({ task: t, days }) => (
+                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
+                                        ))}
+                                      </PmoDashboardSection>
+                                    )}
+                                    {overdue.length === 0 && upcoming.length === 0 && drifted.length === 0 && (
+                                      <p className="text-[11px] text-success text-center py-1">✅ Все задачи в графике</p>
+                                    )}
+                                  </>
+                                );
+                              })()}
 
-                                {/* Content */}
-                                <div className="px-6 pb-3 space-y-3">
-                                  {currentView === "card" && (
-                                    <ProjectDetailPanel group={project} />
-                                  )}
-
-                                  {currentView === "matrix" && isNpd && (
-                                    <PmoInlineMatrix projectId={project.id} children={children} allTasks={allTasks} />
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })()}
+                              {/* Subproject breakdown */}
+                              {children.length > 0 && (() => {
+                                const cards = children
+                                  .map((child) => {
+                                    const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
+                                    const childTasks = allTasks.filter((t) => t.group_id === child.id);
+                                    const grandchildren = groups.filter((g) => g.parent_id === child.id);
+                                    const grandTasks = grandchildren.flatMap((gc) => allTasks.filter((t) => t.group_id === gc.id));
+                                    const allChildTasks = [...childTasks, ...grandTasks];
+                                    return { child, childName, allChildTasks };
+                                  })
+                                  .filter((c) => c.allChildTasks.length > 0);
+                                if (cards.length === 0) return null;
+                                return (
+                                  <div className="pt-1 border-t border-border/20">
+                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Подпроекты</p>
+                                    <div className="space-y-1.5">
+                                      {cards.map(({ child, childName, allChildTasks }) => (
+                                        <PmoSubprojectCard
+                                          key={child.id}
+                                          name={childName}
+                                          color={child.color}
+                                          icon={child.icon}
+                                          tasks={allChildTasks}
+                                          onOpenGantt={() => onOpenGantt?.(child.id)}
+                                          userMap={userMap}
+                                          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                   );
                 })}
