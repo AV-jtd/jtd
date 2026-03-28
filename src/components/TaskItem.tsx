@@ -6,8 +6,9 @@ import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
 import UserPicker from "@/components/UserPicker";
+import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, ShieldCheck } from "lucide-react";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
 } from "lucide-react";
