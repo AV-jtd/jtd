@@ -1,8 +1,10 @@
-import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, type Profile } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +40,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -537,21 +540,21 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     {overdue.length > 0 && (
                                       <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
                                         {overdue.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
                                     {upcoming.length > 0 && (
                                       <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
                                         {upcoming.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
                                     {drifted.length > 0 && (
                                       <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
                                         {drifted.map(({ task: t, days }) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} />
+                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
                                         ))}
                                       </PmoDashboardSection>
                                     )}
@@ -588,6 +591,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                           tasks={allChildTasks}
                                           onOpenGantt={() => onOpenGantt?.(child.id)}
                                           userMap={userMap}
+                                          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
                                         />
                                       ))}
                                     </div>
@@ -621,6 +625,21 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           <LegendItem color="bg-muted-foreground/40" label="Нет данных" />
         </div>
       )}
+
+      {/* Task detail sheet */}
+      <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
+          {selectedTaskId && (() => {
+            const task = allTasks.find((t) => t.id === selectedTaskId);
+            if (!task) return null;
+            return (
+              <div className="p-4">
+                <TaskItem task={task} initialOpen />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -693,13 +712,14 @@ const STATUS_LABEL_PMO: Record<string, string> = {
   "on-track": "В графике", "at-risk": "Смещение", "overdue": "Просрочено", "completed": "Завершено",
 };
 
-function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap }: {
+function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onTaskClick }: {
   name: string;
   color: string | null;
   icon: string | null;
   tasks: PmoTask[];
   onOpenGantt: () => void;
   userMap: Map<string, Profile>;
+  onTaskClick?: (taskId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -773,21 +793,21 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap }: {
           {overdueTasks.length > 0 && (
             <PmoDashboardSection title="Просроченные" count={overdueTasks.length} variant="destructive">
               {overdueTasks.map((t) => (
-                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
           {upcomingTasks.length > 0 && (
             <PmoDashboardSection title="Ближайшие дедлайны" count={upcomingTasks.length}>
               {upcomingTasks.map((t) => (
-                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
           {driftTasks.length > 0 && (
             <PmoDashboardSection title="Переносы" count={driftTasks.length} variant="warning">
               {driftTasks.map(({ task: t, driftDays }) => (
-                <PmoDashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} />
+                <PmoDashboardTaskRow key={t.id} task={t} drift={driftDays} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
               ))}
             </PmoDashboardSection>
           )}
@@ -798,7 +818,7 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap }: {
             return (
               <PmoDashboardSection title="Активные" count={otherTasks.length}>
                 {otherTasks.map((t) => (
-                  <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} />
+                  <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick?.(t.id)} />
                 ))}
               </PmoDashboardSection>
             );
@@ -824,10 +844,13 @@ function PmoDashboardSection({ title, count, children, variant }: { title: strin
   );
 }
 
-function PmoDashboardTaskRow({ task, drift, assigneeName, variant }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue" }) {
+function PmoDashboardTaskRow({ task, drift, assigneeName, variant, onClick }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue"; onClick?: () => void }) {
   const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0">
+    <div
+      className={cn("flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0", onClick && "cursor-pointer")}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+    >
       <span className={cn(
         "text-[11px] truncate flex-1 min-w-0",
         isOverdue ? "text-destructive" : "text-foreground",
