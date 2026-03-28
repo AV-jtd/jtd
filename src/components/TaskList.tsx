@@ -144,6 +144,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
     inbox: { title: "Входящие", icon: Inbox, emptyTitle: "Входящие пусты", emptyDesc: "Задачи без проекта попадают сюда" },
+    myday: { title: "Мой день", icon: Star, emptyTitle: "Мой день пуст", emptyDesc: "Важные задачи и задачи на сегодня появятся здесь" },
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
     assigned: { title: "Делегированные", icon: Users, emptyTitle: delegationTab === "by_me" ? "Вы не поручали задач" : "Вам ничего не поручено", emptyDesc: delegationTab === "by_me" ? "Назначьте задачу другому пользователю" : "Когда вам назначат задачу, она появится здесь" },
