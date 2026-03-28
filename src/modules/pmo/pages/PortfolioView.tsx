@@ -2,7 +2,7 @@ import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, 
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw } from "lucide-react";
+import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
@@ -20,9 +20,9 @@ interface PortfolioViewProps {
 }
 
 type HealthStatus = "green" | "yellow" | "red" | "gray";
-type SortKey = "name" | "manager" | "stage" | "progress" | "health";
+type SortKey = "name" | "manager" | "progress" | "health";
 type SortDir = "asc" | "desc";
-type GroupBy = "none" | "manager" | "stage";
+type GroupBy = "none" | "manager" | "folder" | "progress";
 
 export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
@@ -57,6 +57,38 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     },
     enabled: !!user,
   });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ["pmo-project-folders"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_folders").select("id, name, color");
+      if (error) throw error;
+      return data as { id: string; name: string; color: string | null }[];
+    },
+    enabled: !!user,
+  });
+
+  const { data: folderItems = [] } = useQuery({
+    queryKey: ["pmo-folder-items"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_folder_items").select("folder_id, group_id");
+      if (error) throw error;
+      return data as { folder_id: string; group_id: string }[];
+    },
+    enabled: !!user,
+  });
+
+  const projectFolderMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const fi of folderItems) m.set(fi.group_id, fi.folder_id);
+    return m;
+  }, [folderItems]);
+
+  const folderMap = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; color: string | null }>();
+    for (const f of folders) m.set(f.id, f);
+    return m;
+  }, [folders]);
 
   const userMap = useMemo(() => {
     const m = new Map<string, Profile>();
@@ -172,7 +204,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       switch (sortKey) {
         case "name": cmp = a.name.localeCompare(b.name, "ru"); break;
         case "manager": cmp = getManagerName(a.id).localeCompare(getManagerName(b.id), "ru"); break;
-        case "stage": cmp = getStage(getAggregatedStats(a.id)).order - getStage(getAggregatedStats(b.id)).order; break;
         case "health": cmp = getHealthScore(a.id) - getHealthScore(b.id); break;
         case "progress": {
           const pa = getAggregatedStats(a.id); const pb = getAggregatedStats(b.id);
@@ -183,17 +214,40 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     });
   }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getHealthScore, getManagerId, getManagerName, getStage]);
 
+  const getProgressBucket = useCallback((projectId: string): string => {
+    const s = getAggregatedStats(projectId);
+    if (s.total === 0) return "Нет задач";
+    const pct = s.completed / s.total;
+    if (pct >= 0.75) return "75–100%";
+    if (pct >= 0.5) return "50–75%";
+    if (pct >= 0.25) return "25–50%";
+    return "0–25%";
+  }, [getAggregatedStats]);
+
+  const progressBucketOrder: Record<string, number> = { "Нет задач": 0, "0–25%": 1, "25–50%": 2, "50–75%": 3, "75–100%": 4 };
+
   // Grouping
   const groupedProjects = useMemo(() => {
     if (groupBy === "none") return [{ key: "", label: "", projects: filteredProjects }];
     const map = new Map<string, TaskGroup[]>();
     for (const p of filteredProjects) {
-      const key = groupBy === "manager" ? getManagerName(p.id) : getStage(getAggregatedStats(p.id)).label;
+      let key: string;
+      if (groupBy === "manager") {
+        key = getManagerName(p.id);
+      } else if (groupBy === "folder") {
+        const folderId = projectFolderMap.get(p.id);
+        key = folderId ? (folderMap.get(folderId)?.name || "Без папки") : "Без папки";
+      } else {
+        key = getProgressBucket(p.id);
+      }
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
-    return Array.from(map.entries()).map(([key, projects]) => ({ key, label: key, projects })).sort((a, b) => a.label.localeCompare(b.label, "ru"));
-  }, [filteredProjects, groupBy, getManagerName, getStage, getAggregatedStats]);
+    return Array.from(map.entries()).map(([key, projects]) => ({ key, label: key, projects })).sort((a, b) => {
+      if (groupBy === "progress") return (progressBucketOrder[a.key] ?? 0) - (progressBucketOrder[b.key] ?? 0);
+      return a.label.localeCompare(b.label, "ru");
+    });
+  }, [filteredProjects, groupBy, getManagerName, getProgressBucket, projectFolderMap, folderMap]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
@@ -215,7 +269,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const groupByOptions: { key: GroupBy; label: string; icon: React.ElementType }[] = [
     { key: "none", label: "Без группировки", icon: Layers },
     { key: "manager", label: "По ответственному", icon: User },
-    { key: "stage", label: "По этапу", icon: FolderOpen },
+    { key: "folder", label: "По папке", icon: FolderOpen },
+    { key: "progress", label: "По прогрессу", icon: BarChart3 },
   ];
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
