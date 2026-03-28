@@ -35,7 +35,9 @@ const GENERAL_PROMPTS = [
   { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению продуктивности и управления проектами." },
 ];
 
-export default function AiChatThread({ groupId, groupName }: AiChatThreadProps) {
+export default function AiChatThread({ groupId, groupName, mode = "project_chat" }: AiChatThreadProps) {
+  const isGeneral = mode === "assistant";
+  const QUICK_PROMPTS = isGeneral ? GENERAL_PROMPTS : PROJECT_PROMPTS;
   const { user } = useAuth();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
