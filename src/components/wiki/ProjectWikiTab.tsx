@@ -13,10 +13,11 @@ import { supabase } from "@/integrations/supabase/client";
 interface ProjectWikiTabProps {
   groupId: string;
   groupName: string;
+  groupDescription?: string;
   compact?: boolean;
 }
 
-export default function ProjectWikiTab({ groupId, groupName, compact }: ProjectWikiTabProps) {
+export default function ProjectWikiTab({ groupId, groupName, groupDescription, compact }: ProjectWikiTabProps) {
   const [exporting, setExporting] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState("wiki");
