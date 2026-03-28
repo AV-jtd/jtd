@@ -711,13 +711,14 @@ const STATUS_LABEL_PMO: Record<string, string> = {
   "on-track": "В графике", "at-risk": "Смещение", "overdue": "Просрочено", "completed": "Завершено",
 };
 
-function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap }: {
+function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onTaskClick }: {
   name: string;
   color: string | null;
   icon: string | null;
   tasks: PmoTask[];
   onOpenGantt: () => void;
   userMap: Map<string, Profile>;
+  onTaskClick?: (taskId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
