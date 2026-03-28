@@ -20,6 +20,12 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType, QuickCreateResult } from "@/components/QuickCreateForm";
 import {
+  DndContext, useDroppable, useDraggable,
+  MouseSensor, TouchSensor, useSensor, useSensors,
+  pointerWithin,
+  type DragEndEvent, type DragOverEvent,
+} from "@dnd-kit/core";
+import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
@@ -518,6 +524,65 @@ export default function NpdSwimlaneMatrix() {
     toast.success("Стрим перемещён в " + NPD_GATES.find(g => g.key === gateKey)?.title);
   };
 
+  // ── Drag-and-drop tasks between gates ──
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
+  const [dndOverGate, setDndOverGate] = useState<string | null>(null);
+  const [dndActiveId, setDndActiveId] = useState<string | null>(null);
+
+  const handleDndOver = useCallback((event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId && NPD_GATES.some(g => g.key === overId)) {
+      setDndOverGate(overId);
+    } else {
+      setDndOverGate(null);
+    }
+  }, []);
+
+  const moveTaskToGate = useCallback(async (taskId: string, newGateKey: string) => {
+    const newGateTagId = gateKeyToTagId.get(newGateKey);
+    if (!newGateTagId) return;
+
+    // Remove all existing gate tags from this task
+    const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
+    const gateTagIdsToRemove = taskTagEntries
+      .filter(tt => gateTagIdSet.has(tt.tag_id))
+      .map(tt => tt.tag_id);
+
+    for (const tagId of gateTagIdsToRemove) {
+      await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tagId);
+    }
+
+    // Add new gate tag
+    await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newGateTagId }, { onConflict: "task_id,tag_id" });
+
+    queryClient.invalidateQueries({ queryKey: ["npd-matrix-tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
+    const gateName = NPD_GATES.find(g => g.key === newGateKey)?.short ?? newGateKey;
+    toast.success(`Задача перемещена в ${gateName}`);
+  }, [gateKeyToTagId, allTaskTags, gateTagIdSet, queryClient]);
+
+  const handleDndEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    const lastOver = dndOverGate;
+    setDndActiveId(null);
+    setDndOverGate(null);
+
+    const dropGate = (over?.id && NPD_GATES.some(g => g.key === over.id))
+      ? (over.id as string)
+      : lastOver;
+    if (!dropGate) return;
+
+    const taskId = active.id as string;
+    // Don't move if same gate
+    const currentGate = getTaskGate(taskId);
+    if (currentGate === dropGate) return;
+
+    moveTaskToGate(taskId, dropGate);
+  }, [dndOverGate, getTaskGate, moveTaskToGate]);
+
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
     params: QuickCreateResult,
@@ -733,6 +798,13 @@ export default function NpdSwimlaneMatrix() {
 
       {/* Matrix */}
       <div className="flex-1 overflow-auto">
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={pointerWithin}
+          onDragStart={(e) => setDndActiveId(e.active.id as string)}
+          onDragOver={handleDndOver}
+          onDragEnd={handleDndEnd}
+        >
         <div className="min-w-max">
           {/* Column headers */}
           <div className="flex sticky top-0 z-10 bg-card border-b border-border">
@@ -820,11 +892,15 @@ export default function NpdSwimlaneMatrix() {
                     const hasTasks = cellTasks.length > 0;
 
                     return (
-                      <div
+                      <DroppableGateCell
                         key={gate.key}
+                        gateKey={gate.key}
+                        isHighlighted={dndOverGate === gate.key}
                         className={cn(
                           "min-w-[220px] w-[220px] shrink-0 border-r border-border transition-colors",
-                          (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
+                          dndOverGate === gate.key
+                            ? "bg-primary/10 ring-1 ring-primary/30"
+                            : (isCurrentGate || hasTasks) ? cn(gate.bgLight, "border-l-2", gate.color.replace("bg-", "border-l-")) : "bg-background/50",
                         )}
                       >
                         {!isCollapsed && (
@@ -832,43 +908,44 @@ export default function NpdSwimlaneMatrix() {
                             {sub ? (
                               <div className="space-y-1">
                                 {cellTasks.map(task => (
-                                  <MatrixTaskRow
-                                    key={task.id}
-                                    task={task}
-                                    users={users}
-                                    allDependencies={allDependencies}
-                                    allTasks={allTasks}
-                                    projectGroupIds={projectGroupIds}
-                                    onDeadlineChange={handleDeadlineChange}
-                                    onAssigneeChange={(taskId, userId) => {
-                                      updateTask.mutate({ id: taskId, assigned_to: userId });
-                                      if (userId) {
-                                        supabase.from("task_participants").upsert({
-                                          task_id: taskId, user_id: userId, role: "assignee",
-                                        }, { onConflict: "task_id,user_id" });
-                                      }
-                                    }}
-                                    onToggle={(taskId) => {
-                                      const t = allTasks.find(x => x.id === taskId);
-                                      if (!t) return;
-                                      updateTask.mutate({
-                                        id: taskId,
-                                        is_completed: !t.is_completed,
-                                        completed_at: !t.is_completed ? new Date().toISOString() : null,
-                                      });
-                                    }}
-                                    onAddDependency={(predId, succId) => {
-                                      const pred = allTasks.find(t => t.id === predId);
-                                      const succ = allTasks.find(t => t.id === succId);
-                                      setDepDialogState({
-                                        predecessorId: predId, successorId: succId,
-                                        predecessorLabel: pred?.title || predId,
-                                        successorLabel: succ?.title || succId,
-                                        predecessorEntityType: "task", successorEntityType: "task",
-                                      });
-                                    }}
-                                    onExpand={(id) => setDetailTaskId(id)}
-                                  />
+                                  <DraggableTaskRow key={task.id} taskId={task.id}>
+                                    <MatrixTaskRow
+                                      task={task}
+                                      users={users}
+                                      allDependencies={allDependencies}
+                                      allTasks={allTasks}
+                                      projectGroupIds={projectGroupIds}
+                                      onDeadlineChange={handleDeadlineChange}
+                                      onAssigneeChange={(taskId, userId) => {
+                                        updateTask.mutate({ id: taskId, assigned_to: userId });
+                                        if (userId) {
+                                          supabase.from("task_participants").upsert({
+                                            task_id: taskId, user_id: userId, role: "assignee",
+                                          }, { onConflict: "task_id,user_id" });
+                                        }
+                                      }}
+                                      onToggle={(taskId) => {
+                                        const t = allTasks.find(x => x.id === taskId);
+                                        if (!t) return;
+                                        updateTask.mutate({
+                                          id: taskId,
+                                          is_completed: !t.is_completed,
+                                          completed_at: !t.is_completed ? new Date().toISOString() : null,
+                                        });
+                                      }}
+                                      onAddDependency={(predId, succId) => {
+                                        const pred = allTasks.find(t => t.id === predId);
+                                        const succ = allTasks.find(t => t.id === succId);
+                                        setDepDialogState({
+                                          predecessorId: predId, successorId: succId,
+                                          predecessorLabel: pred?.title || predId,
+                                          successorLabel: succ?.title || succId,
+                                          predecessorEntityType: "task", successorEntityType: "task",
+                                        });
+                                      }}
+                                      onExpand={(id) => setDetailTaskId(id)}
+                                    />
+                                  </DraggableTaskRow>
                                 ))}
                                 <QuickCreateForm
                                   users={users}
@@ -924,7 +1001,7 @@ export default function NpdSwimlaneMatrix() {
                             </div>
                           );
                         })()}
-                      </div>
+                      </DroppableGateCell>
                     );
                   })}
                 </div>
@@ -1000,6 +1077,7 @@ export default function NpdSwimlaneMatrix() {
             })}
           </div>
         </div>
+        </DndContext>
       </div>
 
       {/* Dependency dialog */}
@@ -1247,6 +1325,40 @@ function MatrixTaskRow({
             </div>
           </PopoverContent>
         </Popover>
+      </div>
+    </div>
+  );
+}
+
+// ── Droppable gate cell wrapper ──
+function DroppableGateCell({ gateKey, isHighlighted, className, children }: {
+  gateKey: string;
+  isHighlighted?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: gateKey });
+  return (
+    <div ref={setNodeRef} className={className}>
+      {children}
+    </div>
+  );
+}
+
+// ── Draggable task row wrapper ──
+function DraggableTaskRow({ taskId, children }: { taskId: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: taskId });
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className="flex items-start gap-0.5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="shrink-0 mt-1.5 cursor-grab text-muted-foreground/0 hover:text-muted-foreground/60 active:cursor-grabbing transition-colors"
+        >
+          <GripVertical className="h-3 w-3" />
+        </button>
+        <div className="flex-1 min-w-0">{children}</div>
       </div>
     </div>
   );
