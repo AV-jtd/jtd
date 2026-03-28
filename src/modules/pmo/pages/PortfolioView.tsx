@@ -214,17 +214,40 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     });
   }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getHealthScore, getManagerId, getManagerName, getStage]);
 
+  const getProgressBucket = useCallback((projectId: string): string => {
+    const s = getAggregatedStats(projectId);
+    if (s.total === 0) return "Нет задач";
+    const pct = s.completed / s.total;
+    if (pct >= 0.75) return "75–100%";
+    if (pct >= 0.5) return "50–75%";
+    if (pct >= 0.25) return "25–50%";
+    return "0–25%";
+  }, [getAggregatedStats]);
+
+  const progressBucketOrder: Record<string, number> = { "Нет задач": 0, "0–25%": 1, "25–50%": 2, "50–75%": 3, "75–100%": 4 };
+
   // Grouping
   const groupedProjects = useMemo(() => {
     if (groupBy === "none") return [{ key: "", label: "", projects: filteredProjects }];
     const map = new Map<string, TaskGroup[]>();
     for (const p of filteredProjects) {
-      const key = groupBy === "manager" ? getManagerName(p.id) : getStage(getAggregatedStats(p.id)).label;
+      let key: string;
+      if (groupBy === "manager") {
+        key = getManagerName(p.id);
+      } else if (groupBy === "folder") {
+        const folderId = projectFolderMap.get(p.id);
+        key = folderId ? (folderMap.get(folderId)?.name || "Без папки") : "Без папки";
+      } else {
+        key = getProgressBucket(p.id);
+      }
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
-    return Array.from(map.entries()).map(([key, projects]) => ({ key, label: key, projects })).sort((a, b) => a.label.localeCompare(b.label, "ru"));
-  }, [filteredProjects, groupBy, getManagerName, getStage, getAggregatedStats]);
+    return Array.from(map.entries()).map(([key, projects]) => ({ key, label: key, projects })).sort((a, b) => {
+      if (groupBy === "progress") return (progressBucketOrder[a.key] ?? 0) - (progressBucketOrder[b.key] ?? 0);
+      return a.label.localeCompare(b.label, "ru");
+    });
+  }, [filteredProjects, groupBy, getManagerName, getProgressBucket, projectFolderMap, folderMap]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
