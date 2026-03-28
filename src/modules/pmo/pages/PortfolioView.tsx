@@ -256,7 +256,16 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        setExpandedTab((t) => ({ ...t, [id]: "card" }));
+      }
+      return next;
+    });
   };
 
   const totalAgg = filteredProjects.reduce(
