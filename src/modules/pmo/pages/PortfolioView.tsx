@@ -666,12 +666,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                 )}
                                 {currentView === "gantt" && (
                                   <div className="px-6 pb-3">
-                                    <PmoInlineGantt tasks={projectTasks} onTaskClick={setSelectedTaskId} />
+                                    <PmoInlineGantt tasks={projectTasks} userMap={userMap} onTaskClick={setSelectedTaskId} />
                                   </div>
                                 )}
                                 {currentView === "matrix" && isNpd && (
                                   <div className="px-6 pb-3">
-                                    <PmoInlineMatrix groupId={project.id} tasks={projectTasks} subGroups={children} />
+                                    <PmoInlineMatrix projectId={project.id} children={children} allTasks={projectTasks} />
                                   </div>
                                 )}
                               </div>
