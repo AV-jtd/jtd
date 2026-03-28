@@ -532,7 +532,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-2.5">
                             {children.length > 0 ? (
-                              <span className="text-muted-foreground">{isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleExpand(project.id); }}
+                                className="text-muted-foreground hover:text-primary transition-colors p-0.5 -m-0.5 rounded"
+                              >
+                                {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                              </button>
                             ) : (
                               <StatusDot status={health.deadlines} size="md" />
                             )}
