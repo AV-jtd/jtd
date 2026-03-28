@@ -71,6 +71,37 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     });
   };
 
+  // AI chat view for this project
+  if (showAi) {
+    return (
+      <div className={cn("flex flex-col h-full", !embedded && "bg-card border-l border-border")}>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+          <button
+            onClick={() => setShowAi(false)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              ИИ · {groupName}
+            </p>
+            <p className="text-[10px] text-muted-foreground">Анализ задач, рисков и прогресса</p>
+          </div>
+          {!embedded && (
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AiChatThread groupId={groupId} groupName={groupName} mode="project_chat" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex flex-col h-full", !embedded && "bg-card border-l border-border")}>
       {/* Header */}
@@ -84,8 +115,30 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
             <MessageCircle className="h-4 w-4 text-primary shrink-0" />
             <span className="text-sm font-semibold text-foreground truncate">{groupName}</span>
           </button>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowAi(true)}
+              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+              title="ИИ-ассистент проекта"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI button when embedded (no own header) */}
+      {embedded && (
+        <div className="flex justify-end px-4 py-1.5 border-b border-border shrink-0">
+          <button
+            onClick={() => setShowAi(true)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>ИИ</span>
           </button>
         </div>
       )}
