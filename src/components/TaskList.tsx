@@ -686,9 +686,81 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <p className="text-base font-medium text-muted-foreground">{view.emptyTitle}</p>
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
           </div>
+        ) : groupBy !== "none" && groupedSections.length > 0 ? (
+          <div className="space-y-3">
+            {groupedSections.map(section => {
+              const isCollapsed = collapsedGroups.has(section.key);
+              return (
+                <div key={section.key} className="animate-fade-in">
+                  <button
+                    onClick={() => toggleCollapse(section.key)}
+                    className="flex items-center gap-2 w-full px-1 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isCollapsed && "-rotate-90")} />
+                    {section.color && (
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: section.color }} />
+                    )}
+                    <span className="text-xs font-semibold text-foreground truncate">{section.label}</span>
+                    <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded-full bg-muted">
+                      {section.tasks.length}
+                    </span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-1.5 mt-1">
+                      {section.tasks.map(task => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          initialOpen={task.id === highlightTaskId}
+                          onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                          onTagClick={onTagClick}
+                          onProjectClick={onProjectClick}
+                          selectable={batchMode}
+                          selected={selectedIds.has(task.id)}
+                          onToggleSelect={() => toggleSelect(task.id)}
+                          onLongPress={() => toggleSelect(task.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {completedTasks.length > 0 && (
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleCollapse("__completed__")}
+                  className="flex items-center gap-2 w-full px-1 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", collapsedGroups.has("__completed__") && "-rotate-90")} />
+                  <span className="text-xs font-semibold text-muted-foreground">Выполнено</span>
+                  <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded-full bg-muted">
+                    {completedTasks.length}
+                  </span>
+                </button>
+                {!collapsedGroups.has("__completed__") && (
+                  <div className="space-y-1.5 mt-1">
+                    {completedTasks.map(task => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        initialOpen={task.id === highlightTaskId}
+                        onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                        onTagClick={onTagClick}
+                        onProjectClick={onProjectClick}
+                        selectable={batchMode}
+                        selected={selectedIds.has(task.id)}
+                        onToggleSelect={() => toggleSelect(task.id)}
+                        onLongPress={() => toggleSelect(task.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-1.5">
-            {/* Active tasks */}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
@@ -709,8 +781,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                 ))}
               </SortableContext>
             </DndContext>
-
-            {/* Completed tasks */}
             {completedTasks.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
@@ -735,7 +805,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               </div>
             )}
           </div>
-        )}
+        )
       </div>
     </main>
   );
