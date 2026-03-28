@@ -269,7 +269,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const groupByOptions: { key: GroupBy; label: string; icon: React.ElementType }[] = [
     { key: "none", label: "Без группировки", icon: Layers },
     { key: "manager", label: "По ответственному", icon: User },
-    { key: "stage", label: "По этапу", icon: FolderOpen },
+    { key: "folder", label: "По папке", icon: FolderOpen },
+    { key: "progress", label: "По прогрессу", icon: BarChart3 },
   ];
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
