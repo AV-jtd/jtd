@@ -54,7 +54,6 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
     loading: historyLoading,
   } = useAiConversation({ contextType, contextId });
 
-  const selectedGroup = allGroups.find(g => g.id === selectedGroupId);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [draft, setDraft] = useState("");
