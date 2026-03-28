@@ -368,14 +368,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   Этап <SortIcon col="stage" />
                 </button>
               </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">С</TooltipTrigger><TooltipContent>Здоровье сроков</TooltipContent></Tooltip>
-              </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">З</TooltipTrigger><TooltipContent>Прогресс задач</TooltipContent></Tooltip>
-              </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">В</TooltipTrigger><TooltipContent>Статус вех</TooltipContent></Tooltip>
+              <th className="px-2 py-2 text-center text-muted-foreground font-medium">
+                <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
               </th>
               <th className="px-2 py-2 min-w-[140px]">
                 <button onClick={() => toggleSort("progress")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
@@ -390,7 +384,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               <Fragment key={group.key || "all"}>
                 {group.label && (
                   <tr>
-                    <td colSpan={9} className="px-2 pt-3 pb-1">
+                    <td colSpan={7} className="px-2 pt-3 pb-1">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.label} <span className="text-foreground/60">({group.projects.length})</span></span>
                     </td>
                   </tr>
@@ -410,7 +404,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       <tr
                         className={cn(
                           "border-b border-border/50 cursor-pointer group/row transition-colors hover:bg-muted/50",
-                          isEven && "bg-muted/20"
+                          isEven && "bg-muted/30"
                         )}
                         onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
                       >
@@ -426,7 +420,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                               {project.name}
                             </span>
                             {children.length > 0 && (
-                              <span className="text-[10px] text-muted-foreground shrink-0">{children.length}</span>
+                              <span className="text-[9px] px-1.5 py-0 rounded-full bg-muted text-muted-foreground shrink-0">{children.length}</span>
                             )}
                           </div>
                         </td>
@@ -434,9 +428,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         <td className="px-2 py-1.5 hidden xl:table-cell">
                           <span className={cn("font-medium", stage.color)}>{stage.label}</span>
                         </td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.deadlines} size="md" /></td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.tasks} size="md" /></td>
-                        <td className="px-1.5 py-1.5 text-center"><StatusDot status={health.milestones} size="md" /></td>
+                        <td className="px-2 py-1.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <StatusDot status={health.deadlines} size="md" />
+                            <StatusDot status={health.tasks} size="md" />
+                            <StatusDot status={health.milestones} size="md" />
+                          </div>
+                        </td>
                         <td className="px-2 py-1.5"><ProgressBar progress={progress} stats={stats} /></td>
                         <td className="px-1 py-1.5 text-center">
                           <Tooltip>
@@ -458,20 +456,24 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const cStage = getStage(cs);
                         const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
                         return (
-                          <tr key={child.id} className="border-b border-border/30 bg-muted/10 cursor-pointer hover:bg-muted/30 transition-colors"
+                          <tr key={child.id} className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors"
                             onClick={() => onOpenGantt?.(child.id)}>
                             <td className="px-2 py-1"></td>
-                            <td className="px-2 py-1 pl-8">
-                              <div className="flex items-center gap-2">
+                            <td className="px-2 py-1 pl-6">
+                              <div className="flex items-center gap-2 border-l-2 border-primary/20 pl-2">
                                 <StatusDot status={cHealth.deadlines} />
                                 <span className="text-muted-foreground truncate max-w-[240px]" title={child.name}>{childName}</span>
                               </div>
                             </td>
                             <td className="px-2 py-1 hidden lg:table-cell text-muted-foreground">{getManagerName(child.id)}</td>
                             <td className="px-2 py-1 hidden xl:table-cell"><span className={cn("font-medium", cStage.color)}>{cStage.label}</span></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.deadlines} /></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.tasks} /></td>
-                            <td className="px-1.5 py-1 text-center"><StatusDot status={cHealth.milestones} /></td>
+                            <td className="px-2 py-1 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <StatusDot status={cHealth.deadlines} />
+                                <StatusDot status={cHealth.tasks} />
+                                <StatusDot status={cHealth.milestones} />
+                              </div>
+                            </td>
                             <td className="px-2 py-1"><ProgressBar progress={cp} stats={cs} compact /></td>
                             <td className="px-1 py-1"></td>
                           </tr>
@@ -523,7 +525,7 @@ function ProgressBar({ progress, stats, compact }: { progress: number; stats: { 
   const barColor = stats.overdue > 0 ? "bg-destructive" : progress === 100 ? "bg-success" : "bg-primary";
   return (
     <div className="flex items-center gap-2">
-      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1" : "h-1.5")}>
+      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
       <span className={cn("font-medium text-muted-foreground text-right", compact ? "text-[10px] w-8" : "text-[11px] w-10")}>
