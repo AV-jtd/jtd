@@ -1000,7 +1000,7 @@ export default function NpdSwimlaneMatrix() {
                             </div>
                           );
                         })()}
-                      </div>
+                      </DroppableGateCell>
                     );
                   })}
                 </div>
