@@ -150,6 +150,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         case "name": cmp = a.name.localeCompare(b.name, "ru"); break;
         case "manager": cmp = getManagerName(a.id).localeCompare(getManagerName(b.id), "ru"); break;
         case "stage": cmp = getStage(getAggregatedStats(a.id)).order - getStage(getAggregatedStats(b.id)).order; break;
+        case "health": cmp = getHealthScore(a.id) - getHealthScore(b.id); break;
         case "progress": {
           const pa = getAggregatedStats(a.id); const pb = getAggregatedStats(b.id);
           cmp = (pa.total > 0 ? pa.completed / pa.total : 0) - (pb.total > 0 ? pb.completed / pb.total : 0); break;
