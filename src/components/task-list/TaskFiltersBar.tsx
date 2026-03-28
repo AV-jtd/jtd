@@ -162,7 +162,7 @@ function TaskFiltersBar({
         </PopoverContent>
       </Popover>
 
-      {activeView !== "group" && (
+      {activeView !== "group" && groupBy !== "project" && (
         <Popover>
           <PopoverTrigger asChild>
             <button
