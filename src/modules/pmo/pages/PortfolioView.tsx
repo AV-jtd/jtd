@@ -526,7 +526,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             ? "bg-destructive/5 hover:bg-destructive/10 border-l-2 border-l-destructive"
                             : isEven ? "bg-muted/20 hover:bg-muted/40" : "hover:bg-muted/30"
                         )}
-                        onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
+                        onClick={() => onOpenGantt?.(project.id)}
                       >
                         <td className="px-3 py-2.5 text-center text-muted-foreground text-xs">{globalIdx}</td>
                         <td className="px-3 py-2.5">
