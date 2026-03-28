@@ -919,8 +919,10 @@ export type Database = {
       }
       tasks: {
         Row: {
+          approval_status: string | null
           assigned_to: string | null
           client_id: string | null
+          closure_result: string | null
           completed_at: string | null
           created_at: string
           deadline: string | null
@@ -937,6 +939,7 @@ export type Database = {
           priority: number | null
           recurrence: string | null
           recurrence_end_date: string | null
+          requires_approval: boolean
           start_at: string | null
           task_type: string
           title: string
@@ -944,8 +947,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approval_status?: string | null
           assigned_to?: string | null
           client_id?: string | null
+          closure_result?: string | null
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
@@ -962,6 +967,7 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          requires_approval?: boolean
           start_at?: string | null
           task_type?: string
           title: string
@@ -969,8 +975,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approval_status?: string | null
           assigned_to?: string | null
           client_id?: string | null
+          closure_result?: string | null
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
@@ -987,6 +995,7 @@ export type Database = {
           priority?: number | null
           recurrence?: string | null
           recurrence_end_date?: string | null
+          requires_approval?: boolean
           start_at?: string | null
           task_type?: string
           title?: string
