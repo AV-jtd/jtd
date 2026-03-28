@@ -347,7 +347,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         <button onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }} className="text-muted-foreground hover:text-primary"><GanttChart className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 ml-5">
-                        <span>{getManagerName(project.id)}</span><span>·</span><span className={stage.color}>{stage.label}</span>
+                        <span>{getManagerName(project.id)}{stats.total > 0 && stats.completed === stats.total && " 🏅"}</span><span>·</span><span className={stage.color}>{stage.label}</span>
                         <div className="flex-1" /><span>{progress}%</span>
                       </div>
                       <div className="mt-1 ml-5"><ProgressBar progress={progress} stats={stats} compact /></div>
