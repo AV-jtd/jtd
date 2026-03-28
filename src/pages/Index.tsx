@@ -9,6 +9,7 @@ import SubordinatesView from "@/components/SubordinatesView";
 import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
+import WikiHubView from "@/components/WikiHubView";
 import ProjectChat from "@/components/ProjectChat";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
