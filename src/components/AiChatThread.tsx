@@ -126,7 +126,7 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
       ).map(u => ({ name: u.display_name || "Без имени" })),
       recentMessages: recentMsgs,
     };
-  }, [selectedGroupId, allGroups, allTasks, allUsers, groupMessages]);
+  }, [isGeneral, selectedGroupId, allGroups, allTasks, allUsers, groupMessages]);
 
   const handleSend = useCallback(async (text?: string) => {
     const input = (text || draft).trim();
