@@ -1151,6 +1151,38 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </div>
           </div>
 
+          {/* Approval toggle */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-3 w-3" /> Утверждение
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => updateTask.mutate({ id: task.id, requires_approval: !task.requires_approval })}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
+                  task.requires_approval
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {task.requires_approval ? "✓ Требует утверждения" : "Не требует"}
+              </button>
+            </div>
+            {/* Approval actions for task creator */}
+            {isPendingApproval && isCreator && (
+              <TaskApprovalActions
+                taskTitle={task.title}
+                closureResult={task.closure_result}
+                onApprove={() => { approveTask.mutate({ id: task.id }); toast.success("Задача утверждена, результат сохранён в Wiki"); }}
+                onReject={() => { rejectTask.mutate({ id: task.id }); toast.info("Задача отклонена, возвращена исполнителю"); }}
+              />
+            )}
+            {isPendingApproval && !isCreator && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">⏳ Ожидает утверждения от постановщика</p>
+            )}
+          </div>
+
           {/* Subtasks */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
