@@ -264,6 +264,7 @@ export default function Settings() {
                   <p className="text-xs font-medium text-muted-foreground mb-3">События для Web Push</p>
                   {([
                     { key: "push_task_assigned", label: "Назначен ответственным" },
+                    { key: "push_task_delegated", label: "Делегирование задачи" },
                     { key: "push_task_participant_added", label: "Добавлен участником в задачу" },
                     { key: "push_task_completed", label: "Завершение задачи (где участник)" },
                     { key: "push_task_commented", label: "Новый комментарий к задаче" },
