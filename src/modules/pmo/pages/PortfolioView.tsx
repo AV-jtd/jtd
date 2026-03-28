@@ -17,7 +17,7 @@ interface PortfolioViewProps {
 }
 
 type HealthStatus = "green" | "yellow" | "red" | "gray";
-type SortKey = "name" | "manager" | "stage" | "progress";
+type SortKey = "name" | "manager" | "stage" | "progress" | "health";
 type SortDir = "asc" | "desc";
 type GroupBy = "none" | "manager" | "stage";
 
@@ -115,6 +115,17 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return { deadlines, tasks, milestones: ms };
   }, [getAggregatedStats, milestones]);
 
+  const getHealthScore = useCallback((projectId: string): number => {
+    const h = getHealthDot(projectId);
+    const scoreMap: Record<HealthStatus, number> = { red: 3, yellow: 2, green: 1, gray: 0 };
+    return scoreMap[h.deadlines] * 10 + scoreMap[h.tasks] * 5 + scoreMap[h.milestones] * 3;
+  }, [getHealthDot]);
+
+  const hasAnyCritical = useCallback((projectId: string): boolean => {
+    const h = getHealthDot(projectId);
+    return h.deadlines === "red" || h.milestones === "red";
+  }, [getHealthDot]);
+
   const managerOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const p of rootProjects) {
@@ -139,6 +150,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         case "name": cmp = a.name.localeCompare(b.name, "ru"); break;
         case "manager": cmp = getManagerName(a.id).localeCompare(getManagerName(b.id), "ru"); break;
         case "stage": cmp = getStage(getAggregatedStats(a.id)).order - getStage(getAggregatedStats(b.id)).order; break;
+        case "health": cmp = getHealthScore(a.id) - getHealthScore(b.id); break;
         case "progress": {
           const pa = getAggregatedStats(a.id); const pb = getAggregatedStats(b.id);
           cmp = (pa.total > 0 ? pa.completed / pa.total : 0) - (pb.total > 0 ? pb.completed / pb.total : 0); break;
@@ -146,7 +158,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getManagerId, getManagerName, getStage]);
+  }, [rootProjects, search, overdueFilter, managerFilter, stageFilter, sortKey, sortDir, getAggregatedStats, getHealthScore, getManagerId, getManagerName, getStage]);
 
   // Grouping
   const groupedProjects = useMemo(() => {
@@ -368,8 +380,11 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   Этап <SortIcon col="stage" />
                 </button>
               </th>
-              <th className="px-2 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
+              <th className="px-2 py-2 text-center">
+                <button onClick={() => toggleSort("health")} className="flex items-center justify-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors mx-auto">
+                  <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
+                  <SortIcon col="health" />
+                </button>
               </th>
               <th className="px-2 py-2 min-w-[140px]">
                 <button onClick={() => toggleSort("progress")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
@@ -398,13 +413,14 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   const children = groups.filter((g) => g.parent_id === project.id);
                   const isExpanded = expandedIds.has(project.id);
                   const isEven = globalIdx % 2 === 0;
+                  const isCritical = hasAnyCritical(project.id);
 
                   return (
                     <Fragment key={project.id}>
                       <tr
                         className={cn(
                           "border-b border-border/50 cursor-pointer group/row transition-colors hover:bg-muted/50",
-                          isEven && "bg-muted/30"
+                          isCritical ? "bg-destructive/5 hover:bg-destructive/10" : isEven && "bg-muted/30"
                         )}
                         onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
                       >
@@ -528,8 +544,8 @@ function ProgressBar({ progress, stats, compact }: { progress: number; stats: { 
       <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
-      <span className={cn("font-medium text-muted-foreground text-right", compact ? "text-[10px] w-8" : "text-[11px] w-10")}>
-        {compact ? `${progress}%` : `${stats.completed}/${stats.total}`}
+      <span className={cn("font-medium text-right shrink-0", compact ? "text-[10px] w-8 text-muted-foreground" : "text-[11px] w-16 text-muted-foreground")}>
+        {compact ? `${progress}%` : `${progress}% · ${stats.completed}/${stats.total}`}
       </span>
     </div>
   );
