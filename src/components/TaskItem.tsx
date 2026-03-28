@@ -1512,8 +1512,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       onOpenChange={setClosureDialogOpen}
       taskTitle={task.title}
       taskId={task.id}
-      onSubmit={(result, _files, summary) => {
-        submitForApproval.mutate({ id: task.id, closure_result: summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result });
+      onSubmit={(result, attachmentUrls, summary) => {
+        const fullResult = summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result;
+        submitForApproval.mutate({ id: task.id, closure_result: fullResult, attachmentUrls });
         toast.success("Отправлено на утверждение");
       }}
     />

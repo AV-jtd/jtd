@@ -60,34 +60,32 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
 
     try {
       // Upload files to storage
-      const uploadedUrls: string[] = [];
+      const newUrls: string[] = [];
       for (const file of newFiles) {
         const filePath = `${user.id}/${taskId}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from("task-attachments").upload(filePath, file);
         if (upErr) throw new Error(`Ошибка загрузки ${file.name}: ${upErr.message}`);
         const { data: urlData } = supabase.storage.from("task-attachments").getPublicUrl(filePath);
-        uploadedUrls.push(urlData.publicUrl);
+        newUrls.push(urlData.publicUrl);
       }
 
       // Server-side validation + AI summary
       const { data, error } = await supabase.functions.invoke("process-attachment", {
-        body: { fileUrls: uploadedUrls, taskTitle },
+        body: { fileUrls: newUrls, taskTitle },
       });
 
       if (error) {
-        // Try to parse the error for validation details
         setValidationError("Ошибка валидации файлов на сервере");
-        // Remove invalid files from storage
         return;
       }
 
       if (data && !data.valid) {
         setValidationError(data.errors?.join("; ") || "Файлы не прошли проверку");
-        setFiles([]);
         return;
       }
 
-      setFiles(newFiles);
+      setFiles(prev => [...prev, ...newFiles]);
+      setUploadedUrls(prev => [...prev, ...newUrls]);
       if (data?.summary) {
         setSummary(data.summary);
       }
