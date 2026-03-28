@@ -12,6 +12,7 @@ export interface NotificationPrefs {
   push_added_to_group: boolean;
   push_task_participant_added: boolean;
   push_new_task_in_group: boolean;
+  push_task_delegated: boolean;
   telegram_task_assigned: boolean;
   telegram_task_completed: boolean;
   telegram_task_commented: boolean;
@@ -19,6 +20,7 @@ export interface NotificationPrefs {
   telegram_added_to_group: boolean;
   telegram_task_participant_added: boolean;
   telegram_new_task_in_group: boolean;
+  telegram_task_delegated: boolean;
 }
 
 const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
@@ -29,6 +31,7 @@ const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
   push_added_to_group: true,
   push_task_participant_added: true,
   push_new_task_in_group: false,
+  push_task_delegated: true,
   telegram_task_assigned: false,
   telegram_task_completed: false,
   telegram_task_commented: false,
@@ -36,6 +39,7 @@ const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
   telegram_added_to_group: false,
   telegram_task_participant_added: false,
   telegram_new_task_in_group: false,
+  telegram_task_delegated: false,
 };
 
 export function useNotificationPreferences() {

@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
       added_to_group: `${senderName} добавил вас в проект`,
       task_participant_added: `${senderName} добавил вас в задачу`,
       new_task_in_group: `${senderName} создал задачу в проекте`,
+      task_delegated: `${senderName} делегировал вам задачу`,
     };
     const title = titles[event] || "Уведомление";
     const body = taskTitle || "";
