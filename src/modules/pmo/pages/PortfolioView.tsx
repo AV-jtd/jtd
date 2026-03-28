@@ -17,7 +17,7 @@ interface PortfolioViewProps {
 }
 
 type HealthStatus = "green" | "yellow" | "red" | "gray";
-type SortKey = "name" | "manager" | "stage" | "progress";
+type SortKey = "name" | "manager" | "stage" | "progress" | "health";
 type SortDir = "asc" | "desc";
 type GroupBy = "none" | "manager" | "stage";
 
