@@ -1013,6 +1013,7 @@ export function useTaskMutations() {
       const { error } = await supabase.from("tasks").update({
         approval_status: null,
         closure_result: null,
+        closure_attachments: [],
       }).eq("id", id);
       if (error) throw error;
       if (taskData?.assigned_to) {
