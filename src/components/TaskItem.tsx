@@ -1302,8 +1302,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
             <span>· создал: {getProfileName(task.user_id)}</span>
           </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : detailsOpen ? (
+        <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
+          {/* Desktop inline details — same content duplicated for non-mobile */}
         </div>
-      )}
+      ) : null}
 
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
