@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3, Grid3X3, CreditCard } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import PmoInlineGantt from "@/modules/pmo/components/PmoInlineGantt";
 import PmoInlineMatrix from "@/modules/pmo/components/PmoInlineMatrix";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
