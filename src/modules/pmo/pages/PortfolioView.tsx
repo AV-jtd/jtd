@@ -544,8 +544,8 @@ function ProgressBar({ progress, stats, compact }: { progress: number; stats: { 
       <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
-      <span className={cn("font-medium text-muted-foreground text-right", compact ? "text-[10px] w-8" : "text-[11px] w-10")}>
-        {compact ? `${progress}%` : `${stats.completed}/${stats.total}`}
+      <span className={cn("font-medium text-right shrink-0", compact ? "text-[10px] w-8 text-muted-foreground" : "text-[11px] w-16 text-muted-foreground")}>
+        {compact ? `${progress}%` : `${progress}% · ${stats.completed}/${stats.total}`}
       </span>
     </div>
   );
