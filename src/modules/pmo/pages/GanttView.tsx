@@ -578,6 +578,13 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 flex-wrap">
+        {onBack && (
+          <button onClick={onBack} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Портфель</span>
+          </button>
+        )}
+        {onBack && <div className="h-4 w-px bg-border" />}
         <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
           {(["day", "week", "month"] as Scale[]).map(s => (
             <button
