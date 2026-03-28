@@ -758,6 +758,9 @@ export function useTaskMutations() {
         start_at: null,
         client_id: null,
         delegated_from: null,
+        requires_approval: false,
+        approval_status: null,
+        closure_result: null,
         subtasks: [],
         task_tags: [],
       };
