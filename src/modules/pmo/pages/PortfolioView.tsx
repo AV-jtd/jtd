@@ -201,20 +201,27 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
+  const summaryCards = [
+    { label: "Проектов", value: filteredProjects.length, color: "text-foreground" },
+    { label: "Задач", value: totalAgg.total, color: "text-foreground" },
+    { label: "Выполнено", value: totalAgg.completed, color: "text-success" },
+    ...(totalAgg.overdue > 0 ? [{ label: "Просрочено", value: totalAgg.overdue, color: "text-destructive" }] : []),
+  ];
+
   const filtersBar = (
-    <div className="flex items-center gap-1 mb-3">
-      <div className="relative flex-1 min-w-0 max-w-[200px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Поиск..."
-          className="h-8 w-full pl-8 pr-7 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all" />
-        {draftSearch && <button onClick={() => { setDraftSearch(""); setSearch(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
+    <div className="flex items-center gap-2 mb-4">
+      <div className="relative flex-1 min-w-0 max-w-[240px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Поиск проектов..."
+          className="h-9 w-full pl-9 pr-8 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all" />
+        {draftSearch && <button onClick={() => { setDraftSearch(""); setSearch(""); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>}
       </div>
 
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={() => setOverdueFilter((v) => !v)}
-              className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-all", overdueFilter ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
+              className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-all", overdueFilter ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
               <Clock className="h-4 w-4" />
             </button>
           </TooltipTrigger>
@@ -226,7 +233,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-all", groupBy !== "none" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
+                <button className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-all", groupBy !== "none" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
                   <LayoutList className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
@@ -249,7 +256,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         {/* Filter popover */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className={cn("h-8 rounded-lg flex items-center justify-center transition-all relative", activeFilterCount > 0 ? "bg-primary/10 text-primary px-2.5 gap-1" : "w-8 text-muted-foreground hover:text-foreground hover:bg-muted")}>
+            <button className={cn("h-9 rounded-lg flex items-center justify-center transition-all relative", activeFilterCount > 0 ? "bg-primary/10 text-primary px-2.5 gap-1" : "w-9 text-muted-foreground hover:text-foreground hover:bg-muted")}>
               <Filter className="h-4 w-4" />
               {activeFilterCount > 0 && <span className="text-[10px] font-semibold">{activeFilterCount}</span>}
             </button>
@@ -284,11 +291,14 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         </Popover>
       </div>
 
-      <div className="hidden md:flex items-center gap-3 ml-auto text-xs text-muted-foreground">
-        <span>Проектов: <strong className="text-foreground">{filteredProjects.length}</strong></span>
-        <span>Задач: <strong className="text-foreground">{totalAgg.total}</strong></span>
-        <span>Выполнено: <strong className="text-success">{totalAgg.completed}</strong></span>
-        {totalAgg.overdue > 0 && <span>Просрочено: <strong className="text-destructive">{totalAgg.overdue}</strong></span>}
+      {/* Summary cards (desktop) */}
+      <div className="hidden md:flex items-center gap-2 ml-auto">
+        {summaryCards.map((c) => (
+          <div key={c.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+            <span className="text-xs text-muted-foreground">{c.label}</span>
+            <span className={cn("text-sm font-bold", c.color)}>{c.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
