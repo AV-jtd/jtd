@@ -66,6 +66,42 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
     return () => el.removeEventListener("paste", handlePaste as EventListener);
   }, [open, handlePaste]);
 
+  const processDroppedFiles = useCallback((droppedFiles: File[]) => {
+    const available = MAX_FILES - files.length;
+    if (available <= 0) return;
+    const toAdd = droppedFiles.slice(0, available);
+    for (const f of toAdd) {
+      const err = validateClientSide(f);
+      if (err) { toast.error(err); return; }
+    }
+    uploadAndValidate(toAdd);
+  }, [files.length]);
+
+  const onDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragging(true);
+  }, []);
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) setDragging(false);
+  }, []);
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      processDroppedFiles(Array.from(e.dataTransfer.files));
+    }
+  }, [processDroppedFiles]);
+
   const handleSubmit = () => {
     if (result.trim()) {
       onSubmit(result.trim(), uploadedUrls, summary || undefined);
