@@ -368,14 +368,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   Этап <SortIcon col="stage" />
                 </button>
               </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">С</TooltipTrigger><TooltipContent>Здоровье сроков</TooltipContent></Tooltip>
-              </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">З</TooltipTrigger><TooltipContent>Прогресс задач</TooltipContent></Tooltip>
-              </th>
-              <th className="px-1.5 py-2 text-center text-muted-foreground font-medium">
-                <Tooltip><TooltipTrigger className="cursor-default">В</TooltipTrigger><TooltipContent>Статус вех</TooltipContent></Tooltip>
+              <th className="px-2 py-2 text-center text-muted-foreground font-medium">
+                <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
               </th>
               <th className="px-2 py-2 min-w-[140px]">
                 <button onClick={() => toggleSort("progress")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
