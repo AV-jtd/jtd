@@ -534,7 +534,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   key={tab.key}
                   onClick={() => setMydayTab(tab.key)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0",
                     mydayTab === tab.key
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
