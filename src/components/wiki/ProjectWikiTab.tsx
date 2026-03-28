@@ -100,7 +100,7 @@ export default function ProjectWikiTab({ groupId, groupName, groupDescription, c
         <WikiEditor groupId={groupId} groupName={groupName} compact={!isFullscreen} />
       </TabsContent>
       <TabsContent value="structured" className="mt-2">
-        <StructuredOverview groupId={groupId} groupName={groupName} compact={!isFullscreen} />
+        <StructuredOverview groupId={groupId} groupName={groupName} groupDescription={groupDescription} compact={!isFullscreen} />
       </TabsContent>
     </Tabs>
   );
