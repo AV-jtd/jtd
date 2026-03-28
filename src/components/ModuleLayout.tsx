@@ -66,7 +66,7 @@ export default function ModuleLayout({
       </AppHeader>
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-hidden">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
         {messengerOpen && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
             <MessengerPanel

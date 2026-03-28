@@ -201,20 +201,27 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
+  const summaryCards = [
+    { label: "Проектов", value: filteredProjects.length, color: "text-foreground" },
+    { label: "Задач", value: totalAgg.total, color: "text-foreground" },
+    { label: "Выполнено", value: totalAgg.completed, color: "text-success" },
+    ...(totalAgg.overdue > 0 ? [{ label: "Просрочено", value: totalAgg.overdue, color: "text-destructive" }] : []),
+  ];
+
   const filtersBar = (
-    <div className="flex items-center gap-1 mb-3">
-      <div className="relative flex-1 min-w-0 max-w-[200px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Поиск..."
-          className="h-8 w-full pl-8 pr-7 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all" />
-        {draftSearch && <button onClick={() => { setDraftSearch(""); setSearch(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
+    <div className="flex items-center gap-2 mb-4">
+      <div className="relative flex-1 min-w-0 max-w-[240px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Поиск проектов..."
+          className="h-9 w-full pl-9 pr-8 text-sm rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all" />
+        {draftSearch && <button onClick={() => { setDraftSearch(""); setSearch(""); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>}
       </div>
 
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={() => setOverdueFilter((v) => !v)}
-              className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-all", overdueFilter ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
+              className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-all", overdueFilter ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
               <Clock className="h-4 w-4" />
             </button>
           </TooltipTrigger>
@@ -226,7 +233,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-all", groupBy !== "none" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
+                <button className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-all", groupBy !== "none" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
                   <LayoutList className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
@@ -249,7 +256,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         {/* Filter popover */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className={cn("h-8 rounded-lg flex items-center justify-center transition-all relative", activeFilterCount > 0 ? "bg-primary/10 text-primary px-2.5 gap-1" : "w-8 text-muted-foreground hover:text-foreground hover:bg-muted")}>
+            <button className={cn("h-9 rounded-lg flex items-center justify-center transition-all relative", activeFilterCount > 0 ? "bg-primary/10 text-primary px-2.5 gap-1" : "w-9 text-muted-foreground hover:text-foreground hover:bg-muted")}>
               <Filter className="h-4 w-4" />
               {activeFilterCount > 0 && <span className="text-[10px] font-semibold">{activeFilterCount}</span>}
             </button>
@@ -284,11 +291,14 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         </Popover>
       </div>
 
-      <div className="hidden md:flex items-center gap-3 ml-auto text-xs text-muted-foreground">
-        <span>Проектов: <strong className="text-foreground">{filteredProjects.length}</strong></span>
-        <span>Задач: <strong className="text-foreground">{totalAgg.total}</strong></span>
-        <span>Выполнено: <strong className="text-success">{totalAgg.completed}</strong></span>
-        {totalAgg.overdue > 0 && <span>Просрочено: <strong className="text-destructive">{totalAgg.overdue}</strong></span>}
+      {/* Summary cards (desktop) */}
+      <div className="hidden md:flex items-center gap-2 ml-auto">
+        {summaryCards.map((c) => (
+          <div key={c.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+            <span className="text-xs text-muted-foreground">{c.label}</span>
+            <span className={cn("text-sm font-bold", c.color)}>{c.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -357,41 +367,41 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   let globalIdx = 0;
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6 scrollbar-thin">
+    <div className="p-4 md:p-6 scrollbar-thin">
       {filtersBar}
 
-      <div className="relative w-full overflow-auto">
-        <table className="w-full caption-bottom text-xs">
+      <div className="relative w-full overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full caption-bottom text-sm">
           <thead>
-            <tr className="border-b border-border">
-              <th className="w-8 px-2 py-2 text-center text-muted-foreground font-medium">№</th>
-              <th className="px-2 py-2 text-left">
-                <button onClick={() => toggleSort("name")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
+            <tr className="border-b border-border bg-muted/40">
+              <th className="w-10 px-3 py-2.5 text-center text-xs text-muted-foreground font-semibold">№</th>
+              <th className="px-3 py-2.5 text-left">
+                <button onClick={() => toggleSort("name")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Проект <SortIcon col="name" />
                 </button>
               </th>
-              <th className="px-2 py-2 text-left hidden lg:table-cell">
-                <button onClick={() => toggleSort("manager")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
+              <th className="px-3 py-2.5 text-left hidden lg:table-cell">
+                <button onClick={() => toggleSort("manager")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Руководитель <SortIcon col="manager" />
                 </button>
               </th>
-              <th className="px-2 py-2 text-left hidden xl:table-cell">
-                <button onClick={() => toggleSort("stage")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
+              <th className="px-3 py-2.5 text-left hidden xl:table-cell">
+                <button onClick={() => toggleSort("stage")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Этап <SortIcon col="stage" />
                 </button>
               </th>
-              <th className="px-2 py-2 text-center">
-                <button onClick={() => toggleSort("health")} className="flex items-center justify-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors mx-auto">
+              <th className="px-3 py-2.5 text-center">
+                <button onClick={() => toggleSort("health")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors mx-auto">
                   <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
                   <SortIcon col="health" />
                 </button>
               </th>
-              <th className="px-2 py-2 min-w-[140px]">
-                <button onClick={() => toggleSort("progress")} className="flex items-center gap-1 text-muted-foreground hover:text-foreground font-medium transition-colors">
+              <th className="px-3 py-2.5 min-w-[180px]">
+                <button onClick={() => toggleSort("progress")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Прогресс <SortIcon col="progress" />
                 </button>
               </th>
-              <th className="w-8 px-1 py-2"></th>
+              <th className="w-10 px-1 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
@@ -399,8 +409,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               <Fragment key={group.key || "all"}>
                 {group.label && (
                   <tr>
-                    <td colSpan={7} className="px-2 pt-3 pb-1">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.label} <span className="text-foreground/60">({group.projects.length})</span></span>
+                    <td colSpan={7} className="px-3 pt-4 pb-1.5">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{group.label} <span className="text-foreground/50 font-medium">({group.projects.length})</span></span>
                     </td>
                   </tr>
                 )}
@@ -419,45 +429,47 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                     <Fragment key={project.id}>
                       <tr
                         className={cn(
-                          "border-b border-border/50 cursor-pointer group/row transition-colors hover:bg-muted/50",
-                          isCritical ? "bg-destructive/5 hover:bg-destructive/10" : isEven && "bg-muted/30"
+                          "border-b border-border/40 cursor-pointer group/row transition-colors",
+                          isCritical
+                            ? "bg-destructive/5 hover:bg-destructive/10 border-l-2 border-l-destructive"
+                            : isEven ? "bg-muted/20 hover:bg-muted/40" : "hover:bg-muted/30"
                         )}
                         onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}
                       >
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">{globalIdx}</td>
-                        <td className="px-2 py-1.5">
-                          <div className="flex items-center gap-2">
+                        <td className="px-3 py-2.5 text-center text-muted-foreground text-xs">{globalIdx}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2.5">
                             {children.length > 0 ? (
-                              <span className="text-muted-foreground">{isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</span>
+                              <span className="text-muted-foreground">{isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}</span>
                             ) : (
                               <StatusDot status={health.deadlines} size="md" />
                             )}
-                            <span className="font-medium text-foreground truncate max-w-[280px] group-hover/row:text-primary transition-colors" title={project.name}>
+                            <span className="font-medium text-foreground truncate max-w-[320px] group-hover/row:text-primary transition-colors" title={project.name}>
                               {project.name}
                             </span>
                             {children.length > 0 && (
-                              <span className="text-[9px] px-1.5 py-0 rounded-full bg-muted text-muted-foreground shrink-0">{children.length}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0 font-medium">{children.length}</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-1.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
-                        <td className="px-2 py-1.5 hidden xl:table-cell">
-                          <span className={cn("font-medium", stage.color)}>{stage.label}</span>
+                        <td className="px-3 py-2.5 hidden lg:table-cell text-muted-foreground">{getManagerName(project.id)}</td>
+                        <td className="px-3 py-2.5 hidden xl:table-cell">
+                          <StageBadge label={stage.label} />
                         </td>
-                        <td className="px-2 py-1.5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                        <td className="px-3 py-2.5 text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <StatusDot status={health.deadlines} size="md" />
                             <StatusDot status={health.tasks} size="md" />
                             <StatusDot status={health.milestones} size="md" />
                           </div>
                         </td>
-                        <td className="px-2 py-1.5"><ProgressBar progress={progress} stats={stats} /></td>
-                        <td className="px-1 py-1.5 text-center">
+                        <td className="px-3 py-2.5"><ProgressBar progress={progress} stats={stats} /></td>
+                        <td className="px-1 py-2.5 text-center">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }}
                                 className="text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover/row:opacity-100">
-                                <GanttChart className="h-3.5 w-3.5" />
+                                <GanttChart className="h-4 w-4" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="text-xs">Открыть Гант</TooltipContent>
@@ -472,26 +484,26 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const cStage = getStage(cs);
                         const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
                         return (
-                          <tr key={child.id} className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors"
+                          <tr key={child.id} className="border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-colors bg-muted/10"
                             onClick={() => onOpenGantt?.(child.id)}>
-                            <td className="px-2 py-1"></td>
-                            <td className="px-2 py-1 pl-6">
-                              <div className="flex items-center gap-2 border-l-2 border-primary/20 pl-2">
+                            <td className="px-3 py-2"></td>
+                            <td className="px-3 py-2 pl-8">
+                              <div className="flex items-center gap-2 border-l-2 border-primary/30 pl-3">
                                 <StatusDot status={cHealth.deadlines} />
-                                <span className="text-muted-foreground truncate max-w-[240px]" title={child.name}>{childName}</span>
+                                <span className="text-muted-foreground truncate max-w-[280px] text-[13px]" title={child.name}>{childName}</span>
                               </div>
                             </td>
-                            <td className="px-2 py-1 hidden lg:table-cell text-muted-foreground">{getManagerName(child.id)}</td>
-                            <td className="px-2 py-1 hidden xl:table-cell"><span className={cn("font-medium", cStage.color)}>{cStage.label}</span></td>
-                            <td className="px-2 py-1 text-center">
-                              <div className="flex items-center justify-center gap-1">
+                            <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}</td>
+                            <td className="px-3 py-2 hidden xl:table-cell"><StageBadge label={cStage.label} small /></td>
+                            <td className="px-3 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
                                 <StatusDot status={cHealth.deadlines} />
                                 <StatusDot status={cHealth.tasks} />
                                 <StatusDot status={cHealth.milestones} />
                               </div>
                             </td>
-                            <td className="px-2 py-1"><ProgressBar progress={cp} stats={cs} compact /></td>
-                            <td className="px-1 py-1"></td>
+                            <td className="px-3 py-2"><ProgressBar progress={cp} stats={cs} compact /></td>
+                            <td className="px-1 py-2"></td>
                           </tr>
                         );
                       })}
@@ -524,6 +536,22 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
 /* ─── Shared ─── */
 
+const stageBadgeStyles: Record<string, string> = {
+  "Новый": "bg-primary/10 text-primary",
+  "Подготовка": "bg-warning/10 text-warning",
+  "Выполнение": "bg-success/10 text-success",
+  "Завершён": "bg-muted text-muted-foreground",
+};
+
+function StageBadge({ label, small }: { label: string; small?: boolean }) {
+  const style = stageBadgeStyles[label] || "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("inline-flex items-center rounded-md font-medium", style, small ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5")}>
+      {label}
+    </span>
+  );
+}
+
 function StatusDot({ status, size = "sm" }: { status: HealthStatus; size?: "sm" | "md" }) {
   return (
     <div className={cn(
@@ -540,11 +568,11 @@ function StatusDot({ status, size = "sm" }: { status: HealthStatus; size?: "sm" 
 function ProgressBar({ progress, stats, compact }: { progress: number; stats: { total: number; completed: number; overdue: number }; compact?: boolean }) {
   const barColor = stats.overdue > 0 ? "bg-destructive" : progress === 100 ? "bg-success" : "bg-primary";
   return (
-    <div className="flex items-center gap-2">
-      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
+    <div className="flex items-center gap-2.5">
+      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2.5")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
-      <span className={cn("font-medium text-right shrink-0", compact ? "text-[10px] w-8 text-muted-foreground" : "text-[11px] w-16 text-muted-foreground")}>
+      <span className={cn("font-medium text-right shrink-0 tabular-nums", compact ? "text-[11px] w-8 text-muted-foreground" : "text-xs w-20 text-muted-foreground")}>
         {compact ? `${progress}%` : `${progress}% · ${stats.completed}/${stats.total}`}
       </span>
     </div>
