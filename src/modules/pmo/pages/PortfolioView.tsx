@@ -605,11 +605,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                     Карточка
                                   </button>
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); setView("gantt"); }}
-                                    className={cn(
-                                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                                      currentView === "gantt" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                    )}
+                                    onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
                                   >
                                     <GanttChart className="h-3 w-3" />
                                     Гантт
