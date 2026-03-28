@@ -58,7 +58,7 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               ИИ-ассистент
             </p>
-            <p className="text-[10px] text-muted-foreground">Контекстный анализ проекта</p>
+            <p className="text-[10px] text-muted-foreground">Кросс-проектная аналитика</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
