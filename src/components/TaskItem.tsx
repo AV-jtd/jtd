@@ -60,6 +60,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+  const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
