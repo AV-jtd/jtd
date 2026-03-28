@@ -752,6 +752,17 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* Project detail sheet */}
+      <Sheet open={!!selectedProjectId} onOpenChange={(open) => { if (!open) setSelectedProjectId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
+          {selectedProjectId && (() => {
+            const project = groups.find((g) => g.id === selectedProjectId);
+            if (!project) return null;
+            return <ProjectDetailPanel group={project} />;
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
