@@ -218,6 +218,11 @@ export default function WikiHubView() {
                       </span>
                     )}
                   </div>
+                  {item.previewText && (
+                    <p className="text-[11px] text-muted-foreground/70 mt-1 line-clamp-2 leading-relaxed">
+                      {item.previewText}{item.previewText.length >= 120 ? "…" : ""}
+                    </p>
+                  )}
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </button>
