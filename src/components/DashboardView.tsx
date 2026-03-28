@@ -557,7 +557,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
           <SummaryCard icon={TrendingUp} value={`${summary.completionRate}%`} label="Общий прогресс" color="bg-primary" />
           <SummaryCard icon={CalendarClock} value={summary.tasksThisWeek} label="Дедлайнов на неделе" color="bg-blue-500" />
           <SummaryCard icon={AlertTriangle} value={summary.overdueProjects} label="Проектов с просрочкой" color="bg-red-500" />
