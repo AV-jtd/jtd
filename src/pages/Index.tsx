@@ -123,6 +123,8 @@ export default function Index() {
             }} />
           ) : activeView === "archive" ? (
             <ArchiveView />
+          ) : activeView === "wiki" ? (
+            <WikiHubView />
           ) : (
             <div className="flex flex-1 min-w-0 overflow-hidden">
               <TaskList
