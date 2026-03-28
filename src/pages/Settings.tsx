@@ -284,6 +284,7 @@ export default function Settings() {
                   <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
                   {([
                     { key: "telegram_task_assigned", label: "Назначен ответственным" },
+                    { key: "telegram_task_delegated", label: "Делегирование задачи" },
                     { key: "telegram_task_participant_added", label: "Добавлен участником в задачу" },
                     { key: "telegram_task_completed", label: "Завершение задачи (где участник)" },
                     { key: "telegram_task_commented", label: "Новый комментарий к задаче" },
