@@ -20,9 +20,9 @@ interface PortfolioViewProps {
 }
 
 type HealthStatus = "green" | "yellow" | "red" | "gray";
-type SortKey = "name" | "manager" | "stage" | "progress" | "health";
+type SortKey = "name" | "manager" | "progress" | "health";
 type SortDir = "asc" | "desc";
-type GroupBy = "none" | "manager" | "stage";
+type GroupBy = "none" | "manager" | "folder" | "progress";
 
 export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
