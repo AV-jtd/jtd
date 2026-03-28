@@ -22,6 +22,7 @@ interface TaskClosureDialogProps {
 export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSubmit }: TaskClosureDialogProps) {
   const [result, setResult] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
   const [summary, setSummary] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -30,9 +31,10 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
 
   const handleSubmit = () => {
     if (result.trim()) {
-      onSubmit(result.trim(), files, summary || undefined);
+      onSubmit(result.trim(), uploadedUrls, summary || undefined);
       setResult("");
       setFiles([]);
+      setUploadedUrls([]);
       setSummary(null);
       setValidationError(null);
       onOpenChange(false);
