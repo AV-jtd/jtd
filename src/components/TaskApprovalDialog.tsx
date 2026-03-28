@@ -26,6 +26,8 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
   const [summary, setSummary] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const dialogRef = useRef<HTMLDivElement>(null);
