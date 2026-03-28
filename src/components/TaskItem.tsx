@@ -494,6 +494,18 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 {tag.name}
               </span>
             ))}
+            {/* Approval status badges */}
+            {task.requires_approval && !task.is_completed && !isPendingApproval && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground shrink-0">
+                <ShieldCheck className="h-2.5 w-2.5" />
+                Утверждение
+              </span>
+            )}
+            {isPendingApproval && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium shrink-0 animate-pulse">
+                ⏳ На утверждении
+              </span>
+            )}
           </div>
         </div>
 
