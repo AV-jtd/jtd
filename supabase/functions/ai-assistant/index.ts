@@ -565,6 +565,102 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "wiki_autofill") {
+      const { sectionKey, projectName, projectDescription, tasksInfo, membersInfo, existingContent } = context;
+
+      const sectionLabels: Record<string, string> = {
+        description: "Описание проекта",
+        goals: "Цели проекта",
+        risks: "Риски проекта",
+        resources: "Ресурсы и ссылки",
+      };
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по управлению проектами. Сгенерируй содержимое для секции "${sectionLabels[sectionKey] || sectionKey}" в базе знаний проекта.
+
+Правила:
+- Анализируй название проекта, описание, задачи и команду
+- Пиши кратко, структурированно, по делу
+- Используй маркированные списки (каждый пункт с новой строки, начинай с "• ")
+- Для секции "description": 2-4 предложения о сути проекта, его целях и контексте
+- Для секции "goals": 3-6 конкретных, измеримых целей (SMART формат где возможно)
+- Для секции "risks": 3-6 рисков с оценкой вероятности и влияния
+- Для секции "resources": предложи какие ресурсы/ссылки стоит добавить (шаблоны, доки, инструменты)
+- Если есть существующий контент — улучши и дополни его, а не перезаписывай
+- Отвечай на русском языке`,
+            },
+            {
+              role: "user",
+              content: `Проект: "${projectName}"${projectDescription ? `\nОписание: ${projectDescription}` : ""}
+Задачи проекта:
+${tasksInfo || "нет задач"}
+Команда: ${membersInfo || "не указана"}
+${existingContent ? `\nТекущий контент секции:\n${existingContent}` : ""}
+
+Сгенерируй содержимое для секции: ${sectionLabels[sectionKey] || sectionKey}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "fill_section",
+                description: "Заполнить секцию базы знаний проекта",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    content: { type: "string", description: "Сгенерированный текст для секции" },
+                  },
+                  required: ["content"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "fill_section" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ action: "wiki_autofill", content: parsed.content }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "map_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
