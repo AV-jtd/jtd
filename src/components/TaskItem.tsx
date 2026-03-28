@@ -1305,15 +1305,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
             <span>· создал: {getProfileName(task.user_id)}</span>
           </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-      {detailsOpen && !isMobile && (
-        <div className="px-3.5 pb-3 ml-8 space-y-3 border-t border-border pt-3">
-          {/* This is the desktop inline version - content is rendered in the mobile sheet above */}
-        </div>
-      )}
+        );
+        
+        return isMobile ? (
+          <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <SheetContent side="bottom" className="h-[90dvh] rounded-t-2xl p-0 overflow-y-auto">
+              {detailsContent}
+            </SheetContent>
+          </Sheet>
+        ) : detailsContent;
+      })()}
 
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
