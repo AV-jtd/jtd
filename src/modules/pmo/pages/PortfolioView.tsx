@@ -513,7 +513,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                 <span className="text-muted-foreground truncate max-w-[280px] text-[13px]" title={child.name}>{childName}</span>
                               </div>
                             </td>
-                            <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}</td>
+                            <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}{cStats.total > 0 && cStats.completed === cStats.total && " 🏅"}</td>
                             
                             <td className="px-3 py-2 text-center">
                               <div className="flex items-center justify-center gap-1.5">
