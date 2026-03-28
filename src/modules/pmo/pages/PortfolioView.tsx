@@ -514,7 +514,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                               </div>
                             </td>
                             <td className="px-3 py-2 hidden lg:table-cell text-muted-foreground text-xs">{getManagerName(child.id)}</td>
-                            <td className="px-3 py-2 hidden xl:table-cell"><StageBadge label={cStage.label} small /></td>
+                            
                             <td className="px-3 py-2 text-center">
                               <div className="flex items-center justify-center gap-1.5">
                                 <StatusDot status={cHealth.deadlines} />
