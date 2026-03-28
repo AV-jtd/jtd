@@ -582,11 +582,52 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                           </Tooltip>
                         </td>
                       </tr>
-                      {/* Expanded — NPD-style dashboard */}
+                      {/* Expanded — tabbed view */}
                       {isExpanded && (
                         <tr>
                           <td colSpan={6} className="px-0 py-0">
                             <div className="bg-muted/10 border-t border-border/30 px-6 py-3 space-y-3 animate-fade-in">
+                              {/* Tab bar */}
+                              <div className="flex items-center gap-1 mb-2">
+                                {([
+                                  { key: "card" as const, label: "Карточка", icon: LayoutList },
+                                  { key: "gantt" as const, label: "Гантт", icon: GanttChart },
+                                  { key: "matrix" as const, label: "Матрица", icon: Layers },
+                                ]).map((tab) => {
+                                  const currentTab = expandedTab[project.id] || "card";
+                                  const isNpd = project.project_type === "npd";
+                                  const disabled = tab.key === "matrix" && !isNpd;
+                                  const active = currentTab === tab.key;
+                                  const Icon = tab.icon;
+                                  return (
+                                    <button
+                                      key={tab.key}
+                                      disabled={disabled}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (tab.key === "gantt") {
+                                          onOpenGantt?.(project.id);
+                                        } else {
+                                          setExpandedTab((t) => ({ ...t, [project.id]: tab.key }));
+                                        }
+                                      }}
+                                      className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                                        active && tab.key !== "gantt"
+                                          ? "bg-primary/10 text-primary"
+                                          : disabled
+                                            ? "text-muted-foreground/30 cursor-not-allowed"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                      )}
+                                    >
+                                      <Icon className="h-3.5 w-3.5" />
+                                      {tab.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {/* Card tab content */}
+                              {(expandedTab[project.id] || "card") === "card" && (<>
                               {/* Project-level summary across ALL tasks */}
                               {(() => {
                                 const childIds = children.map((c) => c.id);
