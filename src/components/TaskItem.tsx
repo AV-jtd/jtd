@@ -266,7 +266,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         {/* Checkbox */}
         {!selectable && (
           <button
-            onClick={(e) => { e.stopPropagation(); toggleTask.mutate({ id: task.id, is_completed: !task.is_completed }); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
+                setClosureDialogOpen(true);
+              } else {
+                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed });
+              }
+            }}
             className={cn(
               "-m-2 p-2 touch-manipulation",
             )}
