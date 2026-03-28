@@ -44,6 +44,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedView, setExpandedView] = useState<Record<string, "card" | "gantt" | "matrix">>({});
 
   useEffect(() => {
     const t = window.setTimeout(() => { if (draftSearch !== search) setSearch(draftSearch); }, 150);
