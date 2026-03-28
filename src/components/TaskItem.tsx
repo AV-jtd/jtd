@@ -1504,6 +1504,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         </div>
       )}
     </div>
+
+    <TaskClosureDialog
+      open={closureDialogOpen}
+      onOpenChange={setClosureDialogOpen}
+      taskTitle={task.title}
+      onSubmit={(result) => {
+        submitForApproval.mutate({ id: task.id, closure_result: result });
+        toast.success("Отправлено на утверждение");
+      }}
+    />
   );
 }
 
