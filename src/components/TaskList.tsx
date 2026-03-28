@@ -245,23 +245,22 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     addTask.mutate(payload);
   }, [addTask]);
 
+  // Build breadcrumb chain for subprojects
+  const breadcrumbChain = useMemo(() => {
+    if (activeView !== "group" || !activeGroup) return [];
+    const chain: typeof groups = [];
+    let current = activeGroup as typeof groups[0] | undefined;
+    while (current) {
+      chain.unshift(current);
+      current = current.parent_id ? groups.find(g => g.id === current!.parent_id) : undefined;
+    }
+    return chain;
+  }, [activeView, activeGroup, groups]);
+
+  const parentGroup = activeGroup?.parent_id ? groups.find(g => g.id === activeGroup.parent_id) : null;
+  const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
+
   return (
-    // Build breadcrumb chain for subprojects
-    const breadcrumbChain = useMemo(() => {
-      if (activeView !== "group" || !activeGroup) return [];
-      const chain: TaskGroup[] = [];
-      let current: TaskGroup | undefined = activeGroup;
-      while (current) {
-        chain.unshift(current);
-        current = current.parent_id ? groups.find(g => g.id === current!.parent_id) : undefined;
-      }
-      return chain;
-    }, [activeView, activeGroup, groups]);
-
-    const parentGroup = activeGroup?.parent_id ? groups.find(g => g.id === activeGroup.parent_id) : null;
-    const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
-
-    return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Breadcrumbs for subprojects */}
