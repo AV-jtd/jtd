@@ -240,6 +240,7 @@ export default function WikiHubView() {
                 groupId={openGroup.id}
                 groupName={openGroup.name}
                 groupDescription={openGroup.description || undefined}
+                defaultTab="structured"
               />
             )}
           </div>
