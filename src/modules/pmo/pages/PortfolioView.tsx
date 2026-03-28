@@ -280,7 +280,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
           </PopoverTrigger>
           <PopoverContent className="w-56 p-0 bg-popover border-border z-50" side="bottom" align="end">
             <div className="p-2 border-b border-border">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Руководитель</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Ответственный</p>
               <PopoverSearchList items={managerOptions} searchKey={(u) => u.name} placeholder="Найти..."
                 renderItem={(u) => (
                   <button key={u.id} onClick={() => setManagerFilter((p) => p === u.id ? null : u.id)}
