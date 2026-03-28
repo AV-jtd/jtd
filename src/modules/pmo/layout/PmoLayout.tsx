@@ -72,8 +72,8 @@ export default function PmoLayout() {
         </nav>
       }
     >
-      {activeView === "portfolio" && <PortfolioView onOpenGantt={handleOpenGantt} />}
-      {activeView === "gantt" && <GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} />}
+      <div className={cn(activeView !== "portfolio" && "hidden")}><PortfolioView onOpenGantt={handleOpenGantt} /></div>
+      <div className={cn(activeView !== "gantt" && "hidden")}><GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} /></div>
       {activeView === "milestones" && <MilestonesView />}
       {activeView === "resources" && <PlaceholderView icon={Users} title="Ресурсы" description="Загрузка участников и распределение по проектам" />}
       {activeView === "reports" && <PlaceholderView icon={BarChart3} title="Отчёты" description="Burndown, SPI/CPI, отклонения от плана" />}
