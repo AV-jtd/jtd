@@ -209,8 +209,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     { total: 0, completed: 0, overdue: 0 }
   );
 
-  const hasFilters = !!(search || overdueFilter || managerFilter || stageFilter);
-  const activeFilterCount = [overdueFilter, !!managerFilter, !!stageFilter].filter(Boolean).length;
+  const hasFilters = !!(search || overdueFilter || managerFilter || stageFilter || sortKey !== "name" || sortDir !== "asc");
+  const activeFilterCount = [overdueFilter, !!managerFilter, !!stageFilter, sortKey !== "name"].filter(Boolean).length;
 
   const groupByOptions: { key: GroupBy; label: string; icon: React.ElementType }[] = [
     { key: "none", label: "Без группировки", icon: Layers },
@@ -267,7 +267,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
             {groupByOptions.map(opt => {
               const Icon = opt.icon;
               return (
-                <button key={opt.key} onClick={() => setGroupBy(opt.key)}
+                <button key={opt.key} onClick={() => setGroupBy(prev => prev === opt.key && opt.key !== "none" ? "none" : opt.key)}
                   className={cn("flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors", groupBy === opt.key ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-muted")}>
                   <Icon className="h-3.5 w-3.5" />{opt.label}
                 </button>
@@ -293,7 +293,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                     className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors truncate", managerFilter === u.id && "bg-primary/10 text-primary")}>
                     <User className="h-3.5 w-3.5 shrink-0" />{u.name}
                   </button>
-                )} />
+                 )} />
             </div>
             <div className="p-2 border-b border-border">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Этап</p>
@@ -302,9 +302,24 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", stageFilter === s && "bg-primary/10 text-primary")}>{s}</button>
               ))}
             </div>
+            <div className="p-2 border-b border-border">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Сортировка</p>
+              {([
+                { key: "name" as SortKey, label: "По имени" },
+                { key: "progress" as SortKey, label: "По прогрессу" },
+                { key: "health" as SortKey, label: "По здоровью" },
+                { key: "manager" as SortKey, label: "По ответственному" },
+              ]).map((s) => (
+                <button key={s.key} onClick={() => { if (sortKey === s.key) { setSortDir(d => d === "asc" ? "desc" : "asc"); } else { setSortKey(s.key); setSortDir("asc"); } }}
+                  className={cn("flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", sortKey === s.key && "bg-primary/10 text-primary")}>
+                  <span>{s.label}</span>
+                  {sortKey === s.key && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                </button>
+              ))}
+            </div>
             {hasFilters && (
               <div className="p-2">
-                <button onClick={() => { setOverdueFilter(false); setManagerFilter(null); setStageFilter(null); setDraftSearch(""); setSearch(""); }}
+                <button onClick={() => { setOverdueFilter(false); setManagerFilter(null); setStageFilter(null); setSortKey("name"); setSortDir("asc"); setGroupBy("none"); setDraftSearch(""); setSearch(""); }}
                   className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <X className="h-3.5 w-3.5" /> Сбросить все
                 </button>

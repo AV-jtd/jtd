@@ -156,7 +156,7 @@ function TaskFiltersBar({
               return (
                 <button
                   key={opt.key}
-                  onClick={() => onGroupByChange(opt.key)}
+                  onClick={() => onGroupByChange(groupBy === opt.key && opt.key !== "none" ? "none" : opt.key)}
                   className={cn(
                     "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors",
                     groupBy === opt.key
