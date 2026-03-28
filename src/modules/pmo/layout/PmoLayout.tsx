@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import ModuleLayout from "@/components/ModuleLayout";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
+import MilestonesView from "@/modules/pmo/pages/MilestonesView";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
