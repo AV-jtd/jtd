@@ -130,22 +130,47 @@ function TaskFiltersBar({
           <TooltipContent side="bottom" className="text-xs">Важные</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => onPriorityFilterChange((prev) => (prev === "pending_approval" ? null : "pending_approval"))}
-              className={cn(
-                "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                priorityFilter === "pending_approval"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              <ShieldCheck className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">На утверждении</TooltipContent>
-        </Tooltip>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                    groupBy !== "none"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {groupBy === "none" ? "Группировка" : activeGroupByOption.label}
+              </TooltipContent>
+            </Tooltip>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom" align="start">
+            {groupByOptions.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => onGroupByChange(opt.key)}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors",
+                    groupBy === opt.key
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Filter popover with assignee, project, grouping */}
