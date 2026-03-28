@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle, ClipboardPaste } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle, ClipboardPaste, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
