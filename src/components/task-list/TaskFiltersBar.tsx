@@ -104,7 +104,7 @@ function TaskFiltersBar({
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
           )}
         >
-          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+          {priority.icon === "star" ? <Star className="h-3 w-3" /> : priority.icon === "shield" ? <ShieldCheck className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           <span className="hidden sm:inline">{priority.label}</span>
         </button>
       ))}
