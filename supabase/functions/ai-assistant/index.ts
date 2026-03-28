@@ -1029,12 +1029,23 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       });
     }
 
-    // === CONTEXT CHAT: project-aware streaming chat ===
+    // === CONTEXT CHAT: project-aware or general streaming chat ===
     if (action === "context_chat") {
       const { projectContext, history: chatHistory } = context || {};
       
       let contextInfo = "";
-      if (projectContext) {
+      if (projectContext?.mode === "general") {
+        // Cross-project general assistant
+        const { projects, totalTasks } = projectContext;
+        if (projects?.length) {
+          contextInfo += `\n\n📊 Портфель проектов (${projects.length}), всего задач: ${totalTasks}:`;
+          projects.forEach((p: any) => {
+            const progress = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+            contextInfo += `\n- "${p.name}" (${p.project_type || "standard"}): ${p.completed}/${p.total} задач (${progress}%)`;
+            if (p.overdue > 0) contextInfo += ` ⚠️ просрочено: ${p.overdue}`;
+          });
+        }
+      } else if (projectContext) {
         const { project, subprojects, tasks, participants, recentMessages } = projectContext;
         if (project) {
           contextInfo += `\n\n📁 Проект: "${project.name}" (тип: ${project.project_type || "standard"})`;
@@ -1071,7 +1082,21 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
         }
       }
 
-      const contextSystemPrompt = `Ты — контекстный AI-помощник проекта в приложении JustTODOit.
+      const isGeneralMode = projectContext?.mode === "general";
+      const contextSystemPrompt = isGeneralMode
+        ? `Ты — кросс-проектный AI-помощник в приложении JustTODOit.
+У тебя есть доступ к данным всех проектов пользователя. Ты можешь:
+1. Давать обзор портфеля проектов
+2. Сравнивать проекты между собой
+3. Выявлять просроченные задачи по всем проектам
+4. Рекомендовать приоритеты и фокус
+5. Отвечать на общие вопросы по управлению
+
+Текущая дата: ${new Date().toISOString().split("T")[0]}
+${contextInfo}
+
+Отвечай на русском языке. Используй markdown для форматирования. Будь конкретным — ссылайся на реальные данные.`
+        : `Ты — контекстный AI-помощник проекта в приложении JustTODOit.
 У тебя есть полный доступ к данным проекта. Ты можешь:
 1. Отвечать на вопросы о статусе проекта, задачах, дедлайнах
 2. Анализировать прогресс и выявлять риски
