@@ -727,6 +727,7 @@ ${activeProjectInfo}
       });
     }
 
+    if (action === "wiki_autofill") {
       const { sectionKey, projectName, projectDescription, tasksInfo, membersInfo, existingContent } = context;
 
       const sectionLabels: Record<string, string> = {
