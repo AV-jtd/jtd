@@ -6,8 +6,10 @@ import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
 import UserPicker from "@/components/UserPicker";
+import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
 } from "lucide-react";
@@ -63,7 +65,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
-  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant } = useTaskMutations();
+  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
   const { data: allTags = [] } = useTags();
   const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -86,7 +88,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const suggestionsLoaded = useRef(false);
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
+
+  const isCreator = currentUser?.id === task.user_id;
+  const isPendingApproval = task.approval_status === "pending";
 
   useEffect(() => {
     if (initialOpen && itemRef.current) {
@@ -214,6 +220,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   };
 
   return (
+    <>
     <div
       ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
@@ -261,7 +268,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         {/* Checkbox */}
         {!selectable && (
           <button
-            onClick={(e) => { e.stopPropagation(); toggleTask.mutate({ id: task.id, is_completed: !task.is_completed }); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
+                setClosureDialogOpen(true);
+              } else {
+                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed });
+              }
+            }}
             className={cn(
               "-m-2 p-2 touch-manipulation",
             )}
@@ -482,6 +496,18 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 {tag.name}
               </span>
             ))}
+            {/* Approval status badges */}
+            {task.requires_approval && !task.is_completed && !isPendingApproval && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground shrink-0">
+                <ShieldCheck className="h-2.5 w-2.5" />
+                Утверждение
+              </span>
+            )}
+            {isPendingApproval && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium shrink-0 animate-pulse">
+                ⏳ На утверждении
+              </span>
+            )}
           </div>
         </div>
 
@@ -1127,6 +1153,38 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </div>
           </div>
 
+          {/* Approval toggle */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-3 w-3" /> Утверждение
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => updateTask.mutate({ id: task.id, requires_approval: !task.requires_approval })}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg border transition-all font-medium",
+                  task.requires_approval
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                {task.requires_approval ? "✓ Требует утверждения" : "Не требует"}
+              </button>
+            </div>
+            {/* Approval actions for task creator */}
+            {isPendingApproval && isCreator && (
+              <TaskApprovalActions
+                taskTitle={task.title}
+                closureResult={task.closure_result}
+                onApprove={() => { approveTask.mutate({ id: task.id }); toast.success("Задача утверждена, результат сохранён в Wiki"); }}
+                onReject={() => { rejectTask.mutate({ id: task.id }); toast.info("Задача отклонена, возвращена исполнителю"); }}
+              />
+            )}
+            {isPendingApproval && !isCreator && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">⏳ Ожидает утверждения от постановщика</p>
+            )}
+          </div>
+
           {/* Subtasks */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -1447,6 +1505,17 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         </div>
       )}
     </div>
+
+    <TaskClosureDialog
+      open={closureDialogOpen}
+      onOpenChange={setClosureDialogOpen}
+      taskTitle={task.title}
+      onSubmit={(result) => {
+        submitForApproval.mutate({ id: task.id, closure_result: result });
+        toast.success("Отправлено на утверждение");
+      }}
+    />
+    </>
   );
 }
 

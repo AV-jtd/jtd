@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen } from "lucide-react";
+import { Clock, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,8 @@ export type GroupByOption = "none" | "project" | "deadline" | "assignee";
 interface TaskFiltersBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  priorityFilter: number | "important" | "overdue" | null;
-  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | null>>;
+  priorityFilter: number | "important" | "overdue" | "pending_approval" | null;
+  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | "pending_approval" | null>>;
   assigneeFilter: string | null;
   onAssigneeFilterChange: React.Dispatch<React.SetStateAction<string | null>>;
   projectFilter: string | null;
@@ -90,8 +90,9 @@ function TaskFiltersBar({
       </div>
 
       {[
-        { value: "overdue" as number | "important" | "overdue", label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
-        { value: "important" as number | "important" | "overdue", label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "overdue" as const, label: "Просроченные", color: "text-red-500 border-red-500/40 bg-red-500/10", icon: "clock" },
+        { value: "important" as const, label: "", color: "text-amber-500 border-amber-500/40 bg-amber-500/10", icon: "star" },
+        { value: "pending_approval" as const, label: "На утверждении", color: "text-primary border-primary/40 bg-primary/10", icon: "shield" },
       ].map((priority) => (
         <button
           key={String(priority.value)}
@@ -103,7 +104,7 @@ function TaskFiltersBar({
               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
           )}
         >
-          {priority.icon === "star" ? <Star className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+          {priority.icon === "star" ? <Star className="h-3 w-3" /> : priority.icon === "shield" ? <ShieldCheck className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           <span className="hidden sm:inline">{priority.label}</span>
         </button>
       ))}

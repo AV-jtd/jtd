@@ -758,6 +758,9 @@ export function useTaskMutations() {
         start_at: null,
         client_id: null,
         delegated_from: null,
+        requires_approval: false,
+        approval_status: null,
+        closure_result: null,
         subtasks: [],
         task_tags: [],
       };
@@ -919,6 +922,96 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  // Submit task for approval (instead of direct completion)
+  const submitForApproval = useMutation({
+    mutationFn: async ({ id, closure_result }: { id: string; closure_result: string }) => {
+      const { error } = await supabase.from("tasks").update({
+        approval_status: "pending",
+        closure_result,
+      }).eq("id", id);
+      if (error) throw error;
+      const { data: taskData } = await supabase.from("tasks").select("title, user_id").eq("id", id).single();
+      if (taskData) {
+        notifyEvent("task_completed", `⏳ Задача «${taskData.title}» ожидает утверждения`, [taskData.user_id]);
+      }
+    },
+    onMutate: async ({ id, closure_result }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => t.id === id ? { ...t, approval_status: "pending", closure_result } : t)
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error("Не удалось отправить на утверждение"); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  const approveTask = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data: taskData } = await supabase.from("tasks").select("*").eq("id", id).single();
+      if (!taskData) throw new Error("Task not found");
+      const { error } = await supabase.from("tasks").update({
+        is_completed: true,
+        completed_at: new Date().toISOString(),
+        approval_status: "approved",
+      }).eq("id", id);
+      if (error) throw error;
+      if (taskData.group_id && (taskData as any).closure_result) {
+        const content = `## Результат\n\n${(taskData as any).closure_result}\n\n---\n\n**Задача:** ${taskData.title}\n**Дата закрытия:** ${new Date().toLocaleDateString("ru-RU")}\n**Исполнитель:** ${taskData.assigned_to || taskData.user_id}`;
+        await supabase.from("wiki_pages").insert({
+          group_id: taskData.group_id,
+          user_id: user!.id,
+          title: `✅ ${taskData.title}`,
+          content,
+          icon: "✅",
+          page_type: "wiki",
+        });
+      }
+      const targetIds = [taskData.assigned_to, taskData.user_id].filter(Boolean).filter(uid => uid !== user!.id) as string[];
+      if (targetIds.length > 0) {
+        notifyEvent("task_completed", taskData.title, targetIds);
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => t.id === id ? { ...t, is_completed: true, completed_at: new Date().toISOString(), approval_status: "approved" } : t)
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error("Не удалось утвердить"); },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["wiki_pages"] });
+    },
+  });
+
+  const rejectTask = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data: taskData } = await supabase.from("tasks").select("title, assigned_to").eq("id", id).single();
+      const { error } = await supabase.from("tasks").update({
+        approval_status: null,
+        closure_result: null,
+      }).eq("id", id);
+      if (error) throw error;
+      if (taskData?.assigned_to) {
+        notifyEvent("task_completed", `❌ Задача «${taskData.title}» отклонена, требуется доработка`, [taskData.assigned_to]);
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => t.id === id ? { ...t, approval_status: null, closure_result: null } : t)
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error("Не удалось отклонить"); },
     onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
@@ -1381,6 +1474,7 @@ export function useTaskMutations() {
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
+    submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
