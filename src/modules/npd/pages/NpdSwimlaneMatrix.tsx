@@ -529,15 +529,21 @@ export default function NpdSwimlaneMatrix() {
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   );
-  const [dndOverGate, setDndOverGate] = useState<string | null>(null);
+  const [dndOverCell, setDndOverCell] = useState<string | null>(null); // "stream::gate"
   const [dndActiveId, setDndActiveId] = useState<string | null>(null);
+
+  const parseCellId = (id: string) => {
+    const [stream, gate] = id.split("::");
+    return { stream, gate };
+  };
+  const makeCellId = (stream: string, gate: string) => `${stream}::${gate}`;
 
   const handleDndOver = useCallback((event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
-    if (overId && NPD_GATES.some(g => g.key === overId)) {
-      setDndOverGate(overId);
+    if (overId && overId.includes("::")) {
+      setDndOverCell(overId);
     } else {
-      setDndOverGate(null);
+      setDndOverCell(null);
     }
   }, []);
 
@@ -545,7 +551,6 @@ export default function NpdSwimlaneMatrix() {
     const newGateTagId = gateKeyToTagId.get(newGateKey);
     if (!newGateTagId) return;
 
-    // Remove all existing gate tags from this task
     const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
     const gateTagIdsToRemove = taskTagEntries
       .filter(tt => gateTagIdSet.has(tt.tag_id))
@@ -555,33 +560,71 @@ export default function NpdSwimlaneMatrix() {
       await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tagId);
     }
 
-    // Add new gate tag
     await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newGateTagId }, { onConflict: "task_id,tag_id" });
+  }, [gateKeyToTagId, allTaskTags, gateTagIdSet]);
+
+  const moveTaskToStream = useCallback(async (taskId: string, newStream: string) => {
+    const sub = streamSubMap.get(newStream);
+    if (!sub) return;
+
+    // Move task to new subproject
+    await supabase.from("tasks").update({ group_id: sub.id }).eq("id", taskId);
+
+    // Update stream tags: remove old stream tags, add new
+    const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
+    const streamTagIdsToRemove = taskTagEntries
+      .filter(tt => streamTagIds.has(tt.tag_id))
+      .map(tt => tt.tag_id);
+
+    for (const tagId of streamTagIdsToRemove) {
+      await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tagId);
+    }
+
+    const newStreamTag = streamTags.find(t => t.name === newStream);
+    if (newStreamTag) {
+      await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newStreamTag.id }, { onConflict: "task_id,tag_id" });
+    }
+  }, [streamSubMap, allTaskTags, streamTagIds, streamTags]);
+
+  const handleDndEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    const lastOver = dndOverCell;
+    setDndActiveId(null);
+    setDndOverCell(null);
+
+    const dropCellId = (over?.id && String(over.id).includes("::"))
+      ? (over.id as string)
+      : lastOver;
+    if (!dropCellId) return;
+
+    const { stream: targetStream, gate: targetGate } = parseCellId(dropCellId);
+    const taskId = active.id as string;
+
+    const currentGate = getTaskGate(taskId);
+    const currentStream = getTaskStream(taskId);
+    // Also check by group_id for tasks without explicit stream tag
+    const task = allTasks.find(t => t.id === taskId);
+    const currentStreamByGroup = task?.group_id
+      ? (() => { for (const [name, sub] of streamSubMap.entries()) { if (sub.id === task.group_id) return name; } return null; })()
+      : null;
+    const effectiveStream = currentStream || currentStreamByGroup;
+
+    const gateChanged = currentGate !== targetGate;
+    const streamChanged = effectiveStream !== targetStream;
+
+    if (!gateChanged && !streamChanged) return;
+
+    if (streamChanged) await moveTaskToStream(taskId, targetStream);
+    if (gateChanged) await moveTaskToGate(taskId, targetGate);
 
     queryClient.invalidateQueries({ queryKey: ["npd-matrix-tasks"] });
     queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
-    const gateName = NPD_GATES.find(g => g.key === newGateKey)?.short ?? newGateKey;
-    toast.success(`Задача перемещена в ${gateName}`);
-  }, [gateKeyToTagId, allTaskTags, gateTagIdSet, queryClient]);
 
-  const handleDndEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    const lastOver = dndOverGate;
-    setDndActiveId(null);
-    setDndOverGate(null);
-
-    const dropGate = (over?.id && NPD_GATES.some(g => g.key === over.id))
-      ? (over.id as string)
-      : lastOver;
-    if (!dropGate) return;
-
-    const taskId = active.id as string;
-    // Don't move if same gate
-    const currentGate = getTaskGate(taskId);
-    if (currentGate === dropGate) return;
-
-    moveTaskToGate(taskId, dropGate);
-  }, [dndOverGate, getTaskGate, moveTaskToGate]);
+    const parts: string[] = [];
+    if (gateChanged) parts.push(NPD_GATES.find(g => g.key === targetGate)?.short ?? targetGate);
+    if (streamChanged) parts.push(targetStream);
+    toast.success(`Задача перемещена → ${parts.join(" · ")}`);
+  }, [dndOverCell, getTaskGate, getTaskStream, allTasks, streamSubMap, moveTaskToGate, moveTaskToStream, queryClient]);
 
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
