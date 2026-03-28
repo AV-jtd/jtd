@@ -45,7 +45,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [expandedView, setExpandedView] = useState<Record<string, "card" | "gantt" | "matrix">>({});
+  const [expandedView, setExpandedView] = useState<Record<string, "card" | "gantt" | "matrix" | null>>({});
 
   useEffect(() => {
     const t = window.setTimeout(() => { if (draftSearch !== search) setSearch(draftSearch); }, 150);
@@ -578,7 +578,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       </tr>
                       {/* Expanded — tabbed preview */}
                       {isExpanded && (() => {
-                        const currentView = expandedView[project.id] || "card";
+                        const currentView = expandedView[project.id] ?? null;
                         const isNpd = project.project_type === "npd";
                         const childIds = children.map((c) => c.id);
                         const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
@@ -586,7 +586,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                         const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
 
                         const setView = (v: "card" | "gantt" | "matrix") => {
-                          setExpandedView((prev) => ({ ...prev, [project.id]: v }));
+                          setExpandedView((prev) => ({ ...prev, [project.id]: prev[project.id] === v ? null : v }));
                         };
 
                         return (
@@ -635,12 +635,45 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   </Tooltip>
                                 </div>
 
-                                {/* Content */}
-                                <div className="px-6 pb-3 space-y-3">
-                                  {currentView === "card" && (
+                                {/* Content — task summary by default, full panel on tab click */}
+                                {!currentView && (
+                                  <div className="px-6 pb-3">
+                                    {(() => {
+                                      const now = new Date();
+                                      const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+                                      const upcoming = projectTasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) >= now)
+                                        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+                                        .slice(0, 3);
+                                      const completed = projectTasks.filter((t) => t.is_completed).length;
+                                      return (
+                                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                                          {overdue.length > 0 && (
+                                            <span className="text-destructive font-medium">🔴 Просрочено: {overdue.length}</span>
+                                          )}
+                                          {upcoming.length > 0 && (
+                                            <span>⏳ Ближайшие: {upcoming.map((t) => t.title).join(", ")}</span>
+                                          )}
+                                          <span>✅ Завершено: {completed}/{projectTasks.length}</span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                                {currentView === "card" && (
+                                  <div className="px-6 pb-3">
                                     <ProjectDetailPanel group={project} />
-                                  )}
-                                </div>
+                                  </div>
+                                )}
+                                {currentView === "gantt" && (
+                                  <div className="px-6 pb-3">
+                                    <PmoInlineGantt tasks={projectTasks} userMap={userMap} onTaskClick={setSelectedTaskId} />
+                                  </div>
+                                )}
+                                {currentView === "matrix" && isNpd && (
+                                  <div className="px-6 pb-3">
+                                    <PmoInlineMatrix projectId={project.id} children={children} allTasks={projectTasks} />
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
