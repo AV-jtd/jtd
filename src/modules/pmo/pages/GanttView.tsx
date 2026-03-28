@@ -10,7 +10,7 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, isWeekend
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
