@@ -209,8 +209,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     { total: 0, completed: 0, overdue: 0 }
   );
 
-  const hasFilters = !!(search || overdueFilter || managerFilter || stageFilter);
-  const activeFilterCount = [overdueFilter, !!managerFilter, !!stageFilter].filter(Boolean).length;
+  const hasFilters = !!(search || overdueFilter || managerFilter || stageFilter || sortKey !== "name" || sortDir !== "asc");
+  const activeFilterCount = [overdueFilter, !!managerFilter, !!stageFilter, sortKey !== "name"].filter(Boolean).length;
 
   const groupByOptions: { key: GroupBy; label: string; icon: React.ElementType }[] = [
     { key: "none", label: "Без группировки", icon: Layers },
