@@ -525,7 +525,7 @@ function ProgressBar({ progress, stats, compact }: { progress: number; stats: { 
   const barColor = stats.overdue > 0 ? "bg-destructive" : progress === 100 ? "bg-success" : "bg-primary";
   return (
     <div className="flex items-center gap-2">
-      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1" : "h-1.5")}>
+      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
       <span className={cn("font-medium text-muted-foreground text-right", compact ? "text-[10px] w-8" : "text-[11px] w-10")}>
