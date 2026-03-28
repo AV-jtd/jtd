@@ -568,11 +568,11 @@ function StatusDot({ status, size = "sm" }: { status: HealthStatus; size?: "sm" 
 function ProgressBar({ progress, stats, compact }: { progress: number; stats: { total: number; completed: number; overdue: number }; compact?: boolean }) {
   const barColor = stats.overdue > 0 ? "bg-destructive" : progress === 100 ? "bg-success" : "bg-primary";
   return (
-    <div className="flex items-center gap-2">
-      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2")}>
+    <div className="flex items-center gap-2.5">
+      <div className={cn("flex-1 rounded-full bg-muted overflow-hidden", compact ? "h-1.5" : "h-2.5")}>
         <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${progress}%` }} />
       </div>
-      <span className={cn("font-medium text-right shrink-0", compact ? "text-[10px] w-8 text-muted-foreground" : "text-[11px] w-16 text-muted-foreground")}>
+      <span className={cn("font-medium text-right shrink-0 tabular-nums", compact ? "text-[11px] w-8 text-muted-foreground" : "text-xs w-20 text-muted-foreground")}>
         {compact ? `${progress}%` : `${progress}% · ${stats.completed}/${stats.total}`}
       </span>
     </div>
