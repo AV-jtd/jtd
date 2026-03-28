@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle, ClipboardPaste } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Paperclip, X, FileIcon, Loader2, Sparkles, AlertTriangle, ClipboardPaste, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
   const [summary, setSummary] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,42 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
     el.addEventListener("paste", handlePaste as EventListener);
     return () => el.removeEventListener("paste", handlePaste as EventListener);
   }, [open, handlePaste]);
+
+  const processDroppedFiles = useCallback((droppedFiles: File[]) => {
+    const available = MAX_FILES - files.length;
+    if (available <= 0) return;
+    const toAdd = droppedFiles.slice(0, available);
+    for (const f of toAdd) {
+      const err = validateClientSide(f);
+      if (err) { toast.error(err); return; }
+    }
+    uploadAndValidate(toAdd);
+  }, [files.length]);
+
+  const onDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragging(true);
+  }, []);
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) setDragging(false);
+  }, []);
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      processDroppedFiles(Array.from(e.dataTransfer.files));
+    }
+  }, [processDroppedFiles]);
 
   const handleSubmit = () => {
     if (result.trim()) {
@@ -164,7 +202,21 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent ref={dialogRef} className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        ref={dialogRef}
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto relative"
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {/* Drop overlay */}
+        {dragging && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+            <Upload className="h-8 w-8 text-primary mb-2" />
+            <p className="text-sm font-medium text-primary">Перетащите файлы сюда</p>
+          </div>
+        )}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-primary" />
@@ -262,8 +314,8 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <ClipboardPaste className="h-3 w-3" />
-            <span>Ctrl+V — вставить скриншот из буфера</span>
+            <Upload className="h-3 w-3" />
+            <span>Перетащите файлы или Ctrl+V для скриншота</span>
           </div>
         </div>
         <DialogFooter>
