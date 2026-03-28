@@ -265,7 +265,6 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             <ClipboardPaste className="h-3 w-3" />
             <span>Ctrl+V — вставить скриншот из буфера</span>
           </div>
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
