@@ -83,6 +83,7 @@ function AppContent() {
               <Route path="/crm" element={<Crm />} />
               <Route path="/npd" element={<Npd />} />
               <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
+              <Route path="/wiki-demo" element={<WikiDemo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
