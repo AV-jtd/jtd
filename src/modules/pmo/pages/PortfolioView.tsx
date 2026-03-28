@@ -399,7 +399,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               </th>
               <th className="px-3 py-2.5 text-left hidden lg:table-cell">
                 <button onClick={() => toggleSort("manager")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
-                  Руководитель <SortIcon col="manager" />
+                  Ответственный <SortIcon col="manager" />
                 </button>
               </th>
               <th className="px-3 py-2.5 text-center">
