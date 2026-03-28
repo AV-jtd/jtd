@@ -222,6 +222,96 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
 
+  // Grouped sections
+  type GroupedSection = { key: string; label: string; color?: string; tasks: typeof activeTasks };
+  const groupedSections = useMemo((): GroupedSection[] => {
+    if (groupBy === "none") return [];
+    const now = new Date();
+
+    if (groupBy === "project") {
+      const byProject = new Map<string, typeof activeTasks>();
+      activeTasks.forEach(t => {
+        const key = t.group_id || "__none__";
+        if (!byProject.has(key)) byProject.set(key, []);
+        byProject.get(key)!.push(t);
+      });
+      const sections: GroupedSection[] = [];
+      byProject.forEach((tasks, key) => {
+        const group = groups.find(g => g.id === key);
+        sections.push({
+          key,
+          label: key === "__none__" ? "Без проекта" : group?.name || "Проект",
+          color: group?.color || undefined,
+          tasks,
+        });
+      });
+      return sections.sort((a, b) => {
+        if (a.key === "__none__") return 1;
+        if (b.key === "__none__") return -1;
+        return a.label.localeCompare(b.label);
+      });
+    }
+
+    if (groupBy === "deadline") {
+      const overdue: typeof activeTasks = [];
+      const today: typeof activeTasks = [];
+      const thisWeek: typeof activeTasks = [];
+      const later: typeof activeTasks = [];
+      const noDeadline: typeof activeTasks = [];
+
+      activeTasks.forEach(t => {
+        if (!t.deadline) { noDeadline.push(t); return; }
+        const d = parseISO(t.deadline);
+        if (isBefore(d, startOfDay(now))) overdue.push(t);
+        else if (isToday(d)) today.push(t);
+        else if (isThisWeek(d, { weekStartsOn: 1 })) thisWeek.push(t);
+        else later.push(t);
+      });
+
+      return [
+        { key: "overdue", label: "🔴 Просрочено", tasks: overdue },
+        { key: "today", label: "🟡 Сегодня", tasks: today },
+        { key: "week", label: "📅 На этой неделе", tasks: thisWeek },
+        { key: "later", label: "📆 Позже", tasks: later },
+        { key: "none", label: "Без срока", tasks: noDeadline },
+      ].filter(s => s.tasks.length > 0);
+    }
+
+    if (groupBy === "assignee") {
+      const byAssignee = new Map<string, typeof activeTasks>();
+      activeTasks.forEach(t => {
+        const key = t.assigned_to || "__unassigned__";
+        if (!byAssignee.has(key)) byAssignee.set(key, []);
+        byAssignee.get(key)!.push(t);
+      });
+      const sections: GroupedSection[] = [];
+      byAssignee.forEach((tasks, key) => {
+        const user = availableUsers.find(u => u.id === key);
+        sections.push({
+          key,
+          label: key === "__unassigned__" ? "Не назначено" : user?.display_name || "Пользователь",
+          tasks,
+        });
+      });
+      return sections.sort((a, b) => {
+        if (a.key === "__unassigned__") return 1;
+        if (b.key === "__unassigned__") return -1;
+        return a.label.localeCompare(b.label);
+      });
+    }
+
+    return [];
+  }, [groupBy, activeTasks, groups, availableUsers]);
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleCollapse = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
