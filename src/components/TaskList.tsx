@@ -204,6 +204,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         nextTasks = nextTasks.filter(t => t.is_important);
       } else if (priorityFilter === "overdue") {
         nextTasks = nextTasks.filter(t => t.deadline && !t.is_completed && new Date(t.deadline) < now);
+      } else if (priorityFilter === "pending_approval") {
+        nextTasks = nextTasks.filter(t => t.approval_status === "pending");
       } else {
         nextTasks = nextTasks.filter(t => (t as any).priority === priorityFilter);
       }
