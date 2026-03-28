@@ -42,6 +42,11 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
+
+  // Sync when parent changes the focused project
+  useEffect(() => {
+    if (initialProjectId) setSelectedProjectId(initialProjectId);
+  }, [initialProjectId]);
   const lastPinchDistRef = useRef<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
