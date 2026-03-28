@@ -408,7 +408,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   <SortIcon col="health" />
                 </button>
               </th>
-              <th className="px-3 py-2.5 min-w-[180px]">
+              <th className="px-3 py-2.5 min-w-[220px]">
                 <button onClick={() => toggleSort("progress")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
                   Прогресс <SortIcon col="progress" />
                 </button>
