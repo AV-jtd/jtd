@@ -63,14 +63,14 @@ function TaskFiltersBar({
     return () => window.clearTimeout(timeoutId);
   }, [draftSearch, onSearchChange, searchValue]);
 
-  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || groupBy !== "none";
+  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || priorityFilter === "pending_approval";
   const hasActiveFilters = priorityFilter !== null || assigneeFilter !== null || projectFilter !== null;
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
   const activeSecondaryCount = [
     assigneeFilter !== null,
     projectFilter !== null,
-    groupBy !== "none",
+    priorityFilter === "pending_approval",
   ].filter(Boolean).length;
 
   return (
