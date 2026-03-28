@@ -220,6 +220,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   };
 
   return (
+    <>
     <div
       ref={(node) => { setNodeRef(node); (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
       style={style}
