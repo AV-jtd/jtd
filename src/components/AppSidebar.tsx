@@ -111,8 +111,7 @@ export default function AppSidebar({
   const menuItems = [
     { id: "all", icon: List, label: "Все задачи" },
     { id: "inbox", icon: Inbox, label: "Входящие" },
-    { id: "important", icon: Star, label: "Важные" },
-    { id: "today", icon: CalendarDays, label: "На сегодня" },
+    { id: "myday", icon: Star, label: "Мой день" },
     { id: "assigned", icon: Users, label: "Делегированные" },
     { id: "deferred", icon: Clock, label: "Отложенные" },
     { id: "subordinates", icon: UsersRound, label: "Команда" },

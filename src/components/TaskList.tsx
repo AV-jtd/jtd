@@ -67,6 +67,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [searchFilter, setSearchFilter] = useState("");
   const [delegationTab, setDelegationTab] = useState<"by_me" | "to_me">("by_me");
   const [groupBy, setGroupBy] = useState<GroupByOption>("none");
+  const [mydayTab, setMydayTab] = useState<"all" | "important" | "today" | "overdue">("all");
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -144,6 +145,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const viewConfig: Record<string, { title: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }> = {
     all: { title: "Все задачи", icon: List, emptyTitle: "Список пуст", emptyDesc: "Создайте первую задачу — просто начните печатать выше" },
     inbox: { title: "Входящие", icon: Inbox, emptyTitle: "Входящие пусты", emptyDesc: "Задачи без проекта попадают сюда" },
+    myday: { title: "Мой день", icon: Star, emptyTitle: "Мой день пуст", emptyDesc: "Важные задачи и задачи на сегодня появятся здесь" },
     important: { title: "Важные", icon: Star, emptyTitle: "Нет важных задач", emptyDesc: "Отметьте задачу звёздочкой, чтобы она появилась здесь" },
     today: { title: "На сегодня", icon: CalendarDays, emptyTitle: "На сегодня ничего", emptyDesc: "Задачи с сегодняшним дедлайном появятся здесь" },
     assigned: { title: "Делегированные", icon: Users, emptyTitle: delegationTab === "by_me" ? "Вы не поручали задач" : "Вам ничего не поручено", emptyDesc: delegationTab === "by_me" ? "Назначьте задачу другому пользователю" : "Когда вам назначат задачу, она появится здесь" },
@@ -166,6 +168,21 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
     if (activeView === "inbox") {
       nextTasks = tasks.filter(t => !t.group_id);
+    } else if (activeView === "myday") {
+      const mydayAll = tasks.filter(t =>
+        t.is_important ||
+        (t.deadline && isToday(parseISO(t.deadline))) ||
+        (t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now)))
+      );
+      if (mydayTab === "important") {
+        nextTasks = mydayAll.filter(t => t.is_important);
+      } else if (mydayTab === "today") {
+        nextTasks = mydayAll.filter(t => t.deadline && isToday(parseISO(t.deadline)));
+      } else if (mydayTab === "overdue") {
+        nextTasks = mydayAll.filter(t => t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now)));
+      } else {
+        nextTasks = mydayAll;
+      }
     } else if (activeView === "important") {
       nextTasks = tasks.filter(t => t.is_important);
     } else if (activeView === "today") {
@@ -493,8 +510,45 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </div>
         )}
 
-        {/* AI Insights — show on inbox/today/all views */}
-        {!batchMode && (activeView === "inbox" || activeView === "today" || activeView === "all") && (
+        {/* My Day sub-tabs */}
+        {activeView === "myday" && (
+          <div className="flex items-center gap-1 mb-4 p-1 bg-muted/50 rounded-xl w-fit flex-wrap">
+            {([
+              { key: "all" as const, label: "Все", emoji: "📋" },
+              { key: "important" as const, label: "Важные", emoji: "⭐" },
+              { key: "today" as const, label: "Сегодня", emoji: "📅" },
+              { key: "overdue" as const, label: "Просроченные", emoji: "🔴" },
+            ]).map(tab => {
+              const now = new Date();
+              const mydayAll = tasks.filter(t =>
+                t.is_important ||
+                (t.deadline && isToday(parseISO(t.deadline))) ||
+                (t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now)))
+              );
+              const count = tab.key === "all" ? mydayAll.length
+                : tab.key === "important" ? mydayAll.filter(t => t.is_important).length
+                : tab.key === "today" ? mydayAll.filter(t => t.deadline && isToday(parseISO(t.deadline))).length
+                : mydayAll.filter(t => t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now))).length;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setMydayTab(tab.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    mydayTab === tab.key
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.emoji} {tab.label}{count > 0 ? ` (${count})` : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* AI Insights — show on inbox/myday/all views */}
+        {!batchMode && (activeView === "inbox" || activeView === "myday" || activeView === "today" || activeView === "all") && (
           <AiInsightsCard
             insights={insights}
             loading={insightsLoading}
