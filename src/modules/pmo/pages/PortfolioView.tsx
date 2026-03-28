@@ -402,11 +402,6 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                   Руководитель <SortIcon col="manager" />
                 </button>
               </th>
-              <th className="px-3 py-2.5 text-left hidden xl:table-cell">
-                <button onClick={() => toggleSort("stage")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors">
-                  Этап <SortIcon col="stage" />
-                </button>
-              </th>
               <th className="px-3 py-2.5 text-center">
                 <button onClick={() => toggleSort("health")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-semibold uppercase tracking-wider transition-colors mx-auto">
                   <Tooltip><TooltipTrigger className="cursor-default">Здоровье</TooltipTrigger><TooltipContent>Сроки · Задачи · Вехи</TooltipContent></Tooltip>
