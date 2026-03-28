@@ -20,6 +20,12 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateType, QuickCreateResult } from "@/components/QuickCreateForm";
 import {
+  DndContext, useDroppable, useDraggable,
+  MouseSensor, TouchSensor, useSensor, useSensors,
+  pointerWithin,
+  type DragEndEvent, type DragOverEvent,
+} from "@dnd-kit/core";
+import {
   Loader2, ArrowLeft, Plus, X, CalendarIcon, User, CheckCircle2,
   AlertTriangle, Clock, ChevronDown, ChevronRight, Link2, GanttChart,
   Expand, GripVertical, Inbox, FolderPlus, ListPlus,
