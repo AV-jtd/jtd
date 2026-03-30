@@ -412,7 +412,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   // ── Mobile ──
   if (isMobile) {
     return (
-      <div className="h-full overflow-y-auto p-3 scrollbar-thin">
+      <div className="h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-y-contain touch-pan-y p-3 pb-20 scrollbar-thin">
         {filtersBar}
         <div className="space-y-1.5">
           {groupedProjects.map((group) => (
