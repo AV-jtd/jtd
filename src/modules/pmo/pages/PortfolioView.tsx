@@ -255,7 +255,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+    else { setSortKey(key); setSortDir(key === "progress" || key === "health" ? "desc" : "asc"); }
   };
 
   const toggleExpand = (id: string) => {
