@@ -228,7 +228,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return "0–25%";
   }, [getAggregatedStats]);
 
-  const progressBucketOrder: Record<string, number> = { "Нет задач": 0, "0–25%": 1, "25–50%": 2, "50–75%": 3, "75–100%": 4 };
+  const progressBucketOrder: Record<string, number> = { "75–100%": 0, "50–75%": 1, "25–50%": 2, "0–25%": 3, "Нет задач": 4 };
 
   // Grouping
   const groupedProjects = useMemo(() => {
