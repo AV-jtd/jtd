@@ -378,7 +378,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                 { key: "health" as SortKey, label: "По здоровью" },
                 { key: "manager" as SortKey, label: "По ответственному" },
               ]).map((s) => (
-                <button key={s.key} onClick={() => { if (sortKey === s.key) { setSortDir(d => d === "asc" ? "desc" : "asc"); } else { setSortKey(s.key); setSortDir("asc"); } }}
+                <button key={s.key} onClick={() => { if (sortKey === s.key) { setSortDir(d => d === "asc" ? "desc" : "asc"); } else { setSortKey(s.key); setSortDir(s.key === "progress" || s.key === "health" ? "desc" : "asc"); } }}
                   className={cn("flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", sortKey === s.key && "bg-primary/10 text-primary")}>
                   <span>{s.label}</span>
                   {sortKey === s.key && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
