@@ -228,7 +228,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return "0–25%";
   }, [getAggregatedStats]);
 
-  const progressBucketOrder: Record<string, number> = { "Нет задач": 0, "0–25%": 1, "25–50%": 2, "50–75%": 3, "75–100%": 4 };
+  const progressBucketOrder: Record<string, number> = { "75–100%": 0, "50–75%": 1, "25–50%": 2, "0–25%": 3, "Нет задач": 4 };
 
   // Grouping
   const groupedProjects = useMemo(() => {
@@ -255,7 +255,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+    else { setSortKey(key); setSortDir(key === "progress" || key === "health" ? "desc" : "asc"); }
   };
 
   const toggleExpand = (id: string) => {
@@ -378,7 +378,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                 { key: "health" as SortKey, label: "По здоровью" },
                 { key: "manager" as SortKey, label: "По ответственному" },
               ]).map((s) => (
-                <button key={s.key} onClick={() => { if (sortKey === s.key) { setSortDir(d => d === "asc" ? "desc" : "asc"); } else { setSortKey(s.key); setSortDir("asc"); } }}
+                <button key={s.key} onClick={() => { if (sortKey === s.key) { setSortDir(d => d === "asc" ? "desc" : "asc"); } else { setSortKey(s.key); setSortDir(s.key === "progress" || s.key === "health" ? "desc" : "asc"); } }}
                   className={cn("flex items-center justify-between w-full px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors", sortKey === s.key && "bg-primary/10 text-primary")}>
                   <span>{s.label}</span>
                   {sortKey === s.key && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
@@ -412,7 +412,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   // ── Mobile ──
   if (isMobile) {
     return (
-      <div className="h-full overflow-y-auto p-3 scrollbar-thin">
+      <div className="h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-y-contain touch-pan-y p-3 pb-20 scrollbar-thin">
         {filtersBar}
         <div className="space-y-1.5">
           {groupedProjects.map((group) => (
