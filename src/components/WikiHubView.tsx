@@ -71,10 +71,12 @@ export default function WikiHubView() {
         const hasContent = groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
         const isActive = groupActivityMap.get(group.id) ?? true;
 
-        // Build a short preview from the first filled section
+        // Build a short preview from the first filled section or wiki page content
         const previewSection = filledSections[0];
-        const previewText = previewSection?.content
-          ? previewSection.content.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 120)
+        const filledPage = pages.find(p => p.content && p.content.trim().length > 0);
+        const rawPreview = previewSection?.content || filledPage?.content || null;
+        const previewText = rawPreview
+          ? rawPreview.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 120)
           : null;
 
         return { group, pageCount: pages.length, sectionCount: filledSections.length, lastUpdated, hasContent, isActive, previewText };
