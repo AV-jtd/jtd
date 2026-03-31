@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, useTaskMutations, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
+import { EMOJI_CATEGORIES } from "@/lib/emojiCategories";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2248,14 +2249,6 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
   );
 }
 
-const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
-  { label: "Работа", emojis: ["📁", "💼", "📊", "📈", "📉", "📋", "🗂️", "📑", "🏢", "💻", "🖥️", "⚙️", "🔧", "🛠️", "📝", "✏️", "📌", "🗓️", "📅", "🗃️", "🖊️", "📎", "🧾", "📤", "📥", "📮", "🏗️", "🏭", "👔", "🪪", "📇", "🗄️"] },
-  { label: "Идеи", emojis: ["💡", "🚀", "🎯", "⭐", "✨", "💎", "🔮", "🧩", "🎲", "🏆", "🥇", "🎖️", "🧠", "💭", "❓", "🔑", "🪄", "🎪", "🔭", "🧬", "💫", "🌟", "🏅", "🎓", "📡", "🛸", "⚗️", "🧲", "🔆", "♟️", "🎰", "🪂"] },
-  { label: "Природа", emojis: ["🌿", "🌊", "🌸", "🌻", "🍀", "🌈", "☀️", "🌙", "⛰️", "🌍", "🔥", "❄️", "🌾", "🍂", "🌵", "🌴", "🌺", "🍁", "🌲", "🏔️", "🌤️", "⛅", "🌪️", "💧", "🦋", "🐝", "🌱", "🪻", "🪷", "🍃", "🦜", "🐚"] },
-  { label: "Еда", emojis: ["🍕", "🍔", "🌮", "🍣", "🍰", "🍩", "☕", "🍷", "🥗", "🍎", "🧀", "🍫", "🥐", "🍜", "🥩", "🍦", "🧁", "🥑", "🍇", "🥝", "🫐", "🍋", "🥥", "🧃", "🍺", "🥤", "🫕", "🍪", "🥖", "🫒", "🧆", "🍿"] },
-  { label: "Жизнь", emojis: ["🏠", "🎨", "🎵", "📚", "🎬", "📷", "🎮", "🏋️", "🧘", "🚗", "✈️", "🎂", "❤️", "😊", "🐱", "🐶", "🏡", "🛋️", "🎸", "🎹", "🎧", "🎤", "📱", "⌚", "🚲", "🛹", "🏄", "🎿", "⚽", "🎾", "🧳", "🪴"] },
-  { label: "Символы", emojis: ["✅", "❌", "⚡", "🔒", "🔔", "📣", "💬", "🏷️", "🚩", "♻️", "⏳", "🎁", "📦", "🧪", "🔬", "🌐", "🛡️", "⚠️", "🚫", "💯", "🔴", "🟢", "🔵", "🟡", "🟣", "⬛", "🔶", "🔷", "💠", "☑️", "🔗", "🏴"] },
-];
 
 function ProjectIcon({ project }: { project: NpdProject }) {
   const [open, setOpen] = useState(false);

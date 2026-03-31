@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReactMarkdown from "react-markdown";
 
-const ICONS = ["📄", "📋", "🎯", "⚙️", "🏗️", "📝", "⚠️", "📅", "💡", "👥", "🔌", "📊", "🚀", "📎", "🔒"];
+import { EMOJI_CATEGORIES } from "@/lib/emojiCategories";
+
+const ICONS = EMOJI_CATEGORIES.flatMap(c => c.emojis).slice(0, 30);
 
 interface WikiEditorProps {
   groupId: string;
