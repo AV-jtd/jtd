@@ -24,7 +24,7 @@ export default function WikiHubView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("wiki_pages")
-        .select("id, group_id, title, icon, updated_at")
+        .select("id, group_id, title, icon, content, updated_at")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data;
