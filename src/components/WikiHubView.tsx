@@ -68,7 +68,8 @@ export default function WikiHubView() {
         const sections = structuredSections.filter(s => s.group_id === group.id);
         const filledSections = sections.filter(s => s.content && s.content.trim().length > 0);
         const lastUpdated = pages[0]?.updated_at || null;
-        const hasContent = groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
+        const hasWikiContent = pages.some(p => p.content && p.content.trim().length > 0);
+        const hasContent = hasWikiContent || filledSections.length > 0 || groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
         const isActive = groupActivityMap.get(group.id) ?? true;
 
         // Build a short preview from the first filled section or wiki page content
