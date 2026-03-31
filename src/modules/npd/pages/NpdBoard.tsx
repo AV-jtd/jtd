@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTasks, useGroupMembers, useAvailableUsers, useTaskMutations, type Task, type TaskGroup } from "@/hooks/useTasks";
 import { cn } from "@/lib/utils";
+import { EMOJI_CATEGORIES } from "@/lib/emojiCategories";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
