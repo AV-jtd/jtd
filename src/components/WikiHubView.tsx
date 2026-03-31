@@ -24,7 +24,7 @@ export default function WikiHubView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("wiki_pages")
-        .select("id, group_id, title, icon, updated_at")
+        .select("id, group_id, title, icon, content, updated_at")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -68,13 +68,16 @@ export default function WikiHubView() {
         const sections = structuredSections.filter(s => s.group_id === group.id);
         const filledSections = sections.filter(s => s.content && s.content.trim().length > 0);
         const lastUpdated = pages[0]?.updated_at || null;
-        const hasContent = groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
+        const hasWikiContent = pages.some(p => p.content && p.content.trim().length > 0);
+        const hasContent = hasWikiContent || filledSections.length > 0 || groupIdsWithPages.has(group.id) || groupIdsWithSections.has(group.id);
         const isActive = groupActivityMap.get(group.id) ?? true;
 
-        // Build a short preview from the first filled section
+        // Build a short preview from the first filled section or wiki page content
         const previewSection = filledSections[0];
-        const previewText = previewSection?.content
-          ? previewSection.content.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 120)
+        const filledPage = pages.find(p => p.content && p.content.trim().length > 0);
+        const rawPreview = previewSection?.content || filledPage?.content || null;
+        const previewText = rawPreview
+          ? rawPreview.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 120)
           : null;
 
         return { group, pageCount: pages.length, sectionCount: filledSections.length, lastUpdated, hasContent, isActive, previewText };
