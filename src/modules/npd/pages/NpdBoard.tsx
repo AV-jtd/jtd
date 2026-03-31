@@ -2249,7 +2249,6 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
   );
 }
 
-import { EMOJI_CATEGORIES } from "@/lib/emojiCategories";
 
 function ProjectIcon({ project }: { project: NpdProject }) {
   const [open, setOpen] = useState(false);
