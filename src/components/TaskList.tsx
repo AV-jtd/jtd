@@ -375,6 +375,13 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     useSensor(KeyboardSensor)
   );
 
+  const groupedSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
+
+  const [groupDragOver, setGroupDragOver] = useState<string | null>(null);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -384,6 +391,31 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     const reordered = arrayMove(activeTasks, oldIndex, newIndex);
     reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
   }, [activeTasks, reorderTasks]);
+
+  const handleGroupedDragOver = useCallback((event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId?.startsWith("group-drop:")) {
+      setGroupDragOver(overId.replace("group-drop:", ""));
+    } else {
+      setGroupDragOver(null);
+    }
+  }, []);
+
+  const handleGroupedDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setGroupDragOver(null);
+    if (!over) return;
+    const taskId = (active.id as string).replace("group-task:", "");
+    const overId = over.id as string;
+    if (!overId.startsWith("group-drop:")) return;
+    const targetGroupKey = overId.replace("group-drop:", "");
+    const targetGroupId = targetGroupKey === "__none__" ? null : targetGroupKey;
+    const task = activeTasks.find(t => t.id === taskId);
+    if (!task) return;
+    const currentGroupId = task.group_id || "__none__";
+    if (currentGroupId === targetGroupKey || task.group_id === targetGroupId) return;
+    updateTask.mutate({ id: taskId, group_id: targetGroupId });
+  }, [activeTasks, updateTask]);
 
   const handleCreateTask = useCallback((payload: {
     title: string;
