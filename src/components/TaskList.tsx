@@ -5,7 +5,7 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard from "./AiInsightsCard";
 import { useAiInsights } from "@/hooks/useAiInsights";
-import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isToday, parseISO, isBefore, startOfDay, isThisWeek } from "date-fns";
@@ -19,11 +19,17 @@ import TaskFiltersBar, { type GroupByOption } from "@/components/task-list/TaskF
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverEvent,
+  useDroppable,
+  useDraggable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -32,6 +38,40 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
+/* Droppable group section for drag-to-move between projects */
+function DroppableGroupSection({ groupKey, isOver, children }: { groupKey: string; isOver: boolean; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: `group-drop:${groupKey}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-xl transition-colors",
+        isOver && "bg-primary/5 ring-1 ring-primary/20"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* Draggable wrapper for tasks in grouped view */
+function DraggableGroupTask({ taskId, children }: { taskId: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `group-task:${taskId}` });
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className="flex items-center gap-0">
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none p-1 -ml-5 opacity-0 group-hover/draggable:opacity-100 transition-opacity"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
 interface TaskListProps {
   activeView: string;
   activeGroupId: string | null;
@@ -335,6 +375,13 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     useSensor(KeyboardSensor)
   );
 
+  const groupedSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
+
+  const [groupDragOver, setGroupDragOver] = useState<string | null>(null);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -344,6 +391,31 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     const reordered = arrayMove(activeTasks, oldIndex, newIndex);
     reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
   }, [activeTasks, reorderTasks]);
+
+  const handleGroupedDragOver = useCallback((event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined;
+    if (overId?.startsWith("group-drop:")) {
+      setGroupDragOver(overId.replace("group-drop:", ""));
+    } else {
+      setGroupDragOver(null);
+    }
+  }, []);
+
+  const handleGroupedDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setGroupDragOver(null);
+    if (!over) return;
+    const taskId = (active.id as string).replace("group-task:", "");
+    const overId = over.id as string;
+    if (!overId.startsWith("group-drop:")) return;
+    const targetGroupKey = overId.replace("group-drop:", "");
+    const targetGroupId = targetGroupKey === "__none__" ? null : targetGroupKey;
+    const task = activeTasks.find(t => t.id === taskId);
+    if (!task) return;
+    const currentGroupId = task.group_id || "__none__";
+    if (currentGroupId === targetGroupKey || task.group_id === targetGroupId) return;
+    updateTask.mutate({ id: taskId, group_id: targetGroupId });
+  }, [activeTasks, updateTask]);
 
   const handleCreateTask = useCallback((payload: {
     title: string;
@@ -744,10 +816,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
           </div>
         ) : groupBy !== "none" && groupedSections.length > 0 ? (
+          <DndContext
+            sensors={groupBy === "project" ? groupedSensors : sensors}
+            collisionDetection={pointerWithin}
+            onDragOver={groupBy === "project" ? handleGroupedDragOver : undefined}
+            onDragEnd={groupBy === "project" ? handleGroupedDragEnd : undefined}
+          >
           <div className="space-y-3">
             {groupedSections.map(section => {
               const isCollapsed = collapsedGroups.has(section.key);
-              return (
+              const isProjectGroup = groupBy === "project";
+              const sectionContent = (
                 <div key={section.key} className="animate-fade-in">
                   <button
                     onClick={() => toggleCollapse(section.key)}
@@ -763,24 +842,43 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     </span>
                   </button>
                   {!isCollapsed && (
-                    <div className="space-y-1.5 mt-1">
-                      {section.tasks.map(task => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          initialOpen={task.id === highlightTaskId}
-                          onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
-                          onTagClick={onTagClick}
-                          onProjectClick={onProjectClick}
-                          selectable={batchMode}
-                          selected={selectedIds.has(task.id)}
-                          onToggleSelect={() => toggleSelect(task.id)}
-                          onLongPress={() => toggleSelect(task.id)}
-                        />
-                      ))}
+                    <div className="space-y-1.5 mt-1 pl-5">
+                      {section.tasks.map(task => {
+                        const taskItem = (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            initialOpen={task.id === highlightTaskId}
+                            onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                            onTagClick={onTagClick}
+                            onProjectClick={onProjectClick}
+                            selectable={batchMode}
+                            selected={selectedIds.has(task.id)}
+                            onToggleSelect={() => toggleSelect(task.id)}
+                            onLongPress={() => toggleSelect(task.id)}
+                          />
+                        );
+                        return isProjectGroup ? (
+                          <div key={task.id} className="group/draggable">
+                            <DraggableGroupTask taskId={task.id}>
+                              {taskItem}
+                            </DraggableGroupTask>
+                          </div>
+                        ) : (
+                          <div key={task.id}>{taskItem}</div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
+              );
+
+              return isProjectGroup ? (
+                <DroppableGroupSection key={section.key} groupKey={section.key} isOver={groupDragOver === section.key}>
+                  {sectionContent}
+                </DroppableGroupSection>
+              ) : (
+                <div key={section.key}>{sectionContent}</div>
               );
             })}
             {completedTasks.length > 0 && (
@@ -816,6 +914,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               </div>
             )}
           </div>
+          </DndContext>
         ) : (
           <div className="space-y-1.5">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
