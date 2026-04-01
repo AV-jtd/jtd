@@ -19,11 +19,17 @@ import TaskFiltersBar, { type GroupByOption } from "@/components/task-list/TaskF
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverEvent,
+  useDroppable,
+  useDraggable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
