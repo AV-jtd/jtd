@@ -72,12 +72,13 @@ function getTimingBadgeClass(s: SubprojectStats["timingStatus"]) {
   }
 }
 
-export function SubprojectDashboardCard({ group, allTasks, allGroups, users, onNavigate }: {
+export function SubprojectDashboardCard({ group, allTasks, allGroups, users, onNavigate, droppable }: {
   group: TaskGroup;
   allTasks: Task[];
   allGroups: TaskGroup[];
   users: Profile[];
   onNavigate?: (groupId: string) => void;
+  droppable?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const stats = useMemo(() => computeSubprojectStats(group.id, allTasks, allGroups), [group.id, allTasks, allGroups]);
@@ -86,8 +87,17 @@ export function SubprojectDashboardCard({ group, allTasks, allGroups, users, onN
   const displayName = group.name.includes("/") ? group.name.split("/").pop()!.trim() : group.name;
   const childSubs = allGroups.filter(g => g.parent_id === group.id);
 
+  const { setNodeRef, isOver } = useDroppable({ id: `subproject-drop:${group.id}`, disabled: !droppable });
+
   return (
-    <div className={cn("border border-border rounded-xl overflow-hidden transition-shadow", expanded && "shadow-md")}>
+    <div
+      ref={droppable ? setNodeRef : undefined}
+      className={cn(
+        "border rounded-xl overflow-hidden transition-all",
+        isOver ? "border-primary ring-1 ring-primary/30 bg-primary/5" : "border-border",
+        expanded && "shadow-md"
+      )}
+    >
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
