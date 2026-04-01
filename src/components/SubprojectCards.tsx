@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useDroppable } from "@dnd-kit/core";
 
 type SubprojectStats = {
   total: number;
