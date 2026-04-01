@@ -311,6 +311,7 @@ export default function SubprojectCards({ parentId, onNavigate, droppable }: { p
             allGroups={allGroups}
             users={availableUsers}
             onNavigate={onNavigate}
+            droppable={droppable}
           />
         ))}
       </div>
