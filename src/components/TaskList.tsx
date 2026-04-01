@@ -384,13 +384,27 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over) return;
+
+    // Check if dropped onto a subproject target
+    const overId = over.id as string;
+    if (overId.startsWith("subproject-drop:")) {
+      const targetGroupId = overId.replace("subproject-drop:", "");
+      const taskId = active.id as string;
+      const task = activeTasks.find(t => t.id === taskId);
+      if (task && task.group_id !== targetGroupId) {
+        updateTask.mutate({ id: taskId, group_id: targetGroupId });
+      }
+      return;
+    }
+
+    if (active.id === over.id) return;
     const oldIndex = activeTasks.findIndex(t => t.id === active.id);
     const newIndex = activeTasks.findIndex(t => t.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(activeTasks, oldIndex, newIndex);
     reorderTasks.mutate(reordered.map((t, i) => ({ id: t.id, position: i })));
-  }, [activeTasks, reorderTasks]);
+  }, [activeTasks, reorderTasks, updateTask]);
 
   const handleGroupedDragOver = useCallback((event: DragOverEvent) => {
     const overId = event.over?.id as string | undefined;
@@ -787,7 +801,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* Subprojects dashboard */}
         {activeView === "group" && activeGroupId && (
-          <SubprojectCards parentId={activeGroupId} onNavigate={onProjectClick} />
+          <SubprojectCards parentId={activeGroupId} onNavigate={onProjectClick} droppable={activeView === "group"} />
         )}
 
         {/* Task list */}
@@ -917,7 +931,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </DndContext>
         ) : (
           <div className="space-y-1.5">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
+            <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
                   <div key={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
