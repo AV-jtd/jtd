@@ -248,7 +248,7 @@ function DashboardTaskRow({ task, userName, variant, drift }: {
   );
 }
 
-export default function SubprojectCards({ parentId, onNavigate }: { parentId: string; onNavigate?: (groupId: string) => void }) {
+export default function SubprojectCards({ parentId, onNavigate, droppable }: { parentId: string; onNavigate?: (groupId: string) => void; droppable?: boolean }) {
   const { data: allGroups = [] } = useTaskGroups();
   const { user } = useAuth();
 
