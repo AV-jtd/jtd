@@ -72,8 +72,7 @@ function DraggableGroupTask({ taskId, children }: { taskId: string; children: Re
     </div>
   );
 }
-
-
+interface TaskListProps {
   activeView: string;
   activeGroupId: string | null;
   activeTagFilters: string[];
