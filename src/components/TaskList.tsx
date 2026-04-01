@@ -38,7 +38,42 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
-interface TaskListProps {
+/* Droppable group section for drag-to-move between projects */
+function DroppableGroupSection({ groupKey, isOver, children }: { groupKey: string; isOver: boolean; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: `group-drop:${groupKey}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-xl transition-colors",
+        isOver && "bg-primary/5 ring-1 ring-primary/20"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* Draggable wrapper for tasks in grouped view */
+function DraggableGroupTask({ taskId, children }: { taskId: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `group-task:${taskId}` });
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className="flex items-center gap-0">
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none p-1 -ml-5 opacity-0 group-hover/draggable:opacity-100 transition-opacity"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+
   activeView: string;
   activeGroupId: string | null;
   activeTagFilters: string[];
