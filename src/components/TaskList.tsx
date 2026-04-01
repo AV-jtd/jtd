@@ -816,10 +816,17 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <p className="text-sm text-muted-foreground/60 mt-1.5 max-w-xs mx-auto">{view.emptyDesc}</p>
           </div>
         ) : groupBy !== "none" && groupedSections.length > 0 ? (
+          <DndContext
+            sensors={groupBy === "project" ? groupedSensors : sensors}
+            collisionDetection={pointerWithin}
+            onDragOver={groupBy === "project" ? handleGroupedDragOver : undefined}
+            onDragEnd={groupBy === "project" ? handleGroupedDragEnd : undefined}
+          >
           <div className="space-y-3">
             {groupedSections.map(section => {
               const isCollapsed = collapsedGroups.has(section.key);
-              return (
+              const isProjectGroup = groupBy === "project";
+              const sectionContent = (
                 <div key={section.key} className="animate-fade-in">
                   <button
                     onClick={() => toggleCollapse(section.key)}
@@ -835,24 +842,43 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     </span>
                   </button>
                   {!isCollapsed && (
-                    <div className="space-y-1.5 mt-1">
-                      {section.tasks.map(task => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          initialOpen={task.id === highlightTaskId}
-                          onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
-                          onTagClick={onTagClick}
-                          onProjectClick={onProjectClick}
-                          selectable={batchMode}
-                          selected={selectedIds.has(task.id)}
-                          onToggleSelect={() => toggleSelect(task.id)}
-                          onLongPress={() => toggleSelect(task.id)}
-                        />
-                      ))}
+                    <div className="space-y-1.5 mt-1 pl-5">
+                      {section.tasks.map(task => {
+                        const taskItem = (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            initialOpen={task.id === highlightTaskId}
+                            onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                            onTagClick={onTagClick}
+                            onProjectClick={onProjectClick}
+                            selectable={batchMode}
+                            selected={selectedIds.has(task.id)}
+                            onToggleSelect={() => toggleSelect(task.id)}
+                            onLongPress={() => toggleSelect(task.id)}
+                          />
+                        );
+                        return isProjectGroup ? (
+                          <div key={task.id} className="group/draggable">
+                            <DraggableGroupTask taskId={task.id}>
+                              {taskItem}
+                            </DraggableGroupTask>
+                          </div>
+                        ) : (
+                          <div key={task.id}>{taskItem}</div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
+              );
+
+              return isProjectGroup ? (
+                <DroppableGroupSection key={section.key} groupKey={section.key} isOver={groupDragOver === section.key}>
+                  {sectionContent}
+                </DroppableGroupSection>
+              ) : (
+                <div key={section.key}>{sectionContent}</div>
               );
             })}
             {completedTasks.length > 0 && (
@@ -888,6 +914,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               </div>
             )}
           </div>
+          </DndContext>
         ) : (
           <div className="space-y-1.5">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
