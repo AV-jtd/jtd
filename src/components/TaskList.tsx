@@ -787,7 +787,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
         {/* Subprojects dashboard */}
         {activeView === "group" && activeGroupId && (
-          <SubprojectCards parentId={activeGroupId} onNavigate={onProjectClick} />
+          <SubprojectCards parentId={activeGroupId} onNavigate={onProjectClick} droppable={activeView === "group"} />
         )}
 
         {/* Task list */}
