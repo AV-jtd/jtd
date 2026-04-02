@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import AiAssistant from "@/components/AiAssistant";
