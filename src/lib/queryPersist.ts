@@ -2,7 +2,7 @@ import { get, set, del } from "idb-keyval";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
 
 // Bump this version whenever data shape changes to invalidate stale cache
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 const IDB_KEY = "REACT_QUERY_OFFLINE_CACHE";
 const VERSION_KEY = "REACT_QUERY_CACHE_VERSION";
 
