@@ -1265,11 +1265,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           sub.deadline
                             ? isPast(parseISO(sub.deadline)) && !sub.is_completed
                               ? "text-destructive"
-                              : "text-muted-foreground"
+                              : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
+                                ? "text-amber-500"
+                                : "text-muted-foreground"
                             : "text-muted-foreground/50"
                         )}>
                           <Calendar className="h-3 w-3" />
                           {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
+                          {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
+                            <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
+                          )}
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-2" side="bottom" align="start">
@@ -1407,11 +1412,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         sub.deadline
                           ? isPast(parseISO(sub.deadline)) && !sub.is_completed
                             ? "text-destructive"
-                            : "text-muted-foreground"
+                            : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
+                              ? "text-amber-500"
+                              : "text-muted-foreground"
                           : "text-muted-foreground/50"
                       )}>
                         <Calendar className="h-3 w-3" />
                         {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
+                        {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
+                          <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
+                        )}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2" side="bottom" align="start">

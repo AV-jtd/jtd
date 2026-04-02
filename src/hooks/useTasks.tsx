@@ -1157,16 +1157,51 @@ export function useTaskMutations() {
     mutationFn: async ({ id, ...updates }: { id: string; deadline?: string | null; assigned_to?: string | null }) => {
       const { error } = await supabase.from("subtasks").update(updates).eq("id", id);
       if (error) throw error;
+
+      // Auto-extend parent task deadline if subtask deadline is later
+      if (updates.deadline) {
+        const subtaskDeadline = new Date(updates.deadline);
+        // Find the parent task
+        const { data: subtaskRow } = await supabase.from("subtasks").select("task_id").eq("id", id).single();
+        if (subtaskRow) {
+          const { data: taskRow } = await supabase.from("tasks").select("id, deadline, original_deadline").eq("id", subtaskRow.task_id).single();
+          if (taskRow && taskRow.deadline) {
+            const taskDeadline = new Date(taskRow.deadline);
+            if (subtaskDeadline > taskDeadline) {
+              await supabase.from("tasks").update({ deadline: updates.deadline }).eq("id", taskRow.id);
+              toast.info(`Дедлайн задачи сдвинут → ${subtaskDeadline.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`, {
+                description: "Шаг выходит за рамки задачи",
+              });
+            }
+          }
+        }
+      }
     },
     onMutate: async ({ id, ...updates }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
       const snap = snapshotTasks(qc);
-      updateAllTaskCaches(qc, (tasks) =>
-        tasks.map(t => ({
-          ...t,
-          subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s),
-        }))
-      );
+
+      // Also optimistically extend parent task deadline
+      if (updates.deadline) {
+        const subtaskDeadline = new Date(updates.deadline);
+        updateAllTaskCaches(qc, (tasks) =>
+          tasks.map(t => {
+            const hasSub = t.subtasks?.some(s => s.id === id);
+            const updated = { ...t, subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s) };
+            if (hasSub && t.deadline && subtaskDeadline > new Date(t.deadline)) {
+              return { ...updated, deadline: updates.deadline! };
+            }
+            return updated;
+          })
+        );
+      } else {
+        updateAllTaskCaches(qc, (tasks) =>
+          tasks.map(t => ({
+            ...t,
+            subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s),
+          }))
+        );
+      }
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
