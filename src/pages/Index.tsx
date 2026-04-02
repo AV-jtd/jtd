@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -37,6 +37,14 @@ export default function Index() {
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Lazy-mount: only render heavy views after first visit, then keep alive
+  const visitedRef = useRef<Set<string>>(new Set());
+  if (activeView === "calendar" || activeView === "dashboard") {
+    visitedRef.current.add(activeView);
+  }
+  const calendarMounted = visitedRef.current.has("calendar");
+  const dashboardMounted = visitedRef.current.has("dashboard");
 
   // Handle incoming navigation from other modules via query params
   useEffect(() => {
@@ -170,23 +178,27 @@ export default function Index() {
             )}
           </div>
 
-          {/* Calendar - kept mounted */}
-          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
-            <CalendarView onNavigateToTask={(taskId) => {
-              setActiveView("all");
-              setActiveGroupId(null);
-              setHighlightTaskId(taskId);
-            }} />
-          </div>
+          {/* Calendar - lazy mounted on first visit, then kept alive */}
+          {calendarMounted && (
+            <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
+              <CalendarView onNavigateToTask={(taskId) => {
+                setActiveView("all");
+                setActiveGroupId(null);
+                setHighlightTaskId(taskId);
+              }} />
+            </div>
+          )}
 
-          {/* Dashboard - kept mounted */}
-          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
-            <DashboardView onNavigateToTask={(taskId) => {
-              setActiveView("all");
-              setActiveGroupId(null);
-              setHighlightTaskId(taskId);
-            }} />
-          </div>
+          {/* Dashboard - lazy mounted on first visit, then kept alive */}
+          {dashboardMounted && (
+            <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
+              <DashboardView onNavigateToTask={(taskId) => {
+                setActiveView("all");
+                setActiveGroupId(null);
+                setHighlightTaskId(taskId);
+              }} />
+            </div>
+          )}
 
           {/* Lazy-mounted views */}
           {activeView === "subordinates" && <SubordinatesView />}
