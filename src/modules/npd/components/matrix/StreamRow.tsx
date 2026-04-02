@@ -102,45 +102,32 @@ function StreamRowInner({
             >
               {!isCollapsed && (
                 <div className="px-2 py-2 min-h-[60px]">
-                  {sub ? (
-                    <div className="space-y-1">
-                      {cellTasks.map(task => (
-                        <DraggableTaskRow key={task.id} taskId={task.id}>
-                          <MatrixTaskRow
-                            task={task}
-                            users={users}
-                            allDependencies={allDependencies}
-                            allTasks={allTasks}
-                            projectGroupIds={projectGroupIds}
-                            onDeadlineChange={onDeadlineChange}
-                            onAssigneeChange={onAssigneeChange}
-                            onToggle={onToggle}
-                            onAddDependency={onAddDependency}
-                            onExpand={onExpand}
-                          />
-                        </DraggableTaskRow>
-                      ))}
-                      <QuickCreateForm
-                        users={users}
-                        singleType="task"
-                        onCreate={(p) => onQuickCreate(p, sub.id, stream, gate.key)}
-                        compact={cellTasks.length === 0}
-                        startFrom={getGateStartDate(stream, gate.key)}
-                        startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center min-h-[40px]">
-                      <QuickCreateForm
-                        users={users}
-                        singleType="task"
-                        onCreate={(p) => onQuickCreate(p, projectId, stream, gate.key)}
-                        compact
-                        startFrom={getGateStartDate(stream, gate.key)}
-                        startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
-                      />
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    {cellTasks.map(task => (
+                      <DraggableTaskRow key={task.id} taskId={task.id}>
+                        <MatrixTaskRow
+                          task={task}
+                          users={users}
+                          allDependencies={allDependencies}
+                          allTasks={allTasks}
+                          projectGroupIds={projectGroupIds}
+                          onDeadlineChange={onDeadlineChange}
+                          onAssigneeChange={onAssigneeChange}
+                          onToggle={onToggle}
+                          onAddDependency={onAddDependency}
+                          onExpand={onExpand}
+                        />
+                      </DraggableTaskRow>
+                    ))}
+                    <QuickCreateForm
+                      users={users}
+                      singleType="task"
+                      onCreate={(p) => onQuickCreate(p, getCreateGroupId(stream, gate.key) ?? projectId, stream, gate.key)}
+                      compact={cellTasks.length === 0}
+                      startFrom={getGateStartDate(stream, gate.key)}
+                      startFromLabel={NPD_GATES.findIndex(g => g.key === gate.key) > 0 ? `после ${NPD_GATES[NPD_GATES.findIndex(g => g.key === gate.key) - 1].short}` : "старт проекта"}
+                    />
+                  </div>
                 </div>
               )}
               {isCollapsed && (hasTasks || isCurrentGate) && (() => {

@@ -23,16 +23,8 @@ function GateSummaryInner({ tasksByStream, getTaskGate }: GateSummaryProps) {
         const streamsInGate: string[] = [];
 
         NPD_STREAMS.forEach(s => {
-          const sub = streamSubMap.get(s);
-          const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
-          const taggedStreamTasks = streamTaggedTasksByStream.get(s) || [];
-          const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
-          const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
-
-          const cellTasks = tasks.filter(t => {
-            const taskGate = getTaskGate(t.id);
-            return taskGate ? taskGate === gate.key : currentGate === gate.key;
-          });
+          const tasks = tasksByStream.get(s) || [];
+          const cellTasks = tasks.filter(task => getTaskGate(task.id) === gate.key);
 
           if (cellTasks.length > 0) {
             streamsInGate.push(s);
