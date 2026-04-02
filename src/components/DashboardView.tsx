@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -809,10 +810,40 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
 
   if (isLoading) {
     return (
-      <main className="flex-1 overflow-y-auto">
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-          <p className="text-sm text-muted-foreground">Загрузка...</p>
+      <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+          {/* Header skeleton */}
+          <div className="flex items-center gap-3 mb-5">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+          {/* Metrics skeleton */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-3 rounded-xl border border-border bg-card">
+                <Skeleton className="h-3 w-16 mb-2" />
+                <Skeleton className="h-7 w-10" />
+              </div>
+            ))}
+          </div>
+          {/* Project cards skeleton */}
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border bg-card">
+                <div className="flex items-center gap-3 mb-3">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     );
