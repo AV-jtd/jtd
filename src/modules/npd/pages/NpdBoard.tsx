@@ -563,13 +563,30 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     [filteredProjects, tagIdToGateKey]
   );
 
-  const archiveProjects = useMemo(
-    () => filteredProjects.filter((p) => {
+  const archiveProjects = useMemo(() => {
+    // Closed/archived projects
+    const closed: NpdProject[] = closedNpdProjects.map((g): NpdProject => {
+      const groupTagIds = allGroupTags.filter((gt) => gt.group_id === g.id).map((gt) => gt.tag_id);
+      const childGroups = allGroups.filter((sg) => sg.parent_id === g.id);
+      const childIds = childGroups.map((sg) => sg.id);
+      const relevantTasks = allTasks.filter((t) => t.group_id === g.id || childIds.includes(t.group_id || ""));
+      return {
+        id: g.id, name: g.name, icon: g.icon, color: g.color, description: g.description,
+        parent_id: g.parent_id, user_id: g.user_id,
+        gateTags: [], allGateKeys: [], streamTags: [], otherTagIds: [],
+        assigneeUserId: null,
+        stats: { total: relevantTasks.length, completed: relevantTasks.filter(t => t.is_completed).length, overdue: 0 },
+        streamStats: [],
+      };
+    });
+    // Also include gate5 fully-completed active projects
+    const fullyDone = filteredProjects.filter((p) => {
       const gate = getProjectGate(p);
       return gate === "gate5" && p.stats.total > 0 && p.stats.completed === p.stats.total;
-    }),
-    [filteredProjects, tagIdToGateKey]
-  );
+    });
+    const closedIds = new Set(closed.map(c => c.id));
+    return [...closed, ...fullyDone.filter(p => !closedIds.has(p.id))];
+  }, [filteredProjects, tagIdToGateKey, closedNpdProjects, allGroups, allGroupTags, allTasks]);
 
   // ── Drag & drop ──
   const allDropKeys = useMemo(() => ["inbox", ...GATE_ORDER], []);
