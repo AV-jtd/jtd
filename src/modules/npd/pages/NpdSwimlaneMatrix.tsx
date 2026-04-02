@@ -21,12 +21,12 @@ import { parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { toast } from "sonner";
 
 // Extracted components
-import { NPD_GATES, NPD_STREAMS } from "./matrix/types";
-import MatrixHeader from "./matrix/MatrixHeader";
-import GateColumnHeaders from "./matrix/GateColumnHeaders";
-import StreamRow from "./matrix/StreamRow";
-import InboxRow from "./matrix/InboxRow";
-import GateSummary from "./matrix/GateSummary";
+import { NPD_GATES, NPD_STREAMS } from "../components/matrix/types";
+import MatrixHeader from "../components/matrix/MatrixHeader";
+import GateColumnHeaders from "../components/matrix/GateColumnHeaders";
+import StreamRow from "../components/matrix/StreamRow";
+import InboxRow from "../components/matrix/InboxRow";
+import GateSummary from "../components/matrix/GateSummary";
 
 export { NPD_GATES, NPD_STREAMS };
 
