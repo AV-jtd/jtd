@@ -122,7 +122,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   });
   const [activeStreams, setActiveStreams] = useState<Set<string>>(new Set());
   const [showInbox, setShowInbox] = useState(true);
-  const [showArchive, setShowArchive] = useState(false);
+  const [_showArchive, _setShowArchive] = useState(false); // kept for hook order
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
