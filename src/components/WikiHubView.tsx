@@ -18,7 +18,61 @@ export default function WikiHubView() {
   const { data: allTasks = [] } = useTasks();
   const [search, setSearch] = useState("");
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [openPersonalWiki, setOpenPersonalWiki] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const qc = useQueryClient();
+
+  // Personal wiki pages (no group_id)
+  const { data: personalPages = [], isLoading: personalLoading } = useQuery({
+    queryKey: ["wiki-personal-pages", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wiki_pages")
+        .select("*")
+        .is("group_id", null)
+        .eq("user_id", user!.id)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const createPersonalPage = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("wiki_pages").insert({
+        user_id: user!.id,
+        title: "Новое знание",
+        icon: "💡",
+        page_type: "wiki",
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] });
+      toast.success("Страница создана");
+    },
+  });
+
+  const deletePersonalPage = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("wiki_pages").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] });
+      toast.success("Страница удалена");
+    },
+  });
+
+  const updatePersonalPage = useMutation({
+    mutationFn: async (params: { id: string; title?: string; content?: string }) => {
+      const { id, ...updates } = params;
+      const { error } = await supabase.from("wiki_pages").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] }),
+  });
 
   const { data: wikiPages = [], isLoading: pagesLoading } = useQuery({
     queryKey: ["wiki-hub-pages", user?.id],
