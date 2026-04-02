@@ -32,9 +32,9 @@ interface StreamRowProps {
 }
 
 function StreamRowInner({
-  stream, sub, isCollapsed, currentGate, tasks, users,
+  stream, isCollapsed, currentGate, tasks, users,
   allDependencies, allTasks, projectGroupIds, projectId,
-  dndOverCell, getTaskGate, getGateStartDate,
+  dndOverCell, getTaskGate, getGateStartDate, getCreateGroupId,
   onToggleCollapse, onDeadlineChange, onAssigneeChange, onToggle,
   onAddDependency, onExpand, onQuickCreate,
 }: StreamRowProps) {
