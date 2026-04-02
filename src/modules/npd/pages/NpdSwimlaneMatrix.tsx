@@ -280,8 +280,18 @@ export default function NpdSwimlaneMatrix() {
 
   const getTaskGate = useCallback((taskId: string): string | null => {
     const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
-    for (const tt of tTags) { const gk = tagIdToGateKey.get(tt.tag_id); if (gk) return gk; }
-    return null;
+    // When task has multiple gate tags (from different users), pick the highest gate
+    const gateOrder = NPD_GATES.map(g => g.key);
+    let bestGate: string | null = null;
+    let bestIdx = -1;
+    for (const tt of tTags) {
+      const gk = tagIdToGateKey.get(tt.tag_id);
+      if (gk) {
+        const idx = gateOrder.indexOf(gk);
+        if (idx > bestIdx) { bestIdx = idx; bestGate = gk; }
+      }
+    }
+    return bestGate;
   }, [allTaskTags, tagIdToGateKey]);
 
   const getTaskStream = useCallback((taskId: string): string | null => {

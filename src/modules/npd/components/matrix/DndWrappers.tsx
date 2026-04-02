@@ -32,7 +32,7 @@ export function DraggableTaskRow({ taskId, children }: DraggableTaskRowProps) {
         <button
           {...attributes}
           {...listeners}
-          className="shrink-0 mt-1.5 cursor-grab text-muted-foreground/0 hover:text-muted-foreground/60 active:cursor-grabbing transition-colors"
+          className="shrink-0 mt-1.5 cursor-grab text-muted-foreground/40 hover:text-muted-foreground/60 active:cursor-grabbing transition-colors"
         >
           <GripVertical className="h-3 w-3" />
         </button>
