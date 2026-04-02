@@ -174,7 +174,7 @@ export default function Index() {
         {/* Messenger panel */}
         {messengerOpen && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }} />
+            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }} onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }} />
           </div>
         )}
       </div>
