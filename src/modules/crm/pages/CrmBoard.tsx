@@ -657,19 +657,18 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
     const now = new Date();
     const overdueCount = tasks.filter(t => t.deadline && new Date(t.deadline) < now && !t.is_completed).length;
     const noDeadlineCount = tasks.filter(t => !t.deadline && !t.is_completed).length;
-    const completedWithDates = [...doneTasks, ...tasks.filter(t => t.is_completed)]
-      .filter(t => t.created_at && t.deadline);
+    const withDates = tasks.filter(t => t.created_at && t.deadline);
     let avgDaysInFunnel: number | null = null;
-    if (completedWithDates.length > 0) {
-      const totalDays = completedWithDates.reduce((sum, t) => {
+    if (withDates.length > 0) {
+      const totalDays = withDates.reduce((sum, t) => {
         const start = new Date(t.created_at).getTime();
         const end = new Date(t.deadline!).getTime();
         return sum + Math.max(0, Math.round((end - start) / 86400000));
       }, 0);
-      avgDaysInFunnel = Math.round(totalDays / completedWithDates.length);
+      avgDaysInFunnel = Math.round(totalDays / withDates.length);
     }
     return { stageStats, overdueCount, noDeadlineCount, avgDaysInFunnel };
-  }, [tasks, doneTasks, funnelColumns]);
+  }, [tasks, funnelColumns]);
 
   const [crmExporting, setCrmExporting] = useState(false);
   const handleCrmExport = async () => {
