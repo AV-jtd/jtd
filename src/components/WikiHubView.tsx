@@ -362,6 +362,62 @@ export default function WikiHubView() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Personal wiki dialog */}
+      <Dialog open={openPersonalWiki} onOpenChange={setOpenPersonalWiki}>
+        <DialogContent className="max-w-2xl w-full max-h-[80vh] p-4 flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Личные знания
+            </h2>
+            <button
+              onClick={() => createPersonalPage.mutate()}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Добавить
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-3">
+            {personalPages.map(page => (
+              <div key={page.id} className="p-3 rounded-lg border border-border bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <span>{page.icon || "💡"}</span>
+                  <input
+                    className="flex-1 text-sm font-medium bg-transparent border-none outline-none text-foreground"
+                    value={page.title}
+                    onChange={e => updatePersonalPage.mutate({ id: page.id, title: e.target.value })}
+                  />
+                  <button
+                    onClick={() => deletePersonalPage.mutate(page.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  className="w-full text-sm bg-transparent border border-border rounded-md p-2 min-h-[80px] resize-y text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Запишите знание..."
+                  defaultValue={page.content || ""}
+                  onBlur={e => {
+                    if (e.target.value !== (page.content || "")) {
+                      updatePersonalPage.mutate({ id: page.id, content: e.target.value });
+                    }
+                  }}
+                />
+              </div>
+            ))}
+            {personalPages.length === 0 && (
+              <div className="text-center py-8">
+                <BookOpen className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Нет личных записей</p>
+                <p className="text-xs text-muted-foreground/60">Нажмите «Добавить» чтобы создать первую запись</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
