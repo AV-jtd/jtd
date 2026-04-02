@@ -400,6 +400,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const assigneeMember = allGroupMembers.find((m) => m.group_id === g.id && m.role === "assignee");
       const assigneeUserId = assigneeMember?.user_id || null;
 
+      // Nearest upcoming deadline among active tasks
+      const now = new Date();
+      const activeWithDeadline = projectTasks
+        .filter((t) => !t.is_completed && t.deadline)
+        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+      const nearestDeadline = activeWithDeadline.length > 0 ? activeWithDeadline[0].deadline! : null;
+
       return {
         id: g.id,
         name: g.name,
@@ -415,6 +422,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         assigneeUserId,
         stats: { total, completed, overdue },
         streamStats,
+        nearestDeadline,
       };
     });
   }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById, allGroupMembers]);
