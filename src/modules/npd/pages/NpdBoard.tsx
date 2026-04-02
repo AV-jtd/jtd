@@ -335,7 +335,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
 
   // ── Build NPD projects list ──
   const npdProjects = useMemo(() => {
-    const npdGroups = allGroups.filter((g) => (g as any).project_type === "npd" && !g.parent_id);
+    const npdGroups = allGroups.filter((g) => g.project_type === "npd" && !g.parent_id && !g.closed_at);
 
     return npdGroups.map((g): NpdProject => {
       const groupTagIds = allGroupTags.filter((gt) => gt.group_id === g.id).map((gt) => gt.tag_id);
