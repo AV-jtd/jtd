@@ -80,6 +80,14 @@ export default function Index() {
 
   const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki"].includes(activeView);
 
+  // Lazy-mount: only render heavy views after first visit, then keep alive
+  const visitedRef = useRef<Set<string>>(new Set());
+  if (activeView === "calendar" || activeView === "dashboard") {
+    visitedRef.current.add(activeView);
+  }
+  const calendarMounted = visitedRef.current.has("calendar");
+  const dashboardMounted = visitedRef.current.has("dashboard");
+
   const handleNavAction = () => {};
 
   const handleToggleTag = (id: string) => {
