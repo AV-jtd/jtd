@@ -10,7 +10,6 @@ import { NPD_GATES, type Task, type TaskGroup, type Profile } from "./types";
 
 interface StreamRowProps {
   stream: string;
-  sub: TaskGroup | undefined;
   isCollapsed: boolean;
   currentGate: string | null;
   tasks: Task[];
@@ -22,6 +21,7 @@ interface StreamRowProps {
   dndOverCell: string | null;
   getTaskGate: (taskId: string) => string | null;
   getGateStartDate: (stream: string, gateKey: string) => Date | undefined;
+  getCreateGroupId: (stream: string, gateKey: string) => string | null;
   onToggleCollapse: () => void;
   onDeadlineChange: (task: Task, date: Date) => void;
   onAssigneeChange: (taskId: string, userId: string | null) => void;

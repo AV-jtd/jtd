@@ -5,19 +5,11 @@ import { isPast, parseISO } from "date-fns";
 import { NPD_GATES, NPD_STREAMS, type Task, type TaskGroup } from "./types";
 
 interface GateSummaryProps {
-  projectId: string;
-  streamSubMap: Map<string, TaskGroup>;
-  tasksByGroup: Map<string, Task[]>;
-  streamTaggedTasksByStream: Map<string, Task[]>;
-  getSubprojectGate: (subId: string) => string | null;
+  tasksByStream: Map<string, Task[]>;
   getTaskGate: (taskId: string) => string | null;
 }
 
-function GateSummaryInner({
-  projectId, streamSubMap, tasksByGroup, streamTaggedTasksByStream,
-  getSubprojectGate, getTaskGate,
-}: GateSummaryProps) {
-  const parentProjectGate = getSubprojectGate(projectId);
+function GateSummaryInner({ tasksByStream, getTaskGate }: GateSummaryProps) {
 
   return (
     <div className="flex border-t border-border bg-card/40">
