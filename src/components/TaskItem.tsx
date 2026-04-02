@@ -1398,11 +1398,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           {/* Chat */}
           <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
 
-          {/* Created at */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1 flex-wrap">
-            <Clock className="h-3 w-3" />
-            Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
-            <span>· создал: {getProfileName(task.user_id)}</span>
+          {/* Created at + Wiki */}
+          <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+              <Clock className="h-3 w-3" />
+              Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
+              <span>· создал: {getProfileName(task.user_id)}</span>
+            </div>
+            {task.group_id && (
+              <button
+                onClick={handleSaveToWiki}
+                disabled={savingToWiki}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              >
+                {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
+                В базу знаний
+              </button>
+            )}
           </div>
           </div>
         );
