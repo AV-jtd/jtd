@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
+import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useVisibleTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
 import TaskItem from "@/components/TaskItem";
 import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw } from "lucide-react";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
@@ -29,7 +29,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const { data: groupTags = [] } = useGroupTags(group.id);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState((group as any).description || "");

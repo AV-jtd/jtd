@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useTasks, useTaskGroups, useAvailableUsers, useTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
+import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
@@ -434,7 +434,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: tasks = [], isLoading: tasksLoading, isFetching: tasksFetching } = useTasks();
   const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
-  const { data: tags = [], isLoading: tagsLoading } = useTags();
+  const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
   const [filter, setFilter] = useState<FilterStatus>("all");
 
   // "Build Dashboard" filters

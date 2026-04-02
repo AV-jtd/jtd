@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useTasks, useTaskMutations, useTaskGroups, useTags, useAvailableUsers } from "@/hooks/useTasks";
+import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
@@ -98,7 +98,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | "overdue" | "pending_approval" | null>(null);

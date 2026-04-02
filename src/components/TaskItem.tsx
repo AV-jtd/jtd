@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Task, Subtask, useTaskMutations, useTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
@@ -66,7 +66,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);

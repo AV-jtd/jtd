@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems, useLinkedTagIds } from "@/hooks/useTasks";
+import { useTaskGroups, useVisibleTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
 import {
   List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen,
@@ -53,9 +53,7 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const navigateTo = useNavigate();
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTags = [] } = useTags();
-  const linkedTagIds = useLinkedTagIds();
-  const tags = useMemo(() => allTags.filter(t => !linkedTagIds.has(t.id)), [allTags, linkedTagIds]);
+  const { data: tags = [] } = useVisibleTags();
   const { data: tagCategories = [] } = useTagCategories();
   const { data: folders = [] } = useProjectFolders();
   const { data: folderItems = [] } = useProjectFolderItems();

@@ -3,7 +3,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTags, useAvailableUsers, useTaskMutations } from "@/hooks/useTasks";
+import { useTaskGroups, useVisibleTags, useAvailableUsers, useTaskMutations } from "@/hooks/useTasks";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAiConversation } from "@/hooks/useAiConversation";
@@ -145,7 +145,7 @@ const MODULE_CONFIG: Record<string, {
 const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function AiAssistantInner({ open, onOpenChange, moduleContext, onRequestImport }, _ref) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
-  const { data: tags = [] } = useTags();
+  const { data: tags = [] } = useVisibleTags();
   const { data: users = [] } = useAvailableUsers();
   const { addTask, addGroup } = useTaskMutations();
 
