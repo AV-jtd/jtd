@@ -29,7 +29,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const { data: groupTags = [] } = useGroupTags(group.id);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState((group as any).description || "");

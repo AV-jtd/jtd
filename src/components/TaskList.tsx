@@ -98,7 +98,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     activeTagFilters.length > 0 ? activeTagFilters : undefined
   );
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | "overdue" | "pending_approval" | null>(null);

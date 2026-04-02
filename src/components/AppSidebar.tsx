@@ -53,9 +53,7 @@ export default function AppSidebar({
   const { user, signOut } = useAuth();
   const navigateTo = useNavigate();
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTags = [] } = useTags();
-  const linkedTagIds = useLinkedTagIds();
-  const tags = useMemo(() => allTags.filter(t => !linkedTagIds.has(t.id)), [allTags, linkedTagIds]);
+  const { data: tags = [] } = useVisibleTags();
   const { data: tagCategories = [] } = useTagCategories();
   const { data: folders = [] } = useProjectFolders();
   const { data: folderItems = [] } = useProjectFolderItems();
