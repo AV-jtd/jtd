@@ -856,9 +856,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         )}
 
-        {/* AI Summary */}
-        <AiDashboardSummary projectStats={projectStats} users={users} />
-
         {/* Build Dashboard — multi-select filters */}
         <div className="bg-card rounded-xl border border-border p-3 mb-4">
           <div className="flex items-center gap-2 mb-2.5">
@@ -916,6 +913,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             />
           </div>
         </div>
+
+        {/* AI Summary — after filters so it uses filtered projectStats */}
+        <AiDashboardSummary projectStats={projectStats} users={users} />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
