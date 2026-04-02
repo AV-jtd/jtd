@@ -1385,12 +1385,30 @@ export function useTaskMutations() {
         await supabase.from("tasks").update({ assigned_to: participantUserId }).eq("id", task_id);
       }
 
+      // Auto-add participant to project group_members if not already a member
+      const { data: taskData } = await supabase.from("tasks").select("title, group_id").eq("id", task_id).single();
+      if (taskData?.group_id) {
+        const { data: existing } = await supabase
+          .from("group_members")
+          .select("id")
+          .eq("group_id", taskData.group_id)
+          .eq("user_id", participantUserId)
+          .maybeSingle();
+        if (!existing) {
+          await supabase.from("group_members").insert({
+            group_id: taskData.group_id,
+            user_id: participantUserId,
+            role: "member",
+            invited_by: user!.id,
+          });
+        }
+      }
+
       // Notify participant
-      const { data: taskData } = await supabase.from("tasks").select("title").eq("id", task_id).single();
       const event = role === "assignee" ? "task_assigned" : "task_participant_added";
       notifyEvent(event, taskData?.title || "", [participantUserId]);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["task_groups"] }); },
     onError: (e) => toast.error(e.message),
   });
 
