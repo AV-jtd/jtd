@@ -115,8 +115,10 @@ export default function AppSidebar({
     { id: "archive", icon: Archive, label: "Архив" },
   ];
 
-  // Separate root groups and subgroups
-  const rootGroups = groups.filter(g => !g.parent_id);
+  // Separate root groups and subgroups — hide archived
+  const rootGroups = groups.filter(g => !g.parent_id && !(g as any).closed_at);
+  const archivedGroups = groups.filter(g => !g.parent_id && (g as any).closed_at);
+  const [showArchived, setShowArchived] = useState(false);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
 
   // Build a map: my category id -> Set of all category ids (mine + others') with matching name+parent_name
@@ -877,6 +879,31 @@ export default function AppSidebar({
                       <GroupItem key={g.id} group={g} />
                     ))}
                   </DroppableUngrouped>
+
+                  {/* Archived projects */}
+                  {archivedGroups.length > 0 && (
+                    <div>
+                      <div
+                        onClick={() => setShowArchived(prev => !prev)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/40 hover:text-sidebar-fg/60 cursor-pointer transition-colors"
+                      >
+                        <span className="shrink-0">
+                          {showArchived ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        </span>
+                        <Archive className="h-3.5 w-3.5" />
+                        <span className="truncate flex-1 text-left font-medium">Архив</span>
+                        <span className="text-[10px] text-sidebar-fg/30">{archivedGroups.length}</span>
+                      </div>
+                      {showArchived && (
+                        <div className="space-y-0.5 opacity-50">
+                          {archivedGroups.map(g => (
+                            <GroupItem key={g.id} group={g} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
 
                   {showNewGroup && !newSubgroupParentId && (
                     <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1 flex items-center gap-1.5">

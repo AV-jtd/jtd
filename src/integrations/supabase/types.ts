@@ -800,6 +800,7 @@ export type Database = {
       }
       task_groups: {
         Row: {
+          closed_at: string | null
           color: string | null
           created_at: string
           description: string | null
@@ -813,6 +814,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          closed_at?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -826,6 +828,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          closed_at?: string | null
           color?: string | null
           created_at?: string
           description?: string | null

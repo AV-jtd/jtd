@@ -447,8 +447,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const toggleInArray = (arr: string[], id: string) =>
     arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
 
-  // Get all root groups (no parent_id) - show ALL, not just those with tasks
-  const rootGroups = useMemo(() => groups.filter(g => !g.parent_id), [groups]);
+  // Get all root groups (no parent_id) - hide archived by default
+  const rootGroups = useMemo(() => groups.filter(g => !g.parent_id && !(g as any).closed_at), [groups]);
+  const archivedGroups = useMemo(() => groups.filter(g => !g.parent_id && (g as any).closed_at), [groups]);
 
   // Project items for multi-select
   const projectItems = useMemo(() =>

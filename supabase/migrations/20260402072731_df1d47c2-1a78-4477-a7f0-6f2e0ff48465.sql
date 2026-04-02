@@ -1,0 +1,1 @@
+ALTER TABLE public.task_groups ADD COLUMN closed_at timestamp with time zone DEFAULT NULL;

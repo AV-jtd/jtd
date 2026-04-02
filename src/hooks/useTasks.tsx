@@ -16,7 +16,7 @@ export type Task = Tables<"tasks"> & {
   original_deadline?: string | null;
   deferred_until?: string | null;
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null };
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
@@ -539,6 +539,21 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["crm-groups-list"] });
       qc.invalidateQueries({ queryKey: ["crm-tasks"] });
     },
+  });
+
+  const closeProject = useMutation({
+    mutationFn: async ({ id, closed_at }: { id: string; closed_at: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, closed_at }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, closed_at } : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
   const reorderGroups = useMutation({
@@ -1479,7 +1494,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask,

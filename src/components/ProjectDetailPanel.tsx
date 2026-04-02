@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
 import TaskItem from "@/components/TaskItem";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw } from "lucide-react";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,7 +25,7 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -301,7 +301,40 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         </div>
       </div>
 
-      {/* Assignee */}
+      {/* Archive / Close Project */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <Archive className="h-3 w-3" /> Архивация
+        </p>
+        {(group as any).closed_at ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Закрыт {format(new Date((group as any).closed_at), "d MMM yyyy", { locale: ru })}
+            </span>
+            <button
+              onClick={() => {
+                closeProject.mutate({ id: group.id, closed_at: null });
+                toast.success("Проект переоткрыт");
+              }}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" /> Переоткрыть
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              closeProject.mutate({ id: group.id, closed_at: new Date().toISOString() });
+              toast.success("Проект архивирован");
+            }}
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+          >
+            <Archive className="h-3 w-3" /> Закрыть проект
+          </button>
+        )}
+      </div>
+
+
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <UserPlus className="h-3 w-3" /> Ответственный
