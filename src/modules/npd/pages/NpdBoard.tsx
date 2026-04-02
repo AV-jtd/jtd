@@ -596,6 +596,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         assigneeUserId: null,
         stats: { total: relevantTasks.length, completed: relevantTasks.filter(t => t.is_completed).length, overdue: 0 },
         streamStats: [],
+        nearestDeadline: null,
       };
     });
     // Also include gate5 fully-completed active projects
