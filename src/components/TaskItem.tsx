@@ -174,11 +174,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
     }
   }, [task.title, task.description, subtasks]);
 
-  const handleSaveToWiki = useCallback(async () => {
-    if (!task.group_id || !currentUser) return;
+  const handleSaveToWiki = useCallback(async (targetGroupId?: string | null) => {
+    if (!currentUser) return;
+    const groupId = targetGroupId !== undefined ? targetGroupId : task.group_id;
     setSavingToWiki(true);
     try {
-      // Build wiki content from task data
       const lines: string[] = [];
       if (task.description) lines.push(task.description);
       if (subtasks.length > 0) {
@@ -190,21 +190,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         lines.push(task.closure_result);
       }
       const content = lines.join("\n");
-      const { error } = await supabase.from("wiki_pages").insert({
-        group_id: task.group_id,
+      const insertData: Record<string, unknown> = {
         user_id: currentUser.id,
         title: `📌 ${task.title}`,
         content,
         icon: "📌",
         page_type: "wiki",
-      });
+      };
+      if (groupId) insertData.group_id = groupId;
+      const { error } = await supabase.from("wiki_pages").insert(insertData as any);
       if (error) throw error;
-      toast.success("Задача добавлена в базу знаний");
+      toast.success(groupId ? "Задача добавлена в базу знаний проекта" : "Задача добавлена в личные знания");
     } catch (e) {
       console.error("Save to wiki error:", e);
       toast.error("Не удалось сохранить в базу знаний");
     } finally {
       setSavingToWiki(false);
+      setWikiProjectPickerOpen(false);
     }
   }, [task, subtasks, currentUser]);
 
