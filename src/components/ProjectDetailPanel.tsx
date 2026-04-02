@@ -202,10 +202,10 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           <FolderOpen className="h-3 w-3" /> Родительский проект
         </p>
         <div className="flex items-center gap-2">
-          {group.parent_id ? (
+          {group.parent_id && allGroups.find(g => g.id === group.parent_id) ? (
             <>
               <span className="text-sm text-foreground">
-                {allGroups.find(g => g.id === group.parent_id)?.name || "Неизвестный проект"}
+                {allGroups.find(g => g.id === group.parent_id)!.name}
               </span>
               <button
                 onClick={() => updateGroupParent.mutate({ id: group.id, parent_id: null })}
