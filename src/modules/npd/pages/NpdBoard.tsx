@@ -1832,6 +1832,39 @@ function ProjectCard({
 
   const timingStatus = getTimingStatus(allProjectTasks);
 
+  // Milestones for this project (from cache)
+  const { data: projectMilestones = [] } = useQuery<NpdMilestone[]>({
+    queryKey: ["npd-milestones-project", project.id],
+    queryFn: async () => {
+      const allGroupIds = [project.id, ...subprojects.map(s => s.id)];
+      const { data, error } = await supabase
+        .from("project_milestones")
+        .select("id, name, group_id, planned_date, status, color")
+        .in("group_id", allGroupIds)
+        .order("planned_date", { ascending: true });
+      if (error) throw error;
+      return data as NpdMilestone[];
+    },
+  });
+
+  const nextMilestone = projectMilestones.find(m => m.status !== "completed" && new Date(m.planned_date) >= now);
+  const overdueMilestones = projectMilestones.filter(m => m.status !== "completed" && new Date(m.planned_date) < now);
+
+  // Nearest deadline formatting
+  const nearestDeadlineInfo = useMemo(() => {
+    if (!project.nearestDeadline) return null;
+    const d = new Date(project.nearestDeadline);
+    const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = diffDays < 0;
+    const isUrgent = diffDays >= 0 && diffDays <= 7;
+    return {
+      date: format(d, "d MMM", { locale: ru }),
+      diffDays,
+      isOverdue,
+      isUrgent,
+    };
+  }, [project.nearestDeadline]);
+
   // For secondary cards, show a compact ghost version
   if (isSecondary) {
     return (
