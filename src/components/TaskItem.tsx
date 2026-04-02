@@ -173,6 +173,40 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
     }
   }, [task.title, task.description, subtasks]);
 
+  const handleSaveToWiki = useCallback(async () => {
+    if (!task.group_id || !currentUser) return;
+    setSavingToWiki(true);
+    try {
+      // Build wiki content from task data
+      const lines: string[] = [];
+      if (task.description) lines.push(task.description);
+      if (subtasks.length > 0) {
+        lines.push("\n## Шаги");
+        subtasks.forEach(s => lines.push(`- [${s.is_completed ? "x" : " "}] ${s.title}`));
+      }
+      if (task.closure_result) {
+        lines.push("\n## Результат");
+        lines.push(task.closure_result);
+      }
+      const content = lines.join("\n");
+      const { error } = await supabase.from("wiki_pages").insert({
+        group_id: task.group_id,
+        user_id: currentUser.id,
+        title: `📌 ${task.title}`,
+        content,
+        icon: "📌",
+        page_type: "wiki",
+      });
+      if (error) throw error;
+      toast.success("Задача добавлена в базу знаний");
+    } catch (e) {
+      console.error("Save to wiki error:", e);
+      toast.error("Не удалось сохранить в базу знаний");
+    } finally {
+      setSavingToWiki(false);
+    }
+  }, [task, subtasks, currentUser]);
+
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
   const {
