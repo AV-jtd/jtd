@@ -2122,6 +2122,38 @@ function ProjectCard({
             </div>
           )}
 
+          {/* Milestones section */}
+          {projectMilestones.length > 0 && (
+            <DashboardSection title="Вехи" count={projectMilestones.length}>
+              <div className="space-y-1">
+                {projectMilestones.map(m => {
+                  const mDate = new Date(m.planned_date);
+                  const isPastMilestone = mDate < now && m.status !== "completed";
+                  const isCompleted = m.status === "completed";
+                  return (
+                    <div key={m.id} className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50 transition-colors">
+                      <Diamond className={cn(
+                        "h-3 w-3 shrink-0",
+                        isCompleted ? "text-emerald-500" : isPastMilestone ? "text-destructive" : "text-primary"
+                      )} />
+                      <span className={cn(
+                        "text-[11px] truncate flex-1",
+                        isCompleted && "line-through text-muted-foreground",
+                        isPastMilestone && "text-destructive"
+                      )}>{m.name}</span>
+                      <span className={cn(
+                        "text-[9px] shrink-0",
+                        isPastMilestone ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        {format(mDate, "d MMM", { locale: ru })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </DashboardSection>
+          )}
+
           {/* Subprojects first (like dashboard) */}
           {subprojectsWithTasks.length > 0 && (
             <DashboardSection title="Подпроекты" count={subprojectsWithTasks.length}>
