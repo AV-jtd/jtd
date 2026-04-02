@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
+import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMutations, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
 } from "lucide-react";
+import QuickCreateForm from "@/components/QuickCreateForm";
+import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO } from "date-fns";
@@ -416,11 +418,12 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
 }
 
 // --- Project Card ---
-function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
+function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }: {
   stats: ProjectStats;
   onNavigateToTask: (taskId: string) => void;
   users: Profile[];
   level?: number;
+  onCreateTask?: (groupId: string, params: QuickCreateResult) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
@@ -490,7 +493,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             <Section title="Подпроекты" count={stats.subprojects.filter(sp => sp.total > 0).length}>
               <div className="space-y-2">
                 {stats.subprojects.filter(sp => sp.total > 0).map(sp => (
-                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} />
+                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} />
                 ))}
               </div>
             </Section>
@@ -534,13 +537,23 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
-          >
-            <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onCreateTask && (
+              <QuickCreateForm
+                users={users}
+                singleType="task"
+                compact
+                onCreate={(params) => onCreateTask(stats.group.id, params)}
+              />
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
+              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
+              <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -687,6 +700,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
+  const { addTask } = useTaskMutations();
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
 
@@ -773,6 +787,15 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const handleNavigateToTask = (taskId: string) => {
     onNavigateToTaskProp?.(taskId);
   };
+
+  const handleCreateTask = useCallback(async (groupId: string, params: QuickCreateResult) => {
+    await addTask.mutateAsync({
+      title: params.title,
+      group_id: groupId,
+      deadline: params.deadline ? params.deadline.toISOString() : null,
+      assigned_to: params.assigneeId || null,
+    });
+  }, [addTask]);
 
   const toggleMetric = (m: SummaryMetric) => {
     setExpandedMetric(prev => prev === m ? null : m);
@@ -949,7 +972,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             </div>
           ) : (
             filtered.map(stats => (
-              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} />
+              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} />
             ))
           )}
         </div>
