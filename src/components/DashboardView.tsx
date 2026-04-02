@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
+import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMutations, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
 } from "lucide-react";
+import QuickCreateForm from "@/components/QuickCreateForm";
+import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO } from "date-fns";
