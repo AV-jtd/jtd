@@ -209,11 +209,11 @@ export default function NpdSwimlaneMatrix() {
     for (const sub of subprojects) {
       const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
       const streamGTag = gTags.find(gt => {
-        if (gt.tag_name && (NPD_STREAMS as readonly string[]).includes(gt.tag_name)) return true;
+        if (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) return true;
         return streamTagIds.has(gt.tag_id);
       });
       const sName = streamGTag
-        ? (streamGTag.tag_name && (NPD_STREAMS as readonly string[]).includes(streamGTag.tag_name) ? streamGTag.tag_name : streamTagById.get(streamGTag.tag_id) ?? null)
+        ? (streamGTag.tag_name && NPD_STREAMS.includes(streamGTag.tag_name) ? streamGTag.tag_name : streamTagById.get(streamGTag.tag_id) ?? null)
         : null;
       if (sName) m.set(sName, sub);
     }
@@ -248,7 +248,7 @@ export default function NpdSwimlaneMatrix() {
       let changed = false;
       for (const [streamName, sub] of streamSubMap.entries()) {
         const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-        const hasStreamTag = gTags.some(gt => (gt.tag_name && (NPD_STREAMS as readonly string[]).includes(gt.tag_name)) || streamTagIds.has(gt.tag_id));
+        const hasStreamTag = gTags.some(gt => (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) || streamTagIds.has(gt.tag_id));
         if (hasStreamTag) continue;
         const streamTag = streamTags.find(t => t.name === streamName);
         if (streamTag) {
