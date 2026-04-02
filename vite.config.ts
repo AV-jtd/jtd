@@ -24,7 +24,8 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: true,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/~oauth/],
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/api/],
         importScripts: ["/custom-sw.js"],
         runtimeCaching: [
           {
