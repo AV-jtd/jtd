@@ -320,7 +320,6 @@ function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStat
     const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
     const now = new Date();
 
-    // Build context
     const projectSummaries = projectStats.slice(0, 15).map(s => {
       const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
       return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, статус: ${getStatusLabel(s.timingStatus)}`;
@@ -338,12 +337,14 @@ function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStat
 Проекты:\n${projectSummaries}
 ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.length}):\n${topOverdue}` : "Просроченных задач нет."}`;
 
+    const prompt = `Проанализируй текущее состояние портфеля проектов. Выдели главные риски, блокеры, рекомендации по приоритизации. Будь конкретен, используй данные. Формат: markdown, кратко (5-8 пунктов).\n\nДанные:\n${context}`;
+
     try {
       await streamChat({
         url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
         body: {
-          messages: [{ role: "user", content: `Проанализируй текущее состояние портфеля проектов. Выдели главные риски, блокеры, рекомендации по приоритизации. Будь конкретен, используй данные. Формат: markdown, кратко (5-8 пунктов).\n\nДанные:\n${context}` }],
-          context: "dashboard-summary",
+          message: prompt,
+          context: { module: "pmo" },
         },
         onDelta: (chunk) => setAiText(prev => prev + chunk),
         onDone: () => setLoading(false),
@@ -351,7 +352,10 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
       });
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
-        setAiText("ИИ временно недоступен. Попробуйте позже.");
+        const errMsg = e instanceof StreamChatError && (e.status === 429 || e.status === 402)
+          ? (e.status === 429 ? "Слишком много запросов. Попробуйте через минуту." : "Необходимо пополнить баланс ИИ.")
+          : "ИИ временно недоступен. Попробуйте позже.";
+        setAiText(errMsg);
       }
       setLoading(false);
     }
@@ -361,10 +365,13 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
     return (
       <button
         onClick={generate}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group mb-4 w-full"
+        disabled={projectStats.length === 0}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group mb-4 w-full disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Sparkles className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors" />
-        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">ИИ-анализ дашборда</span>
+        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+          ✨ ИИ-анализ{projectStats.length > 0 ? ` (${projectStats.length} проектов)` : ""}
+        </span>
       </button>
     );
   }
@@ -849,9 +856,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         )}
 
-        {/* AI Summary */}
-        <AiDashboardSummary projectStats={projectStats} users={users} />
-
         {/* Build Dashboard — multi-select filters */}
         <div className="bg-card rounded-xl border border-border p-3 mb-4">
           <div className="flex items-center gap-2 mb-2.5">
@@ -909,6 +913,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             />
           </div>
         </div>
+
+        {/* AI Summary — after filters so it uses filtered projectStats */}
+        <AiDashboardSummary projectStats={projectStats} users={users} />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
