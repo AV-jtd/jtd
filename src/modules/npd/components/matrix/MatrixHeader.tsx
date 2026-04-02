@@ -43,11 +43,12 @@ function MatrixHeaderInner({
     allGroups.some(g => g.parent_id === child.id)
   );
 
-  const tagNameToGateKey = new Map(NPD_GATES.map(g => [g.tagName, g.key]));
-  const gateTagIdToKey = new Map(gateTags.map(t => {
+  const tagNameToGateKey = new Map<string, string>(NPD_GATES.map(g => [g.tagName as string, g.key]));
+  const gateTagIdToKey = new Map<string, string>();
+  gateTags.forEach(t => {
     const key = tagNameToGateKey.get(t.name);
-    return [t.id, key] as const;
-  }).filter(([, k]) => k));
+    if (key) gateTagIdToKey.set(t.id, key);
+  });
   const streamTagIdToName = new Map(streamTags.map(t => [t.id, t.name]));
 
   const getGroupGate = (groupId: string): string | null => {
