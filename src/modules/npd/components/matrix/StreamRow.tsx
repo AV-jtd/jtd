@@ -6,7 +6,7 @@ import { DroppableGateCell, DraggableTaskRow } from "./DndWrappers";
 import MatrixTaskRow from "./MatrixTaskRow";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
-import { NPD_GATES, type Task, type TaskGroup, type Profile } from "./types";
+import { NPD_GATES, type Task, type Profile } from "./types";
 
 interface StreamRowProps {
   stream: string;

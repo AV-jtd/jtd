@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 import { isPast, parseISO } from "date-fns";
-import { NPD_GATES, NPD_STREAMS, type Task, type TaskGroup } from "./types";
+import { NPD_GATES, NPD_STREAMS, type Task } from "./types";
 
 interface GateSummaryProps {
   tasksByStream: Map<string, Task[]>;

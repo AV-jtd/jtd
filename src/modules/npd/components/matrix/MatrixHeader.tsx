@@ -8,15 +8,14 @@ interface MatrixHeaderProps {
   project: TaskGroup;
   projectId: string;
   allTasks: Task[];
-  subprojects: TaskGroup[];
+  projectGroupIds: Set<string>;
 }
 
-function MatrixHeaderInner({ project, projectId, allTasks, subprojects }: MatrixHeaderProps) {
+function MatrixHeaderInner({ project, projectId, allTasks, projectGroupIds }: MatrixHeaderProps) {
   const navigate = useNavigate();
 
-  const allProjectTasks = allTasks.filter(t => {
-    const ids = new Set([projectId, ...subprojects.map(s => s.id)]);
-    return t.group_id != null && ids.has(t.group_id);
+  const allProjectTasks = allTasks.filter(task => {
+    return task.group_id != null && projectGroupIds.has(task.group_id);
   });
   const total = allProjectTasks.length;
   const done = allProjectTasks.filter(t => t.is_completed).length;
