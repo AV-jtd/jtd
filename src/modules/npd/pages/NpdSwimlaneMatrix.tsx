@@ -120,7 +120,7 @@ export default function NpdSwimlaneMatrix() {
 
       const gateNames = NPD_GATES.map(g => g.tagName);
       const { data: allGateTagsByName } = await supabase.from("tags").select("id, name").in("name", gateNames);
-      const { data: allStreamTagsByName } = await supabase.from("tags").select("id, name").in("name", NPD_STREAMS as unknown as string[]);
+      const { data: allStreamTagsByName } = await supabase.from("tags").select("id, name").in("name", NPD_STREAMS);
 
       return {
         gateTags: (allGateTagsByName || []) as { id: string; name: string }[],
