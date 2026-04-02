@@ -124,6 +124,19 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     enabled: !!user,
   });
 
+  // Fetch milestones for all NPD projects
+  const { data: allMilestones = [] } = useQuery({
+    queryKey: ["npd-milestones", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_milestones")
+        .select("id, name, group_id, planned_date, status, color");
+      if (error) throw error;
+      return data as NpdMilestone[];
+    },
+    enabled: !!user,
+  });
+
   const [searchQuery, setSearchQuery] = useState("");
   const [hiddenGates, setHiddenGates] = useState<Set<string>>(() => {
     try {
