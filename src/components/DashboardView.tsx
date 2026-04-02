@@ -1,13 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
+import ReactMarkdown from "react-markdown";
+import { streamChat, StreamChatError } from "@/lib/streamChat";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
 type FilterStatus = "all" | TimingStatus;
@@ -34,6 +37,7 @@ interface ProjectStats {
   upcomingTasks: Task[];
   overdueTasks: Task[];
   driftTasks: { task: Task; driftDays: number }[];
+  completionHistory: { date: string; count: number }[];
 }
 
 function getTimingStatus(tasks: Task[]): TimingStatus {
@@ -75,6 +79,23 @@ function getStatusBadgeVariant(status: TimingStatus) {
   }
 }
 
+function buildCompletionHistory(tasks: Task[]): { date: string; count: number }[] {
+  const now = new Date();
+  const days = 14;
+  const buckets: Record<string, number> = {};
+  for (let i = days - 1; i >= 0; i--) {
+    const d = subDays(now, i);
+    buckets[format(d, "yyyy-MM-dd")] = 0;
+  }
+  tasks.forEach(t => {
+    if (t.is_completed && t.completed_at) {
+      const key = format(new Date(t.completed_at), "yyyy-MM-dd");
+      if (key in buckets) buckets[key]++;
+    }
+  });
+  return Object.entries(buckets).map(([date, count]) => ({ date, count }));
+}
+
 function buildProjectStats(
   group: TaskGroup,
   allTasks: Task[],
@@ -84,15 +105,12 @@ function buildProjectStats(
 ): ProjectStats {
   let tasks = allTasks.filter(t => t.group_id === group.id);
 
-  // Apply assignee filter
   if (filterAssignees && filterAssignees.length > 0) {
     tasks = tasks.filter(t =>
       (t.assigned_to && filterAssignees.includes(t.assigned_to)) ||
       filterAssignees.includes(t.user_id)
     );
   }
-
-  // Apply tag filter
   if (filterTagIds && filterTagIds.length > 0) {
     tasks = tasks.filter(t =>
       filterTagIds.some(tagId => t.task_tags?.some(tt => tt.tag_id === tagId))
@@ -111,10 +129,10 @@ function buildProjectStats(
 
   const driftTasks = allProjectTasks
     .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map(t => {
-      const driftDays = differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!));
-      return { task: t, driftDays };
-    })
+    .map(t => ({
+      task: t,
+      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
+    }))
     .sort((a, b) => Math.abs(b.driftDays) - Math.abs(a.driftDays));
 
   const weekFromNow = addDays(startOfDay(now), 7);
@@ -145,19 +163,246 @@ function buildProjectStats(
     upcomingTasks,
     overdueTasks,
     driftTasks,
+    completionHistory: buildCompletionHistory(allProjectTasks),
   };
 }
 
-// --- Summary Card ---
-function SummaryCard({ icon: Icon, value, label, color }: { icon: any; value: number | string; label: string; color: string }) {
+// --- Sparkline ---
+function Sparkline({ data, color = "hsl(var(--primary))" }: { data: { date: string; count: number }[]; color?: string }) {
+  const hasData = data.some(d => d.count > 0);
+  if (!hasData) return null;
   return (
-    <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3 overflow-hidden">
+    <div className="h-8 w-20 shrink-0">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`spark-${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="count"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={`url(#spark-${color.replace(/[^a-z0-9]/gi, "")})`}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// --- Clickable Summary Card ---
+type SummaryMetric = "progress" | "deadlines" | "overdue" | "drift";
+
+function SummaryCard({ icon: Icon, value, label, color, active, onClick }: {
+  icon: any; value: number | string; label: string; color: string;
+  active?: boolean; onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "bg-card rounded-xl border border-border p-3 flex items-center gap-3 overflow-hidden transition-all text-left",
+        onClick && "cursor-pointer hover:shadow-md hover:border-primary/30",
+        active && "ring-2 ring-primary/40 border-primary/30 shadow-md"
+      )}
+    >
       <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", color)}>
         <Icon className="h-4.5 w-4.5 text-white" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-lg font-bold leading-tight truncate">{value}</p>
         <p className="text-[11px] text-muted-foreground leading-tight truncate">{label}</p>
+      </div>
+    </button>
+  );
+}
+
+// --- Expanded metric panel ---
+function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose }: {
+  metric: SummaryMetric;
+  projectStats: ProjectStats[];
+  onNavigateToTask: (taskId: string) => void;
+  users: Profile[];
+  onClose: () => void;
+}) {
+  const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
+
+  const { title, tasks, variant } = useMemo(() => {
+    const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
+    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+    const now = new Date();
+    const weekFromNow = addDays(startOfDay(now), 7);
+
+    switch (metric) {
+      case "deadlines":
+        return {
+          title: "Дедлайны на неделе",
+          tasks: unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
+            .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()),
+          variant: undefined as "overdue" | undefined,
+        };
+      case "overdue":
+        return {
+          title: "Просроченные задачи",
+          tasks: unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
+            .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()),
+          variant: "overdue" as const,
+        };
+      case "drift":
+        return {
+          title: "Задачи с отклонениями",
+          tasks: unique.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+            .sort((a, b) => {
+              const da = differenceInDays(new Date(a.deadline!), new Date(a.original_deadline!));
+              const db = differenceInDays(new Date(b.deadline!), new Date(b.original_deadline!));
+              return Math.abs(db) - Math.abs(da);
+            }),
+          variant: undefined,
+        };
+      default:
+        return { title: "", tasks: [], variant: undefined };
+    }
+  }, [metric, projectStats]);
+
+  if (metric === "progress" || tasks.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-xl border border-border p-3 mb-4 animate-fade-in">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-foreground">{title} ({tasks.length})</span>
+        <button onClick={onClose} className="p-1 rounded-md hover:bg-muted transition-colors">
+          <X className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </div>
+      <div className="space-y-0.5 max-h-64 overflow-y-auto scrollbar-thin">
+        {tasks.map(t => {
+          const drift = t.original_deadline && t.deadline && t.original_deadline !== t.deadline
+            ? differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!))
+            : undefined;
+          return (
+            <TaskRow
+              key={t.id}
+              task={t}
+              onClick={() => onNavigateToTask(t.id)}
+              userName={userName(t.assigned_to || t.user_id)}
+              variant={variant}
+              drift={metric === "drift" ? drift : undefined}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- AI Summary Panel ---
+function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStats[]; users: Profile[] }) {
+  const [aiText, setAiText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const generate = useCallback(async () => {
+    if (loading) return;
+    setVisible(true);
+    setLoading(true);
+    setAiText("");
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
+    const now = new Date();
+
+    // Build context
+    const projectSummaries = projectStats.slice(0, 15).map(s => {
+      const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+      return `- ${s.name || s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, статус: ${getStatusLabel(s.timingStatus)}`;
+    }).join("\n");
+
+    const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
+    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+    const overdue = unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+    const topOverdue = overdue.slice(0, 10).map(t =>
+      `  • "${t.title}" (просрочено ${differenceInDays(now, new Date(t.deadline!))} дн., отв: ${userName(t.assigned_to || t.user_id)})`
+    ).join("\n");
+
+    const context = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
+Всего проектов: ${projectStats.length}
+Проекты:\n${projectSummaries}
+${overdue.length > 0 ? `\nПросроченные задачи (${overdue.length}):\n${topOverdue}` : "Просроченных задач нет."}`;
+
+    try {
+      await streamChat({
+        url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
+        body: {
+          messages: [{ role: "user", content: `Проанализируй текущее состояние портфеля проектов. Выдели главные риски, блокеры, рекомендации по приоритизации. Будь конкретен, используй данные. Формат: markdown, кратко (5-8 пунктов).\n\nДанные:\n${context}` }],
+          context: "dashboard-summary",
+        },
+        onDelta: (chunk) => setAiText(prev => prev + chunk),
+        onDone: () => setLoading(false),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        setAiText("ИИ временно недоступен. Попробуйте позже.");
+      }
+      setLoading(false);
+    }
+  }, [projectStats, users, loading]);
+
+  if (!visible) {
+    return (
+      <button
+        onClick={generate}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group mb-4 w-full"
+      >
+        <Sparkles className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors" />
+        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">ИИ-анализ дашборда</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 mb-4 animate-fade-in">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold text-foreground">ИИ-анализ</span>
+          {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { setVisible(false); abortRef.current?.abort(); setAiText(""); }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+      <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
+        {aiText ? (
+          <ReactMarkdown>{aiText}</ReactMarkdown>
+        ) : loading ? (
+          <div className="space-y-2">
+            <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
+            <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
+            <div className="h-3 bg-muted rounded animate-pulse w-5/6" />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -208,6 +453,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             <span className="text-[11px] text-muted-foreground">{pct}% · {stats.completed}/{stats.total}</span>
           </div>
         </div>
+        <Sparkline data={stats.completionHistory} color={stats.group.color || "hsl(var(--primary))"} />
         <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
           {stats.overdue > 0 && (
             <span className="flex items-center gap-1 text-red-500 font-medium">
@@ -277,11 +523,10 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0 }: {
             <p className="text-xs text-muted-foreground text-center py-2">Нет задач в проекте</p>
           )}
 
-          {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.length === 0 && (
+          {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.filter(sp => sp.total > 0).length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
 
-          {/* Wiki quick access */}
           <button
             onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
@@ -436,6 +681,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
   const [filter, setFilter] = useState<FilterStatus>("all");
+  const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
 
   // "Build Dashboard" filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -447,17 +693,13 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const toggleInArray = (arr: string[], id: string) =>
     arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
 
-  // Get all root groups (no parent_id) - hide archived by default
   const rootGroups = useMemo(() => groups.filter(g => !g.parent_id && !(g as any).closed_at), [groups]);
-  const archivedGroups = useMemo(() => groups.filter(g => !g.parent_id && (g as any).closed_at), [groups]);
 
-  // Project items for multi-select
   const projectItems = useMemo(() =>
     rootGroups.map(g => ({ id: g.id, label: g.name, color: g.color })),
     [rootGroups]
   );
 
-  // Unique assignees from tasks
   const assigneeItems = useMemo(() => {
     const ids = new Set<string>();
     tasks.forEach(t => {
@@ -472,7 +714,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [tasks, users]);
 
-  // Tag items
   const tagItems = useMemo(() =>
     tags.map(t => ({ id: t.id, label: t.name, color: t.color })),
     [tags]
@@ -480,7 +721,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
 
   const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0;
 
-  // Build stats
   const projectStats = useMemo(() => {
     const baseGroups = selectedProjectIds.length > 0
       ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
@@ -506,7 +746,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     return projectStats.filter(s => s.timingStatus === filter);
   }, [projectStats, filter]);
 
-  // Summary
   const summary = useMemo(() => {
     const totalProjects = projectStats.length;
     const overdueProjects = projectStats.filter(s => s.timingStatus === "overdue").length;
@@ -517,13 +756,19 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const relevantTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const uniqueTasks = Array.from(new Map(relevantTasks.map(t => [t.id, t])).values());
     const tasksThisWeek = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
+    const totalOverdue = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
     const totalCompleted = uniqueTasks.filter(t => t.is_completed).length;
     const completionRate = uniqueTasks.length > 0 ? Math.round((totalCompleted / uniqueTasks.length) * 100) : 0;
-    return { totalProjects, overdueProjects, atRiskProjects, tasksThisWeek, completionRate };
+    const totalDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+    return { totalProjects, overdueProjects, atRiskProjects, tasksThisWeek, completionRate, totalOverdue, totalDrift };
   }, [projectStats]);
 
   const handleNavigateToTask = (taskId: string) => {
     onNavigateToTaskProp?.(taskId);
+  };
+
+  const toggleMetric = (m: SummaryMetric) => {
+    setExpandedMetric(prev => prev === m ? null : m);
   };
 
   const clearAllCustomFilters = () => {
@@ -557,13 +802,55 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           </div>
         </div>
 
-        {/* Summary */}
+        {/* Summary — clickable */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-          <SummaryCard icon={TrendingUp} value={`${summary.completionRate}%`} label="Общий прогресс" color="bg-primary" />
-          <SummaryCard icon={CalendarClock} value={summary.tasksThisWeek} label="Дедлайнов на неделе" color="bg-blue-500" />
-          <SummaryCard icon={AlertTriangle} value={summary.overdueProjects} label="Проектов с просрочкой" color="bg-red-500" />
-          <SummaryCard icon={ArrowRightLeft} value={summary.atRiskProjects} label="С отклонениями" color="bg-amber-500" />
+          <SummaryCard
+            icon={TrendingUp}
+            value={`${summary.completionRate}%`}
+            label="Общий прогресс"
+            color="bg-primary"
+            active={expandedMetric === "progress"}
+            onClick={() => toggleMetric("progress")}
+          />
+          <SummaryCard
+            icon={CalendarClock}
+            value={summary.tasksThisWeek}
+            label="Дедлайнов на неделе"
+            color="bg-blue-500"
+            active={expandedMetric === "deadlines"}
+            onClick={() => toggleMetric("deadlines")}
+          />
+          <SummaryCard
+            icon={AlertTriangle}
+            value={summary.totalOverdue}
+            label="Просроченных задач"
+            color="bg-red-500"
+            active={expandedMetric === "overdue"}
+            onClick={() => toggleMetric("overdue")}
+          />
+          <SummaryCard
+            icon={ArrowRightLeft}
+            value={summary.totalDrift}
+            label="С отклонениями"
+            color="bg-amber-500"
+            active={expandedMetric === "drift"}
+            onClick={() => toggleMetric("drift")}
+          />
         </div>
+
+        {/* Expanded metric panel */}
+        {expandedMetric && expandedMetric !== "progress" && (
+          <MetricExpander
+            metric={expandedMetric}
+            projectStats={projectStats}
+            onNavigateToTask={handleNavigateToTask}
+            users={users}
+            onClose={() => setExpandedMetric(null)}
+          />
+        )}
+
+        {/* AI Summary */}
+        <AiDashboardSummary projectStats={projectStats} users={users} />
 
         {/* Build Dashboard — multi-select filters */}
         <div className="bg-card rounded-xl border border-border p-3 mb-4">
