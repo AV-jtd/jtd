@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 export interface WikiPage {
   id: string;
-  group_id: string | null;
+  group_id: string;
   user_id: string;
   parent_page_id: string | null;
   title: string;

@@ -1223,7 +1223,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
-          group_id: string | null
+          group_id: string
           icon: string | null
           id: string
           page_type: string
@@ -1236,7 +1236,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
-          group_id?: string | null
+          group_id: string
           icon?: string | null
           id?: string
           page_type?: string
@@ -1249,7 +1249,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
-          group_id?: string | null
+          group_id?: string
           icon?: string | null
           id?: string
           page_type?: string
