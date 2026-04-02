@@ -115,8 +115,10 @@ export default function AppSidebar({
     { id: "archive", icon: Archive, label: "Архив" },
   ];
 
-  // Separate root groups and subgroups
-  const rootGroups = groups.filter(g => !g.parent_id);
+  // Separate root groups and subgroups — hide archived
+  const rootGroups = groups.filter(g => !g.parent_id && !(g as any).closed_at);
+  const archivedGroups = groups.filter(g => !g.parent_id && (g as any).closed_at);
+  const [showArchived, setShowArchived] = useState(false);
   const getChildren = (parentId: string) => groups.filter(g => g.parent_id === parentId);
 
   // Build a map: my category id -> Set of all category ids (mine + others') with matching name+parent_name

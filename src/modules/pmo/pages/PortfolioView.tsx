@@ -100,7 +100,9 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return m;
   }, [users]);
 
-  const rootProjects = useMemo(() => groups.filter((g) => !g.parent_id), [groups]);
+  const rootProjects = useMemo(() => groups.filter((g) => !g.parent_id && !(g as any).closed_at), [groups]);
+  const archivedProjects = useMemo(() => groups.filter((g) => !g.parent_id && (g as any).closed_at), [groups]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const projectStats = useMemo(() => {
     const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; totalDelayDays: number }> = {};
