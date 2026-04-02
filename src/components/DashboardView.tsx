@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useTasks, useTaskGroups, useAvailableUsers, useTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
+import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
