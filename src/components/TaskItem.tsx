@@ -89,6 +89,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [savingToWiki, setSavingToWiki] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   const isCreator = currentUser?.id === task.user_id;
