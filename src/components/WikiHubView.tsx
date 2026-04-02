@@ -100,7 +100,7 @@ export default function WikiHubView() {
     enabled: !!user,
   });
 
-  const isLoading = groupsLoading || pagesLoading || sectionsLoading;
+  const isLoading = groupsLoading || pagesLoading || sectionsLoading || personalLoading;
 
   // Determine if a project is "archived" (all tasks completed, has tasks)
   const groupActivityMap = useMemo(() => {
