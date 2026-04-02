@@ -43,6 +43,7 @@ import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
+import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
 
 type BoardStage = {
   key: string;
@@ -647,6 +648,27 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
+
+  const crmRadarStats = useMemo(() => {
+    const stageStats = CRM_STAGES.map(s => ({
+      stage: s.title,
+      count: funnelColumns[s.key]?.length || 0,
+    }));
+    const now = new Date();
+    const overdueCount = tasks.filter(t => t.deadline && new Date(t.deadline) < now && !t.is_completed).length;
+    const noDeadlineCount = tasks.filter(t => !t.deadline && !t.is_completed).length;
+    const withDates = tasks.filter(t => t.created_at && t.deadline);
+    let avgDaysInFunnel: number | null = null;
+    if (withDates.length > 0) {
+      const totalDays = withDates.reduce((sum, t) => {
+        const start = new Date(t.created_at).getTime();
+        const end = new Date(t.deadline!).getTime();
+        return sum + Math.max(0, Math.round((end - start) / 86400000));
+      }, 0);
+      avgDaysInFunnel = Math.round(totalDays / withDates.length);
+    }
+    return { stageStats, overdueCount, noDeadlineCount, avgDaysInFunnel };
+  }, [tasks, funnelColumns]);
 
   const [crmExporting, setCrmExporting] = useState(false);
   const handleCrmExport = async () => {
@@ -1395,6 +1417,16 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
           </div>
         </div>
         )}
+
+        {/* CRM Risk Radar */}
+        <CrmRiskRadar
+          stageStats={crmRadarStats.stageStats}
+          totalActive={totalActive}
+          totalDone={totalDone}
+          overdueCount={crmRadarStats.overdueCount}
+          noDeadlineCount={crmRadarStats.noDeadlineCount}
+          avgDaysInFunnel={crmRadarStats.avgDaysInFunnel}
+        />
 
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">

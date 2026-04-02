@@ -565,6 +565,111 @@ ${activeProjectInfo}
       });
     }
 
+    // === CRM Risk Radar ===
+    if (action === "crm_risk_radar") {
+      const { stageStats, totalActive, totalDone, overdueCount, noDeadlineCount, avgDaysInFunnel } = context;
+
+      const statsInfo = `Воронка CRM:
+Активных сделок: ${totalActive}, Завершено: ${totalDone}
+Просроченных: ${overdueCount}, Без дедлайна: ${noDeadlineCount}
+Средний срок в воронке: ${avgDaysInFunnel != null ? avgDaysInFunnel + " дней" : "нет данных"}
+Распределение по этапам: ${(stageStats || []).map((s: any) => `${s.stage}: ${s.count}`).join(", ")}`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по CRM и управлению продажами.
+Проанализируй воронку продаж и выяви проблемы.
+
+Правила анализа:
+- Просроченные сделки = высокий риск
+- Сделки без дедлайна = средний риск
+- Узкие места воронки (скопление на одном этапе) = средний риск
+- Низкая конверсия между этапами = средний риск
+- Долгий средний срок в воронке = риск
+- Будь конкретным: указывай этап или проблему
+- Максимум 5 рисков, сортируй по severity (high → low)
+- summary = одно предложение о состоянии воронки (до 80 символов)
+- Отвечай только через tool call`,
+            },
+            {
+              role: "user",
+              content: statsInfo,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "report_crm_risks",
+                description: "Отчёт о рисках воронки CRM",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    summary: { type: "string", description: "Краткое резюме состояния воронки (до 80 символов)" },
+                    risks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          client_or_stage: { type: "string", description: "Этап воронки или категория проблемы" },
+                          severity: { type: "string", enum: ["high", "medium", "low"] },
+                          issue: { type: "string", description: "Описание проблемы (1-2 предложения)" },
+                          recommendation: { type: "string", description: "Рекомендация (1 предложение)" },
+                        },
+                        required: ["client_or_stage", "severity", "issue", "recommendation"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["summary", "risks"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "report_crm_risks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ summary: parsed.summary, risks: parsed.risks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === PMO Risk Radar ===
     if (action === "pmo_risk_radar") {
       const { projects } = context;
