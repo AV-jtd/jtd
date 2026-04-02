@@ -16,6 +16,7 @@ interface MessengerPanelProps {
   markThreadRead?: (threadId: string) => void;
   isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
   onNavigateToProject?: (groupId: string) => void;
+  onNavigateToTask?: (taskId: string) => void;
 }
 
 function formatThreadDate(dateStr: string | null) {
@@ -26,7 +27,7 @@ function formatThreadDate(dateStr: string | null) {
   return format(d, "d MMM", { locale: ru });
 }
 
-export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread, onNavigateToProject }: MessengerPanelProps) {
+export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread, onNavigateToProject, onNavigateToTask }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
@@ -206,11 +207,20 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
             if (activeThread.type === "group" && activeThread.groupId && onNavigateToProject) {
               onNavigateToProject(activeThread.groupId);
               onClose();
+            } else if (activeThread.type === "task" && activeThread.taskId && onNavigateToTask) {
+              onNavigateToTask(activeThread.taskId);
+              onClose();
             }
           }}
-          disabled={activeThread.type !== "group" || !onNavigateToProject}
-          className={cn("flex-1 min-w-0 text-left", activeThread.type === "group" && onNavigateToProject && "hover:opacity-70 transition-opacity")}
-          title={activeThread.type === "group" ? "Открыть проект" : undefined}
+          disabled={
+            (activeThread.type === "group" && !onNavigateToProject) ||
+            (activeThread.type === "task" && !onNavigateToTask)
+          }
+          className={cn(
+            "flex-1 min-w-0 text-left",
+            ((activeThread.type === "group" && onNavigateToProject) || (activeThread.type === "task" && onNavigateToTask)) && "hover:opacity-70 transition-opacity cursor-pointer"
+          )}
+          title={activeThread.type === "group" ? "Открыть проект" : "Перейти к задаче"}
         >
           <p className="text-sm font-semibold text-foreground truncate">{activeThread.name}</p>
           <p className="text-[10px] text-muted-foreground">
