@@ -649,6 +649,28 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const totalActive = tasks.length;
   const totalDone = doneTasks.length;
 
+  const crmRadarStats = useMemo(() => {
+    const stageStats = CRM_STAGES.map(s => ({
+      stage: s.title,
+      count: funnelColumns[s.key]?.length || 0,
+    }));
+    const now = new Date();
+    const overdueCount = tasks.filter(t => t.deadline && new Date(t.deadline) < now && !t.is_completed).length;
+    const noDeadlineCount = tasks.filter(t => !t.deadline && !t.is_completed).length;
+    const completedWithDates = [...doneTasks, ...tasks.filter(t => t.is_completed)]
+      .filter(t => t.created_at && t.deadline);
+    let avgDaysInFunnel: number | null = null;
+    if (completedWithDates.length > 0) {
+      const totalDays = completedWithDates.reduce((sum, t) => {
+        const start = new Date(t.created_at).getTime();
+        const end = new Date(t.deadline!).getTime();
+        return sum + Math.max(0, Math.round((end - start) / 86400000));
+      }, 0);
+      avgDaysInFunnel = Math.round(totalDays / completedWithDates.length);
+    }
+    return { stageStats, overdueCount, noDeadlineCount, avgDaysInFunnel };
+  }, [tasks, doneTasks, funnelColumns]);
+
   const [crmExporting, setCrmExporting] = useState(false);
   const handleCrmExport = async () => {
     setCrmExporting(true);
