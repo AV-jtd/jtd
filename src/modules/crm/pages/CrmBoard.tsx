@@ -1418,6 +1418,16 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         </div>
         )}
 
+        {/* CRM Risk Radar */}
+        <CrmRiskRadar
+          stageStats={crmRadarStats.stageStats}
+          totalActive={totalActive}
+          totalDone={totalDone}
+          overdueCount={crmRadarStats.overdueCount}
+          noDeadlineCount={crmRadarStats.noDeadlineCount}
+          avgDaysInFunnel={crmRadarStats.avgDaysInFunnel}
+        />
+
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full min-w-max gap-0">
             <InboxColumn
