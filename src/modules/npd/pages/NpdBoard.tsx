@@ -1072,22 +1072,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                 </Popover>
               )}
 
-              {/* Archive toggle */}
-              <button
-                onClick={() => setShowArchive(p => !p)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
-                  showArchive
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 font-semibold"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                )}
-              >
-                <CheckCircle2 className="h-3 w-3" />
-                Архив
-                {archiveProjects.length > 0 && (
-                  <span className="text-[10px] bg-muted rounded-full px-1.5">{archiveProjects.length}</span>
-                )}
-              </button>
+               {/* Archive toggle removed — column always visible on the right */}
 
               {/* Active filter reset */}
               {(filterAssignee || filterTagIds.length > 0) && (
