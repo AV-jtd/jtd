@@ -537,13 +537,23 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
-          >
-            <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onCreateTask && (
+              <QuickCreateForm
+                users={users}
+                singleType="task"
+                compact
+                onCreate={(params) => onCreateTask(stats.group.id, params)}
+              />
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
+              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
+              <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
+            </button>
+          </div>
         </div>
       )}
 
