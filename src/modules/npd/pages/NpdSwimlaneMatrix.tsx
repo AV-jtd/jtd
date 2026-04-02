@@ -642,7 +642,7 @@ export default function NpdSwimlaneMatrix() {
     if (streamChanged) parts.push(targetStream);
     if (isInboxTarget && !streamChanged) parts.push("Входящие");
     toast.success(`Задача перемещена → ${parts.join(" · ")}`);
-  }, [dndOverCell, getTaskGate, getTaskStream, allTasks, streamSubMap, moveTaskToGate, moveTaskToStream, queryClient]);
+  }, [dndOverCell, getTaskGate, getTaskStream, allTasks, streamSubMap, moveTaskToGate, moveTaskToStream, queryClient, projectId, allTaskTags, streamTagIds]);
 
   // Unified create handler for QuickCreateForm
   const handleQuickCreate = async (
