@@ -731,7 +731,16 @@ export default function NpdSwimlaneMatrix() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      <MatrixHeader project={project} projectId={projectId!} allTasks={allTasks} projectGroupIds={projectGroupIds} />
+      <MatrixHeader
+        project={project}
+        projectId={projectId!}
+        allTasks={allTasks}
+        projectGroupIds={projectGroupIds}
+        allGroups={allGroups}
+        allGroupTags={allGroupTags}
+        gateTags={gateTags}
+        streamTags={streamTags}
+      />
 
       <div className="flex-1 overflow-auto">
         <DndContext
