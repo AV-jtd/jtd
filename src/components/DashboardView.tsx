@@ -323,7 +323,7 @@ function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStat
     // Build context
     const projectSummaries = projectStats.slice(0, 15).map(s => {
       const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
-      return `- ${s.name || s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, статус: ${getStatusLabel(s.timingStatus)}`;
+      return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, статус: ${getStatusLabel(s.timingStatus)}`;
     }).join("\n");
 
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
