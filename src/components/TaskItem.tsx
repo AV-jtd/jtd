@@ -1040,10 +1040,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               <FolderOpen className="h-3 w-3" /> Проект
             </p>
             <div className="flex items-center gap-2">
-              {task.group_id ? (
+              {task.group_id && allGroups.find(g => g.id === task.group_id) ? (
                 <>
                   <span className="text-sm text-foreground">
-                    {allGroups.find(g => g.id === task.group_id)?.name || "Неизвестный проект"}
+                    {allGroups.find(g => g.id === task.group_id)!.name}
                   </span>
                   <button
                     onClick={() => updateTask.mutate({ id: task.id, group_id: null })}
