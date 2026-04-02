@@ -8,7 +8,7 @@ import { Upload, FileText, Loader2, CheckCircle2, Sparkles, ArrowRight, Clipboar
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useTaskGroups, useTaskMutations, useAvailableUsers, useTags } from "@/hooks/useTasks";
+import { useTaskGroups, useTaskMutations, useAvailableUsers, useVisibleTags } from "@/hooks/useTasks";
 import { toast } from "sonner";
 import ExcelJS from "exceljs";
 
