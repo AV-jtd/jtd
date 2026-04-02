@@ -71,13 +71,23 @@ type NpdProject = {
   description: string | null;
   parent_id: string | null;
   user_id: string;
-  gateTags: string[];  // tag_ids that are gate tags (own)
-  allGateKeys: string[]; // all gate keys from own + child subproject tags
-  streamTags: string[]; // tag_ids that are stream tags
-  otherTagIds: string[]; // non-gate, non-stream tag ids for filtering
-  assigneeUserId: string | null; // project-level assignee (from group_members)
+  gateTags: string[];
+  allGateKeys: string[];
+  streamTags: string[];
+  otherTagIds: string[];
+  assigneeUserId: string | null;
   stats: { total: number; completed: number; overdue: number };
   streamStats: { name: string; total: number; completed: number }[];
+  nearestDeadline: string | null; // ISO date of closest upcoming active task deadline
+};
+
+type NpdMilestone = {
+  id: string;
+  name: string;
+  group_id: string;
+  planned_date: string;
+  status: string;
+  color: string | null;
 };
 
 // ── Main component ──
