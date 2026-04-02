@@ -784,7 +784,47 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
         </div>
       )}
 
-      {/* Task detail sheet */}
+      {/* Archived projects section */}
+      {archivedProjects.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowArchived(prev => !prev)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
+          >
+            {showArchived ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            <Archive className="h-3.5 w-3.5" />
+            <span className="font-medium">Архив</span>
+            <span className="text-[10px] text-muted-foreground/60">{archivedProjects.length}</span>
+          </button>
+          {showArchived && (
+            <div className="mt-2 opacity-50">
+              <div className="border border-border rounded-lg overflow-hidden">
+                {archivedProjects.map((project, idx) => {
+                  const stats = getAggregatedStats(project.id);
+                  const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+                  return (
+                    <div
+                      key={project.id}
+                      onClick={() => setSelectedProjectId(project.id)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors text-xs",
+                        idx > 0 && "border-t border-border"
+                      )}
+                    >
+                      <span>{project.icon && project.icon !== "list" ? project.icon : "📁"}</span>
+                      <span className="flex-1 truncate text-muted-foreground">{project.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                      <span className="text-[10px] text-muted-foreground">{stats.completed}/{stats.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
       <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
         <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
           {selectedTaskId && (() => {
