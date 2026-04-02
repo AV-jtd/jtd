@@ -272,14 +272,18 @@ export function useLinkedTagIds(): Set<string> {
 }
 
 /**
- * Returns tags filtered to exclude auto-linked project tags.
+ * Returns tags filtered to exclude:
+ * 1. Auto-linked project tags (linked_tag_id)
+ * 2. NPD gate tags (names starting with "Gate ")
  * Use this in all UI components instead of useTags() directly.
  */
+const GATE_TAG_RE = /^Gate \d/i;
+
 export function useVisibleTags() {
   const { data: allTags = [], ...rest } = useTags();
   const linkedTagIds = useLinkedTagIds();
   const data = useMemo(
-    () => allTags.filter(t => !linkedTagIds.has(t.id)),
+    () => allTags.filter(t => !linkedTagIds.has(t.id) && !GATE_TAG_RE.test(t.name)),
     [allTags, linkedTagIds]
   );
   return { data, ...rest };
