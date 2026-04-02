@@ -9,11 +9,10 @@ export const NPD_GATES = [
   { key: "gate5", short: "G5", shortTitle: "Анализ", title: "Gate 5: Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", textColor: "text-rose-600", bgLight: "bg-rose-500/10" },
 ] as const;
 
-export const NPD_STREAMS = [
+export const NPD_STREAMS: string[] = [
   "Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования",
-] as const;
+];
 
 export type GateDef = (typeof NPD_GATES)[number];
-export type StreamName = (typeof NPD_STREAMS)[number];
 
 export type { Task, TaskGroup, Profile };
