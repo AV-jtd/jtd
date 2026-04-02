@@ -700,6 +700,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
+  const { addTask } = useTaskMutations();
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
 
