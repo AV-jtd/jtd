@@ -74,6 +74,8 @@ export default function ModuleLayout({
               onClose={() => setMessengerOpen(false)}
               markThreadRead={markThreadRead}
               isThreadUnread={isThreadUnread}
+              onNavigateToProject={(groupId) => { setMessengerOpen(false); navigate(`/?group=${groupId}`); }}
+              onNavigateToTask={(taskId) => { setMessengerOpen(false); navigate(`/?task=${taskId}`); }}
             />
           </div>
         )}
