@@ -541,6 +541,21 @@ export function useTaskMutations() {
     },
   });
 
+  const closeProject = useMutation({
+    mutationFn: async ({ id, closed_at }: { id: string; closed_at: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, closed_at }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, closed_at } : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
   const reorderGroups = useMutation({
     mutationFn: async (items: { id: string; position: number }[]) => {
       const promises = items.map(({ id, position }) =>
