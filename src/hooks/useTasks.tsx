@@ -861,65 +861,19 @@ export function useTaskMutations() {
     },
   });
 
-  // Pending delete timers for undo functionality
-  const pendingDeletes = useMemo(() => new Map<string, { timer: ReturnType<typeof setTimeout>; snap: ReturnType<typeof snapshotTasks> }>(), []);
-
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
-      // This is called after the undo window expires
-      return id;
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) throw error;
     },
     onMutate: async (id) => {
-      // Cancel any existing pending delete for this task
-      const existing = pendingDeletes.get(id);
-      if (existing) {
-        clearTimeout(existing.timer);
-        pendingDeletes.delete(id);
-      }
-
       await qc.cancelQueries({ queryKey: ["tasks"] });
       const snap = snapshotTasks(qc);
       updateAllTaskCaches(qc, (tasks) => tasks.filter(t => t.id !== id));
-
-      // Schedule actual deletion after 5 seconds
-      const timer = setTimeout(async () => {
-        pendingDeletes.delete(id);
-        try {
-          const { error } = await supabase.from("tasks").delete().eq("id", id);
-          if (error) {
-            console.error("Failed to delete task:", error);
-            restoreTasks(qc, snap);
-            toast.error("Не удалось удалить задачу");
-          }
-        } catch (e) {
-          console.error("Delete task error:", e);
-          restoreTasks(qc, snap);
-        }
-        qc.invalidateQueries({ queryKey: ["tasks"] });
-      }, 5000);
-
-      pendingDeletes.set(id, { timer, snap });
-
-      // Show undo toast
-      toast("Задача удалена", {
-        action: {
-          label: "Отменить",
-          onClick: () => {
-            const pending = pendingDeletes.get(id);
-            if (pending) {
-              clearTimeout(pending.timer);
-              restoreTasks(qc, pending.snap);
-              pendingDeletes.delete(id);
-              toast.success("Удаление отменено");
-            }
-          },
-        },
-        duration: 5000,
-      });
-
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
   const toggleTask = useMutation({
