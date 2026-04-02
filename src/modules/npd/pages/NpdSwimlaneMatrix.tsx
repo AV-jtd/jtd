@@ -280,8 +280,18 @@ export default function NpdSwimlaneMatrix() {
 
   const getTaskGate = useCallback((taskId: string): string | null => {
     const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
-    for (const tt of tTags) { const gk = tagIdToGateKey.get(tt.tag_id); if (gk) return gk; }
-    return null;
+    // When task has multiple gate tags (from different users), pick the highest gate
+    const gateOrder: string[] = NPD_GATES.map(g => g.key);
+    let bestGate: string | null = null;
+    let bestIdx = -1;
+    for (const tt of tTags) {
+      const gk = tagIdToGateKey.get(tt.tag_id);
+      if (gk) {
+        const idx = gateOrder.indexOf(gk);
+        if (idx > bestIdx) { bestIdx = idx; bestGate = gk; }
+      }
+    }
+    return bestGate;
   }, [allTaskTags, tagIdToGateKey]);
 
   const getTaskStream = useCallback((taskId: string): string | null => {
@@ -370,12 +380,17 @@ export default function NpdSwimlaneMatrix() {
   const moveTaskToGate = useCallback(async (taskId: string, newGateKey: string) => {
     const newGateTagId = gateKeyToTagId.get(newGateKey);
     if (!newGateTagId) return;
+    // Remove ALL gate tags (from any user) — query DB for gate tag names
+    const gateNames = NPD_GATES.map(g => g.tagName);
+    const { data: gateTagRows } = await supabase
+      .from("tags").select("id").in("name", gateNames);
+    const allGateIds = new Set((gateTagRows || []).map(r => r.id));
     const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
-    for (const tt of taskTagEntries.filter(tt => gateTagIdSet.has(tt.tag_id))) {
+    for (const tt of taskTagEntries.filter(tt => allGateIds.has(tt.tag_id))) {
       await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tt.tag_id);
     }
     await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newGateTagId }, { onConflict: "task_id,tag_id" });
-  }, [gateKeyToTagId, allTaskTags, gateTagIdSet]);
+  }, [gateKeyToTagId, allTaskTags]);
 
   const moveTaskToStream = useCallback(async (taskId: string, newStream: string) => {
     const sub = streamSubMap.get(newStream);
