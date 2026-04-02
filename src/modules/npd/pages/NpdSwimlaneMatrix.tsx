@@ -37,20 +37,73 @@ export default function NpdSwimlaneMatrix() {
   const queryClient = useQueryClient();
   const { data: allGroups = [], isLoading: groupsLoading } = useTaskGroups();
 
-  const subGroupIds = useMemo(() => {
+  const groupById = useMemo(() => new Map(allGroups.map(group => [group.id, group])), [allGroups]);
+
+  const childGroupsByParent = useMemo(() => {
+    const map = new Map<string, TaskGroup[]>();
+    allGroups.forEach(group => {
+      if (!group.parent_id) return;
+      const children = map.get(group.parent_id) ?? [];
+      children.push(group);
+      map.set(group.parent_id, children);
+    });
+    return map;
+  }, [allGroups]);
+
+  const { descendantGroups, descendantGroupIds, depthByGroupId } = useMemo(() => {
+    if (!projectId) {
+      return {
+        descendantGroups: [] as TaskGroup[],
+        descendantGroupIds: [] as string[],
+        depthByGroupId: new Map<string, number>(),
+      };
+    }
+
+    const groups: TaskGroup[] = [];
+    const ids: string[] = [];
+    const depthMap = new Map<string, number>();
+    const visited = new Set<string>();
+    const stack: Array<{ id: string; depth: number }> = [{ id: projectId, depth: 0 }];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (visited.has(current.id)) continue;
+      visited.add(current.id);
+
+      const group = groupById.get(current.id);
+      if (!group) continue;
+
+      groups.push(group);
+      ids.push(group.id);
+      depthMap.set(group.id, current.depth);
+
+      const children = childGroupsByParent.get(current.id) ?? [];
+      for (let index = children.length - 1; index >= 0; index -= 1) {
+        stack.push({ id: children[index].id, depth: current.depth + 1 });
+      }
+    }
+
+    return {
+      descendantGroups: groups,
+      descendantGroupIds: ids,
+      depthByGroupId: depthMap,
+    };
+  }, [childGroupsByParent, groupById, projectId]);
+
+  const descendantGroupIdSet = useMemo(() => new Set(descendantGroupIds), [descendantGroupIds]);
+
+  const subprojects = useMemo(() => {
     if (!projectId) return [];
-    const ids = allGroups.filter(g => g.parent_id === projectId).map(g => g.id);
-    if (projectId) ids.push(projectId);
-    return ids;
+    return allGroups.filter(group => group.parent_id === projectId);
   }, [allGroups, projectId]);
 
   const { data: allTasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ["npd-matrix-tasks", projectId, subGroupIds],
+    queryKey: ["npd-matrix-tasks", projectId, descendantGroupIds],
     queryFn: async () => {
-      if (subGroupIds.length === 0) return [];
+      if (descendantGroupIds.length === 0) return [];
       const results: Task[] = [];
-      for (let i = 0; i < subGroupIds.length; i += 10) {
-        const batch = subGroupIds.slice(i, i + 10);
+      for (let i = 0; i < descendantGroupIds.length; i += 10) {
+        const batch = descendantGroupIds.slice(i, i + 10);
         const { data, error } = await supabase
           .from("tasks")
           .select("*, subtasks(*), task_tags(tag_id)")
@@ -61,7 +114,7 @@ export default function NpdSwimlaneMatrix() {
       }
       return results;
     },
-    enabled: !!user && !!projectId && subGroupIds.length > 0,
+    enabled: !!user && !!projectId && descendantGroupIds.length > 0,
     staleTime: 1000 * 15,
   });
 
@@ -186,6 +239,16 @@ export default function NpdSwimlaneMatrix() {
     enabled: !!user,
   });
 
+  const groupTagsByGroupId = useMemo(() => {
+    const map = new Map<string, { group_id: string; tag_id: string; tag_name: string | null }[]>();
+    allGroupTags.forEach(groupTag => {
+      const entries = map.get(groupTag.group_id) ?? [];
+      entries.push(groupTag);
+      map.set(groupTag.group_id, entries);
+    });
+    return map;
+  }, [allGroupTags]);
+
   // ── Task tags from embedded data ──
   const allTaskTags = useMemo(() => {
     const result: { task_id: string; tag_id: string }[] = [];
@@ -199,170 +262,246 @@ export default function NpdSwimlaneMatrix() {
     return result;
   }, [allTasks]);
 
-  // ── Project data ──
-  const project = allGroups.find(g => g.id === projectId);
-  const subprojects = useMemo(() => allGroups.filter(g => g.parent_id === projectId), [allGroups, projectId]);
+  const taskTagsByTaskId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    allTaskTags.forEach(taskTag => {
+      const entries = map.get(taskTag.task_id) ?? [];
+      entries.push(taskTag.tag_id);
+      map.set(taskTag.task_id, entries);
+    });
+    return map;
+  }, [allTaskTags]);
 
-  // ── Stream subproject map ──
-  const streamSubMap = useMemo(() => {
-    const m = new Map<string, TaskGroup>();
-    for (const sub of subprojects) {
-      const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
-      const streamGTag = gTags.find(gt => {
-        if (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) return true;
-        return streamTagIds.has(gt.tag_id);
-      });
-      const sName = streamGTag
-        ? (streamGTag.tag_name && NPD_STREAMS.includes(streamGTag.tag_name) ? streamGTag.tag_name : streamTagById.get(streamGTag.tag_id) ?? null)
-        : null;
-      if (sName) m.set(sName, sub);
+  const tasksById = useMemo(() => new Map(allTasks.map(task => [task.id, task])), [allTasks]);
+
+  // ── Project data ──
+  const project = projectId ? groupById.get(projectId) : undefined;
+
+  // ── Stream and gate helpers ──
+  const normalizedStreamLookup = useMemo(() => {
+    const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+    return new Map(NPD_STREAMS.map(stream => [normalize(stream), stream] as const));
+  }, []);
+
+  const matchStreamName = useCallback((raw: string | null | undefined): string | null => {
+    if (!raw) return null;
+    const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+    const fullMatch = normalizedStreamLookup.get(normalize(raw));
+    if (fullMatch) return fullMatch;
+
+    const parts = raw.split(/[\/|—–-]/).map(part => normalize(part)).filter(Boolean);
+    for (let index = parts.length - 1; index >= 0; index -= 1) {
+      const match = normalizedStreamLookup.get(parts[index]);
+      if (match) return match;
     }
-    // Fallback by name
-    const normalize = (v: string) => v.toLowerCase().replace(/\s+/g, " ").trim();
-    const streamByNorm = new Map(NPD_STREAMS.map(s => [normalize(s), s] as const));
-    const tryMatch = (raw: string): string | null => {
-      const full = streamByNorm.get(normalize(raw));
-      if (full) return full;
-      const parts = raw.split(/[\/|—–-]/).map(p => normalize(p)).filter(Boolean);
-      for (let i = parts.length - 1; i >= 0; i--) {
-        const match = streamByNorm.get(parts[i]);
-        if (match) return match;
+
+    return null;
+  }, [normalizedStreamLookup]);
+
+  const getSubprojectGate = useCallback((subId: string): string | null => {
+    let currentId: string | null = subId;
+    const visited = new Set<string>();
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const gTags = groupTagsByGroupId.get(currentId) ?? [];
+      for (const gt of gTags) {
+        if (gt.tag_name) {
+          const gateKey = tagNameToGateKey.get(gt.tag_name);
+          if (gateKey) return gateKey;
+        }
+        const gateKey = tagIdToGateKey.get(gt.tag_id);
+        if (gateKey) return gateKey;
       }
-      return null;
-    };
-    const matchedIds = new Set(Array.from(m.values()).map(s => s.id));
-    for (const sub of subprojects) {
-      if (matchedIds.has(sub.id)) continue;
-      const matched = tryMatch(sub.name);
-      if (matched && !m.has(matched)) m.set(matched, sub);
+      currentId = groupById.get(currentId)?.parent_id ?? null;
     }
-    return m;
-  }, [subprojects, allGroupTags, streamTagIds, streamTagById]);
+
+    return null;
+  }, [groupTagsByGroupId, groupById, tagIdToGateKey, tagNameToGateKey]);
+
+  const getDirectGroupStream = useCallback((groupId: string): string | null => {
+    const group = groupById.get(groupId);
+    if (!group) return null;
+
+    const gTags = groupTagsByGroupId.get(groupId) ?? [];
+    for (const groupTag of gTags) {
+      if (groupTag.tag_name && NPD_STREAMS.includes(groupTag.tag_name)) return groupTag.tag_name;
+      const streamName = streamTagById.get(groupTag.tag_id);
+      if (streamName) return streamName;
+    }
+
+    return matchStreamName(group.name);
+  }, [groupById, groupTagsByGroupId, matchStreamName, streamTagById]);
+
+  const getStreamForGroup = useCallback((groupId: string | null | undefined): string | null => {
+    let currentId = groupId ?? null;
+    const visited = new Set<string>();
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const streamName = getDirectGroupStream(currentId);
+      if (streamName) return streamName;
+      currentId = groupById.get(currentId)?.parent_id ?? null;
+    }
+
+    return null;
+  }, [getDirectGroupStream, groupById]);
+
+  const streamGroupsMap = useMemo(() => {
+    const map = new Map<string, TaskGroup[]>();
+    NPD_STREAMS.forEach(stream => map.set(stream, []));
+
+    descendantGroups
+      .filter(group => group.id !== projectId)
+      .forEach(group => {
+        const streamName = getStreamForGroup(group.id);
+        if (!streamName || !map.has(streamName)) return;
+        map.get(streamName)!.push(group);
+      });
+
+    return map;
+  }, [descendantGroups, getStreamForGroup, projectId]);
+
+  const primaryStreamGroupMap = useMemo(() => {
+    const map = new Map<string, TaskGroup>();
+    NPD_STREAMS.forEach(stream => {
+      const candidates = (streamGroupsMap.get(stream) ?? [])
+        .slice()
+        .sort((a, b) => (depthByGroupId.get(a.id) ?? 0) - (depthByGroupId.get(b.id) ?? 0));
+      if (candidates[0]) map.set(stream, candidates[0]);
+    });
+    return map;
+  }, [depthByGroupId, streamGroupsMap]);
+
+  const resolveGroupForStreamGate = useCallback((streamName: string, gateKey?: string | null) => {
+    const groups = streamGroupsMap.get(streamName) ?? [];
+    const matchingGateGroups = gateKey
+      ? groups
+          .filter(group => getSubprojectGate(group.id) === gateKey)
+          .sort((a, b) => (depthByGroupId.get(b.id) ?? 0) - (depthByGroupId.get(a.id) ?? 0))
+      : [];
+
+    if (matchingGateGroups[0]) return matchingGateGroups[0];
+    return primaryStreamGroupMap.get(streamName) ?? null;
+  }, [depthByGroupId, getSubprojectGate, primaryStreamGroupMap, streamGroupsMap]);
 
   // Auto-repair stream tags
   const [repaired, setRepaired] = useState(false);
   useEffect(() => {
-    if (repaired || streamTags.length === 0 || subprojects.length === 0) return;
+    if (repaired || streamTags.length === 0 || descendantGroups.length === 0) return;
     setRepaired(true);
     (async () => {
       let changed = false;
-      for (const [streamName, sub] of streamSubMap.entries()) {
-        const gTags = allGroupTags.filter(gt => gt.group_id === sub.id);
+      for (const [streamName, group] of primaryStreamGroupMap.entries()) {
+        const gTags = groupTagsByGroupId.get(group.id) ?? [];
         const hasStreamTag = gTags.some(gt => (gt.tag_name && NPD_STREAMS.includes(gt.tag_name)) || streamTagIds.has(gt.tag_id));
         if (hasStreamTag) continue;
-        const streamTag = streamTags.find(t => t.name === streamName);
+        const streamTag = streamTags.find(tag => tag.name === streamName);
         if (streamTag) {
-          await supabase.from("group_tags" as any).insert({ group_id: sub.id, tag_id: streamTag.id });
+          await supabase.from("group_tags" as any).insert({ group_id: group.id, tag_id: streamTag.id });
           changed = true;
         }
       }
       if (changed) queryClient.invalidateQueries({ queryKey: ["npd-group-tags"] });
     })();
-  }, [streamSubMap, streamTags, allGroupTags, streamTagIds, subprojects, repaired, queryClient]);
-
-  // ── Gate helpers ──
-  const getSubprojectGate = useCallback((subId: string): string | null => {
-    const gTags = allGroupTags.filter(gt => gt.group_id === subId);
-    for (const gt of gTags) {
-      if (gt.tag_name) { const k = tagNameToGateKey.get(gt.tag_name); if (k) return k; }
-      for (const tag of gateTags) {
-        if (gt.tag_id === tag.id) { const k = tagNameToGateKey.get(tag.name); if (k) return k; }
-      }
-    }
-    return null;
-  }, [allGroupTags, gateTags, tagNameToGateKey]);
+  }, [descendantGroups.length, groupTagsByGroupId, primaryStreamGroupMap, queryClient, repaired, streamTagIds, streamTags]);
 
   const tasksByGroup = useMemo(() => {
-    const m = new Map<string, Task[]>();
-    for (const sub of subprojects) m.set(sub.id, allTasks.filter(t => t.group_id === sub.id));
-    return m;
-  }, [subprojects, allTasks]);
-
-  const getTaskGate = useCallback((taskId: string): string | null => {
-    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
-    // When task has multiple gate tags (from different users), pick the highest gate
-    const gateOrder: string[] = NPD_GATES.map(g => g.key);
-    let bestGate: string | null = null;
-    let bestIdx = -1;
-    for (const tt of tTags) {
-      const gk = tagIdToGateKey.get(tt.tag_id);
-      if (gk) {
-        const idx = gateOrder.indexOf(gk);
-        if (idx > bestIdx) { bestIdx = idx; bestGate = gk; }
-      }
-    }
-    return bestGate;
-  }, [allTaskTags, tagIdToGateKey]);
-
-  const getTaskStream = useCallback((taskId: string): string | null => {
-    const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
-    for (const tt of tTags) { const sn = streamTagById.get(tt.tag_id); if (sn) return sn; }
-    return null;
-  }, [allTaskTags, streamTagById]);
-
-  const projectGroupIds = useMemo(() => {
-    const ids = new Set<string>();
-    if (projectId) ids.add(projectId);
-    subprojects.forEach(s => ids.add(s.id));
-    return ids;
-  }, [projectId, subprojects]);
-
-  const streamTaggedTasksByStream = useMemo(() => {
     const map = new Map<string, Task[]>();
-    NPD_STREAMS.forEach(s => map.set(s, []));
     allTasks.forEach(task => {
-      if (!task.group_id || !projectGroupIds.has(task.group_id)) return;
-      const stream = getTaskStream(task.id);
-      if (stream && map.has(stream)) map.get(stream)!.push(task);
+      if (!task.group_id || !descendantGroupIdSet.has(task.group_id)) return;
+      const entries = map.get(task.group_id) ?? [];
+      entries.push(task);
+      map.set(task.group_id, entries);
     });
     return map;
-  }, [allTasks, projectGroupIds, getTaskStream]);
+  }, [allTasks, descendantGroupIdSet]);
+
+  const getTaskGate = useCallback((taskId: string): string | null => {
+    const tTags = taskTagsByTaskId.get(taskId) ?? [];
+    const gateOrder: string[] = NPD_GATES.map(gate => gate.key);
+    let bestGate: string | null = null;
+    let bestIndex = -1;
+
+    for (const tagId of tTags) {
+      const gateKey = tagIdToGateKey.get(tagId);
+      if (!gateKey) continue;
+      const gateIndex = gateOrder.indexOf(gateKey);
+      if (gateIndex > bestIndex) {
+        bestIndex = gateIndex;
+        bestGate = gateKey;
+      }
+    }
+
+    if (bestGate) return bestGate;
+    const task = tasksById.get(taskId);
+    return task?.group_id ? getSubprojectGate(task.group_id) : null;
+  }, [getSubprojectGate, tagIdToGateKey, taskTagsByTaskId, tasksById]);
+
+  const getTaskStream = useCallback((taskId: string): string | null => {
+    const tTags = taskTagsByTaskId.get(taskId) ?? [];
+    for (const tagId of tTags) {
+      const streamName = streamTagById.get(tagId);
+      if (streamName) return streamName;
+    }
+    const task = tasksById.get(taskId);
+    return task?.group_id ? getStreamForGroup(task.group_id) : null;
+  }, [getStreamForGroup, streamTagById, taskTagsByTaskId, tasksById]);
+
+  const projectGroupIds = useMemo(() => new Set(descendantGroupIds), [descendantGroupIds]);
+
+  const tasksByStream = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    NPD_STREAMS.forEach(stream => map.set(stream, []));
+    allTasks.forEach(task => {
+      if (!task.group_id || !descendantGroupIdSet.has(task.group_id)) return;
+      const streamName = getTaskStream(task.id);
+      if (streamName && map.has(streamName)) map.get(streamName)!.push(task);
+    });
+    return map;
+  }, [allTasks, descendantGroupIdSet, getTaskStream]);
 
   // ── Inbox ──
   const inboxData = useMemo(() => {
-    const matchedSubIds = new Set(Array.from(streamSubMap.values()).map(s => s.id));
-    const unmatchedSubs = subprojects.filter(s => !matchedSubIds.has(s.id));
-    const parentTasks = allTasks.filter(t => t.group_id === projectId && !getTaskStream(t.id));
-    const unmatchedSubTasks = unmatchedSubs.flatMap(s => allTasks.filter(t => t.group_id === s.id && !getTaskStream(t.id)));
-    return { parentTasks, unmatchedSubs, unmatchedSubTasks, totalCount: parentTasks.length + unmatchedSubTasks.length + unmatchedSubs.length };
-  }, [allTasks, projectId, subprojects, streamSubMap, getTaskStream]);
+    const parentTasks = allTasks.filter(task => task.group_id === projectId && !getTaskStream(task.id));
+    const unmatchedSubTasks = allTasks.filter(task => task.group_id && task.group_id !== projectId && descendantGroupIdSet.has(task.group_id) && !getTaskStream(task.id));
+    return {
+      parentTasks,
+      unmatchedSubTasks,
+      totalCount: parentTasks.length + unmatchedSubTasks.length,
+    };
+  }, [allTasks, descendantGroupIdSet, getTaskStream, projectId]);
 
   // ── Gate start date ──
   const getGateStartDate = useCallback((streamName: string, gateKey: string): Date | undefined => {
-    const gateIdx = NPD_GATES.findIndex(g => g.key === gateKey);
+    const gateIdx = NPD_GATES.findIndex(gate => gate.key === gateKey);
     if (gateIdx < 0) return undefined;
     if (gateIdx === 0) return project?.created_at ? new Date(project.created_at) : undefined;
+
     const prevGateKey = NPD_GATES[gateIdx - 1].key;
-    const sub = streamSubMap.get(streamName);
-    if (!sub) return project?.created_at ? new Date(project.created_at) : undefined;
-    const tasks = tasksByGroup.get(sub.id) || [];
-    const streamTaggedTasks = streamTaggedTasksByStream.get(streamName) || [];
-    const allStreamTasks = [...tasks, ...streamTaggedTasks];
-    const prevGateTasks = allStreamTasks.filter(t => {
-      const tg = getTaskGate(t.id);
-      if (tg) return tg === prevGateKey;
-      return getSubprojectGate(sub.id) === prevGateKey;
-    });
+    const prevGateTasks = (tasksByStream.get(streamName) ?? []).filter(task => getTaskGate(task.id) === prevGateKey);
     if (prevGateTasks.length === 0) return getGateStartDate(streamName, prevGateKey);
+
     let maxDeadline: Date | undefined;
-    for (const t of prevGateTasks) {
-      if (t.deadline) { const d = parseISO(t.deadline); if (!maxDeadline || d > maxDeadline) maxDeadline = d; }
+    for (const task of prevGateTasks) {
+      if (!task.deadline) continue;
+      const deadline = parseISO(task.deadline);
+      if (!maxDeadline || deadline > maxDeadline) maxDeadline = deadline;
     }
+
     return maxDeadline || (project?.created_at ? new Date(project.created_at) : undefined);
-  }, [project, streamSubMap, tasksByGroup, streamTaggedTasksByStream, getTaskGate, getSubprojectGate]);
+  }, [getTaskGate, project, tasksByStream]);
 
   // ── Streams data for rows ──
   const streamsData = useMemo(() => {
     const parentProjectGate = projectId ? getSubprojectGate(projectId) : null;
     return NPD_STREAMS.map(stream => {
-      const sub = streamSubMap.get(stream);
-      const currentGate = sub ? (getSubprojectGate(sub.id) ?? parentProjectGate) : parentProjectGate;
-      const subTasks = sub ? (tasksByGroup.get(sub.id) || []) : [];
-      const taggedStreamTasks = streamTaggedTasksByStream.get(stream) || [];
-      const tasks = Array.from(new Map([...subTasks, ...taggedStreamTasks].map(t => [t.id, t])).values());
-      return { stream, sub, currentGate, tasks };
+      const primaryGroup = primaryStreamGroupMap.get(stream);
+      const currentGate = primaryGroup ? (getSubprojectGate(primaryGroup.id) ?? parentProjectGate) : parentProjectGate;
+      const tasks = tasksByStream.get(stream) ?? [];
+      return { stream, currentGate, tasks };
     });
-  }, [streamSubMap, tasksByGroup, streamTaggedTasksByStream, getSubprojectGate, projectId]);
+  }, [getSubprojectGate, primaryStreamGroupMap, projectId, tasksByStream]);
 
   // ── DnD ──
   const dndSensors = useSensors(
@@ -392,17 +531,22 @@ export default function NpdSwimlaneMatrix() {
     await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newGateTagId }, { onConflict: "task_id,tag_id" });
   }, [gateKeyToTagId, allTaskTags]);
 
-  const moveTaskToStream = useCallback(async (taskId: string, newStream: string) => {
-    const sub = streamSubMap.get(newStream);
-    if (!sub) return;
-    await supabase.from("tasks").update({ group_id: sub.id }).eq("id", taskId);
-    const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
-    for (const tt of taskTagEntries.filter(tt => streamTagIds.has(tt.tag_id))) {
-      await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tt.tag_id);
+  const moveTaskToStream = useCallback(async (taskId: string, newStream: string, targetGate?: string | null) => {
+    const targetGroup = resolveGroupForStreamGate(newStream, targetGate);
+    if (targetGroup) {
+      await supabase.from("tasks").update({ group_id: targetGroup.id }).eq("id", taskId);
     }
-    const newStreamTag = streamTags.find(t => t.name === newStream);
-    if (newStreamTag) await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newStreamTag.id }, { onConflict: "task_id,tag_id" });
-  }, [streamSubMap, allTaskTags, streamTagIds, streamTags]);
+
+    const taskTagEntries = taskTagsByTaskId.get(taskId) ?? [];
+    for (const tagId of taskTagEntries.filter(tagId => streamTagIds.has(tagId))) {
+      await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tagId);
+    }
+
+    const newStreamTag = streamTags.find(tag => tag.name === newStream);
+    if (newStreamTag && (!targetGroup || getStreamForGroup(targetGroup.id) !== newStream)) {
+      await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: newStreamTag.id }, { onConflict: "task_id,tag_id" });
+    }
+  }, [getStreamForGroup, resolveGroupForStreamGate, streamTagIds, streamTags, taskTagsByTaskId]);
 
   const handleDndEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -416,13 +560,9 @@ export default function NpdSwimlaneMatrix() {
     const currentGate = getTaskGate(taskId);
     const currentStream = getTaskStream(taskId);
     const task = allTasks.find(t => t.id === taskId);
-    const currentStreamByGroup = task?.group_id
-      ? (() => { for (const [name, sub] of streamSubMap.entries()) { if (sub.id === task.group_id) return name; } return null; })()
-      : null;
-    const effectiveStream = currentStream || currentStreamByGroup;
     const isInboxTarget = targetStream === "__inbox__";
     const gateChanged = currentGate !== targetGate;
-    const streamChanged = !isInboxTarget && effectiveStream !== targetStream;
+    const streamChanged = !isInboxTarget && currentStream !== targetStream;
     if (!gateChanged && !streamChanged && !isInboxTarget) return;
 
     if (isInboxTarget) {
@@ -433,7 +573,7 @@ export default function NpdSwimlaneMatrix() {
         }
       }
     } else if (streamChanged) {
-      await moveTaskToStream(taskId, targetStream);
+      await moveTaskToStream(taskId, targetStream, targetGate);
     }
     if (gateChanged) await moveTaskToGate(taskId, targetGate);
 
@@ -445,7 +585,7 @@ export default function NpdSwimlaneMatrix() {
     if (streamChanged) parts.push(targetStream);
     if (isInboxTarget && !streamChanged) parts.push("Входящие");
     toast.success(`Задача перемещена → ${parts.join(" · ")}`);
-  }, [dndOverCell, getTaskGate, getTaskStream, allTasks, streamSubMap, moveTaskToGate, moveTaskToStream, queryClient, projectId, allTaskTags, streamTagIds]);
+  }, [dndOverCell, getTaskGate, getTaskStream, allTasks, moveTaskToGate, moveTaskToStream, queryClient, projectId, allTaskTags, streamTagIds]);
 
   // ── Quick create ──
   const handleQuickCreate = useCallback(async (
@@ -480,15 +620,27 @@ export default function NpdSwimlaneMatrix() {
       queryClient.invalidateQueries({ queryKey: ["all_group_tags"] });
       toast.success(`Подпроект «${params.title}» создан`);
     } else {
-      const insertData: any = { title: params.title, user_id: uid, group_id: groupId };
+      const resolvedGroup = streamName ? resolveGroupForStreamGate(streamName, gateKey) : null;
+      const targetGroupId = resolvedGroup?.id ?? groupId;
+      const insertData: any = { title: params.title, user_id: uid, group_id: targetGroupId };
       if (params.deadline) insertData.deadline = params.deadline.toISOString();
       if (params.assigneeId) insertData.assigned_to = params.assigneeId;
       if (params.startFrom) insertData.start_at = params.startFrom.toISOString();
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
+      if (streamName && data) {
+        const streamTagId = streamTags.find(tag => tag.name === streamName)?.id;
+        const inheritedStream = getStreamForGroup(targetGroupId);
+        if (streamTagId && inheritedStream !== streamName) {
+          await supabase.from("task_tags").insert({ task_id: data.id, tag_id: streamTagId });
+        }
+      }
       if (gateKey && data) {
         const gateTagId = gateKeyToTagId.get(gateKey);
-        if (gateTagId) await supabase.from("task_tags").insert({ task_id: data.id, tag_id: gateTagId });
+        const inheritedGate = getSubprojectGate(targetGroupId);
+        if (gateTagId && inheritedGate !== gateKey) {
+          await supabase.from("task_tags").insert({ task_id: data.id, tag_id: gateTagId });
+        }
       }
       if (params.assigneeId && data) {
         await supabase.from("task_participants").upsert({ task_id: data.id, user_id: params.assigneeId, role: "assignee" }, { onConflict: "task_id,user_id" });
@@ -497,7 +649,7 @@ export default function NpdSwimlaneMatrix() {
       queryClient.invalidateQueries({ queryKey: ["npd-task-tags"] });
       toast.success("Задача создана");
     }
-  }, [user, subprojects.length, streamTags, streamsCategoryId, gateKeyToTagId, queryClient]);
+  }, [getStreamForGroup, getSubprojectGate, resolveGroupForStreamGate, user, subprojects.length, streamTags, streamsCategoryId, gateKeyToTagId, queryClient]);
 
   // ── Deadline cascade ──
   const handleDeadlineChange = useCallback(async (task: Task, newDeadline: Date) => {
@@ -579,7 +731,7 @@ export default function NpdSwimlaneMatrix() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      <MatrixHeader project={project} projectId={projectId!} allTasks={allTasks} subprojects={subprojects} />
+      <MatrixHeader project={project} projectId={projectId!} allTasks={allTasks} projectGroupIds={projectGroupIds} />
 
       <div className="flex-1 overflow-auto">
         <DndContext
@@ -592,11 +744,10 @@ export default function NpdSwimlaneMatrix() {
           <div className="min-w-max">
             <GateColumnHeaders />
 
-            {streamsData.map(({ stream, sub, currentGate, tasks }) => (
+            {streamsData.map(({ stream, currentGate, tasks }) => (
               <StreamRow
                 key={stream}
                 stream={stream}
-                sub={sub}
                 isCollapsed={collapsed.has(stream)}
                 currentGate={currentGate}
                 tasks={tasks}
@@ -608,6 +759,7 @@ export default function NpdSwimlaneMatrix() {
                 dndOverCell={dndOverCell}
                 getTaskGate={getTaskGate}
                 getGateStartDate={getGateStartDate}
+                getCreateGroupId={(streamName, gateKey) => resolveGroupForStreamGate(streamName, gateKey)?.id ?? null}
                 onToggleCollapse={() => toggleCollapse(stream)}
                 onDeadlineChange={handleDeadlineChange}
                 onAssigneeChange={handleAssigneeChange}
@@ -628,11 +780,7 @@ export default function NpdSwimlaneMatrix() {
             />
 
             <GateSummary
-              projectId={projectId!}
-              streamSubMap={streamSubMap}
-              tasksByGroup={tasksByGroup}
-              streamTaggedTasksByStream={streamTaggedTasksByStream}
-              getSubprojectGate={getSubprojectGate}
+              tasksByStream={tasksByStream}
               getTaskGate={getTaskGate}
             />
           </div>
