@@ -38,6 +38,14 @@ export default function Index() {
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Lazy-mount: only render heavy views after first visit, then keep alive
+  const visitedRef = useRef<Set<string>>(new Set());
+  if (activeView === "calendar" || activeView === "dashboard") {
+    visitedRef.current.add(activeView);
+  }
+  const calendarMounted = visitedRef.current.has("calendar");
+  const dashboardMounted = visitedRef.current.has("dashboard");
+
   // Handle incoming navigation from other modules via query params
   useEffect(() => {
     const groupParam = searchParams.get("group");
@@ -79,14 +87,6 @@ export default function Index() {
   if (!isApproved) return <Navigate to="/pending" replace />;
 
   const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki"].includes(activeView);
-
-  // Lazy-mount: only render heavy views after first visit, then keep alive
-  const visitedRef = useRef<Set<string>>(new Set());
-  if (activeView === "calendar" || activeView === "dashboard") {
-    visitedRef.current.add(activeView);
-  }
-  const calendarMounted = visitedRef.current.has("calendar");
-  const dashboardMounted = visitedRef.current.has("dashboard");
 
   const handleNavAction = () => {};
 
