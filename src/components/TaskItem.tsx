@@ -1405,16 +1405,20 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
               <span>· создал: {getProfileName(task.user_id)}</span>
             </div>
-            {task.group_id && (
-              <button
-                onClick={handleSaveToWiki}
-                disabled={savingToWiki}
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-              >
-                {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
-                В базу знаний
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!task.group_id) {
+                  toast.error("Задача не привязана к проекту. Добавьте задачу в проект, чтобы сохранить в базу знаний.");
+                  return;
+                }
+                handleSaveToWiki();
+              }}
+              disabled={savingToWiki}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
+              В базу знаний
+            </button>
           </div>
           </div>
         );
