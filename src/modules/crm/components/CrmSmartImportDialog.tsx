@@ -54,7 +54,7 @@ export default function CrmSmartImportDialog({ trigger, open: controlledOpen, on
   const qc = useQueryClient();
   const { data: groups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
-  const { data: allTags = [] } = useTags();
+  const { data: allTags = [] } = useVisibleTags();
   const { addTask } = useTaskMutations();
 
   const [internalOpen, setInternalOpen] = useState(false);
