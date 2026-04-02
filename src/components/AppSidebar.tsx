@@ -905,6 +905,7 @@ export default function AppSidebar({
                   )}
 
 
+                  {showNewGroup && !newSubgroupParentId && (
                     <form onSubmit={(e) => { e.preventDefault(); handleAddGroup(); }} className="px-3 py-1 flex items-center gap-1.5">
                       <input
                         autoFocus
