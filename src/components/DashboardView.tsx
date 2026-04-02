@@ -788,6 +788,15 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     onNavigateToTaskProp?.(taskId);
   };
 
+  const handleCreateTask = useCallback(async (groupId: string, params: QuickCreateResult) => {
+    await addTask.mutateAsync({
+      title: params.title,
+      group_id: groupId,
+      deadline: params.deadline ? params.deadline.toISOString() : null,
+      assigned_to: params.assigneeId || null,
+    });
+  }, [addTask]);
+
   const toggleMetric = (m: SummaryMetric) => {
     setExpandedMetric(prev => prev === m ? null : m);
   };
