@@ -1408,20 +1408,44 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
               <span>· создал: {getProfileName(task.user_id)}</span>
             </div>
-            <button
-              onClick={() => {
-                if (!task.group_id) {
-                  toast.error("Задача не привязана к проекту. Добавьте задачу в проект, чтобы сохранить в базу знаний.");
-                  return;
-                }
-                handleSaveToWiki();
-              }}
-              disabled={savingToWiki}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-            >
-              {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
-              В базу знаний
-            </button>
+            <Popover open={wikiProjectPickerOpen} onOpenChange={setWikiProjectPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={() => {
+                    if (task.group_id) {
+                      handleSaveToWiki(task.group_id);
+                    } else {
+                      setWikiProjectPickerOpen(true);
+                    }
+                  }}
+                  disabled={savingToWiki}
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                >
+                  {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
+                  В базу знаний
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="end">
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Сохранить в:</p>
+                <button
+                  onClick={() => handleSaveToWiki(null)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left"
+                >
+                  <BookOpen className="h-3.5 w-3.5 text-primary" />
+                  Личные знания
+                </button>
+                {allGroups.filter(g => !g.parent_id).map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => handleSaveToWiki(g.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent transition-colors text-left truncate"
+                  >
+                    <span className="shrink-0">{g.icon && !["list","folder"].includes(g.icon) ? g.icon : "📁"}</span>
+                    <span className="truncate">{g.name}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
           </div>
         );
