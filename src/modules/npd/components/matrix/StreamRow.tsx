@@ -28,7 +28,7 @@ interface StreamRowProps {
   onToggle: (taskId: string) => void;
   onAddDependency: (predId: string, succId: string) => void;
   onExpand: (taskId: string) => void;
-  onQuickCreate: (params: QuickCreateResult, groupId: string, stream?: string, gateKey?: string) => void | Promise<void>;
+  onQuickCreate: (params: QuickCreateResult, groupId: string, stream?: string, gateKey?: string) => Promise<void>;
 }
 
 function StreamRowInner({
