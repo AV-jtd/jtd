@@ -23,9 +23,6 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export default function Index() {
   const { user, loading, isApproved } = useAuth();
-  const [activeView, setActiveView] = useState("all");
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -38,28 +35,56 @@ export default function Index() {
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Lazy-mount: only render heavy views after first visit, then keep alive
-  const visitedRef = useRef<Set<string>>(new Set());
-  if (activeView === "calendar" || activeView === "dashboard") {
-    visitedRef.current.add(activeView);
-  }
-  const calendarMounted = visitedRef.current.has("calendar");
-  const dashboardMounted = visitedRef.current.has("dashboard");
+  // Derive view state from URL search params
+  const activeView = searchParams.get("view") || "all";
+  const activeGroupId = searchParams.get("group") || null;
+  const activeTagFilters = useMemo(() => {
+    const tags = searchParams.get("tags");
+    return tags ? tags.split(",").filter(Boolean) : [];
+  }, [searchParams]);
 
-  // Handle incoming navigation from other modules via query params
+  // Stable setters that update URL
+  const setActiveView = useCallback((view: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (view === "all") next.delete("view"); else next.set("view", view);
+      if (view !== "group") next.delete("group");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setActiveGroupId = useCallback((id: string | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id) { next.set("group", id); next.set("view", "group"); } else { next.delete("group"); }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setActiveTagFilters = useCallback((updater: string[] | ((prev: string[]) => string[])) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      const currentTags = prev.get("tags")?.split(",").filter(Boolean) || [];
+      const newTags = typeof updater === "function" ? updater(currentTags) : updater;
+      if (newTags.length > 0) next.set("tags", newTags.join(",")); else next.delete("tags");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Handle incoming task highlight from query params
   useEffect(() => {
-    const groupParam = searchParams.get("group");
     const taskParam = searchParams.get("task");
-    if (groupParam) {
-      setActiveGroupId(groupParam);
-      setActiveView("group");
-      setProjectDetailOpen(true);
-      setSearchParams({}, { replace: true });
-    } else if (taskParam) {
-      setActiveView("all");
-      setActiveGroupId(null);
+    if (taskParam) {
       setHighlightTaskId(taskParam);
-      setSearchParams({}, { replace: true });
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete("task");
+        return next;
+      }, { replace: true });
+    }
+    // Handle legacy detail param
+    if (searchParams.get("detail") === "true") {
+      setProjectDetailOpen(true);
     }
   }, [searchParams, setSearchParams]);
 
