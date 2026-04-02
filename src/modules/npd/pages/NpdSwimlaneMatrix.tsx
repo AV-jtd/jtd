@@ -609,12 +609,29 @@ export default function NpdSwimlaneMatrix() {
       : null;
     const effectiveStream = currentStream || currentStreamByGroup;
 
+    // Handle drop on inbox row — only set gate, keep in parent project
+    const isInboxTarget = targetStream === "__inbox__";
+
     const gateChanged = currentGate !== targetGate;
-    const streamChanged = effectiveStream !== targetStream;
+    const streamChanged = !isInboxTarget && effectiveStream !== targetStream;
 
-    if (!gateChanged && !streamChanged) return;
+    if (!gateChanged && !streamChanged && !isInboxTarget) return;
 
-    if (streamChanged) await moveTaskToStream(taskId, targetStream);
+    if (isInboxTarget) {
+      // Move task to parent project (remove from stream subproject)
+      if (task?.group_id !== projectId) {
+        await supabase.from("tasks").update({ group_id: projectId! }).eq("id", taskId);
+        // Remove stream tags
+        const taskTagEntries = allTaskTags.filter(tt => tt.task_id === taskId);
+        for (const tt of taskTagEntries) {
+          if (streamTagIds.has(tt.tag_id)) {
+            await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tt.tag_id);
+          }
+        }
+      }
+    } else if (streamChanged) {
+      await moveTaskToStream(taskId, targetStream);
+    }
     if (gateChanged) await moveTaskToGate(taskId, targetGate);
 
     queryClient.invalidateQueries({ queryKey: ["npd-matrix-tasks"] });
@@ -623,6 +640,7 @@ export default function NpdSwimlaneMatrix() {
     const parts: string[] = [];
     if (gateChanged) parts.push(NPD_GATES.find(g => g.key === targetGate)?.short ?? targetGate);
     if (streamChanged) parts.push(targetStream);
+    if (isInboxTarget && !streamChanged) parts.push("Входящие");
     toast.success(`Задача перемещена → ${parts.join(" · ")}`);
   }, [dndOverCell, getTaskGate, getTaskStream, allTasks, streamSubMap, moveTaskToGate, moveTaskToStream, queryClient]);
 
