@@ -334,6 +334,11 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   });
 
   // ── Build NPD projects list ──
+  const closedNpdProjects = useMemo(() =>
+    allGroups.filter((g) => g.project_type === "npd" && !g.parent_id && !!g.closed_at),
+    [allGroups]
+  );
+
   const npdProjects = useMemo(() => {
     const npdGroups = allGroups.filter((g) => g.project_type === "npd" && !g.parent_id && !g.closed_at);
 
