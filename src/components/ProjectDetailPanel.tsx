@@ -301,7 +301,40 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         </div>
       </div>
 
-      {/* Assignee */}
+      {/* Archive / Close Project */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <Archive className="h-3 w-3" /> Архивация
+        </p>
+        {(group as any).closed_at ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Закрыт {format(new Date((group as any).closed_at), "d MMM yyyy", { locale: ru })}
+            </span>
+            <button
+              onClick={() => {
+                closeProject.mutate({ id: group.id, closed_at: null });
+                toast.success("Проект переоткрыт");
+              }}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" /> Переоткрыть
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              closeProject.mutate({ id: group.id, closed_at: new Date().toISOString() });
+              toast.success("Проект архивирован");
+            }}
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+          >
+            <Archive className="h-3 w-3" /> Закрыть проект
+          </button>
+        )}
+      </div>
+
+
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <UserPlus className="h-3 w-3" /> Ответственный
