@@ -178,23 +178,27 @@ export default function Index() {
             )}
           </div>
 
-          {/* Calendar - kept mounted */}
-          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
-            <CalendarView onNavigateToTask={(taskId) => {
-              setActiveView("all");
-              setActiveGroupId(null);
-              setHighlightTaskId(taskId);
-            }} />
-          </div>
+          {/* Calendar - lazy mounted on first visit, then kept alive */}
+          {calendarMounted && (
+            <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
+              <CalendarView onNavigateToTask={(taskId) => {
+                setActiveView("all");
+                setActiveGroupId(null);
+                setHighlightTaskId(taskId);
+              }} />
+            </div>
+          )}
 
-          {/* Dashboard - kept mounted */}
-          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
-            <DashboardView onNavigateToTask={(taskId) => {
-              setActiveView("all");
-              setActiveGroupId(null);
-              setHighlightTaskId(taskId);
-            }} />
-          </div>
+          {/* Dashboard - lazy mounted on first visit, then kept alive */}
+          {dashboardMounted && (
+            <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
+              <DashboardView onNavigateToTask={(taskId) => {
+                setActiveView("all");
+                setActiveGroupId(null);
+                setHighlightTaskId(taskId);
+              }} />
+            </div>
+          )}
 
           {/* Lazy-mounted views */}
           {activeView === "subordinates" && <SubordinatesView />}
