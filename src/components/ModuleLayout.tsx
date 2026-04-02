@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import AiAssistant from "@/components/AiAssistant";
@@ -26,6 +26,7 @@ export default function ModuleLayout({
   extraOverlays,
 }: ModuleLayoutProps) {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -73,6 +74,8 @@ export default function ModuleLayout({
               onClose={() => setMessengerOpen(false)}
               markThreadRead={markThreadRead}
               isThreadUnread={isThreadUnread}
+              onNavigateToProject={(groupId) => { setMessengerOpen(false); navigate(`/?group=${groupId}`); }}
+              onNavigateToTask={(taskId) => { setMessengerOpen(false); navigate(`/?task=${taskId}`); }}
             />
           </div>
         )}

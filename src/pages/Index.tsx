@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
@@ -35,6 +35,24 @@ export default function Index() {
   const [aiOpen, setAiOpen] = useState(false);
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle incoming navigation from other modules via query params
+  useEffect(() => {
+    const groupParam = searchParams.get("group");
+    const taskParam = searchParams.get("task");
+    if (groupParam) {
+      setActiveGroupId(groupParam);
+      setActiveView("group");
+      setProjectDetailOpen(true);
+      setSearchParams({}, { replace: true });
+    } else if (taskParam) {
+      setActiveView("all");
+      setActiveGroupId(null);
+      setHighlightTaskId(taskParam);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
