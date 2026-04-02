@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps } from "react";
+import { Diamond } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,13 +71,23 @@ type NpdProject = {
   description: string | null;
   parent_id: string | null;
   user_id: string;
-  gateTags: string[];  // tag_ids that are gate tags (own)
-  allGateKeys: string[]; // all gate keys from own + child subproject tags
-  streamTags: string[]; // tag_ids that are stream tags
-  otherTagIds: string[]; // non-gate, non-stream tag ids for filtering
-  assigneeUserId: string | null; // project-level assignee (from group_members)
+  gateTags: string[];
+  allGateKeys: string[];
+  streamTags: string[];
+  otherTagIds: string[];
+  assigneeUserId: string | null;
   stats: { total: number; completed: number; overdue: number };
   streamStats: { name: string; total: number; completed: number }[];
+  nearestDeadline: string | null; // ISO date of closest upcoming active task deadline
+};
+
+type NpdMilestone = {
+  id: string;
+  name: string;
+  group_id: string;
+  planned_date: string;
+  status: string;
+  color: string | null;
 };
 
 // ── Main component ──
@@ -109,6 +120,19 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const { data, error } = await supabase.from("group_members").select("group_id, user_id, role");
       if (error) throw error;
       return data as { group_id: string; user_id: string; role: string }[];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch milestones for all NPD projects
+  const { data: allMilestones = [] } = useQuery({
+    queryKey: ["npd-milestones", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_milestones")
+        .select("id, name, group_id, planned_date, status, color");
+      if (error) throw error;
+      return data as NpdMilestone[];
     },
     enabled: !!user,
   });
@@ -389,6 +413,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const assigneeMember = allGroupMembers.find((m) => m.group_id === g.id && m.role === "assignee");
       const assigneeUserId = assigneeMember?.user_id || null;
 
+      // Nearest upcoming deadline among active tasks
+      const now = new Date();
+      const activeWithDeadline = projectTasks
+        .filter((t) => !t.is_completed && t.deadline)
+        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+      const nearestDeadline = activeWithDeadline.length > 0 ? activeWithDeadline[0].deadline! : null;
+
       return {
         id: g.id,
         name: g.name,
@@ -404,6 +435,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         assigneeUserId,
         stats: { total, completed, overdue },
         streamStats,
+        nearestDeadline,
       };
     });
   }, [allGroups, allGroupTags, allTasks, gateTagIds, streamTagIds, streamTagById, allGroupMembers]);
@@ -577,6 +609,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         assigneeUserId: null,
         stats: { total: relevantTasks.length, completed: relevantTasks.filter(t => t.is_completed).length, overdue: 0 },
         streamStats: [],
+        nearestDeadline: null,
       };
     });
     // Also include gate5 fully-completed active projects
@@ -1799,6 +1832,39 @@ function ProjectCard({
 
   const timingStatus = getTimingStatus(allProjectTasks);
 
+  // Milestones for this project (from cache)
+  const { data: projectMilestones = [] } = useQuery<NpdMilestone[]>({
+    queryKey: ["npd-milestones-project", project.id],
+    queryFn: async () => {
+      const allGroupIds = [project.id, ...subprojects.map(s => s.id)];
+      const { data, error } = await supabase
+        .from("project_milestones")
+        .select("id, name, group_id, planned_date, status, color")
+        .in("group_id", allGroupIds)
+        .order("planned_date", { ascending: true });
+      if (error) throw error;
+      return data as NpdMilestone[];
+    },
+  });
+
+  const nextMilestone = projectMilestones.find(m => m.status !== "completed" && new Date(m.planned_date) >= now);
+  const overdueMilestones = projectMilestones.filter(m => m.status !== "completed" && new Date(m.planned_date) < now);
+
+  // Nearest deadline formatting
+  const nearestDeadlineInfo = useMemo(() => {
+    if (!project.nearestDeadline) return null;
+    const d = new Date(project.nearestDeadline);
+    const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = diffDays < 0;
+    const isUrgent = diffDays >= 0 && diffDays <= 7;
+    return {
+      date: format(d, "d MMM", { locale: ru }),
+      diffDays,
+      isOverdue,
+      isUrgent,
+    };
+  }, [project.nearestDeadline]);
+
   // For secondary cards, show a compact ghost version
   if (isSecondary) {
     return (
@@ -1909,6 +1975,58 @@ function ProjectCard({
           </div>
         )}
 
+        {/* Nearest deadline + milestone stickers */}
+        {(nearestDeadlineInfo || nextMilestone || overdueMilestones.length > 0) && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {nearestDeadlineInfo && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={cn(
+                    "inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium border",
+                    nearestDeadlineInfo.isOverdue
+                      ? "bg-destructive/10 text-destructive border-destructive/20"
+                      : nearestDeadlineInfo.isUrgent
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                      : "bg-muted text-muted-foreground border-border"
+                  )}>
+                    <Clock className="h-2.5 w-2.5" />
+                    {nearestDeadlineInfo.date}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Ближайший дедлайн: {nearestDeadlineInfo.diffDays < 0 ? `просрочен на ${Math.abs(nearestDeadlineInfo.diffDays)}д` : `через ${nearestDeadlineInfo.diffDays}д`}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {overdueMilestones.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                    <Diamond className="h-2.5 w-2.5" />
+                    {overdueMilestones.length} просроч.
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {overdueMilestones.map(m => m.name).join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {nextMilestone && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-primary/10 text-primary border border-primary/20">
+                    <Diamond className="h-2.5 w-2.5" />
+                    {format(new Date(nextMilestone.planned_date), "d MMM", { locale: ru })}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Веха: {nextMilestone.name}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="flex items-center gap-2 mt-1.5 text-[10px]">
           {assigneeName && (
@@ -2002,6 +2120,38 @@ function ProjectCard({
               <span className="text-[10px] font-semibold text-muted-foreground">Ответственный:</span>
               <span className="text-[11px] text-foreground font-medium truncate">{assigneeName}</span>
             </div>
+          )}
+
+          {/* Milestones section */}
+          {projectMilestones.length > 0 && (
+            <DashboardSection title="Вехи" count={projectMilestones.length}>
+              <div className="space-y-1">
+                {projectMilestones.map(m => {
+                  const mDate = new Date(m.planned_date);
+                  const isPastMilestone = mDate < now && m.status !== "completed";
+                  const isCompleted = m.status === "completed";
+                  return (
+                    <div key={m.id} className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-muted/50 transition-colors">
+                      <Diamond className={cn(
+                        "h-3 w-3 shrink-0",
+                        isCompleted ? "text-emerald-500" : isPastMilestone ? "text-destructive" : "text-primary"
+                      )} />
+                      <span className={cn(
+                        "text-[11px] truncate flex-1",
+                        isCompleted && "line-through text-muted-foreground",
+                        isPastMilestone && "text-destructive"
+                      )}>{m.name}</span>
+                      <span className={cn(
+                        "text-[9px] shrink-0",
+                        isPastMilestone ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        {format(mDate, "d MMM", { locale: ru })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </DashboardSection>
           )}
 
           {/* Subprojects first (like dashboard) */}
