@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { BookOpen, ChevronRight, FileText, LayoutGrid, Loader2, Search, Archive, CheckCircle2 } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, LayoutGrid, Loader2, Search, Archive, CheckCircle2, Plus, User, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -17,7 +18,61 @@ export default function WikiHubView() {
   const { data: allTasks = [] } = useTasks();
   const [search, setSearch] = useState("");
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [openPersonalWiki, setOpenPersonalWiki] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const qc = useQueryClient();
+
+  // Personal wiki pages (no group_id)
+  const { data: personalPages = [], isLoading: personalLoading } = useQuery({
+    queryKey: ["wiki-personal-pages", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wiki_pages")
+        .select("*")
+        .is("group_id", null)
+        .eq("user_id", user!.id)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const createPersonalPage = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("wiki_pages").insert({
+        user_id: user!.id,
+        title: "Новое знание",
+        icon: "💡",
+        page_type: "wiki",
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] });
+      toast.success("Страница создана");
+    },
+  });
+
+  const deletePersonalPage = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("wiki_pages").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] });
+      toast.success("Страница удалена");
+    },
+  });
+
+  const updatePersonalPage = useMutation({
+    mutationFn: async (params: { id: string; title?: string; content?: string }) => {
+      const { id, ...updates } = params;
+      const { error } = await supabase.from("wiki_pages").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wiki-personal-pages"] }),
+  });
 
   const { data: wikiPages = [], isLoading: pagesLoading } = useQuery({
     queryKey: ["wiki-hub-pages", user?.id],
@@ -45,7 +100,7 @@ export default function WikiHubView() {
     enabled: !!user,
   });
 
-  const isLoading = groupsLoading || pagesLoading || sectionsLoading;
+  const isLoading = groupsLoading || pagesLoading || sectionsLoading || personalLoading;
 
   // Determine if a project is "archived" (all tasks completed, has tasks)
   const groupActivityMap = useMemo(() => {
@@ -159,6 +214,64 @@ export default function WikiHubView() {
           </div>
         </div>
 
+        {/* Personal knowledge */}
+        {(personalPages.length > 0 || !search) && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Личные знания</span>
+                {personalPages.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{personalPages.length}</span>
+                )}
+              </div>
+              <button
+                onClick={() => createPersonalPage.mutate()}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Добавить
+              </button>
+            </div>
+            {personalPages.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 pl-6">Нет личных записей</p>
+            ) : (
+              <div className="space-y-1 pl-1">
+                {personalPages
+                  .filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase()))
+                  .map(page => (
+                  <div
+                    key={page.id}
+                    className="flex items-center gap-2 p-2.5 rounded-lg bg-card border border-border hover:border-primary/20 transition-all group cursor-pointer"
+                    onClick={() => setOpenPersonalWiki(true)}
+                  >
+                    <span className="text-sm shrink-0">{page.icon || "💡"}</span>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        className="text-sm font-medium bg-transparent border-none outline-none w-full text-foreground"
+                        value={page.title}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => updatePersonalPage.mutate({ id: page.id, title: e.target.value })}
+                      />
+                      {page.content && (
+                        <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
+                          {page.content.replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 80)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); deletePersonalPage.mutate(page.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Project cards */}
         <div className="space-y-2">
           {projectsForWiki.length === 0 ? (
@@ -245,6 +358,62 @@ export default function WikiHubView() {
                 groupDescription={openGroup.description || undefined}
                 defaultTab="structured"
               />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Personal wiki dialog */}
+      <Dialog open={openPersonalWiki} onOpenChange={setOpenPersonalWiki}>
+        <DialogContent className="max-w-2xl w-full max-h-[80vh] p-4 flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Личные знания
+            </h2>
+            <button
+              onClick={() => createPersonalPage.mutate()}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Добавить
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-3">
+            {personalPages.map(page => (
+              <div key={page.id} className="p-3 rounded-lg border border-border bg-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <span>{page.icon || "💡"}</span>
+                  <input
+                    className="flex-1 text-sm font-medium bg-transparent border-none outline-none text-foreground"
+                    value={page.title}
+                    onChange={e => updatePersonalPage.mutate({ id: page.id, title: e.target.value })}
+                  />
+                  <button
+                    onClick={() => deletePersonalPage.mutate(page.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  className="w-full text-sm bg-transparent border border-border rounded-md p-2 min-h-[80px] resize-y text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Запишите знание..."
+                  defaultValue={page.content || ""}
+                  onBlur={e => {
+                    if (e.target.value !== (page.content || "")) {
+                      updatePersonalPage.mutate({ id: page.id, content: e.target.value });
+                    }
+                  }}
+                />
+              </div>
+            ))}
+            {personalPages.length === 0 && (
+              <div className="text-center py-8">
+                <BookOpen className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Нет личных записей</p>
+                <p className="text-xs text-muted-foreground/60">Нажмите «Добавить» чтобы создать первую запись</p>
+              </div>
             )}
           </div>
         </DialogContent>
