@@ -1146,12 +1146,10 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
                     allGroupTags={allGroupTags}
                   />
                 ))}
-                {showArchive && (
-                  <ArchiveColumn
-                    projects={archiveProjects}
-                    onCardClick={handleCardClick}
-                  />
-                )}
+                <ArchiveColumn
+                  projects={archiveProjects}
+                  onCardClick={handleCardClick}
+                />
               </div>
             )}
           </div>
