@@ -88,7 +88,14 @@ export default function Index() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Cmd+K / Ctrl+K global shortcut
+  // Lazy-mount: only render heavy views after first visit, then keep alive
+  const visitedRef = useRef<Set<string>>(new Set());
+  if (activeView === "calendar" || activeView === "dashboard") {
+    visitedRef.current.add(activeView);
+  }
+  const calendarMounted = visitedRef.current.has("calendar");
+  const dashboardMounted = visitedRef.current.has("dashboard");
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
