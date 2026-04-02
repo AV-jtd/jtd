@@ -43,6 +43,7 @@ import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
+import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
 
 type BoardStage = {
   key: string;
