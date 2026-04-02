@@ -163,7 +163,8 @@ function MatrixHeaderInner({
 
         // Add gate tags to moved tasks if they don't have one
         if (gate) {
-          const gateTag = gateTags.find(t => tagNameToGateKey.get(t.name) === gate);
+          const gateTagName = NPD_GATES.find(g => g.key === gate)?.tagName;
+          const gateTag = gateTagName ? gateTags.find(t => t.name === gateTagName) : null;
           if (gateTag) {
             for (const task of tasks) {
               const existingTags = (task.task_tags ?? []).map(tt => tt.tag_id);
