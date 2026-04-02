@@ -8,7 +8,7 @@ import TaskAiPopover from "@/components/TaskAiPopover";
 import UserPicker from "@/components/UserPicker";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Loader2, ShieldCheck } from "lucide-react";
+import { Sparkles, Loader2, ShieldCheck, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
@@ -89,6 +89,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [savingToWiki, setSavingToWiki] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
   const isCreator = currentUser?.id === task.user_id;
@@ -171,6 +172,40 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       setLoadingDecompose(false);
     }
   }, [task.title, task.description, subtasks]);
+
+  const handleSaveToWiki = useCallback(async () => {
+    if (!task.group_id || !currentUser) return;
+    setSavingToWiki(true);
+    try {
+      // Build wiki content from task data
+      const lines: string[] = [];
+      if (task.description) lines.push(task.description);
+      if (subtasks.length > 0) {
+        lines.push("\n## Шаги");
+        subtasks.forEach(s => lines.push(`- [${s.is_completed ? "x" : " "}] ${s.title}`));
+      }
+      if (task.closure_result) {
+        lines.push("\n## Результат");
+        lines.push(task.closure_result);
+      }
+      const content = lines.join("\n");
+      const { error } = await supabase.from("wiki_pages").insert({
+        group_id: task.group_id,
+        user_id: currentUser.id,
+        title: `📌 ${task.title}`,
+        content,
+        icon: "📌",
+        page_type: "wiki",
+      });
+      if (error) throw error;
+      toast.success("Задача добавлена в базу знаний");
+    } catch (e) {
+      console.error("Save to wiki error:", e);
+      toast.error("Не удалось сохранить в базу знаний");
+    } finally {
+      setSavingToWiki(false);
+    }
+  }, [task, subtasks, currentUser]);
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
@@ -1363,11 +1398,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           {/* Chat */}
           <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
 
-          {/* Created at */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1 flex-wrap">
-            <Clock className="h-3 w-3" />
-            Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
-            <span>· создал: {getProfileName(task.user_id)}</span>
+          {/* Created at + Wiki */}
+          <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+              <Clock className="h-3 w-3" />
+              Создано {format(parseISO(task.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
+              <span>· создал: {getProfileName(task.user_id)}</span>
+            </div>
+            {task.group_id && (
+              <button
+                onClick={handleSaveToWiki}
+                disabled={savingToWiki}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              >
+                {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
+                В базу знаний
+              </button>
+            )}
           </div>
           </div>
         );
