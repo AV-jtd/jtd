@@ -126,16 +126,19 @@ export default function Index() {
     setActiveTagFilters(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
     );
-    setActiveView("all");
-    setActiveGroupId(null);
-    handleNavAction();
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete("view");
+      next.delete("group");
+      return next;
+    }, { replace: true });
   };
 
   const sidebarProps = {
     activeView,
-    onViewChange: (v: string) => { setActiveView(v); handleNavAction(); },
+    onViewChange: (v: string) => { setActiveView(v); },
     activeGroupId,
-    onGroupChange: (id: string | null) => { setActiveGroupId(id); if (id) setActiveView("group"); handleNavAction(); },
+    onGroupChange: (id: string | null) => { setActiveGroupId(id); },
     activeTagFilters,
     onToggleTag: handleToggleTag,
     onClearTags: () => setActiveTagFilters([]),
