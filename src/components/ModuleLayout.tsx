@@ -26,6 +26,7 @@ export default function ModuleLayout({
   extraOverlays,
 }: ModuleLayoutProps) {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
