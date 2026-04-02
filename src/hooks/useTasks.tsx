@@ -1494,7 +1494,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
