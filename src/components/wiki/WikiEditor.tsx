@@ -101,12 +101,18 @@ export default function WikiEditor({ groupId, groupName, compact }: WikiEditorPr
               />
             ))}
             {rootPages.length === 0 && !isLoading && (
-              <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                Нет страниц
-              </p>
+              <div className="flex flex-col items-center gap-2 px-2 py-4 text-center">
+                <p className="text-xs text-muted-foreground">Нет страниц</p>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleCreate()}>
+                  <Plus className="h-3 w-3" /> Добавить знание
+                </Button>
+              </div>
             )}
           </div>
         </ScrollArea>
+        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 mt-1 w-full justify-start text-muted-foreground hover:text-primary" onClick={() => handleCreate()}>
+          <Plus className="h-3 w-3" /> Добавить знание
+        </Button>
       </div>
 
       {/* Content */}
