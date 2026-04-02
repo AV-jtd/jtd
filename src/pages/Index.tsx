@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import AppSidebar from "@/components/AppSidebar";
@@ -77,6 +78,8 @@ export default function Index() {
   if (!user) return <Navigate to="/auth" replace />;
   if (!isApproved) return <Navigate to="/pending" replace />;
 
+  const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki"].includes(activeView);
+
   const handleNavAction = () => {};
 
   const handleToggleTag = (id: string) => {
@@ -123,70 +126,73 @@ export default function Index() {
         )}
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {activeView === "calendar" ? (
+          {/* Task list views - kept mounted via CSS hidden */}
+          <div className={cn("flex flex-1 min-w-0 overflow-hidden", !isTaskView && "hidden")}>
+            <TaskList
+              activeView={activeView}
+              activeGroupId={activeGroupId}
+              activeTagFilters={activeTagFilters}
+              projectDetailOpen={projectDetailOpen}
+              onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
+              chatOpen={chatOpen}
+              onToggleChat={() => setChatOpen(prev => !prev)}
+              messengerOpen={messengerOpen}
+              onToggleMessenger={() => setMessengerOpen(prev => !prev)}
+              highlightTaskId={highlightTaskId}
+              onHighlightClear={() => setHighlightTaskId(null)}
+              onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
+              onProjectClick={(groupId) => { setActiveGroupId(groupId); setActiveView("group"); setActiveTagFilters([]); }}
+              onInsightTaskNavigate={(taskId, groupId) => {
+                setHighlightTaskId(null);
+                window.requestAnimationFrame(() => {
+                  setActiveTagFilters([]);
+                  if (groupId) {
+                    setActiveGroupId(groupId);
+                    setActiveView("group");
+                  } else {
+                    setActiveGroupId(null);
+                    setActiveView("all");
+                  }
+                  setHighlightTaskId(taskId);
+                });
+              }}
+              onAiOpen={() => setAiOpen(true)}
+            />
+            {chatOpen && activeGroupId && activeView === "group" && (
+              <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
+                <ProjectChat
+                  groupId={activeGroupId}
+                  groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
+                  onClose={() => setChatOpen(false)}
+                  onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Calendar - kept mounted */}
+          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
             <CalendarView onNavigateToTask={(taskId) => {
               setActiveView("all");
               setActiveGroupId(null);
               setHighlightTaskId(taskId);
             }} />
-          ) : activeView === "subordinates" ? (
-            <SubordinatesView />
-          ) : activeView === "community" ? (
-            <CommunityView />
-          ) : activeView === "dashboard" ? (
+          </div>
+
+          {/* Dashboard - kept mounted */}
+          <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
             <DashboardView onNavigateToTask={(taskId) => {
               setActiveView("all");
               setActiveGroupId(null);
               setHighlightTaskId(taskId);
             }} />
-          ) : activeView === "archive" ? (
-            <ArchiveView />
-          ) : activeView === "wiki" ? (
-            <WikiHubView />
-          ) : (
-            <div className="flex flex-1 min-w-0 overflow-hidden">
-              <TaskList
-                activeView={activeView}
-                activeGroupId={activeGroupId}
-                activeTagFilters={activeTagFilters}
-                projectDetailOpen={projectDetailOpen}
-                onToggleProjectDetail={() => setProjectDetailOpen(prev => !prev)}
-                chatOpen={chatOpen}
-                onToggleChat={() => setChatOpen(prev => !prev)}
-                messengerOpen={messengerOpen}
-                onToggleMessenger={() => setMessengerOpen(prev => !prev)}
-                highlightTaskId={highlightTaskId}
-                onHighlightClear={() => setHighlightTaskId(null)}
-                onTagClick={(tagId) => { setActiveTagFilters([tagId]); setActiveView("all"); setActiveGroupId(null); }}
-                onProjectClick={(groupId) => { setActiveGroupId(groupId); setActiveView("group"); setActiveTagFilters([]); }}
-                onInsightTaskNavigate={(taskId, groupId) => {
-                  setHighlightTaskId(null);
-                  window.requestAnimationFrame(() => {
-                    setActiveTagFilters([]);
-                    if (groupId) {
-                      setActiveGroupId(groupId);
-                      setActiveView("group");
-                    } else {
-                      setActiveGroupId(null);
-                      setActiveView("all");
-                    }
-                    setHighlightTaskId(taskId);
-                  });
-                }}
-                onAiOpen={() => setAiOpen(true)}
-              />
-              {chatOpen && activeGroupId && activeView === "group" && (
-                <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
-                  <ProjectChat
-                    groupId={activeGroupId}
-                    groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
-                    onClose={() => setChatOpen(false)}
-                    onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+          </div>
+
+          {/* Lazy-mounted views */}
+          {activeView === "subordinates" && <SubordinatesView />}
+          {activeView === "community" && <CommunityView />}
+          {activeView === "archive" && <ArchiveView />}
+          {activeView === "wiki" && <WikiHubView />}
         </div>
 
         {/* Messenger panel */}
