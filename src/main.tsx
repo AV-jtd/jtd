@@ -16,4 +16,14 @@ if (isPreviewHost || isInIframe) {
   });
 }
 
+// Detect SW controller change and reload once (not in a loop)
+if ("serviceWorker" in navigator && !isPreviewHost && !isInIframe) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
