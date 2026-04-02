@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
 import TaskItem from "@/components/TaskItem";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw } from "lucide-react";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
