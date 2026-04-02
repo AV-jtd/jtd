@@ -281,7 +281,7 @@ export default function NpdSwimlaneMatrix() {
   const getTaskGate = useCallback((taskId: string): string | null => {
     const tTags = allTaskTags.filter(tt => tt.task_id === taskId);
     // When task has multiple gate tags (from different users), pick the highest gate
-    const gateOrder = NPD_GATES.map(g => g.key);
+    const gateOrder: string[] = NPD_GATES.map(g => g.key);
     let bestGate: string | null = null;
     let bestIdx = -1;
     for (const tt of tTags) {
