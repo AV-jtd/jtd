@@ -271,6 +271,20 @@ export function useLinkedTagIds(): Set<string> {
   );
 }
 
+/**
+ * Returns tags filtered to exclude auto-linked project tags.
+ * Use this in all UI components instead of useTags() directly.
+ */
+export function useVisibleTags() {
+  const { data: allTags = [], ...rest } = useTags();
+  const linkedTagIds = useLinkedTagIds();
+  const data = useMemo(
+    () => allTags.filter(t => !linkedTagIds.has(t.id)),
+    [allTags, linkedTagIds]
+  );
+  return { data, ...rest };
+}
+
 export function useTagCategories() {
   const { user, loading } = useAuth();
   return useQuery({
