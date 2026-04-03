@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, forwardRef } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
@@ -49,12 +49,13 @@ interface GanttLeftPanelProps {
   filterAssignee: string | null;
   hoveredRow: number | null;
   onHoverRow: (index: number | null) => void;
+  onScroll?: (scrollTop: number) => void;
 }
 
-export default function GanttLeftPanel({
+const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
-}: GanttLeftPanelProps) {
+  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+}, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -111,7 +112,12 @@ export default function GanttLeftPanel({
   };
 
   return (
-    <div className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin" style={{ width }}>
+    <div
+      ref={ref}
+      className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin"
+      style={{ width }}
+      onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
+    >
       {/* Header */}
       <div className="h-10 flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10">
         <div className="flex-1 px-3">Задача</div>
@@ -210,7 +216,7 @@ export default function GanttLeftPanel({
                         e.stopPropagation();
                         setShowTypeMenu(showTypeMenu === row.project.id ? null : row.project.id);
                       }}
-                      className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                      className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-muted/50 transition-opacity"
                       title="Добавить..."
                     >
                       <Plus className="h-3 w-3" />
@@ -574,6 +580,25 @@ export default function GanttLeftPanel({
           </form>
         </div>
       )}
+
+
+      {/* Quick add row - always visible */}
+      {rows.length > 0 && !adding && (() => {
+        // Find the last project row's projectId for context
+        const lastProjectRow = [...rows].reverse().find(r => r.type === "project");
+        if (!lastProjectRow) return null;
+        return (
+          <button
+            onClick={() => startAdding(lastProjectRow.project.id, "task")}
+            className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30 transition-colors border-b border-border/30"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Добавить задачу</span>
+          </button>
+        );
+      })()}
     </div>
   );
-}
+});
+
+export default GanttLeftPanel;

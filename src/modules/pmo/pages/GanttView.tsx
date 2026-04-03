@@ -40,6 +40,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask, updateGroupParent } = useTaskMutations();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const isSyncingScroll = useRef(false);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
 
@@ -739,6 +741,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel - editable table */}
         <GanttLeftPanel
+          ref={leftPanelRef}
           rows={rows}
           rowHeight={ROW_HEIGHT}
           width={leftPanelWidth}
@@ -776,6 +779,12 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           filterAssignee={filterAssignee}
           hoveredRow={hoveredRow}
           onHoverRow={setHoveredRow}
+          onScroll={(scrollTop) => {
+            if (isSyncingScroll.current) return;
+            isSyncingScroll.current = true;
+            if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
+            requestAnimationFrame(() => { isSyncingScroll.current = false; });
+          }}
         />
 
         {/* Draggable splitter */}
@@ -792,7 +801,17 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         />
 
         {/* Timeline */}
-        <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-thin">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-auto scrollbar-thin"
+          onScroll={(e) => {
+            if (isSyncingScroll.current) return;
+            isSyncingScroll.current = true;
+            const scrollTop = (e.target as HTMLDivElement).scrollTop;
+            if (leftPanelRef.current) leftPanelRef.current.scrollTop = scrollTop;
+            requestAnimationFrame(() => { isSyncingScroll.current = false; });
+          }}
+        >
           <div style={{ width: totalWidth, minHeight: "100%" }} className="relative">
             {/* Column headers */}
             <div className="sticky top-0 z-10 bg-card border-b border-border flex" style={{ height: 40 }}>
