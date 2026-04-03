@@ -1006,6 +1006,17 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                                 />
                               )}
 
+                              {/* Drift overlay — amber highlight for deadline extension */}
+                              {driftOverlay && !dragState && (
+                                <div
+                                  className="absolute top-0 bottom-0 rounded-r-[4px] bg-amber-500/40 pointer-events-none"
+                                  style={{ left: driftOverlay.left, width: driftOverlay.width }}
+                                  title={`Перенос: ${task.original_deadline ? format(parseISO(task.original_deadline), "d MMM", { locale: ru }) : ""} → ${task.deadline ? format(parseISO(task.deadline), "d MMM", { locale: ru }) : ""}`}
+                                >
+                                  <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgba(255,255,255,0.15)_3px,rgba(255,255,255,0.15)_6px)]" />
+                                </div>
+                              )}
+
                               {/* Left-edge resize handle (start_at) */}
                               <div
                                 className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-sm"
