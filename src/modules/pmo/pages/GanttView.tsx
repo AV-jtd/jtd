@@ -534,6 +534,23 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
   }, [timelineStart, totalDays, totalWidth]);
 
+  // Get drift overlay: the portion between original_deadline and current deadline (amber highlight)
+  const getDriftOverlay = useCallback((task: Task) => {
+    if (!task.original_deadline || !task.deadline || task.original_deadline === task.deadline) return null;
+    const origDeadline = startOfDay(parseISO(task.original_deadline));
+    const curDeadline = startOfDay(parseISO(task.deadline));
+    // Only show drift when deadline was pushed forward
+    if (curDeadline <= origDeadline) return null;
+    const barStyle = getBarStyle(task);
+    const origOffset = differenceInCalendarDays(origDeadline, timelineStart);
+    const origPx = (origOffset / totalDays) * totalWidth;
+    // Drift overlay starts at original_deadline relative to bar left
+    const driftLeft = origPx - barStyle.left;
+    const driftWidth = barStyle.width - driftLeft;
+    if (driftWidth <= 0) return null;
+    return { left: driftLeft, width: driftWidth };
+  }, [timelineStart, totalDays, totalWidth, getBarStyle]);
+
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
     const offset = differenceInCalendarDays(d, timelineStart);
@@ -941,6 +958,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       let { left, width } = getBarStyle(task);
                       const progress = taskProgress.get(task.id) || 0;
                       const baseline = getBaselineStyle(task);
+                      const driftOverlay = getDriftOverlay(task);
                       const isCritical = criticalTaskIds.has(task.id);
 
                       // Apply drag delta
@@ -986,6 +1004,17 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                                   className="absolute inset-0 rounded-sm opacity-30 bg-white"
                                   style={{ width: `${progress}%` }}
                                 />
+                              )}
+
+                              {/* Drift overlay — amber highlight for deadline extension */}
+                              {driftOverlay && !dragState && (
+                                <div
+                                  className="absolute top-0 bottom-0 rounded-r-[4px] bg-amber-500/40 pointer-events-none"
+                                  style={{ left: driftOverlay.left, width: driftOverlay.width }}
+                                  title={`Перенос: ${task.original_deadline ? format(parseISO(task.original_deadline), "d MMM", { locale: ru }) : ""} → ${task.deadline ? format(parseISO(task.deadline), "d MMM", { locale: ru }) : ""}`}
+                                >
+                                  <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgba(255,255,255,0.15)_3px,rgba(255,255,255,0.15)_6px)]" />
+                                </div>
                               )}
 
                               {/* Left-edge resize handle (start_at) */}
