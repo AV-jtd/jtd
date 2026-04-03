@@ -216,7 +216,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         e.stopPropagation();
                         setShowTypeMenu(showTypeMenu === row.project.id ? null : row.project.id);
                       }}
-                      className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                      className="p-0.5 rounded opacity-60 hover:opacity-100 hover:bg-muted/50 transition-opacity"
                       title="Добавить..."
                     >
                       <Plus className="h-3 w-3" />
