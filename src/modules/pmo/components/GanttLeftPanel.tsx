@@ -580,6 +580,25 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
           </form>
         </div>
       )}
+
+
+      {/* Quick add row - always visible */}
+      {rows.length > 0 && !adding && (() => {
+        // Find the last project row's projectId for context
+        const lastProjectRow = [...rows].reverse().find(r => r.type === "project");
+        if (!lastProjectRow) return null;
+        return (
+          <button
+            onClick={() => startAdding(lastProjectRow.project.id, "task")}
+            className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30 transition-colors border-b border-border/30"
+          >
+            <Plus className="h-3 w-3" />
+            <span>Добавить задачу</span>
+          </button>
+        );
+      })()}
     </div>
   );
-}
+});
+
+export default GanttLeftPanel;
