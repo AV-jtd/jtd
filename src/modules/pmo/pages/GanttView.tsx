@@ -958,6 +958,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       let { left, width } = getBarStyle(task);
                       const progress = taskProgress.get(task.id) || 0;
                       const baseline = getBaselineStyle(task);
+                      const driftOverlay = getDriftOverlay(task);
                       const isCritical = criticalTaskIds.has(task.id);
 
                       // Apply drag delta
