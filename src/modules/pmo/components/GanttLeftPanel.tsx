@@ -49,12 +49,13 @@ interface GanttLeftPanelProps {
   filterAssignee: string | null;
   hoveredRow: number | null;
   onHoverRow: (index: number | null) => void;
+  onScroll?: (scrollTop: number) => void;
 }
 
-export default function GanttLeftPanel({
+const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow,
-}: GanttLeftPanelProps) {
+  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+}, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
