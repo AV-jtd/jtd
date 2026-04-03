@@ -112,7 +112,12 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   };
 
   return (
-    <div className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin" style={{ width }}>
+    <div
+      ref={ref}
+      className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin"
+      style={{ width }}
+      onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
+    >
       {/* Header */}
       <div className="h-10 flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10">
         <div className="flex-1 px-3">Задача</div>
