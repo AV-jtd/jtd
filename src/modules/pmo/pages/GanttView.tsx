@@ -534,6 +534,23 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return { left: (startOffset / totalDays) * totalWidth, width: Math.max((duration / totalDays) * totalWidth, 8) };
   }, [timelineStart, totalDays, totalWidth]);
 
+  // Get drift overlay: the portion between original_deadline and current deadline (amber highlight)
+  const getDriftOverlay = useCallback((task: Task) => {
+    if (!task.original_deadline || !task.deadline || task.original_deadline === task.deadline) return null;
+    const origDeadline = startOfDay(parseISO(task.original_deadline));
+    const curDeadline = startOfDay(parseISO(task.deadline));
+    // Only show drift when deadline was pushed forward
+    if (curDeadline <= origDeadline) return null;
+    const barStyle = getBarStyle(task);
+    const origOffset = differenceInCalendarDays(origDeadline, timelineStart);
+    const origPx = (origOffset / totalDays) * totalWidth;
+    // Drift overlay starts at original_deadline relative to bar left
+    const driftLeft = origPx - barStyle.left;
+    const driftWidth = barStyle.width - driftLeft;
+    if (driftWidth <= 0) return null;
+    return { left: driftLeft, width: driftWidth };
+  }, [timelineStart, totalDays, totalWidth, getBarStyle]);
+
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
     const offset = differenceInCalendarDays(d, timelineStart);
