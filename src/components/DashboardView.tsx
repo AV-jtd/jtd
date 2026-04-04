@@ -349,7 +349,7 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
           message: prompt,
           context: { module: "pmo" },
         },
-        onDelta: (chunk) => setAiText(prev => prev + chunk),
+        onDelta: (chunk) => { setAiText(prev => { const next = prev + chunk; onAiTextChange?.(next); return next; }); },
         onDone: () => setLoading(false),
         signal: controller.signal,
       });
