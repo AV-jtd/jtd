@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
 } from "lucide-react";
+import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
