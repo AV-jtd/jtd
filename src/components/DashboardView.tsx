@@ -304,7 +304,7 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
 }
 
 // --- AI Summary Panel ---
-function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStats[]; users: Profile[] }) {
+function AiDashboardSummary({ projectStats, users, onAiTextChange }: { projectStats: ProjectStats[]; users: Profile[]; onAiTextChange?: (text: string) => void }) {
   const [aiText, setAiText] = useState("");
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
