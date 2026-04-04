@@ -1188,7 +1188,7 @@ export function useTaskMutations() {
           tasks.map(t => {
             const hasSub = t.subtasks?.some(s => s.id === id);
             const updated = { ...t, subtasks: t.subtasks?.map(s => s.id === id ? { ...s, ...updates } : s) };
-            if (hasSub && t.deadline && subtaskDeadline > new Date(t.deadline)) {
+            if (hasSub && (!t.deadline || subtaskDeadline > new Date(t.deadline))) {
               return { ...updated, deadline: updates.deadline! };
             }
             return updated;
