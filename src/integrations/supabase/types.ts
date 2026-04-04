@@ -179,6 +179,39 @@ export type Database = {
           },
         ]
       }
+      dashboard_reports: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          report_data: Json
+          title: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          report_data?: Json
+          title?: string
+          token?: string
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          report_data?: Json
+          title?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           created_at: string

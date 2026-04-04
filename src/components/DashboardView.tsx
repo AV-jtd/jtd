@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
 } from "lucide-react";
+import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -303,7 +304,7 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
 }
 
 // --- AI Summary Panel ---
-function AiDashboardSummary({ projectStats, users }: { projectStats: ProjectStats[]; users: Profile[] }) {
+function AiDashboardSummary({ projectStats, users, onAiTextChange }: { projectStats: ProjectStats[]; users: Profile[]; onAiTextChange?: (text: string) => void }) {
   const [aiText, setAiText] = useState("");
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -348,7 +349,7 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
           message: prompt,
           context: { module: "pmo" },
         },
-        onDelta: (chunk) => setAiText(prev => prev + chunk),
+        onDelta: (chunk) => { setAiText(prev => { const next = prev + chunk; onAiTextChange?.(next); return next; }); },
         onDone: () => setLoading(false),
         signal: controller.signal,
       });
@@ -703,6 +704,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { addTask } = useTaskMutations();
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
+  const [aiSummaryText, setAiSummaryText] = useState("");
 
   // "Build Dashboard" filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -830,6 +832,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов</p>
           </div>
+          <DashboardExportDialog
+            projectStats={projectStats}
+            summary={summary}
+            users={users}
+            aiSummary={aiSummaryText || undefined}
+          />
         </div>
 
         {/* Summary — clickable */}
@@ -938,7 +946,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
         {/* AI Summary — after filters so it uses filtered projectStats */}
-        <AiDashboardSummary projectStats={projectStats} users={users} />
+        <AiDashboardSummary projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
