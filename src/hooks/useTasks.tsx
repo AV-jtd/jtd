@@ -1120,6 +1120,48 @@ export function useTaskMutations() {
     mutationFn: async ({ id, is_completed }: { id: string; is_completed: boolean }) => {
       const { error } = await supabase.from("subtasks").update({ is_completed }).eq("id", id);
       if (error) throw error;
+
+      // Reverse sync: if completing last subtask, check if we can shorten deadline
+      if (is_completed) {
+        const { data: subtaskRow } = await supabase.from("subtasks").select("task_id").eq("id", id).single();
+        if (subtaskRow) {
+          const { data: allSubs } = await supabase.from("subtasks").select("is_completed, deadline").eq("task_id", subtaskRow.task_id);
+          const { data: taskRow } = await supabase.from("tasks").select("id, deadline").eq("id", subtaskRow.task_id).single();
+          if (allSubs && taskRow?.deadline && allSubs.every(s => s.is_completed)) {
+            const taskDeadline = new Date(taskRow.deadline);
+            const now = new Date();
+            // All subtasks done and task deadline is in the future — suggest shortening
+            if (taskDeadline > now) {
+              // Find latest subtask deadline among all subs
+              const latestSubDeadline = allSubs.reduce((latest, s) => {
+                if (s.deadline) {
+                  const d = new Date(s.deadline);
+                  return d > latest ? d : latest;
+                }
+                return latest;
+              }, now);
+              const newDeadline = latestSubDeadline > now ? latestSubDeadline : now;
+              if (newDeadline < taskDeadline) {
+                const formatted = newDeadline.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+                toast(`Все шаги завершены! Сократить срок до ${formatted}?`, {
+                  action: {
+                    label: "Сократить",
+                    onClick: () => {
+                      const dl = new Date(newDeadline);
+                      dl.setHours(23, 59, 59, 0);
+                      supabase.from("tasks").update({ deadline: dl.toISOString() }).eq("id", taskRow.id).then(() => {
+                        qc.invalidateQueries({ queryKey: ["tasks"] });
+                        toast.success("Срок задачи сокращён");
+                      });
+                    },
+                  },
+                  duration: 8000,
+                });
+              }
+            }
+          }
+        }
+      }
     },
     onMutate: async ({ id, is_completed }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
