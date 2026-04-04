@@ -704,6 +704,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { addTask } = useTaskMutations();
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
+  const [aiSummaryText, setAiSummaryText] = useState("");
 
   // "Build Dashboard" filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
