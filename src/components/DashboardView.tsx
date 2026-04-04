@@ -832,6 +832,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов</p>
           </div>
+          <DashboardExportDialog
+            projectStats={projectStats}
+            summary={summary}
+            users={users}
+            aiSummary={aiSummaryText || undefined}
+          />
         </div>
 
         {/* Summary — clickable */}
