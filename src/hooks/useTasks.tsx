@@ -1165,12 +1165,12 @@ export function useTaskMutations() {
         const { data: subtaskRow } = await supabase.from("subtasks").select("task_id").eq("id", id).single();
         if (subtaskRow) {
           const { data: taskRow } = await supabase.from("tasks").select("id, deadline, original_deadline").eq("id", subtaskRow.task_id).single();
-          if (taskRow && taskRow.deadline) {
-            const taskDeadline = new Date(taskRow.deadline);
-            if (subtaskDeadline > taskDeadline) {
+          if (taskRow) {
+            const shouldUpdate = !taskRow.deadline || subtaskDeadline > new Date(taskRow.deadline);
+            if (shouldUpdate) {
               await supabase.from("tasks").update({ deadline: updates.deadline }).eq("id", taskRow.id);
-              toast.info(`Дедлайн задачи сдвинут → ${subtaskDeadline.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`, {
-                description: "Шаг выходит за рамки задачи",
+              toast.info(`Дедлайн задачи ${taskRow.deadline ? 'сдвинут' : 'установлен'} → ${subtaskDeadline.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`, {
+                description: taskRow.deadline ? "Шаг выходит за рамки задачи" : "Установлен по сроку шага",
               });
             }
           }
