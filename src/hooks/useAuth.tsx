@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
     const [profileRes, roleRes, adminExistsRes] = await Promise.all([
