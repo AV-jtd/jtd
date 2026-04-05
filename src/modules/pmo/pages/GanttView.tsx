@@ -756,6 +756,56 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           </>
         )}
 
+        <div className="h-4 w-px bg-border" />
+
+        <button
+          onClick={() => {
+            // Print current Gantt view
+            const printWindow = window.open("", "_blank");
+            if (!printWindow) return;
+            const projectName = selectedProjectId
+              ? rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"
+              : "Все проекты";
+            const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
+
+            // Build table rows
+            let tableRows = "";
+            rows.forEach(r => {
+              const indent = "  ".repeat(r.depth);
+              if (r.type === "project") {
+                tableRows += `<tr style="background:#f0f0f0;font-weight:600"><td>${r.rowNumber ?? ""}</td><td>${indent}${r.project.icon || "📁"} ${r.project.name}</td><td></td><td></td><td></td><td>${r.progress !== undefined ? Math.round(r.progress) + "%" : ""}</td></tr>`;
+              } else if (r.type === "task" && r.task) {
+                const assignee = users.find(u => u.id === r.task!.assigned_to);
+                const drift = r.task.original_deadline && r.task.deadline && r.task.original_deadline !== r.task.deadline;
+                const driftLabel = drift ? ` <span style="color:#d97706">⚠️ перенос</span>` : "";
+                tableRows += `<tr><td style="text-align:center;color:#888">${r.rowNumber ?? ""}</td><td>${indent}${r.task.is_completed ? "✅" : "☐"} ${r.task.title}${driftLabel}</td><td>${assignee?.display_name || assignee?.email || ""}</td><td>${r.task.start_at ? format(parseISO(r.task.start_at), "dd.MM") : ""}</td><td>${r.task.deadline ? format(parseISO(r.task.deadline), "dd.MM.yyyy") : ""}</td><td></td></tr>`;
+              } else if (r.type === "subtask" && r.subtask) {
+                tableRows += `<tr style="color:#888"><td style="text-align:center">${r.rowNumber ?? ""}</td><td>${indent}  ↳ ${r.subtask.title}</td><td></td><td></td><td>${r.subtask.deadline ? format(parseISO(r.subtask.deadline), "dd.MM") : ""}</td><td></td></tr>`;
+              } else if (r.type === "milestone" && r.milestone) {
+                tableRows += `<tr style="color:#3b82f6;font-style:italic"><td style="text-align:center">${r.rowNumber ?? ""}</td><td>${indent}◆ ${r.milestone.name}</td><td></td><td></td><td>${format(parseISO(r.milestone.planned_date), "dd.MM.yyyy")}</td><td></td></tr>`;
+              }
+            });
+
+            printWindow.document.write(\`<!DOCTYPE html><html><head><title>Гантт: \${projectName}</title>
+<style>@page{size:landscape;margin:10mm}body{font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#222;margin:16px}
+h1{font-size:16px;margin:0 0 4px}h2{font-size:11px;color:#888;margin:0 0 12px;font-weight:normal}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:4px 6px;text-align:left}
+th{background:#f5f5f5;font-size:10px;text-transform:uppercase;color:#666}
+tr:nth-child(even){background:#fafafa}
+@media print{body{margin:0}}</style></head>
+<body><h1>\${projectName}</h1><h2>Диаграмма Ганта · \${dateStr}</h2>
+<table><thead><tr><th style="width:30px">#</th><th>Задача</th><th style="width:120px">Ответственный</th><th style="width:60px">Старт</th><th style="width:80px">Срок</th><th style="width:60px">Прогресс</th></tr></thead>
+<tbody>\${tableRows}</tbody></table>
+<script>setTimeout(()=>window.print(),300)<\/script></body></html>\`);
+            printWindow.document.close();
+          }}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Печать / экспорт Гантта"
+        >
+          <Printer className="h-3 w-3" />
+          <span className="hidden sm:inline">Печать</span>
+        </button>
+
         <span className="text-xs text-muted-foreground ml-auto">
           {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
         </span>
