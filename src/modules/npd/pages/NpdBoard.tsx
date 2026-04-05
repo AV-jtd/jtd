@@ -1830,6 +1830,15 @@ function ProjectCard({
     .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
     .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }));
 
+  // Max overdue days (single worst task)
+  const maxOverdueDays = overdueTasks.reduce((max, t) => {
+    const days = Math.ceil((now.getTime() - new Date(t.deadline!).getTime()) / (1000 * 60 * 60 * 24));
+    return days > max ? days : max;
+  }, 0);
+
+  // Max drift days (single worst deviation)
+  const maxDriftDays = driftTasks.reduce((max, { driftDays }) => Math.abs(driftDays) > Math.abs(max) ? driftDays : max, 0);
+
   const timingStatus = getTimingStatus(allProjectTasks);
 
   // Milestones for this project (from cache)
@@ -1874,7 +1883,7 @@ function ProjectCard({
       >
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
-          <h4 className="flex-1 text-xs font-medium text-muted-foreground truncate">{project.name}</h4>
+          <h4 className="flex-1 text-xs font-medium text-muted-foreground">{project.name}</h4>
           {gateTaskStats && gateTaskStats.active > 0 && (
             <span className={cn(
               "text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
@@ -1903,10 +1912,18 @@ function ProjectCard({
     );
   }
 
+  // Determine border-left indicator color
+  const borderIndicator = project.stats.overdue > 0
+    ? "border-l-[3px] border-l-destructive"
+    : driftTasks.length > 0
+    ? "border-l-[3px] border-l-amber-500"
+    : "";
+
   return (
     <div
       className={cn(
         "rounded-lg border border-border bg-card shadow-sm transition-all",
+        borderIndicator,
         isDragging ? "shadow-lg" : "hover:shadow-md",
         detailOpen && "shadow-md"
       )}
@@ -1917,7 +1934,7 @@ function ProjectCard({
       >
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
-          <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+          <h4 className="flex-1 text-xs font-semibold text-foreground">{project.name}</h4>
           {/* Multi-gate indicator on primary card */}
           {project.allGateKeys.length > 1 && (
             <div className="flex items-center gap-0.5 shrink-0">
@@ -2036,16 +2053,26 @@ function ProjectCard({
             </span>
           )}
           {project.stats.overdue > 0 && (
-            <span className="flex items-center gap-0.5 text-destructive">
-              <AlertTriangle className="h-3 w-3" />
-              {project.stats.overdue}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-0.5 text-destructive font-medium">
+                  <AlertTriangle className="h-3 w-3" />
+                  {project.stats.overdue} · {maxOverdueDays}д
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{project.stats.overdue} просроченных, макс. {maxOverdueDays}д</TooltipContent>
+            </Tooltip>
           )}
           {driftTasks.length > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-500">
-              <Clock className="h-3 w-3" />
-              {driftTasks.length} drift
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-0.5 text-amber-500 font-medium">
+                  <Clock className="h-3 w-3" />
+                  {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{driftTasks.length} переносов, макс. сдвиг {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д</TooltipContent>
+            </Tooltip>
           )}
           {project.stats.total === 0 && !assigneeName && (
             <span className="text-muted-foreground">Нет задач</span>
