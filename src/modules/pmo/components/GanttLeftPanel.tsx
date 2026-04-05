@@ -496,10 +496,11 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             key={i}
             className={cn(
               "flex items-center border-b border-border/50 text-xs cursor-default group",
-              row.type === "project" || row.type === "summary" ? "font-semibold text-foreground bg-muted/30" :
-              row.type === "milestone" ? "text-primary font-medium italic" : "text-muted-foreground",
+              row.type === "project" || row.type === "summary" ? "font-semibold text-foreground bg-muted/40" :
+              row.type === "milestone" ? "text-primary font-medium italic" :
+              row.type === "subtask" ? "text-muted-foreground/70" : "text-muted-foreground",
               dimmed && "opacity-30",
-              hoveredRow === i && "bg-muted/40",
+              hoveredRow === i && "bg-muted/50",
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
