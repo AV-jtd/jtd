@@ -39,11 +39,17 @@ if (isPreviewHost || isInIframe) {
         `;
         document.body.appendChild(toast);
         document.getElementById("pwa-update-btn")?.addEventListener("click", () => {
-          updateSW(true); // triggers skipWaiting + reload
+          updateSW(true);
         });
         document.getElementById("pwa-dismiss-btn")?.addEventListener("click", () => {
           toast.remove();
         });
+        // Auto-apply update after 5 seconds if user doesn't react
+        setTimeout(() => {
+          if (document.getElementById("pwa-update-toast")) {
+            updateSW(true);
+          }
+        }, 5000);
       },
       onOfflineReady() {
         // Silent — no notification needed
