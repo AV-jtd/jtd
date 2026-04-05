@@ -137,12 +137,13 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   const getAggregatedStats = useCallback((projectId: string) => {
     const childIds = groups.filter((g) => g.parent_id === projectId).map((g) => g.id);
-    const base = { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null as string | null, totalDelayDays: 0 };
+    const base = { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null as string | null, maxDriftDays: 0 };
     return [projectId, ...childIds].reduce(
       (acc, id) => {
-        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null, totalDelayDays: 0 };
+        const s = projectStats[id] || { total: 0, completed: 0, overdue: 0, driftCount: 0, upcoming: 0, earliestStart: null, maxDriftDays: 0 };
         const earliest = !acc.earliestStart ? s.earliestStart : !s.earliestStart ? acc.earliestStart : acc.earliestStart < s.earliestStart ? acc.earliestStart : s.earliestStart;
-        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming, earliestStart: earliest, totalDelayDays: acc.totalDelayDays + s.totalDelayDays };
+        const maxDrift = Math.abs(s.maxDriftDays) > Math.abs(acc.maxDriftDays) ? s.maxDriftDays : acc.maxDriftDays;
+        return { total: acc.total + s.total, completed: acc.completed + s.completed, overdue: acc.overdue + s.overdue, driftCount: acc.driftCount + s.driftCount, upcoming: acc.upcoming + s.upcoming, earliestStart: earliest, maxDriftDays: maxDrift };
       },
       base
     );
@@ -599,12 +600,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             {stats.driftCount > 0 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className={cn("flex items-center gap-1 text-[11px] shrink-0 ml-1", stats.totalDelayDays > 0 ? "text-destructive" : "text-warning")}>
+                                  <span className={cn("flex items-center gap-1 text-[11px] shrink-0 ml-1", stats.maxDriftDays > 0 ? "text-destructive" : "text-warning")}>
                                     <RefreshCw className="h-3 w-3" />
-                                    {stats.driftCount} · {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д
+                                    {stats.driftCount} · {stats.maxDriftDays > 0 ? "+" : ""}{stats.maxDriftDays}д
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent className="text-xs">{stats.driftCount} переносов, {stats.totalDelayDays > 0 ? "+" : ""}{stats.totalDelayDays}д суммарно</TooltipContent>
+                                <TooltipContent className="text-xs">{stats.driftCount} переносов, макс. сдвиг {stats.maxDriftDays > 0 ? "+" : ""}{stats.maxDriftDays}д</TooltipContent>
                               </Tooltip>
                             )}
                           </div>
