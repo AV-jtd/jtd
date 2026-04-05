@@ -926,47 +926,6 @@ export type Database = {
           },
         ]
       }
-      task_step_templates: {
-        Row: {
-          created_at: string
-          group_id: string | null
-          id: string
-          is_global: boolean
-          name: string
-          steps: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          is_global?: boolean
-          name: string
-          steps?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          is_global?: boolean
-          name?: string
-          steps?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_step_templates_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "task_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       task_tags: {
         Row: {
           tag_id: string
