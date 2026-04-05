@@ -997,7 +997,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                     x1={depDrag.startX}
                     y1={depDrag.startY}
                     x2={depDrag.currentX - (scrollRef.current?.getBoundingClientRect().left || 0) + (scrollRef.current?.scrollLeft || 0)}
-                    y2={depDrag.currentY - (scrollRef.current?.getBoundingClientRect().top || 0) + (scrollRef.current?.scrollTop || 0) - 40}
+                    y2={depDrag.currentY - (scrollRef.current?.getBoundingClientRect().top || 0) + (scrollRef.current?.scrollTop || 0) - 52}
                     stroke="hsl(var(--primary))"
                     strokeWidth="2"
                     strokeDasharray="4 2"
