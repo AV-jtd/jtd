@@ -1209,6 +1209,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
                                 title: { type: "string" },
                                 deadline_offset_days: { type: "number" },
                                 priority: { type: "number" },
+                                subtasks: { type: "array", items: { type: "string" }, description: "Подзадачи/шаги (используй шаблоны из проекта)" },
                               },
                               required: ["title"],
                               additionalProperties: false,
