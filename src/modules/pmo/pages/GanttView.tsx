@@ -1133,7 +1133,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                           {/* Baseline (original deadline) */}
                           {baseline && (
                             <div
-                              className="absolute top-5 rounded-sm h-1 opacity-25"
+                              className="absolute top-[26px] rounded-full h-1 opacity-20"
                               style={{ left: baseline.left, width: baseline.width, backgroundColor: "hsl(var(--muted-foreground))" }}
                             />
                           )}
