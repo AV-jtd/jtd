@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
     const [profileRes, roleRes, adminExistsRes] = await Promise.all([
@@ -57,21 +58,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let initialSessionHandled = false;
 
     // Set up onAuthStateChange FIRST — it fires INITIAL_SESSION synchronously
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
 
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
       if (newSession?.user) {
-        // Always set loading true while fetching profile
-        setLoading(true);
+        const previousUserId = currentUserIdRef.current;
+        const isInitialSession = event === "INITIAL_SESSION";
+        const isUserChanged = previousUserId !== newSession.user.id;
+        currentUserIdRef.current = newSession.user.id;
+
+        // Only block the app on first load or real user switch, not on tab refocus/token refresh
+        if (isInitialSession || isUserChanged) {
+          setLoading(true);
+        }
+
         const id = ++fetchIdRef.current;
-        // Use setTimeout to avoid blocking the auth state change callback
         setTimeout(() => {
           fetchProfile(newSession.user.id, id, isMounted);
         }, 0);
       } else {
+        currentUserIdRef.current = null;
         setIsApproved(false);
         setIsAdmin(false);
         setLoading(false);
