@@ -2016,36 +2016,42 @@ function ProjectCard({
             const shown = allMembers.slice(0, 4);
             const rest = allMembers.length - shown.length;
             return (
-              <div className="flex items-center shrink-0">
-                <div className="flex -space-x-1.5">
-                  {shown.map((m) => {
-                    const u = availableUsers.find(u => u.id === m.user_id);
-                    const name = u?.display_name || u?.email?.split("@")[0] || "?";
-                    const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                    const isAssignee = m.role === "assignee";
-                    return (
-                      <Tooltip key={m.user_id}>
-                        <TooltipTrigger asChild>
-                          <div className={cn(
-                            "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-semibold border-2 border-card",
-                            isAssignee ? "bg-primary text-primary-foreground ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
-                          )}>
-                            {initials}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">{name}{isAssignee ? " (ответственный)" : ""}</TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                  {rest > 0 && (
-                    <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-muted text-muted-foreground border-2 border-card">
-                      +{rest}
-                    </div>
-                  )}
-                </div>
-                {assigneeName && allMembers.length <= 1 && (
-                  <span className="text-muted-foreground ml-1.5">{assigneeName}</span>
+              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                {/* Assignee name always visible */}
+                {assigneeName && (
+                  <span className="text-muted-foreground font-medium whitespace-nowrap">{assigneeName}</span>
                 )}
+                {/* Other participant avatars (excluding assignee) */}
+                {(() => {
+                  const others = allMembers.filter(m => m.role !== "assignee");
+                  const othersShown = others.slice(0, 3);
+                  const othersRest = others.length - othersShown.length;
+                  if (othersShown.length === 0) return null;
+                  return (
+                    <div className="flex -space-x-1.5">
+                      {othersShown.map((m) => {
+                        const u = availableUsers.find(u => u.id === m.user_id);
+                        const name = u?.display_name || u?.email?.split("@")[0] || "?";
+                        const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                        return (
+                          <Tooltip key={m.user_id}>
+                            <TooltipTrigger asChild>
+                              <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-semibold border-2 border-card bg-muted text-muted-foreground">
+                                {initials}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">{name}</TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                      {othersRest > 0 && (
+                        <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-muted text-muted-foreground border-2 border-card">
+                          +{othersRest}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
