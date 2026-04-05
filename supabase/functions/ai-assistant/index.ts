@@ -29,6 +29,14 @@ const MODULE_INSTRUCTIONS: Record<string, string> = {
 - При планировании сценариев создавай задачи с шагами по воронке`,
 };
 
+function formatTaskTemplates(templates: { title: string; subtasks: string[] }[] | undefined): string {
+  if (!templates?.length) return "";
+  const examples = templates.slice(0, 10).map(t =>
+    `Задача: "${t.title}"\n  Шаги: ${t.subtasks.map((s: string, i: number) => `${i + 1}. ${s}`).join("; ")}`
+  ).join("\n");
+  return `\n\n📚 ВАЖНО — Шаблоны из проекта пользователя (используй как образец структуры шагов для похожих задач, адаптируй под контекст):\n${examples}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
