@@ -962,6 +962,18 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
     return p?.display_name || p?.email?.split("@")[0] || null;
   };
 
+  const maxOverdueDays = overdueTasks.length > 0
+    ? Math.max(...overdueTasks.map((t) => Math.round((now.getTime() - new Date(t.deadline!).getTime()) / 86400000)))
+    : 0;
+  const maxDriftDays = driftTasks.length > 0
+    ? driftTasks.reduce((max, d) => Math.abs(d.driftDays) > Math.abs(max) ? d.driftDays : max, 0)
+    : 0;
+
+  // Nearest deadline among active tasks
+  const nearestDeadline = activeTasks
+    .filter((t) => t.deadline)
+    .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0]?.deadline;
+
   return (
     <div className={cn("bg-card rounded-lg border border-dashed border-border overflow-hidden transition-shadow", expanded && "shadow-sm")}>
       <button
@@ -969,33 +981,63 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors min-w-0"
       >
         <div
-          className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[9px] font-semibold"
+          className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-[9px] font-semibold"
           style={{ backgroundColor: (color || "hsl(var(--primary))") + "18", color: color || "hsl(var(--primary))" }}
         >
           {icon && icon !== "list" ? <span className="text-xs">{icon}</span> : name.charAt(0).toUpperCase()}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-medium text-[12px] truncate">{name}</span>
-            <span className={cn("text-[9px] px-1.5 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap", STATUS_BADGE_PMO[timingStatus])}>
-              {STATUS_LABEL_PMO[timingStatus]}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <div className="flex-1 max-w-[100px]">
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-success" : overdueTasks.length > 0 ? "bg-destructive" : "bg-primary")} style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-            <span className="text-[10px] text-muted-foreground shrink-0">{completed}/{total}</span>
+        <span className="font-medium text-[12px] truncate min-w-0">{name}</span>
+
+        {/* Progress compact */}
+        <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{completed}/{total}</span>
+        <div className="w-16 shrink-0">
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-success" : overdueTasks.length > 0 ? "bg-destructive" : "bg-primary")} style={{ width: `${pct}%` }} />
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground">
-          {overdueTasks.length > 0 && <span className="text-destructive font-semibold">{overdueTasks.length}!</span>}
-          <button onClick={(e) => { e.stopPropagation(); onOpenGantt(); }} className="hover:text-primary transition-colors">
+        <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{pct}%</span>
+
+        {/* Deadline */}
+        {nearestDeadline && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={cn("text-[10px] shrink-0 tabular-nums", overdueTasks.length > 0 ? "text-destructive" : "text-muted-foreground")}>
+                {format(parseISO(nearestDeadline), "d MMM", { locale: ru })}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">Ближайший дедлайн</TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Overdue badge */}
+        {overdueTasks.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
+                <AlertTriangle className="h-3 w-3" />{overdueTasks.length}·{maxOverdueDays}д
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">{overdueTasks.length} просроченных, макс. {maxOverdueDays}д</TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Drift badge */}
+        {driftTasks.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40 shrink-0">
+                <TrendingUp className="h-3 w-3" />{maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">{driftTasks.length} переносов, макс. сдвиг {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д</TooltipContent>
+          </Tooltip>
+        )}
+
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
+          <button onClick={(e) => { e.stopPropagation(); onOpenGantt(); }} className="text-muted-foreground hover:text-primary transition-colors">
             <GanttChart className="h-3.5 w-3.5" />
           </button>
-          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
         </div>
       </button>
 
