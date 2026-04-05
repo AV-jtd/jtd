@@ -1343,14 +1343,15 @@ export function useTaskMutations() {
   });
 
   // Helper: ensure user is also member of parent project when added to subproject
+  // Uses 'viewer' role — navigation only, no access to other subprojects
   const ensureParentMembership = async (groupId: string, targetUserId: string) => {
     const { data: group } = await supabase.from("task_groups").select("parent_id").eq("id", groupId).single();
     if (!group?.parent_id) return;
     const { data: existing } = await supabase
-      .from("group_members").select("id").eq("group_id", group.parent_id).eq("user_id", targetUserId).maybeSingle();
+      .from("group_members").select("id, role").eq("group_id", group.parent_id).eq("user_id", targetUserId).maybeSingle();
     if (!existing) {
       await supabase.from("group_members").insert({
-        group_id: group.parent_id, user_id: targetUserId, invited_by: user!.id, role: "participant",
+        group_id: group.parent_id, user_id: targetUserId, invited_by: user!.id, role: "viewer",
       });
     }
   };
