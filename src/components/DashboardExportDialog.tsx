@@ -1,10 +1,11 @@
 import { useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileDown, Presentation, Link2, Loader2, Check, Copy, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, differenceInDays, addDays, startOfDay } from "date-fns";
+import { format, differenceInDays, addDays, subDays, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ru } from "date-fns/locale";
 
 interface ProjectStatExport {
@@ -26,7 +27,7 @@ interface TaskExport {
   driftDays?: number;
 }
 
-interface ReportData {
+export interface ReportData {
   summary: {
     completionRate: number;
     tasksThisWeek: number;
@@ -39,6 +40,8 @@ interface ReportData {
   weekTasks: TaskExport[];
   driftTasks: TaskExport[];
   upcomingTasks: TaskExport[];
+  period?: string;
+  periodLabel?: string;
 }
 
 interface DashboardExportDialogProps {
@@ -55,27 +58,79 @@ interface DashboardExportDialogProps {
   trigger?: React.ReactNode;
 }
 
-function buildReportData(projectStats: any[], summary: any, users: any[]): ReportData {
+type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all";
+
+const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "this_week", label: "Эта неделя" },
+  { value: "last_week", label: "Прошлая неделя" },
+  { value: "this_month", label: "Этот месяц" },
+  { value: "last_month", label: "Прошлый месяц" },
+  { value: "all", label: "Все данные" },
+];
+
+function getPeriodRange(period: PeriodKey): { start: Date | null; end: Date | null; label: string } {
+  const now = new Date();
+  switch (period) {
+    case "this_week": {
+      const start = startOfWeek(now, { weekStartsOn: 1 });
+      const end = endOfWeek(now, { weekStartsOn: 1 });
+      return { start, end, label: `${format(start, "d MMM", { locale: ru })} – ${format(end, "d MMM yyyy", { locale: ru })}` };
+    }
+    case "last_week": {
+      const start = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+      const end = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+      return { start, end, label: `${format(start, "d MMM", { locale: ru })} – ${format(end, "d MMM yyyy", { locale: ru })}` };
+    }
+    case "this_month": {
+      const start = startOfMonth(now);
+      const end = endOfMonth(now);
+      return { start, end, label: format(now, "LLLL yyyy", { locale: ru }) };
+    }
+    case "last_month": {
+      const prev = subDays(startOfMonth(now), 1);
+      const start = startOfMonth(prev);
+      const end = endOfMonth(prev);
+      return { start, end, label: format(prev, "LLLL yyyy", { locale: ru }) };
+    }
+    default:
+      return { start: null, end: null, label: "Все данные" };
+  }
+}
+
+export function buildReportData(projectStats: any[], summary: any, users: any[], period: PeriodKey = "all"): ReportData {
   const userName = (userId: string) => users.find((u: any) => u.id === userId)?.display_name || "—";
   const now = new Date();
   const weekFromNow = addDays(startOfDay(now), 7);
+  const { start: pStart, end: pEnd, label: periodLabel } = getPeriodRange(period);
 
   const allTasks = projectStats.flatMap((s: any) => [...s.tasks, ...s.subprojects.flatMap((sp: any) => sp.tasks)]);
   const unique = Array.from(new Map(allTasks.map((t: any) => [t.id, t])).values());
 
-  const overdueTasks = unique
+  // Filter tasks by period if set
+  const inPeriod = (t: any) => {
+    if (!pStart || !pEnd) return true;
+    const dl = t.deadline ? new Date(t.deadline) : null;
+    if (dl && dl >= pStart && dl <= pEnd) return true;
+    const ca = t.completed_at ? new Date(t.completed_at) : null;
+    if (ca && ca >= pStart && ca <= pEnd) return true;
+    return false;
+  };
+
+  const periodTasks = unique.filter(inPeriod);
+
+  const overdueTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
     .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
 
-  const weekTasks = unique
+  const weekTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
     .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
 
-  const driftTasks = unique
+  const driftTasks = periodTasks
     .filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
     .map((t: any) => ({
       title: t.title,
@@ -86,7 +141,7 @@ function buildReportData(projectStats: any[], summary: any, users: any[]): Repor
     .sort((a, b) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
     .slice(0, 30);
 
-  const upcomingTasks = unique
+  const upcomingTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) > weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 20)
@@ -104,11 +159,12 @@ function buildReportData(projectStats: any[], summary: any, users: any[]): Repor
     nextDeadline: s.nextDeadline,
   }));
 
-  return { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks };
+  return { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, period, periodLabel };
 }
 
 function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
+  const periodStr = data.periodLabel || dateStr;
   const { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
@@ -131,10 +187,11 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
     </tbody></table>`;
   };
 
-  return `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Отчёт — ${dateStr}</title>
+  return `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Отчёт — ${periodStr}</title>
 <style>
   body{font-family:-apple-system,system-ui,sans-serif;max-width:900px;margin:40px auto;color:#1e293b;padding:0 24px}
-  h1{font-size:24px;border-bottom:3px solid #3b82f6;padding-bottom:8px;margin-bottom:24px}
+  h1{font-size:24px;border-bottom:3px solid #3b82f6;padding-bottom:8px;margin-bottom:4px}
+  .period{font-size:14px;color:#64748b;margin-bottom:24px}
   h2{font-size:16px;margin:24px 0 10px;color:#1e40af}
   .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
   .m{background:#f0f9ff;border-radius:10px;padding:14px;text-align:center}
@@ -146,7 +203,8 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   .ai{background:#f0f9ff;border:1px solid #c7d2fe;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.7}
   @media print{body{margin:16px}}
 </style></head><body>
-  <h1>📊 Отчёт по портфелю · ${dateStr}</h1>
+  <h1>📊 Отчёт по портфелю</h1>
+  <p class="period">Период: ${periodStr} · Создан ${dateStr}</p>
   <div class="metrics">
     <div class="m"><div class="v">${summary.completionRate}%</div><div class="l">Прогресс</div></div>
     <div class="m"><div class="v">${summary.tasksThisWeek}</div><div class="l">Дедлайнов</div></div>
@@ -166,17 +224,16 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
 
 function buildPptHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
-  const { summary, projects, overdueTasks, weekTasks, driftTasks } = data;
+  const periodStr = data.periodLabel || dateStr;
+  const { summary, projects, overdueTasks, weekTasks } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
   const statusColors: Record<string, string> = { "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280" };
 
   const slides: string[] = [];
 
-  // 1. Title
-  slides.push(`<div class="slide title"><h1>📊 Отчёт по портфелю</h1><p class="sub">${dateStr}</p></div>`);
+  slides.push(`<div class="slide title"><h1>📊 Отчёт по портфелю</h1><p class="sub">${periodStr}</p></div>`);
 
-  // 2. Metrics
   slides.push(`<div class="slide"><h2>Ключевые метрики</h2><div class="grid4">
     <div class="card"><div class="val" style="color:#3b82f6">${summary.completionRate}%</div><div class="lbl">Прогресс</div></div>
     <div class="card"><div class="val" style="color:#3b82f6">${summary.tasksThisWeek}</div><div class="lbl">Дедлайнов на неделе</div></div>
@@ -184,26 +241,22 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
     <div class="card"><div class="val" style="color:#f59e0b">${summary.totalDrift}</div><div class="lbl">Drift</div></div>
   </div></div>`);
 
-  // 3. Projects
   const rows = projects.slice(0, 8).map(p => {
     const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
     return `<div class="prow"><div class="picon" style="background:${p.color || '#3b82f6'}">${p.name[0]}</div><div class="pinfo"><div class="pname">${p.name} <span style="color:${statusColors[p.timingStatus]};font-size:14px">${statusLabels[p.timingStatus]}</span></div><div class="pbar"><div class="pfill" style="width:${pct}%;background:${p.color || '#3b82f6'}"></div></div><div class="pmeta">${pct}% · ${p.completed}/${p.total}${p.overdue > 0 ? ` · ⚠ ${p.overdue}` : ""}</div></div></div>`;
   }).join("");
   slides.push(`<div class="slide"><h2>Проекты</h2>${rows}</div>`);
 
-  // 4. Overdue
   if (overdueTasks.length > 0) {
     const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>⚠️ Не сделано</h2>${items}</div>`);
   }
 
-  // 5. Week
   if (weekTasks.length > 0) {
     const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>📅 На этой неделе</h2>${items}</div>`);
   }
 
-  // 6. AI
   if (aiSummary) {
     slides.push(`<div class="slide"><h2>🤖 ИИ-анализ</h2><div class="ai-body">${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div></div>`);
   }
@@ -254,10 +307,11 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
   const [loadingLink, setLoadingLink] = useState(false);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [period, setPeriod] = useState<PeriodKey>("this_week");
 
   const reportData = useCallback(() =>
-    buildReportData(projectStats, summary, users),
-    [projectStats, summary, users]
+    buildReportData(projectStats, summary, users, period),
+    [projectStats, summary, users, period]
   );
 
   const handlePdf = () => {
@@ -303,12 +357,13 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
     try {
       const data = reportData();
       const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
+      const periodInfo = PERIOD_OPTIONS.find(o => o.value === period)?.label || "";
 
       const { data: result, error } = await supabase
         .from("dashboard_reports")
         .insert({
           user_id: (await supabase.auth.getUser()).data.user?.id,
-          title: `Отчёт по портфелю · ${dateStr}`,
+          title: `Отчёт · ${periodInfo} · ${dateStr}`,
           report_data: data as any,
           ai_summary: aiSummary || null,
         })
@@ -356,6 +411,21 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
         </DialogHeader>
 
         <div className="space-y-2.5 pt-1">
+          {/* Period selector */}
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-muted-foreground">Период отчёта</p>
+            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <p className="text-xs text-muted-foreground">
             Отчёт включает метрики, проекты, просроченные, перенесённые задачи и ИИ-анализ
           </p>
