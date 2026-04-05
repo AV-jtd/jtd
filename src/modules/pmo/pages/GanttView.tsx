@@ -454,6 +454,13 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     } else {
       rootProjects.forEach(p => addProjectRows(p, 0));
     }
+    // Assign sequential row numbers to tasks/subtasks/milestones
+    let counter = 1;
+    result.forEach(r => {
+      if (r.type === "task" || r.type === "subtask" || r.type === "milestone") {
+        r.rowNumber = counter++;
+      }
+    });
     return result;
   }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress]);
 
