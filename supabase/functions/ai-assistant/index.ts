@@ -1174,10 +1174,12 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
 - priority: 1=высокий, 2=средний, 3=низкий (необязательно)
 - Если есть подпроекты, используй их названия как группы
 - НЕ дублируй существующие задачи
+- Если в шаблонах есть похожие задачи — копируй их структуру подзадач
+- Для каждой задачи добавляй подзадачи (subtasks) если в шаблонах есть аналоги
 - 5-20 задач оптимально
 - Отвечай только через tool call
 
-Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}`,
+Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}${formatTaskTemplates(bulkTemplates)}`,
             },
             {
               role: "user",
