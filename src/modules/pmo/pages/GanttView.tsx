@@ -998,8 +998,10 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 )} style={{ left: i * colWidth, width: colWidth, height: rows.length * ROW_HEIGHT }} />
               ))}
 
-              {/* Today line */}
-              <div className="absolute top-0 w-0.5 bg-primary z-20" style={{ left: todayOffset, height: rows.length * ROW_HEIGHT }} />
+              {/* Today line — prominent */}
+              <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: rows.length * ROW_HEIGHT }}>
+                <div className="w-[2px] h-full bg-primary" />
+              </div>
 
               {/* Dependency lines */}
               <GanttDependencyLines
