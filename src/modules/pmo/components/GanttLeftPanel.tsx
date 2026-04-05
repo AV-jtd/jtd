@@ -400,14 +400,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             onDragEnd={handleDragEnd}
           >
             {/* Row number */}
-            <div className="w-7 text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
-              {isDraggable && (
-                <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
-              )}
-              {row.rowNumber !== undefined && (
-                <span>{row.rowNumber}</span>
-              )}
-            </div>
+            {isColVisible("rowNum") && (
+              <div style={{ width: colWidth("rowNum") }} className="text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
+                {isDraggable && (
+                  <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
+                )}
+                {row.rowNumber !== undefined && (
+                  <span>{row.rowNumber}</span>
+                )}
+              </div>
+            )}
 
             {/* Name column */}
             <div
