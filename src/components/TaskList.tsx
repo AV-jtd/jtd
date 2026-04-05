@@ -792,17 +792,19 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           />
         )}
 
-        <div className="flex items-center gap-1">
-          <TaskCreateBar
-            inputRef={inputRef}
-            activeView={activeView}
-            activeGroupId={activeGroupId}
-            availableUsers={availableUsers}
-            onCreateTask={handleCreateTask}
-          />
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <TaskCreateBar
+              inputRef={inputRef}
+              activeView={activeView}
+              activeGroupId={activeGroupId}
+              availableUsers={availableUsers}
+              onCreateTask={handleCreateTask}
+            />
+          </div>
           {activeView === "group" && activeGroupId && (
             <BulkTaskDialog projectId={activeGroupId} projectName={groups.find(g => g.id === activeGroupId)?.name}>
-              <button className="shrink-0 h-10 w-10 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted transition-colors" title="Пакетное создание">
+              <button className="shrink-0 h-10 w-10 mb-6 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30 transition-colors" title="Пакетное создание">
                 <Sparkles className="h-4 w-4" />
               </button>
             </BulkTaskDialog>
