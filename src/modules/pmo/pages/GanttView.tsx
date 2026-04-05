@@ -983,7 +983,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                         <span>{format(col.date, "EEEEEE", { locale: ru })}</span>
                         <span className="font-medium">{col.label}</span>
                       </div>
-                    ) : col.label}
+                    ) : (
+                      <span>{col.label}{col.isToday ? " ◂" : ""}</span>
+                    )}
                   </div>
                 ))}
               </div>
