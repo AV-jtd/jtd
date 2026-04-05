@@ -182,22 +182,29 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 
         for (const task of group.tasks) {
           if (!task.selected) continue;
-          const result = await addTask.mutateAsync({
-            title: task.title,
-            group_id: targetGroupId,
-            deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
-            task_type: "standard",
-          });
+          
+          if (task.subtasks?.length && user) {
+            // Create with subtasks via direct insert to get the task ID
+            const { data: newTask } = await supabase.from("tasks").insert({
+              title: task.title,
+              group_id: targetGroupId,
+              deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              task_type: "standard",
+              user_id: user.id,
+            }).select("id").single();
 
-          // Create subtasks if AI suggested them (from templates)
-          if (task.subtasks?.length && result?.id) {
-            for (let si = 0; si < task.subtasks.length; si++) {
-              await supabase.from("subtasks").insert({
-                task_id: result.id,
-                title: task.subtasks[si],
-                position: si,
-              });
+            if (newTask?.id) {
+              await supabase.from("subtasks").insert(
+                task.subtasks.map((s, si) => ({ task_id: newTask.id, title: s, position: si }))
+              );
             }
+          } else {
+            await addTask.mutateAsync({
+              title: task.title,
+              group_id: targetGroupId,
+              deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              task_type: "standard",
+            });
           }
           created++;
         }
