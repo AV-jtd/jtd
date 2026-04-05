@@ -54,4 +54,7 @@ if (isPreviewHost || isInIframe) {
   });
 }
 
+// Check for new version and force-reload if stale (production only)
+import("@/lib/versionCheck").then(({ checkForUpdates }) => checkForUpdates()).catch(() => {});
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -1,8 +1,23 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
+
+/** Writes version.json into the build output so the app can detect stale caches */
+function versionJsonPlugin(version: string): Plugin {
+  return {
+    name: "version-json",
+    writeBundle({ dir }) {
+      const outDir = dir || "dist";
+      fs.writeFileSync(
+        path.resolve(outDir, "version.json"),
+        JSON.stringify({ version }),
+      );
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 const buildVersion = Date.now().toString(36);
@@ -21,6 +36,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    mode === "production" && versionJsonPlugin(buildVersion),
     VitePWA({
       registerType: "prompt",
       devOptions: { enabled: false },
