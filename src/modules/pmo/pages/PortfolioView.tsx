@@ -105,7 +105,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const [showArchived, setShowArchived] = useState(false);
 
   const projectStats = useMemo(() => {
-    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; totalDelayDays: number }> = {};
+    const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; maxDriftDays: number }> = {};
     for (const project of groups) {
       const tasks = allTasks.filter((t) => t.group_id === project.id);
       const total = tasks.length;
@@ -121,15 +121,16 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       const allDates = [...startDates, ...deadlineDates].sort();
       const earliestStart = allDates.length > 0 ? allDates[0] : null;
 
-      // Total delay days (sum of drift across tasks)
-      let totalDelayDays = 0;
+      // Max drift days (largest single task deviation — shows real project delay)
+      let maxDriftDays = 0;
       for (const t of tasks) {
         if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) {
-          totalDelayDays += differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+          const drift = differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
+          if (Math.abs(drift) > Math.abs(maxDriftDays)) maxDriftDays = drift;
         }
       }
 
-      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming, earliestStart, totalDelayDays };
+      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming, earliestStart, maxDriftDays };
     }
     return statsMap;
   }, [groups, allTasks]);
