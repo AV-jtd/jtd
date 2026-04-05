@@ -185,7 +185,36 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null);
   const [assigneePopover, setAssigneePopover] = useState<string | null>(null);
   const [deadlinePopover, setDeadlinePopover] = useState<string | null>(null);
-  const [predPopover, setPredPopover] = useState<string | null>(null); // for predecessor picker
+  const [predPopover, setPredPopover] = useState<string | null>(null);
+  const [durationEdit, setDurationEdit] = useState<{ taskId: string; value: string } | null>(null);
+  const [colSettingsOpen, setColSettingsOpen] = useState(false);
+
+  const isColVisible = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.visible ?? true;
+  const colWidth = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.width ?? 40;
+
+  const toggleColumn = (key: GanttColumnKey) => {
+    if (key === "name") return; // name always visible
+    onColumnsChange(columnConfig.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
+  };
+
+  const getTaskDuration = (task: Task): number | null => {
+    const start = task.start_at ? parseISO(task.start_at) : null;
+    const end = task.deadline ? parseISO(task.deadline) : null;
+    if (start && end) return Math.max(differenceInCalendarDays(end, start), 0);
+    return null;
+  };
+
+  const handleDurationCommit = (task: Task) => {
+    if (!durationEdit) return;
+    const days = parseInt(durationEdit.value, 10);
+    if (isNaN(days) || days < 0) { setDurationEdit(null); return; }
+    const start = task.start_at ? parseISO(task.start_at) : new Date();
+    const newDeadline = addDays(start, days);
+    const updates: Partial<Task> = { deadline: newDeadline.toISOString() };
+    if (!task.start_at) updates.start_at = start.toISOString();
+    onUpdateTask(task.id, updates);
+    setDurationEdit(null);
+  };
 
   // DnD state
   const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
