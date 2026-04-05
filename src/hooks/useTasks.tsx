@@ -1342,6 +1342,19 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+  // Helper: ensure user is also member of parent project when added to subproject
+  const ensureParentMembership = async (groupId: string, targetUserId: string) => {
+    const { data: group } = await supabase.from("task_groups").select("parent_id").eq("id", groupId).single();
+    if (!group?.parent_id) return;
+    const { data: existing } = await supabase
+      .from("group_members").select("id").eq("group_id", group.parent_id).eq("user_id", targetUserId).maybeSingle();
+    if (!existing) {
+      await supabase.from("group_members").insert({
+        group_id: group.parent_id, user_id: targetUserId, invited_by: user!.id, role: "participant",
+      });
+    }
+  };
+
   // ========== GROUP MEMBERS ==========
 
   const addGroupMember = useMutation({
@@ -1362,6 +1375,9 @@ export function useTaskMutations() {
         group_id, user_id: targetUserId, invited_by: user!.id, role,
       });
       if (error) throw error;
+
+      // Auto-add to parent project if this is a subproject
+      await ensureParentMembership(group_id, targetUserId);
 
       // Notify: added to group
       const { data: groupInfo } = await supabase.from("task_groups").select("name").eq("id", group_id).single();
