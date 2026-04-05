@@ -281,6 +281,18 @@ export default function Settings() {
                     </div>
                   ))}
 
+                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">Автоотчёты</p>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <span className="text-sm">Ежедневный отчёт в Telegram</span>
+                      <p className="text-xs text-muted-foreground">Пн-Пт в 08:08 МСК — прогресс, просрочки, планы</p>
+                    </div>
+                    <Switch
+                      checked={!!(prefs as any)?.telegram_weekly_report}
+                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
+                    />
+                  </div>
+
                   <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
                   {([
                     { key: "telegram_task_assigned", label: "Назначен ответственным" },

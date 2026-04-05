@@ -11,7 +11,14 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Get all users who have telegram_chat_id set
+  // Check if today is a workday (Mon-Fri) in Moscow timezone
+  const moscowNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const dayOfWeek = moscowNow.getDay(); // 0=Sun, 6=Sat
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "weekend" }));
+  }
+
+  // Get all users who have telegram_chat_id AND telegram_weekly_report enabled
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
     .select("id, display_name, telegram_chat_id")
@@ -21,9 +28,24 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no profiles with telegram" }));
   }
 
+  // Check notification preferences - only send to users with telegram_weekly_report enabled
+  const userIds = profiles.map(p => p.id);
+  const { data: prefs } = await supabase
+    .from("notification_preferences")
+    .select("user_id, telegram_weekly_report")
+    .in("user_id", userIds)
+    .eq("telegram_weekly_report", true);
+
+  const enabledUserIds = new Set((prefs || []).map(p => p.user_id));
+  const eligibleProfiles = profiles.filter(p => enabledUserIds.has(p.id));
+
+  if (eligibleProfiles.length === 0) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no users opted in" }));
+  }
+
   let sentCount = 0;
 
-  for (const profile of profiles) {
+  for (const profile of eligibleProfiles) {
     try {
       // Get user's active projects
       const { data: groups } = await supabase
@@ -35,7 +57,6 @@ Deno.serve(async (req) => {
 
       if (!groups || groups.length === 0) continue;
 
-      // Get all tasks for these groups
       const groupIds = groups.map(g => g.id);
       const { data: tasks } = await supabase
         .from("tasks")
@@ -58,7 +79,7 @@ Deno.serve(async (req) => {
 
       // Build message
       const lines: string[] = [
-        `📊 <b>Еженедельный отчёт</b>`,
+        `📊 <b>Ежедневный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
         `📅 Дедлайнов на неделе: <b>${weekTasks.length}</b>`,
@@ -84,7 +105,7 @@ Deno.serve(async (req) => {
         if (weekTasks.length > 5) lines.push(`  ... и ещё ${weekTasks.length - 5}`);
       }
 
-      // Also save as dashboard_report
+      // Save as dashboard_report
       const reportData = {
         summary: { completionRate: pct, tasksThisWeek: weekTasks.length, totalOverdue: overdue.length, totalDrift: driftTasks.length, totalProjects: groups.length },
         projects: groups.map(g => {
@@ -96,7 +117,7 @@ Deno.serve(async (req) => {
         weekTasks: weekTasks.slice(0, 10).map(t => ({ title: t.title, assignee: "—", deadline: t.deadline })),
         driftTasks: [],
         upcomingTasks: [],
-        period: "auto_weekly",
+        period: "auto_daily",
         periodLabel: "Авто-отчёт",
       };
 

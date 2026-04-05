@@ -21,6 +21,7 @@ export interface NotificationPrefs {
   telegram_task_participant_added: boolean;
   telegram_new_task_in_group: boolean;
   telegram_task_delegated: boolean;
+  telegram_weekly_report: boolean;
 }
 
 const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
