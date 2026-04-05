@@ -2004,86 +2004,58 @@ function ProjectCard({
           </div>
         )}
 
-        {/* Nearest deadline + milestone stickers */}
-        {(nearestDeadlineInfo || nextMilestone || overdueMilestones.length > 0) && (
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {nearestDeadlineInfo && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className={cn(
-                    "inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium border",
-                    nearestDeadlineInfo.isOverdue
-                      ? "bg-destructive/10 text-destructive border-destructive/20"
-                      : nearestDeadlineInfo.isUrgent
-                      ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
-                      : "bg-muted text-muted-foreground border-border"
-                  )}>
-                    <CalendarDays className="h-2.5 w-2.5" />
-                    {nearestDeadlineInfo.date}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Ближайший дедлайн: {nearestDeadlineInfo.diffDays < 0 ? `просрочен на ${Math.abs(nearestDeadlineInfo.diffDays)}д` : `через ${nearestDeadlineInfo.diffDays}д`}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {overdueMilestones.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                    <Diamond className="h-2.5 w-2.5" />
-                    {overdueMilestones.length} просроч.
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {overdueMilestones.map(m => m.name).join(", ")}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {nextMilestone && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-primary/10 text-primary border border-primary/20">
-                    <Diamond className="h-2.5 w-2.5" />
-                    {format(new Date(nextMilestone.planned_date), "d MMM", { locale: ru })}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Веха: {nextMilestone.name}
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        )}
-
-        {/* Stats row */}
-        <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+        {/* Single stats row: assignee + deadline + milestones */}
+        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] flex-wrap">
           {assigneeName && (
-            <span className="flex items-center gap-1 text-muted-foreground">
+            <span className="flex items-center gap-1 text-muted-foreground shrink-0">
               <User className="h-3 w-3 shrink-0" />
               <span className="truncate max-w-[80px]">{assigneeName}</span>
             </span>
           )}
-          {project.stats.overdue > 0 && (
+          {nearestDeadlineInfo && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                  <AlertTriangle className="h-3 w-3" />
-                  {project.stats.overdue}·{maxOverdueDays}д
+                <span className={cn(
+                  "inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium border shrink-0",
+                  nearestDeadlineInfo.isOverdue
+                    ? "bg-destructive/10 text-destructive border-destructive/20"
+                    : nearestDeadlineInfo.isUrgent
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                    : "bg-muted text-muted-foreground border-border"
+                )}>
+                  <CalendarDays className="h-2.5 w-2.5" />
+                  {nearestDeadlineInfo.date}
                 </span>
               </TooltipTrigger>
-              <TooltipContent className="text-xs">{project.stats.overdue} просроченных, макс. {maxOverdueDays}д</TooltipContent>
+              <TooltipContent side="top" className="text-xs">
+                Ближайший дедлайн: {nearestDeadlineInfo.diffDays < 0 ? `просрочен на ${Math.abs(nearestDeadlineInfo.diffDays)}д` : `через ${nearestDeadlineInfo.diffDays}д`}
+              </TooltipContent>
             </Tooltip>
           )}
-          {driftTasks.length > 0 && (
+          {overdueMilestones.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
-                  <TrendingUp className="h-3 w-3" />
-                  {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
+                <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
+                  <Diamond className="h-2.5 w-2.5" />
+                  {overdueMilestones.length} просроч.
                 </span>
               </TooltipTrigger>
-              <TooltipContent className="text-xs">{driftTasks.length} переносов, макс. сдвиг {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д</TooltipContent>
+              <TooltipContent side="top" className="text-xs">
+                {overdueMilestones.map(m => m.name).join(", ")}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {nextMilestone && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                  <Diamond className="h-2.5 w-2.5" />
+                  {format(new Date(nextMilestone.planned_date), "d MMM", { locale: ru })}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Веха: {nextMilestone.name}
+              </TooltipContent>
             </Tooltip>
           )}
           {project.stats.total === 0 && !assigneeName && (
