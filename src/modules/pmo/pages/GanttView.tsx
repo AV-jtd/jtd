@@ -15,7 +15,7 @@ import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, 
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
-import GanttLeftPanel, { type GanttRow } from "@/modules/pmo/components/GanttLeftPanel";
+import GanttLeftPanel, { type GanttRow, DEFAULT_COLUMNS, type GanttColumnConfig } from "@/modules/pmo/components/GanttLeftPanel";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
 import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
@@ -58,6 +58,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
+  const [ganttColumns, setGanttColumns] = useState<GanttColumnConfig[]>(DEFAULT_COLUMNS);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
@@ -840,6 +841,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           width={leftPanelWidth}
           allProjects={groups}
           dependencies={allDependencies}
+          columns={ganttColumns}
+          onColumnsChange={setGanttColumns}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });

@@ -2,13 +2,34 @@ import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** Column configuration */
+export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor";
+
+export interface GanttColumnConfig {
+  key: GanttColumnKey;
+  label: string;
+  visible: boolean;
+  width: number;
+  minWidth: number;
+}
+
+export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
+  { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
+  { key: "name", label: "Задача", visible: true, width: 0, minWidth: 100 }, // flex
+  { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
+  { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
+  { key: "deadline", label: "Срок", visible: true, width: 50, minWidth: 42 },
+  { key: "duration", label: "Дни", visible: true, width: 36, minWidth: 30 },
+  { key: "predecessor", label: "Пред.", visible: true, width: 42, minWidth: 36 },
+];
 
 export type GanttRow = {
   type: "project" | "task" | "milestone" | "summary" | "subtask";
@@ -47,6 +68,8 @@ interface GanttLeftPanelProps {
   width: number;
   allProjects: TaskGroup[];
   dependencies?: Dependency[];
+  columns: GanttColumnConfig[];
+  onColumnsChange: (cols: GanttColumnConfig[]) => void;
   onMilestoneClick: (ms: Milestone) => void;
   onAddTask: (projectId: string, title: string) => void;
   onAddSubproject: (parentId: string, name: string) => void;
@@ -151,7 +174,7 @@ function PredecessorPicker({
 }
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
-  rows, rowHeight, width, allProjects, dependencies = [], onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
@@ -162,7 +185,36 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null);
   const [assigneePopover, setAssigneePopover] = useState<string | null>(null);
   const [deadlinePopover, setDeadlinePopover] = useState<string | null>(null);
-  const [predPopover, setPredPopover] = useState<string | null>(null); // for predecessor picker
+  const [predPopover, setPredPopover] = useState<string | null>(null);
+  const [durationEdit, setDurationEdit] = useState<{ taskId: string; value: string } | null>(null);
+  const [colSettingsOpen, setColSettingsOpen] = useState(false);
+
+  const isColVisible = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.visible ?? true;
+  const colWidth = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.width ?? 40;
+
+  const toggleColumn = (key: GanttColumnKey) => {
+    if (key === "name") return; // name always visible
+    onColumnsChange(columnConfig.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
+  };
+
+  const getTaskDuration = (task: Task): number | null => {
+    const start = task.start_at ? parseISO(task.start_at) : null;
+    const end = task.deadline ? parseISO(task.deadline) : null;
+    if (start && end) return Math.max(differenceInCalendarDays(end, start), 0);
+    return null;
+  };
+
+  const handleDurationCommit = (task: Task) => {
+    if (!durationEdit) return;
+    const days = parseInt(durationEdit.value, 10);
+    if (isNaN(days) || days < 0) { setDurationEdit(null); return; }
+    const start = task.start_at ? parseISO(task.start_at) : new Date();
+    const newDeadline = addDays(start, days);
+    const updates: Partial<Task> = { deadline: newDeadline.toISOString() };
+    if (!task.start_at) updates.start_at = start.toISOString();
+    onUpdateTask(task.id, updates);
+    setDurationEdit(null);
+  };
 
   // DnD state
   const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
@@ -290,16 +342,31 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     >
       {/* Header */}
       <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10" style={{ height: 52 }}>
-        <div className="w-7 text-center shrink-0 text-[10px]">#</div>
-        <div className="flex-1 px-1 min-w-0">Задача</div>
-        <div className="w-8 text-center shrink-0">
-          <User className="h-3 w-3 mx-auto" />
+        {isColVisible("rowNum") && <div style={{ width: colWidth("rowNum") }} className="text-center shrink-0 text-[10px]">#</div>}
+        <div className="flex-1 px-1 min-w-0 flex items-center gap-1">
+          <span>Задача</span>
+          <Popover open={colSettingsOpen} onOpenChange={setColSettingsOpen}>
+            <PopoverTrigger asChild>
+              <button className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/50 hover:text-muted-foreground ml-auto shrink-0" title="Настройки колонок">
+                <Settings2 className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" side="bottom" align="start">
+              <div className="text-[10px] font-medium text-muted-foreground mb-1.5">Колонки</div>
+              {columnConfig.filter(c => c.key !== "name").map(c => (
+                <label key={c.key} className="flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-muted/50 rounded px-1">
+                  <input type="checkbox" checked={c.visible} onChange={() => toggleColumn(c.key)} className="rounded" />
+                  {c.label}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
         </div>
-        <div className="w-[50px] text-center shrink-0 text-[10px]">Старт</div>
-        <div className="w-[50px] text-center shrink-0 text-[10px]">Срок</div>
-        <div className="w-[42px] text-center shrink-0 text-[10px]" title="Предшественник">
-          <Link2 className="h-3 w-3 mx-auto" />
-        </div>
+        {isColVisible("assignee") && <div style={{ width: colWidth("assignee") }} className="text-center shrink-0"><User className="h-3 w-3 mx-auto" /></div>}
+        {isColVisible("start") && <div style={{ width: colWidth("start") }} className="text-center shrink-0 text-[10px]">Старт</div>}
+        {isColVisible("deadline") && <div style={{ width: colWidth("deadline") }} className="text-center shrink-0 text-[10px]">Срок</div>}
+        {isColVisible("duration") && <div style={{ width: colWidth("duration") }} className="text-center shrink-0 text-[10px]" title="Длительность (дни)">Дни</div>}
+        {isColVisible("predecessor") && <div style={{ width: colWidth("predecessor") }} className="text-center shrink-0 text-[10px]" title="Предшественник"><Link2 className="h-3 w-3 mx-auto" /></div>}
       </div>
 
       {rows.map((row, i) => {
@@ -333,14 +400,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             onDragEnd={handleDragEnd}
           >
             {/* Row number */}
-            <div className="w-7 text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
-              {isDraggable && (
-                <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
-              )}
-              {row.rowNumber !== undefined && (
-                <span>{row.rowNumber}</span>
-              )}
-            </div>
+            {isColVisible("rowNum") && (
+              <div style={{ width: colWidth("rowNum") }} className="text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
+                {isDraggable && (
+                  <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
+                )}
+                {row.rowNumber !== undefined && (
+                  <span>{row.rowNumber}</span>
+                )}
+              </div>
+            )}
 
             {/* Name column */}
             <div
@@ -560,241 +629,286 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             </div>
 
             {/* Assignee icon */}
-            <div className="w-8 text-center shrink-0">
-              {row.type === "task" && row.task && (
-                <Popover open={assigneePopover === row.task.id} onOpenChange={(v) => setAssigneePopover(v ? row.task!.id : null)}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "h-5 w-5 rounded-full text-[8px] font-bold mx-auto flex items-center justify-center transition-colors",
-                        row.task.assigned_to
-                          ? "bg-primary/20 text-primary hover:bg-primary/30"
-                          : "bg-muted text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
-                      )}
-                      title={getUserName(row.task.assigned_to)}
-                    >
-                      {getUserInitials(row.task.assigned_to) || <User className="h-2.5 w-2.5" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
-                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
-                    <button
-                      onClick={() => { onUpdateTask(row.task!.id, { assigned_to: null }); setAssigneePopover(null); }}
-                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
-                    >
-                      Без назначения
-                    </button>
-                    <div className="max-h-36 overflow-y-auto">
-                      {users.map(u => (
-                        <button
-                          key={u.id}
-                          onClick={() => { onUpdateTask(row.task!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
-                          className={cn(
-                            "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
-                            row.task!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
-                          )}
-                        >
-                          {u.display_name || u.email}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {row.type === "subtask" && row.subtask && (
-                <Popover open={assigneePopover === row.subtask.id} onOpenChange={(v) => setAssigneePopover(v ? row.subtask!.id : null)}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "h-4 w-4 rounded-full text-[7px] font-bold mx-auto flex items-center justify-center transition-colors",
-                        row.subtask.assigned_to
-                          ? "bg-primary/15 text-primary hover:bg-primary/25"
-                          : "bg-muted/50 text-muted-foreground/30 hover:bg-muted-foreground/15 hover:text-muted-foreground"
-                      )}
-                      title={getUserName(row.subtask.assigned_to)}
-                    >
-                      {getUserInitials(row.subtask.assigned_to) || <User className="h-2 w-2" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
-                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
-                    <button
-                      onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: null }); setAssigneePopover(null); }}
-                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
-                    >
-                      Без назначения
-                    </button>
-                    <div className="max-h-36 overflow-y-auto">
-                      {users.map(u => (
-                        <button
-                          key={u.id}
-                          onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
-                          className={cn(
-                            "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
-                            row.subtask!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
-                          )}
-                        >
-                          {u.display_name || u.email}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
+            {isColVisible("assignee") && (
+              <div style={{ width: colWidth("assignee") }} className="text-center shrink-0">
+                {row.type === "task" && row.task && (
+                  <Popover open={assigneePopover === row.task.id} onOpenChange={(v) => setAssigneePopover(v ? row.task!.id : null)}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "h-5 w-5 rounded-full text-[8px] font-bold mx-auto flex items-center justify-center transition-colors",
+                          row.task.assigned_to
+                            ? "bg-primary/20 text-primary hover:bg-primary/30"
+                            : "bg-muted text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                        )}
+                        title={getUserName(row.task.assigned_to)}
+                      >
+                        {getUserInitials(row.task.assigned_to) || <User className="h-2.5 w-2.5" />}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
+                      <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
+                      <button
+                        onClick={() => { onUpdateTask(row.task!.id, { assigned_to: null }); setAssigneePopover(null); }}
+                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
+                      >
+                        Без назначения
+                      </button>
+                      <div className="max-h-36 overflow-y-auto">
+                        {users.map(u => (
+                          <button
+                            key={u.id}
+                            onClick={() => { onUpdateTask(row.task!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
+                            className={cn(
+                              "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
+                              row.task!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
+                            )}
+                          >
+                            {u.display_name || u.email}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {row.type === "subtask" && row.subtask && (
+                  <Popover open={assigneePopover === row.subtask.id} onOpenChange={(v) => setAssigneePopover(v ? row.subtask!.id : null)}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "h-4 w-4 rounded-full text-[7px] font-bold mx-auto flex items-center justify-center transition-colors",
+                          row.subtask.assigned_to
+                            ? "bg-primary/15 text-primary hover:bg-primary/25"
+                            : "bg-muted/50 text-muted-foreground/30 hover:bg-muted-foreground/15 hover:text-muted-foreground"
+                        )}
+                        title={getUserName(row.subtask.assigned_to)}
+                      >
+                        {getUserInitials(row.subtask.assigned_to) || <User className="h-2 w-2" />}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1" side="left" align="start" sideOffset={4}>
+                      <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Ответственный</div>
+                      <button
+                        onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: null }); setAssigneePopover(null); }}
+                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground"
+                      >
+                        Без назначения
+                      </button>
+                      <div className="max-h-36 overflow-y-auto">
+                        {users.map(u => (
+                          <button
+                            key={u.id}
+                            onClick={() => { onUpdateSubtask(row.subtask!.id, { assigned_to: u.id }); setAssigneePopover(null); }}
+                            className={cn(
+                              "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm",
+                              row.subtask!.assigned_to === u.id && "bg-primary/10 text-primary font-medium"
+                            )}
+                          >
+                            {u.display_name || u.email}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            )}
 
             {/* Start date */}
-            <div className="w-[50px] text-center shrink-0">
-              {row.type === "task" && row.task && (
-                <Popover open={deadlinePopover === `start-${row.task.id}`} onOpenChange={(v) => setDeadlinePopover(v ? `start-${row.task!.id}` : null)}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
-                        row.task.start_at
-                          ? "text-muted-foreground hover:bg-muted"
-                          : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+            {isColVisible("start") && (
+              <div style={{ width: colWidth("start") }} className="text-center shrink-0">
+                {row.type === "task" && row.task && (
+                  <Popover open={deadlinePopover === `start-${row.task.id}`} onOpenChange={(v) => setDeadlinePopover(v ? `start-${row.task!.id}` : null)}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
+                          row.task.start_at
+                            ? "text-muted-foreground hover:bg-muted"
+                            : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                        )}
+                        title={row.task.start_at ? format(parseISO(row.task.start_at), "d MMMM yyyy", { locale: ru }) : "Установить старт"}
+                      >
+                        {row.task.start_at ? format(parseISO(row.task.start_at), "d MMM", { locale: ru }) : (
+                          <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                      <Calendar
+                        mode="single"
+                        selected={row.task.start_at ? parseISO(row.task.start_at) : undefined}
+                        onSelect={(date) => {
+                          onUpdateTask(row.task!.id, { start_at: date ? date.toISOString() : null } as any);
+                          setDeadlinePopover(null);
+                        }}
+                        locale={ru}
+                        className="rounded-md border"
+                      />
+                      {row.task.start_at && (
+                        <div className="p-2 border-t">
+                          <button
+                            onClick={() => { onUpdateTask(row.task!.id, { start_at: null } as any); setDeadlinePopover(null); }}
+                            className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                          >
+                            Убрать старт
+                          </button>
+                        </div>
                       )}
-                      title={row.task.start_at ? format(parseISO(row.task.start_at), "d MMMM yyyy", { locale: ru }) : "Установить старт"}
-                    >
-                      {row.task.start_at ? format(parseISO(row.task.start_at), "d MMM", { locale: ru }) : (
-                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
-                    <Calendar
-                      mode="single"
-                      selected={row.task.start_at ? parseISO(row.task.start_at) : undefined}
-                      onSelect={(date) => {
-                        onUpdateTask(row.task!.id, { start_at: date ? date.toISOString() : null } as any);
-                        setDeadlinePopover(null);
-                      }}
-                      locale={ru}
-                      className="rounded-md border"
-                    />
-                    {row.task.start_at && (
-                      <div className="p-2 border-t">
-                        <button
-                          onClick={() => { onUpdateTask(row.task!.id, { start_at: null } as any); setDeadlinePopover(null); }}
-                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
-                        >
-                          Убрать старт
-                        </button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            )}
 
             {/* Deadline */}
-            <div className="w-[50px] text-center shrink-0">
-              {row.type === "task" && row.task && (
-                <Popover open={deadlinePopover === row.task.id} onOpenChange={(v) => setDeadlinePopover(v ? row.task!.id : null)}>
-                  <PopoverTrigger asChild>
+            {isColVisible("deadline") && (
+              <div style={{ width: colWidth("deadline") }} className="text-center shrink-0">
+                {row.type === "task" && row.task && (
+                  <Popover open={deadlinePopover === row.task.id} onOpenChange={(v) => setDeadlinePopover(v ? row.task!.id : null)}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
+                          row.task.deadline
+                            ? new Date(row.task.deadline) < new Date() && !row.task.is_completed
+                              ? "text-destructive font-medium hover:bg-destructive/10"
+                              : "text-muted-foreground hover:bg-muted"
+                            : "text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground"
+                        )}
+                        title={row.task.deadline ? format(parseISO(row.task.deadline), "d MMMM yyyy", { locale: ru }) : "Установить дедлайн"}
+                      >
+                        {row.task.deadline ? format(parseISO(row.task.deadline), "d MMM", { locale: ru }) : (
+                          <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                      <Calendar
+                        mode="single"
+                        selected={row.task.deadline ? parseISO(row.task.deadline) : undefined}
+                        onSelect={(date) => {
+                          onUpdateTask(row.task!.id, { deadline: date ? date.toISOString() : null });
+                          setDeadlinePopover(null);
+                        }}
+                        locale={ru}
+                        className="rounded-md border"
+                      />
+                      {row.task.deadline && (
+                        <div className="p-2 border-t">
+                          <button
+                            onClick={() => { onUpdateTask(row.task!.id, { deadline: null }); setDeadlinePopover(null); }}
+                            className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                          >
+                            Убрать дедлайн
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {row.type === "subtask" && row.subtask && (
+                  <Popover open={deadlinePopover === row.subtask.id} onOpenChange={(v) => setDeadlinePopover(v ? row.subtask!.id : null)}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className={cn(
+                          "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
+                          row.subtask.deadline
+                            ? new Date(row.subtask.deadline) < new Date() && !row.subtask.is_completed
+                              ? "text-destructive font-medium hover:bg-destructive/10"
+                              : "text-muted-foreground hover:bg-muted"
+                            : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                        )}
+                        title={row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMMM yyyy", { locale: ru }) : "Установить срок"}
+                      >
+                        {row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMM", { locale: ru }) : (
+                          <CalendarIcon className="h-2 w-2 mx-auto" />
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
+                      <Calendar
+                        mode="single"
+                        selected={row.subtask.deadline ? parseISO(row.subtask.deadline) : undefined}
+                        onSelect={(date) => {
+                          onUpdateSubtask(row.subtask!.id, { deadline: date ? date.toISOString() : null });
+                          setDeadlinePopover(null);
+                        }}
+                        locale={ru}
+                        className="rounded-md border"
+                      />
+                      {row.subtask.deadline && (
+                        <div className="p-2 border-t">
+                          <button
+                            onClick={() => { onUpdateSubtask(row.subtask!.id, { deadline: null }); setDeadlinePopover(null); }}
+                            className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                          >
+                            Убрать срок
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {row.type === "milestone" && row.milestone && (
+                  <span className="text-[10px]">{format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru })}</span>
+                )}
+              </div>
+            )}
+
+            {/* Duration (days) column */}
+            {isColVisible("duration") && (
+              <div style={{ width: colWidth("duration") }} className="text-center shrink-0">
+                {row.type === "task" && row.task && (() => {
+                  const task = row.task!;
+                  const dur = getTaskDuration(task);
+                  const isEditing = durationEdit?.taskId === task.id;
+                  if (isEditing) {
+                    return (
+                      <input
+                        autoFocus
+                        type="number"
+                        min={0}
+                        value={durationEdit!.value}
+                        onChange={e => setDurationEdit({ taskId: task.id, value: e.target.value })}
+                        onBlur={() => handleDurationCommit(task)}
+                        onKeyDown={e => { if (e.key === "Enter") handleDurationCommit(task); if (e.key === "Escape") setDurationEdit(null); }}
+                        className="w-full h-5 text-[10px] text-center bg-background border border-border rounded px-0.5 outline-none"
+                      />
+                    );
+                  }
+                  return (
                     <button
+                      onClick={() => setDurationEdit({ taskId: task.id, value: String(dur ?? "") })}
                       className={cn(
-                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
-                        row.task.deadline
-                          ? new Date(row.task.deadline) < new Date() && !row.task.is_completed
-                            ? "text-destructive font-medium hover:bg-destructive/10"
-                            : "text-muted-foreground hover:bg-muted"
-                          : "text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground"
+                        "text-[10px] px-0.5 py-0.5 rounded transition-colors w-full",
+                        dur !== null ? "text-muted-foreground hover:bg-muted" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
                       )}
-                      title={row.task.deadline ? format(parseISO(row.task.deadline), "d MMMM yyyy", { locale: ru }) : "Установить дедлайн"}
+                      title="Длительность (дни). Нажмите для редактирования"
                     >
-                      {row.task.deadline ? format(parseISO(row.task.deadline), "d MMM", { locale: ru }) : (
-                        <CalendarIcon className="h-2.5 w-2.5 mx-auto" />
-                      )}
+                      {dur !== null ? dur : "—"}
                     </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
-                    <Calendar
-                      mode="single"
-                      selected={row.task.deadline ? parseISO(row.task.deadline) : undefined}
-                      onSelect={(date) => {
-                        onUpdateTask(row.task!.id, { deadline: date ? date.toISOString() : null });
-                        setDeadlinePopover(null);
-                      }}
-                      locale={ru}
-                      className="rounded-md border"
-                    />
-                    {row.task.deadline && (
-                      <div className="p-2 border-t">
-                        <button
-                          onClick={() => { onUpdateTask(row.task!.id, { deadline: null }); setDeadlinePopover(null); }}
-                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
-                        >
-                          Убрать дедлайн
-                        </button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
-              {row.type === "subtask" && row.subtask && (
-                <Popover open={deadlinePopover === row.subtask.id} onOpenChange={(v) => setDeadlinePopover(v ? row.subtask!.id : null)}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate",
-                        row.subtask.deadline
-                          ? new Date(row.subtask.deadline) < new Date() && !row.subtask.is_completed
-                            ? "text-destructive font-medium hover:bg-destructive/10"
-                            : "text-muted-foreground hover:bg-muted"
-                          : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
-                      )}
-                      title={row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMMM yyyy", { locale: ru }) : "Установить срок"}
-                    >
-                      {row.subtask.deadline ? format(parseISO(row.subtask.deadline), "d MMM", { locale: ru }) : (
-                        <CalendarIcon className="h-2 w-2 mx-auto" />
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" side="left" align="start" sideOffset={4}>
-                    <Calendar
-                      mode="single"
-                      selected={row.subtask.deadline ? parseISO(row.subtask.deadline) : undefined}
-                      onSelect={(date) => {
-                        onUpdateSubtask(row.subtask!.id, { deadline: date ? date.toISOString() : null });
-                        setDeadlinePopover(null);
-                      }}
-                      locale={ru}
-                      className="rounded-md border"
-                    />
-                    {row.subtask.deadline && (
-                      <div className="p-2 border-t">
-                        <button
-                          onClick={() => { onUpdateSubtask(row.subtask!.id, { deadline: null }); setDeadlinePopover(null); }}
-                          className="w-full text-xs text-destructive hover:bg-destructive/10 rounded px-2 py-1"
-                        >
-                          Убрать срок
-                        </button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
-              {row.type === "milestone" && row.milestone && (
-                <span className="text-[10px]">{format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru })}</span>
-              )}
-            </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Predecessor column */}
-            <div className="w-[42px] text-center shrink-0">
-              {row.type === "task" && row.task && entityId && (
-                <PredecessorPicker
-                  entityId={entityId}
-                  taskRows={taskRows}
-                  dependencies={dependencies}
-                  formatPredecessors={formatPredecessors}
-                  onCreateDependency={onCreateDependency}
-                  open={predPopover === entityId}
-                  onOpenChange={(v) => setPredPopover(v ? entityId! : null)}
-                />
-              )}
-            </div>
+            {isColVisible("predecessor") && (
+              <div style={{ width: colWidth("predecessor") }} className="text-center shrink-0">
+                {row.type === "task" && row.task && entityId && (
+                  <PredecessorPicker
+                    entityId={entityId}
+                    taskRows={taskRows}
+                    dependencies={dependencies}
+                    formatPredecessors={formatPredecessors}
+                    onCreateDependency={onCreateDependency}
+                    open={predPopover === entityId}
+                    onOpenChange={(v) => setPredPopover(v ? entityId! : null)}
+                  />
+                )}
+              </div>
+            )}
           </div>
         );
       })}
