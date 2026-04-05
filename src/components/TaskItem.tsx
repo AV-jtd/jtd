@@ -503,7 +503,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         style={{ color: parentGroup.color || '#3b82f6' }}
                         onClick={(e) => { e.stopPropagation(); onProjectClick?.(parentGroup.id); }}
                       >
-                        <span className="text-[11px]">{parentGroup.icon || '📁'}</span>
+                        <span className="text-[11px]">{parentGroup.icon && parentGroup.icon !== 'list' ? parentGroup.icon : '📁'}</span>
                         {parentGroup.name}
                       </span>
                       <span className="text-muted-foreground">/</span>
@@ -514,7 +514,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                     style={{ color: group.color || '#3b82f6' }}
                     onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
                   >
-                    {!parentGroup && <span className="text-[11px]">{group.icon || '📁'}</span>}
+                    {!parentGroup && <span className="text-[11px]">{group.icon && group.icon !== 'list' ? group.icon : '📁'}</span>}
                     {group.name}
                   </span>
                   {!group.parent_id && (
@@ -775,7 +775,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           task.group_id === g.id && "bg-primary/10 text-primary"
                         )}
                       >
-                        <span className="text-[11px] shrink-0">{g.icon || '📁'}</span>
+                        <span className="text-[11px] shrink-0">{g.icon && g.icon !== 'list' ? g.icon : '📁'}</span>
                         <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
                       </button>
                       {subs.map(sub => (
