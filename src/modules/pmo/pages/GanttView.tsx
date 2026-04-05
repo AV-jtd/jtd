@@ -911,6 +911,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         <div
           ref={scrollRef}
           className="flex-1 overflow-auto scrollbar-thin"
+          style={{ overscrollBehavior: "auto", touchAction: "pan-x pan-y" }}
           onScroll={(e) => {
             if (isSyncingScroll.current) return;
             isSyncingScroll.current = true;
