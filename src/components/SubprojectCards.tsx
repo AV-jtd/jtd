@@ -228,8 +228,8 @@ function DashboardTaskRow({ task, userName, variant, drift }: {
       </span>
       {drift !== undefined && (
         <span className={cn(
-          "text-[9px] font-mono font-semibold shrink-0",
-          drift > 0 ? "text-destructive" : "text-emerald-500"
+          "text-[9px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
         )}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
