@@ -352,7 +352,7 @@ export default function AppSidebar({
               "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
               depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
               activeGroupId === group.id
-                ? "bg-sidebar-active text-sidebar-fg"
+                ? "bg-sidebar-active/10 text-sidebar-active font-semibold border-l-2 border-sidebar-active"
                 : "text-sidebar-fg/80 hover:bg-sidebar-hover"
             )}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
@@ -608,7 +608,7 @@ export default function AppSidebar({
           className={cn(
             "flex items-center gap-3 flex-1 px-2 py-2 rounded-lg text-sm transition-colors",
             activeTagFilters.includes(t.id)
-              ? "bg-sidebar-active text-sidebar-fg"
+              ? "bg-sidebar-active/10 text-sidebar-active font-semibold"
               : "text-sidebar-fg/80 hover:bg-sidebar-hover"
           )}
         >
