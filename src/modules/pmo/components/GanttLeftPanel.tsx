@@ -68,6 +68,8 @@ interface GanttLeftPanelProps {
   width: number;
   allProjects: TaskGroup[];
   dependencies?: Dependency[];
+  columns: GanttColumnConfig[];
+  onColumnsChange: (cols: GanttColumnConfig[]) => void;
   onMilestoneClick: (ms: Milestone) => void;
   onAddTask: (projectId: string, title: string) => void;
   onAddSubproject: (parentId: string, name: string) => void;
