@@ -11,9 +11,10 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
+import BulkTaskDialog from "@/components/BulkTaskDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow, DEFAULT_COLUMNS, type GanttColumnConfig } from "@/modules/pmo/components/GanttLeftPanel";
 import { useUserSetting } from "@/hooks/useUserSettings";
@@ -796,6 +797,15 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 </button>
               }
             />
+            <BulkTaskDialog
+              projectId={selectedProjectId}
+              projectName={rootProjects.find(p => p.id === selectedProjectId)?.name}
+            >
+              <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <Sparkles className="h-3 w-3" />
+                <span className="hidden sm:inline">Пакетно</span>
+              </button>
+            </BulkTaskDialog>
           </>
         )}
 

@@ -1129,6 +1129,118 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
     }
 
 
+    // === BULK GENERATE TASKS for existing project ===
+    if (action === "bulk_generate_tasks") {
+      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers } = context;
+
+      const existingInfo = bulkExisting?.length
+        ? `\nУже существующие задачи (НЕ дублируй):\n${bulkExisting.map((t: string) => `- ${t}`).join("\n")}`
+        : "";
+
+      const subprojectInfo = bulkSubprojects?.length
+        ? `\nПодпроекты: ${bulkSubprojects.join(", ")}`
+        : "";
+
+      const usersInfo = bulkUsers?.length
+        ? `\nУчастники: ${bulkUsers.map((u: any) => u.name).join(", ")}`
+        : "";
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по управлению проектами. Сгенерируй список задач для проекта на основе описания пользователя.
+
+Правила:
+- Группируй задачи по этапам/категориям (groups)
+- Каждая задача конкретная и выполнимая (глагол + объект)
+- deadline_offset_days — через сколько дней от сегодня дедлайн
+- priority: 1=высокий, 2=средний, 3=низкий (необязательно)
+- Если есть подпроекты, используй их названия как группы
+- НЕ дублируй существующие задачи
+- 5-20 задач оптимально
+- Отвечай только через tool call
+
+Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}`,
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "generate_bulk_tasks",
+                description: "Сгенерировать пакет задач для проекта",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    groups: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string", description: "Название группы/этапа" },
+                          tasks: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                title: { type: "string" },
+                                deadline_offset_days: { type: "number" },
+                                priority: { type: "number" },
+                              },
+                              required: ["title"],
+                              additionalProperties: false,
+                            },
+                          },
+                        },
+                        required: ["name", "tasks"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["groups"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "generate_bulk_tasks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: "payment_required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ groups: parsed.groups }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === SMART ACTION: LLM-based intent detection with all tools ===
     if (action === "smart") {
       // First, try non-streaming with tool_choice auto

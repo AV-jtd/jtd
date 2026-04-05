@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard from "./AiInsightsCard";
+import BulkTaskDialog from "./BulkTaskDialog";
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
@@ -791,13 +792,22 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           />
         )}
 
-        <TaskCreateBar
-          inputRef={inputRef}
-          activeView={activeView}
-          activeGroupId={activeGroupId}
-          availableUsers={availableUsers}
-          onCreateTask={handleCreateTask}
-        />
+        <div className="flex items-center gap-1">
+          <TaskCreateBar
+            inputRef={inputRef}
+            activeView={activeView}
+            activeGroupId={activeGroupId}
+            availableUsers={availableUsers}
+            onCreateTask={handleCreateTask}
+          />
+          {activeView === "group" && activeGroupId && (
+            <BulkTaskDialog projectId={activeGroupId} projectName={groups.find(g => g.id === activeGroupId)?.name}>
+              <button className="shrink-0 h-10 w-10 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted transition-colors" title="Пакетное создание">
+                <Sparkles className="h-4 w-4" />
+              </button>
+            </BulkTaskDialog>
+          )}
+        </div>
 
         {/* Subprojects dashboard */}
         {activeView === "group" && activeGroupId && (
