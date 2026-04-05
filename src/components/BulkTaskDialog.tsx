@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, ListPlus, Loader2, Check, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchTaskTemplates } from "@/lib/taskTemplates";
 import { useTaskGroups, useTaskMutations, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -104,6 +105,12 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
         .filter(g => g.parent_id === selectedGroupId)
         .map(g => g.name);
 
+      // Fetch contextual templates from same project
+      const childIds = groups.filter(g => g.parent_id === selectedGroupId).map(g => g.id);
+      const taskTemplates = selectedGroupId !== "__none__"
+        ? await fetchTaskTemplates(selectedGroupId, [selectedGroupId, ...childIds])
+        : [];
+
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: prompt,
@@ -114,6 +121,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
             existingTasks,
             subprojects,
             users: users.map(u => ({ id: u.id, name: u.display_name || u.email })),
+            taskTemplates,
           },
         },
       });
