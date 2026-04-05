@@ -182,12 +182,23 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 
         for (const task of group.tasks) {
           if (!task.selected) continue;
-          await addTask.mutateAsync({
+          const result = await addTask.mutateAsync({
             title: task.title,
             group_id: targetGroupId,
             deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
             task_type: "standard",
           });
+
+          // Create subtasks if AI suggested them (from templates)
+          if (task.subtasks?.length && result?.id) {
+            for (let si = 0; si < task.subtasks.length; si++) {
+              await supabase.from("subtasks").insert({
+                task_id: result.id,
+                title: task.subtasks[si],
+                position: si,
+              });
+            }
+          }
           created++;
         }
       }
