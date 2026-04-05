@@ -1,6 +1,6 @@
 import { type Task, type TaskGroup, useAvailableUsers } from "@/hooks/useTasks";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
 interface GanttTooltipProps {
@@ -19,16 +19,27 @@ export default function GanttTooltip({ task, project, children, progress, disabl
 
   if (disabled) return <>{children}</>;
 
+  const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
+  const driftDays = hasDrift
+    ? differenceInCalendarDays(parseISO(task.deadline!), parseISO(task.original_deadline!))
+    : 0;
+
   return (
-    <TooltipProvider delayDuration={400}>
+    <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent side="top" className="max-w-64 p-2 space-y-1 text-xs">
-          <div className="font-medium truncate">{task.title}</div>
-          <div className="text-muted-foreground">
+        <TooltipContent side="top" className="max-w-sm p-2.5 space-y-1.5 text-xs" sideOffset={8}>
+          <div className="font-medium leading-tight">{task.title}</div>
+          {task.description && (
+            <div className="text-muted-foreground text-[11px] leading-tight line-clamp-3">{task.description}</div>
+          )}
+          <div className="text-muted-foreground text-[10px]">
             {project.icon && project.icon !== "list" ? `${project.icon} ` : ""}{project.name}
           </div>
-          <div className="flex items-center gap-3 text-muted-foreground">
+          <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+            {task.start_at && (
+              <span>🚀 {format(parseISO(task.start_at), "d MMM", { locale: ru })}</span>
+            )}
             {task.deadline && (
               <span>📅 {format(parseISO(task.deadline), "d MMM yyyy", { locale: ru })}</span>
             )}
@@ -47,9 +58,9 @@ export default function GanttTooltip({ task, project, children, progress, disabl
               <span className="text-[10px] text-muted-foreground">{Math.round(progress)}%</span>
             </div>
           )}
-          {task.original_deadline && task.deadline && task.original_deadline !== task.deadline && (
-            <div className="text-[10px] text-muted-foreground">
-              Базовый: {format(parseISO(task.original_deadline), "d MMM", { locale: ru })}
+          {hasDrift && (
+            <div className={`text-[10px] font-medium ${driftDays > 0 ? "text-amber-500" : "text-emerald-500"}`}>
+              {driftDays > 0 ? "⚠️" : "✅"} Перенос: {format(parseISO(task.original_deadline!), "d MMM", { locale: ru })} → {format(parseISO(task.deadline!), "d MMM", { locale: ru })} ({driftDays > 0 ? "+" : ""}{driftDays}д)
             </div>
           )}
         </TooltipContent>
