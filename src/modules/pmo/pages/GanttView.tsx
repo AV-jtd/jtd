@@ -11,9 +11,10 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
+import BulkTaskDialog from "@/components/BulkTaskDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
 import GanttLeftPanel, { type GanttRow, DEFAULT_COLUMNS, type GanttColumnConfig } from "@/modules/pmo/components/GanttLeftPanel";
 import { useUserSetting } from "@/hooks/useUserSettings";
