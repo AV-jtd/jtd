@@ -201,7 +201,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     <div
       ref={ref}
       className="shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin"
-      style={{ width }}
+      style={{ width, overscrollBehavior: "auto", touchAction: "pan-y" }}
       onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
     >
       {/* Header */}
