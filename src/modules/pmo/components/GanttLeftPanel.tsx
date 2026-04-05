@@ -2,13 +2,34 @@ import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** Column configuration */
+export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor";
+
+export interface GanttColumnConfig {
+  key: GanttColumnKey;
+  label: string;
+  visible: boolean;
+  width: number;
+  minWidth: number;
+}
+
+export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
+  { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
+  { key: "name", label: "Задача", visible: true, width: 0, minWidth: 100 }, // flex
+  { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
+  { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
+  { key: "deadline", label: "Срок", visible: true, width: 50, minWidth: 42 },
+  { key: "duration", label: "Дни", visible: true, width: 36, minWidth: 30 },
+  { key: "predecessor", label: "Пред.", visible: true, width: 42, minWidth: 36 },
+];
 
 export type GanttRow = {
   type: "project" | "task" | "milestone" | "summary" | "subtask";
