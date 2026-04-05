@@ -1072,19 +1072,19 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       const color = row.project.color || "#3b82f6";
                       return (
                         <div
-                          className="absolute top-3.5 rounded-sm h-3 opacity-50 group/proj"
+                          className="absolute top-[13px] rounded-full h-2.5 opacity-70 group/proj"
                           style={{ left, width, backgroundColor: color }}
                           onMouseUp={() => handleBarMouseUp(row.project.id, "project")}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
                             <div
-                              className="h-full rounded-sm opacity-80"
+                              className="h-full rounded-full opacity-80"
                               style={{ width: `${row.progress}%`, backgroundColor: color }}
                             />
                           )}
                           {/* Bookend markers */}
-                          <div className="absolute -left-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
-                          <div className="absolute -right-px top-0 w-0.5 h-3 -translate-y-0.5" style={{ backgroundColor: color }} />
+                          <div className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-1 h-4 rounded-full" style={{ backgroundColor: color }} />
+                          <div className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-4 rounded-full" style={{ backgroundColor: color }} />
                           {/* Project dependency connector */}
                           <div
                             className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/proj:opacity-100 cursor-crosshair z-20 transition-opacity"
@@ -1133,7 +1133,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                           {/* Baseline (original deadline) */}
                           {baseline && (
                             <div
-                              className="absolute top-5 rounded-sm h-1 opacity-25"
+                              className="absolute top-[26px] rounded-full h-1 opacity-20"
                               style={{ left: baseline.left, width: baseline.width, backgroundColor: "hsl(var(--muted-foreground))" }}
                             />
                           )}
@@ -1141,8 +1141,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                           <GanttTooltip task={task} project={row.project} progress={progress} disabled={popoverOpenTaskId === task.id}>
                             <div
                               className={cn(
-                                "absolute top-1.5 rounded-[4px] h-6 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-sm",
-                                isOverdue && "opacity-80",
+                                "absolute top-2 rounded-md h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-[0_1px_3px_rgba(0,0,0,0.15)]",
+                                isOverdue && "opacity-85",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
                                 dimmed && "opacity-20"
@@ -1154,7 +1154,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                               {/* Progress fill inside bar */}
                               {progress > 0 && progress < 100 && (
                                 <div
-                                  className="absolute inset-0 rounded-sm opacity-30 bg-white"
+                                  className="absolute inset-0 rounded-md opacity-25 bg-white"
                                   style={{ width: `${progress}%` }}
                                 />
                               )}
@@ -1162,7 +1162,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                               {/* Drift overlay — amber highlight for deadline extension */}
                               {driftOverlay && !dragState && (
                                 <div
-                                  className="absolute top-0 bottom-0 rounded-r-[4px] bg-amber-500/40 pointer-events-none"
+                                  className="absolute top-0 bottom-0 rounded-r-md bg-amber-500/40 pointer-events-none"
                                   style={{ left: driftOverlay.left, width: driftOverlay.width }}
                                   title={`Перенос: ${task.original_deadline ? format(parseISO(task.original_deadline), "d MMM", { locale: ru }) : ""} → ${task.deadline ? format(parseISO(task.deadline), "d MMM", { locale: ru }) : ""}`}
                                 >
@@ -1276,8 +1276,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       return (
                         <div
                           className={cn(
-                            "absolute top-2.5 rounded-[3px] h-4 opacity-60",
-                            st.is_completed && "opacity-30"
+                            "absolute top-[11px] rounded h-3.5 opacity-55",
+                            st.is_completed && "opacity-25"
                           )}
                           style={{
                             left,
