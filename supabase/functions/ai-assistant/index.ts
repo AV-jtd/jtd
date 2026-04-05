@@ -95,7 +95,7 @@ ${activeProjectInfo}
 - "важно" → 2 (средний)
 - "когда будет время", "не срочно" → 3 (низкий)
 
-Всегда отвечай на русском языке. Будь кратким и конкретным.`;
+Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}`;
 
     if (action === "parse_task") {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
