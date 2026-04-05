@@ -53,7 +53,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const [leftPanelWidth, setLeftPanelWidth] = useState(380);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
