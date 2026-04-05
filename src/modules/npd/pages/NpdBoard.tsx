@@ -21,7 +21,7 @@ import {
   Loader2, Folder, FolderPlus, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
-  GanttChart, Grid3X3, PanelLeft, User, Tag, Sparkles,
+  GanttChart, Grid3X3, PanelLeft, User, Tag, Sparkles, TrendingUp,
 } from "lucide-react";
 import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";

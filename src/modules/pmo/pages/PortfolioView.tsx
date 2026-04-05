@@ -2,7 +2,7 @@ import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, 
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3, Archive } from "lucide-react";
+import { Search, X, Clock, Filter, User, ArrowUpDown, ArrowUp, ArrowDown, ChevronRight, ChevronDown, GanttChart, LayoutList, Layers, FolderOpen, RefreshCw, BarChart3, Archive, TrendingUp } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
