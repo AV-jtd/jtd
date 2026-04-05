@@ -521,7 +521,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
           )}
 
           {stats.driftTasks.length > 0 && (
-            <Section title="Deadline Drift" count={stats.driftTasks.length} variant="warning">
+            <Section title="Сдвиг сроков" count={stats.driftTasks.length} variant="warning">
               <div className="space-y-1">
                 {stats.driftTasks.map(({ task: t, driftDays }) => (
                   <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} drift={driftDays} />

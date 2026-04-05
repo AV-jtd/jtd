@@ -2006,7 +2006,7 @@ function ProjectCard({
                       ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
                       : "bg-muted text-muted-foreground border-border"
                   )}>
-                    <Clock className="h-2.5 w-2.5" />
+                    <CalendarDays className="h-2.5 w-2.5" />
                     {nearestDeadlineInfo.date}
                   </span>
                 </TooltipTrigger>
