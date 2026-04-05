@@ -188,14 +188,61 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   const [predPopover, setPredPopover] = useState<string | null>(null);
   const [durationEdit, setDurationEdit] = useState<{ taskId: string; value: string } | null>(null);
   const [colSettingsOpen, setColSettingsOpen] = useState(false);
+  const [colDragIdx, setColDragIdx] = useState<number | null>(null);
+  const [colDropIdx, setColDropIdx] = useState<number | null>(null);
+  const colResizeRef = useRef<{ key: GanttColumnKey; startX: number; startW: number } | null>(null);
 
   const isColVisible = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.visible ?? true;
   const colWidth = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.width ?? 40;
 
   const toggleColumn = (key: GanttColumnKey) => {
-    if (key === "name") return; // name always visible
+    if (key === "name") return;
     onColumnsChange(columnConfig.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   };
+
+  const handleColDragStart = (e: React.DragEvent, idx: number) => {
+    setColDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  };
+  const handleColDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setColDropIdx(idx);
+  };
+  const handleColDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (colDragIdx === null || colDragIdx === targetIdx) { setColDragIdx(null); setColDropIdx(null); return; }
+    const reordered = [...columnConfig];
+    const [moved] = reordered.splice(colDragIdx, 1);
+    reordered.splice(targetIdx, 0, moved);
+    onColumnsChange(reordered);
+    setColDragIdx(null);
+    setColDropIdx(null);
+  };
+
+  const handleColResizeStart = (e: React.MouseEvent, key: GanttColumnKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const col = columnConfig.find(c => c.key === key);
+    if (!col) return;
+    colResizeRef.current = { key, startX: e.clientX, startW: col.width };
+    const onMove = (ev: MouseEvent) => {
+      if (!colResizeRef.current) return;
+      const delta = ev.clientX - colResizeRef.current.startX;
+      const minW = col.minWidth;
+      const newW = Math.max(minW, colResizeRef.current.startW + delta);
+      onColumnsChange(columnConfig.map(c => c.key === key ? { ...c, width: newW } : c));
+    };
+    const onUp = () => {
+      colResizeRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const resetColumns = () => onColumnsChange(DEFAULT_COLUMNS);
 
   const getTaskDuration = (task: Task): number | null => {
     const start = task.start_at ? parseISO(task.start_at) : null;
