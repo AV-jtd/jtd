@@ -122,7 +122,7 @@
   }
 
   /* Fix iOS Safari rubber-banding conflicts */
-  .overflow-y-auto, .overflow-auto {
+  .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
