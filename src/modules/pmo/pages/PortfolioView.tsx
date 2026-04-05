@@ -600,9 +600,9 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                             {stats.driftCount > 0 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className={cn("flex items-center gap-1 text-[11px] shrink-0 ml-1", stats.maxDriftDays > 0 ? "text-destructive" : "text-warning")}>
-                                    <RefreshCw className="h-3 w-3" />
-                                    {stats.driftCount} · {stats.maxDriftDays > 0 ? "+" : ""}{stats.maxDriftDays}д
+                                  <span className="inline-flex items-center gap-1 text-[11px] shrink-0 ml-1 px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
+                                    <TrendingUp className="h-3 w-3" />
+                                    {stats.maxDriftDays > 0 ? "+" : ""}{stats.maxDriftDays}д
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-xs">{stats.driftCount} переносов, макс. сдвиг {stats.maxDriftDays > 0 ? "+" : ""}{stats.maxDriftDays}д</TooltipContent>

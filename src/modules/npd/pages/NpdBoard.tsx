@@ -2055,9 +2055,9 @@ function ProjectCard({
           {project.stats.overdue > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center gap-0.5 text-destructive font-medium">
+                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
                   <AlertTriangle className="h-3 w-3" />
-                  {project.stats.overdue} · {maxOverdueDays}д
+                  {project.stats.overdue}·{maxOverdueDays}д
                 </span>
               </TooltipTrigger>
               <TooltipContent className="text-xs">{project.stats.overdue} просроченных, макс. {maxOverdueDays}д</TooltipContent>
@@ -2066,8 +2066,8 @@ function ProjectCard({
           {driftTasks.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center gap-0.5 text-amber-500 font-medium">
-                  <Clock className="h-3 w-3" />
+                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
+                  <TrendingUp className="h-3 w-3" />
                   {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
                 </span>
               </TooltipTrigger>
