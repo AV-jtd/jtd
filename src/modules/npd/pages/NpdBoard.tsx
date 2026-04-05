@@ -1912,201 +1912,223 @@ function ProjectCard({
     );
   }
 
-  // Determine border-left indicator color
-  const borderIndicator = project.stats.overdue > 0
-    ? "border-l-[3px] border-l-destructive"
-    : driftTasks.length > 0
-    ? "border-l-[3px] border-l-amber-500"
-    : "";
+  // Status-based color tokens
+  const isCompleted = timingStatus === "completed";
+  const isOverdue = timingStatus === "overdue";
+  const isAtRisk = timingStatus === "at-risk";
+
+  // Progress bar color by status
+  const progressBarColor = isCompleted
+    ? "bg-emerald-500"
+    : isOverdue
+    ? "bg-destructive"
+    : isAtRisk
+    ? "bg-amber-500"
+    : "bg-primary";
+
+  // Border style by status
+  const borderStyle = isOverdue
+    ? "border-destructive/30"
+    : isAtRisk
+    ? "border-amber-500/30"
+    : "border-border";
+
+  // Left accent bar color (only for non-on-track)
+  const accentColor = isCompleted
+    ? "bg-emerald-500"
+    : isOverdue
+    ? "bg-destructive"
+    : isAtRisk
+    ? "bg-amber-500"
+    : null;
 
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card shadow-sm transition-all",
-        borderIndicator,
+        "rounded-lg border bg-card shadow-sm transition-all",
+        borderStyle,
         isDragging ? "shadow-lg" : "hover:shadow-md",
-        detailOpen && "shadow-md"
+        detailOpen && "shadow-md",
+        isCompleted && "opacity-60"
       )}
     >
-      <div
-        onClick={() => setDetailOpen(!detailOpen)}
-        className="cursor-pointer px-3 py-2.5"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <ProjectIcon project={project} />
-          <h4 className="flex-1 text-xs font-semibold text-foreground">{project.name}</h4>
-          {/* Multi-gate indicator on primary card */}
-          {project.allGateKeys.length > 1 && (
-            <div className="flex items-center gap-0.5 shrink-0">
-              {project.allGateKeys.map((gk) => {
-                const gate = NPD_GATES.find((g) => g.key === gk);
-                if (!gate) return null;
-                return (
-                  <Tooltip key={gk}>
-                    <TooltipTrigger asChild>
-                      <div className={cn(
-                        "h-2 w-2 rounded-full",
-                        gate.color,
-                        gk === currentGate?.key ? "ring-1 ring-foreground/30" : "opacity-40"
-                      )} />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">{gate.short} · {gate.shortTitle}</TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          )}
-          {timingStatus === "overdue" && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
-              <AlertTriangle className="h-2.5 w-2.5" />
-              {overdueTasks.length}·{maxOverdueDays}д
-            </span>
-          )}
-          {timingStatus === "at-risk" && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40 shrink-0">
-              <TrendingUp className="h-2.5 w-2.5" />
-              +{maxDriftDays}д
-            </span>
-          )}
-          {timingStatus === "completed" && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-muted text-muted-foreground border border-border shrink-0">✓</span>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); setDetailOpen(!detailOpen); }}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
-            title="Детали проекта"
-          >
-            {detailOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          </button>
-          {dragHandleProps && (
-            <button
-              {...dragHandleProps}
-              onClick={(e) => e.stopPropagation()}
-              className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
-            >
-              <GripVertical className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Stream badges — hidden on board for cleanliness */}
-
-        {/* Progress */}
-        {project.stats.total > 0 && (
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-[10px] mb-0.5">
-              <span className="text-muted-foreground">{project.stats.completed}/{project.stats.total} задач</span>
-              <span className="font-medium text-foreground">{progress}%</span>
-            </div>
-            <div className="h-1 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
-            </div>
+      <div className="flex">
+        {/* Left accent bar — half height, only for non-on-track */}
+        {accentColor && (
+          <div className="flex items-center py-2 pl-1.5">
+            <div className={cn("w-[3px] rounded-sm self-stretch max-h-[50%]", accentColor)} />
           </div>
         )}
 
-        {/* Stats row: participants + deadline + milestones */}
-        <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
-          {/* Participant avatars */}
-          {(() => {
-            const allMembers = members.filter(m => m.role !== "viewer");
-            if (allMembers.length === 0 && !assigneeName) {
-              if (project.stats.total === 0) return <span className="text-muted-foreground">Нет задач</span>;
-              return null;
-            }
-            const shown = allMembers.slice(0, 4);
-            const rest = allMembers.length - shown.length;
-            return (
-              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                {/* Assignee name always visible */}
-                {assigneeName && (
-                  <span className="text-muted-foreground font-medium whitespace-nowrap">{assigneeName}</span>
-                )}
-                {/* Other participant avatars (excluding assignee) */}
-                {(() => {
-                  const others = allMembers.filter(m => m.role !== "assignee");
-                  const othersShown = others.slice(0, 3);
-                  const othersRest = others.length - othersShown.length;
-                  if (othersShown.length === 0) return null;
+        <div
+          onClick={() => setDetailOpen(!detailOpen)}
+          className={cn("cursor-pointer flex-1 min-w-0", accentColor ? "px-2 py-2.5" : "px-3 py-2.5")}
+        >
+          {/* Row 1: Title + controls */}
+          <div className="flex items-center gap-2 min-w-0">
+            <ProjectIcon project={project} />
+            <h4 className={cn(
+              "flex-1 text-[13px] font-medium text-foreground leading-tight",
+              isCompleted && "line-through"
+            )}>
+              {isCompleted && "✅ "}{project.name}
+            </h4>
+            {/* Multi-gate dots */}
+            {project.allGateKeys.length > 1 && (
+              <div className="flex items-center gap-0.5 shrink-0">
+                {project.allGateKeys.map((gk) => {
+                  const gate = NPD_GATES.find((g) => g.key === gk);
+                  if (!gate) return null;
                   return (
-                    <div className="flex -space-x-1.5">
-                      {othersShown.map((m) => {
-                        const u = availableUsers.find(u => u.id === m.user_id);
-                        const name = u?.display_name || u?.email?.split("@")[0] || "?";
-                        const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                        return (
-                          <Tooltip key={m.user_id}>
-                            <TooltipTrigger asChild>
-                              <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-semibold border-2 border-card bg-muted text-muted-foreground">
-                                {initials}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">{name}</TooltipContent>
-                          </Tooltip>
-                        );
-                      })}
-                      {othersRest > 0 && (
-                        <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-muted text-muted-foreground border-2 border-card">
-                          +{othersRest}
-                        </div>
-                      )}
-                    </div>
+                    <Tooltip key={gk}>
+                      <TooltipTrigger asChild>
+                        <div className={cn(
+                          "h-2 w-2 rounded-full",
+                          gate.color,
+                          gk === currentGate?.key ? "ring-1 ring-foreground/30" : "opacity-40"
+                        )} />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">{gate.short} · {gate.shortTitle}</TooltipContent>
+                    </Tooltip>
                   );
-                })()}
+                })}
               </div>
-            );
-          })()}
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setDetailOpen(!detailOpen); }}
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+            >
+              {detailOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+            {dragHandleProps && (
+              <button
+                {...dragHandleProps}
+                onClick={(e) => e.stopPropagation()}
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-          <div className="flex-1" />
+          {/* Row 2: Status subtitle */}
+          {!isCompleted && (isOverdue || isAtRisk) && (
+            <div className={cn(
+              "mt-1 text-[11px] flex items-center gap-1",
+              isOverdue ? "text-destructive" : "text-amber-600 dark:text-amber-400"
+            )}>
+              {isOverdue ? (
+                <>
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>Просрочено · {overdueTasks.length} задач · {maxOverdueDays}д</span>
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-3 w-3" />
+                  <span>Drift +{maxDriftDays}д{nearestDeadlineInfo ? ` · срок ${nearestDeadlineInfo.date}` : ""}</span>
+                </>
+              )}
+            </div>
+          )}
+          {isCompleted && (
+            <div className="mt-1 text-[11px] flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span>Завершён{project.nearestDeadline ? ` ${format(new Date(project.nearestDeadline), "d MMM", { locale: ru })}` : ""}</span>
+            </div>
+          )}
+          {!isCompleted && !isOverdue && !isAtRisk && nearestDeadlineInfo && (
+            <div className="mt-1 text-[11px] flex items-center gap-1 text-muted-foreground">
+              <CalendarDays className="h-3 w-3" />
+              <span>В графике · срок {nearestDeadlineInfo.date}</span>
+            </div>
+          )}
 
-          {nearestDeadlineInfo && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={cn(
-                  "inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium border shrink-0",
-                  nearestDeadlineInfo.isOverdue
-                    ? "bg-destructive/10 text-destructive border-destructive/20"
-                    : nearestDeadlineInfo.isUrgent
-                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
-                    : "bg-muted text-muted-foreground border-border"
-                )}>
-                  <CalendarDays className="h-2.5 w-2.5" />
-                  {nearestDeadlineInfo.date}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                Ближайший дедлайн: {nearestDeadlineInfo.diffDays < 0 ? `просрочен на ${Math.abs(nearestDeadlineInfo.diffDays)}д` : `через ${nearestDeadlineInfo.diffDays}д`}
-              </TooltipContent>
-            </Tooltip>
+          {/* Row 3: Progress bar */}
+          {project.stats.total > 0 && (
+            <div className="mt-2">
+              <div className="h-[3px] rounded-sm bg-muted overflow-hidden">
+                <div className={cn("h-full rounded-sm transition-all", progressBarColor)} style={{ width: `${progress}%` }} />
+              </div>
+            </div>
           )}
-          {overdueMilestones.length > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
-                  <Diamond className="h-2.5 w-2.5" />
-                  {overdueMilestones.length} просроч.
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {overdueMilestones.map(m => m.name).join(", ")}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {nextMilestone && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
-                  <Diamond className="h-2.5 w-2.5" />
-                  {format(new Date(nextMilestone.planned_date), "d MMM", { locale: ru })}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                Веха: {nextMilestone.name}
-              </TooltipContent>
-            </Tooltip>
-          )}
+
+          {/* Row 4: Assignee + avatars left, stats right */}
+          <div className="flex items-center gap-1.5 mt-2 text-[11px]">
+            {/* Left side: assignee name + participant avatars */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              {assigneeName && (
+                <span className="text-foreground font-medium whitespace-nowrap">{assigneeName}</span>
+              )}
+              {(() => {
+                const others = members.filter(m => m.role !== "viewer" && m.role !== "assignee");
+                const othersShown = others.slice(0, 3);
+                const othersRest = others.length - othersShown.length;
+                if (othersShown.length === 0) return null;
+                return (
+                  <div className="flex -space-x-1.5">
+                    {othersShown.map((m) => {
+                      const u = availableUsers.find(u => u.id === m.user_id);
+                      const name = u?.display_name || u?.email?.split("@")[0] || "?";
+                      const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                      return (
+                        <Tooltip key={m.user_id}>
+                          <TooltipTrigger asChild>
+                            <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-semibold border-2 border-card bg-muted text-muted-foreground">
+                              {initials}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{name}</TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                    {othersRest > 0 && (
+                      <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-muted text-muted-foreground border-2 border-card">
+                        +{othersRest}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Right side: task count + percentage */}
+            {project.stats.total > 0 && (
+              <span className="text-muted-foreground shrink-0">
+                {project.stats.completed}/{project.stats.total} · {progress}%
+              </span>
+            )}
+
+            {/* Milestone indicators */}
+            {overdueMilestones.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
+                    <Diamond className="h-2.5 w-2.5" />
+                    {overdueMilestones.length}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Просроч. вехи: {overdueMilestones.map(m => m.name).join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {nextMilestone && !overdueMilestones.length && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-primary/10 text-primary border border-primary/20 shrink-0">
+                    <Diamond className="h-2.5 w-2.5" />
+                    {format(new Date(nextMilestone.planned_date), "d MMM", { locale: ru })}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Веха: {nextMilestone.name}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </div>
-
       {/* Expandable dashboard-style detail */}
       {detailOpen && group && (
         <div className="border-t border-border animate-fade-in px-2.5 pb-3 pt-2.5 space-y-3 overflow-hidden">
