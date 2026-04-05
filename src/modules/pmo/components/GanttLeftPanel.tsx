@@ -599,7 +599,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                       </div>
                     ) : row.type === "subtask" && row.subtask ? (
                       <div className="flex items-center gap-1 min-w-0 flex-1">
-                        <button onClick={() => onToggleSubtask(row.subtask!.id, !row.subtask!.is_completed)} className={cn("h-3 w-3 rounded-sm border shrink-0 flex items-center justify-center", row.subtask.is_completed ? "bg-primary/60 border-primary/60" : "border-muted-foreground/30")}>
+                        <button onClick={() => onToggleSubtask(row.subtask!.id, !row.subtask!.is_completed)} className={cn("h-3 w-3 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors", row.subtask.is_completed ? "bg-primary/60 border-primary/60" : "border-muted-foreground/30")}>
                           {row.subtask.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
                         </button>
                         <TooltipProvider delayDuration={300}>
@@ -614,8 +614,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => commitEdit(row.task!)} onKeyDown={e => { if (e.key === "Enter") commitEdit(row.task!); if (e.key === "Escape") setEditingField(null); }} className="w-full h-5 text-xs bg-background border border-border rounded px-1 outline-none" />
                       ) : (
                         <div className="flex items-center gap-1 min-w-0 flex-1">
-                          <button onClick={() => onToggleTask(row.task!.id, !row.task!.is_completed)} className={cn("h-3.5 w-3.5 rounded-sm border shrink-0 flex items-center justify-center", row.task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40")}>
-                            {row.task.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                          <button onClick={() => onToggleTask(row.task!.id, !row.task!.is_completed)} className={cn("h-3.5 w-3.5 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors", row.task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40")}>
+                            {row.task.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
                           </button>
                           <TooltipProvider delayDuration={300}>
                             <Tooltip>
