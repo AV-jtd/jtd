@@ -1,11 +1,12 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LayoutDashboard, GanttChart, Flag, Users, BarChart3 } from "lucide-react";
+import { LayoutDashboard, GanttChart, Flag, Users, BarChart3, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModuleLayout from "@/components/ModuleLayout";
 import PortfolioView from "@/modules/pmo/pages/PortfolioView";
 import GanttView from "@/modules/pmo/pages/GanttView";
 import MilestonesView from "@/modules/pmo/pages/MilestonesView";
+import ReportsView from "@/modules/pmo/pages/ReportsView";
 
 type PmoView = "portfolio" | "gantt" | "milestones" | "resources" | "reports";
 
@@ -76,7 +77,7 @@ export default function PmoLayout() {
       <div className={cn(activeView !== "gantt" && "hidden")}><GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} /></div>
       {activeView === "milestones" && <MilestonesView />}
       {activeView === "resources" && <PlaceholderView icon={Users} title="Ресурсы" description="Загрузка участников и распределение по проектам" />}
-      {activeView === "reports" && <PlaceholderView icon={BarChart3} title="Отчёты" description="Burndown, SPI/CPI, отклонения от плана" />}
+      {activeView === "reports" && <ReportsView />}
     </ModuleLayout>
   );
 }
