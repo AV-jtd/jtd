@@ -124,12 +124,12 @@ export function SubprojectDashboardCard({ group, allTasks, allGroups, users, onN
         </div>
         <div className="flex items-center gap-2 shrink-0 text-[10px] text-muted-foreground">
           {stats.overdue > 0 && (
-            <span className="flex items-center gap-0.5 text-destructive font-medium">
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
               <AlertTriangle className="h-3 w-3" />{stats.overdue}
             </span>
           )}
           {stats.driftCount > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-500 font-medium">
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
               <ArrowRightLeft className="h-3 w-3" />{stats.driftCount}
             </span>
           )}
@@ -228,8 +228,8 @@ function DashboardTaskRow({ task, userName, variant, drift }: {
       </span>
       {drift !== undefined && (
         <span className={cn(
-          "text-[9px] font-mono font-semibold shrink-0",
-          drift > 0 ? "text-destructive" : "text-emerald-500"
+          "text-[9px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
         )}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>

@@ -65,8 +65,8 @@ function MatrixTaskRowInner({
 
         {hasDrift && driftDays !== 0 && (
           <span className={cn(
-            "text-[8px] font-mono font-bold shrink-0 px-1 rounded",
-            driftDays > 0 ? "text-destructive bg-destructive/10" : "text-primary bg-primary/10"
+            "text-[8px] font-mono font-bold shrink-0 px-1 py-0.5 rounded border border-dashed",
+            driftDays > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
           )}>
             {driftDays > 0 ? `+${driftDays}д` : `${driftDays}д`}
           </span>

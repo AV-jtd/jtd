@@ -21,7 +21,7 @@ import {
   Loader2, Folder, FolderPlus, Inbox, CheckCircle2, GripVertical,
   Plus, AlertTriangle, Clock, ChevronDown, ChevronRight, Check,
   Search, X, Filter, Eye, EyeOff, Layers, LayoutGrid, ListChecks, Expand,
-  GanttChart, Grid3X3, PanelLeft, User, Tag, Sparkles,
+  GanttChart, Grid3X3, PanelLeft, User, Tag, Sparkles, TrendingUp, CalendarDays,
 } from "lucide-react";
 import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -2006,7 +2006,7 @@ function ProjectCard({
                       ? "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
                       : "bg-muted text-muted-foreground border-border"
                   )}>
-                    <Clock className="h-2.5 w-2.5" />
+                    <CalendarDays className="h-2.5 w-2.5" />
                     {nearestDeadlineInfo.date}
                   </span>
                 </TooltipTrigger>
@@ -2055,9 +2055,9 @@ function ProjectCard({
           {project.stats.overdue > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center gap-0.5 text-destructive font-medium">
+                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
                   <AlertTriangle className="h-3 w-3" />
-                  {project.stats.overdue} · {maxOverdueDays}д
+                  {project.stats.overdue}·{maxOverdueDays}д
                 </span>
               </TooltipTrigger>
               <TooltipContent className="text-xs">{project.stats.overdue} просроченных, макс. {maxOverdueDays}д</TooltipContent>
@@ -2066,8 +2066,8 @@ function ProjectCard({
           {driftTasks.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center gap-0.5 text-amber-500 font-medium">
-                  <Clock className="h-3 w-3" />
+                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
+                  <TrendingUp className="h-3 w-3" />
                   {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
                 </span>
               </TooltipTrigger>
