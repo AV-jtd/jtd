@@ -1459,9 +1459,11 @@ export function useTaskMutations() {
           await supabase.from("group_members").insert({
             group_id: taskData.group_id,
             user_id: participantUserId,
-            role: "member",
+            role: "participant",
             invited_by: user!.id,
           });
+          // Auto-add to parent project
+          await ensureParentMembership(taskData.group_id, participantUserId);
         }
       }
 
