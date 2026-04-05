@@ -58,7 +58,28 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
-  const [ganttColumns, setGanttColumns] = useState<GanttColumnConfig[]>(DEFAULT_COLUMNS);
+  const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
+
+  // Merge saved config with defaults (in case new columns were added)
+  const ganttColumns = useMemo(() => {
+    const merged: GanttColumnConfig[] = [];
+    const savedMap = new Map(savedCols.map(c => [c.key, c]));
+    const defaultMap = new Map(DEFAULT_COLUMNS.map(c => [c.key, c]));
+    // Preserve saved order
+    for (const sc of savedCols) {
+      const def = defaultMap.get(sc.key);
+      if (def) merged.push({ ...def, visible: sc.visible, width: sc.width });
+    }
+    // Add any new default columns not in saved
+    for (const dc of DEFAULT_COLUMNS) {
+      if (!savedMap.has(dc.key)) merged.push(dc);
+    }
+    return merged;
+  }, [savedCols]);
+
+  const setGanttColumns = useCallback((cols: GanttColumnConfig[]) => {
+    setSavedCols(cols);
+  }, [setSavedCols]);
 
   // Milestone dialog state
   const [msDialogOpen, setMsDialogOpen] = useState(false);
