@@ -1056,7 +1056,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                     key={i}
                     className={cn(
                       "relative border-b border-border/30",
-                      row.type === "project" && "bg-muted/10",
+                      row.type === "project" && "bg-muted/40",
+                      row.type === "subtask" && "bg-transparent",
                       hoveredRow === i && "bg-muted/30"
                     )}
                     style={{ height: ROW_HEIGHT }}
