@@ -770,6 +770,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           rowHeight={ROW_HEIGHT}
           width={leftPanelWidth}
           allProjects={groups}
+          dependencies={allDependencies}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
@@ -797,6 +798,19 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           }}
           onMoveProject={(projectId, newParentId) => {
             updateGroupParent.mutate({ id: projectId, parent_id: newParentId });
+          }}
+          onReorderTask={(taskId, newPosition, newGroupId) => {
+            updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
+          }}
+          onCreateDependency={(predecessorId, successorId) => {
+            setDepDialogState({
+              predecessorId,
+              successorId,
+              predecessorLabel: getEntityLabel(predecessorId, "task"),
+              successorLabel: getEntityLabel(successorId, "task"),
+              predecessorEntityType: "task",
+              successorEntityType: "task",
+            });
           }}
           collapsedProjects={collapsedProjects}
           onToggleCollapse={toggleCollapse}
