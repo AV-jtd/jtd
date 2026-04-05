@@ -342,16 +342,31 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     >
       {/* Header */}
       <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10" style={{ height: 52 }}>
-        <div className="w-7 text-center shrink-0 text-[10px]">#</div>
-        <div className="flex-1 px-1 min-w-0">Задача</div>
-        <div className="w-8 text-center shrink-0">
-          <User className="h-3 w-3 mx-auto" />
+        {isColVisible("rowNum") && <div style={{ width: colWidth("rowNum") }} className="text-center shrink-0 text-[10px]">#</div>}
+        <div className="flex-1 px-1 min-w-0 flex items-center gap-1">
+          <span>Задача</span>
+          <Popover open={colSettingsOpen} onOpenChange={setColSettingsOpen}>
+            <PopoverTrigger asChild>
+              <button className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/50 hover:text-muted-foreground ml-auto shrink-0" title="Настройки колонок">
+                <Settings2 className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" side="bottom" align="start">
+              <div className="text-[10px] font-medium text-muted-foreground mb-1.5">Колонки</div>
+              {columnConfig.filter(c => c.key !== "name").map(c => (
+                <label key={c.key} className="flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-muted/50 rounded px-1">
+                  <input type="checkbox" checked={c.visible} onChange={() => toggleColumn(c.key)} className="rounded" />
+                  {c.label}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
         </div>
-        <div className="w-[50px] text-center shrink-0 text-[10px]">Старт</div>
-        <div className="w-[50px] text-center shrink-0 text-[10px]">Срок</div>
-        <div className="w-[42px] text-center shrink-0 text-[10px]" title="Предшественник">
-          <Link2 className="h-3 w-3 mx-auto" />
-        </div>
+        {isColVisible("assignee") && <div style={{ width: colWidth("assignee") }} className="text-center shrink-0"><User className="h-3 w-3 mx-auto" /></div>}
+        {isColVisible("start") && <div style={{ width: colWidth("start") }} className="text-center shrink-0 text-[10px]">Старт</div>}
+        {isColVisible("deadline") && <div style={{ width: colWidth("deadline") }} className="text-center shrink-0 text-[10px]">Срок</div>}
+        {isColVisible("duration") && <div style={{ width: colWidth("duration") }} className="text-center shrink-0 text-[10px]" title="Длительность (дни)">Дни</div>}
+        {isColVisible("predecessor") && <div style={{ width: colWidth("predecessor") }} className="text-center shrink-0 text-[10px]" title="Предшественник"><Link2 className="h-3 w-3 mx-auto" /></div>}
       </div>
 
       {rows.map((row, i) => {
