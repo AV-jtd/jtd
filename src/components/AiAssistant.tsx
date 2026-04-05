@@ -232,11 +232,12 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
       }
 
       // Smart action: LLM decides intent
+      const ctx = await getContext();
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: text,
           context: {
-            ...getContext(),
+            ...ctx,
             history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           },
           action: "smart",
