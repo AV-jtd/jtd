@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fetchProfile(newSession.user.id, id, isMounted);
         }, 0);
       } else {
+        currentUserIdRef.current = null;
         setIsApproved(false);
         setIsAdmin(false);
         setLoading(false);
