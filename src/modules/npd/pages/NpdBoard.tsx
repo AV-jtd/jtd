@@ -1883,7 +1883,7 @@ function ProjectCard({
       >
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
-          <h4 className="flex-1 text-xs font-medium text-muted-foreground truncate">{project.name}</h4>
+          <h4 className="flex-1 text-xs font-medium text-muted-foreground">{project.name}</h4>
           {gateTaskStats && gateTaskStats.active > 0 && (
             <span className={cn(
               "text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0",
