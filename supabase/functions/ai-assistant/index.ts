@@ -1140,7 +1140,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
 
     // === BULK GENERATE TASKS for existing project ===
     if (action === "bulk_generate_tasks") {
-      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers } = context;
+      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers, taskTemplates: bulkTemplates } = context;
 
       const existingInfo = bulkExisting?.length
         ? `\nУже существующие задачи (НЕ дублируй):\n${bulkExisting.map((t: string) => `- ${t}`).join("\n")}`
