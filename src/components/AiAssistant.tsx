@@ -3,7 +3,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useVisibleTags, useAvailableUsers, useTaskMutations } from "@/hooks/useTasks";
+import { useTaskGroups, useVisibleTags, useAvailableUsers, useTaskMutations, useTasks } from "@/hooks/useTasks";
+import { fetchTaskTemplates, type TaskTemplate } from "@/lib/taskTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAiConversation } from "@/hooks/useAiConversation";
@@ -173,14 +174,35 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
     }
   }, [messages]);
 
-  const getContext = useCallback(() => ({
-    projects: groups.filter(g => !g.parent_id).map(g => ({ id: g.id, name: g.name, project_type: (g as any).project_type })),
-    users: users.map(u => ({ id: u.id, name: u.display_name || u.email || "?" })),
-    tags: tags.map(t => ({ id: t.id, name: t.name })),
-    module: currentModule,
-    activeProjectId: moduleContext?.activeProjectId || null,
-    activeProjectName: moduleContext?.activeProjectName || null,
-  }), [groups, users, tags, currentModule, moduleContext]);
+  const { data: allTasks = [] } = useTasks();
+  const templatesCache = useRef<{ key: string; templates: TaskTemplate[] } | null>(null);
+
+  const getContext = useCallback(async () => {
+    const activeProjectId = moduleContext?.activeProjectId || null;
+
+    // Fetch templates for active project (cached per project)
+    let taskTemplates: TaskTemplate[] = [];
+    if (activeProjectId) {
+      const cacheKey = activeProjectId;
+      if (templatesCache.current?.key === cacheKey) {
+        taskTemplates = templatesCache.current.templates;
+      } else {
+        const childIds = groups.filter(g => g.parent_id === activeProjectId).map(g => g.id);
+        taskTemplates = await fetchTaskTemplates(activeProjectId, [activeProjectId, ...childIds]);
+        templatesCache.current = { key: cacheKey, templates: taskTemplates };
+      }
+    }
+
+    return {
+      projects: groups.filter(g => !g.parent_id).map(g => ({ id: g.id, name: g.name, project_type: (g as any).project_type })),
+      users: users.map(u => ({ id: u.id, name: u.display_name || u.email || "?" })),
+      tags: tags.map(t => ({ id: t.id, name: t.name })),
+      module: currentModule,
+      activeProjectId,
+      activeProjectName: moduleContext?.activeProjectName || null,
+      taskTemplates,
+    };
+  }, [groups, users, tags, currentModule, moduleContext]);
 
   const isCrmImport = (text: string): boolean => {
     if (currentModule !== "crm") return false;
