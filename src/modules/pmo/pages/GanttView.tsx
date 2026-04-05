@@ -841,6 +841,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           width={leftPanelWidth}
           allProjects={groups}
           dependencies={allDependencies}
+          columns={ganttColumns}
+          onColumnsChange={setGanttColumns}
           onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
           onAddTask={(projectId, title) => {
             addTask.mutate({ title, group_id: projectId });
