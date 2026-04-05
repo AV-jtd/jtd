@@ -139,6 +139,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const handleDecompose = useCallback(async () => {
     setLoadingDecompose(true);
     try {
+      // Fetch contextual templates from same project
+      let taskTemplates: { title: string; subtasks: string[] }[] = [];
+      if (task.group_id) {
+        const { fetchTaskTemplates } = await import("@/lib/taskTemplates");
+        taskTemplates = await fetchTaskTemplates(task.group_id);
+      }
+
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: task.title,
@@ -147,6 +154,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             title: task.title,
             description: task.description,
             existingSubtasks: subtasks.map(s => s.title),
+            taskTemplates,
           },
         },
       });
