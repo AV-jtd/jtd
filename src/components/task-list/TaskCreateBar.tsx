@@ -205,6 +205,9 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
               />
             </PopoverContent>
           </Popover>
+
+          {/* Bulk create slot */}
+          {bulkButton}
         </div>
       </div>
 
