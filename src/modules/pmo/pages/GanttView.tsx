@@ -1354,46 +1354,58 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
               });
 
               // Auto-set successor's start_at and deadline based on predecessor's end date
-              if (type === "FS") {
-                let predEndDate: Date | null = null;
+              // Works for FS (Finish-Start) and SS (Start-Start) dependency types
+              if (type === "FS" || type === "SS") {
+                let predRefDate: Date | null = null;
                 if (depDialogState.predecessorEntityType === "task") {
                   const predTask = allTasks.find(t => t.id === depDialogState.predecessorId);
-                  if (predTask?.deadline) predEndDate = parseISO(predTask.deadline);
+                  if (predTask) {
+                    if (type === "FS") {
+                      // Use deadline, fallback to start_at, fallback to created_at
+                      predRefDate = predTask.deadline ? parseISO(predTask.deadline)
+                        : predTask.start_at ? parseISO(predTask.start_at)
+                        : parseISO(predTask.created_at);
+                    } else {
+                      // SS: use start_at or created_at
+                      predRefDate = predTask.start_at ? parseISO(predTask.start_at) : parseISO(predTask.created_at);
+                    }
+                  }
                 } else if (depDialogState.predecessorEntityType === "milestone") {
                   const predMs = allMilestones.find(m => m.id === depDialogState.predecessorId);
-                  if (predMs) predEndDate = parseISO(predMs.planned_date);
+                  if (predMs) predRefDate = parseISO(predMs.planned_date);
                 } else if (depDialogState.predecessorEntityType === "project") {
                   const gTasks = allTasks.filter(t => t.group_id === depDialogState.predecessorId);
                   const latest = gTasks.reduce((max, t) => {
-                    const d = t.deadline || t.created_at;
+                    const d = t.deadline || t.start_at || t.created_at;
                     return d > max ? d : max;
                   }, "");
-                  if (latest) predEndDate = parseISO(latest);
+                  if (latest) predRefDate = parseISO(latest);
                 }
 
-                if (predEndDate) {
-                  const newStart = addDays(predEndDate, Math.max(lagDays, 1));
+                if (predRefDate) {
+                  const newStart = type === "FS"
+                    ? addDays(predRefDate, Math.max(lagDays, 1))
+                    : addDays(predRefDate, lagDays); // SS: same start + lag
 
                   if (depDialogState.successorEntityType === "task") {
                     const succTask = allTasks.find(t => t.id === depDialogState.successorId);
                     if (succTask) {
-                      const oldStart = succTask.start_at ? parseISO(succTask.start_at) : parseISO(succTask.created_at);
-                      // Only move successor forward, never backward
-                      if (newStart > oldStart) {
-                        const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
-                        if (succTask.deadline) {
-                          const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
-                          updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
-                        } else {
-                          updates.deadline = addDays(newStart, 1).toISOString();
-                        }
-                        updateTask.mutate(updates);
+                      const oldStart = succTask.start_at ? parseISO(succTask.start_at) : null;
+                      const updates: any = { id: succTask.id, start_at: newStart.toISOString() };
+
+                      if (succTask.deadline && oldStart) {
+                        const duration = differenceInCalendarDays(parseISO(succTask.deadline), oldStart);
+                        updates.deadline = addDays(newStart, Math.max(duration, 1)).toISOString();
+                      } else if (!succTask.deadline) {
+                        // No deadline set — auto-assign one
+                        updates.deadline = addDays(newStart, 1).toISOString();
                       }
+                      // Always update — don't skip when successor has no dates yet
+                      updateTask.mutate(updates);
                     }
                   } else if (depDialogState.successorEntityType === "milestone") {
                     const succMs = allMilestones.find(m => m.id === depDialogState.successorId);
                     const oldPlanned = succMs ? parseISO(succMs.planned_date) : null;
-                    // Only move milestone forward, never backward
                     if (!oldPlanned || newStart > oldPlanned) {
                       updateMilestone.mutate({ id: depDialogState.successorId, planned_date: newStart.toISOString() });
                     }

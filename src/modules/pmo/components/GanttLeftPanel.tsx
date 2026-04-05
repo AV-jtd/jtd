@@ -700,50 +700,15 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             {/* Predecessor column */}
             <div className="w-[42px] text-center shrink-0">
               {row.type === "task" && row.task && entityId && (
-                <Popover open={predPopover === entityId} onOpenChange={(v) => setPredPopover(v ? entityId! : null)}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className={cn(
-                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate max-w-full",
-                        formatPredecessors(entityId) ? "text-primary hover:bg-primary/10" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
-                      )}
-                      title={formatPredecessors(entityId) || "Добавить предшественника"}
-                    >
-                      {formatPredecessors(entityId) || <Link2 className="h-2.5 w-2.5 mx-auto" />}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" side="left" align="start" sideOffset={4}>
-                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Выбрать предшественника</div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {taskRows
-                        .filter(tr => tr.task!.id !== entityId)
-                        .map(tr => {
-                          const isLinked = dependencies.some(
-                            d => d.predecessor_id === tr.task!.id && d.successor_id === entityId
-                          );
-                          return (
-                            <button
-                              key={tr.task!.id}
-                              onClick={() => {
-                                if (!isLinked && onCreateDependency) {
-                                  onCreateDependency(tr.task!.id, entityId!);
-                                }
-                                setPredPopover(null);
-                              }}
-                              className={cn(
-                                "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate flex items-center gap-1.5",
-                                isLinked && "bg-primary/10 text-primary"
-                              )}
-                              disabled={isLinked}
-                            >
-                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 text-right">{tr.rowNumber}</span>
-                              <span className="truncate">{tr.task!.title}</span>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <PredecessorPicker
+                  entityId={entityId}
+                  taskRows={taskRows}
+                  dependencies={dependencies}
+                  formatPredecessors={formatPredecessors}
+                  onCreateDependency={onCreateDependency}
+                  open={predPopover === entityId}
+                  onOpenChange={(v) => setPredPopover(v ? entityId! : null)}
+                />
               )}
             </div>
           </div>
