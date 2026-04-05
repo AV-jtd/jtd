@@ -67,6 +67,89 @@ interface GanttLeftPanelProps {
   onScroll?: (scrollTop: number) => void;
 }
 
+/** Predecessor picker with search and multi-select */
+function PredecessorPicker({
+  entityId, taskRows, dependencies, formatPredecessors, onCreateDependency, open, onOpenChange,
+}: {
+  entityId: string;
+  taskRows: GanttRow[];
+  dependencies: Dependency[];
+  formatPredecessors: (id: string) => string;
+  onCreateDependency?: (predId: string, succId: string) => void;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const displayText = formatPredecessors(entityId);
+
+  const filtered = taskRows
+    .filter(tr => tr.task!.id !== entityId)
+    .filter(tr => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return tr.task!.title.toLowerCase().includes(q) || String(tr.rowNumber).includes(q);
+    });
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(""); }}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate max-w-full",
+            displayText ? "text-primary hover:bg-primary/10" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+          )}
+          title={displayText || "Добавить предшественника"}
+        >
+          {displayText || <Link2 className="h-2.5 w-2.5 mx-auto" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-1" side="left" align="start" sideOffset={4}>
+        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Выбрать предшественников</div>
+        <div className="px-1 pb-1">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Поиск по названию или №..."
+              className="h-7 text-xs pl-7 pr-2"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="max-h-52 overflow-y-auto space-y-0.5">
+          {filtered.length === 0 && (
+            <div className="text-xs text-muted-foreground px-2 py-2 text-center">Ничего не найдено</div>
+          )}
+          {filtered.map(tr => {
+            const isLinked = dependencies.some(
+              d => d.predecessor_id === tr.task!.id && d.successor_id === entityId
+            );
+            return (
+              <button
+                key={tr.task!.id}
+                onClick={() => {
+                  if (!isLinked && onCreateDependency) {
+                    onCreateDependency(tr.task!.id, entityId);
+                  }
+                }}
+                className={cn(
+                  "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate flex items-center gap-1.5",
+                  isLinked && "bg-primary/10 text-primary"
+                )}
+              >
+                {isLinked && <Check className="h-3 w-3 shrink-0 text-primary" />}
+                <span className="text-[10px] text-muted-foreground w-4 shrink-0 text-right">{tr.rowNumber}</span>
+                <span className="truncate">{tr.task!.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, dependencies = [], onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
