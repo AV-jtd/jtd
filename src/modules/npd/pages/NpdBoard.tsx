@@ -2004,14 +2004,54 @@ function ProjectCard({
           </div>
         )}
 
-        {/* Single stats row: assignee + deadline + milestones */}
-        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] flex-wrap">
-          {assigneeName && (
-            <span className="flex items-center gap-1 text-muted-foreground shrink-0">
-              <User className="h-3 w-3 shrink-0" />
-              <span className="truncate max-w-[80px]">{assigneeName}</span>
-            </span>
-          )}
+        {/* Stats row: participants + deadline + milestones */}
+        <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
+          {/* Participant avatars */}
+          {(() => {
+            const allMembers = members.filter(m => m.role !== "viewer");
+            if (allMembers.length === 0 && !assigneeName) {
+              if (project.stats.total === 0) return <span className="text-muted-foreground">Нет задач</span>;
+              return null;
+            }
+            const shown = allMembers.slice(0, 4);
+            const rest = allMembers.length - shown.length;
+            return (
+              <div className="flex items-center shrink-0">
+                <div className="flex -space-x-1.5">
+                  {shown.map((m) => {
+                    const u = availableUsers.find(u => u.id === m.user_id);
+                    const name = u?.display_name || u?.email?.split("@")[0] || "?";
+                    const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                    const isAssignee = m.role === "assignee";
+                    return (
+                      <Tooltip key={m.user_id}>
+                        <TooltipTrigger asChild>
+                          <div className={cn(
+                            "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-semibold border-2 border-card",
+                            isAssignee ? "bg-primary text-primary-foreground ring-1 ring-primary/30" : "bg-muted text-muted-foreground"
+                          )}>
+                            {initials}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">{name}{isAssignee ? " (ответственный)" : ""}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                  {rest > 0 && (
+                    <div className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium bg-muted text-muted-foreground border-2 border-card">
+                      +{rest}
+                    </div>
+                  )}
+                </div>
+                {assigneeName && allMembers.length <= 1 && (
+                  <span className="text-muted-foreground ml-1.5">{assigneeName}</span>
+                )}
+              </div>
+            );
+          })()}
+
+          <div className="flex-1" />
+
           {nearestDeadlineInfo && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -2057,9 +2097,6 @@ function ProjectCard({
                 Веха: {nextMilestone.name}
               </TooltipContent>
             </Tooltip>
-          )}
-          {project.stats.total === 0 && !assigneeName && (
-            <span className="text-muted-foreground">Нет задач</span>
           )}
         </div>
       </div>
