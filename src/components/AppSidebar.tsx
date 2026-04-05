@@ -1177,16 +1177,16 @@ export default function AppSidebar({
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-sidebar-fg/8">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-fg/5 transition-colors">
-          <div className="h-8 w-8 rounded-full bg-sidebar-fg/15 flex items-center justify-center text-sm font-semibold">
+      <div className="p-3 border-t border-border/50">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-hover transition-colors">
+          <div className="h-8 w-8 rounded-full bg-sidebar-hover flex items-center justify-center text-sm font-semibold text-sidebar-fg">
             {user?.email?.[0]?.toUpperCase()}
           </div>
           <span className="text-sm truncate flex-1 text-sidebar-fg/80">{user?.email}</span>
-          <Link to="/settings" className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
+          <Link to="/settings" className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-hover transition-all">
             <Settings className="h-4 w-4" />
           </Link>
-          <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
+          <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-hover transition-all">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
