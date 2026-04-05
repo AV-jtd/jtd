@@ -1830,6 +1830,15 @@ function ProjectCard({
     .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
     .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }));
 
+  // Max overdue days (single worst task)
+  const maxOverdueDays = overdueTasks.reduce((max, t) => {
+    const days = Math.ceil((now.getTime() - new Date(t.deadline!).getTime()) / (1000 * 60 * 60 * 24));
+    return days > max ? days : max;
+  }, 0);
+
+  // Max drift days (single worst deviation)
+  const maxDriftDays = driftTasks.reduce((max, { driftDays }) => Math.abs(driftDays) > Math.abs(max) ? driftDays : max, 0);
+
   const timingStatus = getTimingStatus(allProjectTasks);
 
   // Milestones for this project (from cache)
