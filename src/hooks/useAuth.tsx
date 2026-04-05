@@ -65,8 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
 
       if (newSession?.user) {
+        const previousUserId = currentUserIdRef.current;
         const isInitialSession = event === "INITIAL_SESSION";
-        const isUserChanged = newSession.user.id !== user?.id;
+        const isUserChanged = previousUserId !== newSession.user.id;
+        currentUserIdRef.current = newSession.user.id;
 
         // Only block the app on first load or real user switch, not on tab refocus/token refresh
         if (isInitialSession || isUserChanged) {
