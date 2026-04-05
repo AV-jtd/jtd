@@ -1912,10 +1912,18 @@ function ProjectCard({
     );
   }
 
+  // Determine border-left indicator color
+  const borderIndicator = project.stats.overdue > 0
+    ? "border-l-[3px] border-l-destructive"
+    : driftTasks.length > 0
+    ? "border-l-[3px] border-l-amber-500"
+    : "";
+
   return (
     <div
       className={cn(
         "rounded-lg border border-border bg-card shadow-sm transition-all",
+        borderIndicator,
         isDragging ? "shadow-lg" : "hover:shadow-md",
         detailOpen && "shadow-md"
       )}
@@ -1926,7 +1934,7 @@ function ProjectCard({
       >
         <div className="flex items-center gap-2 min-w-0">
           <ProjectIcon project={project} />
-          <h4 className="flex-1 text-xs font-semibold text-foreground truncate">{project.name}</h4>
+          <h4 className="flex-1 text-xs font-semibold text-foreground">{project.name}</h4>
           {/* Multi-gate indicator on primary card */}
           {project.allGateKeys.length > 1 && (
             <div className="flex items-center gap-0.5 shrink-0">
@@ -2045,16 +2053,26 @@ function ProjectCard({
             </span>
           )}
           {project.stats.overdue > 0 && (
-            <span className="flex items-center gap-0.5 text-destructive">
-              <AlertTriangle className="h-3 w-3" />
-              {project.stats.overdue}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-0.5 text-destructive font-medium">
+                  <AlertTriangle className="h-3 w-3" />
+                  {project.stats.overdue} · {maxOverdueDays}д
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{project.stats.overdue} просроченных, макс. {maxOverdueDays}д</TooltipContent>
+            </Tooltip>
           )}
           {driftTasks.length > 0 && (
-            <span className="flex items-center gap-0.5 text-amber-500">
-              <Clock className="h-3 w-3" />
-              {driftTasks.length} drift
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-0.5 text-amber-500 font-medium">
+                  <Clock className="h-3 w-3" />
+                  {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{driftTasks.length} переносов, макс. сдвиг {maxDriftDays > 0 ? "+" : ""}{maxDriftDays}д</TooltipContent>
+            </Tooltip>
           )}
           {project.stats.total === 0 && !assigneeName && (
             <span className="text-muted-foreground">Нет задач</span>
