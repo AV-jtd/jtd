@@ -492,7 +492,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               description: p.description || null,
               stats: { total: s.total, completed: s.completed, overdue: s.overdue },
               driftCount: s.driftCount,
-              totalDelayDays: s.totalDelayDays,
+              totalDelayDays: s.maxDriftDays,
               milestoneStats: ms.length > 0 ? {
                 total: ms.length,
                 completed: ms.filter(m => m.status === "completed").length,
@@ -511,7 +511,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
               description: p.description || null,
               stats: { total: s.total, completed: s.completed, overdue: s.overdue },
               driftCount: s.driftCount,
-              totalDelayDays: s.totalDelayDays,
+              totalDelayDays: s.maxDriftDays,
               milestoneStats: ms.length > 0 ? {
                 total: ms.length,
                 completed: ms.filter(m => m.status === "completed").length,
