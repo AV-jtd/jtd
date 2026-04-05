@@ -278,8 +278,8 @@ ${activeProjectInfo}
     }
 
     if (action === "decompose_task") {
-      const { title, description, existingSubtasks } = context;
-
+      const { title, description, existingSubtasks, taskTemplates } = context;
+      const templatesCtx = formatTaskTemplates(taskTemplates);
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -297,7 +297,8 @@ ${activeProjectInfo}
 - 3-8 шагов оптимально
 - Шаги в логическом порядке выполнения
 - Не дублируй существующие подзадачи
-- Отвечай только через tool call, без текста`,
+- Если есть шаблоны из проекта — повторяй их структуру для аналогичных задач
+- Отвечай только через tool call, без текста${templatesCtx}`,
             },
             {
               role: "user",
