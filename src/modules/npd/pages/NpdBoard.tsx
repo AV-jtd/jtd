@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type ComponentProps } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Diamond } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -2130,8 +2131,16 @@ function ProjectCard({
         </div>
       </div>
       {/* Expandable dashboard-style detail */}
+      <AnimatePresence initial={false}>
       {detailOpen && group && (
-        <div className="border-t border-border animate-fade-in px-2.5 pb-3 pt-2.5 space-y-3 overflow-hidden">
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          className="border-t border-border overflow-hidden"
+        >
+          <div className="px-2.5 pb-3 pt-2.5 space-y-3">
           {/* Quick action icons */}
           <div className="flex items-center gap-1">
             <button
@@ -2303,8 +2312,10 @@ function ProjectCard({
           {activeTasks.length === 0 && subprojectsWithTasks.length === 0 && (
             <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
-        </div>
+          </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Floating project detail sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
