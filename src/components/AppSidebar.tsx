@@ -703,8 +703,8 @@ export default function AppSidebar({
             className={cn(
               "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
               activeView === item.id && !activeGroupId
-                ? "bg-sidebar-fg/15 text-sidebar-fg shadow-sm"
-                : "text-sidebar-fg/70 hover:bg-sidebar-fg/10 hover:text-sidebar-fg"
+                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
             )}
           >
             <item.icon className="h-4 w-4" />
