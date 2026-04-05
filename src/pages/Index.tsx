@@ -125,7 +125,7 @@ export default function Index() {
       <div className="flex flex-1 min-w-0 overflow-hidden">
         {isMobile ? (
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetContent side="left" className="p-0 w-72 bg-sidebar-bg border-sidebar-fg/5">
+            <SheetContent side="left" className="p-0 w-72 bg-sidebar-bg border-border">
               <AppSidebar {...sidebarProps} />
             </SheetContent>
           </Sheet>

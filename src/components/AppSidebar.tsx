@@ -352,7 +352,7 @@ export default function AppSidebar({
               "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
               depth === 0 ? "px-3 py-2" : "px-3 py-1.5",
               activeGroupId === group.id
-                ? "bg-sidebar-active text-sidebar-fg"
+                ? "bg-sidebar-active/10 text-sidebar-active font-semibold border-l-2 border-sidebar-active"
                 : "text-sidebar-fg/80 hover:bg-sidebar-hover"
             )}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
@@ -608,7 +608,7 @@ export default function AppSidebar({
           className={cn(
             "flex items-center gap-3 flex-1 px-2 py-2 rounded-lg text-sm transition-colors",
             activeTagFilters.includes(t.id)
-              ? "bg-sidebar-active text-sidebar-fg"
+              ? "bg-sidebar-active/10 text-sidebar-active font-semibold"
               : "text-sidebar-fg/80 hover:bg-sidebar-hover"
           )}
         >
@@ -683,7 +683,7 @@ export default function AppSidebar({
   );
 
   return (
-    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-sidebar-fg/5 max-md:border-r-0">
+    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-border max-md:border-r-0">
       {/* Header */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">
@@ -703,8 +703,8 @@ export default function AppSidebar({
             className={cn(
               "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
               activeView === item.id && !activeGroupId
-                ? "bg-sidebar-fg/15 text-sidebar-fg shadow-sm"
-                : "text-sidebar-fg/70 hover:bg-sidebar-fg/10 hover:text-sidebar-fg"
+                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
             )}
           >
             <item.icon className="h-4 w-4" />
@@ -1177,16 +1177,16 @@ export default function AppSidebar({
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-sidebar-fg/8">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-fg/5 transition-colors">
-          <div className="h-8 w-8 rounded-full bg-sidebar-fg/15 flex items-center justify-center text-sm font-semibold">
+      <div className="p-3 border-t border-border/50">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-sidebar-hover transition-colors">
+          <div className="h-8 w-8 rounded-full bg-sidebar-hover flex items-center justify-center text-sm font-semibold text-sidebar-fg">
             {user?.email?.[0]?.toUpperCase()}
           </div>
           <span className="text-sm truncate flex-1 text-sidebar-fg/80">{user?.email}</span>
-          <Link to="/settings" className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
+          <Link to="/settings" className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-hover transition-all">
             <Settings className="h-4 w-4" />
           </Link>
-          <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-fg/10 transition-all">
+          <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-fg/40 hover:text-sidebar-fg hover:bg-sidebar-hover transition-all">
             <LogOut className="h-4 w-4" />
           </button>
         </div>

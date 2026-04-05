@@ -32,21 +32,17 @@ function applyAccentHue(hue: string) {
   // Accent
   root.style.setProperty("--accent", `${h} 91% 95%`);
   root.style.setProperty("--accent-foreground", `${h} 91% 40%`);
-  // Sidebar
-  root.style.setProperty("--sidebar-bg", `${h} 91% 60%`);
-  root.style.setProperty("--sidebar-hover", `${h} 91% 55%`);
-  root.style.setProperty("--sidebar-active", `${h} 91% 50%`);
-  root.style.setProperty("--sidebar-muted", `${h} 91% 70%`);
-  root.style.setProperty("--sidebar-background", `${h} 91% 60%`);
-  root.style.setProperty("--sidebar-primary-foreground", `${h} 91% 60%`);
-  root.style.setProperty("--sidebar-accent", `${h} 91% 55%`);
-  root.style.setProperty("--sidebar-border", `${h} 91% 55%`);
+  // Sidebar — neutral in light mode
+  root.style.setProperty("--sidebar-active", `${h} 91% 60%`);
+  root.style.setProperty("--sidebar-primary", `${h} 91% 60%`);
+  root.style.setProperty("--sidebar-ring", `${h} 91% 60%`);
   root.style.setProperty("--tag-blue", `${h} 91% 60%`);
 
   // Dark mode overrides
   const isDark = root.classList.contains("dark");
   if (isDark) {
     root.style.setProperty("--sidebar-bg", `222 47% 8%`);
+    root.style.setProperty("--sidebar-fg", `210 40% 98%`);
     root.style.setProperty("--sidebar-hover", `222 47% 12%`);
     root.style.setProperty("--sidebar-active", `${h} 91% 60%`);
     root.style.setProperty("--sidebar-background", `222 47% 8%`);
@@ -54,6 +50,14 @@ function applyAccentHue(hue: string) {
     root.style.setProperty("--sidebar-border", `${h} 91% 55%`);
     root.style.setProperty("--accent", `${h} 32% 17%`);
     root.style.setProperty("--accent-foreground", `210 40% 98%`);
+  } else {
+    // Light mode: neutral sidebar
+    root.style.setProperty("--sidebar-bg", `220 14% 96%`);
+    root.style.setProperty("--sidebar-fg", `220 20% 20%`);
+    root.style.setProperty("--sidebar-hover", `220 14% 91%`);
+    root.style.setProperty("--sidebar-background", `220 14% 96%`);
+    root.style.setProperty("--sidebar-accent", `220 14% 91%`);
+    root.style.setProperty("--sidebar-border", `220 13% 91%`);
   }
 }
 

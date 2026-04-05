@@ -983,7 +983,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                         <span>{format(col.date, "EEEEEE", { locale: ru })}</span>
                         <span className="font-medium">{col.label}</span>
                       </div>
-                    ) : col.label}
+                    ) : (
+                      <span>{col.label}{col.isToday ? " ◂" : ""}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -998,8 +1000,10 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 )} style={{ left: i * colWidth, width: colWidth, height: rows.length * ROW_HEIGHT }} />
               ))}
 
-              {/* Today line */}
-              <div className="absolute top-0 w-0.5 bg-primary z-20" style={{ left: todayOffset, height: rows.length * ROW_HEIGHT }} />
+              {/* Today line — prominent */}
+              <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: rows.length * ROW_HEIGHT }}>
+                <div className="w-[2px] h-full bg-primary" />
+              </div>
 
               {/* Dependency lines */}
               <GanttDependencyLines
@@ -1054,7 +1058,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                     key={i}
                     className={cn(
                       "relative border-b border-border/30",
-                      row.type === "project" && "bg-muted/10",
+                      row.type === "project" && "bg-muted/40",
+                      row.type === "subtask" && "bg-transparent",
                       hoveredRow === i && "bg-muted/30"
                     )}
                     style={{ height: ROW_HEIGHT }}
