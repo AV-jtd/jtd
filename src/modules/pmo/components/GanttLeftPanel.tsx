@@ -1,13 +1,13 @@
-import { useState, useRef, forwardRef } from "react";
+import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type GanttRow = {
   type: "project" | "task" | "milestone" | "summary" | "subtask";
@@ -21,19 +21,31 @@ export type GanttRow = {
   summaryStart?: Date;
   summaryEnd?: Date;
   progress?: number;
+  rowNumber?: number; // sequential task/subtask number
 };
 
 type AddingState = {
   projectId: string;
   entityType: "task" | "subproject" | "step";
-  taskId?: string; // for steps
+  taskId?: string;
 } | null;
+
+interface Dependency {
+  id: string;
+  predecessor_id: string;
+  successor_id: string;
+  dependency_type: string;
+  lag_days: number;
+  predecessor_entity_type: string;
+  successor_entity_type: string;
+}
 
 interface GanttLeftPanelProps {
   rows: GanttRow[];
   rowHeight: number;
   width: number;
   allProjects: TaskGroup[];
+  dependencies?: Dependency[];
   onMilestoneClick: (ms: Milestone) => void;
   onAddTask: (projectId: string, title: string) => void;
   onAddSubproject: (parentId: string, name: string) => void;
@@ -44,6 +56,8 @@ interface GanttLeftPanelProps {
   onToggleSubtask: (id: string, completed: boolean) => void;
   onMoveTask: (taskId: string, newGroupId: string) => void;
   onMoveProject: (projectId: string, newParentId: string | null) => void;
+  onReorderTask?: (taskId: string, newPosition: number, newGroupId: string) => void;
+  onCreateDependency?: (predecessorId: string, successorId: string) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
@@ -53,17 +67,22 @@ interface GanttLeftPanelProps {
 }
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
-  rows, rowHeight, width, allProjects, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  onMoveTask, onMoveProject, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+  rows, rowHeight, width, allProjects, dependencies = [], onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  onMoveTask, onMoveProject, onReorderTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [adding, setAdding] = useState<AddingState>(null);
   const [newTitle, setNewTitle] = useState("");
-  const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null); // projectId for type dropdown
-  const [assigneePopover, setAssigneePopover] = useState<string | null>(null); // taskId
-  const [deadlinePopover, setDeadlinePopover] = useState<string | null>(null); // taskId
+  const [showTypeMenu, setShowTypeMenu] = useState<string | null>(null);
+  const [assigneePopover, setAssigneePopover] = useState<string | null>(null);
+  const [deadlinePopover, setDeadlinePopover] = useState<string | null>(null);
+  const [predPopover, setPredPopover] = useState<string | null>(null); // for predecessor picker
+
+  // DnD state
+  const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
   const startEdit = (rowIndex: number, field: string, value: string) => {
     setEditingField({ rowIndex, field });
@@ -111,6 +130,73 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     setShowTypeMenu(null);
   };
 
+  // Build row number → id map for predecessor display
+  const rowNumberMap = new Map<string, number>();
+  rows.forEach(r => {
+    if (r.rowNumber !== undefined) {
+      const id = r.task?.id || r.subtask?.id || r.milestone?.id;
+      if (id) rowNumberMap.set(id, r.rowNumber);
+    }
+  });
+
+  // Get predecessors for a given entity
+  const getPredecessors = (entityId: string) => {
+    return dependencies.filter(d => d.successor_id === entityId);
+  };
+
+  // Format predecessor display
+  const formatPredecessors = (entityId: string) => {
+    const preds = getPredecessors(entityId);
+    if (preds.length === 0) return "";
+    return preds.map(p => {
+      const num = rowNumberMap.get(p.predecessor_id);
+      const suffix = p.dependency_type !== "FS" ? p.dependency_type : "";
+      const lag = p.lag_days !== 0 ? `${p.lag_days > 0 ? "+" : ""}${p.lag_days}` : "";
+      return `${num ?? "?"}${suffix}${lag}`;
+    }).join(", ");
+  };
+
+  // DnD handlers
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDragRowIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetIdx(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (dragRowIdx === null || dragRowIdx === targetIdx) {
+      setDragRowIdx(null);
+      setDropTargetIdx(null);
+      return;
+    }
+    const srcRow = rows[dragRowIdx];
+    const tgtRow = rows[targetIdx];
+    
+    if (srcRow?.type === "task" && srcRow.task && tgtRow && onReorderTask) {
+      // Determine target group and position
+      const targetGroupId = tgtRow.type === "project" ? tgtRow.project.id : tgtRow.project.id;
+      const targetPosition = tgtRow.task?.position ?? targetIdx;
+      onReorderTask(srcRow.task.id, targetPosition, targetGroupId);
+    }
+    setDragRowIdx(null);
+    setDropTargetIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragRowIdx(null);
+    setDropTargetIdx(null);
+  };
+
+  // Get all task rows for predecessor picker
+  const taskRows = rows.filter(r => r.type === "task" && r.task && r.rowNumber !== undefined);
+
   return (
     <div
       ref={ref}
@@ -120,12 +206,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     >
       {/* Header */}
       <div className="h-10 flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10">
-        <div className="flex-1 px-3">Задача</div>
-        <div className="w-9 px-0.5 text-center shrink-0">
+        <div className="w-7 text-center shrink-0 text-[10px]">#</div>
+        <div className="flex-1 px-1 min-w-0">Задача</div>
+        <div className="w-8 text-center shrink-0">
           <User className="h-3 w-3 mx-auto" />
         </div>
-        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Старт</div>
-        <div className="w-[52px] px-0.5 text-center shrink-0 text-[10px]">Срок</div>
+        <div className="w-[50px] text-center shrink-0 text-[10px]">Старт</div>
+        <div className="w-[50px] text-center shrink-0 text-[10px]">Срок</div>
+        <div className="w-[42px] text-center shrink-0 text-[10px]" title="Предшественник">
+          <Link2 className="h-3 w-3 mx-auto" />
+        </div>
       </div>
 
       {rows.map((row, i) => {
@@ -133,6 +223,9 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
           (row.type === "task" && row.task?.assigned_to !== filterAssignee) ||
           (row.type === "subtask" && row.subtask?.assigned_to !== filterAssignee)
         );
+        const entityId = row.task?.id || row.subtask?.id || row.milestone?.id;
+        const isDraggable = row.type === "task";
+        const isDropTarget = dropTargetIdx === i;
 
         return (
           <div
@@ -142,16 +235,33 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               row.type === "project" || row.type === "summary" ? "font-semibold text-foreground bg-muted/30" :
               row.type === "milestone" ? "text-primary font-medium italic" : "text-muted-foreground",
               dimmed && "opacity-30",
-              hoveredRow === i && "bg-muted/40"
+              hoveredRow === i && "bg-muted/40",
+              dragRowIdx === i && "opacity-30",
+              isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
             style={{ height: rowHeight }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
+            draggable={isDraggable}
+            onDragStart={isDraggable ? (e) => handleDragStart(e, i) : undefined}
+            onDragOver={(e) => handleDragOver(e, i)}
+            onDrop={(e) => handleDrop(e, i)}
+            onDragEnd={handleDragEnd}
           >
+            {/* Row number */}
+            <div className="w-7 text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
+              {isDraggable && (
+                <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
+              )}
+              {row.rowNumber !== undefined && (
+                <span>{row.rowNumber}</span>
+              )}
+            </div>
+
             {/* Name column */}
             <div
               className="flex-1 flex items-center gap-1 min-w-0 px-1"
-              style={{ paddingLeft: 8 + row.depth * 12 }}
+              style={{ paddingLeft: Math.max(2, row.depth * 10) }}
             >
               {(row.type === "project" || row.type === "summary") ? (
                 <>
@@ -166,13 +276,23 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                     )}
                   </button>
                   <span className="text-sm shrink-0">{row.project.icon && row.project.icon !== "list" ? row.project.icon : "📁"}</span>
-                  <span className="truncate">{row.project.name}</span>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate font-medium">{row.project.name}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs">
+                        {row.project.name}
+                        {row.progress !== undefined && <span className="ml-1 text-muted-foreground">({Math.round(row.progress)}%)</span>}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {row.progress !== undefined && (
                     <span className="text-[10px] text-muted-foreground ml-0.5 shrink-0">{Math.round(row.progress)}%</span>
                   )}
 
-                  {/* Move project to another parent */}
-                  {row.depth > 0 || !row.project.parent_id ? (
+                  {/* Move project */}
+                  {(row.depth > 0 || !row.project.parent_id) && (
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
@@ -207,9 +327,9 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         </div>
                       </PopoverContent>
                     </Popover>
-                  ) : null}
+                  )}
 
-                  {/* Context "+" with type dropdown */}
+                  {/* "+" menu */}
                   <div className="relative ml-auto shrink-0">
                     <button
                       onClick={(e) => {
@@ -242,7 +362,14 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               ) : row.type === "milestone" ? (
                 <div className="flex items-center gap-1.5 min-w-0 cursor-pointer" onClick={() => row.milestone && onMilestoneClick(row.milestone)}>
                   <Diamond className="h-3 w-3 shrink-0" style={{ color: row.milestone?.color || "#3b82f6" }} />
-                  <span className="truncate">{row.milestone?.name}</span>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate">{row.milestone?.name}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs">{row.milestone?.name}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ) : row.type === "subtask" && row.subtask ? (
                 <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -254,9 +381,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                   >
                     {row.subtask.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
                   </button>
-                  <span className={cn("truncate text-[11px] flex-1", row.subtask.is_completed && "line-through opacity-40")}>
-                    {row.subtask.title}
-                  </span>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={cn("truncate text-[11px] flex-1", row.subtask.is_completed && "line-through opacity-40")}>
+                          {row.subtask.title}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs">{row.subtask.title}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ) : row.task ? (
                 editingField?.rowIndex === i && editingField.field === "title" ? (
@@ -278,13 +412,28 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                     >
                       {row.task.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
                     </button>
-                    <span
-                      className={cn("truncate cursor-text flex-1", row.task.is_completed && "line-through opacity-50")}
-                      onDoubleClick={() => startEdit(i, "title", row.task!.title)}
-                    >
-                      {row.task.title}
-                    </span>
-                    {/* Move task to another project */}
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={cn("truncate cursor-text flex-1", row.task.is_completed && "line-through opacity-50")}
+                            onDoubleClick={() => startEdit(i, "title", row.task!.title)}
+                          >
+                            {row.task.title}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-sm text-xs p-2">
+                          <div className="font-medium">{row.task.title}</div>
+                          {row.task.description && <div className="text-muted-foreground mt-0.5 line-clamp-2">{row.task.description}</div>}
+                          {row.task.original_deadline && row.task.deadline && row.task.original_deadline !== row.task.deadline && (
+                            <div className="text-amber-500 text-[10px] mt-0.5">
+                              Перенос: {format(parseISO(row.task.original_deadline), "d MMM", { locale: ru })} → {format(parseISO(row.task.deadline), "d MMM", { locale: ru })}
+                            </div>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {/* Move task */}
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
@@ -310,7 +459,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         </div>
                       </PopoverContent>
                     </Popover>
-                    {/* Add step button */}
+                    {/* Add step */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -327,7 +476,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             </div>
 
             {/* Assignee icon */}
-            <div className="w-9 px-0.5 text-center shrink-0">
+            <div className="w-8 text-center shrink-0">
               {row.type === "task" && row.task && (
                 <Popover open={assigneePopover === row.task.id} onOpenChange={(v) => setAssigneePopover(v ? row.task!.id : null)}>
                   <PopoverTrigger asChild>
@@ -410,8 +559,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               )}
             </div>
 
-            {/* Start date clickable */}
-            <div className="w-[52px] px-0.5 text-center shrink-0">
+            {/* Start date */}
+            <div className="w-[50px] text-center shrink-0">
               {row.type === "task" && row.task && (
                 <Popover open={deadlinePopover === `start-${row.task.id}`} onOpenChange={(v) => setDeadlinePopover(v ? `start-${row.task!.id}` : null)}>
                   <PopoverTrigger asChild>
@@ -455,8 +604,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               )}
             </div>
 
-            {/* Deadline clickable */}
-            <div className="w-[52px] px-0.5 text-center shrink-0">
+            {/* Deadline */}
+            <div className="w-[50px] text-center shrink-0">
               {row.type === "task" && row.task && (
                 <Popover open={deadlinePopover === row.task.id} onOpenChange={(v) => setDeadlinePopover(v ? row.task!.id : null)}>
                   <PopoverTrigger asChild>
@@ -547,6 +696,56 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                 <span className="text-[10px]">{format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru })}</span>
               )}
             </div>
+
+            {/* Predecessor column */}
+            <div className="w-[42px] text-center shrink-0">
+              {row.type === "task" && row.task && entityId && (
+                <Popover open={predPopover === entityId} onOpenChange={(v) => setPredPopover(v ? entityId! : null)}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate max-w-full",
+                        formatPredecessors(entityId) ? "text-primary hover:bg-primary/10" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                      )}
+                      title={formatPredecessors(entityId) || "Добавить предшественника"}
+                    >
+                      {formatPredecessors(entityId) || <Link2 className="h-2.5 w-2.5 mx-auto" />}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1" side="left" align="start" sideOffset={4}>
+                    <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Выбрать предшественника</div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {taskRows
+                        .filter(tr => tr.task!.id !== entityId)
+                        .map(tr => {
+                          const isLinked = dependencies.some(
+                            d => d.predecessor_id === tr.task!.id && d.successor_id === entityId
+                          );
+                          return (
+                            <button
+                              key={tr.task!.id}
+                              onClick={() => {
+                                if (!isLinked && onCreateDependency) {
+                                  onCreateDependency(tr.task!.id, entityId!);
+                                }
+                                setPredPopover(null);
+                              }}
+                              className={cn(
+                                "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate flex items-center gap-1.5",
+                                isLinked && "bg-primary/10 text-primary"
+                              )}
+                              disabled={isLinked}
+                            >
+                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 text-right">{tr.rowNumber}</span>
+                              <span className="truncate">{tr.task!.title}</span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
           </div>
         );
       })}
@@ -581,10 +780,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
         </div>
       )}
 
-
-      {/* Quick add row - always visible */}
+      {/* Quick add row */}
       {rows.length > 0 && !adding && (() => {
-        // Find the last project row's projectId for context
         const lastProjectRow = [...rows].reverse().find(r => r.type === "project");
         if (!lastProjectRow) return null;
         return (
