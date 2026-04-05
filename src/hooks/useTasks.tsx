@@ -1437,6 +1437,23 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["group_members"] }),
   });
 
+  const updateGroupMemberRole = useMutation({
+    mutationFn: async ({ group_id, member_user_id, role }: { group_id: string; member_user_id: string; role: string }) => {
+      const { error } = await supabase.from("group_members").update({ role }).eq("group_id", group_id).eq("user_id", member_user_id);
+      if (error) throw error;
+    },
+    onMutate: async ({ group_id, member_user_id, role }) => {
+      await qc.cancelQueries({ queryKey: ["group_members", group_id] });
+      const prev = qc.getQueryData<any[]>(["group_members", group_id]);
+      qc.setQueryData(["group_members", group_id], (old: any[] | undefined) =>
+        old?.map((m: any) => m.user_id === member_user_id ? { ...m, role } : m)
+      );
+      return { prev, group_id };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(["group_members", ctx.group_id], ctx.prev); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["group_members"] }),
+  });
+
   // ========== PARTICIPANTS ==========
 
   const addParticipant = useMutation({
@@ -1634,7 +1651,7 @@ export function useTaskMutations() {
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
-    addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess,
+    addGroupMember, addGroupMemberByEmail, removeGroupMember, updateGroupMemberRole, grantTagAccess,
     reorderTasks, reorderGroups,
     addParticipant, removeParticipant,
     addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor,

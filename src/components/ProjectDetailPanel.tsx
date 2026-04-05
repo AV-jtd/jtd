@@ -25,7 +25,7 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupMemberRole, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -63,6 +63,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
 
   const assignee = members.find(m => m.role === "assignee");
   const participantMembers = members.filter(m => m.role === "participant");
+  const viewerMembers = members.filter(m => m.role === "viewer");
 
   const groupTagIds = groupTags.map(gt => gt.tag_id);
   const linkedTagId = group.linked_tag_id;
@@ -367,12 +368,19 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <Users className="h-3 w-3" /> Участники
-          <span className="text-muted-foreground/60">· видят задачи проекта</span>
+          <span className="text-muted-foreground/60">· видят все задачи проекта и подпроектов</span>
         </p>
         <div className="space-y-1">
           {participantMembers.map(m => (
             <div key={m.id} className="flex items-center gap-2">
-              <span className="text-sm text-foreground">{getProfileName(m.user_id)}</span>
+              <span className="text-sm text-foreground flex-1">{getProfileName(m.user_id)}</span>
+              <button
+                onClick={() => updateGroupMemberRole.mutate({ group_id: group.id, member_user_id: m.user_id, role: "viewer" })}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors"
+                title="Понизить до viewer (только навигация)"
+              >
+                → viewer
+              </button>
               <button
                 onClick={() => removeGroupMember.mutate({ group_id: group.id, member_user_id: m.user_id })}
                 className="text-xs text-muted-foreground hover:text-destructive"
@@ -393,6 +401,36 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           </Popover>
         </div>
       </div>
+
+      {/* Viewers */}
+      {viewerMembers.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <User className="h-3 w-3" /> Наблюдатели
+            <span className="text-muted-foreground/60">· видят проект в навигации, но не задачи</span>
+          </p>
+          <div className="space-y-1">
+            {viewerMembers.map(m => (
+              <div key={m.id} className="flex items-center gap-2">
+                <span className="text-sm text-foreground/70 flex-1">{getProfileName(m.user_id)}</span>
+                <button
+                  onClick={() => updateGroupMemberRole.mutate({ group_id: group.id, member_user_id: m.user_id, role: "participant" })}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title="Повысить до participant (полный доступ)"
+                >
+                  → участник
+                </button>
+                <button
+                  onClick={() => removeGroupMember.mutate({ group_id: group.id, member_user_id: m.user_id })}
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Import / Export */}
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
