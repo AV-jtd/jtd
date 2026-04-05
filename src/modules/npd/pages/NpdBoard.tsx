@@ -1956,9 +1956,21 @@ function ProjectCard({
               })}
             </div>
           )}
-          <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0", STATUS_BADGE[timingStatus])}>
-            {STATUS_LABEL[timingStatus]}
-          </span>
+          {timingStatus === "overdue" && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
+              <AlertTriangle className="h-2.5 w-2.5" />
+              {overdueTasks.length}·{maxOverdueDays}д
+            </span>
+          )}
+          {timingStatus === "at-risk" && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40 shrink-0">
+              <TrendingUp className="h-2.5 w-2.5" />
+              +{maxDriftDays}д
+            </span>
+          )}
+          {timingStatus === "completed" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-muted text-muted-foreground border border-border shrink-0">✓</span>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); setDetailOpen(!detailOpen); }}
             className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
@@ -2356,9 +2368,19 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="font-medium text-[11px] truncate">{subproject.name.includes("/") ? subproject.name.split("/").pop()!.trim() : subproject.name}</span>
-            <span className={cn("text-[8px] px-1 py-0 rounded-full border font-medium shrink-0 whitespace-nowrap", STATUS_BADGE[timingStatus])}>
-              {STATUS_LABEL[timingStatus]}
-            </span>
+            {timingStatus === "overdue" && (
+              <span className="inline-flex items-center gap-0.5 text-[8px] px-1 py-0 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20 shrink-0 whitespace-nowrap">
+                <AlertTriangle className="h-2 w-2" />{overdueTasks.length}
+              </span>
+            )}
+            {timingStatus === "at-risk" && (
+              <span className="inline-flex items-center gap-0.5 text-[8px] px-1 py-0 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40 shrink-0 whitespace-nowrap">
+                <TrendingUp className="h-2 w-2" />
+              </span>
+            )}
+            {timingStatus === "completed" && (
+              <span className="text-[8px] px-1 py-0 rounded-md font-medium bg-muted text-muted-foreground border border-border shrink-0">✓</span>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <div className="flex-1 max-w-[80px]">
