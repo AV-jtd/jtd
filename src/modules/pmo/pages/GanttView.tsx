@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import {
   addDays, differenceInCalendarDays,
   startOfDay, format, isToday, isPast, parseISO, eachDayOfInterval,
-  eachWeekOfInterval, eachMonthOfInterval, isWeekend
+  eachWeekOfInterval, eachMonthOfInterval, isWeekend,
+  startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer } from "lucide-react";
@@ -514,6 +515,25 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const totalWidth = columns.length * colWidth;
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
+  // Compute month group headers for the top row
+  const monthGroups = useMemo(() => {
+    const groups: { label: string; span: number; key: string }[] = [];
+    let currentKey = "";
+    columns.forEach(col => {
+      const m = getMonth(col.date);
+      const y = getYear(col.date);
+      const key = y + "-" + m;
+      if (key !== currentKey) {
+        const label = format(startOfMonth(col.date), scale === "day" ? "LLLL yyyy" : "LLL yyyy", { locale: ru });
+        groups.push({ label, span: 1, key });
+        currentKey = key;
+      } else {
+        groups[groups.length - 1].span++;
+      }
+    });
+    return groups;
+  }, [columns, scale]);
+
   const getBarStyle = useCallback((task: Task) => {
     const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
     const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : start;
@@ -900,15 +920,37 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           }}
         >
           <div style={{ width: totalWidth, minHeight: "100%" }} className="relative">
-            {/* Column headers */}
-            <div className="sticky top-0 z-10 bg-card border-b border-border flex" style={{ height: 40 }}>
-              {columns.map((col, i) => (
-                <div key={i} className={cn(
-                  "shrink-0 flex items-center justify-center text-xs border-r border-border/30",
-                  col.isToday && "bg-primary/10 font-bold text-primary",
-                  col.isWeekend && !col.isToday && "bg-muted/50"
-                )} style={{ width: colWidth }}>{col.label}</div>
-              ))}
+            {/* Two-row column headers */}
+            <div className="sticky top-0 z-10 bg-card border-b border-border" style={{ height: 52 }}>
+              {/* Top row: months */}
+              <div className="flex border-b border-border/40" style={{ height: 22 }}>
+                {monthGroups.map(g => (
+                  <div
+                    key={g.key}
+                    className="shrink-0 flex items-center justify-center text-[10px] font-semibold text-muted-foreground border-r border-border/30 capitalize"
+                    style={{ width: g.span * colWidth }}
+                  >
+                    {g.label}
+                  </div>
+                ))}
+              </div>
+              {/* Bottom row: days/weeks/months */}
+              <div className="flex" style={{ height: 30 }}>
+                {columns.map((col, i) => (
+                  <div key={i} className={cn(
+                    "shrink-0 flex items-center justify-center text-[10px] border-r border-border/30",
+                    col.isToday && "bg-primary/10 font-bold text-primary",
+                    col.isWeekend && !col.isToday && "bg-muted/50 text-muted-foreground/60"
+                  )} style={{ width: colWidth }}>
+                    {scale === "day" ? (
+                      <div className="flex flex-col items-center leading-none">
+                        <span>{format(col.date, "EEEEEE", { locale: ru })}</span>
+                        <span className="font-medium">{col.label}</span>
+                      </div>
+                    ) : col.label}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Grid + rows */}
@@ -955,7 +997,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                     x1={depDrag.startX}
                     y1={depDrag.startY}
                     x2={depDrag.currentX - (scrollRef.current?.getBoundingClientRect().left || 0) + (scrollRef.current?.scrollLeft || 0)}
-                    y2={depDrag.currentY - (scrollRef.current?.getBoundingClientRect().top || 0) + (scrollRef.current?.scrollTop || 0) - 40}
+                    y2={depDrag.currentY - (scrollRef.current?.getBoundingClientRect().top || 0) + (scrollRef.current?.scrollTop || 0) - 52}
                     stroke="hsl(var(--primary))"
                     strokeWidth="2"
                     strokeDasharray="4 2"
