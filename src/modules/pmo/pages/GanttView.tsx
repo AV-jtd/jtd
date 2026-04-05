@@ -15,7 +15,8 @@ import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, 
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
-import GanttLeftPanel, { type GanttRow, DEFAULT_COLUMNS, type GanttColumnConfig } from "@/modules/pmo/components/GanttLeftPanel";
+import GanttLeftPanel, { type GanttRow, DEFAULT_COLUMNS, type GanttColumnConfig, type GanttColumnKey } from "@/modules/pmo/components/GanttLeftPanel";
+import { useUserSetting } from "@/hooks/useUserSettings";
 import GanttTaskPopover from "@/modules/pmo/components/GanttTaskPopover";
 import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
