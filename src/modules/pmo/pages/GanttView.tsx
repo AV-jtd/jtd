@@ -797,6 +797,15 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 </button>
               }
             />
+            <BulkTaskDialog
+              projectId={selectedProjectId}
+              projectName={rootProjects.find(p => p.id === selectedProjectId)?.name}
+            >
+              <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <Sparkles className="h-3 w-3" />
+                <span className="hidden sm:inline">Пакетно</span>
+              </button>
+            </BulkTaskDialog>
           </>
         )}
 
