@@ -1403,6 +1403,9 @@ export function useTaskMutations() {
       });
       if (error) throw error;
 
+      // Auto-add to parent project if this is a subproject
+      await ensureParentMembership(group_id, profile.id);
+
       // Notify: added to group
       const { data: groupInfo } = await supabase.from("task_groups").select("name").eq("id", group_id).single();
       notifyEvent("added_to_group", groupInfo?.name || "Проект", [profile.id]);
