@@ -802,6 +802,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
 
               return null;
             })}
+          </div>
         );
       })}
 
