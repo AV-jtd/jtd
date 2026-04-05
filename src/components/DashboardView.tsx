@@ -67,7 +67,7 @@ function getStatusColor(status: TimingStatus) {
 function getStatusLabel(status: TimingStatus) {
   switch (status) {
     case "on-track": return "В графике";
-    case "at-risk": return "Есть drift";
+    case "at-risk": return "Сдвиг";
     case "overdue": return "Просрочено";
     case "completed": return "Завершён";
   }
@@ -473,8 +473,8 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             </span>
           )}
           {stats.driftCount > 0 && (
-            <span className="flex items-center gap-1 text-amber-500 font-medium">
-              <ArrowRightLeft className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium px-1.5 py-0.5 rounded-md border border-dashed border-amber-500/40 text-xs">
+              <TrendingUp className="h-3.5 w-3.5" />
               {stats.driftCount}
             </span>
           )}
@@ -605,8 +605,8 @@ function TaskRow({ task, onClick, userName, variant, drift }: {
       </span>
       {drift !== undefined && (
         <span className={cn(
-          "text-[10px] font-mono font-semibold shrink-0",
-          drift > 0 ? "text-red-500" : "text-emerald-500"
+          "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
         )}>
           {drift > 0 ? `+${drift}д` : `${drift}д`}
         </span>
