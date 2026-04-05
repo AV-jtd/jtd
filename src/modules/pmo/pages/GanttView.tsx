@@ -515,6 +515,25 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const totalWidth = columns.length * colWidth;
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
+  // Compute month group headers for the top row
+  const monthGroups = useMemo(() => {
+    const groups: { label: string; span: number; key: string }[] = [];
+    let currentKey = "";
+    columns.forEach(col => {
+      const m = getMonth(col.date);
+      const y = getYear(col.date);
+      const key = y + "-" + m;
+      if (key !== currentKey) {
+        const label = format(startOfMonth(col.date), scale === "day" ? "LLLL yyyy" : "LLL yyyy", { locale: ru });
+        groups.push({ label, span: 1, key });
+        currentKey = key;
+      } else {
+        groups[groups.length - 1].span++;
+      }
+    });
+    return groups;
+  }, [columns, scale]);
+
   const getBarStyle = useCallback((task: Task) => {
     const start = task.start_at ? startOfDay(parseISO(task.start_at)) : startOfDay(parseISO(task.created_at));
     const deadline = task.deadline ? startOfDay(parseISO(task.deadline)) : start;
