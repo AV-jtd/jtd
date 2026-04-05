@@ -2312,8 +2312,10 @@ function ProjectCard({
           {activeTasks.length === 0 && subprojectsWithTasks.length === 0 && (
             <p className="text-[11px] text-muted-foreground text-center py-1.5">Нет задач</p>
           )}
-        </div>
+          </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Floating project detail sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
