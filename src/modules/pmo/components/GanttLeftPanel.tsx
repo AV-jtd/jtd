@@ -389,31 +389,97 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     >
       {/* Header */}
       <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10" style={{ height: 52 }}>
-        {isColVisible("rowNum") && <div style={{ width: colWidth("rowNum") }} className="text-center shrink-0 text-[10px]">#</div>}
-        <div className="flex-1 px-1 min-w-0 flex items-center gap-1">
-          <span>Задача</span>
-          <Popover open={colSettingsOpen} onOpenChange={setColSettingsOpen}>
-            <PopoverTrigger asChild>
-              <button className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/50 hover:text-muted-foreground ml-auto shrink-0" title="Настройки колонок">
-                <Settings2 className="h-3 w-3" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" side="bottom" align="start">
-              <div className="text-[10px] font-medium text-muted-foreground mb-1.5">Колонки</div>
-              {columnConfig.filter(c => c.key !== "name").map(c => (
-                <label key={c.key} className="flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-muted/50 rounded px-1">
-                  <input type="checkbox" checked={c.visible} onChange={() => toggleColumn(c.key)} className="rounded" />
-                  {c.label}
-                </label>
-              ))}
-            </PopoverContent>
-          </Popover>
-        </div>
-        {isColVisible("assignee") && <div style={{ width: colWidth("assignee") }} className="text-center shrink-0"><User className="h-3 w-3 mx-auto" /></div>}
-        {isColVisible("start") && <div style={{ width: colWidth("start") }} className="text-center shrink-0 text-[10px]">Старт</div>}
-        {isColVisible("deadline") && <div style={{ width: colWidth("deadline") }} className="text-center shrink-0 text-[10px]">Срок</div>}
-        {isColVisible("duration") && <div style={{ width: colWidth("duration") }} className="text-center shrink-0 text-[10px]" title="Длительность (дни)">Дни</div>}
-        {isColVisible("predecessor") && <div style={{ width: colWidth("predecessor") }} className="text-center shrink-0 text-[10px]" title="Предшественник"><Link2 className="h-3 w-3 mx-auto" /></div>}
+        {/* Render columns in config order */}
+        {columnConfig.map((col) => {
+          if (!col.visible) return null;
+          if (col.key === "name") {
+            return (
+              <div key={col.key} className="flex-1 px-1 min-w-0 flex items-center gap-1 relative">
+                <span>Задача</span>
+                <Popover open={colSettingsOpen} onOpenChange={setColSettingsOpen}>
+                  <PopoverTrigger asChild>
+                    <button className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/50 hover:text-muted-foreground ml-auto shrink-0" title="Настройки колонок">
+                      <Settings2 className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" side="bottom" align="start">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="text-[10px] font-medium text-muted-foreground">Колонки (перетащите для порядка)</div>
+                      <button onClick={resetColumns} className="p-0.5 rounded hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground" title="Сбросить настройки">
+                        <RotateCcw className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {columnConfig.map((c, ci) => (
+                      <div
+                        key={c.key}
+                        draggable={c.key !== "name"}
+                        onDragStart={(e) => handleColDragStart(e, ci)}
+                        onDragOver={(e) => handleColDragOver(e, ci)}
+                        onDrop={(e) => handleColDrop(e, ci)}
+                        onDragEnd={() => { setColDragIdx(null); setColDropIdx(null); }}
+                        className={cn(
+                          "flex items-center gap-2 py-1 text-xs rounded px-1 transition-colors",
+                          c.key !== "name" ? "cursor-grab hover:bg-muted/50" : "opacity-60",
+                          colDragIdx === ci && "opacity-30",
+                          colDropIdx === ci && colDragIdx !== null && "border-t-2 border-t-primary"
+                        )}
+                      >
+                        {c.key !== "name" && <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
+                        <input
+                          type="checkbox"
+                          checked={c.visible}
+                          onChange={() => toggleColumn(c.key)}
+                          className="rounded shrink-0"
+                          disabled={c.key === "name"}
+                        />
+                        <span className="flex-1 truncate">{c.label}</span>
+                        {c.key !== "name" && (
+                          <input
+                            type="number"
+                            min={c.minWidth}
+                            max={200}
+                            value={c.width}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!isNaN(v) && v >= c.minWidth) {
+                                onColumnsChange(columnConfig.map(cc => cc.key === c.key ? { ...cc, width: v } : cc));
+                              }
+                            }}
+                            className="w-10 h-5 text-[10px] text-center bg-background border border-border rounded px-0.5 outline-none shrink-0"
+                            title="Ширина (px)"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            );
+          }
+          const headerContent: Record<string, React.ReactNode> = {
+            rowNum: <span className="text-[10px]">#</span>,
+            assignee: <User className="h-3 w-3 mx-auto" />,
+            start: <span className="text-[10px]">Старт</span>,
+            deadline: <span className="text-[10px]">Срок</span>,
+            duration: <span className="text-[10px]" title="Длительность (дни)">Дни</span>,
+            predecessor: <Link2 className="h-3 w-3 mx-auto" />,
+          };
+          return (
+            <div
+              key={col.key}
+              style={{ width: col.width }}
+              className="text-center shrink-0 relative select-none"
+            >
+              {headerContent[col.key]}
+              {/* Resize handle */}
+              <div
+                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
+                onMouseDown={(e) => handleColResizeStart(e, col.key)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {rows.map((row, i) => {
