@@ -178,7 +178,6 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
             title: task.title,
             group_id: targetGroupId,
             deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
-            priority: task.priority || null,
             task_type: "standard",
           });
           created++;
