@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, ListPlus, Loader2, Check, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchTaskTemplates } from "@/lib/taskTemplates";
 import { useTaskGroups, useTaskMutations, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -104,6 +105,12 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
         .filter(g => g.parent_id === selectedGroupId)
         .map(g => g.name);
 
+      // Fetch contextual templates from same project
+      const childIds = groups.filter(g => g.parent_id === selectedGroupId).map(g => g.id);
+      const taskTemplates = selectedGroupId !== "__none__"
+        ? await fetchTaskTemplates(selectedGroupId, [selectedGroupId, ...childIds])
+        : [];
+
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: prompt,
@@ -114,6 +121,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
             existingTasks,
             subprojects,
             users: users.map(u => ({ id: u.id, name: u.display_name || u.email })),
+            taskTemplates,
           },
         },
       });
@@ -174,12 +182,30 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 
         for (const task of group.tasks) {
           if (!task.selected) continue;
-          await addTask.mutateAsync({
-            title: task.title,
-            group_id: targetGroupId,
-            deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
-            task_type: "standard",
-          });
+          
+          if (task.subtasks?.length && user) {
+            // Create with subtasks via direct insert to get the task ID
+            const { data: newTask } = await supabase.from("tasks").insert({
+              title: task.title,
+              group_id: targetGroupId,
+              deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              task_type: "standard",
+              user_id: user.id,
+            }).select("id").single();
+
+            if (newTask?.id) {
+              await supabase.from("subtasks").insert(
+                task.subtasks.map((s, si) => ({ task_id: newTask.id, title: s, position: si }))
+              );
+            }
+          } else {
+            await addTask.mutateAsync({
+              title: task.title,
+              group_id: targetGroupId,
+              deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              task_type: "standard",
+            });
+          }
           created++;
         }
       }

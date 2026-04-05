@@ -29,6 +29,14 @@ const MODULE_INSTRUCTIONS: Record<string, string> = {
 - При планировании сценариев создавай задачи с шагами по воронке`,
 };
 
+function formatTaskTemplates(templates: { title: string; subtasks: string[] }[] | undefined): string {
+  if (!templates?.length) return "";
+  const examples = templates.slice(0, 10).map(t =>
+    `Задача: "${t.title}"\n  Шаги: ${t.subtasks.map((s: string, i: number) => `${i + 1}. ${s}`).join("; ")}`
+  ).join("\n");
+  return `\n\n📚 ВАЖНО — Шаблоны из проекта пользователя (используй как образец структуры шагов для похожих задач, адаптируй под контекст):\n${examples}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -87,7 +95,7 @@ ${activeProjectInfo}
 - "важно" → 2 (средний)
 - "когда будет время", "не срочно" → 3 (низкий)
 
-Всегда отвечай на русском языке. Будь кратким и конкретным.`;
+Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}`;
 
     if (action === "parse_task") {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -270,8 +278,8 @@ ${activeProjectInfo}
     }
 
     if (action === "decompose_task") {
-      const { title, description, existingSubtasks } = context;
-
+      const { title, description, existingSubtasks, taskTemplates } = context;
+      const templatesCtx = formatTaskTemplates(taskTemplates);
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -289,7 +297,8 @@ ${activeProjectInfo}
 - 3-8 шагов оптимально
 - Шаги в логическом порядке выполнения
 - Не дублируй существующие подзадачи
-- Отвечай только через tool call, без текста`,
+- Если есть шаблоны из проекта — повторяй их структуру для аналогичных задач
+- Отвечай только через tool call, без текста${templatesCtx}`,
             },
             {
               role: "user",
@@ -1131,7 +1140,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
 
     // === BULK GENERATE TASKS for existing project ===
     if (action === "bulk_generate_tasks") {
-      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers } = context;
+      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers, taskTemplates: bulkTemplates } = context;
 
       const existingInfo = bulkExisting?.length
         ? `\nУже существующие задачи (НЕ дублируй):\n${bulkExisting.map((t: string) => `- ${t}`).join("\n")}`
@@ -1165,10 +1174,12 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
 - priority: 1=высокий, 2=средний, 3=низкий (необязательно)
 - Если есть подпроекты, используй их названия как группы
 - НЕ дублируй существующие задачи
+- Если в шаблонах есть похожие задачи — копируй их структуру подзадач
+- Для каждой задачи добавляй подзадачи (subtasks) если в шаблонах есть аналоги
 - 5-20 задач оптимально
 - Отвечай только через tool call
 
-Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}`,
+Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}${formatTaskTemplates(bulkTemplates)}`,
             },
             {
               role: "user",
@@ -1198,6 +1209,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
                                 title: { type: "string" },
                                 deadline_offset_days: { type: "number" },
                                 priority: { type: "number" },
+                                subtasks: { type: "array", items: { type: "string" }, description: "Подзадачи/шаги (используй шаблоны из проекта)" },
                               },
                               required: ["title"],
                               additionalProperties: false,
