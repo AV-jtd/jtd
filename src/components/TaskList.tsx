@@ -792,24 +792,25 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           />
         )}
 
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <TaskCreateBar
-              inputRef={inputRef}
-              activeView={activeView}
-              activeGroupId={activeGroupId}
-              availableUsers={availableUsers}
-              onCreateTask={handleCreateTask}
-            />
-          </div>
-          {activeView === "group" && activeGroupId && (
+        <TaskCreateBar
+          inputRef={inputRef}
+          activeView={activeView}
+          activeGroupId={activeGroupId}
+          availableUsers={availableUsers}
+          onCreateTask={handleCreateTask}
+          bulkButton={activeView === "group" && activeGroupId ? (
             <BulkTaskDialog projectId={activeGroupId} projectName={groups.find(g => g.id === activeGroupId)?.name}>
-              <button className="shrink-0 h-10 w-10 mb-6 rounded-xl border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30 transition-colors" title="Пакетное создание">
-                <Sparkles className="h-4 w-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-colors shrink-0">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Пакетное создание</TooltipContent>
+              </Tooltip>
             </BulkTaskDialog>
-          )}
-        </div>
+          ) : undefined}
+        />
 
         {/* Subprojects dashboard */}
         {activeView === "group" && activeGroupId && (
