@@ -1,4 +1,4 @@
-import { memo, type RefObject, useCallback, useState } from "react";
+import { memo, type RefObject, type ReactNode, useCallback, useState } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Briefcase, CalendarIcon, Plus, UserRound } from "lucide-react";
@@ -14,6 +14,7 @@ interface TaskCreateBarProps {
   activeView: string;
   activeGroupId: string | null;
   availableUsers?: Profile[];
+  bulkButton?: ReactNode;
   onCreateTask: (payload: {
     title: string;
     group_id: string | null;
@@ -24,7 +25,7 @@ interface TaskCreateBarProps {
   }) => void;
 }
 
-function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [], onCreateTask }: TaskCreateBarProps) {
+function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [], bulkButton, onCreateTask }: TaskCreateBarProps) {
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
