@@ -41,6 +41,7 @@ const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
   telegram_task_participant_added: false,
   telegram_new_task_in_group: false,
   telegram_task_delegated: false,
+  telegram_weekly_report: false,
 };
 
 export function useNotificationPreferences() {
