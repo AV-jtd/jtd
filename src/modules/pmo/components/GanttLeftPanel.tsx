@@ -178,7 +178,7 @@ function PredecessorPicker({
 }
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
-  rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
   onUpdateMilestone, getMilestoneOffscreen,
 }, ref) {
