@@ -35,6 +35,8 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
   const [cardOpen, setCardOpen] = useState(false);
 
+  const { insights, loading: aiLoading, error: aiError, dismissed, refresh: aiRefresh, dismiss: aiDismiss } = useAiInsights(projectId);
+
   const project = groups.find(g => g.id === projectId);
   const childIds = new Set(groups.filter(g => g.parent_id === projectId).map(g => g.id));
   const allIds = new Set([projectId, ...childIds]);
