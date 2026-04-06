@@ -95,6 +95,8 @@ function TaskFiltersBar({
         )}
       </div>
 
+      <UndoRedoButtons />
+
       {/* Quick icon buttons: overdue, important, pending */}
       <div className="flex items-center gap-0.5">
         <Tooltip>
