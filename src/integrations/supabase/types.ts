@@ -1257,6 +1257,44 @@ export type Database = {
           },
         ]
       }
+      telegram_pending_context: {
+        Row: {
+          chat_id: number
+          context_type: string
+          created_at: string
+          group_id: string | null
+          group_name: string | null
+          id: number
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          context_type?: string
+          created_at?: string
+          group_id?: string | null
+          group_name?: string | null
+          id?: number
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          context_type?: string
+          created_at?: string
+          group_id?: string | null
+          group_name?: string | null
+          id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_pending_context_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
