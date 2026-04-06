@@ -259,6 +259,50 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
   );
 }
 
+/* ── Move subtask / demote dialog ── */
+function MoveSubtaskDialog({ open, onOpenChange, currentTaskId, groupId, onSelect, title = "Переместить в задачу" }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentTaskId: string;
+  groupId: string | null;
+  onSelect: (targetTaskId: string) => void;
+  title?: string;
+}) {
+  const { data: tasks = [] } = useTasks(groupId);
+  const [search, setSearch] = useState("");
+  const filtered = tasks.filter(t => t.id !== currentTaskId && !t.is_completed && t.title.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[50dvh] rounded-t-2xl p-4 overflow-y-auto">
+        <p className="text-sm font-semibold mb-2">{title}</p>
+        <input
+          autoFocus
+          placeholder="Поиск задачи..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary/40 mb-2"
+        />
+        <div className="space-y-1 max-h-[30dvh] overflow-y-auto">
+          {filtered.length === 0 && <p className="text-xs text-muted-foreground p-2">Нет задач</p>}
+          {filtered.map(t => (
+            <button
+              key={t.id}
+              onClick={() => onSelect(t.id)}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-left hover:bg-muted transition-colors"
+            >
+              <span className="truncate">{t.title}</span>
+              {t.subtasks && t.subtasks.length > 0 && (
+                <span className="text-[10px] text-muted-foreground shrink-0">{t.subtasks.length} шагов</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 /* ── Sortable Subtask Row ── */
 interface SortableSubtaskRowProps {
   sub: Subtask;
