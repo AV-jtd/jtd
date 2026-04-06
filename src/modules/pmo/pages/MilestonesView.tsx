@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useTaskGroups, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useMilestones, type Milestone, useMilestoneMutations } from "@/hooks/useMilestones";
+import { NPD_GATES } from "@/modules/npd/components/matrix/types";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -201,6 +202,16 @@ export default function MilestonesView() {
                         <span className={cn("flex-1 truncate", isCompleted && "line-through text-muted-foreground", isOverdue && "text-destructive font-medium")}>
                           {ms.name}
                         </span>
+
+                        {/* Gate key badge */}
+                        {(ms as any).gate_key && (() => {
+                          const gate = NPD_GATES.find(g => g.key === (ms as any).gate_key);
+                          return gate ? (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 border-purple-500/40 text-purple-600 dark:text-purple-400">
+                              {gate.short}
+                            </Badge>
+                          ) : null;
+                        })()}
 
                         {/* Gate result badge */}
                         {ms.status !== "pending" && (
