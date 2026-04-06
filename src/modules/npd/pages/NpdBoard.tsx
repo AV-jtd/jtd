@@ -346,7 +346,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const streamTagById = useMemo(() => new Map(streamTags.map((t) => [t.id, t.name])), [streamTags]);
 
   // ── Fetch group_tags for NPD projects ──
-  const { data: allGroupTags = [] } = useQuery({
+  const { data: allGroupTags = [], isLoading: isGroupTagsLoading } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
