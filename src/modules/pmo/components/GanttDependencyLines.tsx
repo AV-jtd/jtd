@@ -17,6 +17,9 @@ interface GanttDependencyLinesProps {
   rows: GanttRow[];
   dependencies: Dependency[];
   rowHeight: number;
+  rowTops?: number[];
+  totalRowsHeight?: number;
+  getRowHeight?: (i: number) => number;
   getBarStyle: (task: any) => { left: number; width: number };
   getMilestoneX?: (ms: any) => number;
   getSummaryBarStyle?: (start: Date, end: Date) => { left: number; width: number };
@@ -25,7 +28,7 @@ interface GanttDependencyLinesProps {
   onClickDependency?: (dep: Dependency) => void;
 }
 
-export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, depStyle = "bezier", onClickDependency }: GanttDependencyLinesProps) {
+export default function GanttDependencyLines({ rows, dependencies, rowHeight, rowTops, totalRowsHeight, getRowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, depStyle = "bezier", onClickDependency }: GanttDependencyLinesProps) {
   const lines = useMemo(() => {
     return dependencies.map(dep => {
       const predIdx = rows.findIndex(r => {
@@ -66,8 +69,8 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
         endX = bar.left;
       }
 
-      const startY = predIdx * rowHeight + rowHeight / 2;
-      const endY = succIdx * rowHeight + rowHeight / 2;
+      const startY = rowTops ? rowTops[predIdx] + (getRowHeight ? getRowHeight(predIdx) : rowHeight) / 2 : predIdx * rowHeight + rowHeight / 2;
+      const endY = rowTops ? rowTops[succIdx] + (getRowHeight ? getRowHeight(succIdx) : rowHeight) / 2 : succIdx * rowHeight + rowHeight / 2;
       const isCritical = criticalTaskIds?.has(dep.predecessor_id) && criticalTaskIds?.has(dep.successor_id);
 
       // Get project colors for gradient style
@@ -76,11 +79,11 @@ export default function GanttDependencyLines({ rows, dependencies, rowHeight, ge
 
       return { id: dep.id, startX, startY, endX, endY, isCritical, dep, predColor, succColor };
     }).filter(Boolean) as { id: string; startX: number; startY: number; endX: number; endY: number; isCritical: boolean; dep: Dependency; predColor: string; succColor: string }[];
-  }, [rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds]);
+  }, [rows, dependencies, rowHeight, rowTops, getRowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds]);
 
   if (lines.length === 0) return null;
 
-  const svgHeight = rows.length * rowHeight;
+  const svgHeight = totalRowsHeight ?? rows.length * rowHeight;
 
   return (
     <svg className="absolute inset-0 pointer-events-none z-10" style={{ width: "100%", height: svgHeight }}>

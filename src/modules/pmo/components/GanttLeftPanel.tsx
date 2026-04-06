@@ -65,6 +65,7 @@ interface Dependency {
 interface GanttLeftPanelProps {
   rows: GanttRow[];
   rowHeight: number;
+  getRowHeight?: (i: number) => number;
   width: number;
   allProjects: TaskGroup[];
   dependencies?: Dependency[];
@@ -177,7 +178,7 @@ function PredecessorPicker({
 }
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
-  rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
+  rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
   onUpdateMilestone, getMilestoneOffscreen,
 }, ref) {
@@ -514,7 +515,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
-            style={{ height: rowHeight, ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
+            style={{ height: getRowHeightProp ? getRowHeightProp(i) : rowHeight, ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
             draggable={isDraggable}

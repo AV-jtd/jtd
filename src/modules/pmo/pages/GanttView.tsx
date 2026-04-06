@@ -33,6 +33,7 @@ type Scale = "day" | "week" | "month";
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
 const ROW_HEIGHT = 44;
+const MILESTONE_ROW_HEIGHT = 28;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 1200;
 
@@ -714,6 +715,20 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
+  const getRowHeight = useCallback((i: number) => rows[i]?.type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT, [rows]);
+  const rowTops = useMemo(() => {
+    const tops: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < rows.length; i++) {
+      tops.push(acc);
+      acc += rows[i].type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT;
+    }
+    return tops;
+  }, [rows]);
+  const totalRowsHeight = useMemo(() => {
+    if (rows.length === 0) return 0;
+    return rowTops[rows.length - 1] + getRowHeight(rows.length - 1);
+  }, [rows, rowTops, getRowHeight]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -814,7 +829,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           return (
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <div
-                className="relative flex-1 h-4 bg-muted/60 rounded cursor-pointer border border-border/30 overflow-hidden"
+                className="relative flex-1 rounded cursor-pointer overflow-hidden"
+                style={{ height: 16, backgroundColor: "hsl(var(--muted))" }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickPct = (e.clientX - rect.left) / rect.width;
@@ -822,18 +838,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   scrollRef.current?.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
                 }}
               >
-                {overdueTasks.length > 0 && (() => {
-                  const todayPct = totalWidth > 0 ? (todayOffset / totalWidth) * 100 : 50;
-                  return (
-                    <div
-                      className="absolute top-0 bottom-0 opacity-20 rounded-l"
-                      style={{ left: 0, width: `${todayPct}%`, backgroundColor: "hsl(var(--destructive))" }}
-                    />
-                  );
-                })()}
                 <div
-                  className="absolute top-0 bottom-0 rounded-sm border border-primary/40"
-                  style={{ left: `${vpLeftPct}%`, width: `${vpWidthPct}%`, backgroundColor: "hsl(var(--primary) / 0.12)" }}
+                  className="absolute top-0 bottom-0 rounded-sm"
+                  style={{ left: `${vpLeftPct}%`, width: `${vpWidthPct}%`, backgroundColor: "rgba(124,58,237,0.2)", border: "1px solid #7C3AED" }}
                 />
                 {totalWidth > 0 && (
                   <div className="absolute top-0 bottom-0 w-px" style={{ left: `${(todayOffset / totalWidth) * 100}%`, backgroundColor: "hsl(var(--primary))" }} />
@@ -1048,6 +1055,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           ref={leftPanelRef}
           rows={rows}
           rowHeight={ROW_HEIGHT}
+          getRowHeight={getRowHeight}
           width={leftPanelWidth}
           allProjects={groups}
           dependencies={allDependencies}
@@ -1165,12 +1173,12 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 <div key={i} className={cn(
                   "absolute top-0 bottom-0 border-r",
                   col.isWeekend ? "border-border/20 bg-muted/20" : "border-border/10"
-                )} style={{ left: i * colWidth, width: colWidth, height: rows.length * ROW_HEIGHT }} />
+                )} style={{ left: i * colWidth, width: colWidth, height: totalRowsHeight }} />
               ))}
 
 
               {/* Today line — prominent */}
-              <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: rows.length * ROW_HEIGHT }}>
+              <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: totalRowsHeight }}>
                 <div className="w-[2px] h-full bg-primary" />
               </div>
 
@@ -1179,6 +1187,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 rows={rows}
                 dependencies={allDependencies}
                 rowHeight={ROW_HEIGHT}
+                rowTops={rowTops}
+                totalRowsHeight={totalRowsHeight}
+                getRowHeight={getRowHeight}
                 getBarStyle={getBarStyle}
                 getMilestoneX={getMilestoneX}
                 getSummaryBarStyle={getSummaryBarStyle}
@@ -1202,7 +1213,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
 
               {/* Dependency drag line */}
               {depDrag && (
-                <svg className="absolute inset-0 pointer-events-none z-30" style={{ width: "100%", height: rows.length * ROW_HEIGHT }}>
+                <svg className="absolute inset-0 pointer-events-none z-30" style={{ width: "100%", height: totalRowsHeight }}>
                   <line
                     x1={depDrag.startX}
                     y1={depDrag.startY}
@@ -1233,7 +1244,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       hoveredRow === i && "bg-muted/30",
                       highlightedRowIdx === i && "!bg-yellow-200/40"
                     )}
-                    style={{ height: ROW_HEIGHT }}
+                    style={{ height: getRowHeight(i) }}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
@@ -1266,7 +1277,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                                 fromId: row.project.id,
                                 fromEntityType: "project",
                                 startX: left + width,
-                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                startY: rowTops[i] + getRowHeight(i) / 2,
                                 currentX: e.clientX,
                                 currentY: e.clientY,
                               });
@@ -1410,7 +1421,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                                     fromId: task.id,
                                     fromEntityType: "task",
                                     startX: left + width,
-                                    startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                    startY: rowTops[i] + getRowHeight(i) / 2,
                                     currentX: e.clientX,
                                     currentY: e.clientY,
                                   });
@@ -1516,7 +1527,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                                 fromId: row.milestone!.id,
                                 fromEntityType: "milestone",
                                 startX: x + 6,
-                                startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
+                                startY: rowTops[i] + getRowHeight(i) / 2,
                                 currentX: e.clientX,
                                 currentY: e.clientY,
                               });
