@@ -11,7 +11,7 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
@@ -58,6 +58,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [hideEmpty, setHideEmpty] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
@@ -471,14 +472,39 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         const sortedMs = [...projectMilestones].sort((a, b) => a.planned_date.localeCompare(b.planned_date));
         let msIdx = 0;
 
-        projectTasks.forEach(t => {
-          if (t.deadline || t.created_at) {
-            const taskDate = t.deadline || t.created_at;
-            // Insert milestones that come before this task's date
-            while (msIdx < sortedMs.length && sortedMs[msIdx].planned_date <= taskDate) {
-              result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
-              msIdx++;
-            }
+        // Separate tasks into dated (have deadline) and empty (no deadline)
+        const datedTasks = projectTasks.filter(t => t.deadline);
+        const noStartOnly = projectTasks.filter(t => !t.deadline && !t.start_at && !t.assigned_to ? false : (!t.deadline && t.start_at) || (!t.start_at && t.deadline));
+        const emptyTasks = projectTasks.filter(t => !t.deadline && !t.start_at && !t.assigned_to);
+        // Tasks with deadline but no start
+        const noStartTasks = projectTasks.filter(t => t.deadline && !t.start_at);
+
+        // First: dated tasks interleaved with milestones
+        datedTasks.forEach(t => {
+          const taskDate = t.deadline || t.created_at;
+          while (msIdx < sortedMs.length && sortedMs[msIdx].planned_date <= taskDate) {
+            result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
+            msIdx++;
+          }
+          result.push({ type: "task", project, task: t, depth: depth + 1 });
+          if (t.subtasks && t.subtasks.length > 0) {
+            t.subtasks
+              .sort((a, b) => a.position - b.position)
+              .forEach(st => {
+                result.push({ type: "subtask", project, subtask: st, parentTask: t, depth: depth + 2 });
+              });
+          }
+        });
+        // Remaining milestones after all dated tasks
+        while (msIdx < sortedMs.length) {
+          result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
+          msIdx++;
+        }
+
+        // Then: tasks without dates (empty) at the end of the stream
+        const undatedTasks = projectTasks.filter(t => !t.deadline);
+        if (!hideEmpty) {
+          undatedTasks.forEach(t => {
             result.push({ type: "task", project, task: t, depth: depth + 1 });
             if (t.subtasks && t.subtasks.length > 0) {
               t.subtasks
@@ -487,16 +513,10 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   result.push({ type: "subtask", project, subtask: st, parentTask: t, depth: depth + 2 });
                 });
             }
-          }
-        });
-        // Remaining milestones after all tasks
-        while (msIdx < sortedMs.length) {
-          result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
-          msIdx++;
+          });
         }
 
         children.forEach(child => addProjectRows(child, depth + 1, true));
-      }
     };
 
     if (selectedProjectId) {
@@ -513,7 +533,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       }
     });
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty]);
 
   // Timeline range
   const { timelineStart, timelineEnd, columns } = useMemo(() => {
@@ -790,6 +810,21 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         >
           <Diamond className="h-3 w-3" />
           <span className="hidden sm:inline">Веха</span>
+        </button>
+
+        {/* Hide empty tasks */}
+        <button
+          onClick={() => setHideEmpty(prev => !prev)}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+            hideEmpty
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+          title={hideEmpty ? "Показать пустые задачи" : "Скрыть пустые задачи"}
+        >
+          {hideEmpty ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          <span className="hidden sm:inline">{hideEmpty ? "Показать" : "Скрыть"} пустые</span>
         </button>
 
         <div className="h-4 w-px bg-border" />
@@ -1411,6 +1446,38 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                             </div>
                           </GanttTooltip>
                         </>
+                      );
+                    })()}
+
+                    {/* Empty task warning row */}
+                    {row.type === "task" && row.task && !row.task.deadline && (() => {
+                      const task = row.task!;
+                      const isFullyEmpty = !task.start_at && !task.assigned_to;
+                      return (
+                        <div
+                          className="absolute inset-0 flex items-center px-4 cursor-pointer"
+                          style={{ backgroundColor: isFullyEmpty ? "rgba(239,68,68,0.04)" : "rgba(245,158,11,0.06)" }}
+                          onClick={() => { setPopoverOpenTaskId(task.id); }}
+                        >
+                          <GanttTaskPopover
+                            task={task}
+                            project={row.project}
+                            onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
+                            onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
+                            onDelete={(id) => deleteTask.mutate(id)}
+                            onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
+                          >
+                            <span
+                              className="text-[11px] font-medium truncate cursor-pointer"
+                              style={{ color: isFullyEmpty ? "#991B1B" : "#92400E" }}
+                            >
+                              {isFullyEmpty
+                                ? "! Задача не заполнена — добавьте даты и ответственного"
+                                : "⚠ Нет даты старта"
+                              }
+                            </span>
+                          </GanttTaskPopover>
+                        </div>
                       );
                     })()}
 
