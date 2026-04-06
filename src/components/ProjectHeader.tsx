@@ -1,19 +1,18 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3, Layers } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, type TaskGroup } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useMemo } from "react";
 import { parseISO } from "date-fns";
-import UndoRedoButtons from "@/components/UndoRedoButtons";
 
 const NPD_GATES_META = [
-  { key: "gate0", short: "G0", label: "Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500", text: "text-slate-600", ring: "ring-slate-400" },
-  { key: "gate1", short: "G1", label: "Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500", text: "text-blue-600", ring: "ring-blue-400" },
-  { key: "gate2", short: "G2", label: "Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500", text: "text-amber-600", ring: "ring-amber-400" },
-  { key: "gate3", short: "G3", label: "Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500", text: "text-purple-600", ring: "ring-purple-400" },
-  { key: "gate4", short: "G4", label: "Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500", text: "text-emerald-600", ring: "ring-emerald-400" },
-  { key: "gate5", short: "G5", label: "Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500", text: "text-rose-600", ring: "ring-rose-400" },
+  { key: "gate0", short: "G0", label: "Идея", color: "bg-slate-500", ring: "ring-slate-400" },
+  { key: "gate1", short: "G1", label: "Концепция", color: "bg-blue-500", ring: "ring-blue-400" },
+  { key: "gate2", short: "G2", label: "Разработка", color: "bg-amber-500", ring: "ring-amber-400" },
+  { key: "gate3", short: "G3", label: "Подготовка", color: "bg-purple-500", ring: "ring-purple-400" },
+  { key: "gate4", short: "G4", label: "Запуск", color: "bg-emerald-500", ring: "ring-emerald-400" },
+  { key: "gate5", short: "G5", label: "Анализ", color: "bg-rose-500", ring: "ring-rose-400" },
 ] as const;
 
 type ProjectView = "dashboard" | "gantt" | "matrix";
@@ -40,7 +39,7 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
     const tasks = allTasks.filter(t => t.group_id === projectId || (t.group_id && childIds.has(t.group_id)));
     const total = tasks.length;
     const done = tasks.filter(t => t.is_completed).length;
-    return { total, done };
+    return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
   }, [allTasks, groups, projectId]);
 
   // Determine active gate from gate milestones
@@ -51,7 +50,6 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
       (m.group_id === projectId || childIds.has(m.group_id)) && (m as any).gate_key
     );
     const now = new Date();
-    // Find the latest gate milestone that is in the past or today
     let activeKey: string | null = null;
     let latestDate: Date | null = null;
     for (const ms of projectMilestones) {
@@ -63,7 +61,6 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
         }
       }
     }
-    // If no milestone passed yet, default to gate0
     if (!activeKey && projectMilestones.length > 0) activeKey = "gate0";
     return activeKey;
   }, [isNpd, milestones, groups, projectId]);
@@ -77,11 +74,11 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
   if (!project) return null;
 
   return (
-    <header className="flex items-center h-12 px-3 md:px-4 border-b border-border bg-card shrink-0 gap-2">
+    <header className="flex items-center h-11 px-3 md:px-4 border-b border-border bg-card shrink-0 gap-2">
       {/* Back */}
       <button
         onClick={onBack || (() => navigate("/pmo"))}
-        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
       >
         <ArrowLeft className="h-4 w-4" />
       </button>
@@ -92,45 +89,42 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
         <h1 className="text-sm font-bold text-foreground truncate">{project.name}</h1>
       </div>
 
-      {/* Progress */}
+      {/* Progress bar — compact */}
       {stats.total > 0 && (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round((stats.done / stats.total) * 100)}%` }} />
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="w-12 h-1 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${stats.pct}%` }} />
           </div>
           <span className="text-[10px] text-muted-foreground font-mono">{stats.done}/{stats.total}</span>
         </div>
       )}
 
-      {/* Gate pills (NPD only) */}
+      {/* Gate pills (NPD only) — replaces counter area */}
       {isNpd && (
-        <>
-          <div className="h-5 w-px bg-border mx-0.5 shrink-0" />
-          <div className="flex items-center gap-0.5 shrink-0">
-            {NPD_GATES_META.map(gate => {
-              const isActive = activeGateKey === gate.key;
-              const gateIdx = NPD_GATES_META.findIndex(g => g.key === gate.key);
-              const activeIdx = activeGateKey ? NPD_GATES_META.findIndex(g => g.key === activeGateKey) : -1;
-              const isPassed = activeIdx >= 0 && gateIdx < activeIdx;
-              return (
-                <span
-                  key={gate.key}
-                  className={cn(
-                    "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all",
-                    isActive
-                      ? `${gate.color} text-white ring-2 ${gate.ring} ring-offset-1 ring-offset-card`
-                      : isPassed
-                        ? "bg-muted text-muted-foreground line-through opacity-50"
-                        : "bg-muted/50 text-muted-foreground/40"
-                  )}
-                  title={`${gate.short}: ${gate.label}`}
-                >
-                  {gate.short}
-                </span>
-              );
-            })}
-          </div>
-        </>
+        <div className="flex items-center gap-[3px] shrink-0">
+          {NPD_GATES_META.map(gate => {
+            const gateIdx = NPD_GATES_META.findIndex(g => g.key === gate.key);
+            const activeIdx = activeGateKey ? NPD_GATES_META.findIndex(g => g.key === activeGateKey) : -1;
+            const isActive = activeGateKey === gate.key;
+            const isPassed = activeIdx >= 0 && gateIdx < activeIdx;
+            return (
+              <span
+                key={gate.key}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full text-[9px] font-bold transition-all leading-none",
+                  isActive
+                    ? `${gate.color} text-white ring-1 ${gate.ring} ring-offset-1 ring-offset-card px-1.5 py-0.5`
+                    : isPassed
+                      ? "bg-muted text-muted-foreground/50 line-through px-1 py-0.5"
+                      : "bg-muted/60 text-muted-foreground/30 px-1 py-0.5"
+                )}
+                title={`${gate.short}: ${gate.label}`}
+              >
+                {gate.short}
+              </span>
+            );
+          })}
+        </div>
       )}
 
       <div className="flex-1" />
@@ -139,7 +133,7 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
       <div className="flex items-center bg-muted rounded-md p-0.5 shrink-0">
         {views.map(v => {
           const Icon = v.icon;
-          const isActive = activeView === v.id;
+          const active = activeView === v.id;
           return (
             <button
               key={v.id}
@@ -147,7 +141,7 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
               disabled={v.disabled}
               className={cn(
                 "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors",
-                isActive
+                active
                   ? "bg-background text-foreground shadow-sm"
                   : v.disabled
                     ? "text-muted-foreground/30 cursor-not-allowed"
@@ -161,10 +155,6 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
           );
         })}
       </div>
-
-      <div className="h-4 w-px bg-border shrink-0" />
-
-      <UndoRedoButtons />
     </header>
   );
 }
