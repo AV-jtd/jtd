@@ -821,7 +821,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
                 setClosureDialogOpen(true);
               } else {
-                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed });
+                undoableToggleTask();
               }
             }}
             className={cn(
