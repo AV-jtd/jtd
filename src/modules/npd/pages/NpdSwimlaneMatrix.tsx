@@ -123,6 +123,15 @@ export default function NpdSwimlaneMatrix() {
   const { data: allDependencies = [] } = useDependencies();
   const { addDependency } = useDependencyMutations();
   const { updateTask } = useTaskMutations();
+  const { data: allMilestones = [] } = useMilestones();
+
+  // Gate milestones for this project — sorted by planned_date
+  const gateMilestones = useMemo(() => {
+    if (!projectId) return [];
+    return allMilestones
+      .filter(m => (m as any).gate_key && descendantGroupIdSet.has(m.group_id))
+      .sort((a, b) => new Date(a.planned_date).getTime() - new Date(b.planned_date).getTime());
+  }, [allMilestones, projectId, descendantGroupIdSet]);
 
   // ── NPD tags init ──
   const { data: npdTagData } = useQuery({
