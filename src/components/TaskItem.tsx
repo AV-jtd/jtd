@@ -553,7 +553,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [task.id, task.is_important, task.title, toggleImportant, pushUndo]);
 
   const undoableDeleteTask = useCallback(() => {
-    const snap = { ...task };
+    const snap = { ...task, subtasks: [...(task.subtasks || [])], task_tags: [...(task.task_tags || [])] };
     deleteTask.mutate(task.id);
     pushUndo({
       label: `Удалено «${task.title}»`,
@@ -566,16 +566,18 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           task_type: snap.task_type, start_at: snap.start_at,
           recurrence: snap.recurrence, recurrence_end_date: snap.recurrence_end_date,
         } as any);
-        if (snap.subtasks && snap.subtasks.length > 0) {
+        if (snap.subtasks.length > 0) {
           await supabase.from("subtasks").insert(
             snap.subtasks.map(s => ({ id: s.id, task_id: snap.id, title: s.title, position: s.position, is_completed: s.is_completed, deadline: s.deadline, assigned_to: s.assigned_to }))
           );
         }
-        if (snap.task_tags && snap.task_tags.length > 0) {
+        if (snap.task_tags.length > 0) {
           await supabase.from("task_tags").insert(
             snap.task_tags.map(tt => ({ task_id: snap.id, tag_id: tt.tag_id }))
           );
         }
+        // Trigger UI refresh
+        window.dispatchEvent(new Event("undo-invalidate"));
       },
       redo: () => deleteTask.mutate(snap.id),
     });
