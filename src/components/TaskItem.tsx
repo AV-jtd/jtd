@@ -566,7 +566,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {subtasks.length > 0 && (
-              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} шагов</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {completedSubs}/{subtasks.length} шагов
+                <span className="inline-block w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <span
+                    className="block h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${Math.round((completedSubs / subtasks.length) * 100)}%` }}
+                  />
+                </span>
+                <span className="text-[10px] text-muted-foreground/70">{Math.round((completedSubs / subtasks.length) * 100)}%</span>
+              </span>
             )}
             {task.description && !detailsOpen && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
