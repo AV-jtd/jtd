@@ -90,6 +90,8 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const circumference = 2 * Math.PI * 28;
   const strokeOffset = circumference - (pct / 100) * circumference;
 
+  if (!project) return null;
+
   return (
     <div className="p-4 md:p-6 space-y-4 overflow-y-auto h-full">
       {/* KPI row: grid 2fr 1fr 1fr 1fr */}
