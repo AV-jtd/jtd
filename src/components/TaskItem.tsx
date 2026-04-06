@@ -1746,6 +1746,24 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
               В базу знаний
             </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDemoteOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Понизить эту задачу до шага другой задачи"
+              >
+                <ArrowDownToLine className="h-3 w-3" /> Понизить до шага
+              </button>
+              <ConfirmDelete
+                title="Удалить задачу"
+                description={`Удалить «${task.title}»? Это действие нельзя отменить.`}
+                onConfirm={() => deleteTask.mutate(task.id)}
+              >
+                <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="h-3 w-3" /> Удалить
+                </button>
+              </ConfirmDelete>
+            </div>
           </div>
           </div>
         );
