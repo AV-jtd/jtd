@@ -1771,6 +1771,35 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       )}
     </div>
 
+    {/* Move subtask to another task picker */}
+    {moveSubtaskId && (
+      <MoveSubtaskDialog
+        open={!!moveSubtaskId}
+        onOpenChange={(open) => { if (!open) setMoveSubtaskId(null); }}
+        currentTaskId={task.id}
+        groupId={task.group_id}
+        onSelect={(targetTaskId) => {
+          moveSubtaskToTask.mutate({ subtaskId: moveSubtaskId, targetTaskId });
+          setMoveSubtaskId(null);
+        }}
+      />
+    )}
+
+    {/* Demote task to subtask picker */}
+    {demoteOpen && (
+      <MoveSubtaskDialog
+        open={demoteOpen}
+        onOpenChange={setDemoteOpen}
+        currentTaskId={task.id}
+        groupId={task.group_id}
+        title="Понизить до шага задачи"
+        onSelect={(targetTaskId) => {
+          demoteTaskToSubtask.mutate({ taskId: task.id, targetTaskId });
+          setDemoteOpen(false);
+        }}
+      />
+    )}
+
     <TaskClosureDialog
       open={closureDialogOpen}
       onOpenChange={setClosureDialogOpen}
