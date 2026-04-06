@@ -287,6 +287,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const [savingToWiki, setSavingToWiki] = useState(false);
+  const [stepsCollapsed, setStepsCollapsed] = useState(false);
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
+  const subtaskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const itemRef = useRef<HTMLDivElement>(null);
 
   const isCreator = currentUser?.id === task.user_id;
