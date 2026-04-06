@@ -1434,6 +1434,38 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       );
                     })()}
 
+                    {/* Empty task warning row */}
+                    {row.type === "task" && row.task && !row.task.deadline && (() => {
+                      const task = row.task!;
+                      const isFullyEmpty = !task.start_at && !task.assigned_to;
+                      return (
+                        <div
+                          className="absolute inset-0 flex items-center px-4 cursor-pointer"
+                          style={{ backgroundColor: isFullyEmpty ? "rgba(239,68,68,0.04)" : "rgba(245,158,11,0.06)" }}
+                          onClick={() => { setPopoverOpenTaskId(task.id); }}
+                        >
+                          <GanttTaskPopover
+                            task={task}
+                            project={row.project}
+                            onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
+                            onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
+                            onDelete={(id) => deleteTask.mutate(id)}
+                            onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
+                          >
+                            <span
+                              className="text-[11px] font-medium truncate cursor-pointer"
+                              style={{ color: isFullyEmpty ? "#991B1B" : "#92400E" }}
+                            >
+                              {isFullyEmpty
+                                ? "! Задача не заполнена — добавьте даты и ответственного"
+                                : "⚠ Нет даты старта"
+                              }
+                            </span>
+                          </GanttTaskPopover>
+                        </div>
+                      );
+                    })()}
+
                     {/* Subtask bar */}
                     {row.type === "subtask" && row.subtask && row.subtask.deadline && (() => {
                       const st = row.subtask!;
