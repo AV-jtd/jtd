@@ -214,7 +214,7 @@ export default function NpdSwimlaneMatrix() {
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
   // ── Group tags ──
-  const { data: allGroupTags = [] } = useQuery({
+  const { data: allGroupTags = [], isLoading: groupTagsLoading } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
       const results: { group_id: string; tag_id: string; tag_name: string | null }[] = [];
