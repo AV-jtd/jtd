@@ -61,6 +61,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
+  const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
 
   // Merge saved config with defaults (in case new columns were added)
