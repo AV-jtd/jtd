@@ -144,8 +144,21 @@ Deno.serve(async (req) => {
     }
 
     const message = body.message;
+
+    // Handle forwarded messages: extract text or caption
+    if (message && !message.text && message.forward_date) {
+      // Forwarded message might have caption (for media) but no text
+      if (message.caption) {
+        message.text = message.caption;
+        message._forwarded = true;
+      }
+    }
+    // Mark forwarded text messages
+    if (message && message.text && message.forward_date) {
+      message._forwarded = true;
+    }
     
-    // Handle voice messages: transcribe first
+    // Handle voice messages: transcribe first (including forwarded voice)
     if (message && (message.voice || message.audio) && !message.text) {
       const BOT_TOKEN_V = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
       const fileId = message.voice?.file_id || message.audio?.file_id;
