@@ -1212,10 +1212,11 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   <div
                     key={i}
                     className={cn(
-                      "relative border-b border-border/30",
+                      "relative border-b border-border/30 transition-colors duration-500",
                       row.type === "project" && "bg-muted/40",
                       row.type === "subtask" && "bg-transparent",
-                      hoveredRow === i && "bg-muted/30"
+                      hoveredRow === i && "bg-muted/30",
+                      highlightedRowIdx === i && "!bg-yellow-200/40"
                     )}
                     style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
