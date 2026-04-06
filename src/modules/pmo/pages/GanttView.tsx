@@ -1112,7 +1112,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
             if (isSyncingScroll.current) return;
             isSyncingScroll.current = true;
             if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
-            requestAnimationFrame(() => { isSyncingScroll.current = false; });
+            setTimeout(() => { isSyncingScroll.current = false; }, 0);
           }}
           onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
           getMilestoneOffscreen={getMilestoneOffscreen}
@@ -1145,7 +1145,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
             if (isSyncingScroll.current) return;
             isSyncingScroll.current = true;
             if (leftPanelRef.current) leftPanelRef.current.scrollTop = el.scrollTop;
-            requestAnimationFrame(() => { isSyncingScroll.current = false; });
+            setTimeout(() => { isSyncingScroll.current = false; }, 0);
           }}
         >
           <div style={{ width: totalWidth, minHeight: "100%" }} className="relative">
