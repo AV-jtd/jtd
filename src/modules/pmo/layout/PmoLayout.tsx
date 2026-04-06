@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, lazy, Suspense } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { LayoutDashboard, GanttChart, Flag, Users, BarChart3, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModuleLayout from "@/components/ModuleLayout";
@@ -20,6 +20,7 @@ const navItems: { id: PmoView; label: string; icon: React.ElementType }[] = [
 
 export default function PmoLayout() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialProject = searchParams.get("project");
   const initialView = initialProject ? "gantt" : "portfolio";
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
@@ -27,10 +28,9 @@ export default function PmoLayout() {
   const [cameFromPortfolio, setCameFromPortfolio] = useState(false);
 
   const handleOpenGantt = useCallback((projectId: string) => {
-    setFocusProjectId(projectId);
-    setCameFromPortfolio(true);
-    setActiveView("gantt");
-  }, []);
+    // Navigate to dedicated project page
+    navigate(`/pmo/project/${projectId}?view=gantt`);
+  }, [navigate]);
 
   const handleBackToPortfolio = useCallback(() => {
     setActiveView("portfolio");

@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Column configuration */
-export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor";
+export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor" | "gate";
 
 export interface GanttColumnConfig {
   key: GanttColumnKey;
@@ -24,6 +24,7 @@ export interface GanttColumnConfig {
 export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
   { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
   { key: "name", label: "Задача", visible: true, width: 0, minWidth: 180 }, // flex
+  { key: "gate", label: "Гейт", visible: false, width: 42, minWidth: 36 },
   { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
   { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
   { key: "deadline", label: "Срок", visible: true, width: 50, minWidth: 42 },
@@ -92,6 +93,10 @@ interface GanttLeftPanelProps {
   onScroll?: (scrollTop: number) => void; // deprecated — kept for API compat
   onUpdateMilestone?: (id: string, updates: { group_id?: string }) => void;
   getMilestoneOffscreen?: (ms: Milestone) => 'left' | 'right' | null;
+  /** Gate column: map taskId -> gate key (e.g. "gate0", "gate1") */
+  taskGateMap?: Map<string, string>;
+  /** Called when user changes a task's gate from the Gantt */
+  onChangeTaskGate?: (taskId: string, gateKey: string | null) => void;
 }
 
 /** Predecessor picker with search and multi-select */
@@ -180,7 +185,7 @@ function PredecessorPicker({
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
-  onUpdateMilestone, getMilestoneOffscreen,
+  onUpdateMilestone, getMilestoneOffscreen, taskGateMap, onChangeTaskGate,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -470,6 +475,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
           const headerContent: Record<string, React.ReactNode> = {
             rowNum: <span className="text-[10px]">#</span>,
             assignee: <User className="h-3 w-3 mx-auto" />,
+            gate: <span className="text-[10px]">Гейт</span>,
             start: <span className="text-[10px]">Старт</span>,
             deadline: <span className="text-[10px]">Срок</span>,
             duration: <span className="text-[10px]" title="Длительность (дни)">Дни</span>,
@@ -809,6 +815,51 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                   <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
                     {row.type === "task" && row.task && entityId && (
                       <PredecessorPicker entityId={entityId} taskRows={taskRows} dependencies={dependencies} formatPredecessors={formatPredecessors} onCreateDependency={onCreateDependency} open={predPopover === entityId} onOpenChange={(v) => setPredPopover(v ? entityId! : null)} />
+                    )}
+                  </div>
+                );
+              }
+
+              if (col.key === "gate") {
+                const GATE_PILLS = [
+                  { key: "gate0", short: "G0", bg: "bg-slate-500" },
+                  { key: "gate1", short: "G1", bg: "bg-blue-500" },
+                  { key: "gate2", short: "G2", bg: "bg-amber-500" },
+                  { key: "gate3", short: "G3", bg: "bg-purple-500" },
+                  { key: "gate4", short: "G4", bg: "bg-emerald-500" },
+                  { key: "gate5", short: "G5", bg: "bg-rose-500" },
+                ];
+                const taskId = row.task?.id;
+                const currentGate = taskId ? taskGateMap?.get(taskId) : undefined;
+                return (
+                  <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
+                    {row.type === "task" && taskId && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className={cn(
+                            "text-[9px] px-1 py-0.5 rounded-full font-bold transition-colors",
+                            currentGate
+                              ? `${GATE_PILLS.find(g => g.key === currentGate)?.bg || "bg-muted"} text-white`
+                              : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                          )}>
+                            {currentGate ? GATE_PILLS.find(g => g.key === currentGate)?.short || "—" : "—"}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-36 p-1" side="left" align="start" sideOffset={4}>
+                          <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Гейт</div>
+                          <button onClick={() => onChangeTaskGate?.(taskId, null)} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground">Без гейта</button>
+                          {GATE_PILLS.map(g => (
+                            <button
+                              key={g.key}
+                              onClick={() => onChangeTaskGate?.(taskId, g.key)}
+                              className={cn("w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm flex items-center gap-1.5", currentGate === g.key && "bg-primary/10 font-medium")}
+                            >
+                              <span className={cn("w-2 h-2 rounded-full shrink-0", g.bg)} />
+                              {g.short}
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
                 );

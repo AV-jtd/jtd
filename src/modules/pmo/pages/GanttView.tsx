@@ -3,6 +3,8 @@ import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type Task
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   addDays, differenceInCalendarDays,
@@ -47,6 +49,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
   const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask, updateGroupParent } = useTaskMutations();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
@@ -69,6 +72,79 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  // ── Gate column: build taskId -> gateKey map from task_tags ──
+  const NPD_GATE_TAG_NAMES = useMemo(() => [
+    { key: "gate0", tagName: "Gate 0: Идея и Стратегия" },
+    { key: "gate1", tagName: "Gate 1: Концепция и Экономика" },
+    { key: "gate2", tagName: "Gate 2: Разработка и Валидация" },
+    { key: "gate3", tagName: "Gate 3: Подготовка к запуску" },
+    { key: "gate4", tagName: "Gate 4: Запуск" },
+    { key: "gate5", tagName: "Gate 5: Анализ запуска" },
+  ], []);
+
+  const { data: gateTagsData } = useQuery({
+    queryKey: ["gantt-gate-tags", user?.id],
+    queryFn: async () => {
+      const names = NPD_GATE_TAG_NAMES.map(g => g.tagName);
+      const { data, error } = await supabase.from("tags").select("id, name").in("name", names);
+      if (error) throw error;
+      return (data || []) as { id: string; name: string }[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const gateTagIdToKey = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!gateTagsData) return m;
+    for (const tag of gateTagsData) {
+      const gate = NPD_GATE_TAG_NAMES.find(g => g.tagName === tag.name);
+      if (gate) m.set(tag.id, gate.key);
+    }
+    return m;
+  }, [gateTagsData, NPD_GATE_TAG_NAMES]);
+
+  const gateKeyToTagId = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!gateTagsData) return m;
+    for (const tag of gateTagsData) {
+      const gate = NPD_GATE_TAG_NAMES.find(g => g.tagName === tag.name);
+      if (gate) m.set(gate.key, tag.id);
+    }
+    return m;
+  }, [gateTagsData, NPD_GATE_TAG_NAMES]);
+
+  const taskGateMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const task of allTasks) {
+      if (task.task_tags) {
+        for (const tt of task.task_tags) {
+          const gateKey = gateTagIdToKey.get(tt.tag_id);
+          if (gateKey) { m.set(task.id, gateKey); break; }
+        }
+      }
+    }
+    return m;
+  }, [allTasks, gateTagIdToKey]);
+
+  const handleChangeTaskGate = useCallback(async (taskId: string, gateKey: string | null) => {
+    // Remove existing gate tags
+    const gateTagIds = [...gateTagIdToKey.keys()];
+    if (gateTagIds.length > 0) {
+      await supabase.from("task_tags").delete().eq("task_id", taskId).in("tag_id", gateTagIds);
+    }
+    // Add new gate tag
+    if (gateKey) {
+      const tagId = gateKeyToTagId.get(gateKey);
+      if (tagId) {
+        await supabase.from("task_tags").upsert({ task_id: taskId, tag_id: tagId }, { onConflict: "task_id,tag_id" });
+      }
+    }
+    // Invalidate queries to sync with matrix
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["npd-matrix-tasks"] });
+  }, [gateTagIdToKey, gateKeyToTagId, queryClient]);
 
   // Merge saved config with defaults (in case new columns were added)
   const ganttColumns = useMemo(() => {
@@ -1118,6 +1194,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
               onHoverRow={setHoveredRow}
               onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
               getMilestoneOffscreen={getMilestoneOffscreen}
+              taskGateMap={taskGateMap}
+              onChangeTaskGate={handleChangeTaskGate}
             />
           </div>
 

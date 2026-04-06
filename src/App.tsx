@@ -28,6 +28,7 @@ const Pmo = lazy(() => import("./pages/Pmo"));
 const Crm = lazy(() => import("./pages/Crm"));
 const Npd = lazy(() => import("./pages/Npd"));
 const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
+const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const WikiDemo = lazy(() => import("./pages/WikiDemo"));
 
 // Sync onlineManager with browser online/offline events
@@ -81,6 +82,7 @@ function AppContent() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/pmo" element={<Pmo />} />
+              <Route path="/pmo/project/:id" element={<ProjectPage />} />
               <Route path="/crm" element={<Crm />} />
               <Route path="/npd" element={<Npd />} />
               <Route path="/npd/matrix/:id" element={<NpdMatrix />} />

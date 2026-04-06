@@ -8,11 +8,13 @@ import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
-interface ModuleLayoutProps {
+export interface ModuleLayoutProps {
   /** Module key for AI assistant context */
   moduleContext: "tasks" | "pmo" | "npd" | "crm";
   /** Sub-navigation rendered inside AppHeader (e.g. PMO tabs, CRM view toggle) */
   headerChildren?: ReactNode;
+  /** Completely replace AppHeader with a custom header */
+  customHeader?: ReactNode;
   /** The main content area */
   children: ReactNode;
   /** Extra overlays rendered after GlobalSearch/AiAssistant (e.g. CRM import dialog) */
@@ -22,6 +24,7 @@ interface ModuleLayoutProps {
 export default function ModuleLayout({
   moduleContext,
   headerChildren,
+  customHeader,
   children,
   extraOverlays,
 }: ModuleLayoutProps) {
@@ -56,15 +59,17 @@ export default function ModuleLayout({
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader
-        onSearchOpen={() => setSearchOpen(true)}
-        onAiOpen={() => setAiOpen(true)}
-        onMessengerToggle={() => setMessengerOpen((prev) => !prev)}
-        messengerOpen={messengerOpen}
-        unreadCount={unreadCount}
-      >
-        {headerChildren}
-      </AppHeader>
+      {customHeader || (
+        <AppHeader
+          onSearchOpen={() => setSearchOpen(true)}
+          onAiOpen={() => setAiOpen(true)}
+          onMessengerToggle={() => setMessengerOpen((prev) => !prev)}
+          messengerOpen={messengerOpen}
+          unreadCount={unreadCount}
+        >
+          {headerChildren}
+        </AppHeader>
+      )}
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>

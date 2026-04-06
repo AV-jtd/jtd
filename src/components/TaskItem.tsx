@@ -1036,7 +1036,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   {!group.parent_id && (
                     <span
                       className="p-0.5 cursor-pointer text-muted-foreground hover:text-primary transition-colors"
-                      onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo?project=${group.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigateTo(`/pmo/project/${group.id}?view=gantt`); }}
                       title="Открыть в PMO (Гант)"
                     >
                       <GanttChart className="h-3 w-3" />
