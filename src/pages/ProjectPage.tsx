@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, Diamond } from "lucide-react";
+import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useAiInsights } from "@/hooks/useAiInsights";
+import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import ModuleLayout from "@/components/ModuleLayout";
