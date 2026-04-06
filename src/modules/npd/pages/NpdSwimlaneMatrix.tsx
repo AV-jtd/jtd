@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTaskMutations, useAvailableUsers, type Task, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
+import { useMilestones } from "@/hooks/useMilestones";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
