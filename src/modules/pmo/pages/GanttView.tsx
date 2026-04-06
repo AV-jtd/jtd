@@ -814,7 +814,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           return (
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <div
-                className="relative flex-1 h-4 bg-muted/60 rounded cursor-pointer border border-border/30 overflow-hidden"
+                className="relative flex-1 rounded cursor-pointer overflow-hidden"
+                style={{ height: 16, backgroundColor: "hsl(var(--muted))" }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickPct = (e.clientX - rect.left) / rect.width;
@@ -822,18 +823,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   scrollRef.current?.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
                 }}
               >
-                {overdueTasks.length > 0 && (() => {
-                  const todayPct = totalWidth > 0 ? (todayOffset / totalWidth) * 100 : 50;
-                  return (
-                    <div
-                      className="absolute top-0 bottom-0 opacity-20 rounded-l"
-                      style={{ left: 0, width: `${todayPct}%`, backgroundColor: "hsl(var(--destructive))" }}
-                    />
-                  );
-                })()}
                 <div
-                  className="absolute top-0 bottom-0 rounded-sm border border-primary/40"
-                  style={{ left: `${vpLeftPct}%`, width: `${vpWidthPct}%`, backgroundColor: "hsl(var(--primary) / 0.12)" }}
+                  className="absolute top-0 bottom-0 rounded-sm"
+                  style={{ left: `${vpLeftPct}%`, width: `${vpWidthPct}%`, backgroundColor: "rgba(124,58,237,0.2)", border: "1px solid #7C3AED" }}
                 />
                 {totalWidth > 0 && (
                   <div className="absolute top-0 bottom-0 w-px" style={{ left: `${(todayOffset / totalWidth) * 100}%`, backgroundColor: "hsl(var(--primary))" }} />
