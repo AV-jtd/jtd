@@ -820,6 +820,51 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                 );
               }
 
+              if (col.key === "gate") {
+                const GATE_PILLS = [
+                  { key: "gate0", short: "G0", bg: "bg-slate-500" },
+                  { key: "gate1", short: "G1", bg: "bg-blue-500" },
+                  { key: "gate2", short: "G2", bg: "bg-amber-500" },
+                  { key: "gate3", short: "G3", bg: "bg-purple-500" },
+                  { key: "gate4", short: "G4", bg: "bg-emerald-500" },
+                  { key: "gate5", short: "G5", bg: "bg-rose-500" },
+                ];
+                const taskId = row.task?.id;
+                const currentGate = taskId ? taskGateMap?.get(taskId) : undefined;
+                return (
+                  <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
+                    {row.type === "task" && taskId && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className={cn(
+                            "text-[9px] px-1 py-0.5 rounded-full font-bold transition-colors",
+                            currentGate
+                              ? `${GATE_PILLS.find(g => g.key === currentGate)?.bg || "bg-muted"} text-white`
+                              : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                          )}>
+                            {currentGate ? GATE_PILLS.find(g => g.key === currentGate)?.short || "—" : "—"}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-36 p-1" side="left" align="start" sideOffset={4}>
+                          <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Гейт</div>
+                          <button onClick={() => onChangeTaskGate?.(taskId, null)} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm text-muted-foreground">Без гейта</button>
+                          {GATE_PILLS.map(g => (
+                            <button
+                              key={g.key}
+                              onClick={() => onChangeTaskGate?.(taskId, g.key)}
+                              className={cn("w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm flex items-center gap-1.5", currentGate === g.key && "bg-primary/10 font-medium")}
+                            >
+                              <span className={cn("w-2 h-2 rounded-full shrink-0", g.bg)} />
+                              {g.short}
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                );
+              }
+
               return null;
             })}
           </div>
