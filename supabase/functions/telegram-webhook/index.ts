@@ -285,6 +285,42 @@ Deno.serve(async (req) => {
       const linkedGroup = chatLink.task_groups as any;
       const groupId = linkedGroup.id;
 
+      // === /bulk — bulk create tasks in linked project ===
+      if (command === "bulk") {
+        if (!args.trim()) {
+          await sendTelegramMessage(BOT_TOKEN, chatId,
+            "📦 *Пакетное создание задач*\n\n" +
+            "Формат:\n" +
+            "`/bulk`\n" +
+            "`- Задача 1 @user 3д`\n" +
+            "`- Задача 2 @user2 5д`\n" +
+            "`- Задача 3 завтра`\n\n" +
+            "Или свободный текст — ИИ распознает задачи.\n" +
+            "🎤 Также можно отправить голосовое сообщение со списком задач.",
+            "Markdown"
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const members = await getProjectMembers(supabase, groupId, linkedGroup.user_id);
+        const parsedTasks = await aiBulkParse(args, members, linkedGroup.name);
+
+        if (!parsedTasks || parsedTasks.length === 0) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось распознать задачи. Попробуйте переформулировать.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const results = await createBulkTasks(supabase, parsedTasks, userId, groupId, members);
+        const confirmLines = results.map((r, i) =>
+          `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+        );
+
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          `📦 Создано ${results.length} задач в ${linkedGroup.icon || "📁"} ${escapeMarkdown(linkedGroup.name)}:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}`
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       // === /task — create task in linked project ===
       if (command === "task") {
         if (!args.trim()) {
