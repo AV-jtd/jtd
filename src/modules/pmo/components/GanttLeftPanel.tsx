@@ -23,7 +23,7 @@ export interface GanttColumnConfig {
 
 export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
   { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
-  { key: "name", label: "Задача", visible: true, width: 0, minWidth: 100 }, // flex
+  { key: "name", label: "Задача", visible: true, width: 0, minWidth: 180 }, // flex
   { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
   { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
   { key: "deadline", label: "Срок", visible: true, width: 50, minWidth: 42 },
