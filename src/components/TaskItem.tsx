@@ -1692,111 +1692,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
         <div className="px-3.5 pb-3 ml-8 space-y-1">
-          {subtasks.map((sub) => (
-            <div key={sub.id} className="flex items-start gap-2.5 group/sub py-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed }); }}
-                className="-m-2 p-2 touch-manipulation mt-0.5"
-              >
-                <span className={cn(
-                  "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
-                  sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-                )}>
-                  {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                </span>
-              </button>
-              <div className="flex-1 min-w-0">
-                <span className={cn("text-sm", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
-                {/* Meta row: visible when values set, or on hover */}
-                <div className={cn(
-                  "flex items-center gap-2 mt-0.5 flex-wrap",
-                  !sub.deadline && !sub.assigned_to && "opacity-0 group-hover/sub:opacity-100 transition-opacity"
-                )}>
-                  {/* Deadline */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className={cn(
-                        "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                        sub.deadline
-                          ? isPast(parseISO(sub.deadline)) && !sub.is_completed
-                            ? "text-destructive"
-                            : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
-                              ? "text-amber-500"
-                              : "text-muted-foreground"
-                          : "text-muted-foreground/50"
-                      )}>
-                        <Calendar className="h-3 w-3" />
-                        {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
-                        {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
-                          <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
-                        )}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2" side="bottom" align="start">
-                      <div className="flex flex-col gap-1 mb-2">
-                        {[
-                          { label: "Сегодня", days: 0 },
-                          { label: "Завтра", days: 1 },
-                          { label: "Через неделю", days: 7 },
-                        ].map(preset => {
-                          const d = new Date(); d.setDate(d.getDate() + preset.days); d.setHours(23, 59, 59, 0);
-                          return (
-                            <button key={preset.days} onClick={() => updateSubtask.mutate({ id: sub.id, deadline: d.toISOString() })}
-                              className="text-xs text-left px-2 py-1 rounded hover:bg-muted transition-colors">{preset.label}</button>
-                          );
-                        })}
-                        {sub.deadline && (
-                          <button onClick={() => updateSubtask.mutate({ id: sub.id, deadline: null })}
-                            className="text-xs text-left px-2 py-1 rounded hover:bg-muted text-destructive transition-colors">Убрать срок</button>
-                        )}
-                      </div>
-                      <CalendarPicker
-                        mode="single"
-                        selected={sub.deadline ? parseISO(sub.deadline) : undefined}
-                        onSelect={(date) => {
-                          if (date) { date.setHours(23, 59, 59, 0); updateSubtask.mutate({ id: sub.id, deadline: date.toISOString() }); }
-                        }}
-                        className="p-2 pointer-events-auto"
-                        locale={ru}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {/* Assignee */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className={cn(
-                        "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                        sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
-                      )}>
-                        <Wand2 className="h-3 w-3" />
-                        {sub.assigned_to ? getProfileName(sub.assigned_to) : "Ответств."}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" side="bottom" align="start">
-                      <PopoverSearchList
-                        items={availableUsers}
-                        searchKey={(u) => u.display_name || u.email || ""}
-                        placeholder="Найти..."
-                        renderItem={(u) => (
-                          <button key={u.id}
-                            onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: u.id })}
-                            className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
-                          >{u.display_name || "Без имени"}</button>
-                        )}
-                        footer={sub.assigned_to ? (
-                          <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
-                            className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
-                        ) : undefined}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+          <DndContext sensors={subtaskSensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd} modifiers={[restrictToVerticalAxis]}>
+            <SortableContext items={[...subtasks].sort((a, b) => a.position - b.position).map(s => s.id)} strategy={verticalListSortingStrategy}>
+              {[...subtasks].sort((a, b) => a.position - b.position).map((sub) => (
+                <SortableSubtaskRow
+                  key={sub.id}
+                  sub={sub}
+                  task={task}
+                  editingSubtaskId={editingSubtaskId}
+                  editingSubtaskTitle={editingSubtaskTitle}
+                  onStartEdit={(s) => { setEditingSubtaskId(s.id); setEditingSubtaskTitle(s.title); }}
+                  onChangeTitle={setEditingSubtaskTitle}
+                  onSaveTitle={handleSaveSubtaskTitle}
+                  onCancelEdit={() => setEditingSubtaskId(null)}
+                  onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
+                  onDelete={(id) => deleteSubtask.mutate(id)}
+                  onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
+                  onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                  availableUsers={availableUsers}
+                  getProfileName={getProfileName}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           {showAddSubtask ? (
             <form onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }} className="flex items-center gap-2">
               <input
