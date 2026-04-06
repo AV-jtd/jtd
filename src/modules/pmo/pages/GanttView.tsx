@@ -517,10 +517,6 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         }
 
         children.forEach(child => addProjectRows(child, depth + 1, true));
-      }
-
-        children.forEach(child => addProjectRows(child, depth + 1, true));
-      }
     };
 
     if (selectedProjectId) {
