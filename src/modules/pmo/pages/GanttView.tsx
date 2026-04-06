@@ -533,7 +533,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       }
     });
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty]);
 
   // Timeline range
   const { timelineStart, timelineEnd, columns } = useMemo(() => {
