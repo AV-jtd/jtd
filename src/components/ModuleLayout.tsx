@@ -59,15 +59,17 @@ export default function ModuleLayout({
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <AppHeader
-        onSearchOpen={() => setSearchOpen(true)}
-        onAiOpen={() => setAiOpen(true)}
-        onMessengerToggle={() => setMessengerOpen((prev) => !prev)}
-        messengerOpen={messengerOpen}
-        unreadCount={unreadCount}
-      >
-        {headerChildren}
-      </AppHeader>
+      {customHeader || (
+        <AppHeader
+          onSearchOpen={() => setSearchOpen(true)}
+          onAiOpen={() => setAiOpen(true)}
+          onMessengerToggle={() => setMessengerOpen((prev) => !prev)}
+          messengerOpen={messengerOpen}
+          unreadCount={unreadCount}
+        >
+          {headerChildren}
+        </AppHeader>
+      )}
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
