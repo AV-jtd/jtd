@@ -122,9 +122,11 @@ serve(async (req) => {
     const profileMap: Record<string, string> = {};
     (profiles || []).forEach((p: any) => { profileMap[p.id] = p.display_name || "Без имени"; });
 
-    const activeTasks = (tasks || []).filter((t: any) => !t.is_completed);
-    const completedRecently = (tasks || []).filter((t: any) => {
-      if (!t.is_completed || !t.completed_at) return false;
+    const allTasks = tasks || [];
+    const activeTasks = allTasks.filter((t: any) => !t.is_completed);
+    const completedTasks = allTasks.filter((t: any) => t.is_completed);
+    const completedRecently = completedTasks.filter((t: any) => {
+      if (!t.completed_at) return false;
       const completedDate = new Date(t.completed_at);
       const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000);
       return completedDate >= threeDaysAgo;
@@ -142,12 +144,87 @@ serve(async (req) => {
     const noDeadline = activeTasks.filter((t: any) => !t.deadline);
     const driftedTasks = activeTasks.filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
 
-    // Build context
+    // ── Advanced analytics ──
+
+    // 1. Velocity: completed per week (last 4 weeks)
+    const weekBuckets = [0, 0, 0, 0];
+    completedTasks.forEach((t: any) => {
+      if (!t.completed_at) return;
+      const ago = Math.floor((today.getTime() - new Date(t.completed_at).getTime()) / (7 * 24 * 60 * 60 * 1000));
+      if (ago >= 0 && ago < 4) weekBuckets[ago]++;
+    });
+    const velocityTrend = weekBuckets[0] > weekBuckets[1] ? "ускоряется" : weekBuckets[0] < weekBuckets[1] ? "замедляется" : "стабильна";
+
+    // 2. Task aging — how long overdue tasks have been overdue
+    const overdueAging = overdue.map((t: any) => Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24)));
+    const avgOverdueAge = overdueAging.length > 0 ? Math.round(overdueAging.reduce((a: number, b: number) => a + b, 0) / overdueAging.length) : 0;
+    const maxOverdueAge = overdueAging.length > 0 ? Math.max(...overdueAging) : 0;
+
+    // 3. Workload per assignee
+    const workload: Record<string, { active: number; overdue: number; name: string }> = {};
+    activeTasks.forEach((t: any) => {
+      const assignee = t.assigned_to || t.user_id;
+      if (!workload[assignee]) workload[assignee] = { active: 0, overdue: 0, name: profileMap[assignee] || "?" };
+      workload[assignee].active++;
+      if (t.deadline && new Date(t.deadline) < today) workload[assignee].overdue++;
+    });
+    const overloadedPeople = Object.values(workload).filter(w => w.active > 8 || w.overdue > 3).sort((a, b) => b.active - a.active);
+
+    // 4. Project health distribution
+    const projectHealth: Record<string, { total: number; done: number; overdue: number; name: string }> = {};
+    allTasks.forEach((t: any) => {
+      if (!t.group_id) return;
+      const gName = (groups || []).find((g: any) => g.id === t.group_id)?.name || t.group_id;
+      if (!projectHealth[t.group_id]) projectHealth[t.group_id] = { total: 0, done: 0, overdue: 0, name: gName };
+      projectHealth[t.group_id].total++;
+      if (t.is_completed) projectHealth[t.group_id].done++;
+      else if (t.deadline && new Date(t.deadline) < today) projectHealth[t.group_id].overdue++;
+    });
+    const troubleProjects = Object.entries(projectHealth)
+      .filter(([_, v]) => v.overdue > 2 || (v.total > 3 && v.done / v.total < 0.2))
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.overdue - a.overdue);
+
+    // 5. Drift patterns
+    const totalDriftDays = driftedTasks.reduce((sum: number, t: any) => {
+      return sum + Math.floor((new Date(t.deadline).getTime() - new Date(t.original_deadline).getTime()) / (1000*60*60*24));
+    }, 0);
+    const avgDrift = driftedTasks.length > 0 ? Math.round(totalDriftDays / driftedTasks.length) : 0;
+
+    // 6. Created but not started (no progress for 7+ days)
+    const stale = activeTasks.filter((t: any) => {
+      const created = new Date(t.created_at);
+      const updated = new Date(t.updated_at);
+      const ageD = (today.getTime() - created.getTime()) / (1000*60*60*24);
+      const lastTouch = (today.getTime() - updated.getTime()) / (1000*60*60*24);
+      return ageD > 7 && lastTouch > 5 && !t.deadline;
+    });
+
+    // 7. Day of week awareness
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    const dayNames = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
+    const dayName = dayNames[dayOfWeek];
+    const isMonday = dayOfWeek === 1;
+    const isFriday = dayOfWeek === 5;
+
+    // ── Rotating analysis lens ──
+    const lenses = [
+      "velocity", // Темп и динамика
+      "workload", // Баланс нагрузки
+      "risks",    // Риски и узкие места
+      "strategy", // Стратегический взгляд
+      "patterns", // Паттерны и закономерности
+      "delegation", // Делегирование и контроль
+    ];
+    const lensIndex = today.getDate() % lenses.length; // меняется каждый день
+    const todayLens = lenses[lensIndex];
+
+    // Build enriched context
     const scopeLabel = projectId ? `проекту "${projectName}"` : "всем задачам";
-    let context = `📊 Сводка на ${todayStr} по ${scopeLabel}:\n`;
+    let context = `📊 Сводка на ${todayStr} (${dayName}) по ${scopeLabel}:\n`;
     context += `- Всего активных задач: ${activeTasks.length}\n`;
     context += `- Выполнено за 3 дня: ${completedRecently.length}\n`;
-    context += `- 🔴 Просрочено: ${overdue.length}\n`;
+    context += `- 🔴 Просрочено: ${overdue.length}${overdue.length > 0 ? ` (ср. возраст: ${avgOverdueAge} дн., макс: ${maxOverdueAge} дн.)` : ""}\n`;
     context += `- 📅 На этой неделе: ${dueThisWeek.length}\n`;
     context += `- ⭐ Важных/приоритетных: ${highPriority.length}\n`;
     if (!projectId) {
@@ -155,9 +232,28 @@ serve(async (req) => {
       context += `- 📤 Поручено мной: ${delegatedByMe.length}\n`;
     }
     context += `- ⚠️ Без дедлайна: ${noDeadline.length}\n`;
-    context += `- 📈 Со сдвигом дедлайна: ${driftedTasks.length}\n`;
+    context += `- 📈 Со сдвигом дедлайна: ${driftedTasks.length}${driftedTasks.length > 0 ? ` (ср. дрейф: +${avgDrift} дн.)` : ""}\n`;
+    context += `- 🧊 Забытых (7+ дн. без активности): ${stale.length}\n`;
     if (!projectId) context += `- 📂 Проектов: ${(groups || []).length}\n`;
-    if (subprojectNames.length > 0) context += `- 🔀 Стримы/подпроекты: ${subprojectNames.join(", ")}\n`;
+    if (subprojectNames.length > 0) context += `- 🔀 Стримы: ${subprojectNames.join(", ")}\n`;
+
+    context += `\n📈 Скорость за 4 недели: [${weekBuckets.join(", ")}] задач/нед. Тренд: ${velocityTrend}\n`;
+
+    if (overloadedPeople.length > 0) {
+      context += `\n👥 Перегруженные участники:\n`;
+      overloadedPeople.forEach(w => {
+        context += `- ${w.name}: ${w.active} актив., ${w.overdue} просроч.\n`;
+      });
+    }
+
+    if (!projectId && troubleProjects.length > 0) {
+      context += `\n🚨 Проекты с проблемами:\n`;
+      troubleProjects.slice(0, 3).forEach(p => {
+        const pct = p.total > 0 ? Math.round(p.done / p.total * 100) : 0;
+        context += `- "${p.name}" [group_id:${p.id}]: ${pct}% выполнено, ${p.overdue} просроч.\n`;
+      });
+    }
+
     context += milestonesContext;
 
     if (overdue.length > 0) {
@@ -165,12 +261,12 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (просрочена на ${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
     if (dueThisWeek.length > 0) {
-      context += `\n📅 Ближайшие дедлайны (7 дней):\n`;
+      context += `\n📅 Ближайшие дедлайны:\n`;
       dueThisWeek.slice(0, 10).forEach((t: any) => {
         const d = new Date(t.deadline);
         const dayLabel = d.toISOString().split("T")[0];
@@ -186,8 +282,15 @@ serve(async (req) => {
       });
     }
 
+    if (stale.length > 0) {
+      context += `\n🧊 Забытые задачи (без активности 7+ дн.):\n`;
+      stale.slice(0, 5).forEach((t: any) => {
+        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}\n`;
+      });
+    }
+
     if (!projectId && delegatedToMe.length > 0) {
-      context += `\n📥 Новые поручения мне:\n`;
+      context += `\n📥 Поручено мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
         context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
@@ -195,7 +298,7 @@ serve(async (req) => {
     }
 
     if (!projectId && delegatedByMe.length > 0) {
-      context += `\n📤 Мои поручения другим:\n`;
+      context += `\n📤 Мои поручения:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
         context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
@@ -203,53 +306,81 @@ serve(async (req) => {
     }
 
     if (driftedTasks.length > 0) {
-      context += `\n📈 Задачи со сдвигом дедлайна:\n`;
+      context += `\n📈 Задачи со сдвигом:\n`;
       driftedTasks.slice(0, 5).forEach((t: any) => {
         const drift = Math.floor((new Date(t.deadline).getTime() - new Date(t.original_deadline).getTime()) / (1000*60*60*24));
-        context += `- "${t.title}" [task_id:${t.id}] сдвиг +${drift} дн.\n`;
+        context += `- "${t.title}" [task_id:${t.id}] +${drift} дн.\n`;
       });
     }
+
+    // ── Lens-specific instructions ──
+    const lensInstructions: Record<string, string> = {
+      velocity: `ФОКУС АНАЛИЗА: Скорость и динамика.
+Проанализируй тренд выполнения (замедление/ускорение). Если темп падает — в чём причина? Какие конкретные блокеры тормозят? Предложи как восстановить темп. Если темп растёт — отметь и предложи как закрепить.`,
+      workload: `ФОКУС АНАЛИЗА: Баланс нагрузки.
+Проанализируй распределение задач между участниками. Кто перегружен? У кого слишком мало? Есть ли задачи, которые стоит перераспределить? Предложи конкретные действия по балансировке.`,
+      risks: `ФОКУС АНАЛИЗА: Скрытые риски.
+НЕ говори про очевидные просрочки — найди СКРЫТЫЕ проблемы: задачи без дедлайна, забытые задачи, системные паттерны дрейфа, проекты на ранней стадии запустения. Что может "выстрелить" через неделю?`,
+      strategy: `ФОКУС АНАЛИЗА: Стратегический взгляд.
+Отступи от ежедневной рутины. Какие проекты наиболее важны и получают ли они достаточно внимания? Есть ли дисбаланс между срочным и важным? Предложи перераспределить фокус для максимального долгосрочного импакта.`,
+      patterns: `ФОКУС АНАЛИЗА: Паттерны и закономерности.
+Найди повторяющиеся проблемы: задачи одного типа постоянно сдвигаются? Один проект всегда запаздывает? Определённый исполнитель систематически не укладывается? Дай инсайт, который пользователь сам не заметил бы.`,
+      delegation: `ФОКУС АНАЛИЗА: Делегирование и контроль.
+Проанализируй поручения: есть ли зависшие? Кому из исполнителей нужен follow-up? Есть ли задачи, которые пора делегировать вместо того чтобы делать самому? Предложи конкретные follow-up действия.`,
+    };
+
+    const dayContext = isMonday
+      ? "Сегодня понедельник — хороший момент для планирования недели и ревью приоритетов."
+      : isFriday
+        ? "Сегодня пятница — хороший момент подвести итоги недели, закрыть мелкие задачи и спланировать следующую."
+        : "";
 
     const systemPrompt = projectId
       ? `Ты — проактивный AI-помощник по управлению проектом "${projectName}". Анализируй ТОЛЬКО задачи этого проекта.
 
-Правила:
-1. Дай оценку здоровья проекта: прогресс, риски, узкие места
-2. Выдели 1-3 конкретных рекомендации по проекту
-3. Если есть просрочки или сдвиги дедлайнов — подчеркни это
-4. Оцени темп выполнения: успеваем ли к вехам?
-5. Если есть стримы — отметь отстающие
-6. Предложи фокус: на чём сконцентрироваться в проекте
-7. Используй эмодзи
-8. Будь кратким! Максимум 200 слов
-9. НЕ ИСПОЛЬЗУЙ markdown (**, *, #, \`, []()). Обычный текст
-10. Тон — деловой, конструктивный
-11. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]
-12. Для focusOfDay укажи focusTaskId или focusGroupId
-13. Не включай [task_id:...] или [group_id:...] в текст — только через поля JSON`
-      : `Ты — проактивный AI-помощник для управления задачами. Твоя задача — дать пользователю краткий, полезный дайджест на день.
+${lensInstructions[todayLens]}
+${dayContext}
 
 Правила:
-1. Начни с самого важного: что горит, что нужно сделать сегодня
-2. Выдели 1-3 конкретных рекомендации (что именно сделать)
-3. Если есть просрочки — подчеркни это мягко, но чётко
-4. Похвали за выполненные задачи, если они есть
-5. Предложи фокус дня: одну главную задачу, на которой стоит сконцентрироваться
+1. Дай УНИКАЛЬНЫЙ анализ — НЕ повторяй типовые фразы про "сосредоточьтесь на просрочках"
+2. Найди неочевидные инсайты: паттерны, тренды, риски, которые пользователь мог упустить
+3. Дай 1-3 КОНКРЕТНЫХ, НЕШАБЛОННЫХ рекомендации с именами задач
+4. Оцени темп: скорость за 4 недели показывает тренд
+5. Если есть стримы — отметь отстающие и почему
+6. Используй эмодзи
+7. Максимум 200 слов
+8. НЕ ИСПОЛЬЗУЙ markdown (**, *, #, \`, []()). Обычный текст
+9. Тон — деловой, конструктивный, как опытный PM
+10. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]
+11. Для focusOfDay укажи focusTaskId или focusGroupId
+12. Не включай [task_id:...] или [group_id:...] в текст — только через поля JSON
+13. ЗАПРЕЩЕНО: общие фразы типа "обратите внимание на просроченные задачи". Будь конкретен!`
+      : `Ты — проактивный AI-аналитик по продуктивности. Ты даёшь УНИКАЛЬНЫЙ дайджест, каждый раз с новым углом.
+
+${lensInstructions[todayLens]}
+${dayContext}
+
+Правила:
+1. ЗАПРЕЩЕНО: "сосредоточьтесь на просроченных", "обратите внимание на дедлайны" — это скучно и очевидно
+2. Найди НЕОЧЕВИДНЫЙ инсайт: скрытый паттерн, тренд, дисбаланс, системную проблему
+3. Дай 1-3 КОНКРЕТНЫХ рекомендации с именами задач/проектов — не общие советы
+4. Проанализируй ТРЕНД скорости (ускоряется/замедляется) и почему
+5. Если есть забытые задачи или дисбаланс нагрузки — сигнализируй об этом
 6. Используй эмодзи для визуального разделения
-7. Будь кратким! Максимум 200 слов
-8. НЕ ИСПОЛЬЗУЙ markdown форматирование (никаких **, *, #, \`, []() и т.д.). Пиши обычный текст без разметки.
-9. Тон — дружелюбный, мотивирующий, но конкретный
-10. НЕ повторяй просто список задач — анализируй и дай рекомендации
-11. КРИТИЧЕСКИ ВАЖНО: В urgentItems ОБЯЗАТЕЛЬНО указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]. Копируй UUID ТОЧНО как есть. Каждый пункт urgentItems ДОЛЖЕН содержать task_id если упоминается задача. Без task_id пользователь не сможет перейти к задаче!
-12. Для focusOfDay ОБЯЗАТЕЛЬНО укажи focusTaskId или focusGroupId — UUID из контекста.
-13. Не включай [task_id:...] или [group_id:...] в текст — передавай их ТОЛЬКО через поля task_id и group_id в JSON.
+7. Максимум 200 слов
+8. НЕ ИСПОЛЬЗУЙ markdown (**, *, #, \`, []()). Обычный текст
+9. Тон — как умный коллега, который видит то, что ты не заметил
+10. НЕ повторяй список задач — давай аналитику
+11. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста. Копируй UUID ТОЧНО
+12. Для focusOfDay укажи focusTaskId или focusGroupId
+13. Не включай [task_id:...] в текст — только через поля JSON
 
-Если задач мало (< 5) — предложи спланировать день/неделю.
-Если всё в порядке — отметь это и предложи стратегический фокус.`;
+Если задач мало (< 5) — предложи стратегию на неделю.
+Если всё ок — найди точку роста, а не просто похвали.`;
 
     const userPrompt = projectId
-      ? `Вот текущая ситуация по проекту "${projectName}":\n\n${context}\n\nДай анализ проекта и рекомендации.`
-      : `Вот моя текущая ситуация с задачами:\n\n${context}\n\nДай мне краткий дайджест и рекомендации на сегодня.`;
+      ? `Ситуация по проекту "${projectName}":\n\n${context}\n\nДай анализ в фокусе "${todayLens}".`
+      : `Моя ситуация с задачами:\n\n${context}\n\nДай уникальный дайджест в фокусе "${todayLens}".`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
