@@ -710,7 +710,7 @@ export default function NpdSwimlaneMatrix() {
   }, []);
   const [inboxOpen, setInboxOpen] = useState(false);
 
-  const isLoading = groupsLoading || tasksLoading || !npdTagData;
+  const isLoading = groupsLoading || tasksLoading || !npdTagData || groupTagsLoading;
 
   if (isLoading) {
     return (
