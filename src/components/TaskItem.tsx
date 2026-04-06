@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
+import { useUndo } from "@/hooks/useUndoStack";
 
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks } from "@/hooks/useTasks";
@@ -474,6 +475,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
+  const { pushUndo } = useUndo();
   const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, promoteSubtaskToTask, demoteTaskToSubtask, moveSubtaskToTask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
   const { data: allTags = [] } = useVisibleTags();
   const linkedTagIds = useLinkedTagIds();
@@ -528,6 +530,73 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
+
+  // ── Undoable wrappers ──
+  const undoableToggleTask = useCallback(() => {
+    const prev = task.is_completed;
+    toggleTask.mutate({ id: task.id, is_completed: !prev });
+    pushUndo({
+      label: prev ? `Восстановлено «${task.title}»` : `Завершено «${task.title}»`,
+      undo: () => toggleTask.mutate({ id: task.id, is_completed: prev }),
+      redo: () => toggleTask.mutate({ id: task.id, is_completed: !prev }),
+    });
+  }, [task.id, task.is_completed, task.title, toggleTask, pushUndo]);
+
+  const undoableToggleImportant = useCallback(() => {
+    const prev = task.is_important;
+    toggleImportant.mutate({ id: task.id, is_important: !prev });
+    pushUndo({
+      label: !prev ? `⭐ «${task.title}»` : `Снято ⭐ «${task.title}»`,
+      undo: () => toggleImportant.mutate({ id: task.id, is_important: prev }),
+      redo: () => toggleImportant.mutate({ id: task.id, is_important: !prev }),
+    });
+  }, [task.id, task.is_important, task.title, toggleImportant, pushUndo]);
+
+  const undoableDeleteTask = useCallback(() => {
+    const snap = { ...task, subtasks: [...(task.subtasks || [])], task_tags: [...(task.task_tags || [])] };
+    deleteTask.mutate(task.id);
+    pushUndo({
+      label: `Удалено «${task.title}»`,
+      undo: async () => {
+        await supabase.from("tasks").insert({
+          id: snap.id, title: snap.title, description: snap.description,
+          group_id: snap.group_id, user_id: snap.user_id, deadline: snap.deadline,
+          is_completed: snap.is_completed, is_important: snap.is_important,
+          position: snap.position, priority: snap.priority, assigned_to: snap.assigned_to,
+          task_type: snap.task_type, start_at: snap.start_at,
+          recurrence: snap.recurrence, recurrence_end_date: snap.recurrence_end_date,
+        } as any);
+        if (snap.subtasks.length > 0) {
+          await supabase.from("subtasks").insert(
+            snap.subtasks.map(s => ({ id: s.id, task_id: snap.id, title: s.title, position: s.position, is_completed: s.is_completed, deadline: s.deadline, assigned_to: s.assigned_to }))
+          );
+        }
+        if (snap.task_tags.length > 0) {
+          await supabase.from("task_tags").insert(
+            snap.task_tags.map(tt => ({ task_id: snap.id, tag_id: tt.tag_id }))
+          );
+        }
+        // Trigger UI refresh
+        window.dispatchEvent(new Event("undo-invalidate"));
+      },
+      redo: () => deleteTask.mutate(snap.id),
+    });
+  }, [task, deleteTask, pushUndo]);
+
+  const undoableUpdateTask = useCallback((id: string, updates: Partial<Task>) => {
+    const prevValues: Record<string, any> = {};
+    for (const key of Object.keys(updates)) {
+      prevValues[key] = (task as any)[key];
+    }
+    updateTask.mutate({ id, ...updates });
+    const fields: Record<string, string> = { deadline: "срок", description: "описание", title: "название", assigned_to: "ответственный", priority: "приоритет", group_id: "проект" };
+    const changedField = fields[Object.keys(updates)[0]] || Object.keys(updates)[0] || "поле";
+    pushUndo({
+      label: `${changedField} «${task.title}»`,
+      undo: () => updateTask.mutate({ id, ...prevValues }),
+      redo: () => updateTask.mutate({ id, ...updates }),
+    });
+  }, [task, updateTask, pushUndo]);
 
   const fetchTagSuggestions = useCallback(async () => {
     if (suggestionsLoaded.current || availableTags.length === 0) return;
@@ -754,7 +823,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
                 setClosureDialogOpen(true);
               } else {
-                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed });
+                undoableToggleTask();
               }
             }}
             className={cn(
@@ -1045,7 +1114,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           />
 
-          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
+          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)} />
 
           <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
@@ -1112,7 +1181,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </Popover>
 
           <button
-            onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+            onClick={() => undoableToggleImportant()}
             className={cn(
               "p-1.5 rounded transition-colors",
               task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning"
@@ -1494,7 +1563,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
 
           {/* Dates */}
-          <DeadlineDetailSection task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
+          <DeadlineDetailSection task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)} />
 
           {/* Recurrence */}
           <div className="space-y-1.5">
@@ -1551,7 +1620,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 );
               })}
               <button
-                onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+                onClick={() => undoableToggleImportant()}
                 className={cn(
                   "p-1 rounded-lg border transition-all",
                   task.is_important
@@ -1756,8 +1825,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               </button>
               <ConfirmDelete
                 title="Удалить задачу"
-                description={`Удалить «${task.title}»? Это действие нельзя отменить.`}
-                onConfirm={() => deleteTask.mutate(task.id)}
+                description={`Удалить «${task.title}»? Можно отменить через Ctrl+Z.`}
+                onConfirm={() => undoableDeleteTask()}
               >
                 <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
                   <Trash2 className="h-3 w-3" /> Удалить
