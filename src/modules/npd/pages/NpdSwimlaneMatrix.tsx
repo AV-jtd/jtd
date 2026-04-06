@@ -17,6 +17,7 @@ import {
   type DragEndEvent, type DragOverEvent,
 } from "@dnd-kit/core";
 import { Loader2 } from "lucide-react";
+import MatrixSkeleton from "../components/matrix/MatrixSkeleton";
 import { parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { toast } from "sonner";
 
