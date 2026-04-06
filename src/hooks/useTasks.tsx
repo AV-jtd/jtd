@@ -815,6 +815,25 @@ export function useTaskMutations() {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & Partial<TablesInsert<"tasks">>) => {
+      // Deadline validation: can't set deadline earlier than latest subtask deadline
+      if ('deadline' in updates && updates.deadline) {
+        const { data: subs } = await supabase.from("subtasks").select("deadline").eq("task_id", id);
+        if (subs && subs.length > 0) {
+          const latestSubDeadline = subs.reduce((latest: Date | null, s) => {
+            if (s.deadline) {
+              const d = new Date(s.deadline);
+              return !latest || d > latest ? d : latest;
+            }
+            return latest;
+          }, null);
+          if (latestSubDeadline && new Date(updates.deadline as string) < latestSubDeadline) {
+            const formatted = latestSubDeadline.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+            toast.error(`Нельзя установить срок раньше ${formatted} — есть шаги с более поздним дедлайном`);
+            throw new Error("Deadline earlier than subtask deadline");
+          }
+        }
+      }
+
       // Handle linked tag sync when changing group_id
       if ('group_id' in updates) {
         const { data: currentTask } = await supabase.from("tasks").select("group_id").eq("id", id).single();
@@ -1195,8 +1214,35 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+  const reorderSubtasks = useMutation({
+    mutationFn: async (items: { id: string; position: number }[]) => {
+      const promises = items.map(({ id, position }) =>
+        supabase.from("subtasks").update({ position }).eq("id", id)
+      );
+      const results = await Promise.all(promises);
+      const err = results.find(r => r.error);
+      if (err?.error) throw err.error;
+    },
+    onMutate: async (items) => {
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const snap = snapshotTasks(qc);
+      const posMap = new Map(items.map(i => [i.id, i.position]));
+      updateAllTaskCaches(qc, (tasks) =>
+        tasks.map(t => ({
+          ...t,
+          subtasks: t.subtasks
+            ?.map(s => posMap.has(s.id) ? { ...s, position: posMap.get(s.id)! } : s)
+            .sort((a, b) => a.position - b.position),
+        }))
+      );
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
   const updateSubtask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; deadline?: string | null; assigned_to?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; deadline?: string | null; assigned_to?: string | null }) => {
       const { error } = await supabase.from("subtasks").update(updates).eq("id", id);
       if (error) throw error;
 
@@ -1649,7 +1695,7 @@ export function useTaskMutations() {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
-    addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
+    addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, addGroupMemberByEmail, removeGroupMember, updateGroupMemberRole, grantTagAccess,
     reorderTasks, reorderGroups,

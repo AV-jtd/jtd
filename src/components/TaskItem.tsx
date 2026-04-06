@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable as useSortableDnd } from "@dnd-kit/sortable";
+import { CSS as DndCSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
@@ -254,11 +258,157 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
   );
 }
 
+/* ── Sortable Subtask Row ── */
+interface SortableSubtaskRowProps {
+  sub: Subtask;
+  task: Task;
+  editingSubtaskId: string | null;
+  editingSubtaskTitle: string;
+  onStartEdit: (sub: Subtask) => void;
+  onChangeTitle: (title: string) => void;
+  onSaveTitle: (id: string) => void;
+  onCancelEdit: () => void;
+  onToggle: (id: string, done: boolean) => void;
+  onDelete: (id: string) => void;
+  onUpdateDeadline: (id: string, dl: string | null) => void;
+  onUpdateAssignee: (id: string, uid: string | null) => void;
+  availableUsers: Profile[];
+  getProfileName: (userId: string) => string;
+}
+
+function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, availableUsers, getProfileName }: SortableSubtaskRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortableDnd({ id: sub.id });
+  const style = { transform: DndCSS.Transform.toString(transform), transition };
+  const isEditing = editingSubtaskId === sub.id;
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn("flex items-start gap-2.5 group/sub py-1", isDragging && "opacity-50 z-50 relative")}>
+      <button {...attributes} {...listeners} className="text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing mt-1 touch-none shrink-0">
+        <GripVertical className="h-3 w-3" />
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle(sub.id, !sub.is_completed); }}
+        className="-m-2 p-2 touch-manipulation mt-0.5"
+      >
+        <span className={cn(
+          "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
+          sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
+        )}>
+          {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+        </span>
+      </button>
+      <div className="flex-1 min-w-0">
+        {isEditing ? (
+          <input
+            autoFocus
+            value={editingSubtaskTitle}
+            onChange={(e) => onChangeTitle(e.target.value)}
+            onBlur={() => onSaveTitle(sub.id)}
+            onKeyDown={(e) => { if (e.key === "Enter") onSaveTitle(sub.id); if (e.key === "Escape") onCancelEdit(); }}
+            className="text-sm bg-transparent outline-none w-full border-b border-primary/40 py-0.5"
+          />
+        ) : (
+          <span
+            onDoubleClick={() => onStartEdit(sub)}
+            className={cn("text-sm cursor-pointer", sub.is_completed && "line-through text-muted-foreground")}
+            title="Двойной клик для переименования"
+          >
+            {sub.title}
+          </span>
+        )}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {/* Deadline */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
+                sub.deadline
+                  ? isPast(parseISO(sub.deadline)) && !sub.is_completed
+                    ? "text-destructive"
+                    : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                  : "text-muted-foreground/50"
+              )}>
+                <Calendar className="h-3 w-3" />
+                {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
+                {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
+                  <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <div className="flex flex-col gap-1 mb-2">
+                {[
+                  { label: "Сегодня", days: 0 },
+                  { label: "Завтра", days: 1 },
+                  { label: "Через неделю", days: 7 },
+                ].map(preset => {
+                  const d = new Date(); d.setDate(d.getDate() + preset.days); d.setHours(23, 59, 59, 0);
+                  return (
+                    <button key={preset.days} onClick={() => onUpdateDeadline(sub.id, d.toISOString())}
+                      className="text-xs text-left px-2 py-1 rounded hover:bg-muted transition-colors">{preset.label}</button>
+                  );
+                })}
+                {sub.deadline && (
+                  <button onClick={() => onUpdateDeadline(sub.id, null)}
+                    className="text-xs text-left px-2 py-1 rounded hover:bg-muted text-destructive transition-colors">Убрать срок</button>
+                )}
+              </div>
+              <CalendarPicker
+                mode="single"
+                selected={sub.deadline ? parseISO(sub.deadline) : undefined}
+                onSelect={(date) => {
+                  if (date) { date.setHours(23, 59, 59, 0); onUpdateDeadline(sub.id, date.toISOString()); }
+                }}
+                className="p-2 pointer-events-auto"
+                locale={ru}
+              />
+            </PopoverContent>
+          </Popover>
+          {/* Assignee */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
+                sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
+              )}>
+                <Wand2 className="h-3 w-3" />
+                {sub.assigned_to ? getProfileName(sub.assigned_to) : "Ответств."}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" side="bottom" align="start">
+              <PopoverSearchList
+                items={availableUsers}
+                searchKey={(u) => u.display_name || u.email || ""}
+                placeholder="Найти..."
+                renderItem={(u) => (
+                  <button key={u.id}
+                    onClick={() => onUpdateAssignee(sub.id, u.id)}
+                    className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
+                  >{u.display_name || "Без имени"}</button>
+                )}
+                footer={sub.assigned_to ? (
+                  <button onClick={() => onUpdateAssignee(sub.id, null)}
+                    className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
+                ) : undefined}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+      <button onClick={() => onDelete(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
-  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
+  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
   const { data: allTags = [] } = useVisibleTags();
   const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -283,6 +433,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const [savingToWiki, setSavingToWiki] = useState(false);
+  const [stepsCollapsed, setStepsCollapsed] = useState(false);
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
+  const subtaskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const itemRef = useRef<HTMLDivElement>(null);
 
   const isCreator = currentUser?.id === task.user_id;
@@ -409,6 +563,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [task, subtasks, currentUser]);
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
+
+  const handleSubtaskDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
+    const oldIndex = sorted.findIndex(s => s.id === active.id);
+    const newIndex = sorted.findIndex(s => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    reorderSubtasks.mutate(reordered.map((s, i) => ({ id: s.id, position: i })));
+  }, [subtasks, reorderSubtasks]);
+
+  const handleSaveSubtaskTitle = useCallback((subId: string) => {
+    if (editingSubtaskTitle.trim() && editingSubtaskId === subId) {
+      const sub = subtasks.find(s => s.id === subId);
+      if (sub && editingSubtaskTitle.trim() !== sub.title) {
+        updateSubtask.mutate({ id: subId, title: editingSubtaskTitle.trim() });
+      }
+    }
+    setEditingSubtaskId(null);
+  }, [editingSubtaskTitle, editingSubtaskId, subtasks, updateSubtask]);
 
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
@@ -558,7 +735,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {subtasks.length > 0 && (
-              <span className="text-xs text-muted-foreground">{completedSubs}/{subtasks.length} шагов</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {completedSubs}/{subtasks.length} шагов
+                <span className="inline-block w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <span
+                    className="block h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${Math.round((completedSubs / subtasks.length) * 100)}%` }}
+                  />
+                </span>
+                <span className="text-[10px] text-muted-foreground/70">{Math.round((completedSubs / subtasks.length) * 100)}%</span>
+              </span>
             )}
             {task.description && !detailsOpen && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
@@ -1349,7 +1535,20 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             <div className="flex items-center gap-2">
               <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <Check className="h-3 w-3" /> Шаги
+                {subtasks.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground/70">
+                    ({completedSubs}/{subtasks.length} · {Math.round((completedSubs / subtasks.length) * 100)}%)
+                  </span>
+                )}
               </p>
+              {subtasks.length > 0 && (
+                <button
+                  onClick={() => setStepsCollapsed(!stepsCollapsed)}
+                  className="text-[10px] px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {stepsCollapsed ? "Показать" : "Свернуть"}
+                </button>
+              )}
               <button
                 onClick={handleDecompose}
                 disabled={loadingDecompose}
@@ -1360,6 +1559,17 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 {loadingDecompose ? "Думаю..." : "Разбить на шаги"}
               </button>
             </div>
+            {/* Progress bar */}
+            {subtasks.length > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${Math.round((completedSubs / subtasks.length) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {/* AI suggested subtasks */}
             {aiSubtasks.length > 0 && (
               <div className="space-y-1 border border-primary/20 rounded-lg p-2 bg-primary/5">
@@ -1399,107 +1609,31 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </div>
               </div>
             )}
-            {subtasks.map((sub) => (
-              <div key={sub.id} className="flex items-start gap-2.5 group/sub py-1">
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed }); }}
-                  className="-m-2 p-2 touch-manipulation mt-0.5"
-                >
-                  <span className={cn(
-                    "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
-                    sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-                  )}>
-                    {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                  </span>
-                </button>
-                <div className="flex-1 min-w-0">
-                  <span className={cn("text-sm", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {/* Deadline */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className={cn(
-                          "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                          sub.deadline
-                            ? isPast(parseISO(sub.deadline)) && !sub.is_completed
-                              ? "text-destructive"
-                              : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
-                                ? "text-amber-500"
-                                : "text-muted-foreground"
-                            : "text-muted-foreground/50"
-                        )}>
-                          <Calendar className="h-3 w-3" />
-                          {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
-                          {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
-                            <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
-                          )}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-2" side="bottom" align="start">
-                        <div className="flex flex-col gap-1 mb-2">
-                          {[
-                            { label: "Сегодня", days: 0 },
-                            { label: "Завтра", days: 1 },
-                            { label: "Через неделю", days: 7 },
-                          ].map(preset => {
-                            const d = new Date(); d.setDate(d.getDate() + preset.days); d.setHours(23, 59, 59, 0);
-                            return (
-                              <button key={preset.days} onClick={() => updateSubtask.mutate({ id: sub.id, deadline: d.toISOString() })}
-                                className="text-xs text-left px-2 py-1 rounded hover:bg-muted transition-colors">{preset.label}</button>
-                            );
-                          })}
-                          {sub.deadline && (
-                            <button onClick={() => updateSubtask.mutate({ id: sub.id, deadline: null })}
-                              className="text-xs text-left px-2 py-1 rounded hover:bg-muted text-destructive transition-colors">Убрать срок</button>
-                          )}
-                        </div>
-                        <CalendarPicker
-                          mode="single"
-                          selected={sub.deadline ? parseISO(sub.deadline) : undefined}
-                          onSelect={(date) => {
-                            if (date) { date.setHours(23, 59, 59, 0); updateSubtask.mutate({ id: sub.id, deadline: date.toISOString() }); }
-                          }}
-                          className="p-2 pointer-events-auto"
-                          locale={ru}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    {/* Assignee */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className={cn(
-                          "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                          sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
-                        )}>
-                          <Wand2 className="h-3 w-3" />
-                          {sub.assigned_to ? getProfileName(sub.assigned_to) : "Ответств."}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 p-2" side="bottom" align="start">
-                        <PopoverSearchList
-                          items={availableUsers}
-                          searchKey={(u) => u.display_name || u.email || ""}
-                          placeholder="Найти..."
-                          renderItem={(u) => (
-                            <button key={u.id}
-                              onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: u.id })}
-                              className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
-                            >{u.display_name || "Без имени"}</button>
-                          )}
-                          footer={sub.assigned_to ? (
-                            <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
-                              className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
-                          ) : undefined}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+            {!stepsCollapsed && (
+              <DndContext sensors={subtaskSensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd} modifiers={[restrictToVerticalAxis]}>
+                <SortableContext items={[...subtasks].sort((a, b) => a.position - b.position).map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  {[...subtasks].sort((a, b) => a.position - b.position).map((sub) => (
+                    <SortableSubtaskRow
+                      key={sub.id}
+                      sub={sub}
+                      task={task}
+                      editingSubtaskId={editingSubtaskId}
+                      editingSubtaskTitle={editingSubtaskTitle}
+                      onStartEdit={(s) => { setEditingSubtaskId(s.id); setEditingSubtaskTitle(s.title); }}
+                      onChangeTitle={setEditingSubtaskTitle}
+                      onSaveTitle={handleSaveSubtaskTitle}
+                      onCancelEdit={() => setEditingSubtaskId(null)}
+                      onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
+                      onDelete={(id) => deleteSubtask.mutate(id)}
+                      onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
+                      onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                      availableUsers={availableUsers}
+                      getProfileName={getProfileName}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
             <form onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }} className="flex items-center gap-2">
               <input
                 value={newSubtask}
@@ -1558,111 +1692,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       {/* Subtasks compact view */}
       {!detailsOpen && expanded && (
         <div className="px-3.5 pb-3 ml-8 space-y-1">
-          {subtasks.map((sub) => (
-            <div key={sub.id} className="flex items-start gap-2.5 group/sub py-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSubtask.mutate({ id: sub.id, is_completed: !sub.is_completed }); }}
-                className="-m-2 p-2 touch-manipulation mt-0.5"
-              >
-                <span className={cn(
-                  "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all",
-                  sub.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-                )}>
-                  {sub.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                </span>
-              </button>
-              <div className="flex-1 min-w-0">
-                <span className={cn("text-sm", sub.is_completed && "line-through text-muted-foreground")}>{sub.title}</span>
-                {/* Meta row: visible when values set, or on hover */}
-                <div className={cn(
-                  "flex items-center gap-2 mt-0.5 flex-wrap",
-                  !sub.deadline && !sub.assigned_to && "opacity-0 group-hover/sub:opacity-100 transition-opacity"
-                )}>
-                  {/* Deadline */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className={cn(
-                        "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                        sub.deadline
-                          ? isPast(parseISO(sub.deadline)) && !sub.is_completed
-                            ? "text-destructive"
-                            : sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline)
-                              ? "text-amber-500"
-                              : "text-muted-foreground"
-                          : "text-muted-foreground/50"
-                      )}>
-                        <Calendar className="h-3 w-3" />
-                        {sub.deadline ? format(parseISO(sub.deadline), "d MMM", { locale: ru }) : "Срок"}
-                        {sub.deadline && task.deadline && parseISO(sub.deadline) > parseISO(task.deadline) && !sub.is_completed && (
-                          <span className="text-[9px] text-amber-500 font-medium" title="Срок шага позже дедлайна задачи — дедлайн будет сдвинут">↑</span>
-                        )}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2" side="bottom" align="start">
-                      <div className="flex flex-col gap-1 mb-2">
-                        {[
-                          { label: "Сегодня", days: 0 },
-                          { label: "Завтра", days: 1 },
-                          { label: "Через неделю", days: 7 },
-                        ].map(preset => {
-                          const d = new Date(); d.setDate(d.getDate() + preset.days); d.setHours(23, 59, 59, 0);
-                          return (
-                            <button key={preset.days} onClick={() => updateSubtask.mutate({ id: sub.id, deadline: d.toISOString() })}
-                              className="text-xs text-left px-2 py-1 rounded hover:bg-muted transition-colors">{preset.label}</button>
-                          );
-                        })}
-                        {sub.deadline && (
-                          <button onClick={() => updateSubtask.mutate({ id: sub.id, deadline: null })}
-                            className="text-xs text-left px-2 py-1 rounded hover:bg-muted text-destructive transition-colors">Убрать срок</button>
-                        )}
-                      </div>
-                      <CalendarPicker
-                        mode="single"
-                        selected={sub.deadline ? parseISO(sub.deadline) : undefined}
-                        onSelect={(date) => {
-                          if (date) { date.setHours(23, 59, 59, 0); updateSubtask.mutate({ id: sub.id, deadline: date.toISOString() }); }
-                        }}
-                        className="p-2 pointer-events-auto"
-                        locale={ru}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {/* Assignee */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className={cn(
-                        "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
-                        sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
-                      )}>
-                        <Wand2 className="h-3 w-3" />
-                        {sub.assigned_to ? getProfileName(sub.assigned_to) : "Ответств."}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" side="bottom" align="start">
-                      <PopoverSearchList
-                        items={availableUsers}
-                        searchKey={(u) => u.display_name || u.email || ""}
-                        placeholder="Найти..."
-                        renderItem={(u) => (
-                          <button key={u.id}
-                            onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: u.id })}
-                            className={cn("flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted transition-colors", sub.assigned_to === u.id && "bg-muted font-medium")}
-                          >{u.display_name || "Без имени"}</button>
-                        )}
-                        footer={sub.assigned_to ? (
-                          <button onClick={() => updateSubtask.mutate({ id: sub.id, assigned_to: null })}
-                            className="flex w-full px-2 py-1.5 rounded text-left text-sm hover:bg-muted text-destructive transition-colors mt-0.5">Убрать</button>
-                        ) : undefined}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <button onClick={() => deleteSubtask.mutate(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+          <DndContext sensors={subtaskSensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd} modifiers={[restrictToVerticalAxis]}>
+            <SortableContext items={[...subtasks].sort((a, b) => a.position - b.position).map(s => s.id)} strategy={verticalListSortingStrategy}>
+              {[...subtasks].sort((a, b) => a.position - b.position).map((sub) => (
+                <SortableSubtaskRow
+                  key={sub.id}
+                  sub={sub}
+                  task={task}
+                  editingSubtaskId={editingSubtaskId}
+                  editingSubtaskTitle={editingSubtaskTitle}
+                  onStartEdit={(s) => { setEditingSubtaskId(s.id); setEditingSubtaskTitle(s.title); }}
+                  onChangeTitle={setEditingSubtaskTitle}
+                  onSaveTitle={handleSaveSubtaskTitle}
+                  onCancelEdit={() => setEditingSubtaskId(null)}
+                  onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
+                  onDelete={(id) => deleteSubtask.mutate(id)}
+                  onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
+                  onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                  availableUsers={availableUsers}
+                  getProfileName={getProfileName}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           {showAddSubtask ? (
             <form onSubmit={(e) => { e.preventDefault(); handleAddSubtask(); }} className="flex items-center gap-2">
               <input
