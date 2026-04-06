@@ -799,18 +799,18 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           activeGroupId={activeGroupId}
           availableUsers={availableUsers}
           onCreateTask={handleCreateTask}
-          bulkButton={activeView === "group" && activeGroupId ? (
-            <BulkTaskDialog projectId={activeGroupId} projectName={groups.find(g => g.id === activeGroupId)?.name}>
+          bulkButton={
+            <BulkTaskDialog projectId={activeView === "group" ? activeGroupId : null} projectName={activeView === "group" ? groups.find(g => g.id === activeGroupId)?.name : undefined}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-colors shrink-0">
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <LayersIcon className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">Пакетное создание</TooltipContent>
               </Tooltip>
             </BulkTaskDialog>
-          ) : undefined}
+          }
         />
 
         {/* Subprojects dashboard */}
