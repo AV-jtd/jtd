@@ -25,7 +25,8 @@ import {
   Tag,
   Plus,
   Globe,
-  
+  Layers,
+  Sparkles,
   SlidersHorizontal,
   Download,
   FileDown,
@@ -44,6 +45,7 @@ import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
+import BulkTaskDialog from "@/components/BulkTaskDialog";
 
 type BoardStage = {
   key: string;
@@ -1943,13 +1945,26 @@ function InboxColumn({
           <span className={cn("text-xs text-muted-foreground", !collapsed && "ml-auto")}>{tasks.length}</span>
         </button>
         {!collapsed && onCreateInboxTask && (
-          <button
-            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-            title="Добавить задачу"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <BulkTaskDialog>
+              <button
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Пакетное создание задач"
+              >
+                <span className="relative inline-flex h-4 w-4 items-center justify-center">
+                  <Layers className="h-3.5 w-3.5" />
+                  <Sparkles className="h-2 w-2 absolute -top-0.5 -right-0.5 text-primary" />
+                </span>
+              </button>
+            </BulkTaskDialog>
+            <button
+              onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Добавить задачу"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
 
