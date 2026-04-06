@@ -8,11 +8,13 @@ import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
-interface ModuleLayoutProps {
+export interface ModuleLayoutProps {
   /** Module key for AI assistant context */
   moduleContext: "tasks" | "pmo" | "npd" | "crm";
   /** Sub-navigation rendered inside AppHeader (e.g. PMO tabs, CRM view toggle) */
   headerChildren?: ReactNode;
+  /** Completely replace AppHeader with a custom header */
+  customHeader?: ReactNode;
   /** The main content area */
   children: ReactNode;
   /** Extra overlays rendered after GlobalSearch/AiAssistant (e.g. CRM import dialog) */
@@ -22,6 +24,7 @@ interface ModuleLayoutProps {
 export default function ModuleLayout({
   moduleContext,
   headerChildren,
+  customHeader,
   children,
   extraOverlays,
 }: ModuleLayoutProps) {
