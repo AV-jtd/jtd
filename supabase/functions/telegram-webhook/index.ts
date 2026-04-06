@@ -1850,7 +1850,14 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
     if (!audioRes.ok) return null;
 
     const audioBuffer = await audioRes.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    const bytes = new Uint8Array(audioBuffer);
+    // Chunk-safe base64 encoding (avoid stack overflow on large files)
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64Audio = btoa(binary);
 
     // Transcribe with Gemini (supports audio natively)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
