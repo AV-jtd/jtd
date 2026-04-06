@@ -1007,6 +1007,83 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === /bulk in private chat ===
+    if (message.text.startsWith("/bulk")) {
+      const bulkArgs = message.text.replace(/^\/bulk\s*/, "").trim();
+      if (!bulkArgs) {
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          "📦 *Пакетное создание задач*\n\n" +
+          "Формат:\n" +
+          "`/bulk Название проекта`\n" +
+          "`- Задача 1 @user 3д`\n" +
+          "`- Задача 2 5д`\n" +
+          "`- Задача 3 завтра`\n\n" +
+          "Или:\n" +
+          "`/bulk`\n" +
+          "`Купить материалы, позвонить поставщику, отправить ТЗ дизайнеру`\n\n" +
+          "🎤 Также можно отправить голосовое сообщение.",
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Try to detect project from first line
+      let bulkGroupId: string | null = null;
+      let bulkGroupName: string | null = null;
+      let bulkText = bulkArgs;
+      
+      const firstLine = bulkArgs.split("\n")[0].trim();
+      if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
+        const group = await findProject(supabase, userId, firstLine);
+        if (group) {
+          bulkGroupId = group.id;
+          bulkGroupName = group.name;
+          bulkText = bulkArgs.substring(firstLine.length).trim();
+        }
+      }
+
+      const members = bulkGroupId 
+        ? await getProjectMembers(supabase, bulkGroupId, (await supabase.from("task_groups").select("user_id").eq("id", bulkGroupId).single()).data?.user_id || userId)
+        : [];
+      const parsedTasks = await aiBulkParse(bulkText, members, bulkGroupName || undefined);
+
+      if (!parsedTasks || parsedTasks.length === 0) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось распознать задачи. Попробуйте переформулировать.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      const results = await createBulkTasks(supabase, parsedTasks, userId, bulkGroupId, members);
+      const confirmLines = results.map((r, i) =>
+        `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+      );
+
+      const projectInfo = bulkGroupName ? ` в 📁 ${escapeMarkdown(bulkGroupName)}` : "";
+      await sendTelegramMessage(BOT_TOKEN, chatId,
+        `📦 Создано ${results.length} задач${projectInfo}:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}`
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Auto-detect bulk task lists in private chat ===
+    const isBulkCandidate = detectBulkMessage(message.text);
+    if (isBulkCandidate && !message.text.startsWith("/")) {
+      // Auto-detected as bulk list
+      const members: any[] = [];
+      const parsedTasks = await aiBulkParse(message.text, members, undefined);
+      
+      if (parsedTasks && parsedTasks.length >= 2) {
+        const results = await createBulkTasks(supabase, parsedTasks, userId, null, members);
+        const confirmLines = results.map((r, i) =>
+          `${i + 1}. ✅ ${r.title}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+        );
+        
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          `📦 Распознано ${results.length} задач:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}\n\n💡 Используй /bulk Проект для создания в конкретном проекте`
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+    }
+
     // === Parse message for task creation (private chat) ===
     let text = message.text;
 
