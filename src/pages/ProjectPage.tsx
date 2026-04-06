@@ -171,9 +171,114 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* Main grid: 2 rows x 2 cols */}
+      {/* ── Roadmap Timeline ── */}
+      {projectMilestones.length > 0 && (() => {
+        const sorted = [...projectMilestones].sort((a, b) => a.planned_date.localeCompare(b.planned_date));
+        const firstDate = parseISO(sorted[0].planned_date);
+        const lastDate = parseISO(sorted[sorted.length - 1].planned_date);
+        const totalSpan = Math.max(differenceInDays(lastDate, firstDate), 1);
+        const todayPos = Math.min(100, Math.max(0, (differenceInDays(now, firstDate) / totalSpan) * 100));
+
+        return (
+          <div className="rounded-xl border border-border/50 bg-card p-4 overflow-hidden">
+            <div className="flex items-center gap-1.5 mb-4">
+              <Diamond className="h-3 w-3 text-primary" />
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Дорожная карта</h3>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {format(firstDate, "MMM yyyy", { locale: ru })} — {format(lastDate, "MMM yyyy", { locale: ru })}
+              </span>
+            </div>
+
+            {/* Timeline */}
+            <div className="relative px-2 overflow-x-auto">
+              {/* Track line */}
+              <div className="relative h-20">
+                <div className="absolute top-[30px] left-0 right-0 h-[2px] bg-border/60" />
+
+                {/* Today marker */}
+                {todayPos > 0 && todayPos < 100 && (
+                  <div className="absolute top-[14px] z-10" style={{ left: `${todayPos}%`, transform: "translateX(-50%)" }}>
+                    <div className="w-[2px] h-[34px] bg-primary mx-auto" />
+                    <div className="text-[8px] text-primary font-bold text-center mt-0.5 whitespace-nowrap">сегодня</div>
+                  </div>
+                )}
+
+                {/* Completed progress line */}
+                <div
+                  className="absolute top-[30px] left-0 h-[2px] bg-primary transition-all duration-500"
+                  style={{ width: `${Math.min(todayPos, 100)}%` }}
+                />
+
+                {/* Milestone nodes */}
+                {sorted.map((m, i) => {
+                  const pos = (differenceInDays(parseISO(m.planned_date), firstDate) / totalSpan) * 100;
+                  const isDone = m.status === "done";
+                  const isOver = !isDone && isPast(parseISO(m.planned_date));
+                  const isFut = !isPast(parseISO(m.planned_date));
+                  const drift = isOver ? differenceInDays(now, parseISO(m.planned_date)) : 0;
+                  const daysUntil = isFut ? differenceInDays(parseISO(m.planned_date), now) : 0;
+                  const gateKey = (m as any).gate_key;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="absolute flex flex-col items-center"
+                      style={{ left: `${pos}%`, transform: "translateX(-50%)", top: 0, width: "max-content" }}
+                    >
+                      {/* Label above */}
+                      <div className={cn(
+                        "text-[9px] leading-tight text-center max-w-[80px] truncate mb-1 font-medium",
+                        isDone ? "text-primary" : isOver ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        {m.name}
+                      </div>
+
+                      {/* Diamond node */}
+                      <div className={cn(
+                        "w-3.5 h-3.5 rotate-45 rounded-[2px] border-2 transition-all",
+                        isDone
+                          ? "bg-primary border-primary"
+                          : isOver
+                            ? "bg-destructive/20 border-destructive"
+                            : "bg-card border-muted-foreground/30"
+                      )}>
+                        {isDone && (
+                          <svg className="-rotate-45 w-full h-full" viewBox="0 0 14 14">
+                            <path d="M4 7l2 2 4-4" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Date + status below */}
+                      <div className="flex flex-col items-center mt-1">
+                        <span className={cn(
+                          "text-[9px] font-mono",
+                          isDone ? "text-primary" : isOver ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {format(parseISO(m.planned_date), "d MMM", { locale: ru })}
+                        </span>
+                        {gateKey && (
+                          <span className="text-[8px] font-bold text-primary/60 uppercase">{gateKey.replace("gate", "G")}</span>
+                        )}
+                        {drift > 0 && (
+                          <span className="text-[8px] text-destructive font-mono">+{drift}д</span>
+                        )}
+                        {isFut && daysUntil <= 30 && (
+                          <span className="text-[8px] text-muted-foreground font-mono">{daysUntil}д</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Content grid */}
       <div className="grid md:grid-cols-2 gap-3">
-        {/* Row 1: Overdue list */}
+        {/* Overdue list */}
         <div className="rounded-xl border border-border/50 bg-card p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#E24B4A" }} />
@@ -201,7 +306,7 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
           )}
         </div>
 
-        {/* Row 1: Upcoming deadlines */}
+        {/* Upcoming deadlines */}
         <div className="rounded-xl border border-border/50 bg-card p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#EF9F27" }} />
@@ -228,51 +333,14 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
           )}
         </div>
 
-        {/* Row 2: Milestones */}
-        <div className="rounded-xl border border-border/50 bg-card p-4">
-          <div className="flex items-center gap-1.5 mb-3">
-            <Diamond className="h-3 w-3 text-primary" />
-            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Вехи проекта</h3>
-          </div>
-          {projectMilestones.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-2">Нет вех</div>
-          ) : (
-            <div className="space-y-0.5">
-              {projectMilestones.sort((a, b) => a.planned_date.localeCompare(b.planned_date)).slice(0, 6).map(m => {
-                const isOverdue = m.status !== "done" && isPast(parseISO(m.planned_date));
-                const drift = isOverdue ? differenceInDays(now, parseISO(m.planned_date)) : 0;
-                const isFuture = !isPast(parseISO(m.planned_date));
-                const daysUntil = isFuture ? differenceInDays(parseISO(m.planned_date), now) : 0;
-                return (
-                  <div key={m.id} className="flex items-center gap-2 text-sm py-1.5 px-2 -mx-2 rounded-lg hover:bg-secondary transition-colors">
-                    <span className={cn("w-2 h-2 rounded-sm rotate-45 shrink-0",
-                      m.status === "done" ? "bg-primary" : isOverdue ? "bg-destructive" : "bg-muted-foreground/30"
-                    )} />
-                    <span className="truncate text-foreground/90 text-[13px]">{m.name}</span>
-                    <span className="text-[10px] shrink-0 ml-auto flex items-center gap-1.5">
-                      <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
-                        {format(parseISO(m.planned_date), "d MMM.", { locale: ru })}
-                      </span>
-                      {drift > 0 && <span className="text-destructive font-mono text-[9px]">+{drift} дн.</span>}
-                      {isFuture && daysUntil <= 30 && <span className="text-muted-foreground font-mono text-[9px]">{daysUntil} дн.</span>}
-                    </span>
-                  </div>
-                );
-              })}
+        {/* Streams */}
+        {activeSubprojects.length > 0 && (
+          <div className="rounded-xl border border-border/50 bg-card p-4 md:col-span-2">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Стримы</h3>
             </div>
-          )}
-        </div>
-
-        {/* Row 2: Streams */}
-        <div className="rounded-xl border border-border/50 bg-card p-4">
-          <div className="flex items-center gap-1.5 mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Стримы</h3>
-          </div>
-          {activeSubprojects.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-2">Нет активных стримов</div>
-          ) : (
-            <div className="space-y-0.5">
+            <div className="grid md:grid-cols-2 gap-x-4 gap-y-0.5">
               {activeSubprojects.map(sp => {
                 const spTasks = allTasks.filter(t => t.group_id === sp.id);
                 const spDone = spTasks.filter(t => t.is_completed).length;
@@ -291,8 +359,8 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* AI Insights */}
