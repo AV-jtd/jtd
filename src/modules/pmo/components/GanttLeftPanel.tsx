@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Column configuration */
-export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor";
+export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor" | "gate";
 
 export interface GanttColumnConfig {
   key: GanttColumnKey;
@@ -24,6 +24,7 @@ export interface GanttColumnConfig {
 export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
   { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
   { key: "name", label: "Задача", visible: true, width: 0, minWidth: 180 }, // flex
+  { key: "gate", label: "Гейт", visible: false, width: 42, minWidth: 36 },
   { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
   { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
   { key: "deadline", label: "Срок", visible: true, width: 50, minWidth: 42 },
