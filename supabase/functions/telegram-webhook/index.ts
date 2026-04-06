@@ -285,13 +285,13 @@ Deno.serve(async (req) => {
       const linkedGroup = chatLink.task_groups as any;
       const groupId = linkedGroup.id;
 
-      // === /bulk — bulk create tasks in linked project ===
-      if (command === "bulk") {
+      // === /spisok — bulk create tasks in linked project ===
+      if (command === "spisok") {
         if (!args.trim()) {
           await sendTelegramMessage(BOT_TOKEN, chatId,
             "📦 *Пакетное создание задач*\n\n" +
             "Формат:\n" +
-            "`/bulk`\n" +
+            "`/spisok`\n" +
             "`- Задача 1 @user 3д`\n" +
             "`- Задача 2 @user2 5д`\n" +
             "`- Задача 3 завтра`\n\n" +
@@ -720,7 +720,7 @@ Deno.serve(async (req) => {
           "📖 *Справка для группового чата*\n\n" +
           "🔗 `/link Проект` — привязать чат к проекту\n" +
           "📝 `/task Текст @user !срок` — создать задачу\n" +
-          "📦 `/bulk` — пакетное создание задач\n" +
+          "📦 `/spisok` — пакетное создание задач\n" +
           "📋 `/tasks` — открытые задачи\n" +
           "✅ `/done 1` — выполнить задачу по номеру\n" +
           "👤 `/assign 1 @user` — назначить ответственного\n" +
@@ -768,7 +768,7 @@ Deno.serve(async (req) => {
         "• `завтра`, `послезавтра`, `DD.MM`, `3д` — дедлайн\n" +
         "• `/project` — выбрать проект\n" +
         "• `/projects` — список проектов\n" +
-        "• `/bulk` — пакетное создание задач\n" +
+        "• `/spisok` — пакетное создание задач\n" +
         "• `/chat Проект Сообщение` — чат проекта\n" +
         "• `/ai Вопрос` — ИИ-ассистент\n" +
         "• `/help` — справка",
@@ -798,7 +798,7 @@ Deno.serve(async (req) => {
         "• После выбора все задачи идут в этот проект\n" +
         "• `/project` без аргумента — сбросить проект\n\n" +
         "*Пакетное создание:*\n" +
-        "• `/bulk Проект` \\+ список задач\n" +
+        "• `/spisok Проект` \\+ список задач\n" +
         "• Или просто отправь список \\(-, •, 1\\.\\) — распознаю автоматически\n" +
         "• 🎤 Голосовые сообщения распознаются в задачи\n\n" +
         "*Чат проекта:*\n" +
@@ -1016,19 +1016,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
-    // === /bulk in private chat ===
-    if (message.text.startsWith("/bulk")) {
-      const bulkArgs = message.text.replace(/^\/bulk\s*/, "").trim();
+    // === /spisok in private chat ===
+    if (message.text.startsWith("/spisok")) {
+      const bulkArgs = message.text.replace(/^\/spisok\s*/, "").trim();
       if (!bulkArgs) {
         await sendTelegramMessage(BOT_TOKEN, chatId,
           "📦 *Пакетное создание задач*\n\n" +
           "Формат:\n" +
-          "`/bulk Название проекта`\n" +
+          "`/spisok Название проекта`\n" +
           "`- Задача 1 @user 3д`\n" +
           "`- Задача 2 5д`\n" +
           "`- Задача 3 завтра`\n\n" +
           "Или:\n" +
-          "`/bulk`\n" +
+          "`/spisok`\n" +
           "`Купить материалы, позвонить поставщику, отправить ТЗ дизайнеру`\n\n" +
           "🎤 Также можно отправить голосовое сообщение.",
           "Markdown"
@@ -1087,7 +1087,7 @@ Deno.serve(async (req) => {
         );
         
         await sendTelegramMessage(BOT_TOKEN, chatId,
-          `📦 Распознано ${results.length} задач:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}\n\n💡 Используй /bulk Проект для создания в конкретном проекте`
+          `📦 Распознано ${results.length} задач:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}\n\n💡 Используй /spisok Проект для создания в конкретном проекте`
         );
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
