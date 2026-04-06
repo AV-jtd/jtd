@@ -398,7 +398,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
       style={{ width }}
     >
       {/* Header */}
-      <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10" style={{ height: 32 }}>
+      <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-30" style={{ height: 32 }}>
         {/* Render columns in config order */}
         {columnConfig.map((col) => {
           if (!col.visible) return null;
