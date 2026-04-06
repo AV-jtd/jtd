@@ -47,7 +47,8 @@ function InboxRowInner({ inboxOpen, onToggle, totalCount, parentTasks, unmatched
     return map;
   }, [allInboxTasks, getTaskGate]);
 
-  return (
+  if (totalCount === 0) return null;
+
     <div className="border-b border-border bg-muted/20">
       <div className="flex">
         <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border bg-card/50">
