@@ -65,6 +65,7 @@ interface Dependency {
 interface GanttLeftPanelProps {
   rows: GanttRow[];
   rowHeight: number;
+  getRowHeight?: (i: number) => number;
   width: number;
   allProjects: TaskGroup[];
   dependencies?: Dependency[];
