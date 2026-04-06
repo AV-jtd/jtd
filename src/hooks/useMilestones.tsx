@@ -27,7 +27,7 @@ export function useMilestoneMutations() {
   const { user } = useAuth();
 
   const addMilestone = useMutation({
-    mutationFn: async (ms: { name: string; group_id: string; planned_date: string; description?: string; color?: string }) => {
+    mutationFn: async (ms: { name: string; group_id: string; planned_date: string; description?: string; color?: string; gate_key?: string | null }) => {
       const { error } = await supabase.from("project_milestones").insert({
         name: ms.name,
         group_id: ms.group_id,
@@ -35,7 +35,8 @@ export function useMilestoneMutations() {
         description: ms.description || null,
         color: ms.color || "#3b82f6",
         created_by: user!.id,
-      });
+        gate_key: ms.gate_key || null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -46,8 +47,8 @@ export function useMilestoneMutations() {
   });
 
   const updateMilestone = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; name?: string; planned_date?: string; description?: string; color?: string; status?: string; actual_date?: string | null }) => {
-      const { error } = await supabase.from("project_milestones").update(updates).eq("id", id);
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; planned_date?: string; description?: string; color?: string; status?: string; actual_date?: string | null; gate_key?: string | null }) => {
+      const { error } = await supabase.from("project_milestones").update(updates as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

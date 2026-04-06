@@ -12,6 +12,7 @@ import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Milestone } from "@/hooks/useMilestones";
+import { NPD_GATES } from "@/modules/npd/components/matrix/types";
 import type { TaskGroup } from "@/hooks/useTasks";
 
 interface MilestoneDialogProps {
@@ -21,7 +22,7 @@ interface MilestoneDialogProps {
   projects: TaskGroup[];
   defaultProjectId?: string | null;
   defaultDate?: string | null;
-  onSave: (data: { name: string; group_id: string; planned_date: string; description?: string; color?: string; status?: string }) => void;
+  onSave: (data: { name: string; group_id: string; planned_date: string; description?: string; color?: string; status?: string; gate_key?: string | null }) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -34,6 +35,7 @@ export default function MilestoneDialog({
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [status, setStatus] = useState("pending");
+  const [gateKey, setGateKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (milestone) {
@@ -43,6 +45,7 @@ export default function MilestoneDialog({
       setDescription(milestone.description || "");
       setColor(milestone.color || "#3b82f6");
       setStatus(milestone.status);
+      setGateKey((milestone as any).gate_key || null);
     } else {
       setName("");
       setGroupId(defaultProjectId || "");
@@ -50,6 +53,7 @@ export default function MilestoneDialog({
       setDescription("");
       setColor("#3b82f6");
       setStatus("pending");
+      setGateKey(null);
     }
   }, [milestone, open, defaultProjectId, defaultDate]);
 
@@ -62,6 +66,7 @@ export default function MilestoneDialog({
       description: description.trim() || undefined,
       color,
       status,
+      gate_key: gateKey || null,
     });
     onOpenChange(false);
   };
@@ -124,6 +129,26 @@ export default function MilestoneDialog({
                 <SelectItem value="missed">✗ Пропущена</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Веха гейта (NPD)</Label>
+            <Select value={gateKey || "_none"} onValueChange={v => setGateKey(v === "_none" ? null : v)}>
+              <SelectTrigger><SelectValue placeholder="Не привязана к гейту" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Не привязана к гейту</SelectItem>
+                {NPD_GATES.map(g => (
+                  <SelectItem key={g.key} value={g.key}>
+                    {g.short} — {g.shortTitle}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {gateKey && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Задачи, стартующие после этой вехи, отобразятся в следующем гейте матрицы
+              </p>
+            )}
           </div>
 
           <div>

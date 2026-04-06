@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useTaskMutations, useAvailableUsers, type Task, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
+import { useMilestones } from "@/hooks/useMilestones";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -122,6 +123,15 @@ export default function NpdSwimlaneMatrix() {
   const { data: allDependencies = [] } = useDependencies();
   const { addDependency } = useDependencyMutations();
   const { updateTask } = useTaskMutations();
+  const { data: allMilestones = [] } = useMilestones();
+
+  // Gate milestones for this project — sorted by planned_date
+  const gateMilestones = useMemo(() => {
+    if (!projectId) return [];
+    return allMilestones
+      .filter(m => (m as any).gate_key && descendantGroupIdSet.has(m.group_id))
+      .sort((a, b) => new Date(a.planned_date).getTime() - new Date(b.planned_date).getTime());
+  }, [allMilestones, projectId, descendantGroupIdSet]);
 
   // ── NPD tags init ──
   const { data: npdTagData } = useQuery({
@@ -434,9 +444,39 @@ export default function NpdSwimlaneMatrix() {
     }
 
     if (bestGate) return bestGate;
+
+    // Fallback: group-based gate
     const task = tasksById.get(taskId);
-    return task?.group_id ? getSubprojectGate(task.group_id) : null;
-  }, [getSubprojectGate, tagIdToGateKey, taskTagsByTaskId, tasksById]);
+    let groupGate = task?.group_id ? getSubprojectGate(task.group_id) : null;
+
+    // Gate milestone override: if task starts after a gate milestone, bump to next gate
+    if (task && gateMilestones.length > 0) {
+      const taskStart = task.start_at || task.created_at;
+      if (taskStart) {
+        const taskStartTime = new Date(taskStart).getTime();
+        for (let i = gateMilestones.length - 1; i >= 0; i--) {
+          const ms = gateMilestones[i];
+          const msDate = new Date(ms.planned_date).getTime();
+          if (taskStartTime >= msDate) {
+            const msGateKey = (ms as any).gate_key as string;
+            const msGateIdx = gateOrder.indexOf(msGateKey);
+            const nextGateIdx = msGateIdx + 1;
+            if (nextGateIdx < gateOrder.length) {
+              const nextGate = gateOrder[nextGateIdx];
+              // Only override if it would place the task in a later gate
+              const currentIdx = groupGate ? gateOrder.indexOf(groupGate) : -1;
+              if (nextGateIdx > currentIdx) {
+                return nextGate;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    return groupGate;
+  }, [getSubprojectGate, tagIdToGateKey, taskTagsByTaskId, tasksById, gateMilestones]);
 
   const getTaskStream = useCallback((taskId: string): string | null => {
     const tTags = taskTagsByTaskId.get(taskId) ?? [];

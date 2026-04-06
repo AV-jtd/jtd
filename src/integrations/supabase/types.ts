@@ -547,6 +547,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          gate_key: string | null
           group_id: string
           id: string
           name: string
@@ -560,6 +561,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          gate_key?: string | null
           group_id: string
           id?: string
           name: string
@@ -573,6 +575,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          gate_key?: string | null
           group_id?: string
           id?: string
           name?: string
