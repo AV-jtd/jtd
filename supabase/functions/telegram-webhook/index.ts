@@ -193,6 +193,56 @@ Deno.serve(async (req) => {
       // In group chats, only respond to commands directed at the bot
       const botCommand = extractBotCommand(message.text);
       if (!botCommand) {
+        // Check for pending /spisok context (voice, forwarded, or bulk messages in group)
+        const isPendingInGroup = isFromVoice || message._forwarded || detectBulkMessage(message.text);
+        if (isPendingInGroup) {
+          // Need user profile for context check
+          const grpUsername = message.from?.username;
+          if (grpUsername) {
+            const supabaseGrp = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+            const { data: grpProfile } = await supabaseGrp
+              .from("profiles")
+              .select("id")
+              .eq("telegram_username", grpUsername.toLowerCase())
+              .single();
+
+            if (grpProfile) {
+              const grpUserId = grpProfile.id;
+              const { data: pendingCtx } = await supabaseGrp
+                .from("telegram_pending_context")
+                .select("*")
+                .eq("chat_id", chatId)
+                .single();
+
+              if (pendingCtx && (Date.now() - new Date(pendingCtx.created_at).getTime()) < 10 * 60 * 1000) {
+                const ctxGroupId = pendingCtx.group_id;
+                const ctxGroupName = pendingCtx.group_name;
+
+                const { data: ctxGroup } = await supabaseGrp.from("task_groups").select("user_id").eq("id", ctxGroupId!).single();
+                const members = ctxGroupId
+                  ? await getProjectMembers(supabaseGrp, ctxGroupId, ctxGroup?.user_id || grpUserId)
+                  : [];
+                const parsedTasks = await aiBulkParse(message.text, members, ctxGroupName || undefined);
+
+                if (parsedTasks && parsedTasks.length >= 1) {
+                  await supabaseGrp.from("telegram_pending_context").delete().eq("chat_id", chatId);
+
+                  const results = await createBulkTasks(supabaseGrp, parsedTasks, grpUserId, ctxGroupId, members);
+                  const confirmLines = results.map((r: any, i: number) =>
+                    `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+                  );
+
+                  const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
+                  const sourceHint = isFromVoice ? "\n\n🎤 Из голосового сообщения" : message._forwarded ? "\n\n📨 Из пересланного сообщения" : "";
+                  await sendTelegramMessage(BOT_TOKEN, chatId,
+                    `📦 Создано ${results.length} задач${projectInfo}:\n\n${confirmLines.join("\n")}${sourceHint}`
+                  );
+                  return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+                }
+              }
+            }
+          }
+        }
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
