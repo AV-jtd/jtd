@@ -813,7 +813,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         {/* Minimap — takes remaining space */}
         {(() => {
           const el = scrollRef.current;
-          const viewportW = el?.clientWidth || 400;
+          const viewportW = Math.max((el?.clientWidth || 400) - leftPanelWidth - 6, 100);
           const vpStart = tlScrollLeft;
           const vpEnd = vpStart + viewportW;
           const vpLeftPct = totalWidth > 0 ? (vpStart / totalWidth) * 100 : 0;
