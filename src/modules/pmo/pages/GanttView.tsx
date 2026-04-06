@@ -1674,6 +1674,17 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           setDepDialogState(null);
         }}
       />
+
+      {/* Task detail Sheet */}
+      <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+          {selectedTaskId && (() => {
+            const task = allTasks.find(t => t.id === selectedTaskId);
+            if (!task) return null;
+            return <TaskItem task={task} initialOpen />;
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
