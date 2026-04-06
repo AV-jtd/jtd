@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, Diamond } from "lucide-react";
+import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useAiInsights } from "@/hooks/useAiInsights";
+import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import ModuleLayout from "@/components/ModuleLayout";
@@ -32,6 +33,7 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const { data: milestones = [] } = useMilestones();
   const { data: users = [] } = useAvailableUsers();
   const navigate = useNavigate();
+  const [cardOpen, setCardOpen] = useState(false);
 
   const { insights, loading: aiLoading, error: aiError, dismissed, refresh: aiRefresh, dismiss: aiDismiss } = useAiInsights(projectId);
 
@@ -292,6 +294,26 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
           </DashSection>
         )}
       </div>
+
+      {/* ━━ PROJECT CARD (collapsible) ━━ */}
+      {project && (
+        <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
+          <button
+            onClick={() => setCardOpen(!cardOpen)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-secondary/30 transition-colors text-left"
+          >
+            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Карточка проекта</span>
+            <span className="text-[10px] text-muted-foreground">· участники, теги, настройки</span>
+            {cardOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto" />}
+          </button>
+          {cardOpen && (
+            <div className="border-t border-border/50 animate-fade-in">
+              <ProjectDetailPanel group={project} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ━━ AI ━━ */}
       <AiInsightsCard
