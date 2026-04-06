@@ -39,7 +39,7 @@ const MILESTONE_ROW_HEIGHT = 28;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 1200;
 
-export default function GanttView({ initialProjectId, onBack }: { initialProjectId?: string | null; onBack?: () => void }) {
+export default function GanttView({ initialProjectId, onBack, embedded }: { initialProjectId?: string | null; onBack?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
