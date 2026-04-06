@@ -4,7 +4,7 @@ import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
 import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { format, parseISO, differenceInCalendarDays, addDays } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, addDays, isPast, isToday, isTomorrow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -624,54 +624,88 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                       editingField?.rowIndex === i && editingField.field === "title" ? (
                         <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => commitEdit(row.task!)} onKeyDown={e => { if (e.key === "Enter") commitEdit(row.task!); if (e.key === "Escape") setEditingField(null); }} className="w-full h-5 text-xs bg-background border border-border rounded px-1 outline-none" />
                       ) : (
-                        <div className="flex items-center gap-1 min-w-0 flex-1">
-                          <button onClick={() => onToggleTask(row.task!.id, !row.task!.is_completed)} className={cn("h-3.5 w-3.5 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors", row.task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40")}>
+                        <div className="flex items-start gap-1 min-w-0 flex-1">
+                          <button onClick={() => onToggleTask(row.task!.id, !row.task!.is_completed)} className={cn("h-3.5 w-3.5 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors mt-0.5", row.task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40")}>
                             {row.task.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
                           </button>
-                          <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className={cn("truncate cursor-text flex-1", row.task.is_completed && "line-through opacity-50")} onDoubleClick={() => startEdit(i, "title", row.task!.title)}>{row.task.title}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-sm text-xs p-2">
-                                <div className="font-medium">{row.task.title}</div>
-                                {row.task.description && <div className="text-muted-foreground mt-0.5 line-clamp-2">{row.task.description}</div>}
-                                {row.task.original_deadline && row.task.deadline && row.task.original_deadline !== row.task.deadline && (
-                                  <div className="text-amber-500 text-[10px] mt-0.5">Перенос: {format(parseISO(row.task.original_deadline), "d MMM", { locale: ru })} → {format(parseISO(row.task.deadline), "d MMM", { locale: ru })}</div>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button onClick={(e) => e.stopPropagation()} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Переместить в проект">
-                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                          <div className="flex-1 min-w-0">
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={cn("cursor-text text-[11px] leading-[1.3]", row.task.is_completed && "line-through opacity-50")}
+                                    style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "normal", wordBreak: "break-word" }}
+                                    onDoubleClick={() => startEdit(i, "title", row.task!.title)}
+                                  >{row.task.title}</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-sm text-xs p-2">
+                                  <div className="font-medium">{row.task.title}</div>
+                                  {row.task.description && <div className="text-muted-foreground mt-0.5 line-clamp-2">{row.task.description}</div>}
+                                  {row.task.original_deadline && row.task.deadline && row.task.original_deadline !== row.task.deadline && (
+                                    <div className="text-amber-500 text-[10px] mt-0.5">Перенос: {format(parseISO(row.task.original_deadline), "d MMM", { locale: ru })} → {format(parseISO(row.task.deadline), "d MMM", { locale: ru })}</div>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            {/* Inline deadline */}
+                            {row.task.deadline && (() => {
+                              const dl = parseISO(row.task!.deadline!);
+                              const isOverdue = isPast(dl) && !row.task!.is_completed;
+                              const isSoon = !isOverdue && (isToday(dl) || isTomorrow(dl));
+                              return (
+                                <span className="text-[10px] leading-none" style={{ color: isOverdue ? "hsl(var(--destructive))" : isSoon ? "#D97706" : "hsl(var(--muted-foreground))" }}>
+                                  {format(dl, "d MMM", { locale: ru })}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          {/* Assignee avatar inline */}
+                          {row.task.assigned_to && (() => {
+                            const initials = getUserInitials(row.task!.assigned_to);
+                            return (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="h-[18px] w-[18px] rounded-full bg-primary/20 text-primary text-[8px] font-bold flex items-center justify-center shrink-0 mt-0.5">{initials}</div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">{getUserName(row.task!.assigned_to)}</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })()}
+                          {/* Action buttons on hover */}
+                          <div className="flex items-center shrink-0 mt-0.5">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button onClick={(e) => e.stopPropagation()} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Переместить в проект">
+                                  <ArrowRightLeft className="h-2.5 w-2.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
+                                <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {allProjects.filter(p => p.id !== row.task!.group_id).map(p => (
+                                    <button key={p.id} onClick={() => onMoveTask(row.task!.id, p.id)} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate">
+                                      {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <button onClick={(e) => { e.stopPropagation(); startAdding(row.project.id, "step", row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Добавить шаг">
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                            {onMoveTaskUp && (
+                              <button onClick={(e) => { e.stopPropagation(); onMoveTaskUp(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вверх">
+                                <ArrowUp className="h-2.5 w-2.5" />
                               </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
-                              <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
-                              <div className="max-h-48 overflow-y-auto">
-                                {allProjects.filter(p => p.id !== row.task!.group_id).map(p => (
-                                  <button key={p.id} onClick={() => onMoveTask(row.task!.id, p.id)} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate">
-                                    {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
-                                  </button>
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                          <button onClick={(e) => { e.stopPropagation(); startAdding(row.project.id, "step", row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Добавить шаг">
-                            <Plus className="h-2.5 w-2.5" />
-                          </button>
-                          {onMoveTaskUp && (
-                            <button onClick={(e) => { e.stopPropagation(); onMoveTaskUp(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вверх">
-                              <ArrowUp className="h-2.5 w-2.5" />
-                            </button>
-                          )}
-                          {onMoveTaskDown && (
-                            <button onClick={(e) => { e.stopPropagation(); onMoveTaskDown(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вниз">
-                              <ArrowDown className="h-2.5 w-2.5" />
-                            </button>
-                          )}
+                            )}
+                            {onMoveTaskDown && (
+                              <button onClick={(e) => { e.stopPropagation(); onMoveTaskDown(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вниз">
+                                <ArrowDown className="h-2.5 w-2.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )
                     ) : null}
