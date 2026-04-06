@@ -61,6 +61,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [hideEmpty, setHideEmpty] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
+  const [depStyle, setDepStyle] = useState<"bezier" | "dashed" | "gradient" | "dots">("bezier");
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
   const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
@@ -1254,7 +1255,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       hoveredRow === i && "bg-muted/30",
                       highlightedRowIdx === i && "!bg-yellow-200/40"
                     )}
-                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}) }}
+                    style={{ height: ROW_HEIGHT, ...(i < 3 ? { position: 'sticky' as const, top: 32 + i * ROW_HEIGHT, zIndex: 5 - i } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
@@ -1322,13 +1323,6 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
 
                       return (
                         <>
-                          {/* Baseline (original deadline) */}
-                          {baseline && (
-                            <div
-                              className="absolute top-[26px] rounded-full h-1 opacity-20"
-                              style={{ left: baseline.left, width: baseline.width, backgroundColor: "hsl(var(--muted-foreground))" }}
-                            />
-                          )}
 
                           <GanttTooltip task={task} project={row.project} progress={progress} disabled={popoverOpenTaskId === task.id}>
                             <div

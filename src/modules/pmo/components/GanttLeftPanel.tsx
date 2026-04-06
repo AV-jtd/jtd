@@ -515,7 +515,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
-            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}), ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
+            style={{ height: rowHeight, ...(i < 3 ? { position: 'sticky' as const, top: 32 + i * rowHeight, zIndex: 5 - i } : {}), ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
             draggable={isDraggable}
@@ -647,17 +647,6 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            {/* Inline deadline */}
-                            {row.task.deadline && (() => {
-                              const dl = parseISO(row.task!.deadline!);
-                              const isOverdue = isPast(dl) && !row.task!.is_completed;
-                              const isSoon = !isOverdue && (isToday(dl) || isTomorrow(dl));
-                              return (
-                                <span className="text-[10px] leading-none" style={{ color: isOverdue ? "hsl(var(--destructive))" : isSoon ? "#D97706" : "hsl(var(--muted-foreground))" }}>
-                                  {format(dl, "d MMM", { locale: ru })}
-                                </span>
-                              );
-                            })()}
                           </div>
                           {/* Assignee avatar inline */}
                           {row.task.assigned_to && (() => {
