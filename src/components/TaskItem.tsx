@@ -458,6 +458,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [stepsCollapsed, setStepsCollapsed] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
+  const [moveSubtaskId, setMoveSubtaskId] = useState<string | null>(null);
+  const [demoteOpen, setDemoteOpen] = useState(false);
   const subtaskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const itemRef = useRef<HTMLDivElement>(null);
 
