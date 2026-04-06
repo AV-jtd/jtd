@@ -68,23 +68,29 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const drifted = tasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
   const projectMilestones = milestones.filter(m => allIds.has(m.group_id));
   const subprojects = groups.filter(g => g.parent_id === projectId);
-  const activeSubprojects = subprojects.filter(sp => allTasks.some(t => t.group_id === sp.id));
+
+  // Collect tasks for a subproject including its own children
+  const getSpTasks = (spId: string) => {
+    const childIds = new Set([spId, ...groups.filter(g => g.parent_id === spId).map(g => g.id)]);
+    return allTasks.filter(t => t.group_id && childIds.has(t.group_id));
+  };
+
+  const activeSubprojects = subprojects.filter(sp => getSpTasks(sp.id).length > 0);
 
   // Top-3 streams by task count for progress pills
   const streamPills = useMemo(() => {
     return activeSubprojects
       .map(sp => {
-        const spTasks = allTasks.filter(t => t.group_id === sp.id);
+        const spTasks = getSpTasks(sp.id);
         const spDone = spTasks.filter(t => t.is_completed).length;
         const spTotal = spTasks.length;
         const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
-        // Strip parent prefix (text before "/")
         const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
         return { name, pct: spPct, total: spTotal };
       })
       .sort((a, b) => b.total - a.total)
       .slice(0, 3);
-  }, [activeSubprojects, allTasks]);
+  }, [activeSubprojects, allTasks, groups]);
 
   // SVG circle params: r=28, circumference = 2*PI*28 ≈ 175.93
   const circumference = 2 * Math.PI * 28;
