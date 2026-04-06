@@ -15,10 +15,8 @@ interface InboxRowProps {
 }
 
 function InboxRowInner({ inboxOpen, onToggle, totalCount, parentTasks, unmatchedSubTasks, dndOverCell, getTaskGate }: InboxRowProps) {
-  if (totalCount === 0) return null;
-
   const makeCellId = (s: string, g: string) => `${s}::${g}`;
-  const allInboxTasks = [...parentTasks, ...unmatchedSubTasks];
+  const allInboxTasks = useMemo(() => [...parentTasks, ...unmatchedSubTasks], [parentTasks, unmatchedSubTasks]);
 
   // Distribute tasks by gate column based on getTaskGate or deadline heuristic
   const tasksByGate = useMemo(() => {
