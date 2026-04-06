@@ -185,7 +185,7 @@ function PredecessorPicker({
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
-  onUpdateMilestone, getMilestoneOffscreen,
+  onUpdateMilestone, getMilestoneOffscreen, taskGateMap, onChangeTaskGate,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
