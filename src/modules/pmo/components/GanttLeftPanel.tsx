@@ -475,6 +475,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
           const headerContent: Record<string, React.ReactNode> = {
             rowNum: <span className="text-[10px]">#</span>,
             assignee: <User className="h-3 w-3 mx-auto" />,
+            gate: <span className="text-[10px]">Гейт</span>,
             start: <span className="text-[10px]">Старт</span>,
             deadline: <span className="text-[10px]">Срок</span>,
             duration: <span className="text-[10px]" title="Длительность (дни)">Дни</span>,
