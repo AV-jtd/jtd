@@ -12,6 +12,8 @@ import {
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
@@ -65,6 +67,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
   const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Merge saved config with defaults (in case new columns were added)
   const ganttColumns = useMemo(() => {
