@@ -351,15 +351,23 @@ Deno.serve(async (req) => {
       // === /spisok — bulk create tasks in linked project ===
       if (command === "spisok") {
         if (!args.trim()) {
+          // Save pending context so next voice/forwarded/text goes to linked project
+          await supabase.from("telegram_pending_context").upsert({
+            chat_id: chatId,
+            user_id: userId,
+            context_type: "spisok",
+            group_id: groupId,
+            group_name: linkedGroup.name,
+            created_at: new Date().toISOString(),
+          }, { onConflict: "chat_id" });
+
           await sendTelegramMessage(BOT_TOKEN, chatId,
-            "📦 *Пакетное создание задач*\n\n" +
-            "Формат:\n" +
-            "`/spisok`\n" +
-            "`- Задача 1 @user 3д`\n" +
-            "`- Задача 2 @user2 5д`\n" +
-            "`- Задача 3 завтра`\n\n" +
-            "Или свободный текст — ИИ распознает задачи.\n" +
-            "🎤 Также можно отправить голосовое сообщение со списком задач.",
+            `📦 Контекст: ${linkedGroup.icon || "📁"} *${escapeMarkdown(linkedGroup.name)}*\n\n` +
+            "Теперь отправь:\n" +
+            "• 📝 Список задач текстом\n" +
+            "• 🎤 Голосовое сообщение\n" +
+            "• 📨 Перешли сообщение\n\n" +
+            "⏰ Контекст активен 10 минут.",
             "Markdown"
           );
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
