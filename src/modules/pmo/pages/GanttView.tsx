@@ -3,6 +3,8 @@ import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type Task
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   addDays, differenceInCalendarDays,
