@@ -592,8 +592,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   }, [filteredProjects, tagIdToGateKey, positionMap]);
 
   const inboxProjects = useMemo(
-    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
-    [filteredProjects, tagIdToGateKey]
+    () => isGroupTagsLoading ? [] : filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
+    [filteredProjects, tagIdToGateKey, isGroupTagsLoading]
   );
 
   const archiveProjects = useMemo(() => {
