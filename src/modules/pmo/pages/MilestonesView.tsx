@@ -23,7 +23,7 @@ export default function MilestonesView() {
   const { data: groups = [] } = useTaskGroups();
   const { data: milestones = [] } = useMilestones();
   const { data: users = [] } = useAvailableUsers();
-  const { updateMilestone } = useMilestoneMutations();
+  const { updateMilestone, deleteMilestone } = useMilestoneMutations();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetGroup, setDropTargetGroup] = useState<string | null>(null);
@@ -250,7 +250,6 @@ export default function MilestonesView() {
           }
         }}
         onDelete={(id) => {
-          const { deleteMilestone } = useMilestoneMutations();
           deleteMilestone.mutate(id);
         }}
       />
