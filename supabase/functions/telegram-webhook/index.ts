@@ -40,14 +40,14 @@ Deno.serve(async (req) => {
         { command: "help", description: "📖 Справка" },
         { command: "projects", description: "📂 Список проектов" },
         { command: "project", description: "📁 Выбрать проект" },
-        { command: "bulk", description: "📦 Пакетное создание задач" },
+        { command: "spisok", description: "📦 Пакетное создание задач" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
         { command: "ai", description: "✨ ИИ-ассистент" },
       ];
       const groupCommands = [
         { command: "link", description: "🔗 Привязать чат к проекту" },
         { command: "task", description: "📝 Создать задачу" },
-        { command: "bulk", description: "📦 Пакетное создание задач" },
+        { command: "spisok", description: "📦 Пакетное создание задач" },
         { command: "tasks", description: "📋 Список открытых задач" },
         { command: "done", description: "✅ Выполнить задачу" },
         { command: "assign", description: "👤 Назначить ответственного" },
