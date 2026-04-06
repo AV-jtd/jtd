@@ -515,7 +515,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
-            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}), ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
+            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}), ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
             draggable={isDraggable}

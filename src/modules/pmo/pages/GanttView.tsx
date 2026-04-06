@@ -1123,7 +1123,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       row.type === "subtask" && "bg-transparent",
                       hoveredRow === i && "bg-muted/30"
                     )}
-                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}) }}
+                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
