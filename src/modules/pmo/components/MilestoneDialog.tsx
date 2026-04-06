@@ -132,6 +132,26 @@ export default function MilestoneDialog({
           </div>
 
           <div>
+            <Label className="text-xs">Веха гейта (NPD)</Label>
+            <Select value={gateKey || "_none"} onValueChange={v => setGateKey(v === "_none" ? null : v)}>
+              <SelectTrigger><SelectValue placeholder="Не привязана к гейту" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Не привязана к гейту</SelectItem>
+                {NPD_GATES.map(g => (
+                  <SelectItem key={g.key} value={g.key}>
+                    {g.short} — {g.shortTitle}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {gateKey && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Задачи, стартующие после этой вехи, отобразятся в следующем гейте матрицы
+              </p>
+            )}
+          </div>
+
+          <div>
             <Label className="text-xs">Цвет</Label>
             <div className="flex gap-2 mt-1">
               {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899"].map(c => (
