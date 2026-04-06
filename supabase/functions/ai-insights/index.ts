@@ -77,13 +77,16 @@ serve(async (req) => {
 
     const { data: tasks } = await tasksQuery;
 
-    // Fetch projects
+    // Fetch projects (all groups user owns, including subprojects)
     const { data: groups } = await supabase
       .from("task_groups")
       .select("id, name, parent_id")
       .eq("user_id", userId)
-      .is("parent_id", null)
-      .limit(50);
+      .limit(200);
+
+    // Build group name map for resolving group_id → name in task context
+    const groupNameMap: Record<string, string> = {};
+    (groups || []).forEach((g: any) => { groupNameMap[g.id] = g.name; });
 
     // Fetch subprojects for project context
     let subprojectNames: string[] = [];
