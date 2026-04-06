@@ -17,6 +17,9 @@ interface GanttDependencyLinesProps {
   rows: GanttRow[];
   dependencies: Dependency[];
   rowHeight: number;
+  rowTops?: number[];
+  totalRowsHeight?: number;
+  getRowHeight?: (i: number) => number;
   getBarStyle: (task: any) => { left: number; width: number };
   getMilestoneX?: (ms: any) => number;
   getSummaryBarStyle?: (start: Date, end: Date) => { left: number; width: number };
@@ -25,7 +28,7 @@ interface GanttDependencyLinesProps {
   onClickDependency?: (dep: Dependency) => void;
 }
 
-export default function GanttDependencyLines({ rows, dependencies, rowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, depStyle = "bezier", onClickDependency }: GanttDependencyLinesProps) {
+export default function GanttDependencyLines({ rows, dependencies, rowHeight, rowTops, totalRowsHeight, getRowHeight, getBarStyle, getMilestoneX, getSummaryBarStyle, criticalTaskIds, depStyle = "bezier", onClickDependency }: GanttDependencyLinesProps) {
   const lines = useMemo(() => {
     return dependencies.map(dep => {
       const predIdx = rows.findIndex(r => {
