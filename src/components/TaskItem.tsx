@@ -273,6 +273,8 @@ interface SortableSubtaskRowProps {
   onDelete: (id: string) => void;
   onUpdateDeadline: (id: string, dl: string | null) => void;
   onUpdateAssignee: (id: string, uid: string | null) => void;
+  onPromote?: (subtaskId: string) => void;
+  onMoveToTask?: (subtaskId: string) => void;
   availableUsers: Profile[];
   getProfileName: (userId: string) => string;
 }
