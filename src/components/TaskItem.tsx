@@ -1112,7 +1112,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           />
 
-          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
+          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)} />
 
           <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
@@ -1561,7 +1561,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
 
           {/* Dates */}
-          <DeadlineDetailSection task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
+          <DeadlineDetailSection task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)} />
 
           {/* Recurrence */}
           <div className="space-y-1.5">
