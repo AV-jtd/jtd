@@ -2,7 +2,8 @@ import { useState } from "react";
 import { type Task, type TaskGroup, useAvailableUsers } from "@/hooks/useTasks";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO } from "date-fns";
+import { Slider } from "@/components/ui/slider";
+import { format, parseISO, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Check, User, CalendarIcon, Flag, Trash2 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
   const [open, setOpen] = useState(false);
   const [showCal, setShowCal] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [daysInput, setDaysInput] = useState<number>(7);
   const { data: users = [] } = useAvailableUsers();
 
   const handleOpenChange = (v: boolean) => {
@@ -36,6 +38,7 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
   ];
 
   const assignee = users.find(u => u.id === task.assigned_to);
+  const baseDate = task.deadline ? parseISO(task.deadline) : new Date();
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -68,7 +71,51 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
             {task.deadline ? format(parseISO(task.deadline), "d MMM yyyy", { locale: ru }) : "Дедлайн"}
           </button>
           {showCal && (
-            <div className="mt-1">
+            <div className="mt-1 space-y-0">
+              {/* Days input */}
+              <div className="p-2.5 space-y-2 border rounded-t-md bg-background">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {task.deadline ? "+" : "Через"}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={daysInput}
+                    onChange={(e) => {
+                      const v = Math.max(1, Math.min(365, Number(e.target.value) || 1));
+                      setDaysInput(v);
+                    }}
+                    className="w-12 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
+                  <span className="text-[10px] text-muted-foreground">дн.</span>
+                  <span className="text-[9px] text-muted-foreground/60 ml-auto">
+                    → {format(addDays(baseDate, daysInput), "d MMM", { locale: ru })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdate(task.id, { deadline: addDays(baseDate, daysInput).toISOString() });
+                      setShowCal(false);
+                    }}
+                    className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    ОК
+                  </button>
+                </div>
+                <Slider
+                  min={1}
+                  max={90}
+                  step={1}
+                  value={[Math.min(daysInput, 90)]}
+                  onValueChange={([v]) => setDaysInput(v)}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                  <span>1д</span><span>30д</span><span>90д</span>
+                </div>
+              </div>
               <Calendar
                 mode="single"
                 selected={task.deadline ? parseISO(task.deadline) : undefined}
@@ -77,7 +124,7 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
                   setShowCal(false);
                 }}
                 locale={ru}
-                className="rounded-md border"
+                className="rounded-b-md border border-t-0"
               />
             </div>
           )}

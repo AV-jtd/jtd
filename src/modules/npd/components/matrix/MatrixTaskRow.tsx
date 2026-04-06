@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Slider } from "@/components/ui/slider";
 import UserPicker from "@/components/UserPicker";
 import {
   CheckCircle2, CalendarIcon, User, Link2, Expand,
 } from "lucide-react";
-import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { Task, Profile } from "./types";
 
@@ -37,10 +38,14 @@ function MatrixTaskRowInner({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
+  const [daysInput, setDaysInput] = useState<number>(7);
 
   const taskDeps = allDependencies.filter(
     d => d.predecessor_id === task.id || d.successor_id === task.id
   );
+
+  // Base date for days input: current deadline or today
+  const baseDate = task.deadline ? parseISO(task.deadline) : new Date();
 
   return (
     <div className={cn(
@@ -109,7 +114,51 @@ function MatrixTaskRowInner({
               }
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
+          <PopoverContent className="w-64 p-0" align="end">
+            {/* Days input */}
+            <div className="p-3 space-y-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {task.deadline ? "+" : "Через"}
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={daysInput}
+                  onChange={(e) => {
+                    const v = Math.max(1, Math.min(365, Number(e.target.value) || 1));
+                    setDaysInput(v);
+                  }}
+                  className="w-12 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+                <span className="text-[10px] text-muted-foreground">дн.</span>
+                <span className="text-[9px] text-muted-foreground/60 ml-auto">
+                  → {format(addDays(baseDate, daysInput), "d MMM", { locale: ru })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeadlineChange(task, addDays(baseDate, daysInput));
+                    setCalOpen(false);
+                  }}
+                  className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  ОК
+                </button>
+              </div>
+              <Slider
+                min={1}
+                max={90}
+                step={1}
+                value={[Math.min(daysInput, 90)]}
+                onValueChange={([v]) => setDaysInput(v)}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                <span>1д</span><span>30д</span><span>90д</span>
+              </div>
+            </div>
             <Calendar
               mode="single"
               selected={task.deadline ? parseISO(task.deadline) : undefined}

@@ -1,8 +1,9 @@
 import { memo, type RefObject, type ReactNode, useCallback, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Briefcase, CalendarIcon, Plus, UserRound } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,6 +35,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState("");
+  const [daysInput, setDaysInput] = useState<number>(7);
 
   const selectedUser = availableUsers.find(u => u.id === assignedTo);
 
@@ -192,7 +194,49 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
                 {deadline ? format(deadline, "d MMMM", { locale: ru }) : "Срок"}
               </TooltipContent>
             </Tooltip>
-            <PopoverContent className="w-auto p-0" align="end">
+            <PopoverContent className="w-64 p-0" align="end">
+              {/* Days input */}
+              <div className="p-3 space-y-2 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Через</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={daysInput}
+                    onChange={(e) => {
+                      const v = Math.max(1, Math.min(365, Number(e.target.value) || 1));
+                      setDaysInput(v);
+                    }}
+                    className="w-12 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
+                  <span className="text-[10px] text-muted-foreground">дн.</span>
+                  <span className="text-[9px] text-muted-foreground/60 ml-auto">
+                    → {format(addDays(new Date(), daysInput), "d MMM", { locale: ru })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeadline(addDays(new Date(), daysInput));
+                      setCalendarOpen(false);
+                    }}
+                    className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    ОК
+                  </button>
+                </div>
+                <Slider
+                  min={1}
+                  max={90}
+                  step={1}
+                  value={[Math.min(daysInput, 90)]}
+                  onValueChange={([v]) => setDaysInput(v)}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[9px] text-muted-foreground/60">
+                  <span>1д</span><span>30д</span><span>90д</span>
+                </div>
+              </div>
               <Calendar
                 mode="single"
                 selected={deadline}
