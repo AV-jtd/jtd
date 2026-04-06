@@ -39,8 +39,11 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
     queryKey: ["project-header-gate", projectId, user?.id],
     queryFn: async () => {
       // Get all gate tag ids
-      const gateNames = NPD_GATES_META.map(g => g.tagName);
+      const gateNames: string[] = NPD_GATES_META.map(g => g.tagName);
       const { data: gateTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .in("name", gateNames as any);
         .from("tags")
         .select("id, name")
         .in("name", gateNames);
