@@ -771,16 +771,18 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      <MatrixHeader
-        project={project}
-        projectId={projectId!}
-        allTasks={allTasks}
-        projectGroupIds={projectGroupIds}
-        allGroups={allGroups}
-        allGroupTags={allGroupTags}
-        gateTags={gateTags}
-        streamTags={streamTags}
-      />
+      {!embedded && (
+        <MatrixHeader
+          project={project}
+          projectId={projectId!}
+          allTasks={allTasks}
+          projectGroupIds={projectGroupIds}
+          allGroups={allGroups}
+          allGroupTags={allGroupTags}
+          gateTags={gateTags}
+          streamTags={streamTags}
+        />
+      )}
 
       <div className="flex-1 overflow-auto">
         <DndContext
