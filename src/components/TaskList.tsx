@@ -6,7 +6,7 @@ import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard from "./AiInsightsCard";
 import BulkTaskDialog from "./BulkTaskDialog";
 import { useAiInsights } from "@/hooks/useAiInsights";
-import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical } from "lucide-react";
+import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isToday, parseISO, isBefore, startOfDay, isThisWeek } from "date-fns";
@@ -804,7 +804,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-colors shrink-0">
-                    <LayersIcon className="h-3.5 w-3.5" />
+                    <Layers className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">Пакетное создание</TooltipContent>
