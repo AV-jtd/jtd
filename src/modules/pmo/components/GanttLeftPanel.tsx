@@ -89,7 +89,7 @@ interface GanttLeftPanelProps {
   filterAssignee: string | null;
   hoveredRow: number | null;
   onHoverRow: (index: number | null) => void;
-  onScroll?: (scrollTop: number) => void;
+  onScroll?: (scrollTop: number) => void; // deprecated — kept for API compat
   onUpdateMilestone?: (id: string, updates: { group_id?: string }) => void;
   getMilestoneOffscreen?: (ms: Milestone) => 'left' | 'right' | null;
 }
@@ -394,12 +394,11 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   return (
     <div
       ref={ref}
-      className="shrink-0 border-r border-border bg-card overflow-y-auto overflow-x-auto scrollbar-none"
-      style={{ width, overscrollBehavior: "auto", touchAction: "pan-y" }}
-      onScroll={(e) => onScroll?.((e.target as HTMLDivElement).scrollTop)}
+      className="shrink-0 border-r border-border bg-card"
+      style={{ width }}
     >
       {/* Header */}
-      <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-10" style={{ height: 32 }}>
+      <div className="flex items-center border-b border-border text-xs font-medium text-muted-foreground sticky top-0 bg-card z-30" style={{ height: 32 }}>
         {/* Render columns in config order */}
         {columnConfig.map((col) => {
           if (!col.visible) return null;
