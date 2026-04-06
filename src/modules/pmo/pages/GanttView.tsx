@@ -1186,6 +1186,9 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 rows={rows}
                 dependencies={allDependencies}
                 rowHeight={ROW_HEIGHT}
+                rowTops={rowTops}
+                totalRowsHeight={totalRowsHeight}
+                getRowHeight={getRowHeight}
                 getBarStyle={getBarStyle}
                 getMilestoneX={getMilestoneX}
                 getSummaryBarStyle={getSummaryBarStyle}
