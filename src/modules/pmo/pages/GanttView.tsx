@@ -715,6 +715,20 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
+  const getRowHeight = useCallback((i: number) => rows[i]?.type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT, [rows]);
+  const rowTops = useMemo(() => {
+    const tops: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < rows.length; i++) {
+      tops.push(acc);
+      acc += rows[i].type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT;
+    }
+    return tops;
+  }, [rows]);
+  const totalRowsHeight = useMemo(() => {
+    if (rows.length === 0) return 0;
+    return rowTops[rows.length - 1] + getRowHeight(rows.length - 1);
+  }, [rows, rowTops, getRowHeight]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
