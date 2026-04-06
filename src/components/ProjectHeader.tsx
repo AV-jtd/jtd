@@ -1,18 +1,19 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTaskGroups, useTasks, type TaskGroup } from "@/hooks/useTasks";
-import { useMilestones } from "@/hooks/useMilestones";
+import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { useMemo } from "react";
-import { parseISO } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const NPD_GATES_META = [
-  { key: "gate0", short: "G0", label: "Идея", color: "bg-slate-500", ring: "ring-slate-400/50" },
-  { key: "gate1", short: "G1", label: "Концепция", color: "bg-blue-500", ring: "ring-blue-400/50" },
-  { key: "gate2", short: "G2", label: "Разработка", color: "bg-amber-500", ring: "ring-amber-400/50" },
-  { key: "gate3", short: "G3", label: "Подготовка", color: "bg-purple-500", ring: "ring-purple-400/50" },
-  { key: "gate4", short: "G4", label: "Запуск", color: "bg-emerald-500", ring: "ring-emerald-400/50" },
-  { key: "gate5", short: "G5", label: "Анализ", color: "bg-rose-500", ring: "ring-rose-400/50" },
+  { key: "gate0", short: "G0", label: "Идея", tagName: "Gate 0: Идея и Стратегия", color: "bg-slate-500" },
+  { key: "gate1", short: "G1", label: "Концепция", tagName: "Gate 1: Концепция и Экономика", color: "bg-blue-500" },
+  { key: "gate2", short: "G2", label: "Разработка", tagName: "Gate 2: Разработка и Валидация", color: "bg-amber-500" },
+  { key: "gate3", short: "G3", label: "Подготовка", tagName: "Gate 3: Подготовка к запуску", color: "bg-purple-500" },
+  { key: "gate4", short: "G4", label: "Запуск", tagName: "Gate 4: Запуск", color: "bg-emerald-500" },
+  { key: "gate5", short: "G5", label: "Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500" },
 ] as const;
 
 type ProjectView = "dashboard" | "gantt" | "matrix";
@@ -25,45 +26,63 @@ interface ProjectHeaderProps {
 }
 
 export default function ProjectHeader({ projectId, activeView, onViewChange, onBack }: ProjectHeaderProps) {
+  const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
-  const { data: milestones = [] } = useMilestones();
   const navigate = useNavigate();
 
   const project = useMemo(() => groups.find(g => g.id === projectId), [groups, projectId]);
   const isNpd = project?.project_type === "npd";
+  const childIds = useMemo(() => groups.filter(g => g.parent_id === projectId).map(g => g.id), [groups, projectId]);
 
-  // Compute progress
-  const { pct, activeGateIdx } = useMemo(() => {
-    if (!project) return { pct: 0, activeGateIdx: 0 };
-    const childIds = new Set(groups.filter(g => g.parent_id === projectId).map(g => g.id));
+  // Fetch gate from group_tags (same logic as NpdBoard)
+  const { data: activeGateIdx } = useQuery({
+    queryKey: ["project-header-gate", projectId],
+    queryFn: async () => {
+      const gateNames = NPD_GATES_META.map(g => g.tagName as string);
+      const { data: gateTags } = await supabase
+        .from("tags")
+        .select("id, name")
+        .in("name", gateNames);
+      if (!gateTags?.length) return 0;
+
+      const tagNameToKey = new Map<string, string>();
+      for (const g of NPD_GATES_META) tagNameToKey.set(g.tagName, g.key);
+      const tagIdToKey = new Map<string, string>();
+      for (const t of gateTags) {
+        const k = tagNameToKey.get(t.name);
+        if (k) tagIdToKey.set(t.id, k);
+      }
+
+      const allIds = [projectId, ...childIds];
+      const { data: groupTags } = await supabase
+        .from("group_tags" as any)
+        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+
+      const relevant = (groupTags || []).filter((gt: any) => allIds.includes(gt.group_id));
+
+      let maxIdx = -1;
+      for (const gt of relevant) {
+        const key = tagIdToKey.get(gt.tag_id);
+        if (key) {
+          const idx = NPD_GATES_META.findIndex(g => g.key === key);
+          if (idx > maxIdx) maxIdx = idx;
+        }
+      }
+      return maxIdx >= 0 ? maxIdx : 0;
+    },
+    enabled: !!user && isNpd === true,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const pct = useMemo(() => {
+    if (!project) return 0;
     const allIds = new Set([projectId, ...childIds]);
     const tasks = allTasks.filter(t => t.group_id && allIds.has(t.group_id));
     const total = tasks.length;
     const done = tasks.filter(t => t.is_completed).length;
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-    // Active gate from milestones
-    let activeIdx = 0;
-    if (isNpd) {
-      const projectMilestones = milestones.filter(m =>
-        (m.group_id === projectId || childIds.has(m.group_id)) && (m as any).gate_key
-      );
-      const now = new Date();
-      let latestDate: Date | null = null;
-      for (const ms of projectMilestones) {
-        const d = parseISO(ms.planned_date);
-        if (d <= now) {
-          if (!latestDate || d > latestDate) {
-            latestDate = d;
-            const gIdx = NPD_GATES_META.findIndex(g => g.key === (ms as any).gate_key);
-            if (gIdx >= 0) activeIdx = gIdx;
-          }
-        }
-      }
-    }
-    return { pct, activeGateIdx: activeIdx };
-  }, [project, groups, allTasks, milestones, projectId, isNpd]);
+    return total > 0 ? Math.round((done / total) * 100) : 0;
+  }, [project, allTasks, projectId, childIds]);
 
   const views: { id: ProjectView; icon: React.ElementType; label: string; disabled?: boolean }[] = [
     { id: "dashboard", icon: LayoutDashboard, label: "Обзор" },
@@ -73,11 +92,11 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
 
   if (!project) return null;
 
-  const activeGate = isNpd ? NPD_GATES_META[activeGateIdx] : null;
+  const gateIdx = activeGateIdx ?? 0;
+  const activeGate = isNpd ? NPD_GATES_META[gateIdx] : null;
 
   return (
     <div className="flex items-center h-10 px-3 md:px-4 border-b border-border/50 shrink-0 gap-2 backdrop-blur-xl bg-card/70 supports-[backdrop-filter]:bg-card/60">
-      {/* Back */}
       <button
         onClick={onBack || (() => navigate("/pmo"))}
         className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors shrink-0"
@@ -85,34 +104,24 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
         <ArrowLeft className="h-3.5 w-3.5" />
       </button>
 
-      {/* Project icon + name */}
       <div className="flex items-center gap-1.5 min-w-0 shrink">
         <span className="text-sm shrink-0">{project.icon && project.icon !== "list" ? project.icon : "📁"}</span>
         <h1 className="text-sm font-bold text-foreground truncate">{project.name}</h1>
       </div>
 
-      {/* Compact progress bar + active gate badge */}
       <div className="flex items-center gap-2 shrink-0 ml-1">
-        {/* Progress bar */}
         <div className="flex items-center gap-1.5">
           <div className="w-16 md:w-20 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
           <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-7 text-right">{pct}%</span>
         </div>
 
-        {/* Active gate badge (NPD only) */}
         {activeGate && (
-          <span
-            className={cn(
-              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white leading-none",
-              activeGate.color
-            )}
-            title={`${activeGate.short}: ${activeGate.label}`}
-          >
+          <span className={cn(
+            "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white leading-none",
+            activeGate.color
+          )} title={`${activeGate.short}: ${activeGate.label}`}>
             {activeGate.short}
           </span>
         )}
@@ -120,7 +129,6 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
 
       <div className="flex-1" />
 
-      {/* View switcher — glass style */}
       <div className="flex items-center backdrop-blur-sm bg-muted/50 rounded-lg p-0.5 shrink-0 border border-border/30">
         {views.map(v => {
           const Icon = v.icon;
