@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,12 +15,13 @@ import {
   Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays } from "date-fns";
+import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -60,6 +62,197 @@ const RECURRENCE_LABELS: Record<string, string> = {
 };
 
 const getPriority = (value: number | null | undefined) => PRIORITIES.find(p => p.value === value);
+
+/* ── Days-based deadline picker for quick popover ── */
+function DeadlineQuickPopover({ task, onUpdate }: { task: Task; onUpdate: (id: string, updates: Partial<Task>) => void }) {
+  const [daysInput, setDaysInput] = useState(7);
+  const [showDays, setShowDays] = useState(false);
+  const baseDate = task.deadline ? parseISO(task.deadline) : new Date();
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Срок">
+          <Calendar className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="left">
+        <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
+        {[
+          { label: "Сегодня", days: 0 },
+          { label: "Завтра", days: 1 },
+          { label: "Через 3 дня", days: 3 },
+          { label: "Через неделю", days: 7 },
+        ].map(opt => {
+          const d = new Date();
+          d.setDate(d.getDate() + opt.days);
+          const val = format(d, "yyyy-MM-dd");
+          return (
+            <button
+              key={opt.days}
+              onClick={() => onUpdate(task.id, { deadline: val })}
+              className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+
+        {/* Days slider */}
+        <div className="border-t border-border mt-1 pt-1">
+          <button
+            onClick={() => setShowDays(!showDays)}
+            className="flex items-center gap-1 w-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Clock className="h-3 w-3" />
+            {showDays ? "Скрыть" : "Через N дней..."}
+          </button>
+          {showDays && (
+            <div className="px-2 py-1.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {task.deadline ? "+" : "Через"}
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={daysInput}
+                  onChange={(e) => setDaysInput(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+                  className="w-12 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+                <span className="text-[10px] text-muted-foreground">дн.</span>
+              </div>
+              <Slider
+                min={1}
+                max={90}
+                step={1}
+                value={[Math.min(daysInput, 90)]}
+                onValueChange={([v]) => setDaysInput(v)}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-muted-foreground/60">
+                  → {format(addDays(baseDate, daysInput), "d MMM", { locale: ru })}
+                </span>
+                <button
+                  onClick={() => onUpdate(task.id, { deadline: addDays(baseDate, daysInput).toISOString() })}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  ОК
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border mt-1 pt-1">
+          <input
+            type="date"
+            value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+            onChange={(e) => onUpdate(task.id, { deadline: e.target.value || null })}
+            className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
+          />
+        </div>
+        {task.deadline && (
+          <button
+            onClick={() => onUpdate(task.id, { deadline: null })}
+            className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
+          >
+            Убрать срок
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ── Dates section with days input for detail panel ── */
+function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: string, updates: Partial<Task>) => void }) {
+  const [daysInput, setDaysInput] = useState(7);
+  const [showDays, setShowDays] = useState(false);
+  const baseDate = task.deadline ? parseISO(task.deadline) : new Date();
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+        <Calendar className="h-3 w-3" /> Даты
+      </p>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
+          <input
+            type="date"
+            value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
+            onChange={(e) => onUpdate(task.id, { deadline: e.target.value || null })}
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+          />
+          {task.deadline && (
+            <button onClick={() => onUpdate(task.id, { deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
+          <input
+            type="date"
+            value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
+            onChange={(e) => onUpdate(task.id, { deferred_until: e.target.value || null })}
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+          />
+          {task.deferred_until && (
+            <button onClick={() => onUpdate(task.id, { deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Days-based input */}
+      <button
+        onClick={() => setShowDays(!showDays)}
+        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Clock className="h-3 w-3" />
+        {showDays ? "Скрыть" : "Задать через кол-во дней..."}
+      </button>
+      {showDays && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+            {task.deadline ? "+" : "Через"}
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={daysInput}
+            onChange={(e) => setDaysInput(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+            className="w-14 h-6 text-xs text-center rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+          />
+          <span className="text-[10px] text-muted-foreground">дн.</span>
+          <Slider
+            min={1}
+            max={90}
+            step={1}
+            value={[Math.min(daysInput, 90)]}
+            onValueChange={([v]) => setDaysInput(v)}
+            className="w-32"
+          />
+          <span className="text-[9px] text-muted-foreground/60">
+            → {format(addDays(baseDate, daysInput), "d MMM", { locale: ru })}
+          </span>
+          <button
+            onClick={() => onUpdate(task.id, { deadline: addDays(baseDate, daysInput).toISOString() })}
+            className="text-[10px] px-2 py-0.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            ОК
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
   const isMobile = useIsMobile();
@@ -598,51 +791,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           />
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Срок">
-                <Calendar className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1.5 bg-popover border-border z-50" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
-              {[
-                { label: "Сегодня", days: 0 },
-                { label: "Завтра", days: 1 },
-                { label: "Через 3 дня", days: 3 },
-                { label: "Через неделю", days: 7 },
-              ].map(opt => {
-                const d = new Date();
-                d.setDate(d.getDate() + opt.days);
-                const val = format(d, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={opt.days}
-                    onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-              <div className="border-t border-border mt-1 pt-1">
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
-                />
-              </div>
-              {task.deadline && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
-                >
-                  Убрать срок
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
+          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
 
           <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
@@ -1091,41 +1240,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
 
           {/* Dates */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3 w-3" /> Даты
-            </p>
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-                />
-                {task.deadline && (
-                  <button onClick={() => updateTask.mutate({ id: task.id, deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
-                <input
-                  type="date"
-                  value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null })}
-                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-                />
-                {task.deferred_until && (
-                  <button onClick={() => updateTask.mutate({ id: task.id, deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <DeadlineDetailSection task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
 
           {/* Recurrence */}
           <div className="space-y-1.5">
