@@ -418,6 +418,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
 
   const participantIds = useMemo(() => participants.map(p => p.user_id), [participants]);
 
+  const handleSubtaskDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
+    const oldIndex = sorted.findIndex(s => s.id === active.id);
+    const newIndex = sorted.findIndex(s => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    reorderSubtasks.mutate(reordered.map((s, i) => ({ id: s.id, position: i })));
+  }, [subtasks, reorderSubtasks]);
+
+  const handleSaveSubtaskTitle = useCallback((subId: string) => {
+    if (editingSubtaskTitle.trim() && editingSubtaskId === subId) {
+      const sub = subtasks.find(s => s.id === subId);
+      if (sub && editingSubtaskTitle.trim() !== sub.title) {
+        updateSubtask.mutate({ id: subId, title: editingSubtaskTitle.trim() });
+      }
+    }
+    setEditingSubtaskId(null);
+  }, [editingSubtaskTitle, editingSubtaskId, subtasks, updateSubtask]);
+
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: task.id, disabled: !sortable });
