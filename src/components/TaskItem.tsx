@@ -531,6 +531,71 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
 
+  // ── Undoable wrappers ──
+  const undoableToggleTask = useCallback(() => {
+    const prev = task.is_completed;
+    toggleTask.mutate({ id: task.id, is_completed: !prev });
+    pushUndo({
+      label: prev ? `Восстановлено «${task.title}»` : `Завершено «${task.title}»`,
+      undo: () => toggleTask.mutate({ id: task.id, is_completed: prev }),
+      redo: () => toggleTask.mutate({ id: task.id, is_completed: !prev }),
+    });
+  }, [task.id, task.is_completed, task.title, toggleTask, pushUndo]);
+
+  const undoableToggleImportant = useCallback(() => {
+    const prev = task.is_important;
+    toggleImportant.mutate({ id: task.id, is_important: !prev });
+    pushUndo({
+      label: !prev ? `⭐ «${task.title}»` : `Снято ⭐ «${task.title}»`,
+      undo: () => toggleImportant.mutate({ id: task.id, is_important: prev }),
+      redo: () => toggleImportant.mutate({ id: task.id, is_important: !prev }),
+    });
+  }, [task.id, task.is_important, task.title, toggleImportant, pushUndo]);
+
+  const undoableDeleteTask = useCallback(() => {
+    const snap = { ...task };
+    deleteTask.mutate(task.id);
+    pushUndo({
+      label: `Удалено «${task.title}»`,
+      undo: async () => {
+        await supabase.from("tasks").insert({
+          id: snap.id, title: snap.title, description: snap.description,
+          group_id: snap.group_id, user_id: snap.user_id, deadline: snap.deadline,
+          is_completed: snap.is_completed, is_important: snap.is_important,
+          position: snap.position, priority: snap.priority, assigned_to: snap.assigned_to,
+          task_type: snap.task_type, start_at: snap.start_at,
+          recurrence: snap.recurrence, recurrence_end_date: snap.recurrence_end_date,
+        } as any);
+        if (snap.subtasks && snap.subtasks.length > 0) {
+          await supabase.from("subtasks").insert(
+            snap.subtasks.map(s => ({ id: s.id, task_id: snap.id, title: s.title, position: s.position, is_completed: s.is_completed, deadline: s.deadline, assigned_to: s.assigned_to }))
+          );
+        }
+        if (snap.task_tags && snap.task_tags.length > 0) {
+          await supabase.from("task_tags").insert(
+            snap.task_tags.map(tt => ({ task_id: snap.id, tag_id: tt.tag_id }))
+          );
+        }
+      },
+      redo: () => deleteTask.mutate(snap.id),
+    });
+  }, [task, deleteTask, pushUndo]);
+
+  const undoableUpdateTask = useCallback((id: string, updates: Partial<Task>) => {
+    const prevValues: Partial<Task> = {};
+    for (const key of Object.keys(updates) as (keyof Task)[]) {
+      prevValues[key] = task[key] as any;
+    }
+    updateTask.mutate({ id, ...updates });
+    const fields: Record<string, string> = { deadline: "срок", description: "описание", title: "название", assigned_to: "ответственный", priority: "приоритет", group_id: "проект" };
+    const changedField = fields[Object.keys(updates)[0]] || Object.keys(updates)[0] || "поле";
+    pushUndo({
+      label: `${changedField} «${task.title}»`,
+      undo: () => updateTask.mutate({ id, ...prevValues }),
+      redo: () => updateTask.mutate({ id, ...updates }),
+    });
+  }, [task, updateTask, pushUndo]);
+
   const fetchTagSuggestions = useCallback(async () => {
     if (suggestionsLoaded.current || availableTags.length === 0) return;
     suggestionsLoaded.current = true;
