@@ -103,9 +103,11 @@ const App = () => (
   >
     <ThemeProvider>
       <AuthProvider>
-        <TooltipProvider>
-          <AppContent />
-        </TooltipProvider>
+        <UndoProvider>
+          <TooltipProvider>
+            <AppContent />
+          </TooltipProvider>
+        </UndoProvider>
       </AuthProvider>
     </ThemeProvider>
   </PersistQueryClientProvider>
