@@ -39,7 +39,7 @@ const MILESTONE_ROW_HEIGHT = 28;
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 1200;
 
-export default function GanttView({ initialProjectId, onBack }: { initialProjectId?: string | null; onBack?: () => void }) {
+export default function GanttView({ initialProjectId, onBack, embedded }: { initialProjectId?: string | null; onBack?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
@@ -809,7 +809,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar — compact single row */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0">
-        {onBack && (
+        {!embedded && onBack && (
           <button onClick={onBack} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Портфель">
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>

@@ -31,7 +31,7 @@ import GateSummary from "../components/matrix/GateSummary";
 
 export { NPD_GATES, NPD_STREAMS };
 
-export default function NpdSwimlaneMatrix() {
+export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } = {}) {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -771,16 +771,18 @@ export default function NpdSwimlaneMatrix() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      <MatrixHeader
-        project={project}
-        projectId={projectId!}
-        allTasks={allTasks}
-        projectGroupIds={projectGroupIds}
-        allGroups={allGroups}
-        allGroupTags={allGroupTags}
-        gateTags={gateTags}
-        streamTags={streamTags}
-      />
+      {!embedded && (
+        <MatrixHeader
+          project={project}
+          projectId={projectId!}
+          allTasks={allTasks}
+          projectGroupIds={projectGroupIds}
+          allGroups={allGroups}
+          allGroupTags={allGroupTags}
+          gateTags={gateTags}
+          streamTags={streamTags}
+        />
+      )}
 
       <div className="flex-1 overflow-auto">
         <DndContext
