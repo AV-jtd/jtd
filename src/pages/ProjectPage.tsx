@@ -55,10 +55,6 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const { insights, loading: aiLoading, error: aiError, dismissed, refresh: aiRefresh, dismiss: aiDismiss } = useAiInsights();
 
   const project = groups.find(g => g.id === projectId);
-  if (!project) return null;
-
-  const childIds = new Set(groups.filter(g => g.parent_id === projectId).map(g => g.id));
-  const allIds = new Set([projectId, ...childIds]);
   const tasks = allTasks.filter(t => t.group_id && allIds.has(t.group_id));
   const total = tasks.length;
   const done = tasks.filter(t => t.is_completed).length;
