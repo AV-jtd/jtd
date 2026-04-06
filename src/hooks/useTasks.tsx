@@ -1691,11 +1691,85 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["tags"] }),
   });
 
+  // ========== SUBTASK TRANSFERS ==========
+
+  /** Promote subtask to a standalone task in the same project */
+  const promoteSubtaskToTask = useMutation({
+    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+      const { data: sub, error: subErr } = await supabase.from("subtasks").select("*").eq("id", subtaskId).single();
+      if (subErr || !sub) throw subErr || new Error("Subtask not found");
+
+      const { data: parentTask } = await supabase.from("tasks").select("group_id, user_id").eq("id", sub.task_id).single();
+
+      // Create new task from subtask
+      const { error: taskErr } = await supabase.from("tasks").insert({
+        title: sub.title,
+        user_id: user!.id,
+        group_id: parentTask?.group_id || null,
+        deadline: sub.deadline,
+        assigned_to: sub.assigned_to,
+        is_completed: sub.is_completed,
+        completed_at: sub.is_completed ? new Date().toISOString() : null,
+      });
+      if (taskErr) throw taskErr;
+
+      // Delete the subtask
+      await supabase.from("subtasks").delete().eq("id", subtaskId);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => toast.success("Шаг повышен до задачи"),
+    onError: () => toast.error("Не удалось повысить шаг"),
+  });
+
+  /** Demote a task to subtask of another task */
+  const demoteTaskToSubtask = useMutation({
+    mutationFn: async ({ taskId, targetTaskId }: { taskId: string; targetTaskId: string }) => {
+      const { data: task, error: tErr } = await supabase.from("tasks").select("*").eq("id", taskId).single();
+      if (tErr || !task) throw tErr || new Error("Task not found");
+
+      // Count existing subtasks for position
+      const { count } = await supabase.from("subtasks").select("id", { count: "exact", head: true }).eq("task_id", targetTaskId);
+
+      // Create subtask from task
+      const { error: subErr } = await supabase.from("subtasks").insert({
+        task_id: targetTaskId,
+        title: task.title,
+        is_completed: task.is_completed,
+        deadline: task.deadline,
+        assigned_to: task.assigned_to,
+        position: (count || 0),
+      });
+      if (subErr) throw subErr;
+
+      // Delete original task (and its subtasks cascade)
+      await supabase.from("tasks").delete().eq("id", taskId);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => toast.success("Задача понижена до шага"),
+    onError: () => toast.error("Не удалось понизить задачу"),
+  });
+
+  /** Move subtask to another task */
+  const moveSubtaskToTask = useMutation({
+    mutationFn: async ({ subtaskId, targetTaskId }: { subtaskId: string; targetTaskId: string }) => {
+      const { count } = await supabase.from("subtasks").select("id", { count: "exact", head: true }).eq("task_id", targetTaskId);
+      const { error } = await supabase.from("subtasks").update({
+        task_id: targetTaskId,
+        position: (count || 0),
+      }).eq("id", subtaskId);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => toast.success("Шаг перемещён в другую задачу"),
+    onError: () => toast.error("Не удалось переместить шаг"),
+  });
+
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks,
+    promoteSubtaskToTask, demoteTaskToSubtask, moveSubtaskToTask,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, addGroupMemberByEmail, removeGroupMember, updateGroupMemberRole, grantTagAccess,
     reorderTasks, reorderGroups,
