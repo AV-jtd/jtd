@@ -31,7 +31,7 @@ import GateSummary from "../components/matrix/GateSummary";
 
 export { NPD_GATES, NPD_STREAMS };
 
-export default function NpdSwimlaneMatrix() {
+export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } = {}) {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
