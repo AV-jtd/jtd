@@ -649,6 +649,24 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
+  const handleMoveTask = useCallback((taskId: string, direction: 'up' | 'down') => {
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task || !task.group_id) return;
+    const siblings = allTasks
+      .filter(t => t.group_id === task.group_id && !t.is_completed)
+      .sort((a, b) => a.position - b.position);
+    const idx = siblings.findIndex(t => t.id === taskId);
+    if (direction === 'up' && idx > 0) {
+      const other = siblings[idx - 1];
+      updateTask.mutate({ id: taskId, position: other.position });
+      updateTask.mutate({ id: other.id, position: task.position });
+    } else if (direction === 'down' && idx < siblings.length - 1) {
+      const other = siblings[idx + 1];
+      updateTask.mutate({ id: taskId, position: other.position });
+      updateTask.mutate({ id: other.id, position: task.position });
+    }
+  }, [allTasks, updateTask]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
@@ -906,6 +924,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           onReorderTask={(taskId, newPosition, newGroupId) => {
             updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
           }}
+          onMoveTaskUp={(taskId) => handleMoveTask(taskId, 'up')}
+          onMoveTaskDown={(taskId) => handleMoveTask(taskId, 'down')}
           onCreateDependency={(predecessorId, successorId) => {
             setDepDialogState({
               predecessorId,
@@ -1062,7 +1082,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       row.type === "subtask" && "bg-transparent",
                       hoveredRow === i && "bg-muted/30"
                     )}
-                    style={{ height: ROW_HEIGHT }}
+                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
