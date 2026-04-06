@@ -668,7 +668,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     const el = scrollRef.current;
     if (!el) return null;
     if (x < tlScrollLeft) return 'left';
-    if (x > tlScrollLeft + el.clientWidth) return 'right';
+    const visibleW = (el.clientWidth || 400) - leftPanelWidth - 6;
+    if (x > tlScrollLeft + visibleW) return 'right';
     return null;
   }, [getMilestoneX, tlScrollLeft]);
 
