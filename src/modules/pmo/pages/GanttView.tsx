@@ -1047,107 +1047,99 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         )}
       </div>
 
-      {/* Gantt body */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel - editable table */}
-        <GanttLeftPanel
-          ref={leftPanelRef}
-          rows={rows}
-          rowHeight={ROW_HEIGHT}
-          getRowHeight={getRowHeight}
-          width={leftPanelWidth}
-          allProjects={groups}
-          dependencies={allDependencies}
-          columns={ganttColumns}
-          onColumnsChange={setGanttColumns}
-          onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
-          onAddTask={(projectId, title) => {
-            addTask.mutate({ title, group_id: projectId });
-          }}
-          onAddSubproject={(parentId, name) => {
-            addGroup.mutate({ name, parent_id: parentId });
-          }}
-          onAddSubtask={(taskId, title) => {
-            addSubtask.mutate({ task_id: taskId, title });
-          }}
-          onUpdateTask={(id, updates) => {
-            updateTask.mutate({ id, ...updates });
-          }}
-          onToggleTask={(id, completed) => {
-            toggleTask.mutate({ id, is_completed: completed });
-          }}
-          onUpdateSubtask={(id, updates) => {
-            updateSubtask.mutate({ id, ...updates });
-          }}
-          onToggleSubtask={(id, completed) => {
-            toggleSubtask.mutate({ id, is_completed: completed });
-          }}
-          onMoveTask={(taskId, newGroupId) => {
-            updateTask.mutate({ id: taskId, group_id: newGroupId });
-          }}
-          onMoveProject={(projectId, newParentId) => {
-            updateGroupParent.mutate({ id: projectId, parent_id: newParentId });
-          }}
-          onReorderTask={(taskId, newPosition, newGroupId) => {
-            updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
-          }}
-          onOpenTask={(taskId) => setSelectedTaskId(taskId)}
-          onCreateDependency={(predecessorId, successorId) => {
-            setDepDialogState({
-              predecessorId,
-              successorId,
-              predecessorLabel: getEntityLabel(predecessorId, "task"),
-              successorLabel: getEntityLabel(successorId, "task"),
-              predecessorEntityType: "task",
-              successorEntityType: "task",
-            });
-          }}
-          collapsedProjects={collapsedProjects}
-          onToggleCollapse={toggleCollapse}
-          filterAssignee={filterAssignee}
-          hoveredRow={hoveredRow}
-          onHoverRow={setHoveredRow}
-          onScroll={(scrollTop) => {
-            if (isSyncingScroll.current) return;
-            isSyncingScroll.current = true;
-            if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
-            setTimeout(() => { isSyncingScroll.current = false; }, 0);
-          }}
-          onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
-          getMilestoneOffscreen={getMilestoneOffscreen}
-        />
+      {/* Gantt body — unified scroll container */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-auto scrollbar-thin"
+        style={{ overscrollBehavior: "auto", touchAction: "pan-x pan-y" }}
+        onScroll={(e) => {
+          const el = e.target as HTMLDivElement;
+          setTlScrollLeft(el.scrollLeft);
+        }}
+      >
+        <div className="flex" style={{ width: leftPanelWidth + 6 + totalWidth, minHeight: "100%" }}>
+          {/* Left panel — sticky left so it stays visible during horizontal scroll */}
+          <div className="sticky left-0 z-20 shrink-0 bg-card" style={{ width: leftPanelWidth }}>
+            <GanttLeftPanel
+              rows={rows}
+              rowHeight={ROW_HEIGHT}
+              getRowHeight={getRowHeight}
+              width={leftPanelWidth}
+              allProjects={groups}
+              dependencies={allDependencies}
+              columns={ganttColumns}
+              onColumnsChange={setGanttColumns}
+              onMilestoneClick={(ms) => { setEditingMilestone(ms); setMsDialogOpen(true); }}
+              onAddTask={(projectId, title) => {
+                addTask.mutate({ title, group_id: projectId });
+              }}
+              onAddSubproject={(parentId, name) => {
+                addGroup.mutate({ name, parent_id: parentId });
+              }}
+              onAddSubtask={(taskId, title) => {
+                addSubtask.mutate({ task_id: taskId, title });
+              }}
+              onUpdateTask={(id, updates) => {
+                updateTask.mutate({ id, ...updates });
+              }}
+              onToggleTask={(id, completed) => {
+                toggleTask.mutate({ id, is_completed: completed });
+              }}
+              onUpdateSubtask={(id, updates) => {
+                updateSubtask.mutate({ id, ...updates });
+              }}
+              onToggleSubtask={(id, completed) => {
+                toggleSubtask.mutate({ id, is_completed: completed });
+              }}
+              onMoveTask={(taskId, newGroupId) => {
+                updateTask.mutate({ id: taskId, group_id: newGroupId });
+              }}
+              onMoveProject={(projectId, newParentId) => {
+                updateGroupParent.mutate({ id: projectId, parent_id: newParentId });
+              }}
+              onReorderTask={(taskId, newPosition, newGroupId) => {
+                updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
+              }}
+              onOpenTask={(taskId) => setSelectedTaskId(taskId)}
+              onCreateDependency={(predecessorId, successorId) => {
+                setDepDialogState({
+                  predecessorId,
+                  successorId,
+                  predecessorLabel: getEntityLabel(predecessorId, "task"),
+                  successorLabel: getEntityLabel(successorId, "task"),
+                  predecessorEntityType: "task",
+                  successorEntityType: "task",
+                });
+              }}
+              collapsedProjects={collapsedProjects}
+              onToggleCollapse={toggleCollapse}
+              filterAssignee={filterAssignee}
+              hoveredRow={hoveredRow}
+              onHoverRow={setHoveredRow}
+              onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
+              getMilestoneOffscreen={getMilestoneOffscreen}
+            />
+          </div>
 
-        {/* Draggable splitter */}
-        <div
-          className={cn(
-            "w-1.5 shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors relative group/splitter",
-            splitterDragging && "bg-primary/50"
-          )}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setSplitterDragging(true);
-            splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
-          }}
-        >
-          <div className="absolute inset-y-0 -left-1 -right-1" />
-          <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-8 rounded-full bg-muted-foreground/20 group-hover/splitter:bg-primary/60 transition-colors" />
-        </div>
+          {/* Draggable splitter — sticky to stay next to left panel */}
+          <div
+            className={cn(
+              "shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors relative group/splitter sticky z-[15] bg-card",
+              splitterDragging && "bg-primary/50"
+            )}
+            style={{ left: leftPanelWidth, width: 6 }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setSplitterDragging(true);
+              splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
+            }}
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1" />
+            <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-8 rounded-full bg-muted-foreground/20 group-hover/splitter:bg-primary/60 transition-colors" />
+          </div>
 
-        {/* Timeline */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-auto scrollbar-thin"
-          style={{ overscrollBehavior: "auto", touchAction: "pan-x pan-y" }}
-          onScroll={(e) => {
-            const el = e.target as HTMLDivElement;
-            setTlScrollLeft(el.scrollLeft);
-            if (isSyncingScroll.current) return;
-            isSyncingScroll.current = true;
-            if (leftPanelRef.current) leftPanelRef.current.scrollTop = el.scrollTop;
-            setTimeout(() => { isSyncingScroll.current = false; }, 0);
-          }}
-        >
-          <div style={{ width: totalWidth, minHeight: "100%" }} className="relative">
+          {/* Timeline */}
+          <div style={{ width: totalWidth, minHeight: "100%" }} className="relative shrink-0">
             {/* Single-row month headers */}
             <div className="sticky top-0 z-10 bg-card border-b border-border flex" style={{ height: 32 }}>
               {monthGroups.map(g => (
