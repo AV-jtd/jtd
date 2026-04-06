@@ -12,6 +12,8 @@ import {
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
@@ -65,6 +67,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
   const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Merge saved config with defaults (in case new columns were added)
   const ganttColumns = useMemo(() => {
@@ -709,23 +712,6 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
-  const handleMoveTask = useCallback((taskId: string, direction: 'up' | 'down') => {
-    const task = allTasks.find(t => t.id === taskId);
-    if (!task || !task.group_id) return;
-    const siblings = allTasks
-      .filter(t => t.group_id === task.group_id && !t.is_completed)
-      .sort((a, b) => a.position - b.position);
-    const idx = siblings.findIndex(t => t.id === taskId);
-    if (direction === 'up' && idx > 0) {
-      const other = siblings[idx - 1];
-      updateTask.mutate({ id: taskId, position: other.position });
-      updateTask.mutate({ id: other.id, position: task.position });
-    } else if (direction === 'down' && idx < siblings.length - 1) {
-      const other = siblings[idx + 1];
-      updateTask.mutate({ id: taskId, position: other.position });
-      updateTask.mutate({ id: other.id, position: task.position });
-    }
-  }, [allTasks, updateTask]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -1107,8 +1093,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           onReorderTask={(taskId, newPosition, newGroupId) => {
             updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
           }}
-          onMoveTaskUp={(taskId) => handleMoveTask(taskId, 'up')}
-          onMoveTaskDown={(taskId) => handleMoveTask(taskId, 'down')}
+          onOpenTask={(taskId) => setSelectedTaskId(taskId)}
           onCreateDependency={(predecessorId, successorId) => {
             setDepDialogState({
               predecessorId,
@@ -1672,6 +1657,17 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           setDepDialogState(null);
         }}
       />
+
+      {/* Task detail Sheet */}
+      <Sheet open={!!selectedTaskId} onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+          {selectedTaskId && (() => {
+            const task = allTasks.find(t => t.id === selectedTaskId);
+            if (!task) return null;
+            return <TaskItem task={task} initialOpen />;
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

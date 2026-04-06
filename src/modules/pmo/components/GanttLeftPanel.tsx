@@ -2,7 +2,7 @@ import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw, ArrowUp, ArrowDown } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, Expand, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, differenceInCalendarDays, addDays, isPast, isToday, isTomorrow } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -81,8 +81,7 @@ interface GanttLeftPanelProps {
   onMoveTask: (taskId: string, newGroupId: string) => void;
   onMoveProject: (projectId: string, newParentId: string | null) => void;
   onReorderTask?: (taskId: string, newPosition: number, newGroupId: string) => void;
-  onMoveTaskUp?: (taskId: string) => void;
-  onMoveTaskDown?: (taskId: string) => void;
+  onOpenTask?: (taskId: string) => void;
   onCreateDependency?: (predecessorId: string, successorId: string) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
@@ -179,7 +178,7 @@ function PredecessorPicker({
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  onMoveTask, onMoveProject, onReorderTask, onMoveTaskUp, onMoveTaskDown, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+  onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
   onUpdateMilestone, getMilestoneOffscreen,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
@@ -664,36 +663,14 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                           })()}
                           {/* Action buttons on hover */}
                           <div className="flex items-center shrink-0 mt-0.5">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button onClick={(e) => e.stopPropagation()} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Переместить в проект">
-                                  <ArrowRightLeft className="h-2.5 w-2.5" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-48 p-1" side="right" align="start" sideOffset={4}>
-                                <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в проект</div>
-                                <div className="max-h-48 overflow-y-auto">
-                                  {allProjects.filter(p => p.id !== row.task!.group_id).map(p => (
-                                    <button key={p.id} onClick={() => onMoveTask(row.task!.id, p.id)} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate">
-                                      {p.icon && p.icon !== "list" ? `${p.icon} ` : "📁 "}{p.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                            {onOpenTask && (
+                              <button onClick={(e) => { e.stopPropagation(); onOpenTask(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Раскрыть задачу">
+                                <Expand className="h-2.5 w-2.5" />
+                              </button>
+                            )}
                             <button onClick={(e) => { e.stopPropagation(); startAdding(row.project.id, "step", row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Добавить шаг">
                               <Plus className="h-2.5 w-2.5" />
                             </button>
-                            {onMoveTaskUp && (
-                              <button onClick={(e) => { e.stopPropagation(); onMoveTaskUp(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вверх">
-                                <ArrowUp className="h-2.5 w-2.5" />
-                              </button>
-                            )}
-                            {onMoveTaskDown && (
-                              <button onClick={(e) => { e.stopPropagation(); onMoveTaskDown(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вниз">
-                                <ArrowDown className="h-2.5 w-2.5" />
-                              </button>
-                            )}
                           </div>
                         </div>
                       )
