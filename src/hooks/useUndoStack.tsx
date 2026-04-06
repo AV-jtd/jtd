@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useRef, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -12,8 +12,8 @@ interface UndoContextValue {
   pushUndo: (entry: UndoEntry) => void;
   undo: () => void;
   redo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
+  undoCount: number;
+  redoCount: number;
 }
 
 const MAX_STACK = 50;
@@ -24,8 +24,14 @@ export function UndoProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const undoStack = useRef<UndoEntry[]>([]);
   const redoStack = useRef<UndoEntry[]>([]);
+  const [undoCount, setUndoCount] = useState(0);
+  const [redoCount, setRedoCount] = useState(0);
 
-  // Listen for manual invalidation after raw DB undo operations
+  const syncCounts = useCallback(() => {
+    setUndoCount(undoStack.current.length);
+    setRedoCount(redoStack.current.length);
+  }, []);
+
   useEffect(() => {
     const handler = () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -39,12 +45,14 @@ export function UndoProvider({ children }: { children: ReactNode }) {
     undoStack.current.push(entry);
     if (undoStack.current.length > MAX_STACK) undoStack.current.shift();
     redoStack.current = [];
-  }, []);
+    syncCounts();
+  }, [syncCounts]);
 
   const undo = useCallback(() => {
     const entry = undoStack.current.pop();
     if (!entry) return;
     redoStack.current.push(entry);
+    syncCounts();
     Promise.resolve(entry.undo()).then(() => {
       toast(`↩ Отменено: ${entry.label}`, {
         action: {
@@ -52,40 +60,34 @@ export function UndoProvider({ children }: { children: ReactNode }) {
           onClick: () => {
             redoStack.current = redoStack.current.filter((e) => e !== entry);
             undoStack.current.push(entry);
+            syncCounts();
             entry.redo();
           },
         },
         duration: 4000,
       });
     });
-  }, []);
+  }, [syncCounts]);
 
   const redo = useCallback(() => {
     const entry = redoStack.current.pop();
     if (!entry) return;
     undoStack.current.push(entry);
+    syncCounts();
     Promise.resolve(entry.redo()).then(() => {
       toast(`↪ Повторено: ${entry.label}`, { duration: 2000 });
     });
-  }, []);
+  }, [syncCounts]);
 
-  // Global keyboard listener
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input/textarea/contenteditable
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
-      
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-        if (isEditable && !e.shiftKey) return; // let native undo work in inputs
+        if (isEditable && !e.shiftKey) return;
         e.preventDefault();
-        if (e.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
+        if (e.shiftKey) redo(); else undo();
       }
-      // Ctrl+Y as alternative redo
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") {
         if (isEditable) return;
         e.preventDefault();
@@ -97,13 +99,7 @@ export function UndoProvider({ children }: { children: ReactNode }) {
   }, [undo, redo]);
 
   return (
-    <UndoContext.Provider value={{
-      pushUndo,
-      undo,
-      redo,
-      get canUndo() { return undoStack.current.length > 0; },
-      get canRedo() { return redoStack.current.length > 0; },
-    }}>
+    <UndoContext.Provider value={{ pushUndo, undo, redo, undoCount, redoCount }}>
       {children}
     </UndoContext.Provider>
   );

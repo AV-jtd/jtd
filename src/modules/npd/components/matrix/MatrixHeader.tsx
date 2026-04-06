@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, GanttChart, Layers, Loader2 } from "lucide-react";
+import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -246,6 +247,7 @@ function MatrixHeaderInner({
           </div>
         )}
         <div className="flex-1" />
+        <UndoRedoButtons />
         {hasDeepNesting && (
           <button
             onClick={() => setConfirmOpen(true)}

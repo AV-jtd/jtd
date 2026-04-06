@@ -12,6 +12,7 @@ import {
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
+import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import SmartImportDialog from "@/components/SmartImportDialog";
@@ -760,6 +761,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           <LocateFixed className="h-3.5 w-3.5" />
         </button>
 
+        <div className="h-4 w-px bg-border" />
+        <UndoRedoButtons />
         <div className="h-4 w-px bg-border" />
 
         <select
