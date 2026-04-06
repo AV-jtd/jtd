@@ -764,6 +764,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         <div className="h-4 w-px bg-border" />
         <UndoRedoButtons />
         <div className="h-4 w-px bg-border" />
+
+        <select
           value={selectedProjectId || ""}
           onChange={e => setSelectedProjectId(e.target.value || null)}
           className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
