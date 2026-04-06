@@ -1041,9 +1041,9 @@ Deno.serve(async (req) => {
           "`- Задача 2 5д`\n" +
           "`- Задача 3 завтра`\n\n" +
           "Или:\n" +
-          "`/spisok`\n" +
-          "`Купить материалы, позвонить поставщику, отправить ТЗ дизайнеру`\n\n" +
-          "🎤 Также можно отправить голосовое сообщение.",
+          "`/spisok Проект` — затем отправь голосовое или перешли сообщение\n\n" +
+          "🎤 Также можно отправить голосовое сообщение.\n" +
+          "📨 Можно переслать сообщение — бот распознает задачи.",
           "Markdown"
         );
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -1055,13 +1055,38 @@ Deno.serve(async (req) => {
       let bulkText = bulkArgs;
       
       const firstLine = bulkArgs.split("\n")[0].trim();
+      const restText = bulkArgs.substring(firstLine.length).trim();
+      
       if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
         const group = await findProject(supabase, userId, firstLine);
         if (group) {
           bulkGroupId = group.id;
           bulkGroupName = group.name;
-          bulkText = bulkArgs.substring(firstLine.length).trim();
+          bulkText = restText;
         }
+      }
+
+      // If only project name was provided (no task list) — save context for next message
+      if (bulkGroupId && !bulkText) {
+        await supabase.from("telegram_pending_context").upsert({
+          chat_id: chatId,
+          user_id: userId,
+          context_type: "spisok",
+          group_id: bulkGroupId,
+          group_name: bulkGroupName,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "chat_id" });
+
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          `📦 Проект: ${escapeMarkdown(bulkGroupName || "")}\n\n` +
+          "Теперь отправь:\n" +
+          "• 📝 Список задач текстом\n" +
+          "• 🎤 Голосовое сообщение\n" +
+          "• 📨 Перешли сообщение из другого чата\n\n" +
+          "⏰ Контекст активен 10 минут.",
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       const members = bulkGroupId 
@@ -1074,6 +1099,9 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      // Clear any pending context
+      await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+
       const results = await createBulkTasks(supabase, parsedTasks, userId, bulkGroupId, members);
       const confirmLines = results.map((r, i) =>
         `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
@@ -1084,6 +1112,44 @@ Deno.serve(async (req) => {
         `📦 Создано ${results.length} задач${projectInfo}:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}`
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Check pending /spisok context (for voice, forwarded, or bulk-like messages) ===
+    const isPendingContextCandidate = isFromVoice || message._forwarded || detectBulkMessage(message.text);
+    if (isPendingContextCandidate && !message.text.startsWith("/")) {
+      const { data: pendingCtx } = await supabase
+        .from("telegram_pending_context")
+        .select("*")
+        .eq("chat_id", chatId)
+        .single();
+
+      // Check if context exists and is fresh (< 10 minutes)
+      if (pendingCtx && (Date.now() - new Date(pendingCtx.created_at).getTime()) < 10 * 60 * 1000) {
+        const ctxGroupId = pendingCtx.group_id;
+        const ctxGroupName = pendingCtx.group_name;
+        
+        const members = ctxGroupId
+          ? await getProjectMembers(supabase, ctxGroupId, (await supabase.from("task_groups").select("user_id").eq("id", ctxGroupId).single()).data?.user_id || userId)
+          : [];
+        const parsedTasks = await aiBulkParse(message.text, members, ctxGroupName || undefined);
+
+        if (parsedTasks && parsedTasks.length >= 1) {
+          // Clear context after use
+          await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+
+          const results = await createBulkTasks(supabase, parsedTasks, userId, ctxGroupId, members);
+          const confirmLines = results.map((r, i) =>
+            `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+          );
+
+          const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
+          const sourceHint = isFromVoice ? "\n\n🎤 Из голосового сообщения" : message._forwarded ? "\n\n📨 Из пересланного сообщения" : "";
+          await sendTelegramMessage(BOT_TOKEN, chatId,
+            `📦 Создано ${results.length} задач${projectInfo}:\n\n${confirmLines.join("\n")}${sourceHint}`
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
     }
 
     // === Auto-detect bulk task lists in private chat ===
@@ -1099,11 +1165,36 @@ Deno.serve(async (req) => {
           `${i + 1}. ✅ ${r.title}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
         );
         
+        const sourceHint = isFromVoice ? "\n\n🎤 Из голосового сообщения" : message._forwarded ? "\n\n📨 Из пересланного сообщения" : "";
         await sendTelegramMessage(BOT_TOKEN, chatId,
-          `📦 Распознано ${results.length} задач:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}\n\n💡 Используй /spisok Проект для создания в конкретном проекте`
+          `📦 Распознано ${results.length} задач:\n\n${confirmLines.join("\n")}${sourceHint}\n\n💡 Используй /spisok Проект для создания в конкретном проекте`
         );
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
+    }
+
+    // === Forwarded single message → create as single task ===
+    if (message._forwarded && !message.text.startsWith("/")) {
+      // Forwarded message that wasn't detected as bulk — create as single task
+      const forwardFrom = message.forward_from?.first_name || message.forward_sender_name || "";
+      const taskTitle = message.text.length > 100 ? message.text.substring(0, 100) + "…" : message.text;
+      const taskDesc = forwardFrom ? `📨 Переслано от: ${forwardFrom}\n\n${message.text}` : message.text;
+      
+      const { error: taskErr } = await supabase.from("tasks").insert({
+        title: taskTitle,
+        description: message.text.length > 100 ? taskDesc : undefined,
+        user_id: userId,
+        position: Date.now(),
+      });
+
+      if (!taskErr) {
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          `📨 Задача из пересланного сообщения:\n✅ ${escapeMarkdown(taskTitle)}${forwardFrom ? `\n👤 От: ${escapeMarkdown(forwardFrom)}` : ""}\n\n💡 Используй /spisok Проект для пакетного создания`
+        );
+      } else {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось создать задачу.");
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
     // === Parse message for task creation (private chat) ===
