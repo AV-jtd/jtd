@@ -293,33 +293,7 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
           </DashSection>
         )}
 
-        {/* Streams */}
-        {activeSubprojects.length > 0 && (
-          <DashSection title="Стримы" count={activeSubprojects.length} accentClass="text-primary">
-            {activeSubprojects.map(sp => {
-              const spTasks = getSpTasks(sp.id);
-              const spDone = spTasks.filter(t => t.is_completed).length;
-              const spTotal = spTasks.length;
-              const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
-              const spOverdue = spTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline!))).length;
-              const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
-              return (
-                <div key={sp.id} className="flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-secondary/50 transition-colors">
-                  <div className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-semibold text-primary-foreground" style={{ backgroundColor: sp.color || 'hsl(var(--primary))' }}>
-                    {sp.icon && sp.icon !== "list" ? sp.icon : name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-[13px] truncate flex-1 text-foreground">{name}</span>
-                  {spOverdue > 0 && <span className="text-[9px] text-destructive tabular-nums shrink-0">⚠{spOverdue}</span>}
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{spDone}/{spTotal}</span>
-                  <div className="w-16 h-1 rounded-full bg-muted/60 overflow-hidden shrink-0">
-                    <div className={cn("h-full rounded-full transition-all", spPct >= 80 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${spPct}%` }} />
-                  </div>
-                  <span className={cn("text-[11px] tabular-nums shrink-0 w-7 text-right font-medium", spPct >= 80 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>{spPct}%</span>
-                </div>
-              );
-            })}
-          </DashSection>
-        )}
+        {/* Streams are shown in the Roadmap above */}
       </div>
 
       {/* ━━ PROJECT CARD (collapsible) ━━ */}
