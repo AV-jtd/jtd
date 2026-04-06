@@ -7,6 +7,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { UndoProvider } from "@/hooks/useUndoStack";
 import { idbPersister } from "@/lib/queryPersist";
 import { usePrefetchData } from "@/hooks/usePrefetch";
 import ErrorBoundary from "@/components/ErrorBoundary";
