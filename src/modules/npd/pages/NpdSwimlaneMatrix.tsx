@@ -826,6 +826,7 @@ export default function NpdSwimlaneMatrix() {
               parentTasks={inboxData.parentTasks}
               unmatchedSubTasks={inboxData.unmatchedSubTasks}
               dndOverCell={dndOverCell}
+              getTaskGate={getTaskGate}
             />
 
             <GateSummary
