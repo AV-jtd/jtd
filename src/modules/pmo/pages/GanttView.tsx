@@ -952,7 +952,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         {/* Draggable splitter */}
         <div
           className={cn(
-            "w-1 shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors",
+            "w-1.5 shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors relative group/splitter",
             splitterDragging && "bg-primary/50"
           )}
           onMouseDown={(e) => {
@@ -960,7 +960,10 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
             setSplitterDragging(true);
             splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
           }}
-        />
+        >
+          <div className="absolute inset-y-0 -left-1 -right-1" />
+          <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-8 rounded-full bg-muted-foreground/20 group-hover/splitter:bg-primary/60 transition-colors" />
+        </div>
 
         {/* Timeline */}
         <div
