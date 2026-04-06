@@ -1,18 +1,34 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useTaskGroups, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useMilestones, type Milestone, useMilestoneMutations } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Flag, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { Flag, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import MilestoneDialog from "@/modules/pmo/components/MilestoneDialog";
+
+const GATE_STATUS_MAP: Record<string, { label: string; className: string }> = {
+  pending: { label: "⏳ Ожидает", className: "bg-muted text-muted-foreground" },
+  in_progress: { label: "🔄 В процессе", className: "bg-blue-500/10 text-blue-600" },
+  go: { label: "✅ Go", className: "bg-emerald-500/10 text-emerald-600" },
+  no_go: { label: "❌ No-Go", className: "bg-destructive/10 text-destructive" },
+  conditional: { label: "⚠️ Условно", className: "bg-amber-500/10 text-amber-600" },
+  completed: { label: "✓ Завершена", className: "bg-emerald-500/10 text-emerald-600" },
+  missed: { label: "✗ Пропущена", className: "bg-destructive/10 text-destructive" },
+};
 
 export default function MilestonesView() {
   const { data: groups = [] } = useTaskGroups();
   const { data: milestones = [] } = useMilestones();
   const { data: users = [] } = useAvailableUsers();
+  const { updateMilestone, deleteMilestone } = useMilestoneMutations();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetGroup, setDropTargetGroup] = useState<string | null>(null);
+  const [editingMs, setEditingMs] = useState<Milestone | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const userMap = useMemo(() => {
     const m = new Map<string, Profile>();
@@ -26,14 +42,12 @@ export default function MilestonesView() {
     return m;
   }, [groups]);
 
-  // Group milestones by project
   const byProject = useMemo(() => {
     const map = new Map<string, Milestone[]>();
     for (const ms of milestones) {
       if (!map.has(ms.group_id)) map.set(ms.group_id, []);
       map.get(ms.group_id)!.push(ms);
     }
-    // Sort milestones by planned_date within each group
     for (const [, list] of map) {
       list.sort((a, b) => a.planned_date.localeCompare(b.planned_date));
     }
@@ -51,12 +65,41 @@ export default function MilestonesView() {
     });
   };
 
-  // Summary stats
+  // DnD handlers
+  const handleDragStart = useCallback((e: React.DragEvent, msId: string) => {
+    setDraggedId(msId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", msId);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetGroup(groupId);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetGroupId: string) => {
+    e.preventDefault();
+    if (draggedId) {
+      const ms = milestones.find(m => m.id === draggedId);
+      if (ms && ms.group_id !== targetGroupId) {
+        updateMilestone.mutate({ id: draggedId, group_id: targetGroupId } as any);
+      }
+    }
+    setDraggedId(null);
+    setDropTargetGroup(null);
+  }, [draggedId, milestones, updateMilestone]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDropTargetGroup(null);
+  }, []);
+
   const totalMs = milestones.length;
-  const completedMs = milestones.filter((m) => m.status === "completed").length;
-  const overdueMs = milestones.filter((m) => m.status !== "completed" && m.planned_date && isPast(parseISO(m.planned_date))).length;
+  const completedMs = milestones.filter((m) => m.status === "completed" || m.status === "go").length;
+  const overdueMs = milestones.filter((m) => m.status !== "completed" && m.status !== "go" && m.planned_date && isPast(parseISO(m.planned_date))).length;
   const upcomingMs = milestones.filter((m) => {
-    if (m.status === "completed" || !m.planned_date) return false;
+    if (m.status === "completed" || m.status === "go" || !m.planned_date) return false;
     const d = differenceInDays(parseISO(m.planned_date), new Date());
     return d >= 0 && d <= 14;
   }).length;
@@ -88,15 +131,24 @@ export default function MilestonesView() {
       <div className="space-y-1">
         {byProject.map(({ groupId, group, items }) => {
           const isExpanded = expandedGroups.has(groupId);
-          const groupCompleted = items.filter((m) => m.status === "completed").length;
-          const groupOverdue = items.filter((m) => m.status !== "completed" && m.planned_date && isPast(parseISO(m.planned_date))).length;
+          const groupCompleted = items.filter((m) => m.status === "completed" || m.status === "go").length;
+          const groupOverdue = items.filter((m) => m.status !== "completed" && m.status !== "go" && m.planned_date && isPast(parseISO(m.planned_date))).length;
+          const isDropTarget = dropTargetGroup === groupId;
 
           return (
-            <div key={groupId}>
+            <div
+              key={groupId}
+              onDragOver={(e) => handleDragOver(e, groupId)}
+              onDrop={(e) => handleDrop(e, groupId)}
+              onDragLeave={() => setDropTargetGroup(null)}
+            >
               {/* Project header */}
               <button
                 onClick={() => toggleGroup(groupId)}
-                className="flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left",
+                  isDropTarget && draggedId && "ring-2 ring-primary bg-primary/5"
+                )}
               >
                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
                 <div
@@ -114,19 +166,28 @@ export default function MilestonesView() {
               {isExpanded && (
                 <div className="ml-6 mb-2 space-y-0.5">
                   {items.map((ms) => {
-                    const isCompleted = ms.status === "completed";
+                    const isCompleted = ms.status === "completed" || ms.status === "go";
                     const isOverdue = !isCompleted && ms.planned_date && isPast(parseISO(ms.planned_date));
                     const daysLeft = ms.planned_date ? differenceInDays(parseISO(ms.planned_date), new Date()) : null;
-                    const creator = userMap.get(ms.created_by);
+                    const statusInfo = GATE_STATUS_MAP[ms.status] || GATE_STATUS_MAP.pending;
+                    const isDragged = draggedId === ms.id;
 
                     return (
                       <div
                         key={ms.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, ms.id)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => { setEditingMs(ms); setDialogOpen(true); }}
                         className={cn(
-                          "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors",
-                          isCompleted ? "opacity-60" : "hover:bg-muted/30"
+                          "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer",
+                          isCompleted ? "opacity-60" : "hover:bg-muted/30",
+                          isDragged && "opacity-30"
                         )}
                       >
+                        {/* Drag handle */}
+                        <GripVertical className="h-3 w-3 text-muted-foreground/30 shrink-0 cursor-grab" />
+
                         {/* Status icon */}
                         {isCompleted ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
@@ -140,6 +201,13 @@ export default function MilestonesView() {
                         <span className={cn("flex-1 truncate", isCompleted && "line-through text-muted-foreground", isOverdue && "text-destructive font-medium")}>
                           {ms.name}
                         </span>
+
+                        {/* Gate result badge */}
+                        {ms.status !== "pending" && (
+                          <Badge variant="secondary" className={cn("text-[9px] px-1.5 py-0 shrink-0", statusInfo.className)}>
+                            {statusInfo.label}
+                          </Badge>
+                        )}
 
                         {/* Date */}
                         <span className={cn("text-[10px] shrink-0", isOverdue ? "text-destructive" : "text-muted-foreground")}>
@@ -169,6 +237,22 @@ export default function MilestonesView() {
           );
         })}
       </div>
+
+      {/* Edit dialog */}
+      <MilestoneDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        milestone={editingMs}
+        projects={groups}
+        onSave={(data) => {
+          if (editingMs) {
+            updateMilestone.mutate({ id: editingMs.id, ...data });
+          }
+        }}
+        onDelete={(id) => {
+          deleteMilestone.mutate(id);
+        }}
+      />
     </div>
   );
 }

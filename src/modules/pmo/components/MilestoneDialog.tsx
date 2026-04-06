@@ -110,19 +110,21 @@ export default function MilestoneDialog({
             </Popover>
           </div>
 
-          {milestone && (
-            <div>
-              <Label className="text-xs">Статус</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Ожидает</SelectItem>
-                  <SelectItem value="completed">Завершена</SelectItem>
-                  <SelectItem value="missed">Пропущена</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div>
+            <Label className="text-xs">Статус / Результат гейта</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">⏳ Ожидает</SelectItem>
+                <SelectItem value="in_progress">🔄 В процессе</SelectItem>
+                <SelectItem value="go">✅ Go</SelectItem>
+                <SelectItem value="no_go">❌ No-Go</SelectItem>
+                <SelectItem value="conditional">⚠️ Условно Go</SelectItem>
+                <SelectItem value="completed">✓ Завершена</SelectItem>
+                <SelectItem value="missed">✗ Пропущена</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <div>
             <Label className="text-xs">Цвет</Label>

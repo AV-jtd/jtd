@@ -2,7 +2,7 @@ import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -81,6 +81,8 @@ interface GanttLeftPanelProps {
   onMoveTask: (taskId: string, newGroupId: string) => void;
   onMoveProject: (projectId: string, newParentId: string | null) => void;
   onReorderTask?: (taskId: string, newPosition: number, newGroupId: string) => void;
+  onMoveTaskUp?: (taskId: string) => void;
+  onMoveTaskDown?: (taskId: string) => void;
   onCreateDependency?: (predecessorId: string, successorId: string) => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
@@ -175,7 +177,7 @@ function PredecessorPicker({
 
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
-  onMoveTask, onMoveProject, onReorderTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+  onMoveTask, onMoveProject, onReorderTask, onMoveTaskUp, onMoveTaskDown, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -504,7 +506,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
-            style={{ height: rowHeight }}
+            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
             draggable={isDraggable}
@@ -651,6 +653,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                           <button onClick={(e) => { e.stopPropagation(); startAdding(row.project.id, "step", row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0" title="Добавить шаг">
                             <Plus className="h-2.5 w-2.5" />
                           </button>
+                          {onMoveTaskUp && (
+                            <button onClick={(e) => { e.stopPropagation(); onMoveTaskUp(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вверх">
+                              <ArrowUp className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                          {onMoveTaskDown && (
+                            <button onClick={(e) => { e.stopPropagation(); onMoveTaskDown(row.task!.id); }} className="p-0.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity shrink-0" title="Вниз">
+                              <ArrowDown className="h-2.5 w-2.5" />
+                            </button>
+                          )}
                         </div>
                       )
                     ) : null}
