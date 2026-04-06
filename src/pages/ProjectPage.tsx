@@ -152,63 +152,90 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* ━━ ROADMAP TIMELINE ━━ */}
-      {projectMilestones.length > 0 && (() => {
-        const sorted = [...projectMilestones].sort((a, b) => a.planned_date.localeCompare(b.planned_date));
-        const firstDate = parseISO(sorted[0].planned_date);
-        const lastDate = parseISO(sorted[sorted.length - 1].planned_date);
-        const totalSpan = Math.max(differenceInDays(lastDate, firstDate), 1);
-        const todayPos = Math.min(100, Math.max(0, (differenceInDays(now, firstDate) / totalSpan) * 100));
+      {/* ━━ PROGRESS ROADMAP ━━ */}
+      {activeSubprojects.length > 0 && (() => {
+        const streams = activeSubprojects.map(sp => {
+          const spTasks = getSpTasks(sp.id);
+          const spDone = spTasks.filter(t => t.is_completed).length;
+          const spTotal = spTasks.length;
+          const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
+          const spOverdue = spTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline!))).length;
+          const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
+          return { id: sp.id, name, pct: spPct, done: spDone, total: spTotal, overdue: spOverdue, color: sp.color, icon: sp.icon };
+        }).sort((a, b) => b.pct - a.pct);
 
         return (
-          <div className="rounded-lg border border-border/50 bg-card px-4 py-3">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
+            <div className="px-4 pt-3 pb-2 flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Дорожная карта</span>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                {format(firstDate, "LLL yyyy", { locale: ru })} → {format(lastDate, "LLL yyyy", { locale: ru })}
-              </span>
+              <span className="text-[10px] text-muted-foreground tabular-nums">{pct}% общий прогресс</span>
             </div>
-            <div className="relative h-12 mx-1">
-              {/* Base track */}
-              <div className="absolute top-5 left-0 right-0 h-px bg-border" />
-              {/* Progress track */}
-              <div className="absolute top-5 left-0 h-px bg-primary/60" style={{ width: `${Math.min(todayPos, 100)}%` }} />
-              {/* Today pulse */}
-              {todayPos > 0 && todayPos < 100 && (
-                <div className="absolute top-[17px] z-10" style={{ left: `${todayPos}%`, transform: "translateX(-50%)" }}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary ring-2 ring-primary/20" />
-                </div>
-              )}
-              {/* Milestone diamonds */}
-              {sorted.map(m => {
-                const pos = (differenceInDays(parseISO(m.planned_date), firstDate) / totalSpan) * 100;
-                const isDone = m.status === "done";
-                const isOver = !isDone && isPast(parseISO(m.planned_date));
-                const drift = isOver ? differenceInDays(now, parseISO(m.planned_date)) : 0;
-                const gateKey = (m as any).gate_key;
-                return (
-                  <div key={m.id} className="absolute flex flex-col items-center" style={{ left: `${pos}%`, transform: "translateX(-50%)" }} title={m.name}>
-                    {/* Name */}
-                    <div className={cn(
-                      "text-[9px] leading-tight text-center max-w-[72px] truncate mb-0.5",
-                      isDone ? "text-primary font-medium" : isOver ? "text-destructive font-medium" : "text-muted-foreground"
-                    )}>{m.name}</div>
-                    {/* Diamond */}
-                    <div className={cn(
-                      "w-2.5 h-2.5 rotate-45 rounded-[1px] border-[1.5px]",
-                      isDone ? "bg-primary border-primary" : isOver ? "bg-destructive/30 border-destructive" : "bg-card border-muted-foreground/40"
-                    )} />
-                    {/* Date + meta */}
-                    <div className="flex items-center gap-0.5 mt-0.5">
-                      <span className={cn("text-[8px] tabular-nums", isDone ? "text-primary" : isOver ? "text-destructive" : "text-muted-foreground")}>
-                        {format(parseISO(m.planned_date), "d MMM", { locale: ru })}
-                      </span>
-                      {gateKey && <span className="text-[7px] text-primary/50 font-bold uppercase">{gateKey.replace("gate", "G")}</span>}
-                      {drift > 0 && <span className="text-[7px] text-destructive tabular-nums">+{drift}</span>}
-                    </div>
+
+            {/* Full-width stacked progress */}
+            <div className="px-4 pb-1">
+              <div className="flex h-2 rounded-full overflow-hidden bg-muted/40 gap-px">
+                {streams.map(s => (
+                  <div
+                    key={s.id}
+                    className="relative h-full transition-all duration-700"
+                    style={{ flex: s.total, backgroundColor: s.pct > 0 ? (s.color || 'hsl(var(--primary))') : 'transparent' }}
+                    title={`${s.name}: ${s.pct}%`}
+                  >
+                    {/* unfilled portion */}
+                    <div
+                      className="absolute right-0 top-0 h-full bg-muted/50"
+                      style={{ width: `${100 - s.pct}%` }}
+                    />
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            {/* Stream lanes */}
+            <div className="px-3 py-2 grid gap-px">
+              {streams.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-secondary/40 transition-colors group">
+                  {/* Rank indicator */}
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0"
+                    style={{
+                      backgroundColor: s.color ? `${s.color}18` : 'hsl(var(--primary) / 0.08)',
+                      color: s.color || 'hsl(var(--primary))'
+                    }}
+                  >
+                    {s.icon && s.icon !== "list" ? s.icon : (i + 1)}
+                  </div>
+
+                  {/* Name */}
+                  <span className="text-[12px] text-foreground truncate min-w-0 flex-1">{s.name}</span>
+
+                  {/* Overdue badge */}
+                  {s.overdue > 0 && (
+                    <span className="text-[9px] text-destructive bg-destructive/8 px-1.5 py-0.5 rounded-full tabular-nums shrink-0">
+                      ⚠ {s.overdue}
+                    </span>
+                  )}
+
+                  {/* Mini progress */}
+                  <div className="w-20 h-1.5 rounded-full bg-muted/50 overflow-hidden shrink-0">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${s.pct}%`,
+                        backgroundColor: s.pct >= 80 ? 'hsl(var(--chart-2))' : (s.color || 'hsl(var(--primary))')
+                      }}
+                    />
+                  </div>
+
+                  {/* Percentage */}
+                  <span className={cn(
+                    "text-[11px] tabular-nums w-8 text-right font-medium shrink-0",
+                    s.pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : s.pct === 0 ? "text-muted-foreground" : "text-foreground"
+                  )}>{s.pct}%</span>
+
+                  {/* Count */}
+                  <span className="text-[9px] text-muted-foreground tabular-nums shrink-0 w-8 text-right">{s.done}/{s.total}</span>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -266,33 +293,7 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
           </DashSection>
         )}
 
-        {/* Streams */}
-        {activeSubprojects.length > 0 && (
-          <DashSection title="Стримы" count={activeSubprojects.length} accentClass="text-primary">
-            {activeSubprojects.map(sp => {
-              const spTasks = getSpTasks(sp.id);
-              const spDone = spTasks.filter(t => t.is_completed).length;
-              const spTotal = spTasks.length;
-              const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
-              const spOverdue = spTasks.filter(t => !t.is_completed && t.deadline && isPast(parseISO(t.deadline!))).length;
-              const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
-              return (
-                <div key={sp.id} className="flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-secondary/50 transition-colors">
-                  <div className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-semibold text-primary-foreground" style={{ backgroundColor: sp.color || 'hsl(var(--primary))' }}>
-                    {sp.icon && sp.icon !== "list" ? sp.icon : name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-[13px] truncate flex-1 text-foreground">{name}</span>
-                  {spOverdue > 0 && <span className="text-[9px] text-destructive tabular-nums shrink-0">⚠{spOverdue}</span>}
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{spDone}/{spTotal}</span>
-                  <div className="w-16 h-1 rounded-full bg-muted/60 overflow-hidden shrink-0">
-                    <div className={cn("h-full rounded-full transition-all", spPct >= 80 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${spPct}%` }} />
-                  </div>
-                  <span className={cn("text-[11px] tabular-nums shrink-0 w-7 text-right font-medium", spPct >= 80 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>{spPct}%</span>
-                </div>
-              );
-            })}
-          </DashSection>
-        )}
+        {/* Streams are shown in the Roadmap above */}
       </div>
 
       {/* ━━ PROJECT CARD (collapsible) ━━ */}
