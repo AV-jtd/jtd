@@ -1179,7 +1179,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </Popover>
 
           <button
-            onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+            onClick={() => undoableToggleImportant()}
             className={cn(
               "p-1.5 rounded transition-colors",
               task.is_important ? "text-warning" : "text-muted-foreground hover:text-warning"
@@ -1618,7 +1618,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 );
               })}
               <button
-                onClick={() => toggleImportant.mutate({ id: task.id, is_important: !task.is_important })}
+                onClick={() => undoableToggleImportant()}
                 className={cn(
                   "p-1 rounded-lg border transition-all",
                   task.is_important
@@ -1823,8 +1823,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               </button>
               <ConfirmDelete
                 title="Удалить задачу"
-                description={`Удалить «${task.title}»? Это действие нельзя отменить.`}
-                onConfirm={() => deleteTask.mutate(task.id)}
+                description={`Удалить «${task.title}»? Можно отменить через Ctrl+Z.`}
+                onConfirm={() => undoableDeleteTask()}
               >
                 <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
                   <Trash2 className="h-3 w-3" /> Удалить
