@@ -279,7 +279,7 @@ interface SortableSubtaskRowProps {
   getProfileName: (userId: string) => string;
 }
 
-function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, availableUsers, getProfileName }: SortableSubtaskRowProps) {
+function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortableDnd({ id: sub.id });
   const style = { transform: DndCSS.Transform.toString(transform), transition };
   const isEditing = editingSubtaskId === sub.id;
@@ -400,9 +400,28 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
           </Popover>
         </div>
       </div>
-      <button onClick={() => onDelete(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
-        <Trash2 className="h-3 w-3" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="text-muted-foreground/30 opacity-0 group-hover/sub:opacity-100 hover:text-foreground mt-0.5 shrink-0 transition-opacity">
+            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          {onPromote && (
+            <DropdownMenuItem onClick={() => onPromote(sub.id)} className="text-xs gap-2">
+              <ArrowUpFromLine className="h-3 w-3" /> Повысить до задачи
+            </DropdownMenuItem>
+          )}
+          {onMoveToTask && (
+            <DropdownMenuItem onClick={() => onMoveToTask(sub.id)} className="text-xs gap-2">
+              <MoveRight className="h-3 w-3" /> В другую задачу
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => onDelete(sub.id)} className="text-xs gap-2 text-destructive focus:text-destructive">
+            <Trash2 className="h-3 w-3" /> Удалить
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
