@@ -714,11 +714,7 @@ export default function NpdSwimlaneMatrix() {
   const isLoading = groupsLoading || tasksLoading || !npdTagData || groupTagsLoading;
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <MatrixSkeleton />;
   }
 
   if (!project) {
