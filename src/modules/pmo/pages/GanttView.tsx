@@ -831,6 +831,21 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
 
         <div className="h-4 w-px bg-border" />
 
+        {/* Dependency style selector */}
+        <select
+          value={depStyle}
+          onChange={e => setDepStyle(e.target.value as any)}
+          className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
+          title="Стиль зависимостей"
+        >
+          <option value="bezier">〰 Кривые</option>
+          <option value="dashed">┅ Пунктир</option>
+          <option value="gradient">🌈 Градиент</option>
+          <option value="dots">● Точки</option>
+        </select>
+
+        <div className="h-4 w-px bg-border" />
+
         {/* Add project */}
         {showNewProject ? (
           <form
@@ -1206,6 +1221,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 getMilestoneX={getMilestoneX}
                 getSummaryBarStyle={getSummaryBarStyle}
                 criticalTaskIds={criticalTaskIds}
+                depStyle={depStyle}
                 onClickDependency={(dep) => {
                   setDepDialogState({
                     predecessorId: dep.predecessor_id,
