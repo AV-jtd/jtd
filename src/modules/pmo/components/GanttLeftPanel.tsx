@@ -93,6 +93,10 @@ interface GanttLeftPanelProps {
   onScroll?: (scrollTop: number) => void; // deprecated — kept for API compat
   onUpdateMilestone?: (id: string, updates: { group_id?: string }) => void;
   getMilestoneOffscreen?: (ms: Milestone) => 'left' | 'right' | null;
+  /** Gate column: map taskId -> gate key (e.g. "gate0", "gate1") */
+  taskGateMap?: Map<string, string>;
+  /** Called when user changes a task's gate from the Gantt */
+  onChangeTaskGate?: (taskId: string, gateKey: string | null) => void;
 }
 
 /** Predecessor picker with search and multi-select */
