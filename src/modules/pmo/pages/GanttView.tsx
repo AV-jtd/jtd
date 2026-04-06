@@ -1055,6 +1055,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           ref={leftPanelRef}
           rows={rows}
           rowHeight={ROW_HEIGHT}
+          getRowHeight={getRowHeight}
           width={leftPanelWidth}
           allProjects={groups}
           dependencies={allDependencies}
