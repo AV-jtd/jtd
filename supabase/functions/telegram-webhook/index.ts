@@ -144,6 +144,22 @@ Deno.serve(async (req) => {
     }
 
     const message = body.message;
+    
+    // Handle voice messages: transcribe first
+    if (message && (message.voice || message.audio) && !message.text) {
+      const BOT_TOKEN_V = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+      const fileId = message.voice?.file_id || message.audio?.file_id;
+      const transcription = await transcribeVoiceMessage(BOT_TOKEN_V, fileId);
+      if (transcription) {
+        message.text = transcription;
+        message._from_voice = true;
+      } else {
+        const chatId = message.chat.id;
+        await sendTelegramMessage(BOT_TOKEN_V, chatId, "❌ Не удалось распознать голосовое сообщение. Попробуйте ещё раз или отправьте текстом.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+    }
+    
     if (!message?.text) {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
@@ -152,6 +168,7 @@ Deno.serve(async (req) => {
     const chatType = message.chat.type; // "private", "group", "supergroup"
     const username = message.from?.username;
     const isGroupChat = chatType === "group" || chatType === "supergroup";
+    const isFromVoice = message._from_voice === true;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
