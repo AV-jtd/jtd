@@ -21,9 +21,19 @@ const MAX_STACK = 50;
 const UndoContext = createContext<UndoContextValue | null>(null);
 
 export function UndoProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
   const undoStack = useRef<UndoEntry[]>([]);
   const redoStack = useRef<UndoEntry[]>([]);
-  // Force re-render not needed — toast is the feedback
+
+  // Listen for manual invalidation after raw DB undo operations
+  useEffect(() => {
+    const handler = () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+    };
+    window.addEventListener("undo-invalidate", handler);
+    return () => window.removeEventListener("undo-invalidate", handler);
+  }, [qc]);
 
   const pushUndo = useCallback((entry: UndoEntry) => {
     undoStack.current.push(entry);
