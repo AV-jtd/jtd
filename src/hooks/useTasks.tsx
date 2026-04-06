@@ -1695,7 +1695,7 @@ export function useTaskMutations() {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
-    addSubtask, toggleSubtask, deleteSubtask, updateSubtask,
+    addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks,
     addTag, renameTag, deleteTag, addTaskTag, removeTaskTag,
     addGroupMember, addGroupMemberByEmail, removeGroupMember, updateGroupMemberRole, grantTagAccess,
     reorderTasks, reorderGroups,
