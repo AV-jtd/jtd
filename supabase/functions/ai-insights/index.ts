@@ -88,6 +88,13 @@ serve(async (req) => {
     const groupNameMap: Record<string, string> = {};
     (groups || []).forEach((g: any) => { groupNameMap[g.id] = g.name; });
 
+    // Helper: format group tag with human-readable name
+    const groupTag = (gid: string | null) => {
+      if (!gid) return "";
+      const name = groupNameMap[gid];
+      return name ? ` (проект "${name}") [group_id:${gid}]` : ` [group_id:${gid}]`;
+    };
+
     // Fetch subprojects for project context
     let subprojectNames: string[] = [];
     if (projectId) {
