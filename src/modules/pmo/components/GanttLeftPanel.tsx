@@ -647,20 +647,6 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                               </Tooltip>
                             </TooltipProvider>
                           </div>
-                          {/* Assignee avatar inline */}
-                          {row.task.assigned_to && (() => {
-                            const initials = getUserInitials(row.task!.assigned_to);
-                            return (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="h-[18px] w-[18px] rounded-full bg-primary/20 text-primary text-[8px] font-bold flex items-center justify-center shrink-0 mt-0.5">{initials}</div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-xs">{getUserName(row.task!.assigned_to)}</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            );
-                          })()}
                           {/* Action buttons on hover */}
                           <div className="flex items-center shrink-0 mt-0.5">
                             {onOpenTask && (
