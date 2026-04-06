@@ -68,23 +68,29 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const drifted = tasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
   const projectMilestones = milestones.filter(m => allIds.has(m.group_id));
   const subprojects = groups.filter(g => g.parent_id === projectId);
-  const activeSubprojects = subprojects.filter(sp => allTasks.some(t => t.group_id === sp.id));
+
+  // Collect tasks for a subproject including its own children
+  const getSpTasks = (spId: string) => {
+    const childIds = new Set([spId, ...groups.filter(g => g.parent_id === spId).map(g => g.id)]);
+    return allTasks.filter(t => t.group_id && childIds.has(t.group_id));
+  };
+
+  const activeSubprojects = subprojects.filter(sp => getSpTasks(sp.id).length > 0);
 
   // Top-3 streams by task count for progress pills
   const streamPills = useMemo(() => {
     return activeSubprojects
       .map(sp => {
-        const spTasks = allTasks.filter(t => t.group_id === sp.id);
+        const spTasks = getSpTasks(sp.id);
         const spDone = spTasks.filter(t => t.is_completed).length;
         const spTotal = spTasks.length;
         const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
-        // Strip parent prefix (text before "/")
         const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
         return { name, pct: spPct, total: spTotal };
       })
       .sort((a, b) => b.total - a.total)
       .slice(0, 3);
-  }, [activeSubprojects, allTasks]);
+  }, [activeSubprojects, allTasks, groups]);
 
   // SVG circle params: r=28, circumference = 2*PI*28 ≈ 175.93
   const circumference = 2 * Math.PI * 28;
@@ -342,18 +348,21 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
             </div>
             <div className="grid md:grid-cols-2 gap-x-4 gap-y-0.5">
               {activeSubprojects.map(sp => {
-                const spTasks = allTasks.filter(t => t.group_id === sp.id);
+                const spTasks = getSpTasks(sp.id);
                 const spDone = spTasks.filter(t => t.is_completed).length;
                 const spTotal = spTasks.length;
                 const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
                 const name = sp.name.includes("/") ? sp.name.split("/").pop()!.trim() : sp.name;
                 return (
-                  <div key={sp.id} className="flex items-center gap-2 text-sm py-1.5 px-2 -mx-2 rounded-lg hover:bg-secondary transition-colors">
-                    <span className="shrink-0 text-xs w-5 text-center">{sp.icon && sp.icon !== "list" ? sp.icon : "□"}</span>
-                    <span className="truncate text-foreground/90 text-[13px] min-w-0">{name}</span>
-                    <span className={cn("text-xs font-mono shrink-0 ml-auto tabular-nums", spPct > 0 ? "text-primary" : "text-muted-foreground")}>{spPct}%</span>
+                  <div key={sp.id} className="flex items-center gap-2.5 py-2 px-2.5 -mx-2 rounded-lg hover:bg-secondary/60 transition-colors group">
+                    <div className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-semibold text-primary-foreground" style={{ backgroundColor: sp.color || 'hsl(var(--primary))' }}>
+                      {sp.icon && sp.icon !== "list" ? sp.icon : name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="truncate text-foreground/90 text-[13px] min-w-0 flex-1">{name}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{spDone}/{spTotal}</span>
+                    <span className={cn("text-xs font-semibold tabular-nums shrink-0 w-8 text-right", spPct >= 80 ? "text-emerald-600 dark:text-emerald-400" : spPct > 0 ? "text-primary" : "text-muted-foreground")}>{spPct}%</span>
                     <div className="w-[82px] h-1.5 rounded-full bg-muted/60 overflow-hidden shrink-0">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${spPct}%` }} />
+                      <div className={cn("h-full rounded-full transition-all", spPct >= 80 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${spPct}%` }} />
                     </div>
                   </div>
                 );
