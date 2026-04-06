@@ -271,7 +271,7 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
@@ -281,21 +281,21 @@ serve(async (req) => {
         const d = new Date(t.deadline);
         const dayLabel = d.toISOString().split("T")[0];
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
       });
     }
 
     if (highPriority.length > 0) {
       context += `\n⭐ Приоритетные:\n`;
       highPriority.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
     if (stale.length > 0) {
       context += `\n🧊 Забытые задачи (без активности 7+ дн.):\n`;
       stale.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}\n`;
       });
     }
 
@@ -303,7 +303,7 @@ serve(async (req) => {
       context += `\n📥 Поручено мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -311,7 +311,7 @@ serve(async (req) => {
       context += `\n📤 Мои поручения:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
