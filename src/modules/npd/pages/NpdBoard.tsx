@@ -905,9 +905,9 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
     toast.success("Задача создана");
   };
 
-  // ── Navigate to swimlane matrix on card click ──
+  // ── Navigate to project page on card click ──
   const handleCardClick = useCallback((id: string) => {
-    navigate(`/npd/matrix/${id}`);
+    navigate(`/pmo/project/${id}?view=matrix`);
   }, [navigate]);
 
   const visibleGates = NPD_GATES.filter((g) => !hiddenGates.has(g.key));
@@ -2161,7 +2161,7 @@ function ProjectCard({
               <span>Гант</span>
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/npd/matrix/${project.id}`); }}
+              onClick={(e) => { e.stopPropagation(); navigate(`/pmo/project/${project.id}?view=matrix`); }}
               className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Открыть матрицу"
             >

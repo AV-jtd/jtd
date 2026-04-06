@@ -1,13 +1,18 @@
 import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, AlertTriangle, CalendarDays, TrendingUp, CheckCircle2, ArrowUpRight } from "lucide-react";
+import {
+  Loader2, AlertTriangle, CalendarDays, TrendingUp, CheckCircle2,
+  Sparkles, Diamond, RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
+import { useAiInsights } from "@/hooks/useAiInsights";
 import { isPast, parseISO, differenceInDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import ModuleLayout from "@/components/ModuleLayout";
 import ProjectHeader from "@/components/ProjectHeader";
+import AiInsightsCard from "@/components/AiInsightsCard";
 
 const GanttView = lazy(() => import("@/modules/pmo/pages/GanttView"));
 const NpdSwimlaneMatrix = lazy(() => import("@/modules/npd/pages/NpdSwimlaneMatrix"));
@@ -22,12 +27,15 @@ function LazyFallback() {
   );
 }
 
-/** Sexy project dashboard */
+/** Project dashboard */
 function ProjectDashboardView({ projectId }: { projectId: string }) {
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
   const { data: milestones = [] } = useMilestones();
   const { data: users = [] } = useAvailableUsers();
+  const navigate = useNavigate();
+
+  const { insights, loading: aiLoading, error: aiError, dismissed, refresh: aiRefresh, dismiss: aiDismiss } = useAiInsights();
 
   const project = groups.find(g => g.id === projectId);
   if (!project) return null;
@@ -46,123 +54,113 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const projectMilestones = milestones.filter(m => allIds.has(m.group_id));
   const subprojects = groups.filter(g => g.parent_id === projectId);
 
-  const stats = [
-    {
-      label: "Прогресс",
-      value: `${pct}%`,
-      sub: `${done} из ${total}`,
-      icon: CheckCircle2,
-      accent: "text-primary",
-      gradient: "from-primary/10 to-primary/5",
-      border: "border-primary/20",
-    },
+  // Filter out empty subprojects
+  const activeSubprojects = subprojects.filter(sp => {
+    const spTasks = allTasks.filter(t => t.group_id === sp.id);
+    return spTasks.length > 0;
+  });
+
+  const statCards = [
     {
       label: "Просрочено",
       value: overdue.length,
-      sub: "задач",
       icon: AlertTriangle,
-      accent: overdue.length > 0 ? "text-destructive" : "text-muted-foreground",
-      gradient: overdue.length > 0 ? "from-destructive/10 to-destructive/5" : "from-muted/50 to-muted/30",
-      border: overdue.length > 0 ? "border-destructive/20" : "border-border",
+      color: overdue.length > 0 ? "text-destructive" : "text-muted-foreground",
+      bg: overdue.length > 0 ? "bg-destructive/8 border-destructive/15" : "bg-muted/30 border-border/50",
     },
     {
-      label: "7 дней",
+      label: "На неделе",
       value: upcoming.length,
-      sub: "дедлайнов",
       icon: CalendarDays,
-      accent: "text-amber-500",
-      gradient: "from-amber-500/10 to-amber-500/5",
-      border: "border-amber-500/20",
+      color: "text-amber-500",
+      bg: "bg-amber-500/8 border-amber-500/15",
     },
     {
-      label: "Drift",
+      label: "Со сдвигом",
       value: drifted.length,
-      sub: "со сдвигом",
       icon: TrendingUp,
-      accent: drifted.length > 0 ? "text-orange-500" : "text-muted-foreground",
-      gradient: drifted.length > 0 ? "from-orange-500/10 to-orange-500/5" : "from-muted/50 to-muted/30",
-      border: drifted.length > 0 ? "border-orange-500/20" : "border-border",
+      color: drifted.length > 0 ? "text-orange-500" : "text-muted-foreground",
+      bg: drifted.length > 0 ? "bg-orange-500/8 border-orange-500/15" : "bg-muted/30 border-border/50",
     },
   ];
 
   return (
-    <div className="p-4 md:p-6 space-y-5 overflow-y-auto h-full">
-      {/* Hero progress */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 via-accent/30 to-background border border-primary/10 p-5 md:p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.08),transparent_70%)]" />
-        <div className="relative flex items-end gap-6">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">{project.icon && project.icon !== "list" ? project.icon : "📁"}</span>
-              <h2 className="text-lg font-bold text-foreground truncate">{project.name}</h2>
-            </div>
-            <div className="w-full h-2 rounded-full bg-muted/60 overflow-hidden backdrop-blur-sm">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5">{done} из {total} задач завершено</p>
+    <div className="p-4 md:p-6 space-y-4 overflow-y-auto h-full">
+      {/* Hero — progress + stats row */}
+      <div className="flex flex-col md:flex-row gap-3">
+        {/* Progress card */}
+        <div className="flex items-center gap-4 rounded-xl border border-primary/15 bg-primary/5 p-4 flex-1 min-w-0">
+          {/* Circular-ish progress */}
+          <div className="relative w-14 h-14 shrink-0">
+            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(var(--muted))" strokeWidth="4" />
+              <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(var(--primary))" strokeWidth="4"
+                strokeDasharray={`${pct * 1.508} 150.8`} strokeLinecap="round" className="transition-all duration-700" />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">{pct}%</span>
           </div>
-          <div className="text-4xl font-black text-primary/80 tabular-nums shrink-0">{pct}%</div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">Общий прогресс</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              <span className="font-bold text-foreground text-base tabular-nums">{done}</span>
+              <span className="text-muted-foreground"> / {total} задач</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stats.map(s => {
+        {/* Stat cards */}
+        {statCards.map(s => {
           const Icon = s.icon;
           return (
-            <div key={s.label} className={cn(
-              "rounded-xl border p-3.5 bg-gradient-to-br backdrop-blur-sm transition-shadow hover:shadow-md",
-              s.gradient, s.border
-            )}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <Icon className={cn("h-3.5 w-3.5", s.accent)} />
-                <span className="text-[11px] font-medium text-muted-foreground">{s.label}</span>
+            <div key={s.label} className={cn("flex items-center gap-3 rounded-xl border p-4 min-w-[130px]", s.bg)}>
+              <Icon className={cn("h-5 w-5 shrink-0", s.color)} />
+              <div>
+                <div className={cn("text-xl font-bold tabular-nums", s.color)}>{s.value}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">{s.label}</div>
               </div>
-              <div className={cn("text-xl font-bold", s.accent)}>{s.value}</div>
-              <div className="text-[10px] text-muted-foreground">{s.sub}</div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* Content grid */}
+      <div className="grid md:grid-cols-2 gap-3">
         {/* Overdue */}
         {overdue.length > 0 && (
-          <div className="rounded-xl border border-destructive/15 bg-gradient-to-br from-destructive/5 to-transparent p-4 backdrop-blur-sm">
-            <h3 className="text-xs font-bold text-destructive uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <AlertTriangle className="h-3 w-3" />
-              Просроченные
-            </h3>
-            <div className="space-y-1.5">
-              {overdue.slice(0, 6).map(t => (
-                <div key={t.id} className="flex items-center gap-2 text-sm group">
-                  <span className="w-1 h-1 rounded-full bg-destructive shrink-0" />
-                  <span className="truncate text-foreground/80 group-hover:text-foreground transition-colors">{t.title}</span>
+          <div className="rounded-xl border border-destructive/10 bg-card p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Просроченные</h3>
+              <span className="ml-auto text-[10px] font-mono text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">{overdue.length}</span>
+            </div>
+            <div className="space-y-1">
+              {overdue.slice(0, 5).map(t => (
+                <div key={t.id} className="flex items-center gap-2 text-sm py-0.5">
+                  <span className="w-1 h-1 rounded-full bg-destructive/50 shrink-0" />
+                  <span className="truncate text-foreground/80">{t.title}</span>
                   <span className="text-[10px] text-destructive/70 shrink-0 ml-auto font-mono">
                     {t.deadline && `−${differenceInDays(now, parseISO(t.deadline))}д`}
                   </span>
                 </div>
               ))}
-              {overdue.length > 6 && <div className="text-[10px] text-muted-foreground pl-3">+{overdue.length - 6}</div>}
+              {overdue.length > 5 && <div className="text-[10px] text-muted-foreground pl-3">+{overdue.length - 5} ещё</div>}
             </div>
           </div>
         )}
 
         {/* Upcoming */}
         {upcoming.length > 0 && (
-          <div className="rounded-xl border border-amber-500/15 bg-gradient-to-br from-amber-500/5 to-transparent p-4 backdrop-blur-sm">
-            <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <CalendarDays className="h-3 w-3" />
-              Ближайшие дедлайны
-            </h3>
-            <div className="space-y-1.5">
-              {upcoming.slice(0, 6).map(t => (
-                <div key={t.id} className="flex items-center gap-2 text-sm group">
-                  <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />
-                  <span className="truncate text-foreground/80 group-hover:text-foreground transition-colors">{t.title}</span>
+          <div className="rounded-xl border border-amber-500/10 bg-card p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Ближайшие дедлайны</h3>
+              <span className="ml-auto text-[10px] font-mono text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-full">{upcoming.length}</span>
+            </div>
+            <div className="space-y-1">
+              {upcoming.slice(0, 5).map(t => (
+                <div key={t.id} className="flex items-center gap-2 text-sm py-0.5">
+                  <span className="w-1 h-1 rounded-full bg-amber-500/50 shrink-0" />
+                  <span className="truncate text-foreground/80">{t.title}</span>
                   <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">
                     {t.deadline && format(parseISO(t.deadline), "d MMM", { locale: ru })}
                   </span>
@@ -174,43 +172,54 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
 
         {/* Milestones */}
         {projectMilestones.length > 0 && (
-          <div className="rounded-xl border border-border/60 bg-gradient-to-br from-card to-muted/20 p-4 backdrop-blur-sm">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">◆ Вехи</h3>
-            <div className="space-y-1.5">
-              {projectMilestones.sort((a, b) => a.planned_date.localeCompare(b.planned_date)).slice(0, 6).map(m => (
-                <div key={m.id} className="flex items-center gap-2 text-sm">
-                  <span className={cn("w-1.5 h-1.5 rounded-sm rotate-45 shrink-0",
-                    m.status === "done" ? "bg-primary" : isPast(parseISO(m.planned_date)) ? "bg-destructive" : "bg-muted-foreground/30"
-                  )} />
-                  <span className="truncate text-foreground/80">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">
-                    {format(parseISO(m.planned_date), "d MMM", { locale: ru })}
-                  </span>
-                </div>
-              ))}
+          <div className="rounded-xl border border-border/60 bg-card p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <Diamond className="h-3 w-3 text-primary" />
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Вехи проекта</h3>
+            </div>
+            <div className="space-y-1">
+              {projectMilestones.sort((a, b) => a.planned_date.localeCompare(b.planned_date)).slice(0, 6).map(m => {
+                const isOverdue = m.status !== "done" && isPast(parseISO(m.planned_date));
+                const drift = isOverdue ? differenceInDays(now, parseISO(m.planned_date)) : 0;
+                return (
+                  <div key={m.id} className="flex items-center gap-2 text-sm py-0.5">
+                    <span className={cn("w-1.5 h-1.5 rounded-sm rotate-45 shrink-0",
+                      m.status === "done" ? "bg-primary" : isOverdue ? "bg-destructive" : "bg-muted-foreground/30"
+                    )} />
+                    <span className="truncate text-foreground/80">{m.name}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0 ml-auto flex items-center gap-1">
+                      <span className={isOverdue ? "text-destructive" : ""}>
+                        {format(parseISO(m.planned_date), "d MMM.", { locale: ru })}
+                      </span>
+                      {drift > 0 && <span className="text-destructive font-mono">+{drift} дн.</span>}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Subprojects */}
-        {subprojects.length > 0 && (
-          <div className="rounded-xl border border-border/60 bg-gradient-to-br from-card to-muted/20 p-4 backdrop-blur-sm">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">📂 Подпроекты</h3>
+        {/* Subprojects (only non-empty) */}
+        {activeSubprojects.length > 0 && (
+          <div className="rounded-xl border border-border/60 bg-card p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="text-xs">●</span>
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Стримы</h3>
+            </div>
             <div className="space-y-2">
-              {subprojects.map(sp => {
+              {activeSubprojects.map(sp => {
                 const spTasks = allTasks.filter(t => t.group_id === sp.id);
                 const spDone = spTasks.filter(t => t.is_completed).length;
                 const spTotal = spTasks.length;
                 const spPct = spTotal > 0 ? Math.round((spDone / spTotal) * 100) : 0;
                 return (
-                  <div key={sp.id} className="flex items-center gap-2 text-sm group">
+                  <div key={sp.id} className="flex items-center gap-2 text-sm">
                     <span className="shrink-0 text-xs">{sp.icon && sp.icon !== "list" ? sp.icon : "📁"}</span>
-                    <span className="truncate text-foreground/80 group-hover:text-foreground transition-colors">{sp.name}</span>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                      <div className="w-14 h-1.5 rounded-full bg-muted/80 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60 transition-all" style={{ width: `${spPct}%` }} />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground font-mono w-7 text-right">{spPct}%</span>
+                    <span className="truncate text-foreground/80 min-w-0">{sp.name}</span>
+                    <span className={cn("text-xs font-mono shrink-0 ml-auto", spPct > 0 ? "text-primary" : "text-muted-foreground")}>{spPct}%</span>
+                    <div className="w-16 h-1.5 rounded-full bg-muted/60 overflow-hidden shrink-0">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${spPct}%` }} />
                     </div>
                   </div>
                 );
@@ -218,6 +227,20 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* AI Insights block */}
+      <div className="mt-2">
+        <AiInsightsCard
+          insights={insights}
+          loading={aiLoading}
+          error={aiError}
+          dismissed={dismissed}
+          onRefresh={aiRefresh}
+          onDismiss={aiDismiss}
+          onNavigateToTask={(taskId) => navigate(`/?task=${taskId}`)}
+          onNavigateToProject={(groupId) => navigate(`/pmo/project/${groupId}`)}
+        />
       </div>
     </div>
   );
@@ -270,7 +293,6 @@ export default function ProjectPage() {
 
   return (
     <ModuleLayout moduleContext="pmo" headerChildren={null}>
-      {/* ProjectHeader is a sub-bar BELOW AppHeader */}
       <div className="flex flex-col h-full">
         <ProjectHeader
           projectId={projectId}
