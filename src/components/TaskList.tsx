@@ -801,8 +801,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           onCreateTask={handleCreateTask}
           bulkButton={
             <BulkTaskDialog projectId={activeView === "group" ? activeGroupId : null} projectName={activeView === "group" ? groups.find(g => g.id === activeGroupId)?.name : undefined}>
-              <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-colors shrink-0" title="Пакетное создание">
+              <button type="button" className="h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-colors shrink-0 relative" title="Пакетное создание">
                 <Layers className="h-3.5 w-3.5" />
+                <Sparkles className="h-2 w-2 absolute top-1 right-1 text-primary/70" />
               </button>
             </BulkTaskDialog>
           }
