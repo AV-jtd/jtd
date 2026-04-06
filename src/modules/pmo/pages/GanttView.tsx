@@ -11,7 +11,8 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
@@ -716,59 +717,54 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0 flex-wrap">
+      {/* Toolbar — compact single row */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0">
         {onBack && (
-          <button onClick={onBack} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <button onClick={onBack} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Портфель">
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Портфель</span>
           </button>
         )}
-        {onBack && <div className="h-4 w-px bg-border" />}
-        <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+
+        {/* Scale switcher */}
+        <div className="flex items-center bg-muted rounded-md p-0.5">
           {(["day", "week", "month"] as Scale[]).map(s => (
             <button
               key={s}
               onClick={() => setScale(s)}
               className={cn(
-                "px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                "px-2 py-0.5 rounded text-xs font-medium transition-colors",
                 scale === s ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {s === "day" ? "День" : s === "week" ? "Неделя" : "Месяц"}
+              {s === "day" ? "День" : s === "week" ? "Нед" : "Мес"}
             </button>
           ))}
         </div>
 
-        <div className="h-4 w-px bg-border" />
+        {/* Zoom & Today */}
+        <div className="flex items-center">
+          <button onClick={zoomOut} disabled={scale === "month"}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Уменьшить масштаб"><Minus className="h-3 w-3" /></button>
+          <button onClick={zoomIn} disabled={scale === "day"}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Увеличить масштаб"><Plus className="h-3 w-3" /></button>
+          <button
+            onClick={() => { scrollRef.current?.scrollTo({ left: Math.max(todayOffset - 300, 0), behavior: "smooth" }); }}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="К сегодняшнему дню"
+          >
+            <LocateFixed className="h-3 w-3" />
+          </button>
+        </div>
 
-        <button onClick={zoomOut} disabled={scale === "month"}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Уменьшить масштаб"><Minus className="h-3.5 w-3.5" /></button>
-        <button onClick={zoomIn} disabled={scale === "day"}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Увеличить масштаб"><Plus className="h-3.5 w-3.5" /></button>
+        <div className="h-4 w-px bg-border shrink-0" />
 
-        <button
-          onClick={() => {
-            if (scrollRef.current) {
-              scrollRef.current.scrollTo({ left: Math.max(todayOffset - 300, 0), behavior: "smooth" });
-            }
-          }}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          aria-label="К сегодняшнему дню"
-        >
-          <LocateFixed className="h-3.5 w-3.5" />
-        </button>
-
-        <div className="h-4 w-px bg-border" />
-        <UndoRedoButtons />
-        <div className="h-4 w-px bg-border" />
-
+        {/* Project & Assignee selects */}
         <select
           value={selectedProjectId || ""}
           onChange={e => setSelectedProjectId(e.target.value || null)}
-          className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
+          className="text-xs bg-muted border-0 rounded-md px-2 py-1 text-foreground outline-none cursor-pointer max-w-[160px] truncate"
         >
           <option value="">Все проекты</option>
           {rootProjects.map(p => (
@@ -776,209 +772,49 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           ))}
         </select>
 
-        <div className="h-4 w-px bg-border" />
-
-        {/* Assignee filter */}
-        <div className="flex items-center gap-1">
-          <User className="h-3 w-3 text-muted-foreground" />
-          <select
-            value={filterAssignee || ""}
-            onChange={e => setFilterAssignee(e.target.value || null)}
-            className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
-          >
-            <option value="">Все</option>
-            {assignees.map(u => (
-              <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="h-4 w-px bg-border" />
-
-        <button
-          onClick={() => { setEditingMilestone(null); setMsDialogOpen(true); }}
-          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-        >
-          <Diamond className="h-3 w-3" />
-          <span className="hidden sm:inline">Веха</span>
-        </button>
-
-        {/* Hide empty tasks */}
-        <button
-          onClick={() => setHideEmpty(prev => !prev)}
-          className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
-            hideEmpty
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          )}
-          title={hideEmpty ? "Показать пустые задачи" : "Скрыть пустые задачи"}
-        >
-          {hideEmpty ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          <span className="hidden sm:inline">{hideEmpty ? "Показать" : "Скрыть"} пустые</span>
-        </button>
-
-        <div className="h-4 w-px bg-border" />
-
-        {/* Dependency style selector */}
         <select
-          value={depStyle}
-          onChange={e => setDepStyle(e.target.value as any)}
-          className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
-          title="Стиль зависимостей"
+          value={filterAssignee || ""}
+          onChange={e => setFilterAssignee(e.target.value || null)}
+          className="text-xs bg-muted border-0 rounded-md px-2 py-1 text-foreground outline-none cursor-pointer max-w-[120px] truncate"
         >
-          <option value="bezier">〰 Кривые</option>
-          <option value="dashed">┅ Пунктир</option>
-          <option value="gradient">🌈 Градиент</option>
-          <option value="dots">● Точки</option>
+          <option value="">👤 Все</option>
+          {assignees.map(u => (
+            <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+          ))}
         </select>
 
-        <div className="h-4 w-px bg-border" />
-
-        {/* Add project */}
-        {showNewProject ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (newProjectName.trim()) {
-                addGroup.mutate({ name: newProjectName.trim() }, {
-                  onSuccess: (data: any) => { if (data?.id) setSelectedProjectId(data.id); }
-                });
-                setNewProjectName("");
-                setShowNewProject(false);
-              }
-            }}
-            className="flex items-center gap-1"
-          >
-            <input
-              autoFocus
-              value={newProjectName}
-              onChange={e => setNewProjectName(e.target.value)}
-              onBlur={() => { if (!newProjectName.trim()) setShowNewProject(false); }}
-              onKeyDown={e => { if (e.key === "Escape") { setShowNewProject(false); setNewProjectName(""); } }}
-              placeholder="Имя проекта..."
-              className="h-6 w-32 text-xs bg-muted border-0 rounded px-2 text-foreground outline-none"
-            />
-          </form>
-        ) : (
+        {/* Hide empty toggle - inline since it's a frequent action */}
+        {hideEmpty && (
           <button
-            onClick={() => setShowNewProject(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            onClick={() => setHideEmpty(false)}
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 text-primary transition-colors"
+            title="Показать пустые задачи"
           >
-            <FolderPlus className="h-3 w-3" />
-            <span className="hidden sm:inline">Проект</span>
+            <Eye className="h-3 w-3" />
           </button>
         )}
 
-        <div className="h-4 w-px bg-border" />
+        <div className="h-4 w-px bg-border shrink-0" />
 
-        {/* Import / Export */}
-        {selectedProjectId && (
-          <>
-            <SmartExportDialog
-              groupId={selectedProjectId}
-              groupName={rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"}
-              trigger={
-                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                  <Download className="h-3 w-3" />
-                  <span className="hidden sm:inline">Excel</span>
-                </button>
-              }
-            />
-            <SmartImportDialog
-              targetGroupId={selectedProjectId}
-              trigger={
-                <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                  <Upload className="h-3 w-3" />
-                  <span className="hidden sm:inline">Импорт</span>
-                </button>
-              }
-            />
-            <BulkTaskDialog
-              projectId={selectedProjectId}
-              projectName={rootProjects.find(p => p.id === selectedProjectId)?.name}
-            >
-              <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                <Sparkles className="h-3 w-3" />
-                <span className="hidden sm:inline">Пакетно</span>
-              </button>
-            </BulkTaskDialog>
-          </>
-        )}
-
-        <div className="h-4 w-px bg-border" />
-
-        <button
-          onClick={() => {
-            const printWindow = window.open("", "_blank");
-            if (!printWindow) return;
-            const projectName = selectedProjectId
-              ? rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"
-              : "Все проекты";
-            const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
-
-            let tableRows = "";
-            rows.forEach(r => {
-              const indent = "\u00A0\u00A0".repeat(r.depth);
-              if (r.type === "project") {
-                tableRows += "<tr style=\"background:#f0f0f0;font-weight:600\"><td>" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.project.icon || "📁") + " " + r.project.name + "</td><td></td><td></td><td></td><td>" + (r.progress !== undefined ? Math.round(r.progress) + "%" : "") + "</td></tr>";
-              } else if (r.type === "task" && r.task) {
-                const a = users.find(u => u.id === r.task!.assigned_to);
-                const drift = r.task.original_deadline && r.task.deadline && r.task.original_deadline !== r.task.deadline;
-                const driftLabel = drift ? " <span style=\"color:#d97706\">⚠️</span>" : "";
-                tableRows += "<tr><td style=\"text-align:center;color:#888\">" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.task.is_completed ? "✅" : "☐") + " " + r.task.title + driftLabel + "</td><td>" + (a?.display_name || a?.email || "") + "</td><td>" + (r.task.start_at ? format(parseISO(r.task.start_at), "dd.MM") : "") + "</td><td>" + (r.task.deadline ? format(parseISO(r.task.deadline), "dd.MM.yyyy") : "") + "</td><td></td></tr>";
-              } else if (r.type === "subtask" && r.subtask) {
-                tableRows += "<tr style=\"color:#888\"><td style=\"text-align:center\">" + (r.rowNumber ?? "") + "</td><td>" + indent + "\u00A0\u00A0↳ " + r.subtask.title + "</td><td></td><td></td><td>" + (r.subtask.deadline ? format(parseISO(r.subtask.deadline), "dd.MM") : "") + "</td><td></td></tr>";
-              } else if (r.type === "milestone" && r.milestone) {
-                tableRows += "<tr style=\"color:#3b82f6;font-style:italic\"><td style=\"text-align:center\">" + (r.rowNumber ?? "") + "</td><td>" + indent + "◆ " + r.milestone.name + "</td><td></td><td></td><td>" + format(parseISO(r.milestone.planned_date), "dd.MM.yyyy") + "</td><td></td></tr>";
-              }
-            });
-
-            const html = "<!DOCTYPE html><html><head><title>Гантт: " + projectName + "</title>" +
-              "<style>@page{size:landscape;margin:10mm}body{font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#222;margin:16px}" +
-              "h1{font-size:16px;margin:0 0 4px}h2{font-size:11px;color:#888;margin:0 0 12px;font-weight:normal}" +
-              "table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:4px 6px;text-align:left}" +
-              "th{background:#f5f5f5;font-size:10px;text-transform:uppercase;color:#666}" +
-              "tr:nth-child(even){background:#fafafa}" +
-              "@media print{body{margin:0}}</style></head>" +
-              "<body><h1>" + projectName + "</h1><h2>Диаграмма Ганта · " + dateStr + "</h2>" +
-              "<table><thead><tr><th style=\"width:30px\">#</th><th>Задача</th><th style=\"width:120px\">Ответственный</th><th style=\"width:60px\">Старт</th><th style=\"width:80px\">Срок</th><th style=\"width:60px\">Прогресс</th></tr></thead>" +
-              "<tbody>" + tableRows + "</tbody></table>" +
-              "<script>setTimeout(function(){window.print()},300)</" + "script></body></html>";
-            printWindow.document.write(html);
-            printWindow.document.close();
-          }}
-          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Печать / экспорт Гантта"
-        >
-          <Printer className="h-3 w-3" />
-          <span className="hidden sm:inline">Печать</span>
-        </button>
-
-        {/* Minimap */}
+        {/* Minimap — takes remaining space */}
         {(() => {
           const el = scrollRef.current;
           const viewportW = el?.clientWidth || 400;
           const vpStart = tlScrollLeft;
           const vpEnd = vpStart + viewportW;
-          // Proportional positions
           const vpLeftPct = totalWidth > 0 ? (vpStart / totalWidth) * 100 : 0;
           const vpWidthPct = totalWidth > 0 ? Math.min((viewportW / totalWidth) * 100, 100) : 100;
-
-          // Milestones in minimap
           const msRows = rows.map((r, i) => r.type === "milestone" && r.milestone ? { ...r, idx: i } : null).filter(Boolean) as (typeof rows[0] & { idx: number })[];
           const msOffscreenRight = msRows.filter(r => {
             const x = getMilestoneX(r.milestone!);
             return x > vpEnd;
           }).length;
-
-          // Overdue tasks
           const overdueTasks = rows.filter(r => r.type === "task" && r.task?.deadline && isPast(parseISO(r.task.deadline)) && !r.task.is_completed);
 
           return (
-            <div className="flex items-center gap-2 flex-1 min-w-0 ml-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <div
-                className="relative flex-1 h-5 bg-muted/60 rounded cursor-pointer border border-border/40 overflow-hidden"
+                className="relative flex-1 h-4 bg-muted/60 rounded cursor-pointer border border-border/30 overflow-hidden"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickPct = (e.clientX - rect.left) / rect.width;
@@ -986,7 +822,6 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   scrollRef.current?.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
                 }}
               >
-                {/* Overdue zone */}
                 {overdueTasks.length > 0 && (() => {
                   const todayPct = totalWidth > 0 ? (todayOffset / totalWidth) * 100 : 50;
                   return (
@@ -996,26 +831,13 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                     />
                   );
                 })()}
-
-                {/* Viewport indicator */}
                 <div
                   className="absolute top-0 bottom-0 rounded-sm border border-primary/40"
-                  style={{
-                    left: `${vpLeftPct}%`,
-                    width: `${vpWidthPct}%`,
-                    backgroundColor: "hsl(var(--primary) / 0.12)",
-                  }}
+                  style={{ left: `${vpLeftPct}%`, width: `${vpWidthPct}%`, backgroundColor: "hsl(var(--primary) / 0.12)" }}
                 />
-
-                {/* Today line */}
                 {totalWidth > 0 && (
-                  <div
-                    className="absolute top-0 bottom-0 w-px"
-                    style={{ left: `${(todayOffset / totalWidth) * 100}%`, backgroundColor: "hsl(var(--primary))" }}
-                  />
+                  <div className="absolute top-0 bottom-0 w-px" style={{ left: `${(todayOffset / totalWidth) * 100}%`, backgroundColor: "hsl(var(--primary))" }} />
                 )}
-
-                {/* Milestone diamonds */}
                 {msRows.map(r => {
                   const x = getMilestoneX(r.milestone!);
                   const pct = totalWidth > 0 ? (x / totalWidth) * 100 : 0;
@@ -1027,9 +849,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       title={`${r.milestone!.name} — ${format(parseISO(r.milestone!.planned_date), "d MMM", { locale: ru })}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Scroll to milestone
                         scrollRef.current?.scrollTo({ left: Math.max(0, x - viewportW / 2), behavior: "smooth" });
-                        // Highlight row
                         setHighlightedRowIdx(r.idx);
                         setTimeout(() => setHighlightedRowIdx(null), 2000);
                       }}
@@ -1039,18 +859,186 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   );
                 })}
               </div>
-
-              {/* Off-screen milestones counter */}
               {msOffscreenRight > 0 && (
-                <span className="text-[10px] text-[#EF4444] whitespace-nowrap shrink-0">{msOffscreenRight} вех →</span>
+                <span className="text-[10px] text-destructive whitespace-nowrap shrink-0">{msOffscreenRight} вех →</span>
               )}
-
               <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
+                {rows.filter(r => r.type === "task").length}з · {rows.filter(r => r.type === "milestone").length}в
               </span>
             </div>
           );
         })()}
+
+        <div className="h-4 w-px bg-border shrink-0" />
+
+        {/* Undo/Redo */}
+        <UndoRedoButtons />
+
+        {/* Actions overflow menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => { setEditingMilestone(null); setMsDialogOpen(true); }}>
+              <Diamond className="h-3.5 w-3.5 mr-2 text-primary" />
+              Добавить веху
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setHideEmpty(prev => !prev)}>
+              {hideEmpty ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
+              {hideEmpty ? "Показать пустые" : "Скрыть пустые"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="text-xs">
+                〰 Стиль связей
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {([
+                  { v: "bezier" as const, l: "〰 Кривые" },
+                  { v: "dashed" as const, l: "┅ Пунктир" },
+                  { v: "gradient" as const, l: "🌈 Градиент" },
+                  { v: "dots" as const, l: "● Точки" },
+                ] as const).map(s => (
+                  <DropdownMenuItem key={s.v} onClick={() => setDepStyle(s.v)} className={cn(depStyle === s.v && "bg-accent")}>
+                    {s.l}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setShowNewProject(true)}>
+              <FolderPlus className="h-3.5 w-3.5 mr-2" />
+              Новый проект
+            </DropdownMenuItem>
+            {selectedProjectId && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <span onClick={(e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById("gantt-export-trigger");
+                    btn?.click();
+                  }}>
+                    <Download className="h-3.5 w-3.5 mr-2" />
+                    Excel экспорт
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <span onClick={(e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById("gantt-import-trigger");
+                    btn?.click();
+                  }}>
+                    <Upload className="h-3.5 w-3.5 mr-2" />
+                    Импорт
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <span onClick={(e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById("gantt-bulk-trigger");
+                    btn?.click();
+                  }}>
+                    <Sparkles className="h-3.5 w-3.5 mr-2" />
+                    Пакетное создание
+                  </span>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => {
+              const printWindow = window.open("", "_blank");
+              if (!printWindow) return;
+              const projectName = selectedProjectId
+                ? rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"
+                : "Все проекты";
+              const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
+              let tableRows = "";
+              rows.forEach(r => {
+                const indent = "\u00A0\u00A0".repeat(r.depth);
+                if (r.type === "project") {
+                  tableRows += "<tr style=\"background:#f0f0f0;font-weight:600\"><td>" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.project.icon || "📁") + " " + r.project.name + "</td><td></td><td></td><td></td><td>" + (r.progress !== undefined ? Math.round(r.progress) + "%" : "") + "</td></tr>";
+                } else if (r.type === "task" && r.task) {
+                  const a = users.find(u => u.id === r.task!.assigned_to);
+                  const drift = r.task.original_deadline && r.task.deadline && r.task.original_deadline !== r.task.deadline;
+                  const driftLabel = drift ? " <span style=\"color:#d97706\">⚠️</span>" : "";
+                  tableRows += "<tr><td style=\"text-align:center;color:#888\">" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.task.is_completed ? "✅" : "☐") + " " + r.task.title + driftLabel + "</td><td>" + (a?.display_name || a?.email || "") + "</td><td>" + (r.task.start_at ? format(parseISO(r.task.start_at), "dd.MM") : "") + "</td><td>" + (r.task.deadline ? format(parseISO(r.task.deadline), "dd.MM.yyyy") : "") + "</td><td></td></tr>";
+                } else if (r.type === "subtask" && r.subtask) {
+                  tableRows += "<tr style=\"color:#888\"><td style=\"text-align:center\">" + (r.rowNumber ?? "") + "</td><td>" + indent + "\u00A0\u00A0↳ " + r.subtask.title + "</td><td></td><td></td><td>" + (r.subtask.deadline ? format(parseISO(r.subtask.deadline), "dd.MM") : "") + "</td><td></td></tr>";
+                } else if (r.type === "milestone" && r.milestone) {
+                  tableRows += "<tr style=\"color:#3b82f6;font-style:italic\"><td style=\"text-align:center\">" + (r.rowNumber ?? "") + "</td><td>" + indent + "◆ " + r.milestone.name + "</td><td></td><td></td><td>" + format(parseISO(r.milestone.planned_date), "dd.MM.yyyy") + "</td><td></td></tr>";
+                }
+              });
+              const html = "<!DOCTYPE html><html><head><title>Гантт: " + projectName + "</title>" +
+                "<style>@page{size:landscape;margin:10mm}body{font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#222;margin:16px}" +
+                "h1{font-size:16px;margin:0 0 4px}h2{font-size:11px;color:#888;margin:0 0 12px;font-weight:normal}" +
+                "table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:4px 6px;text-align:left}" +
+                "th{background:#f5f5f5;font-size:10px;text-transform:uppercase;color:#666}" +
+                "tr:nth-child(even){background:#fafafa}" +
+                "@media print{body{margin:0}}</style></head>" +
+                "<body><h1>" + projectName + "</h1><h2>Диаграмма Ганта · " + dateStr + "</h2>" +
+                "<table><thead><tr><th style=\"width:30px\">#</th><th>Задача</th><th style=\"width:120px\">Ответственный</th><th style=\"width:60px\">Старт</th><th style=\"width:80px\">Срок</th><th style=\"width:60px\">Прогресс</th></tr></thead>" +
+                "<tbody>" + tableRows + "</tbody></table>" +
+                "<script>setTimeout(function(){window.print()},300)</" + "script></body></html>";
+              printWindow.document.write(html);
+              printWindow.document.close();
+            }}>
+              <Printer className="h-3.5 w-3.5 mr-2" />
+              Печать
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Hidden triggers for dialogs triggered from dropdown */}
+        {selectedProjectId && (
+          <div className="hidden">
+            <SmartExportDialog
+              groupId={selectedProjectId}
+              groupName={rootProjects.find(p => p.id === selectedProjectId)?.name || "Проект"}
+              trigger={<button id="gantt-export-trigger" />}
+            />
+            <SmartImportDialog
+              targetGroupId={selectedProjectId}
+              trigger={<button id="gantt-import-trigger" />}
+            />
+            <BulkTaskDialog
+              projectId={selectedProjectId}
+              projectName={rootProjects.find(p => p.id === selectedProjectId)?.name}
+            >
+              <button id="gantt-bulk-trigger" />
+            </BulkTaskDialog>
+          </div>
+        )}
+
+        {/* Inline new project form (appears when triggered from menu) */}
+        {showNewProject && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newProjectName.trim()) {
+                addGroup.mutate({ name: newProjectName.trim() }, {
+                  onSuccess: (data: any) => { if (data?.id) setSelectedProjectId(data.id); }
+                });
+                setNewProjectName("");
+                setShowNewProject(false);
+              }
+            }}
+            className="absolute top-12 right-4 z-50 flex items-center gap-1 bg-popover border border-border rounded-lg shadow-lg p-2"
+          >
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              onBlur={() => { if (!newProjectName.trim()) setShowNewProject(false); }}
+              onKeyDown={e => { if (e.key === "Escape") { setShowNewProject(false); setNewProjectName(""); } }}
+              placeholder="Имя проекта..."
+              className="h-7 w-40 text-xs bg-muted border-0 rounded px-2 text-foreground outline-none"
+            />
+          </form>
+        )}
       </div>
 
       {/* Gantt body */}
