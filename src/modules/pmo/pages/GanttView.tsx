@@ -11,7 +11,7 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import SmartExportDialog from "@/components/SmartExportDialog";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
@@ -58,6 +58,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [hideEmpty, setHideEmpty] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
