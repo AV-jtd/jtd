@@ -1,0 +1,1 @@
+ALTER TABLE public.project_milestones ADD COLUMN gate_key text DEFAULT NULL;
