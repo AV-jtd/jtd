@@ -1107,8 +1107,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           onReorderTask={(taskId, newPosition, newGroupId) => {
             updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
           }}
-          onMoveTaskUp={(taskId) => handleMoveTask(taskId, 'up')}
-          onMoveTaskDown={(taskId) => handleMoveTask(taskId, 'down')}
+          onOpenTask={(taskId) => setSelectedTaskId(taskId)}
           onCreateDependency={(predecessorId, successorId) => {
             setDepDialogState({
               predecessorId,

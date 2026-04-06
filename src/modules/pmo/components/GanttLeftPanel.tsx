@@ -2,7 +2,7 @@ import { useState, useRef, forwardRef, useCallback } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
-import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, Expand, GripVertical, Link2, Search, Settings2, RotateCcw } from "lucide-react";
+import { Diamond, Plus, Check, X, ChevronRight, ChevronDown, CalendarIcon, User, Expand, ArrowRightLeft, GripVertical, Link2, Search, Settings2, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, differenceInCalendarDays, addDays, isPast, isToday, isTomorrow } from "date-fns";
 import { ru } from "date-fns/locale";
