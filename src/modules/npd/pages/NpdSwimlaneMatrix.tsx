@@ -17,7 +17,6 @@ import {
   type DragEndEvent, type DragOverEvent,
 } from "@dnd-kit/core";
 import { Loader2 } from "lucide-react";
-import MatrixSkeleton from "../components/matrix/MatrixSkeleton";
 import { parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { toast } from "sonner";
 
@@ -215,7 +214,7 @@ export default function NpdSwimlaneMatrix() {
   const streamTagById = useMemo(() => new Map(streamTags.map(t => [t.id, t.name])), [streamTags]);
 
   // ── Group tags ──
-  const { data: allGroupTags = [], isLoading: groupTagsLoading } = useQuery({
+  const { data: allGroupTags = [] } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
       const results: { group_id: string; tag_id: string; tag_name: string | null }[] = [];
@@ -711,10 +710,14 @@ export default function NpdSwimlaneMatrix() {
   }, []);
   const [inboxOpen, setInboxOpen] = useState(false);
 
-  const isLoading = groupsLoading || tasksLoading || !npdTagData || groupTagsLoading;
+  const isLoading = groupsLoading || tasksLoading || !npdTagData;
 
   if (isLoading) {
-    return <MatrixSkeleton />;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!project) {

@@ -278,19 +278,12 @@ export function useLinkedTagIds(): Set<string> {
  * Use this in all UI components instead of useTags() directly.
  */
 const GATE_TAG_RE = /^Gate \d/i;
-const NPD_STREAM_NAMES = new Set([
-  "Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования",
-]);
 
 export function useVisibleTags() {
   const { data: allTags = [], ...rest } = useTags();
   const linkedTagIds = useLinkedTagIds();
   const data = useMemo(
-    () => allTags.filter(t =>
-      !linkedTagIds.has(t.id) &&
-      !GATE_TAG_RE.test(t.name) &&
-      !NPD_STREAM_NAMES.has(t.name)
-    ),
+    () => allTags.filter(t => !linkedTagIds.has(t.id) && !GATE_TAG_RE.test(t.name)),
     [allTags, linkedTagIds]
   );
   return { data, ...rest };
