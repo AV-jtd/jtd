@@ -812,6 +812,21 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           <span className="hidden sm:inline">Веха</span>
         </button>
 
+        {/* Hide empty tasks */}
+        <button
+          onClick={() => setHideEmpty(prev => !prev)}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+            hideEmpty
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+          title={hideEmpty ? "Показать пустые задачи" : "Скрыть пустые задачи"}
+        >
+          {hideEmpty ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          <span className="hidden sm:inline">{hideEmpty ? "Показать" : "Скрыть"} пустые</span>
+        </button>
+
         <div className="h-4 w-px bg-border" />
 
         {/* Add project */}
