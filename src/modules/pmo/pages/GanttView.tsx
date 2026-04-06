@@ -1194,6 +1194,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
               onHoverRow={setHoveredRow}
               onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
               getMilestoneOffscreen={getMilestoneOffscreen}
+              taskGateMap={taskGateMap}
+              onChangeTaskGate={handleChangeTaskGate}
             />
           </div>
 
