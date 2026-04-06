@@ -582,9 +582,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [task, deleteTask, pushUndo]);
 
   const undoableUpdateTask = useCallback((id: string, updates: Partial<Task>) => {
-    const prevValues: Partial<Task> = {};
-    for (const key of Object.keys(updates) as (keyof Task)[]) {
-      prevValues[key] = task[key] as any;
+    const prevValues: Record<string, any> = {};
+    for (const key of Object.keys(updates)) {
+      prevValues[key] = (task as any)[key];
     }
     updateTask.mutate({ id, ...updates });
     const fields: Record<string, string> = { deadline: "срок", description: "описание", title: "название", assigned_to: "ответственный", priority: "приоритет", group_id: "проект" };
