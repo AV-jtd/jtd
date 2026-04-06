@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -598,51 +599,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           />
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Срок">
-                <Calendar className="h-3.5 w-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1.5 bg-popover border-border z-50" side="left">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Срок</p>
-              {[
-                { label: "Сегодня", days: 0 },
-                { label: "Завтра", days: 1 },
-                { label: "Через 3 дня", days: 3 },
-                { label: "Через неделю", days: 7 },
-              ].map(opt => {
-                const d = new Date();
-                d.setDate(d.getDate() + opt.days);
-                const val = format(d, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={opt.days}
-                    onClick={() => updateTask.mutate({ id: task.id, deadline: val })}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-              <div className="border-t border-border mt-1 pt-1">
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="w-full text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1.5 transition-all"
-                />
-              </div>
-              {task.deadline && (
-                <button
-                  onClick={() => updateTask.mutate({ id: task.id, deadline: null })}
-                  className="mt-1 text-xs text-destructive hover:underline w-full text-left px-2 py-1"
-                >
-                  Убрать срок
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
+          <DeadlineQuickPopover task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
 
           <Popover onOpenChange={(open) => { if (open) { setTagSearch(""); fetchTagSuggestions(); } }}>
             <PopoverTrigger asChild>
@@ -1091,41 +1048,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
 
           {/* Dates */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3 w-3" /> Даты
-            </p>
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
-                <input
-                  type="date"
-                  value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deadline: e.target.value || null })}
-                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-                />
-                {task.deadline && (
-                  <button onClick={() => updateTask.mutate({ id: task.id, deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
-                <input
-                  type="date"
-                  value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
-                  onChange={(e) => updateTask.mutate({ id: task.id, deferred_until: e.target.value || null })}
-                  className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-                />
-                {task.deferred_until && (
-                  <button onClick={() => updateTask.mutate({ id: task.id, deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <DeadlineDetailSection task={task} onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })} />
 
           {/* Recurrence */}
           <div className="space-y-1.5">
