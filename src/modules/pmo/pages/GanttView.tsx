@@ -1192,20 +1192,6 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                 )} style={{ left: i * colWidth, width: colWidth, height: rows.length * ROW_HEIGHT }} />
               ))}
 
-              {/* Milestone vertical dashed lines */}
-              {rows.map((row) => {
-                if (row.type !== "milestone" || !row.milestone) return null;
-                const x = getMilestoneX(row.milestone);
-                return (
-                  <div
-                    key={`ms-vline-${row.milestone.id}`}
-                    className="absolute top-0 pointer-events-none"
-                    style={{ left: x, height: rows.length * ROW_HEIGHT, zIndex: 4 }}
-                  >
-                    <div className="h-full" style={{ borderLeft: "1.5px dashed #EF4444" }} />
-                  </div>
-                );
-              })}
 
               {/* Today line — prominent */}
               <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: rows.length * ROW_HEIGHT }}>
