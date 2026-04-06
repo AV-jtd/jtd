@@ -77,13 +77,23 @@ serve(async (req) => {
 
     const { data: tasks } = await tasksQuery;
 
-    // Fetch projects
+    // Fetch projects (all groups user owns, including subprojects)
     const { data: groups } = await supabase
       .from("task_groups")
       .select("id, name, parent_id")
       .eq("user_id", userId)
-      .is("parent_id", null)
-      .limit(50);
+      .limit(200);
+
+    // Build group name map for resolving group_id → name in task context
+    const groupNameMap: Record<string, string> = {};
+    (groups || []).forEach((g: any) => { groupNameMap[g.id] = g.name; });
+
+    // Helper: format group tag with human-readable name
+    const groupTag = (gid: string | null) => {
+      if (!gid) return "";
+      const name = groupNameMap[gid];
+      return name ? ` (проект "${name}") [group_id:${gid}]` : ` [group_id:${gid}]`;
+    };
 
     // Fetch subprojects for project context
     let subprojectNames: string[] = [];
@@ -261,7 +271,7 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
@@ -271,21 +281,21 @@ serve(async (req) => {
         const d = new Date(t.deadline);
         const dayLabel = d.toISOString().split("T")[0];
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} → ${dayLabel}${t.priority === 1 ? " ⚡" : ""}${assignee ? ` → ${assignee}` : ""}\n`;
       });
     }
 
     if (highPriority.length > 0) {
       context += `\n⭐ Приоритетные:\n`;
       highPriority.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
     if (stale.length > 0) {
       context += `\n🧊 Забытые задачи (без активности 7+ дн.):\n`;
       stale.slice(0, 5).forEach((t: any) => {
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}\n`;
       });
     }
 
@@ -293,7 +303,7 @@ serve(async (req) => {
       context += `\n📥 Поручено мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} от ${from}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -301,7 +311,7 @@ serve(async (req) => {
       context += `\n📤 Мои поручения:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
-        context += `- "${t.title}" [task_id:${t.id}]${t.group_id ? ` [group_id:${t.group_id}]` : ""} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} → ${to}${t.deadline ? ` [${new Date(t.deadline).toISOString().split("T")[0]}]` : ""}\n`;
       });
     }
 
@@ -354,7 +364,8 @@ ${dayContext}
 10. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]
 11. Для focusOfDay укажи focusTaskId или focusGroupId
 12. Не включай [task_id:...] или [group_id:...] в текст — только через поля JSON
-13. ЗАПРЕЩЕНО: общие фразы типа "обратите внимание на просроченные задачи". Будь конкретен!`
+13. В тексте ВСЕГДА используй НАЗВАНИЯ проектов (они указаны в скобках как "проект ИМЯ"), НИКОГДА не пиши UUID в тексте
+14. ЗАПРЕЩЕНО: общие фразы типа "обратите внимание на просроченные задачи". Будь конкретен!`
       : `Ты — проактивный AI-аналитик по продуктивности. Ты даёшь УНИКАЛЬНЫЙ дайджест, каждый раз с новым углом.
 
 ${lensInstructions[todayLens]}
@@ -374,6 +385,7 @@ ${dayContext}
 11. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста. Копируй UUID ТОЧНО
 12. Для focusOfDay укажи focusTaskId или focusGroupId
 13. Не включай [task_id:...] в текст — только через поля JSON
+14. В тексте ВСЕГДА используй НАЗВАНИЯ проектов (они указаны как "проект ИМЯ"), НИКОГДА не пиши UUID в тексте
 
 Если задач мало (< 5) — предложи стратегию на неделю.
 Если всё ок — найди точку роста, а не просто похвали.`;
