@@ -295,6 +295,26 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
         )}
       </div>
 
+      {/* ━━ PROJECT CARD (collapsible) ━━ */}
+      {project && (
+        <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
+          <button
+            onClick={() => setCardOpen(!cardOpen)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-secondary/30 transition-colors text-left"
+          >
+            <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Карточка проекта</span>
+            <span className="text-[10px] text-muted-foreground">· участники, теги, настройки</span>
+            {cardOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto" />}
+          </button>
+          {cardOpen && (
+            <div className="border-t border-border/50 animate-fade-in">
+              <ProjectDetailPanel group={project} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ━━ AI ━━ */}
       <AiInsightsCard
         insights={insights}
