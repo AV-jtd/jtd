@@ -12,6 +12,7 @@ import {
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye } from "lucide-react";
+import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import SmartImportDialog from "@/components/SmartImportDialog";
@@ -761,8 +762,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
         </button>
 
         <div className="h-4 w-px bg-border" />
-
-        <select
+        <UndoRedoButtons />
+        <div className="h-4 w-px bg-border" />
           value={selectedProjectId || ""}
           onChange={e => setSelectedProjectId(e.target.value || null)}
           className="text-xs bg-muted border-0 rounded-md px-2 py-1.5 text-foreground outline-none cursor-pointer"
