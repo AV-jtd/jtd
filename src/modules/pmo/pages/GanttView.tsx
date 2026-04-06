@@ -59,6 +59,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
 
@@ -453,10 +454,19 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       });
 
       if (!collapsedProjects.has(project.id)) {
+        // Interleave milestones among tasks by date
+        const sortedMs = [...projectMilestones].sort((a, b) => a.planned_date.localeCompare(b.planned_date));
+        let msIdx = 0;
+
         projectTasks.forEach(t => {
           if (t.deadline || t.created_at) {
+            const taskDate = t.deadline || t.created_at;
+            // Insert milestones that come before this task's date
+            while (msIdx < sortedMs.length && sortedMs[msIdx].planned_date <= taskDate) {
+              result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
+              msIdx++;
+            }
             result.push({ type: "task", project, task: t, depth: depth + 1 });
-            // Add subtask rows
             if (t.subtasks && t.subtasks.length > 0) {
               t.subtasks
                 .sort((a, b) => a.position - b.position)
@@ -466,9 +476,12 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
             }
           }
         });
-        projectMilestones.forEach(m => {
-          result.push({ type: "milestone", project, milestone: m, depth: depth + 1 });
-        });
+        // Remaining milestones after all tasks
+        while (msIdx < sortedMs.length) {
+          result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
+          msIdx++;
+        }
+
         children.forEach(child => addProjectRows(child, depth + 1, true));
       }
     };
@@ -607,6 +620,15 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     const offset = differenceInCalendarDays(d, timelineStart);
     return (offset / totalDays) * totalWidth;
   };
+
+  const getMilestoneOffscreen = useCallback((ms: Milestone): 'left' | 'right' | null => {
+    const x = getMilestoneX(ms);
+    const el = scrollRef.current;
+    if (!el) return null;
+    if (x < tlScrollLeft) return 'left';
+    if (x > tlScrollLeft + el.clientWidth) return 'right';
+    return null;
+  }, [getMilestoneX, tlScrollLeft]);
 
   const todayOffset = useMemo(() => {
     const offset = differenceInCalendarDays(new Date(), timelineStart);
@@ -947,6 +969,8 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
             if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
             requestAnimationFrame(() => { isSyncingScroll.current = false; });
           }}
+          onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
+          getMilestoneOffscreen={getMilestoneOffscreen}
         />
 
         {/* Draggable splitter */}
@@ -971,10 +995,11 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           className="flex-1 overflow-auto scrollbar-thin"
           style={{ overscrollBehavior: "auto", touchAction: "pan-x pan-y" }}
           onScroll={(e) => {
+            const el = e.target as HTMLDivElement;
+            setTlScrollLeft(el.scrollLeft);
             if (isSyncingScroll.current) return;
             isSyncingScroll.current = true;
-            const scrollTop = (e.target as HTMLDivElement).scrollTop;
-            if (leftPanelRef.current) leftPanelRef.current.scrollTop = scrollTop;
+            if (leftPanelRef.current) leftPanelRef.current.scrollTop = el.scrollTop;
             requestAnimationFrame(() => { isSyncingScroll.current = false; });
           }}
         >
@@ -1022,6 +1047,21 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   col.isWeekend ? "border-border/20 bg-muted/20" : "border-border/10"
                 )} style={{ left: i * colWidth, width: colWidth, height: rows.length * ROW_HEIGHT }} />
               ))}
+
+              {/* Milestone vertical dashed lines */}
+              {rows.map((row) => {
+                if (row.type !== "milestone" || !row.milestone) return null;
+                const x = getMilestoneX(row.milestone);
+                return (
+                  <div
+                    key={`ms-vline-${row.milestone.id}`}
+                    className="absolute top-0 pointer-events-none"
+                    style={{ left: x, height: rows.length * ROW_HEIGHT, zIndex: 4 }}
+                  >
+                    <div className="h-full" style={{ borderLeft: "1.5px dashed #EF4444" }} />
+                  </div>
+                );
+              })}
 
               {/* Today line — prominent */}
               <div className="absolute top-0 z-20" style={{ left: todayOffset - 1, height: rows.length * ROW_HEIGHT }}>
@@ -1317,43 +1357,32 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       );
                     })()}
 
-                    {/* Milestone diamond */}
+                    {/* Milestone row — red tinted bg + small diamond + dependency connector */}
                     {row.type === "milestone" && row.milestone && (() => {
                       const x = getMilestoneX(row.milestone!);
-                      const msColor = row.milestone!.color || "#3b82f6";
-                      const isMissed = row.milestone!.status === "missed";
-                      const isCompleted = row.milestone!.status === "completed";
                       return (
                         <div
-                          className="absolute top-1 cursor-pointer group/ms"
-                          style={{ left: x - 10 }}
-                          title={`${row.milestone!.name} — ${format(parseISO(row.milestone!.planned_date), "d MMM yyyy", { locale: ru })}`}
-                          onClick={() => { if (!depDrag && !wasDepDragRef.current) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
+                          className="absolute inset-0 group/ms"
+                          style={{ backgroundColor: "rgba(239,68,68,0.03)" }}
                           onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
                         >
-                          <svg width="20" height="20" viewBox="0 0 20 20" className="drop-shadow-sm group-hover/ms:drop-shadow-md transition-all">
-                            <rect
-                              x="10" y="2" width="11" height="11"
-                              transform="rotate(45 10 2)"
-                              fill={isMissed ? "hsl(var(--destructive))" : msColor}
-                              opacity={isCompleted ? 0.6 : 1}
-                              stroke={isCompleted ? "hsl(var(--foreground))" : "white"}
-                              strokeWidth="1.5"
-                            />
-                            {isCompleted && (
-                              <path d="M7 10 L9.5 12.5 L13 7.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            )}
-                          </svg>
-                          {/* Dependency connector for milestone */}
                           <div
-                            className="absolute -right-2 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            className="absolute top-1/2 -translate-y-1/2 cursor-pointer"
+                            style={{ left: x - 5 }}
+                            onClick={() => { if (!depDrag && !wasDepDragRef.current) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
+                          >
+                            <Diamond className="h-2.5 w-2.5 fill-[#EF4444] text-[#EF4444]" />
+                          </div>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#EF4444] border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
+                            style={{ left: x + 6 }}
                             onMouseDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
                                 fromId: row.milestone!.id,
                                 fromEntityType: "milestone",
-                                startX: x + 10,
+                                startX: x + 6,
                                 startY: i * ROW_HEIGHT + ROW_HEIGHT / 2,
                                 currentX: e.clientX,
                                 currentY: e.clientY,

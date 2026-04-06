@@ -90,6 +90,8 @@ interface GanttLeftPanelProps {
   hoveredRow: number | null;
   onHoverRow: (index: number | null) => void;
   onScroll?: (scrollTop: number) => void;
+  onUpdateMilestone?: (id: string, updates: { group_id?: string }) => void;
+  getMilestoneOffscreen?: (ms: Milestone) => 'left' | 'right' | null;
 }
 
 /** Predecessor picker with search and multi-select */
@@ -178,6 +180,7 @@ function PredecessorPicker({
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onMoveTaskUp, onMoveTaskDown, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
+  onUpdateMilestone, getMilestoneOffscreen,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -365,10 +368,16 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     const tgtRow = rows[targetIdx];
     
     if (srcRow?.type === "task" && srcRow.task && tgtRow && onReorderTask) {
-      // Determine target group and position
       const targetGroupId = tgtRow.type === "project" ? tgtRow.project.id : tgtRow.project.id;
       const targetPosition = tgtRow.task?.position ?? targetIdx;
       onReorderTask(srcRow.task.id, targetPosition, targetGroupId);
+    }
+    // Milestone DnD: move to target project
+    if (srcRow?.type === "milestone" && srcRow.milestone && tgtRow && onUpdateMilestone) {
+      const targetGroupId = tgtRow.project.id;
+      if (targetGroupId !== srcRow.milestone.group_id) {
+        onUpdateMilestone(srcRow.milestone.id, { group_id: targetGroupId });
+      }
     }
     setDragRowIdx(null);
     setDropTargetIdx(null);
@@ -490,7 +499,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
           (row.type === "subtask" && row.subtask?.assigned_to !== filterAssignee)
         );
         const entityId = row.task?.id || row.subtask?.id || row.milestone?.id;
-        const isDraggable = row.type === "task";
+        const isDraggable = row.type === "task" || row.type === "milestone";
         const isDropTarget = dropTargetIdx === i;
 
         return (
@@ -499,14 +508,14 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
             className={cn(
               "flex items-center border-b border-border/50 text-xs cursor-default group",
               row.type === "project" || row.type === "summary" ? "font-semibold text-foreground bg-muted/40" :
-              row.type === "milestone" ? "text-primary font-medium italic" :
+              row.type === "milestone" ? "text-[#EF4444] font-semibold" :
               row.type === "subtask" ? "text-muted-foreground/70" : "text-muted-foreground",
               dimmed && "opacity-30",
               hoveredRow === i && "bg-muted/50",
               dragRowIdx === i && "opacity-30",
               isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
             )}
-            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}) }}
+            style={{ height: rowHeight, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}), ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
             onMouseLeave={() => onHoverRow(null)}
             draggable={isDraggable}
@@ -590,11 +599,11 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         </div>
                       </>
                     ) : row.type === "milestone" ? (
-                      <div className="flex items-center gap-1.5 min-w-0 cursor-pointer" onClick={() => row.milestone && onMilestoneClick(row.milestone)}>
-                        <Diamond className="h-3 w-3 shrink-0" style={{ color: row.milestone?.color || "hsl(var(--primary))" }} />
+                      <div className="flex items-center gap-1.5 min-w-0 cursor-pointer flex-1" onClick={() => row.milestone && onMilestoneClick(row.milestone)}>
+                        <Diamond className="h-3.5 w-3.5 shrink-0 fill-[#EF4444] text-[#EF4444]" />
                         <TooltipProvider delayDuration={300}>
                           <Tooltip>
-                            <TooltipTrigger asChild><span className="truncate">{row.milestone?.name}</span></TooltipTrigger>
+                            <TooltipTrigger asChild><span className="truncate uppercase font-semibold text-[11px]">{row.milestone?.name}</span></TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs text-xs">{row.milestone?.name}</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -774,9 +783,15 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         </PopoverContent>
                       </Popover>
                     )}
-                    {row.type === "milestone" && row.milestone && (
-                      <span className="text-[10px]">{format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru })}</span>
-                    )}
+                    {row.type === "milestone" && row.milestone && (() => {
+                      const dateStr = format(parseISO(row.milestone.planned_date), "d MMM", { locale: ru });
+                      const offscreen = getMilestoneOffscreen?.(row.milestone);
+                      return (
+                        <span className="text-[10px] text-[#EF4444] font-medium whitespace-nowrap">
+                          {offscreen === 'left' && '← '}{dateStr}{offscreen === 'right' && ' →'}
+                        </span>
+                      );
+                    })()}
                   </div>
                 );
               }
