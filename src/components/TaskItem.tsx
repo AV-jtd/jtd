@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable as useSortableDnd } from "@dnd-kit/sortable";
+import { CSS as DndCSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
