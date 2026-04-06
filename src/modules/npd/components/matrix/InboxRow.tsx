@@ -63,25 +63,41 @@ function InboxRowInner({ inboxOpen, onToggle, totalCount, parentTasks, unmatched
       {inboxOpen && (
         <div className="flex">
           <div className="min-w-[200px] w-[200px] shrink-0 border-r border-border" />
-          <div className="flex-1 px-3 py-2">
-            <div className="flex flex-wrap gap-1">
-              {allInboxTasks.map(task => (
-                <DraggableTaskRow key={task.id} taskId={task.id}>
-                  <div className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-card border border-border text-[11px] min-w-[140px] max-w-[220px]">
-                    <CheckCircle2 className={cn(
-                      "h-3.5 w-3.5 shrink-0",
-                      task.is_completed ? "text-primary" : "text-muted-foreground/40"
-                    )} />
-                    <span className={cn(
-                      "truncate",
-                      task.is_completed && "line-through text-muted-foreground"
-                    )}>
-                      {task.title}
-                    </span>
-                  </div>
-                </DraggableTaskRow>
-              ))}
-            </div>
+          <div className="flex overflow-x-auto">
+            {NPD_GATES.map((gate, gi) => {
+              const cellId = makeCellId("__inbox__", gate.key);
+              const isCellOver = dndOverCell === cellId;
+              return (
+                <div
+                  key={gate.key}
+                  className={cn(
+                    "min-w-[220px] w-[220px] shrink-0 border-r border-border px-2 py-2",
+                    isCellOver ? "bg-primary/10" : ""
+                  )}
+                >
+                  {gi === 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {allInboxTasks.map(task => (
+                        <DraggableTaskRow key={task.id} taskId={task.id}>
+                          <div className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-card border border-border text-[11px] max-w-[200px]">
+                            <CheckCircle2 className={cn(
+                              "h-3.5 w-3.5 shrink-0",
+                              task.is_completed ? "text-primary" : "text-muted-foreground/40"
+                            )} />
+                            <span className={cn(
+                              "truncate",
+                              task.is_completed && "line-through text-muted-foreground"
+                            )}>
+                              {task.title}
+                            </span>
+                          </div>
+                        </DraggableTaskRow>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
