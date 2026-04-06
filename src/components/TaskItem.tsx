@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 
 import { useNavigate } from "react-router-dom";
-import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks } from "@/hooks/useTasks";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable as useSortableDnd } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
@@ -16,8 +16,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2, ShieldCheck, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward,
+  Check, Star, ChevronDown, ChevronRight, Plus, Trash2, Calendar, Tag, X, UserPlus, Expand, FileText, GripVertical, Clock, Repeat, Users, FolderOpen, Flag, MessageCircle, Wand2, GanttChart, ArrowRight, Forward, ArrowUpFromLine, MoveRight, ArrowDownToLine,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isPast, parseISO, differenceInDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -258,6 +259,50 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
   );
 }
 
+/* ── Move subtask / demote dialog ── */
+function MoveSubtaskDialog({ open, onOpenChange, currentTaskId, groupId, onSelect, title = "Переместить в задачу" }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentTaskId: string;
+  groupId: string | null;
+  onSelect: (targetTaskId: string) => void;
+  title?: string;
+}) {
+  const { data: tasks = [] } = useTasks(groupId);
+  const [search, setSearch] = useState("");
+  const filtered = tasks.filter(t => t.id !== currentTaskId && !t.is_completed && t.title.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[50dvh] rounded-t-2xl p-4 overflow-y-auto">
+        <p className="text-sm font-semibold mb-2">{title}</p>
+        <input
+          autoFocus
+          placeholder="Поиск задачи..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary/40 mb-2"
+        />
+        <div className="space-y-1 max-h-[30dvh] overflow-y-auto">
+          {filtered.length === 0 && <p className="text-xs text-muted-foreground p-2">Нет задач</p>}
+          {filtered.map(t => (
+            <button
+              key={t.id}
+              onClick={() => onSelect(t.id)}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-left hover:bg-muted transition-colors"
+            >
+              <span className="truncate">{t.title}</span>
+              {t.subtasks && t.subtasks.length > 0 && (
+                <span className="text-[10px] text-muted-foreground shrink-0">{t.subtasks.length} шагов</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 /* ── Sortable Subtask Row ── */
 interface SortableSubtaskRowProps {
   sub: Subtask;
@@ -272,11 +317,13 @@ interface SortableSubtaskRowProps {
   onDelete: (id: string) => void;
   onUpdateDeadline: (id: string, dl: string | null) => void;
   onUpdateAssignee: (id: string, uid: string | null) => void;
+  onPromote?: (subtaskId: string) => void;
+  onMoveToTask?: (subtaskId: string) => void;
   availableUsers: Profile[];
   getProfileName: (userId: string) => string;
 }
 
-function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, availableUsers, getProfileName }: SortableSubtaskRowProps) {
+function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortableDnd({ id: sub.id });
   const style = { transform: DndCSS.Transform.toString(transform), transition };
   const isEditing = editingSubtaskId === sub.id;
@@ -397,9 +444,28 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
           </Popover>
         </div>
       </div>
-      <button onClick={() => onDelete(sub.id)} className="text-muted-foreground opacity-0 group-hover/sub:opacity-100 hover:text-destructive mt-0.5">
-        <Trash2 className="h-3 w-3" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="text-muted-foreground/30 opacity-0 group-hover/sub:opacity-100 hover:text-foreground mt-0.5 shrink-0 transition-opacity">
+            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          {onPromote && (
+            <DropdownMenuItem onClick={() => onPromote(sub.id)} className="text-xs gap-2">
+              <ArrowUpFromLine className="h-3 w-3" /> Повысить до задачи
+            </DropdownMenuItem>
+          )}
+          {onMoveToTask && (
+            <DropdownMenuItem onClick={() => onMoveToTask(sub.id)} className="text-xs gap-2">
+              <MoveRight className="h-3 w-3" /> В другую задачу
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => onDelete(sub.id)} className="text-xs gap-2 text-destructive focus:text-destructive">
+            <Trash2 className="h-3 w-3" /> Удалить
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -408,7 +474,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
-  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
+  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, promoteSubtaskToTask, demoteTaskToSubtask, moveSubtaskToTask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
   const { data: allTags = [] } = useVisibleTags();
   const linkedTagIds = useLinkedTagIds();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -436,6 +502,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [stepsCollapsed, setStepsCollapsed] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
+  const [moveSubtaskId, setMoveSubtaskId] = useState<string | null>(null);
+  const [demoteOpen, setDemoteOpen] = useState(false);
   const subtaskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -1627,6 +1695,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       onDelete={(id) => deleteSubtask.mutate(id)}
                       onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
                       onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                      onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
+                      onMoveToTask={(id) => setMoveSubtaskId(id)}
                       availableUsers={availableUsers}
                       getProfileName={getProfileName}
                     />
@@ -1676,6 +1746,24 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               {savingToWiki ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookOpen className="h-3 w-3" />}
               В базу знаний
             </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDemoteOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Понизить эту задачу до шага другой задачи"
+              >
+                <ArrowDownToLine className="h-3 w-3" /> Понизить до шага
+              </button>
+              <ConfirmDelete
+                title="Удалить задачу"
+                description={`Удалить «${task.title}»? Это действие нельзя отменить.`}
+                onConfirm={() => deleteTask.mutate(task.id)}
+              >
+                <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="h-3 w-3" /> Удалить
+                </button>
+              </ConfirmDelete>
+            </div>
           </div>
           </div>
         );
@@ -1708,10 +1796,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
                   onDelete={(id) => deleteSubtask.mutate(id)}
                   onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
-                  onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
-                  availableUsers={availableUsers}
-                  getProfileName={getProfileName}
-                />
+                   onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                   onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
+                   onMoveToTask={(id) => setMoveSubtaskId(id)}
+                   availableUsers={availableUsers}
+                   getProfileName={getProfileName}
+                 />
               ))}
             </SortableContext>
           </DndContext>
@@ -1742,6 +1832,35 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         </div>
       )}
     </div>
+
+    {/* Move subtask to another task picker */}
+    {moveSubtaskId && (
+      <MoveSubtaskDialog
+        open={!!moveSubtaskId}
+        onOpenChange={(open) => { if (!open) setMoveSubtaskId(null); }}
+        currentTaskId={task.id}
+        groupId={task.group_id}
+        onSelect={(targetTaskId) => {
+          moveSubtaskToTask.mutate({ subtaskId: moveSubtaskId, targetTaskId });
+          setMoveSubtaskId(null);
+        }}
+      />
+    )}
+
+    {/* Demote task to subtask picker */}
+    {demoteOpen && (
+      <MoveSubtaskDialog
+        open={demoteOpen}
+        onOpenChange={setDemoteOpen}
+        currentTaskId={task.id}
+        groupId={task.group_id}
+        title="Понизить до шага задачи"
+        onSelect={(targetTaskId) => {
+          demoteTaskToSubtask.mutate({ taskId: task.id, targetTaskId });
+          setDemoteOpen(false);
+        }}
+      />
+    )}
 
     <TaskClosureDialog
       open={closureDialogOpen}
