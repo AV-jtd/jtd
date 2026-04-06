@@ -1818,3 +1818,306 @@ function formatDate(date: Date): string {
   const m = (date.getMonth() + 1).toString().padStart(2, "0");
   return `${d}.${m}.${date.getFullYear()}`;
 }
+
+// === Voice Message Transcription ===
+
+async function transcribeVoiceMessage(botToken: string, fileId: string): Promise<string | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return null;
+
+  try {
+    // Get file path from Telegram
+    const fileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_id: fileId }),
+    });
+    const fileData = await fileRes.json();
+    if (!fileData.ok || !fileData.result?.file_path) return null;
+
+    // Download the file
+    const downloadUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
+    const audioRes = await fetch(downloadUrl);
+    if (!audioRes.ok) return null;
+
+    const audioBuffer = await audioRes.arrayBuffer();
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+
+    // Transcribe with Gemini (supports audio natively)
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "Ты — транскрибатор. Точно расшифруй голосовое сообщение. Верни ТОЛЬКО текст сообщения, без комментариев. Если это список задач — сохрани формат списка.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_audio",
+                input_audio: {
+                  data: base64Audio,
+                  format: "ogg",
+                },
+              },
+              { type: "text", text: "Расшифруй это голосовое сообщение:" },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Transcription error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch (e) {
+    console.error("Voice transcription failed:", e);
+    return null;
+  }
+}
+
+// === Bulk Task Parsing via AI ===
+
+interface BulkParsedTask {
+  title: string;
+  assigned_to_name?: string | null;
+  deadline_days?: number | null;
+  deadline_date?: string | null;
+  subtasks?: string[];
+  priority?: number | null;
+}
+
+async function aiBulkParse(
+  text: string,
+  users: { id: string; name: string; telegram_username: string | null }[],
+  projectName?: string,
+): Promise<BulkParsedTask[] | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return null;
+
+  const userList = users.length > 0
+    ? users.map(u => `- "${u.name}"${u.telegram_username ? ` (@${u.telegram_username})` : ""}`).join("\n")
+    : "нет участников";
+
+  const today = new Date().toISOString().split("T")[0];
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `Ты — парсер задач. Из произвольного текста извлекай список задач.
+Распознавай:
+- Маркированные списки (-, •, *, 1., 2.)
+- Перечисления через запятую
+- Свободный текст с несколькими действиями
+- Голосовые транскрипции (могут быть без пунктуации)
+
+Для каждой задачи определи:
+- title: краткое название задачи (глагол + объект)
+- assigned_to_name: имя/@username ответственного (из доступных участников), если упомянут
+- deadline_days: срок в днях от сегодня (если указано "3д", "через 5 дней", "неделю" и т.п.)
+- deadline_date: конкретная дата YYYY-MM-DD (если указана дата)
+- subtasks: подзадачи, если задача комплексная (вложенные пункты)
+- priority: 1=высокий, 2=средний, 3=низкий
+
+${projectName ? `Проект: "${projectName}"` : ""}
+Доступные участники:\n${userList}
+Текущая дата: ${today}
+
+ВАЖНО: Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
+          },
+          { role: "user", content: `Извлеки задачи из:\n\n${text}` },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_tasks",
+              description: "Извлечь список задач из текста",
+              parameters: {
+                type: "object",
+                properties: {
+                  tasks: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        assigned_to_name: { type: "string", description: "Имя или @username ответственного" },
+                        deadline_days: { type: "number", description: "Срок в днях от сегодня" },
+                        deadline_date: { type: "string", description: "Дата YYYY-MM-DD" },
+                        subtasks: { type: "array", items: { type: "string" } },
+                        priority: { type: "number" },
+                      },
+                      required: ["title"],
+                    },
+                  },
+                },
+                required: ["tasks"],
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "extract_tasks" } },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI bulk parse error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      return parsed.tasks || null;
+    }
+  } catch (e) {
+    console.error("AI bulk parse failed:", e);
+  }
+  return null;
+}
+
+// === Bulk Task Creation ===
+
+interface BulkTaskResult {
+  title: string;
+  assignee?: string;
+  deadline?: string;
+  subtaskCount?: number;
+}
+
+async function createBulkTasks(
+  supabase: any,
+  tasks: BulkParsedTask[],
+  userId: string,
+  groupId: string | null,
+  members: { id: string; name: string; telegram_username: string | null }[],
+): Promise<BulkTaskResult[]> {
+  const results: BulkTaskResult[] = [];
+  const now = new Date();
+
+  for (const task of tasks) {
+    const taskData: Record<string, any> = {
+      title: task.title.substring(0, 500),
+      user_id: userId,
+    };
+    if (groupId) taskData.group_id = groupId;
+    if (task.priority) taskData.priority = task.priority;
+
+    // Resolve deadline
+    let deadlineStr: string | undefined;
+    if (task.deadline_date) {
+      taskData.deadline = new Date(task.deadline_date + "T23:59:00").toISOString();
+      deadlineStr = task.deadline_date;
+    } else if (task.deadline_days && task.deadline_days > 0) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + task.deadline_days);
+      d.setHours(23, 59, 0, 0);
+      taskData.deadline = d.toISOString();
+      deadlineStr = formatDate(d);
+    }
+
+    // Resolve assignee
+    let assigneeName: string | undefined;
+    if (task.assigned_to_name && members.length > 0) {
+      const needle = task.assigned_to_name.replace("@", "").toLowerCase();
+      const match = members.find(m =>
+        m.telegram_username?.toLowerCase() === needle ||
+        m.name.toLowerCase().includes(needle) ||
+        needle.includes(m.name.toLowerCase())
+      );
+      if (match) {
+        taskData.assigned_to = match.id;
+        assigneeName = match.name;
+      }
+    }
+
+    const { data: newTask, error } = await supabase
+      .from("tasks")
+      .insert(taskData)
+      .select("id")
+      .single();
+
+    if (error || !newTask) {
+      console.error("Bulk task creation error:", error);
+      continue;
+    }
+
+    // Add assignee as participant
+    if (taskData.assigned_to && taskData.assigned_to !== userId) {
+      await supabase.from("task_participants").insert({
+        task_id: newTask.id,
+        user_id: taskData.assigned_to,
+        role: "assignee",
+      });
+    }
+
+    // Add subtasks
+    let subtaskCount = 0;
+    if (task.subtasks && task.subtasks.length > 0) {
+      for (let i = 0; i < task.subtasks.length; i++) {
+        await supabase.from("subtasks").insert({
+          task_id: newTask.id,
+          title: task.subtasks[i],
+          position: i,
+        });
+      }
+      subtaskCount = task.subtasks.length;
+    }
+
+    results.push({
+      title: task.title.substring(0, 60),
+      assignee: assigneeName,
+      deadline: deadlineStr,
+      subtaskCount: subtaskCount || undefined,
+    });
+  }
+
+  return results;
+}
+
+// === Auto-detect bulk message ===
+
+function detectBulkMessage(text: string): boolean {
+  const lines = text.split("\n").filter(l => l.trim().length > 0);
+  if (lines.length < 2) return false;
+
+  // Check for list patterns
+  let listLineCount = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^[-•*]\s/.test(trimmed) || /^\d+[\.\)]\s/.test(trimmed)) {
+      listLineCount++;
+    }
+  }
+
+  // If 2+ lines are list items, treat as bulk
+  if (listLineCount >= 2) return true;
+
+  // Check for comma-separated tasks (3+ items with action verbs)
+  const commaItems = text.split(/[,;]/).filter(s => s.trim().length > 3);
+  if (commaItems.length >= 3) return true;
+
+  return false;
+}
