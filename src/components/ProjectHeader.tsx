@@ -33,36 +33,34 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
 
   const project = useMemo(() => groups.find(g => g.id === projectId), [groups, projectId]);
   const isNpd = project?.project_type === "npd";
+  const childIds = useMemo(() => groups.filter(g => g.parent_id === projectId).map(g => g.id), [groups, projectId]);
 
-  // Fetch gate tags to determine active gate from group_tags
-  const { data: gateData } = useQuery({
-    queryKey: ["project-header-gate", projectId, user?.id],
+  // Fetch gate from group_tags (same logic as NpdBoard)
+  const { data: activeGateIdx } = useQuery({
+    queryKey: ["project-header-gate", projectId],
     queryFn: async () => {
-      // Get all gate tag ids
-      const gateNames: string[] = NPD_GATES_META.map(g => g.tagName);
+      const gateNames = NPD_GATES_META.map(g => g.tagName as string);
       const { data: gateTags } = await supabase
         .from("tags")
         .select("id, name")
-        .in("name", gateNames as any);
-        .from("tags")
-        .select("id, name")
         .in("name", gateNames);
-      if (!gateTags?.length) return null;
+      if (!gateTags?.length) return 0;
 
-      const tagNameToKey = new Map(NPD_GATES_META.map(g => [g.tagName, g.key]));
-      const tagIdToKey = new Map(gateTags.map(t => [t.id, tagNameToKey.get(t.name)!]));
+      const tagNameToKey = new Map<string, string>();
+      for (const g of NPD_GATES_META) tagNameToKey.set(g.tagName, g.key);
+      const tagIdToKey = new Map<string, string>();
+      for (const t of gateTags) {
+        const k = tagNameToKey.get(t.name);
+        if (k) tagIdToKey.set(t.id, k);
+      }
 
-      // Get group_tags for this project + children
-      const childIds = groups.filter(g => g.parent_id === projectId).map(g => g.id);
       const allIds = [projectId, ...childIds];
-      
       const { data: groupTags } = await supabase
         .from("group_tags" as any)
         .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
 
-      const relevant = (groupTags || []).filter(gt => allIds.includes(gt.group_id));
-      
-      // Find highest gate
+      const relevant = (groupTags || []).filter((gt: any) => allIds.includes(gt.group_id));
+
       let maxIdx = -1;
       for (const gt of relevant) {
         const key = tagIdToKey.get(gt.tag_id);
@@ -77,16 +75,14 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
     staleTime: 1000 * 60 * 5,
   });
 
-  // Compute progress
   const pct = useMemo(() => {
     if (!project) return 0;
-    const childIds = new Set(groups.filter(g => g.parent_id === projectId).map(g => g.id));
     const allIds = new Set([projectId, ...childIds]);
     const tasks = allTasks.filter(t => t.group_id && allIds.has(t.group_id));
     const total = tasks.length;
     const done = tasks.filter(t => t.is_completed).length;
     return total > 0 ? Math.round((done / total) * 100) : 0;
-  }, [project, groups, allTasks, projectId]);
+  }, [project, allTasks, projectId, childIds]);
 
   const views: { id: ProjectView; icon: React.ElementType; label: string; disabled?: boolean }[] = [
     { id: "dashboard", icon: LayoutDashboard, label: "Обзор" },
@@ -96,8 +92,8 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
 
   if (!project) return null;
 
-  const activeGateIdx = gateData ?? 0;
-  const activeGate = isNpd ? NPD_GATES_META[activeGateIdx] : null;
+  const gateIdx = activeGateIdx ?? 0;
+  const activeGate = isNpd ? NPD_GATES_META[gateIdx] : null;
 
   return (
     <div className="flex items-center h-10 px-3 md:px-4 border-b border-border/50 shrink-0 gap-2 backdrop-blur-xl bg-card/70 supports-[backdrop-filter]:bg-card/60">
@@ -113,7 +109,6 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
         <h1 className="text-sm font-bold text-foreground truncate">{project.name}</h1>
       </div>
 
-      {/* Progress bar + active gate */}
       <div className="flex items-center gap-2 shrink-0 ml-1">
         <div className="flex items-center gap-1.5">
           <div className="w-16 md:w-20 h-1.5 rounded-full bg-muted/60 overflow-hidden">
