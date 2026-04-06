@@ -25,7 +25,8 @@ import {
   Tag,
   Plus,
   Globe,
-  
+  Layers,
+  Sparkles,
   SlidersHorizontal,
   Download,
   FileDown,
@@ -44,6 +45,7 @@ import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
+import BulkTaskDialog from "@/components/BulkTaskDialog";
 
 type BoardStage = {
   key: string;
