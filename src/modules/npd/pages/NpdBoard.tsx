@@ -858,7 +858,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         // Assign stream tags to each subproject
         const streamTagInserts: { group_id: string; tag_id: string }[] = [];
         for (const sub of createdSubs) {
-          const streamName = NPD_STREAMS.find((s) => sub.name.endsWith(` / ${s}`));
+          // Match by exact name (subprojects are created with streamName as name)
+          const streamName = NPD_STREAMS.find((s) => sub.name === s);
           if (streamName) {
             const sTag = streamTags.find((t) => t.name === streamName);
             if (sTag) {
