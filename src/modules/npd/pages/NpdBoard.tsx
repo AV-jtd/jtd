@@ -2153,7 +2153,7 @@ function ProjectCard({
               <span>Карточка</span>
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/pmo?project=${project.id}`); }}
+              onClick={(e) => { e.stopPropagation(); navigate(`/pmo/project/${project.id}?view=gantt`); }}
               className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Открыть в Ганте"
             >
@@ -2778,7 +2778,7 @@ function ProjectDetailSheet({
         <a href={`/npd/matrix/${project.id}`} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
           Swimlane Matrix
         </a>
-        <a href={`/pmo?project=${project.id}`} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
+        <a href={`/pmo/project/${project.id}?view=gantt`} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
           Открыть в PMO
         </a>
         <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
