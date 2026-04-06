@@ -151,7 +151,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
     });
   }, []);
 
-  // Pinch-to-zoom
+  // Pinch-to-zoom (touch)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -176,13 +176,25 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       }
     };
     const handleTouchEnd = () => { lastPinchDistRef.current = null; };
+
+    // Trackpad pinch-to-zoom (Ctrl+wheel)
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < -2) zoomIn();
+        else if (e.deltaY > 2) zoomOut();
+      }
+    };
+
     el.addEventListener("touchstart", handleTouchStart, { passive: false });
     el.addEventListener("touchmove", handleTouchMove, { passive: false });
     el.addEventListener("touchend", handleTouchEnd);
+    el.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       el.removeEventListener("touchstart", handleTouchStart);
       el.removeEventListener("touchmove", handleTouchMove);
       el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("wheel", handleWheel);
     };
   }, [zoomIn, zoomOut]);
 
@@ -552,9 +564,12 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const totalWidth = columns.length * colWidth;
   const totalDays = differenceInCalendarDays(timelineEnd, timelineStart) || 1;
 
-  // Compute month group headers for the top row
+  // Compute month group headers
   const monthGroups = useMemo(() => {
-    const groups: { label: string; span: number; key: string }[] = [];
+    const now = new Date();
+    const curMonth = getMonth(now);
+    const curYear = getYear(now);
+    const groups: { label: string; span: number; key: string; isCurrent: boolean }[] = [];
     let currentKey = "";
     columns.forEach(col => {
       const m = getMonth(col.date);
@@ -562,7 +577,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
       const key = y + "-" + m;
       if (key !== currentKey) {
         const label = format(startOfMonth(col.date), scale === "day" ? "LLLL yyyy" : "LLL yyyy", { locale: ru });
-        groups.push({ label, span: 1, key });
+        groups.push({ label, span: 1, key, isCurrent: m === curMonth && y === curYear });
         currentKey = key;
       } else {
         groups[groups.length - 1].span++;
@@ -1004,39 +1019,22 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           }}
         >
           <div style={{ width: totalWidth, minHeight: "100%" }} className="relative">
-            {/* Two-row column headers */}
-            <div className="sticky top-0 z-10 bg-card border-b border-border" style={{ height: 52 }}>
-              {/* Top row: months */}
-              <div className="flex border-b border-border/40" style={{ height: 22 }}>
-                {monthGroups.map(g => (
-                  <div
-                    key={g.key}
-                    className="shrink-0 flex items-center justify-center text-[10px] font-semibold text-muted-foreground border-r border-border/30 capitalize"
-                    style={{ width: g.span * colWidth }}
-                  >
-                    {g.label}
-                  </div>
-                ))}
-              </div>
-              {/* Bottom row: days/weeks/months */}
-              <div className="flex" style={{ height: 30 }}>
-                {columns.map((col, i) => (
-                  <div key={i} className={cn(
-                    "shrink-0 flex items-center justify-center text-[10px] border-r border-border/30",
-                    col.isToday && "bg-primary/10 font-bold text-primary",
-                    col.isWeekend && !col.isToday && "bg-muted/50 text-muted-foreground/60"
-                  )} style={{ width: colWidth }}>
-                    {scale === "day" ? (
-                      <div className="flex flex-col items-center leading-none">
-                        <span>{format(col.date, "EEEEEE", { locale: ru })}</span>
-                        <span className="font-medium">{col.label}</span>
-                      </div>
-                    ) : (
-                      <span>{col.label}{col.isToday ? " ◂" : ""}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* Single-row month headers */}
+            <div className="sticky top-0 z-10 bg-card border-b border-border flex" style={{ height: 32 }}>
+              {monthGroups.map(g => (
+                <div
+                  key={g.key}
+                  className="shrink-0 flex items-center justify-center text-[11px] capitalize"
+                  style={{
+                    width: g.span * colWidth,
+                    borderRight: "0.5px solid hsl(var(--border) / 0.4)",
+                    fontWeight: g.isCurrent ? 500 : 400,
+                    color: g.isCurrent ? "#7C3AED" : "hsl(var(--muted-foreground))",
+                  }}
+                >
+                  {g.label}{g.isCurrent ? " ◂" : ""}
+                </div>
+              ))}
             </div>
 
             {/* Grid + rows */}
@@ -1125,7 +1123,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                       row.type === "subtask" && "bg-transparent",
                       hoveredRow === i && "bg-muted/30"
                     )}
-                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 52, zIndex: 5 } : {}) }}
+                    style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
