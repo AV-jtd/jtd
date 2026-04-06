@@ -28,22 +28,26 @@ export interface DailyInsights {
 const CACHE_KEY = "ai_insights_cache_v2";
 const CACHE_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
 
-function getCached(): { insights: DailyInsights; ts: number } | null {
+function getCacheKey(projectId?: string) {
+  return projectId ? `${CACHE_KEY}_project_${projectId}` : CACHE_KEY;
+}
+
+function getCached(projectId?: string): { insights: DailyInsights; ts: number } | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(getCacheKey(projectId));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed.ts < CACHE_DURATION_MS) return parsed;
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(getCacheKey(projectId));
   } catch { /* ignore */ }
   return null;
 }
 
-function setCache(insights: DailyInsights) {
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ insights, ts: Date.now() }));
+function setCache(insights: DailyInsights, projectId?: string) {
+  localStorage.setItem(getCacheKey(projectId), JSON.stringify({ insights, ts: Date.now() }));
 }
 
-export function useAiInsights() {
+export function useAiInsights(projectId?: string) {
   const { user } = useAuth();
   const [insights, setInsights] = useState<DailyInsights | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +59,7 @@ export function useAiInsights() {
 
     // Check cache first
     if (!force) {
-      const cached = getCached();
+      const cached = getCached(projectId);
       if (cached) {
         setInsights(cached.insights);
         return;
@@ -66,7 +70,9 @@ export function useAiInsights() {
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("ai-insights");
+      const { data, error: fnError } = await supabase.functions.invoke("ai-insights", {
+        body: projectId ? { projectId } : undefined,
+      });
 
       if (fnError) {
         const errBody = typeof fnError === "object" ? fnError : {};
@@ -79,7 +85,7 @@ export function useAiInsights() {
 
       if (data?.insights) {
         setInsights(data.insights);
-        setCache(data.insights);
+        setCache(data.insights, projectId);
       }
     } catch (e: any) {
       console.error("AI insights error:", e);
@@ -87,13 +93,13 @@ export function useAiInsights() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, projectId]);
 
   useEffect(() => {
     if (user && !insights && !loading) {
       fetchInsights();
     }
-  }, [user]);
+  }, [user, projectId]);
 
   const refresh = useCallback(() => {
     setDismissed(false);

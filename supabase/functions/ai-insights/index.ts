@@ -13,14 +13,12 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Get user from JWT
     const authHeader = req.headers.get("authorization") || "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Decode JWT to get user_id
     const anonClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -33,18 +31,51 @@ serve(async (req) => {
       });
     }
 
+    // Parse optional projectId from body
+    let projectId: string | null = null;
+    try {
+      const body = await req.json();
+      projectId = body?.projectId || null;
+    } catch { /* no body = global insights */ }
+
     const userId = user.id;
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch user's tasks (active)
-    const { data: tasks } = await supabase
+    // If projectId provided, find project + children group IDs
+    let projectGroupIds: string[] | null = null;
+    let projectName = "";
+    if (projectId) {
+      const { data: projectGroup } = await supabase
+        .from("task_groups")
+        .select("id, name")
+        .eq("id", projectId)
+        .single();
+      projectName = projectGroup?.name || "Проект";
+
+      const { data: childGroups } = await supabase
+        .from("task_groups")
+        .select("id")
+        .eq("parent_id", projectId);
+
+      projectGroupIds = [projectId, ...(childGroups || []).map((g: any) => g.id)];
+    }
+
+    // Fetch tasks — scoped to project or global
+    let tasksQuery = supabase
       .from("tasks")
-      .select("id, title, deadline, is_completed, is_important, priority, assigned_to, user_id, group_id, completed_at, created_at, updated_at")
-      .or(`user_id.eq.${userId},assigned_to.eq.${userId}`)
+      .select("id, title, deadline, is_completed, is_important, priority, assigned_to, user_id, group_id, completed_at, created_at, updated_at, original_deadline")
       .order("deadline", { ascending: true })
       .limit(200);
+
+    if (projectGroupIds) {
+      tasksQuery = tasksQuery.in("group_id", projectGroupIds);
+    } else {
+      tasksQuery = tasksQuery.or(`user_id.eq.${userId},assigned_to.eq.${userId}`);
+    }
+
+    const { data: tasks } = await tasksQuery;
 
     // Fetch projects
     const { data: groups } = await supabase
@@ -54,7 +85,35 @@ serve(async (req) => {
       .is("parent_id", null)
       .limit(50);
 
-    // Fetch profiles for assignee names
+    // Fetch subprojects for project context
+    let subprojectNames: string[] = [];
+    if (projectId) {
+      const { data: subs } = await supabase
+        .from("task_groups")
+        .select("id, name")
+        .eq("parent_id", projectId);
+      subprojectNames = (subs || []).map((s: any) => s.name);
+    }
+
+    // Fetch milestones for project
+    let milestonesContext = "";
+    if (projectId && projectGroupIds) {
+      const { data: milestones } = await supabase
+        .from("project_milestones")
+        .select("name, planned_date, status, gate_key")
+        .in("group_id", projectGroupIds)
+        .order("planned_date", { ascending: true })
+        .limit(20);
+      if (milestones && milestones.length > 0) {
+        milestonesContext = `\n◆ Вехи проекта:\n`;
+        milestones.forEach((m: any) => {
+          const isPast = new Date(m.planned_date) < today;
+          const drift = isPast && m.status !== "done" ? Math.floor((today.getTime() - new Date(m.planned_date).getTime()) / (1000*60*60*24)) : 0;
+          milestonesContext += `- "${m.name}" → ${m.planned_date}${m.gate_key ? ` [${m.gate_key}]` : ""} ${m.status === "done" ? "✅" : drift > 0 ? `⚠️ +${drift} дн.` : "⏳"}\n`;
+        });
+      }
+    }
+
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, display_name")
@@ -81,18 +140,25 @@ serve(async (req) => {
     const delegatedToMe = activeTasks.filter((t: any) => t.assigned_to === userId && t.user_id !== userId);
     const delegatedByMe = activeTasks.filter((t: any) => t.user_id === userId && t.assigned_to && t.assigned_to !== userId);
     const noDeadline = activeTasks.filter((t: any) => !t.deadline);
+    const driftedTasks = activeTasks.filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
 
-    // Build context for AI — include task_id and group_id so AI can reference them
-    let context = `📊 Сводка на ${todayStr}:\n`;
+    // Build context
+    const scopeLabel = projectId ? `проекту "${projectName}"` : "всем задачам";
+    let context = `📊 Сводка на ${todayStr} по ${scopeLabel}:\n`;
     context += `- Всего активных задач: ${activeTasks.length}\n`;
     context += `- Выполнено за 3 дня: ${completedRecently.length}\n`;
     context += `- 🔴 Просрочено: ${overdue.length}\n`;
     context += `- 📅 На этой неделе: ${dueThisWeek.length}\n`;
     context += `- ⭐ Важных/приоритетных: ${highPriority.length}\n`;
-    context += `- 📥 Поручено мне: ${delegatedToMe.length}\n`;
-    context += `- 📤 Поручено мной: ${delegatedByMe.length}\n`;
+    if (!projectId) {
+      context += `- 📥 Поручено мне: ${delegatedToMe.length}\n`;
+      context += `- 📤 Поручено мной: ${delegatedByMe.length}\n`;
+    }
     context += `- ⚠️ Без дедлайна: ${noDeadline.length}\n`;
-    context += `- 📂 Проектов: ${(groups || []).length}\n`;
+    context += `- 📈 Со сдвигом дедлайна: ${driftedTasks.length}\n`;
+    if (!projectId) context += `- 📂 Проектов: ${(groups || []).length}\n`;
+    if (subprojectNames.length > 0) context += `- 🔀 Стримы/подпроекты: ${subprojectNames.join(", ")}\n`;
+    context += milestonesContext;
 
     if (overdue.length > 0) {
       context += `\n🔴 Просроченные задачи:\n`;
@@ -120,7 +186,7 @@ serve(async (req) => {
       });
     }
 
-    if (delegatedToMe.length > 0) {
+    if (!projectId && delegatedToMe.length > 0) {
       context += `\n📥 Новые поручения мне:\n`;
       delegatedToMe.slice(0, 5).forEach((t: any) => {
         const from = profileMap[t.user_id] || "?";
@@ -128,7 +194,7 @@ serve(async (req) => {
       });
     }
 
-    if (delegatedByMe.length > 0) {
+    if (!projectId && delegatedByMe.length > 0) {
       context += `\n📤 Мои поручения другим:\n`;
       delegatedByMe.slice(0, 5).forEach((t: any) => {
         const to = profileMap[t.assigned_to!] || "?";
@@ -136,19 +202,32 @@ serve(async (req) => {
       });
     }
 
-    // Call AI for insights
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `Ты — проактивный AI-помощник для управления задачами. Твоя задача — дать пользователю краткий, полезный дайджест на день.
+    if (driftedTasks.length > 0) {
+      context += `\n📈 Задачи со сдвигом дедлайна:\n`;
+      driftedTasks.slice(0, 5).forEach((t: any) => {
+        const drift = Math.floor((new Date(t.deadline).getTime() - new Date(t.original_deadline).getTime()) / (1000*60*60*24));
+        context += `- "${t.title}" [task_id:${t.id}] сдвиг +${drift} дн.\n`;
+      });
+    }
+
+    const systemPrompt = projectId
+      ? `Ты — проактивный AI-помощник по управлению проектом "${projectName}". Анализируй ТОЛЬКО задачи этого проекта.
+
+Правила:
+1. Дай оценку здоровья проекта: прогресс, риски, узкие места
+2. Выдели 1-3 конкретных рекомендации по проекту
+3. Если есть просрочки или сдвиги дедлайнов — подчеркни это
+4. Оцени темп выполнения: успеваем ли к вехам?
+5. Если есть стримы — отметь отстающие
+6. Предложи фокус: на чём сконцентрироваться в проекте
+7. Используй эмодзи
+8. Будь кратким! Максимум 200 слов
+9. НЕ ИСПОЛЬЗУЙ markdown (**, *, #, \`, []()). Обычный текст
+10. Тон — деловой, конструктивный
+11. КРИТИЧЕСКИ ВАЖНО: В urgentItems указывай task_id и group_id из контекста [task_id:UUID] и [group_id:UUID]
+12. Для focusOfDay укажи focusTaskId или focusGroupId
+13. Не включай [task_id:...] или [group_id:...] в текст — только через поля JSON`
+      : `Ты — проактивный AI-помощник для управления задачами. Твоя задача — дать пользователю краткий, полезный дайджест на день.
 
 Правила:
 1. Начни с самого важного: что горит, что нужно сделать сегодня
@@ -166,23 +245,36 @@ serve(async (req) => {
 13. Не включай [task_id:...] или [group_id:...] в текст — передавай их ТОЛЬКО через поля task_id и group_id в JSON.
 
 Если задач мало (< 5) — предложи спланировать день/неделю.
-Если всё в порядке — отметь это и предложи стратегический фокус.`,
-          },
-          {
-            role: "user",
-            content: `Вот моя текущая ситуация с задачами:\n\n${context}\n\nДай мне краткий дайджест и рекомендации на сегодня.`,
-          },
+Если всё в порядке — отметь это и предложи стратегический фокус.`;
+
+    const userPrompt = projectId
+      ? `Вот текущая ситуация по проекту "${projectName}":\n\n${context}\n\nДай анализ проекта и рекомендации.`
+      : `Вот моя текущая ситуация с задачами:\n\n${context}\n\nДай мне краткий дайджест и рекомендации на сегодня.`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         tools: [
           {
             type: "function",
             function: {
               name: "daily_insights",
-              description: "Сформировать проактивный дайджест дня для пользователя",
+              description: projectId
+                ? "Сформировать аналитику по проекту"
+                : "Сформировать проактивный дайджест дня для пользователя",
               parameters: {
                 type: "object",
                 properties: {
-                  greeting: { type: "string", description: "Краткое приветствие (1 предложение, с эмодзи)" },
+                  greeting: { type: "string", description: projectId ? "Краткая оценка здоровья проекта (1 предложение, с эмодзи)" : "Краткое приветствие (1 предложение, с эмодзи)" },
                   urgentItems: {
                     type: "array",
                     items: {
@@ -197,15 +289,15 @@ serve(async (req) => {
                     },
                     description: "1-4 срочных/важных пункта на которые стоит обратить внимание. Включай task_id и group_id где возможно.",
                   },
-                  focusOfDay: { type: "string", description: "Рекомендованный фокус дня (1 предложение)" },
-                  focusTaskId: { type: "string", description: "UUID задачи для фокуса дня из контекста [task_id:...], если фокус на конкретной задаче" },
-                  focusGroupId: { type: "string", description: "UUID проекта для фокуса дня из контекста [group_id:...], если фокус на проекте" },
+                  focusOfDay: { type: "string", description: projectId ? "Главный приоритет по проекту (1 предложение)" : "Рекомендованный фокус дня (1 предложение)" },
+                  focusTaskId: { type: "string", description: "UUID задачи для фокуса из контекста [task_id:...]" },
+                  focusGroupId: { type: "string", description: "UUID проекта для фокуса из контекста [group_id:...]" },
                   tips: {
                     type: "array",
                     items: { type: "string" },
                     description: "1-2 конкретных совета или рекомендации",
                   },
-                  motivation: { type: "string", description: "Мотивирующее завершение (1 предложение, с эмодзи)" },
+                  motivation: { type: "string", description: projectId ? "Итоговая рекомендация (1 предложение)" : "Мотивирующее завершение (1 предложение, с эмодзи)" },
                   stats: {
                     type: "object",
                     properties: {
@@ -291,7 +383,6 @@ serve(async (req) => {
         return { ...item, text, ...fallback };
       });
 
-      // Clean focusOfDay text too
       const focusExtracted = extractAndClean(insights.focusOfDay);
       insights.focusOfDay = focusExtracted.clean || insights.focusOfDay;
 
