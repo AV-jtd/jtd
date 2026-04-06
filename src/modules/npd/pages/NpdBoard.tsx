@@ -346,7 +346,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const streamTagById = useMemo(() => new Map(streamTags.map((t) => [t.id, t.name])), [streamTags]);
 
   // ── Fetch group_tags for NPD projects ──
-  const { data: allGroupTags = [] } = useQuery({
+  const { data: allGroupTags = [], isLoading: isGroupTagsLoading } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -592,8 +592,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   }, [filteredProjects, tagIdToGateKey, positionMap]);
 
   const inboxProjects = useMemo(
-    () => filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
-    [filteredProjects, tagIdToGateKey]
+    () => isGroupTagsLoading ? [] : filteredProjects.filter((p) => getProjectGate(p) === null && p.allGateKeys.length === 0),
+    [filteredProjects, tagIdToGateKey, isGroupTagsLoading]
   );
 
   const archiveProjects = useMemo(() => {
@@ -858,7 +858,8 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
         // Assign stream tags to each subproject
         const streamTagInserts: { group_id: string; tag_id: string }[] = [];
         for (const sub of createdSubs) {
-          const streamName = NPD_STREAMS.find((s) => sub.name.endsWith(` / ${s}`));
+          // Match by exact name (subprojects are created with streamName as name)
+          const streamName = NPD_STREAMS.find((s) => sub.name === s);
           if (streamName) {
             const sTag = streamTags.find((t) => t.name === streamName);
             if (sTag) {
