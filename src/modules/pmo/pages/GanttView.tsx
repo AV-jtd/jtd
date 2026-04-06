@@ -61,6 +61,7 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [popoverOpenTaskId, setPopoverOpenTaskId] = useState<string | null>(null);
+  const [highlightedRowIdx, setHighlightedRowIdx] = useState<number | null>(null);
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
 
   // Merge saved config with defaults (in case new columns were added)
@@ -913,9 +914,102 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
           <span className="hidden sm:inline">Печать</span>
         </button>
 
-        <span className="text-xs text-muted-foreground ml-auto">
-          {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
-        </span>
+        {/* Minimap */}
+        {(() => {
+          const el = scrollRef.current;
+          const viewportW = el?.clientWidth || 400;
+          const vpStart = tlScrollLeft;
+          const vpEnd = vpStart + viewportW;
+          // Proportional positions
+          const vpLeftPct = totalWidth > 0 ? (vpStart / totalWidth) * 100 : 0;
+          const vpWidthPct = totalWidth > 0 ? Math.min((viewportW / totalWidth) * 100, 100) : 100;
+
+          // Milestones in minimap
+          const msRows = rows.map((r, i) => r.type === "milestone" && r.milestone ? { ...r, idx: i } : null).filter(Boolean) as (typeof rows[0] & { idx: number })[];
+          const msOffscreenRight = msRows.filter(r => {
+            const x = getMilestoneX(r.milestone!);
+            return x > vpEnd;
+          }).length;
+
+          // Overdue tasks
+          const overdueTasks = rows.filter(r => r.type === "task" && r.task?.deadline && isPast(parseISO(r.task.deadline)) && !r.task.is_completed);
+
+          return (
+            <div className="flex items-center gap-2 flex-1 min-w-0 ml-2">
+              <div
+                className="relative flex-1 h-5 bg-muted/60 rounded cursor-pointer border border-border/40 overflow-hidden"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickPct = (e.clientX - rect.left) / rect.width;
+                  const targetScroll = clickPct * totalWidth - viewportW / 2;
+                  scrollRef.current?.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
+                }}
+              >
+                {/* Overdue zone */}
+                {overdueTasks.length > 0 && (() => {
+                  const todayPct = totalWidth > 0 ? (todayOffset / totalWidth) * 100 : 50;
+                  return (
+                    <div
+                      className="absolute top-0 bottom-0 opacity-20 rounded-l"
+                      style={{ left: 0, width: `${todayPct}%`, backgroundColor: "hsl(var(--destructive))" }}
+                    />
+                  );
+                })()}
+
+                {/* Viewport indicator */}
+                <div
+                  className="absolute top-0 bottom-0 rounded-sm border border-primary/40"
+                  style={{
+                    left: `${vpLeftPct}%`,
+                    width: `${vpWidthPct}%`,
+                    backgroundColor: "hsl(var(--primary) / 0.12)",
+                  }}
+                />
+
+                {/* Today line */}
+                {totalWidth > 0 && (
+                  <div
+                    className="absolute top-0 bottom-0 w-px"
+                    style={{ left: `${(todayOffset / totalWidth) * 100}%`, backgroundColor: "hsl(var(--primary))" }}
+                  />
+                )}
+
+                {/* Milestone diamonds */}
+                {msRows.map(r => {
+                  const x = getMilestoneX(r.milestone!);
+                  const pct = totalWidth > 0 ? (x / totalWidth) * 100 : 0;
+                  return (
+                    <div
+                      key={r.milestone!.id}
+                      className="absolute top-1/2 -translate-y-1/2 cursor-pointer z-10 hover:scale-150 transition-transform"
+                      style={{ left: `${pct}%` }}
+                      title={`${r.milestone!.name} — ${format(parseISO(r.milestone!.planned_date), "d MMM", { locale: ru })}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Scroll to milestone
+                        scrollRef.current?.scrollTo({ left: Math.max(0, x - viewportW / 2), behavior: "smooth" });
+                        // Highlight row
+                        setHighlightedRowIdx(r.idx);
+                        setTimeout(() => setHighlightedRowIdx(null), 2000);
+                      }}
+                    >
+                      <Diamond className="h-[6px] w-[6px] fill-[#EF4444] text-[#EF4444]" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Off-screen milestones counter */}
+              {msOffscreenRight > 0 && (
+                <span className="text-[10px] text-[#EF4444] whitespace-nowrap shrink-0">{msOffscreenRight} вех →</span>
+              )}
+
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                {rows.filter(r => r.type === "task").length} задач · {rows.filter(r => r.type === "milestone").length} вех
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Gantt body */}
@@ -1118,10 +1212,11 @@ export default function GanttView({ initialProjectId, onBack }: { initialProject
                   <div
                     key={i}
                     className={cn(
-                      "relative border-b border-border/30",
+                      "relative border-b border-border/30 transition-colors duration-500",
                       row.type === "project" && "bg-muted/40",
                       row.type === "subtask" && "bg-transparent",
-                      hoveredRow === i && "bg-muted/30"
+                      hoveredRow === i && "bg-muted/30",
+                      highlightedRowIdx === i && "!bg-yellow-200/40"
                     )}
                     style={{ height: ROW_HEIGHT, ...(row.type === "project" ? { position: 'sticky' as const, top: 32, zIndex: 5 } : {}) }}
                     onMouseEnter={() => setHoveredRow(i)}
