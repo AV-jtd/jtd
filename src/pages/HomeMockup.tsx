@@ -11,7 +11,7 @@ const ROLE_CELLS = [
   { label: "Входящие", sub: "Не распределено", count: 7, color: "hsl(var(--warning))", bg: "hsl(var(--warning) / .1)" },
   { label: "Я ответственный", sub: "", count: 12, color: "hsl(var(--tag-purple))", bg: "hsl(var(--tag-purple) / .1)" },
   { label: "Я поручил", sub: "", count: 5, color: "hsl(var(--success))", bg: "hsl(var(--success) / .1)" },
-  { label: "Меня информировали", sub: "", count: 3, color: "hsl(var(--tag-blue))", bg: "hsl(var(--tag-blue) / .1)" },
+  { label: "Просроченные", sub: "", count: 3, color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / .1)" },
   { label: "На сегодня", sub: "", count: 8, color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / .1)" },
   { label: "На неделю", sub: "", count: 19, color: "hsl(var(--tag-teal))", bg: "hsl(var(--tag-teal) / .1)" },
 ];
