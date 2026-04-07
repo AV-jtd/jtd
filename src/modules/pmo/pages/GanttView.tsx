@@ -338,9 +338,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           const movedTask = allTasks.find(t => t.id === dragState.taskId);
           if (movedTask) {
             const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
-            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+            const newStart = addDays(oldStart, daysDelta).toISOString();
+            const prevStart = movedTask.start_at;
+            updateTask.mutate({ id: dragState.taskId, start_at: newStart });
+            pushUndo({
+              label: `дата старта «${movedTask.title}»`,
+              undo: () => updateTask.mutate({ id: movedTask.id, start_at: prevStart }),
+              redo: () => updateTask.mutate({ id: movedTask.id, start_at: newStart }),
+            });
           }
-          updateTask.mutate(taskUpdates);
           setDragState(null);
           setDragDelta(0);
           return;
@@ -359,7 +365,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           }
         }
         
+        const movedTaskForUndo = allTasks.find(t => t.id === dragState.taskId);
+        const prevDeadline = movedTaskForUndo?.deadline;
+        const prevStartAt = movedTaskForUndo?.start_at;
         updateTask.mutate(taskUpdates);
+        pushUndo({
+          label: `срок «${movedTaskForUndo?.title || "задача"}»`,
+          undo: () => updateTask.mutate({ id: dragState.taskId, deadline: prevDeadline, start_at: prevStartAt }),
+          redo: () => updateTask.mutate(taskUpdates),
+        });
 
         // Cascading: push forward dependent tasks
         if (daysDelta !== 0 && allDependencies.length > 0) {
@@ -1321,10 +1335,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                 addSubtask.mutate({ task_id: taskId, title });
               }}
               onUpdateTask={(id, updates) => {
-                updateTask.mutate({ id, ...updates });
+                const task = allTasks.find(t => t.id === id);
+                if (task) undoableUpdate(task, updates);
+                else updateTask.mutate({ id, ...updates });
               }}
               onToggleTask={(id, completed) => {
-                toggleTask.mutate({ id, is_completed: completed });
+                const task = allTasks.find(t => t.id === id);
+                if (task) undoableToggle(task);
+                else toggleTask.mutate({ id, is_completed: completed });
               }}
               onUpdateSubtask={(id, updates) => {
                 updateSubtask.mutate({ id, ...updates });
@@ -1619,9 +1637,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               <GanttTaskPopover
                                 task={task}
                                 project={row.project}
-                                onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
-                                onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
-                                onDelete={(id) => deleteTask.mutate(id)}
+                                onUpdate={(id, updates) => { const t = allTasks.find(x => x.id === id); if (t) undoableUpdate(t, updates); else updateTask.mutate({ id, ...updates }); }}
+                                onToggle={(id, completed) => { const t = allTasks.find(x => x.id === id); if (t) undoableToggle(t); else toggleTask.mutate({ id, is_completed: completed }); }}
+                                onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                                 onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
                                 <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
