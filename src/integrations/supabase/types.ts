@@ -552,6 +552,7 @@ export type Database = {
           id: string
           name: string
           planned_date: string
+          position: number
           status: string
           updated_at: string
         }
@@ -566,6 +567,7 @@ export type Database = {
           id?: string
           name: string
           planned_date: string
+          position?: number
           status?: string
           updated_at?: string
         }
@@ -580,6 +582,7 @@ export type Database = {
           id?: string
           name?: string
           planned_date?: string
+          position?: number
           status?: string
           updated_at?: string
         }

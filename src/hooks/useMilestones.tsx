@@ -14,6 +14,7 @@ export function useMilestones() {
       const { data, error } = await supabase
         .from("project_milestones")
         .select("*")
+        .order("position")
         .order("planned_date");
       if (error) throw error;
       return data as Milestone[];
