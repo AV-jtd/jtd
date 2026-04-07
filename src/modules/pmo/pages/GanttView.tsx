@@ -618,6 +618,47 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     return result;
   }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty]);
 
+  // ── Multi-select handlers (need rows + handleChangeTaskGate) ──
+  const handleToggleSelect = useCallback((taskId: string, shiftKey?: boolean) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (shiftKey && prev.size > 0) {
+        const taskRowsArr = rows.filter(r => r.type === "task" && r.task);
+        const lastId = [...prev].pop()!;
+        const lastIdx = taskRowsArr.findIndex(r => r.task!.id === lastId);
+        const curIdx = taskRowsArr.findIndex(r => r.task!.id === taskId);
+        if (lastIdx >= 0 && curIdx >= 0) {
+          const [start, end] = lastIdx < curIdx ? [lastIdx, curIdx] : [curIdx, lastIdx];
+          for (let i = start; i <= end; i++) next.add(taskRowsArr[i].task!.id);
+          return next;
+        }
+      }
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  }, [rows]);
+
+  const handleBulkMove = useCallback((targetGroupId: string) => {
+    selectedTaskIds.forEach(id => updateTask.mutate({ id, group_id: targetGroupId }));
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, updateTask]);
+
+  const handleBulkAssign = useCallback((userId: string | null) => {
+    selectedTaskIds.forEach(id => updateTask.mutate({ id, assigned_to: userId }));
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, updateTask]);
+
+  const handleBulkGate = useCallback((gateKey: string | null) => {
+    selectedTaskIds.forEach(id => handleChangeTaskGate(id, gateKey));
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, handleChangeTaskGate]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (!confirm(`Удалить ${selectedTaskIds.size} задач?`)) return;
+    selectedTaskIds.forEach(id => deleteTask.mutate(id));
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, deleteTask]);
+
   // Timeline range
   const { timelineStart, timelineEnd, columns } = useMemo(() => {
     const now = new Date();
