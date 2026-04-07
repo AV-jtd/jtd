@@ -1199,6 +1199,52 @@ export default function AppSidebar({
             </div>
           )}
         </div>
+
+        {/* ПЕРЕСМОТР section */}
+        <div className="space-y-0.5 pt-3">
+          <p className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Пересмотр</p>
+          {menuSections[2].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ЕЩЁ section */}
+        <div className="space-y-0.5 pt-2">
+          <button
+            onClick={() => setMoreOpen(!moreOpen)}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold hover:text-sidebar-fg/60"
+          >
+            {moreOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Ещё
+          </button>
+          {moreOpen && menuSections[3].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/50 hover:bg-sidebar-hover hover:text-sidebar-fg/70"
+              )}
+            >
+              <item.icon className="h-3.5 w-3.5" />
+              {item.label}
+            </button>
+          ))}
+        </div>
       </nav>
 
       {/* User */}
