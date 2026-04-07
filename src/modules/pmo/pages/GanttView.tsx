@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useUndo } from "@/hooks/useUndoStack";
 import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
@@ -49,7 +50,45 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
   const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask, updateGroupParent } = useTaskMutations();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
+  const { pushUndo } = useUndo();
   const queryClient = useQueryClient();
+
+  // ── Undoable wrappers ──
+  const undoableToggle = useCallback((task: Task) => {
+    const prev = task.is_completed;
+    toggleTask.mutate({ id: task.id, is_completed: !prev });
+    pushUndo({
+      label: prev ? `Восстановлено «${task.title}»` : `Завершено «${task.title}»`,
+      undo: () => toggleTask.mutate({ id: task.id, is_completed: prev }),
+      redo: () => toggleTask.mutate({ id: task.id, is_completed: !prev }),
+    });
+  }, [toggleTask, pushUndo]);
+
+  const undoableUpdate = useCallback((task: Task, updates: Partial<Task>) => {
+    const prevValues: any = {};
+    for (const key of Object.keys(updates)) prevValues[key] = (task as any)[key];
+    updateTask.mutate({ id: task.id, ...updates });
+    const fields: Record<string, string> = { deadline: "срок", description: "описание", title: "название", assigned_to: "ответственный", priority: "приоритет", group_id: "проект", start_at: "дата старта" };
+    const changedField = fields[Object.keys(updates)[0]] || Object.keys(updates)[0] || "поле";
+    pushUndo({
+      label: `${changedField} «${task.title}»`,
+      undo: () => updateTask.mutate({ id: task.id, ...prevValues }),
+      redo: () => updateTask.mutate({ id: task.id, ...updates }),
+    });
+  }, [updateTask, pushUndo]);
+
+  const undoableDelete = useCallback((task: Task) => {
+    const snap = { ...task };
+    deleteTask.mutate(task.id);
+    pushUndo({
+      label: `Удалено «${task.title}»`,
+      undo: async () => {
+        const { id, ...rest } = snap;
+        await supabase.from("tasks").insert({ ...rest, id });
+      },
+      redo: () => deleteTask.mutate(snap.id),
+    });
+  }, [deleteTask, pushUndo]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
@@ -299,9 +338,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           const movedTask = allTasks.find(t => t.id === dragState.taskId);
           if (movedTask) {
             const oldStart = movedTask.start_at ? parseISO(movedTask.start_at) : parseISO(movedTask.created_at);
-            taskUpdates.start_at = addDays(oldStart, daysDelta).toISOString();
+            const newStart = addDays(oldStart, daysDelta).toISOString();
+            const prevStart = movedTask.start_at;
+            updateTask.mutate({ id: dragState.taskId, start_at: newStart });
+            pushUndo({
+              label: `дата старта «${movedTask.title}»`,
+              undo: () => updateTask.mutate({ id: movedTask.id, start_at: prevStart }),
+              redo: () => updateTask.mutate({ id: movedTask.id, start_at: newStart }),
+            });
           }
-          updateTask.mutate(taskUpdates);
           setDragState(null);
           setDragDelta(0);
           return;
@@ -320,7 +365,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           }
         }
         
+        const movedTaskForUndo = allTasks.find(t => t.id === dragState.taskId);
+        const prevDeadline = movedTaskForUndo?.deadline;
+        const prevStartAt = movedTaskForUndo?.start_at;
         updateTask.mutate(taskUpdates);
+        pushUndo({
+          label: `срок «${movedTaskForUndo?.title || "задача"}»`,
+          undo: () => updateTask.mutate({ id: dragState.taskId, deadline: prevDeadline, start_at: prevStartAt }),
+          redo: () => updateTask.mutate(taskUpdates),
+        });
 
         // Cascading: push forward dependent tasks
         if (daysDelta !== 0 && allDependencies.length > 0) {
@@ -365,7 +418,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups]);
+  }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
 
   // Dependency drag handlers
   useEffect(() => {
@@ -1282,10 +1335,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                 addSubtask.mutate({ task_id: taskId, title });
               }}
               onUpdateTask={(id, updates) => {
-                updateTask.mutate({ id, ...updates });
+                const task = allTasks.find(t => t.id === id);
+                if (task) undoableUpdate(task, updates);
+                else updateTask.mutate({ id, ...updates });
               }}
               onToggleTask={(id, completed) => {
-                toggleTask.mutate({ id, is_completed: completed });
+                const task = allTasks.find(t => t.id === id);
+                if (task) undoableToggle(task);
+                else toggleTask.mutate({ id, is_completed: completed });
               }}
               onUpdateSubtask={(id, updates) => {
                 updateSubtask.mutate({ id, ...updates });
@@ -1294,8 +1351,13 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                 toggleSubtask.mutate({ id, is_completed: completed });
               }}
               onMoveTask={(taskId, newGroupId) => {
-                updateTask.mutate({ id: taskId, group_id: newGroupId });
+                const task = allTasks.find(t => t.id === taskId);
+                if (task) undoableUpdate(task, { group_id: newGroupId });
+                else updateTask.mutate({ id: taskId, group_id: newGroupId });
               }}
+
+
+
               onMoveProject={(projectId, newParentId) => {
                 updateGroupParent.mutate({ id: projectId, parent_id: newParentId });
               }}
@@ -1580,9 +1642,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               <GanttTaskPopover
                                 task={task}
                                 project={row.project}
-                                onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
-                                onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
-                                onDelete={(id) => deleteTask.mutate(id)}
+                                onUpdate={(id, updates) => { const t = allTasks.find(x => x.id === id); if (t) undoableUpdate(t, updates); else updateTask.mutate({ id, ...updates }); }}
+                                onToggle={(id, completed) => { const t = allTasks.find(x => x.id === id); if (t) undoableToggle(t); else toggleTask.mutate({ id, is_completed: completed }); }}
+                                onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                                 onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
                                 <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
@@ -1644,9 +1706,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           <GanttTaskPopover
                             task={task}
                             project={row.project}
-                            onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
-                            onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
-                            onDelete={(id) => deleteTask.mutate(id)}
+                            onUpdate={(id, updates) => { const t = allTasks.find(x => x.id === id); if (t) undoableUpdate(t, updates); else updateTask.mutate({ id, ...updates }); }}
+                            onToggle={(id, completed) => { const t = allTasks.find(x => x.id === id); if (t) undoableToggle(t); else toggleTask.mutate({ id, is_completed: completed }); }}
+                            onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                             onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                           >
                             <span
