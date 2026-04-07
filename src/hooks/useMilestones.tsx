@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { Tables } from "@/integrations/supabase/types";
+import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
 export type Milestone = Tables<"project_milestones">;
+type MilestoneInsert = TablesInsert<"project_milestones">;
+type MilestoneUpdate = TablesUpdate<"project_milestones">;
 
 export function useMilestones() {
   const { user } = useAuth();
@@ -28,8 +30,17 @@ export function useMilestoneMutations() {
   const { user } = useAuth();
 
   const addMilestone = useMutation({
-    mutationFn: async (ms: { name: string; group_id: string; planned_date: string; description?: string; color?: string; gate_key?: string | null }) => {
-      const { error } = await supabase.from("project_milestones").insert({
+    mutationFn: async (ms: { name: string; group_id: string; planned_date: string; description?: string; color?: string; gate_key?: string | null; position?: number }) => {
+      const { data: lastMilestone, error: positionError } = await supabase
+        .from("project_milestones")
+        .select("position")
+        .eq("group_id", ms.group_id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (positionError) throw positionError;
+
+      const payload: MilestoneInsert = {
         name: ms.name,
         group_id: ms.group_id,
         planned_date: ms.planned_date,
@@ -37,7 +48,10 @@ export function useMilestoneMutations() {
         color: ms.color || "#3b82f6",
         created_by: user!.id,
         gate_key: ms.gate_key || null,
-      } as any);
+        position: ms.position ?? (lastMilestone?.position ?? 0) + 1,
+      };
+
+      const { error } = await supabase.from("project_milestones").insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -48,8 +62,9 @@ export function useMilestoneMutations() {
   });
 
   const updateMilestone = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; name?: string; planned_date?: string; description?: string; color?: string; status?: string; actual_date?: string | null; gate_key?: string | null }) => {
-      const { error } = await supabase.from("project_milestones").update(updates as any).eq("id", id);
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; planned_date?: string; description?: string; color?: string; status?: string; actual_date?: string | null; gate_key?: string | null; group_id?: string; position?: number }) => {
+      const payload: MilestoneUpdate = updates;
+      const { error } = await supabase.from("project_milestones").update(payload).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
