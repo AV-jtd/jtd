@@ -30,7 +30,7 @@ export function useMilestoneMutations() {
   const { user } = useAuth();
 
   const addMilestone = useMutation({
-    mutationFn: async (ms: { name: string; group_id: string; planned_date: string; description?: string; color?: string; gate_key?: string | null; position?: number }) => {
+    mutationFn: async (ms: { name: string; group_id: string; planned_date?: string; description?: string; color?: string; gate_key?: string | null; position?: number }) => {
       const { data: lastMilestone, error: positionError } = await supabase
         .from("project_milestones")
         .select("position")
@@ -43,7 +43,7 @@ export function useMilestoneMutations() {
       const payload: MilestoneInsert = {
         name: ms.name,
         group_id: ms.group_id,
-        planned_date: ms.planned_date,
+        planned_date: ms.planned_date || new Date().toISOString(),
         description: ms.description || null,
         color: ms.color || "#3b82f6",
         created_by: user!.id,

@@ -1751,10 +1751,34 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         projects={groups}
         defaultProjectId={selectedProjectId}
         onSave={(data) => {
+          const { predecessor, ...msData } = data;
           if (editingMilestone) {
-            updateMilestone.mutate({ id: editingMilestone.id, ...data });
+            updateMilestone.mutate({ id: editingMilestone.id, ...msData });
           } else {
-            addMilestone.mutate(data);
+            addMilestone.mutate(msData);
+          }
+          // Handle predecessor dependency after save
+          if (predecessor && predecessor.id) {
+            // We'll create the dependency; for new milestones this is tricky
+            // since we don't have the ID yet, but for edits it works
+            if (editingMilestone) {
+              // Remove old deps where this milestone is successor
+              const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
+              oldDeps.forEach(d => deleteDependency.mutate(d.id));
+              // Add new
+              setTimeout(() => {
+                addDependency.mutate({
+                  predecessor_id: predecessor.id,
+                  successor_id: editingMilestone.id,
+                  predecessor_entity_type: predecessor.entity_type,
+                  successor_entity_type: "milestone",
+                });
+              }, 300);
+            }
+          } else if (editingMilestone && !predecessor) {
+            // Remove existing predecessor deps
+            const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
+            oldDeps.forEach(d => deleteDependency.mutate(d.id));
           }
         }}
         onDelete={(id) => deleteMilestone.mutate(id)}

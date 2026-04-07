@@ -355,7 +355,8 @@ export default function MilestonesView() {
         projects={groups}
         onSave={(data) => {
           if (editingMs) {
-            updateMilestone.mutate({ id: editingMs.id, ...data });
+            const { predecessor, ...msData } = data;
+            updateMilestone.mutate({ id: editingMs.id, ...msData });
           }
         }}
         onDelete={(id) => {
