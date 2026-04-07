@@ -113,6 +113,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   // ── Gate column: build taskId -> gateKey map from task_tags ──
   const NPD_GATE_TAG_NAMES = useMemo(() => [
