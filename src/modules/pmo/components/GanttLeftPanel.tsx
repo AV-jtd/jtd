@@ -98,6 +98,9 @@ interface GanttLeftPanelProps {
   taskGateMap?: Map<string, string>;
   /** Called when user changes a task's gate from the Gantt */
   onChangeTaskGate?: (taskId: string, gateKey: string | null) => void;
+  /** Multi-select */
+  selectedTaskIds?: Set<string>;
+  onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 /** Predecessor picker with search and multi-select */
