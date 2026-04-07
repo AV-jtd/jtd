@@ -25,31 +25,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
-    const [profileRes, roleRes, adminExistsRes] = await Promise.all([
-      supabase.from("profiles").select("is_approved").eq("id", userId).single(),
-      supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
-      supabase.rpc("admin_exists"),
-    ]);
+    try {
+      const [profileRes, roleRes, adminExistsRes] = await Promise.all([
+        supabase.from("profiles").select("is_approved").eq("id", userId).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+        supabase.rpc("admin_exists"),
+      ]);
 
-    // Only apply results if this is still the latest fetch and component is mounted
-    if (fetchIdRef.current !== fetchId || !isMounted()) return;
+      // Only apply results if this is still the latest fetch and component is mounted
+      if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
-    // If no admins exist, first user becomes admin
-    const noAdminsExist = adminExistsRes.data === false;
-    if (noAdminsExist) {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
-      if (fetchIdRef.current !== fetchId || !isMounted()) return;
-      setIsAdmin(true);
-      await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
-      if (fetchIdRef.current !== fetchId || !isMounted()) return;
-      setIsApproved(true);
+      // If no admins exist, first user becomes admin
+      const noAdminsExist = adminExistsRes.data === false;
+      if (noAdminsExist) {
+        await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
+        if (fetchIdRef.current !== fetchId || !isMounted()) return;
+        setIsAdmin(true);
+        await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
+        if (fetchIdRef.current !== fetchId || !isMounted()) return;
+        setIsApproved(true);
+        setLoading(false);
+        return;
+      }
+
+      setIsApproved((profileRes.data as any)?.is_approved ?? false);
+      setIsAdmin(!!roleRes.data);
       setLoading(false);
-      return;
+    } catch (err) {
+      console.error("[Auth] fetchProfile failed:", err);
+      if (fetchIdRef.current === fetchId && isMounted()) {
+        setLoading(false);
+      }
     }
-
-    setIsApproved((profileRes.data as any)?.is_approved ?? false);
-    setIsAdmin(!!roleRes.data);
-    setLoading(false);
   };
 
   useEffect(() => {
