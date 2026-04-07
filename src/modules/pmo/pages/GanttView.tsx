@@ -50,7 +50,45 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const { addMilestone, updateMilestone, deleteMilestone } = useMilestoneMutations();
   const { addGroup, addTask, updateTask, deleteTask, toggleTask, addSubtask, toggleSubtask, updateSubtask, updateGroupParent } = useTaskMutations();
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
+  const { pushUndo } = useUndo();
   const queryClient = useQueryClient();
+
+  // ── Undoable wrappers ──
+  const undoableToggle = useCallback((task: Task) => {
+    const prev = task.is_completed;
+    toggleTask.mutate({ id: task.id, is_completed: !prev });
+    pushUndo({
+      label: prev ? `Восстановлено «${task.title}»` : `Завершено «${task.title}»`,
+      undo: () => toggleTask.mutate({ id: task.id, is_completed: prev }),
+      redo: () => toggleTask.mutate({ id: task.id, is_completed: !prev }),
+    });
+  }, [toggleTask, pushUndo]);
+
+  const undoableUpdate = useCallback((task: Task, updates: Partial<Task>) => {
+    const prevValues: any = {};
+    for (const key of Object.keys(updates)) prevValues[key] = (task as any)[key];
+    updateTask.mutate({ id: task.id, ...updates });
+    const fields: Record<string, string> = { deadline: "срок", description: "описание", title: "название", assigned_to: "ответственный", priority: "приоритет", group_id: "проект", start_at: "дата старта" };
+    const changedField = fields[Object.keys(updates)[0]] || Object.keys(updates)[0] || "поле";
+    pushUndo({
+      label: `${changedField} «${task.title}»`,
+      undo: () => updateTask.mutate({ id: task.id, ...prevValues }),
+      redo: () => updateTask.mutate({ id: task.id, ...updates }),
+    });
+  }, [updateTask, pushUndo]);
+
+  const undoableDelete = useCallback((task: Task) => {
+    const snap = { ...task };
+    deleteTask.mutate(task.id);
+    pushUndo({
+      label: `Удалено «${task.title}»`,
+      undo: async () => {
+        const { id, ...rest } = snap;
+        await supabase.from("tasks").insert({ ...rest, id });
+      },
+      redo: () => deleteTask.mutate(snap.id),
+    });
+  }, [deleteTask, pushUndo]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
