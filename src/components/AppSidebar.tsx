@@ -103,17 +103,18 @@ export default function AppSidebar({
     {
       label: "Действуй",
       items: [
+        { id: "all", icon: List, label: "Все задачи" },
         { id: "inbox", icon: Inbox, label: "Входящие" },
         { id: "myday", icon: Star, label: "Мой день" },
-        { id: "assigned", icon: Users, label: "Делегированные" },
+        { id: "assigned", icon: Send, label: "На контроле" },
       ],
     },
     {
-      label: null, // Projects & Tags — rendered separately below
+      label: null, // Projects & Tags — rendered separately below (Организуй)
       items: [],
     },
     {
-      label: "Пересмотр",
+      label: "Аналитика",
       items: [
         { id: "dashboard", icon: BarChart3, label: "Обзор" },
         { id: "calendar", icon: CalendarDays, label: "Календарь" },
@@ -122,10 +123,9 @@ export default function AppSidebar({
       ],
     },
     {
-      label: "Ещё",
+      label: "Сервисы",
       collapsed: true,
       items: [
-        { id: "all", icon: List, label: "Все задачи" },
         { id: "subordinates", icon: UsersRound, label: "Команда" },
         { id: "community", icon: Globe, label: "Сообщество" },
         { id: "wiki", icon: BookOpen, label: "База знаний" },
