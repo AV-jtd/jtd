@@ -523,7 +523,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dimmed && "opacity-30",
               hoveredRow === i && "bg-muted/50",
               dragRowIdx === i && "opacity-30",
-              isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
+              isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary",
+              row.type === "task" && row.task && selectedTaskIds?.has(row.task.id) && "bg-primary/8"
             )}
             style={{ height: getRowHeightProp ? getRowHeightProp(i) : rowHeight, ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
