@@ -716,22 +716,26 @@ export default function AppSidebar({
       </div>
 
       {/* Nav */}
-      <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
-            className={cn(
-              "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-              activeView === item.id && !activeGroupId
-                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
-                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </button>
-        ))}
+      <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-1">
+        {/* ДЕЙСТВУЙ section */}
+        <div className="space-y-0.5">
+          <p className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Действуй</p>
+          {menuSections[0].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
 
         {/* Projects section */}
         <div className="pt-4">
