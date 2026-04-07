@@ -1250,6 +1250,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               getMilestoneOffscreen={getMilestoneOffscreen}
               taskGateMap={taskGateMap}
               onChangeTaskGate={handleChangeTaskGate}
+              selectedTaskIds={selectedTaskIds}
+              onToggleSelect={handleToggleSelect}
             />
           </div>
 
