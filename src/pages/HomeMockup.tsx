@@ -127,36 +127,7 @@ export default function HomeMockup() {
           ))}
         </div>
 
-        {/* ═══ 4. INBOX ═══ */}
-        <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-5 py-3 bg-muted/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Inbox className="h-4 w-4 text-warning" />
-              <span className="text-sm font-medium text-foreground">Не распределено</span>
-              <span className="text-xs text-muted-foreground">· разобрать вечером</span>
-            </div>
-            <span className="text-xs font-semibold bg-warning/15 text-warning px-2 py-0.5 rounded-full">{INBOX_TASKS.length}</span>
-          </div>
-          <ul className="divide-y divide-border">
-            {INBOX_TASKS.map((t, i) => (
-              <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
-                <span className={cn(
-                  "h-2 w-2 rounded-full shrink-0",
-                  t.isNew ? "bg-primary" : "bg-muted-foreground/40"
-                )} />
-                <span className="text-sm text-foreground flex-1 truncate">{t.title}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{t.time}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="px-5 py-2.5 border-t border-border">
-            <button className="text-xs text-primary font-medium hover:underline">
-              Все {INBOX_TASKS.length} → разобрать
-            </button>
-          </div>
-        </section>
-
-        {/* ═══ 5. MY DAY ═══ */}
+        {/* ═══ 4. MY DAY ═══ */}
         <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-5 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -208,6 +179,35 @@ export default function HomeMockup() {
               </li>
             ))}
           </ul>
+        </section>
+
+        {/* ═══ 5. INBOX ═══ */}
+        <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-5 py-3 bg-muted/40 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Inbox className="h-4 w-4 text-warning" />
+              <span className="text-sm font-medium text-foreground">Не распределено</span>
+              <span className="text-xs text-muted-foreground">· разобрать вечером</span>
+            </div>
+            <span className="text-xs font-semibold bg-warning/15 text-warning px-2 py-0.5 rounded-full">{INBOX_TASKS.length}</span>
+          </div>
+          <ul className="divide-y divide-border">
+            {INBOX_TASKS.map((t, i) => (
+              <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
+                <span className={cn(
+                  "h-2 w-2 rounded-full shrink-0",
+                  t.isNew ? "bg-primary" : "bg-muted-foreground/40"
+                )} />
+                <span className="text-sm text-foreground flex-1 truncate">{t.title}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{t.time}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="px-5 py-2.5 border-t border-border">
+            <button className="text-xs text-primary font-medium hover:underline">
+              Все {INBOX_TASKS.length} → разобрать
+            </button>
+          </div>
         </section>
 
         <div className="h-8" />
