@@ -532,6 +532,31 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
 
+  // Build disambiguation: tags with duplicate names show category path
+  const tagCategoryPath = useMemo(() => {
+    const catMap = new Map(tagCategories.map(c => [c.id, c]));
+    const getPath = (catId: string | null | undefined): string => {
+      if (!catId) return "";
+      const cat = catMap.get(catId);
+      if (!cat) return "";
+      const parentPath = cat.parent_id ? getPath(cat.parent_id) : "";
+      return parentPath ? `${parentPath} › ${cat.name}` : cat.name;
+    };
+    const nameCounts = new Map<string, number>();
+    allTags.filter(t => !linkedTagIds.has(t.id)).forEach(t => {
+      const key = t.name.toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+    });
+    const result = new Map<string, string>();
+    allTags.forEach(t => {
+      if ((nameCounts.get(t.name.toLowerCase()) || 0) > 1) {
+        const path = getPath(t.category_id);
+        if (path) result.set(t.id, path);
+      }
+    });
+    return result;
+  }, [allTags, tagCategories, linkedTagIds]);
+
   // ── Undoable wrappers ──
   const undoableToggleTask = useCallback(() => {
     const prev = task.is_completed;
