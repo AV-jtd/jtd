@@ -210,7 +210,11 @@ export default function HomeMockup() {
           </div>
         </section>
 
-        {/* ═══ 5. MY DAY ═══ */}
+        <div className="h-8" />
+      </div>
+    </div>
+  );
+}
         <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-5 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
