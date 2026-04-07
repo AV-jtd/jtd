@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Column configuration */
-export type GanttColumnKey = "rowNum" | "name" | "assignee" | "start" | "deadline" | "duration" | "predecessor" | "gate";
+export type GanttColumnKey = "rowNum" | "name" | "stream" | "assignee" | "start" | "deadline" | "duration" | "predecessor" | "gate";
 
 export interface GanttColumnConfig {
   key: GanttColumnKey;
@@ -24,6 +24,7 @@ export interface GanttColumnConfig {
 export const DEFAULT_COLUMNS: GanttColumnConfig[] = [
   { key: "rowNum", label: "#", visible: true, width: 28, minWidth: 24 },
   { key: "name", label: "Задача", visible: true, width: 0, minWidth: 180 }, // flex
+  { key: "stream", label: "Стрим", visible: true, width: 56, minWidth: 40 },
   { key: "gate", label: "Гейт", visible: false, width: 42, minWidth: 36 },
   { key: "assignee", label: "Ответств.", visible: true, width: 32, minWidth: 28 },
   { key: "start", label: "Старт", visible: true, width: 50, minWidth: 42 },
@@ -97,6 +98,9 @@ interface GanttLeftPanelProps {
   taskGateMap?: Map<string, string>;
   /** Called when user changes a task's gate from the Gantt */
   onChangeTaskGate?: (taskId: string, gateKey: string | null) => void;
+  /** Multi-select */
+  selectedTaskIds?: Set<string>;
+  onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 /** Predecessor picker with search and multi-select */
@@ -186,6 +190,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
   onUpdateMilestone, getMilestoneOffscreen, taskGateMap, onChangeTaskGate,
+  selectedTaskIds, onToggleSelect,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
   const [editingField, setEditingField] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -518,7 +523,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               dimmed && "opacity-30",
               hoveredRow === i && "bg-muted/50",
               dragRowIdx === i && "opacity-30",
-              isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary"
+              isDropTarget && dragRowIdx !== null && "border-t-2 border-t-primary",
+              row.type === "task" && row.task && selectedTaskIds?.has(row.task.id) && "bg-primary/8"
             )}
             style={{ height: getRowHeightProp ? getRowHeightProp(i) : rowHeight, ...(row.type === "milestone" ? { backgroundColor: "rgba(239,68,68,0.03)" } : {}) }}
             onMouseEnter={() => onHoverRow(i)}
@@ -534,12 +540,31 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               if (!col.visible) return null;
 
               if (col.key === "rowNum") {
+                const isSelected = row.type === "task" && row.task && selectedTaskIds?.has(row.task.id);
+                const showCheckbox = row.type === "task" && row.task && (selectedTaskIds?.size || 0) > 0;
                 return (
                   <div key={col.key} style={{ width: col.width }} className="text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
-                    {isDraggable && (
-                      <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
+                    {row.type === "task" && row.task ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect?.(row.task!.id, e.shiftKey); }}
+                        className={cn(
+                          "h-3.5 w-3.5 rounded border flex items-center justify-center transition-all shrink-0",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : showCheckbox
+                              ? "border-muted-foreground/30 hover:border-primary"
+                              : "border-transparent group-hover:border-muted-foreground/30"
+                        )}
+                      >
+                        {isSelected && <Check className="h-2 w-2" />}
+                        {!isSelected && !showCheckbox && <span className="group-hover:hidden">{row.rowNumber}</span>}
+                      </button>
+                    ) : (
+                      <>
+                        {isDraggable && <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />}
+                        {row.rowNumber !== undefined && <span>{row.rowNumber}</span>}
+                      </>
                     )}
-                    {row.rowNumber !== undefined && <span>{row.rowNumber}</span>}
                   </div>
                 );
               }
@@ -861,6 +886,79 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                         </PopoverContent>
                       </Popover>
                     )}
+                  </div>
+                );
+              }
+
+              if (col.key === "stream") {
+                // Show which subproject/stream this task belongs to
+                if (row.type !== "task" || !row.task) {
+                  return <div key={col.key} style={{ width: col.width }} className="shrink-0" />;
+                }
+                const taskGroupId = row.task.group_id;
+                const taskGroup = taskGroupId ? allProjects.find(p => p.id === taskGroupId) : null;
+                // Only show stream label for tasks inside subprojects (depth > 0)
+                const parentProject = taskGroup?.parent_id ? allProjects.find(p => p.id === taskGroup.parent_id) : null;
+                const streamLabel = parentProject ? (taskGroup?.name?.replace(/^.*\/\s*/, "").trim().slice(0, 6)) : null;
+                
+                return (
+                  <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={cn(
+                          "text-[9px] px-1 py-0.5 rounded transition-colors truncate max-w-full",
+                          streamLabel ? "text-muted-foreground hover:bg-muted" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                        )} title={taskGroup?.name || "Переместить в стрим"}>
+                          {streamLabel || <ArrowRightLeft className="h-2.5 w-2.5 mx-auto" />}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-1" side="left" align="start" sideOffset={4}>
+                        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в стрим</div>
+                        {/* Show parent project itself */}
+                        {parentProject && (
+                          <button
+                            onClick={() => onMoveTask(row.task!.id, parentProject.id)}
+                            className={cn("w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate", taskGroupId === parentProject.id && "bg-primary/10 text-primary font-medium")}
+                          >
+                            📁 {parentProject.name} (корень)
+                          </button>
+                        )}
+                        {/* Show sibling streams */}
+                        {allProjects
+                          .filter(p => p.parent_id === (parentProject?.id || row.project.id) || p.parent_id === row.project.id)
+                          .sort((a, b) => a.position - b.position)
+                          .map(stream => (
+                            <button
+                              key={stream.id}
+                              onClick={() => onMoveTask(row.task!.id, stream.id)}
+                              className={cn(
+                                "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate flex items-center gap-1",
+                                taskGroupId === stream.id && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              {stream.icon && stream.icon !== "list" ? stream.icon : "📂"} {stream.name}
+                            </button>
+                          ))}
+                        {/* Other root projects */}
+                        <div className="border-t border-border/50 mt-1 pt-1">
+                          <div className="text-[10px] text-muted-foreground px-2 py-0.5">Другие проекты</div>
+                          <div className="max-h-32 overflow-y-auto">
+                            {allProjects
+                              .filter(p => !p.parent_id && p.id !== (parentProject?.id || row.project.id))
+                              .slice(0, 10)
+                              .map(p => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => onMoveTask(row.task!.id, p.id)}
+                                  className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate"
+                                >
+                                  {p.icon && p.icon !== "list" ? p.icon : "📁"} {p.name}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 );
               }
