@@ -737,8 +737,11 @@ export default function AppSidebar({
           ))}
         </div>
 
+        {/* ОРГАНИЗУЙ section */}
+        <p className="px-3 pt-4 pb-0.5 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Организуй</p>
+
         {/* Projects section */}
-        <div className="pt-4">
+        <div className="pt-1">
           <button
             onClick={() => setShowGroups(!showGroups)}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
