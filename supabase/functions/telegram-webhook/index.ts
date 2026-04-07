@@ -1353,35 +1353,40 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
-    // === AI Enrichment for private chat ===
+    // === AI Enrichment for private chat (always runs) ===
     let aiEnrichment: AiTaskEnrichment | null = null;
     let aiApplied: string[] = [];
-    if (groupId && (!assignedTo || !deadline.date)) {
-      // Get project owner to fetch members
-      const { data: groupInfo } = await supabase
-        .from("task_groups")
-        .select("user_id, name")
-        .eq("id", groupId)
-        .single();
-      if (groupInfo) {
-        const members = await getProjectMembers(supabase, groupId, groupInfo.user_id);
-        if (members.length > 0) {
-          aiEnrichment = await aiEnrichTask(text, members, groupInfo.name);
-          if (aiEnrichment) {
-            if (!assignedTo && aiEnrichment.assigned_to_id) {
-              const memberIds = members.map(m => m.id);
-              if (memberIds.includes(aiEnrichment.assigned_to_id)) {
-                assignedTo = aiEnrichment.assigned_to_id;
-                aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
-              }
-            }
-            if (!deadline.date && aiEnrichment.deadline) {
-              try {
-                deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
-                aiApplied.push(`📅 ${formatDate(deadline.date)}`);
-              } catch { /* ignore */ }
-            }
+    if (!assignedTo || !deadline.date) {
+      let members: { id: string; name: string; telegram_username: string | null }[] = [];
+      let projectNameForAi: string | undefined;
+
+      if (groupId) {
+        const { data: groupInfo } = await supabase
+          .from("task_groups")
+          .select("user_id, name")
+          .eq("id", groupId)
+          .single();
+        if (groupInfo) {
+          members = await getProjectMembers(supabase, groupId, groupInfo.user_id);
+          projectNameForAi = groupInfo.name;
+        }
+      }
+
+      // Run AI enrichment even without project (will still determine deadline, priority, subtasks)
+      aiEnrichment = await aiEnrichTask(text, members, projectNameForAi);
+      if (aiEnrichment) {
+        if (!assignedTo && aiEnrichment.assigned_to_id && members.length > 0) {
+          const memberIds = members.map(m => m.id);
+          if (memberIds.includes(aiEnrichment.assigned_to_id)) {
+            assignedTo = aiEnrichment.assigned_to_id;
+            aiApplied.push(`👤 ${aiEnrichment.assigned_to_name || "ответственный"}`);
           }
+        }
+        if (!deadline.date && aiEnrichment.deadline) {
+          try {
+            deadline.date = new Date(aiEnrichment.deadline + "T23:59:00");
+            aiApplied.push(`📅 ${formatDate(deadline.date)}`);
+          } catch { /* ignore */ }
         }
       }
     }
