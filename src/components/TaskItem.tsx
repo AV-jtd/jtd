@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
 
 import { useNavigate } from "react-router-dom";
-import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks, useTagCategories, TagCategory } from "@/hooks/useTasks";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable as useSortableDnd } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
@@ -482,6 +482,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: participants = [] } = useTaskParticipants(task.id);
   const { data: allGroups = [] } = useTaskGroups();
+  const { data: tagCategories = [] } = useTagCategories();
   const { data: chatComments = [] } = useTaskComments(task.id);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
@@ -530,6 +531,31 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
   const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
   const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
+
+  // Build disambiguation: tags with duplicate names show category path
+  const tagCategoryPath = useMemo(() => {
+    const catMap = new Map(tagCategories.map(c => [c.id, c]));
+    const getPath = (catId: string | null | undefined): string => {
+      if (!catId) return "";
+      const cat = catMap.get(catId);
+      if (!cat) return "";
+      const parentPath = cat.parent_id ? getPath(cat.parent_id) : "";
+      return parentPath ? `${parentPath} › ${cat.name}` : cat.name;
+    };
+    const nameCounts = new Map<string, number>();
+    allTags.filter(t => !linkedTagIds.has(t.id)).forEach(t => {
+      const key = t.name.toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+    });
+    const result = new Map<string, string>();
+    allTags.forEach(t => {
+      if ((nameCounts.get(t.name.toLowerCase()) || 0) > 1) {
+        const path = getPath(t.category_id);
+        if (path) result.set(t.id, path);
+      }
+    });
+    return result;
+  }, [allTags, tagCategories, linkedTagIds]);
 
   // ── Undoable wrappers ──
   const undoableToggleTask = useCallback(() => {
@@ -1147,7 +1173,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                             className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
                           >
                             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                            <span className="truncate">{tag.name}</span>
+                            <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                             <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
                           </button>
                         ))}
@@ -1159,11 +1185,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
                     </p>
                   )}
-                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
+                  {availableTags.filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase()))).length === 0 && (
                     <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
                   )}
                   {availableTags
-                    .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase())))
                     .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                     .map(tag => (
                       <button
@@ -1172,7 +1198,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                       >
                         <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                        <span className="truncate">{tag.name}</span>
+                        <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                       </button>
                     ))}
                 </div>
@@ -1482,7 +1508,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                                 className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
                               >
                                 <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                                <span className="truncate">{tag.name}</span>
+                                <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                                 <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
                               </button>
                             ))}
@@ -1495,7 +1521,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         </p>
                       )}
                       {availableTags
-                        .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                        .filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase())))
                         .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                         .map(tag => (
                           <button
@@ -1504,7 +1530,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                             className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                           >
                             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                            <span className="truncate">{tag.name}</span>
+                            <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                           </button>
                         ))}
                     </div>
