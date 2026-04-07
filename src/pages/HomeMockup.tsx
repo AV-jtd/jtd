@@ -28,6 +28,9 @@ const INBOX_TASKS = [
   { title: "Ответить по запросу клиента Альфа", time: "09:15", isNew: true },
   { title: "Проверить макет лендинга", time: "вчера", isNew: false },
   { title: "Уточнить цены у поставщика", time: "2 дня назад", isNew: false },
+  { title: "Обновить презентацию партнёра", time: "3 дня назад", isNew: false },
+  { title: "Запросить образцы материалов", time: "4 дня назад", isNew: false },
+  { title: "Добавить контакт дистрибьютора", time: "5 дней назад", isNew: false },
 ];
 
 const MY_DAY_TASKS = [
@@ -36,6 +39,8 @@ const MY_DAY_TASKS = [
   { title: "Отправить счёт клиенту", project: "CRM", assignee: "Я", deadline: "вчера", overdue: true },
   { title: "Ревью задач по NPD Gate 2", project: "NPD Pipeline", assignee: "Я", deadline: "завтра", overdue: false },
   { title: "Подготовить презентацию", project: "PMO", assignee: "А. Иванов", deadline: "пт", overdue: false },
+  { title: "Обновить roadmap Q3", project: "PMO", assignee: "Я", deadline: "пн", overdue: false },
+  { title: "Проверить отчёт по продажам", project: "CRM", assignee: "Я", deadline: "вт", overdue: false },
 ];
 
 const FILTERS = ["Все", "Мне поручили", "Поручил я", "По ответственному", "По проекту", "По сроку"];
