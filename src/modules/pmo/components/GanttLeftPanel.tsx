@@ -890,6 +890,79 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                 );
               }
 
+              if (col.key === "stream") {
+                // Show which subproject/stream this task belongs to
+                if (row.type !== "task" || !row.task) {
+                  return <div key={col.key} style={{ width: col.width }} className="shrink-0" />;
+                }
+                const taskGroupId = row.task.group_id;
+                const taskGroup = taskGroupId ? allProjects.find(p => p.id === taskGroupId) : null;
+                // Only show stream label for tasks inside subprojects (depth > 0)
+                const parentProject = taskGroup?.parent_id ? allProjects.find(p => p.id === taskGroup.parent_id) : null;
+                const streamLabel = parentProject ? (taskGroup?.name?.replace(/^.*\/\s*/, "").trim().slice(0, 6)) : null;
+                
+                return (
+                  <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={cn(
+                          "text-[9px] px-1 py-0.5 rounded transition-colors truncate max-w-full",
+                          streamLabel ? "text-muted-foreground hover:bg-muted" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
+                        )} title={taskGroup?.name || "Переместить в стрим"}>
+                          {streamLabel || <ArrowRightLeft className="h-2.5 w-2.5 mx-auto" />}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-1" side="left" align="start" sideOffset={4}>
+                        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Переместить в стрим</div>
+                        {/* Show parent project itself */}
+                        {parentProject && (
+                          <button
+                            onClick={() => onMoveTask(row.task!.id, parentProject.id)}
+                            className={cn("w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate", taskGroupId === parentProject.id && "bg-primary/10 text-primary font-medium")}
+                          >
+                            📁 {parentProject.name} (корень)
+                          </button>
+                        )}
+                        {/* Show sibling streams */}
+                        {allProjects
+                          .filter(p => p.parent_id === (parentProject?.id || row.project.id) || p.parent_id === row.project.id)
+                          .sort((a, b) => a.position - b.position)
+                          .map(stream => (
+                            <button
+                              key={stream.id}
+                              onClick={() => onMoveTask(row.task!.id, stream.id)}
+                              className={cn(
+                                "w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate flex items-center gap-1",
+                                taskGroupId === stream.id && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              {stream.icon && stream.icon !== "list" ? stream.icon : "📂"} {stream.name}
+                            </button>
+                          ))}
+                        {/* Other root projects */}
+                        <div className="border-t border-border/50 mt-1 pt-1">
+                          <div className="text-[10px] text-muted-foreground px-2 py-0.5">Другие проекты</div>
+                          <div className="max-h-32 overflow-y-auto">
+                            {allProjects
+                              .filter(p => !p.parent_id && p.id !== (parentProject?.id || row.project.id))
+                              .slice(0, 10)
+                              .map(p => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => onMoveTask(row.task!.id, p.id)}
+                                  className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded-sm truncate"
+                                >
+                                  {p.icon && p.icon !== "list" ? p.icon : "📁"} {p.name}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                );
+              }
+
               return null;
             })}
           </div>
