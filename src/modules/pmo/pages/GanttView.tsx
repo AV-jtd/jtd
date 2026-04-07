@@ -893,9 +893,37 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   }, [rows, rowTops, getRowHeight]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden">
+      {/* AI Panel */}
+      <GanttAiPanel
+        open={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        tasks={allTasks}
+        groups={groups}
+        milestones={allMilestones}
+        dependencies={allDependencies}
+        users={users}
+        selectedProjectId={selectedProjectId}
+      />
+
+      <div className="flex flex-col flex-1 overflow-hidden">
       {/* Toolbar — compact single row */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0">
+        {/* AI toggle */}
+        <button
+          onClick={() => setAiPanelOpen(prev => !prev)}
+          className={cn(
+            "p-1.5 rounded-md transition-colors",
+            aiPanelOpen
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+          title="ИИ-помощник Гантта"
+        >
+          <BotMessageSquare className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="h-4 w-px bg-border shrink-0" />
         {!embedded && onBack && (
           <button onClick={onBack} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Портфель">
             <ArrowLeft className="h-3.5 w-3.5" />
