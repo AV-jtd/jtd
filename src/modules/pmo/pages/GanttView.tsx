@@ -1763,7 +1763,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             // since we don't have the ID yet, but for edits it works
             if (editingMilestone) {
               // Remove old deps where this milestone is successor
-              const oldDeps = (dependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
+              const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
               oldDeps.forEach(d => deleteDependency.mutate(d.id));
               // Add new
               setTimeout(() => {
@@ -1777,7 +1777,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             }
           } else if (editingMilestone && !predecessor) {
             // Remove existing predecessor deps
-            const oldDeps = (dependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
+            const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
             oldDeps.forEach(d => deleteDependency.mutate(d.id));
           }
         }}
