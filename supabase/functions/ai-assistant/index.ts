@@ -1253,6 +1253,101 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       });
     }
 
+    // === GANTT ANALYZE: deep context-aware analysis for Gantt chart ===
+    if (action === "gantt_analyze") {
+      const { projects, workload, milestones: ctxMilestones, dependencies: ctxDeps,
+        totalTasks, completedTasks, overdueTasks, tasksWithoutDeadline, tasksWithoutAssignee,
+        taskTemplates: tplText, users: ctxUsers, history: ganttHistory } = context || {};
+
+      let ganttContextBlock = `📊 Статистика:
+- Всего задач: ${totalTasks || 0}, Завершено: ${completedTasks || 0}, Просрочено: ${overdueTasks || 0}
+- Без дедлайна: ${tasksWithoutDeadline || 0}, Без ответственного: ${tasksWithoutAssignee || 0}`;
+
+      if (projects?.length) {
+        ganttContextBlock += `\n\n📁 Проекты/стримы:`;
+        projects.forEach((p: any) => {
+          ganttContextBlock += `\n- "${p.name}": ${p.completed}/${p.total} задач${p.overdue > 0 ? `, ⚠️ просрочено: ${p.overdue}` : ""}${p.parent ? ` (часть: ${p.parent})` : ""}`;
+        });
+      }
+
+      if (workload?.length) {
+        ganttContextBlock += `\n\n👥 Загрузка команды:`;
+        workload.forEach((w: any) => {
+          ganttContextBlock += `\n- ${w.name}: ${w.total} задач (✅${w.completed}, 🔴${w.overdue}, ❓${w.noDeadline} без срока)`;
+        });
+      }
+
+      if (ctxMilestones?.length) {
+        ganttContextBlock += `\n\n◆ Вехи:`;
+        ctxMilestones.forEach((m: any) => {
+          ganttContextBlock += `\n- "${m.name}" → ${m.date?.split("T")[0] || "без даты"} [${m.status}]${m.project ? ` в «${m.project}»` : ""}`;
+        });
+      }
+
+      if (ctxDeps?.length) {
+        ganttContextBlock += `\n\n🔗 Зависимости (${ctxDeps.length}): ${ctxDeps.slice(0, 15).map((d: any) => `${d.type} lag:${d.lag}д`).join(", ")}`;
+      }
+
+      if (tplText) {
+        ganttContextBlock += `\n${tplText}`;
+      }
+
+      const ganttSystemPrompt = `Ты — эксперт PMO и аналитик проектов в диаграмме Ганта приложения JustTODOit.
+
+Ты глубоко понимаешь:
+- Загрузку команды и оптимальное распределение задач
+- Критический путь через цепочки зависимостей
+- Шаблоны задач проекта (learning from patterns)
+- Анализ рисков (просрочки, отсутствие дедлайнов/ответственных, дисбаланс)
+- Оптимизацию сроков и параллелизацию
+
+Правила:
+- Пиши конкретно, с цифрами и именами
+- Используй markdown: заголовки ##, списки, **жирный** для акцентов
+- Давай actionable рекомендации, а не общие советы
+- Если видишь шаблоны в задачах — учитывай их при генерации рекомендаций
+- Всегда на русском
+
+${ganttContextBlock}
+
+Доступные участники: ${(ctxUsers || []).map((u: any) => u.name).join(", ") || "не указаны"}
+Текущая дата: ${new Date().toISOString().split("T")[0]}`;
+
+      const ganttResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: ganttSystemPrompt },
+            ...(ganttHistory || []),
+            { role: "user", content: message },
+          ],
+        }),
+      });
+
+      if (!ganttResponse.ok) {
+        if (ganttResponse.status === 429) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (ganttResponse.status === 402) return new Response(JSON.stringify({ error: "payment_required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw new Error("AI gateway error");
+      }
+
+      const ganttData = await ganttResponse.json();
+      const ganttContent = ganttData.choices?.[0]?.message?.content;
+      if (ganttContent) {
+        return new Response(JSON.stringify({ action: "gantt_analyze", content: ganttContent }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === SMART ACTION: LLM-based intent detection with all tools ===
     if (action === "smart") {
       // First, try non-streaming with tool_choice auto

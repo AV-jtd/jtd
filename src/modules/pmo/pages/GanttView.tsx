@@ -14,7 +14,7 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -30,6 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
+import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 
 type Scale = "day" | "week" | "month";
 
@@ -112,6 +113,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   // ── Gate column: build taskId -> gateKey map from task_tags ──
   const NPD_GATE_TAG_NAMES = useMemo(() => [
@@ -891,9 +893,37 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   }, [rows, rowTops, getRowHeight]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden">
+      {/* AI Panel */}
+      <GanttAiPanel
+        open={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        tasks={allTasks}
+        groups={groups}
+        milestones={allMilestones}
+        dependencies={allDependencies}
+        users={users}
+        selectedProjectId={selectedProjectId}
+      />
+
+      <div className="flex flex-col flex-1 overflow-hidden">
       {/* Toolbar — compact single row */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0">
+        {/* AI toggle */}
+        <button
+          onClick={() => setAiPanelOpen(prev => !prev)}
+          className={cn(
+            "p-1.5 rounded-md transition-colors",
+            aiPanelOpen
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+          title="ИИ-помощник Гантта"
+        >
+          <BotMessageSquare className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="h-4 w-px bg-border shrink-0" />
         {!embedded && onBack && (
           <button onClick={onBack} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Портфель">
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -1954,6 +1984,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           })()}
         </SheetContent>
       </Sheet>
+    </div>
     </div>
   );
 }
