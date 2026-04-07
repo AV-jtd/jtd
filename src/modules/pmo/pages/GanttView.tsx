@@ -1177,6 +1177,88 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         )}
       </div>
 
+      {/* Bulk action toolbar */}
+      {selectedTaskIds.size > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-primary/20 bg-primary/5 shrink-0 text-xs animate-in slide-in-from-top-1">
+          <span className="font-medium text-primary">{selectedTaskIds.size} выбрано</span>
+          <div className="h-3 w-px bg-border" />
+          
+          {/* Move to stream */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                📂 Переместить
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-64 overflow-y-auto">
+              {groups.filter(g => !g.parent_id).map(p => (
+                <div key={p.id}>
+                  <DropdownMenuItem onClick={() => handleBulkMove(p.id)} className="font-medium">
+                    {p.icon && p.icon !== "list" ? p.icon : "📁"} {p.name}
+                  </DropdownMenuItem>
+                  {groups.filter(c => c.parent_id === p.id).map(child => (
+                    <DropdownMenuItem key={child.id} onClick={() => handleBulkMove(child.id)} className="pl-6">
+                      {child.icon && child.icon !== "list" ? child.icon : "📂"} {child.name}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Assign */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                👤 Назначить
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleBulkAssign(null)}>Без назначения</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {users.map(u => (
+                <DropdownMenuItem key={u.id} onClick={() => handleBulkAssign(u.id)}>
+                  {u.display_name || u.email}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Gate */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                🔷 Гейт
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleBulkGate(null)}>Без гейта</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {[
+                { key: "gate0", label: "G0 Идея" },
+                { key: "gate1", label: "G1 Концепция" },
+                { key: "gate2", label: "G2 Разработка" },
+                { key: "gate3", label: "G3 Подготовка" },
+                { key: "gate4", label: "G4 Запуск" },
+                { key: "gate5", label: "G5 Анализ" },
+              ].map(g => (
+                <DropdownMenuItem key={g.key} onClick={() => handleBulkGate(g.key)}>
+                  {g.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="h-3 w-px bg-border" />
+          <button onClick={handleBulkDelete} className="px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
+            Удалить
+          </button>
+          <button onClick={() => setSelectedTaskIds(new Set())} className="ml-auto px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground">
+            ✕ Снять
+          </button>
+        </div>
+      )}
+
       {/* Gantt body — unified scroll container */}
       <div
         ref={scrollRef}
