@@ -48,6 +48,11 @@ const FILTERS = ["Все", "Мне поручили", "Поручил я", "По
 export default function HomeMockup() {
   const [aiExpanded, setAiExpanded] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Все");
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const [inboxExpanded, setInboxExpanded] = useState(false);
+
+  const visibleTasks = tasksExpanded ? MY_DAY_TASKS : MY_DAY_TASKS.slice(0, 5);
+  const visibleInbox = inboxExpanded ? INBOX_TASKS : INBOX_TASKS.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background">
