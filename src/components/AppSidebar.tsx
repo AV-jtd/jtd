@@ -99,19 +99,40 @@ export default function AppSidebar({
     "hsl(var(--tag-pink))", "hsl(var(--tag-teal))",
   ];
 
-  const menuItems = [
-    { id: "all", icon: List, label: "Все задачи" },
-    { id: "inbox", icon: Inbox, label: "Входящие" },
-    { id: "myday", icon: Star, label: "Мой день" },
-    { id: "assigned", icon: Users, label: "Делегированные" },
-    { id: "deferred", icon: Clock, label: "Отложенные" },
-    { id: "subordinates", icon: UsersRound, label: "Команда" },
-    { id: "community", icon: Globe, label: "Сообщество" },
-    { id: "calendar", icon: CalendarDays, label: "Календарь" },
-    { id: "dashboard", icon: BarChart3, label: "Дашборд" },
-    { id: "wiki", icon: BookOpen, label: "База знаний" },
-    { id: "archive", icon: Archive, label: "Архив" },
+  const menuSections = [
+    {
+      label: "Действуй",
+      items: [
+        { id: "inbox", icon: Inbox, label: "Входящие" },
+        { id: "myday", icon: Star, label: "Мой день" },
+        { id: "assigned", icon: Users, label: "Делегированные" },
+      ],
+    },
+    {
+      label: null, // Projects & Tags — rendered separately below
+      items: [],
+    },
+    {
+      label: "Пересмотр",
+      items: [
+        { id: "dashboard", icon: BarChart3, label: "Обзор" },
+        { id: "calendar", icon: CalendarDays, label: "Календарь" },
+        { id: "deferred", icon: Clock, label: "Отложенные" },
+        { id: "archive", icon: Archive, label: "Архив" },
+      ],
+    },
+    {
+      label: "Ещё",
+      collapsed: true,
+      items: [
+        { id: "all", icon: List, label: "Все задачи" },
+        { id: "subordinates", icon: UsersRound, label: "Команда" },
+        { id: "community", icon: Globe, label: "Сообщество" },
+        { id: "wiki", icon: BookOpen, label: "База знаний" },
+      ],
+    },
   ];
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Separate root groups and subgroups — hide archived
   const rootGroups = groups.filter(g => !g.parent_id && !(g as any).closed_at);
@@ -695,25 +716,32 @@ export default function AppSidebar({
       </div>
 
       {/* Nav */}
-      <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
-            className={cn(
-              "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-              activeView === item.id && !activeGroupId
-                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
-                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </button>
-        ))}
+      <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-1">
+        {/* ДЕЙСТВУЙ section */}
+        <div className="space-y-0.5">
+          <p className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Действуй</p>
+          {menuSections[0].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ОРГАНИЗУЙ section */}
+        <p className="px-3 pt-4 pb-0.5 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Организуй</p>
 
         {/* Projects section */}
-        <div className="pt-4">
+        <div className="pt-1">
           <button
             onClick={() => setShowGroups(!showGroups)}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
@@ -1173,6 +1201,52 @@ export default function AppSidebar({
               })()}
             </div>
           )}
+        </div>
+
+        {/* ПЕРЕСМОТР section */}
+        <div className="space-y-0.5 pt-3">
+          <p className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold">Пересмотр</p>
+          {menuSections[2].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ЕЩЁ section */}
+        <div className="space-y-0.5 pt-2">
+          <button
+            onClick={() => setMoreOpen(!moreOpen)}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] uppercase tracking-widest text-sidebar-fg/40 font-semibold hover:text-sidebar-fg/60"
+          >
+            {moreOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Ещё
+          </button>
+          {moreOpen && menuSections[3].items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={cn(
+                "flex items-center gap-3 w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150",
+                activeView === item.id && !activeGroupId
+                  ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+                  : "text-sidebar-fg/50 hover:bg-sidebar-hover hover:text-sidebar-fg/70"
+              )}
+            >
+              <item.icon className="h-3.5 w-3.5" />
+              {item.label}
+            </button>
+          ))}
         </div>
       </nav>
 
