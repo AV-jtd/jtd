@@ -953,6 +953,18 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
 
         <div className="h-4 w-px bg-border shrink-0" />
 
+        {/* Add milestone – always visible */}
+        <button
+          onClick={() => { setEditingMilestone(null); setMsDialogOpen(true); }}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-primary hover:bg-primary/10 transition-colors shrink-0"
+          title="Добавить веху"
+        >
+          <Diamond className="h-3 w-3 fill-primary" />
+          <span className="hidden sm:inline">Веха</span>
+        </button>
+
+        <div className="h-4 w-px bg-border shrink-0" />
+
         {/* Undo/Redo */}
         <UndoRedoButtons />
 
