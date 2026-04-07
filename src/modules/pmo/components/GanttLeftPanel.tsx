@@ -540,12 +540,31 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               if (!col.visible) return null;
 
               if (col.key === "rowNum") {
+                const isSelected = row.type === "task" && row.task && selectedTaskIds?.has(row.task.id);
+                const showCheckbox = row.type === "task" && row.task && (selectedTaskIds?.size || 0) > 0;
                 return (
                   <div key={col.key} style={{ width: col.width }} className="text-center shrink-0 text-[10px] text-muted-foreground/50 flex items-center justify-center gap-0">
-                    {isDraggable && (
-                      <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />
+                    {row.type === "task" && row.task ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect?.(row.task!.id, e.shiftKey); }}
+                        className={cn(
+                          "h-3.5 w-3.5 rounded border flex items-center justify-center transition-all shrink-0",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : showCheckbox
+                              ? "border-muted-foreground/30 hover:border-primary"
+                              : "border-transparent group-hover:border-muted-foreground/30"
+                        )}
+                      >
+                        {isSelected && <Check className="h-2 w-2" />}
+                        {!isSelected && !showCheckbox && <span className="group-hover:hidden">{row.rowNumber}</span>}
+                      </button>
+                    ) : (
+                      <>
+                        {isDraggable && <GripVertical className="h-3 w-3 text-muted-foreground/30 cursor-grab shrink-0" />}
+                        {row.rowNumber !== undefined && <span>{row.rowNumber}</span>}
+                      </>
                     )}
-                    {row.rowNumber !== undefined && <span>{row.rowNumber}</span>}
                   </div>
                 );
               }
