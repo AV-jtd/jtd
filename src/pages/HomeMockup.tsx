@@ -28,6 +28,9 @@ const INBOX_TASKS = [
   { title: "Ответить по запросу клиента Альфа", time: "09:15", isNew: true },
   { title: "Проверить макет лендинга", time: "вчера", isNew: false },
   { title: "Уточнить цены у поставщика", time: "2 дня назад", isNew: false },
+  { title: "Обновить презентацию партнёра", time: "3 дня назад", isNew: false },
+  { title: "Запросить образцы материалов", time: "4 дня назад", isNew: false },
+  { title: "Добавить контакт дистрибьютора", time: "5 дней назад", isNew: false },
 ];
 
 const MY_DAY_TASKS = [
@@ -36,6 +39,8 @@ const MY_DAY_TASKS = [
   { title: "Отправить счёт клиенту", project: "CRM", assignee: "Я", deadline: "вчера", overdue: true },
   { title: "Ревью задач по NPD Gate 2", project: "NPD Pipeline", assignee: "Я", deadline: "завтра", overdue: false },
   { title: "Подготовить презентацию", project: "PMO", assignee: "А. Иванов", deadline: "пт", overdue: false },
+  { title: "Обновить roadmap Q3", project: "PMO", assignee: "Я", deadline: "пн", overdue: false },
+  { title: "Проверить отчёт по продажам", project: "CRM", assignee: "Я", deadline: "вт", overdue: false },
 ];
 
 const FILTERS = ["Все", "Мне поручили", "Поручил я", "По ответственному", "По проекту", "По сроку"];
@@ -43,6 +48,11 @@ const FILTERS = ["Все", "Мне поручили", "Поручил я", "По
 export default function HomeMockup() {
   const [aiExpanded, setAiExpanded] = useState(true);
   const [activeFilter, setActiveFilter] = useState("Все");
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const [inboxExpanded, setInboxExpanded] = useState(false);
+
+  const visibleTasks = tasksExpanded ? MY_DAY_TASKS : MY_DAY_TASKS.slice(0, 5);
+  const visibleInbox = inboxExpanded ? INBOX_TASKS : INBOX_TASKS.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background">
@@ -154,9 +164,8 @@ export default function HomeMockup() {
             ))}
           </div>
 
-          {/* Task list */}
           <ul className="divide-y divide-border">
-            {MY_DAY_TASKS.map((t, i) => (
+            {visibleTasks.map((t, i) => (
               <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className={cn(
                   "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center",
@@ -179,6 +188,13 @@ export default function HomeMockup() {
               </li>
             ))}
           </ul>
+          {MY_DAY_TASKS.length > 5 && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <button onClick={() => setTasksExpanded(!tasksExpanded)} className="text-xs text-primary font-medium hover:underline">
+                {tasksExpanded ? "Свернуть" : `Показать все ${MY_DAY_TASKS.length}`}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* ═══ 5. INBOX ═══ */}
@@ -186,13 +202,12 @@ export default function HomeMockup() {
           <div className="px-5 py-3 bg-muted/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Inbox className="h-4 w-4 text-warning" />
-              <span className="text-sm font-medium text-foreground">Не распределено</span>
-              <span className="text-xs text-muted-foreground">· разобрать вечером</span>
+              <span className="text-sm font-medium text-foreground">Новое. Не распределено</span>
             </div>
             <span className="text-xs font-semibold bg-warning/15 text-warning px-2 py-0.5 rounded-full">{INBOX_TASKS.length}</span>
           </div>
           <ul className="divide-y divide-border">
-            {INBOX_TASKS.map((t, i) => (
+            {visibleInbox.map((t, i) => (
               <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
                 <span className={cn(
                   "h-2 w-2 rounded-full shrink-0",
@@ -203,11 +218,13 @@ export default function HomeMockup() {
               </li>
             ))}
           </ul>
-          <div className="px-5 py-2.5 border-t border-border">
-            <button className="text-xs text-primary font-medium hover:underline">
-              Все {INBOX_TASKS.length} → разобрать
-            </button>
-          </div>
+          {INBOX_TASKS.length > 5 && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <button onClick={() => setInboxExpanded(!inboxExpanded)} className="text-xs text-primary font-medium hover:underline">
+                {inboxExpanded ? "Свернуть" : `Показать все ${INBOX_TASKS.length}`}
+              </button>
+            </div>
+          )}
         </section>
 
         <div className="h-8" />
