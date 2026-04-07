@@ -14,7 +14,7 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
