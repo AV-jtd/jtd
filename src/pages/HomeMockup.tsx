@@ -38,7 +38,7 @@ const MY_DAY_TASKS = [
   { title: "Подготовить презентацию", project: "PMO", assignee: "А. Иванов", deadline: "пт", overdue: false },
 ];
 
-const FILTERS = ["Все", "Мне поручили", "Поручил я", "По проекту", "По сроку"];
+const FILTERS = ["Все", "Мне поручили", "Поручил я", "По ответственному", "По проекту", "По сроку"];
 
 export default function HomeMockup() {
   const [aiExpanded, setAiExpanded] = useState(true);
