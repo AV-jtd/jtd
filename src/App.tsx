@@ -88,6 +88,7 @@ function AppContent() {
               <Route path="/npd" element={<Npd />} />
               <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
               <Route path="/wiki-demo" element={<WikiDemo />} />
+              <Route path="/home-mockup" element={<HomeMockup />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
