@@ -550,24 +550,20 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       });
 
       if (!collapsedProjects.has(project.id)) {
-        // Interleave milestones among tasks by date
-        const sortedMs = [...projectMilestones].sort((a, b) => a.planned_date.localeCompare(b.planned_date));
-        let msIdx = 0;
+        const sortedMs = [...projectMilestones].sort((a, b) => {
+          if (a.position !== b.position) return a.position - b.position;
+          const byDate = a.planned_date.localeCompare(b.planned_date);
+          if (byDate !== 0) return byDate;
+          return a.created_at.localeCompare(b.created_at);
+        });
 
-        // Separate tasks into dated (have deadline) and empty (no deadline)
+        sortedMs.forEach((milestone) => {
+          result.push({ type: "milestone", project, milestone, depth: depth + 1 });
+        });
+
         const datedTasks = projectTasks.filter(t => t.deadline);
-        const noStartOnly = projectTasks.filter(t => !t.deadline && !t.start_at && !t.assigned_to ? false : (!t.deadline && t.start_at) || (!t.start_at && t.deadline));
-        const emptyTasks = projectTasks.filter(t => !t.deadline && !t.start_at && !t.assigned_to);
-        // Tasks with deadline but no start
-        const noStartTasks = projectTasks.filter(t => t.deadline && !t.start_at);
 
-        // First: dated tasks interleaved with milestones
         datedTasks.forEach(t => {
-          const taskDate = t.deadline || t.created_at;
-          while (msIdx < sortedMs.length && sortedMs[msIdx].planned_date <= taskDate) {
-            result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
-            msIdx++;
-          }
           result.push({ type: "task", project, task: t, depth: depth + 1 });
           if (t.subtasks && t.subtasks.length > 0) {
             t.subtasks
@@ -577,13 +573,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               });
           }
         });
-        // Remaining milestones after all dated tasks
-        while (msIdx < sortedMs.length) {
-          result.push({ type: "milestone", project, milestone: sortedMs[msIdx], depth: depth + 1 });
-          msIdx++;
-        }
 
-        // Then: tasks without dates (empty) at the end of the stream
         const undatedTasks = projectTasks.filter(t => !t.deadline);
         if (!hideEmpty) {
           undatedTasks.forEach(t => {
@@ -1329,6 +1319,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               hoveredRow={hoveredRow}
               onHoverRow={setHoveredRow}
               onUpdateMilestone={(id, updates) => updateMilestone.mutate({ id, ...updates })}
+              scrollContainerRef={scrollRef}
               getMilestoneOffscreen={getMilestoneOffscreen}
               taskGateMap={taskGateMap}
               onChangeTaskGate={handleChangeTaskGate}

@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef, useCallback } from "react";
+import { useState, useRef, forwardRef, useCallback, useEffect, type RefObject } from "react";
 import { type Task, type TaskGroup, type Subtask, useAvailableUsers } from "@/hooks/useTasks";
 import { type Milestone } from "@/hooks/useMilestones";
 import { cn } from "@/lib/utils";
@@ -92,7 +92,8 @@ interface GanttLeftPanelProps {
   hoveredRow: number | null;
   onHoverRow: (index: number | null) => void;
   onScroll?: (scrollTop: number) => void; // deprecated — kept for API compat
-  onUpdateMilestone?: (id: string, updates: { group_id?: string }) => void;
+  onUpdateMilestone?: (id: string, updates: { group_id?: string; position?: number }) => void;
+  scrollContainerRef?: RefObject<HTMLDivElement>;
   getMilestoneOffscreen?: (ms: Milestone) => 'left' | 'right' | null;
   /** Gate column: map taskId -> gate key (e.g. "gate0", "gate1") */
   taskGateMap?: Map<string, string>;
@@ -102,6 +103,9 @@ interface GanttLeftPanelProps {
   selectedTaskIds?: Set<string>;
   onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
+
+const AUTO_SCROLL_EDGE = 72;
+const AUTO_SCROLL_MAX_SPEED = 14;
 
 /** Predecessor picker with search and multi-select */
 function PredecessorPicker({
@@ -189,7 +193,7 @@ function PredecessorPicker({
 const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function GanttLeftPanel({
   rows, rowHeight, getRowHeight: getRowHeightProp, width, allProjects, dependencies = [], columns: columnConfig, onColumnsChange, onMilestoneClick, onAddTask, onAddSubproject, onAddSubtask, onUpdateTask, onToggleTask, onUpdateSubtask, onToggleSubtask,
   onMoveTask, onMoveProject, onReorderTask, onOpenTask, onCreateDependency, collapsedProjects, onToggleCollapse, filterAssignee, hoveredRow, onHoverRow, onScroll,
-  onUpdateMilestone, getMilestoneOffscreen, taskGateMap, onChangeTaskGate,
+  onUpdateMilestone, scrollContainerRef, getMilestoneOffscreen, taskGateMap, onChangeTaskGate,
   selectedTaskIds, onToggleSelect,
 }, ref) {
   const { data: users = [] } = useAvailableUsers();
@@ -206,6 +210,8 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   const [colDragIdx, setColDragIdx] = useState<number | null>(null);
   const [colDropIdx, setColDropIdx] = useState<number | null>(null);
   const colResizeRef = useRef<{ key: GanttColumnKey; startX: number; startW: number } | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const autoScrollSpeedRef = useRef(0);
 
   const isColVisible = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.visible ?? true;
   const colWidth = (key: GanttColumnKey) => columnConfig.find(c => c.key === key)?.width ?? 40;
@@ -258,6 +264,49 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   };
 
   const resetColumns = () => onColumnsChange(DEFAULT_COLUMNS);
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollSpeedRef.current = 0;
+    if (autoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }, []);
+
+  const tickAutoScroll = useCallback(() => {
+    const container = scrollContainerRef?.current;
+    if (!container || autoScrollSpeedRef.current === 0) {
+      autoScrollFrameRef.current = null;
+      return;
+    }
+
+    container.scrollTop += autoScrollSpeedRef.current;
+    autoScrollFrameRef.current = requestAnimationFrame(tickAutoScroll);
+  }, [scrollContainerRef]);
+
+  const updateAutoScroll = useCallback((clientY: number) => {
+    const container = scrollContainerRef?.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const topRatio = Math.max(0, Math.min(1, (AUTO_SCROLL_EDGE - (clientY - rect.top)) / AUTO_SCROLL_EDGE));
+    const bottomRatio = Math.max(0, Math.min(1, (AUTO_SCROLL_EDGE - (rect.bottom - clientY)) / AUTO_SCROLL_EDGE));
+
+    if (topRatio > 0) {
+      autoScrollSpeedRef.current = -Math.max(3, topRatio * AUTO_SCROLL_MAX_SPEED);
+    } else if (bottomRatio > 0) {
+      autoScrollSpeedRef.current = Math.max(3, bottomRatio * AUTO_SCROLL_MAX_SPEED);
+    } else {
+      stopAutoScroll();
+      return;
+    }
+
+    if (autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = requestAnimationFrame(tickAutoScroll);
+    }
+  }, [scrollContainerRef, stopAutoScroll, tickAutoScroll]);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
   const getTaskDuration = (task: Task): number | null => {
     const start = task.start_at ? parseISO(task.start_at) : null;
@@ -365,10 +414,12 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDropTargetIdx(idx);
+    updateAutoScroll(e.clientY);
   };
 
   const handleDrop = (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault();
+    stopAutoScroll();
     if (dragRowIdx === null || dragRowIdx === targetIdx) {
       setDragRowIdx(null);
       setDropTargetIdx(null);
@@ -384,16 +435,56 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
     }
     // Milestone DnD: move to target project
     if (srcRow?.type === "milestone" && srcRow.milestone && tgtRow && onUpdateMilestone) {
+      const draggedMilestone = srcRow.milestone;
+      const sourceGroupId = draggedMilestone.group_id;
       const targetGroupId = tgtRow.project.id;
-      if (targetGroupId !== srcRow.milestone.group_id) {
-        onUpdateMilestone(srcRow.milestone.id, { group_id: targetGroupId });
+
+      const sourceMilestones = rows
+        .filter((row) => row.type === "milestone" && row.milestone && row.project.id === sourceGroupId)
+        .map((row) => row.milestone!);
+
+      const targetMilestonesBase = rows
+        .filter((row) => row.type === "milestone" && row.milestone && row.project.id === targetGroupId)
+        .map((row) => row.milestone!)
+        .filter((milestone) => milestone.id !== draggedMilestone.id);
+
+      const reorderedTargetMilestones = [...targetMilestonesBase];
+      const draggedPayload = { ...draggedMilestone, group_id: targetGroupId };
+
+      if (tgtRow.type === "project") {
+        reorderedTargetMilestones.unshift(draggedPayload);
+      } else if (tgtRow.type === "milestone" && tgtRow.milestone) {
+        const targetMilestoneIdx = reorderedTargetMilestones.findIndex((milestone) => milestone.id === tgtRow.milestone!.id);
+        reorderedTargetMilestones.splice(targetMilestoneIdx >= 0 ? targetMilestoneIdx : reorderedTargetMilestones.length, 0, draggedPayload);
+      } else {
+        reorderedTargetMilestones.push(draggedPayload);
       }
+
+      if (sourceGroupId !== targetGroupId) {
+        sourceMilestones
+          .filter((milestone) => milestone.id !== draggedMilestone.id)
+          .forEach((milestone, index) => {
+            const nextPosition = index + 1;
+            if (milestone.position !== nextPosition) {
+              onUpdateMilestone(milestone.id, { position: nextPosition });
+            }
+          });
+      }
+
+      reorderedTargetMilestones.forEach((milestone, index) => {
+        const nextPosition = index + 1;
+        const nextGroupId = milestone.id === draggedMilestone.id ? targetGroupId : milestone.group_id;
+        if (milestone.position !== nextPosition || milestone.group_id !== nextGroupId) {
+          onUpdateMilestone(milestone.id, { group_id: nextGroupId, position: nextPosition });
+        }
+      });
     }
     setDragRowIdx(null);
     setDropTargetIdx(null);
   };
 
   const handleDragEnd = () => {
+    stopAutoScroll();
     setDragRowIdx(null);
     setDropTargetIdx(null);
   };
