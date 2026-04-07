@@ -74,58 +74,6 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
-  const handleToggleSelect = useCallback((taskId: string, shiftKey?: boolean) => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      if (shiftKey && prev.size > 0) {
-        // Range select: from last selected to current
-        const taskRows = rows.filter(r => r.type === "task" && r.task);
-        const lastId = [...prev].pop()!;
-        const lastIdx = taskRows.findIndex(r => r.task!.id === lastId);
-        const curIdx = taskRows.findIndex(r => r.task!.id === taskId);
-        if (lastIdx >= 0 && curIdx >= 0) {
-          const [start, end] = lastIdx < curIdx ? [lastIdx, curIdx] : [curIdx, lastIdx];
-          for (let i = start; i <= end; i++) {
-            next.add(taskRows[i].task!.id);
-          }
-          return next;
-        }
-      }
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  }, [rows]);
-
-  const handleBulkMove = useCallback((targetGroupId: string) => {
-    selectedTaskIds.forEach(id => {
-      updateTask.mutate({ id, group_id: targetGroupId });
-    });
-    setSelectedTaskIds(new Set());
-  }, [selectedTaskIds, updateTask]);
-
-  const handleBulkAssign = useCallback((userId: string | null) => {
-    selectedTaskIds.forEach(id => {
-      updateTask.mutate({ id, assigned_to: userId });
-    });
-    setSelectedTaskIds(new Set());
-  }, [selectedTaskIds, updateTask]);
-
-  const handleBulkGate = useCallback((gateKey: string | null) => {
-    selectedTaskIds.forEach(id => {
-      handleChangeTaskGate(id, gateKey);
-    });
-    setSelectedTaskIds(new Set());
-  }, [selectedTaskIds, handleChangeTaskGate]);
-
-  const handleBulkDelete = useCallback(() => {
-    if (!confirm(`Удалить ${selectedTaskIds.size} задач?`)) return;
-    selectedTaskIds.forEach(id => {
-      deleteTask.mutate(id);
-    });
-    setSelectedTaskIds(new Set());
-  }, [selectedTaskIds, deleteTask]);
-
   // ── Gate column: build taskId -> gateKey map from task_tags ──
   const NPD_GATE_TAG_NAMES = useMemo(() => [
     { key: "gate0", tagName: "Gate 0: Идея и Стратегия" },
