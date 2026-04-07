@@ -164,9 +164,8 @@ export default function HomeMockup() {
             ))}
           </div>
 
-          {/* Task list */}
           <ul className="divide-y divide-border">
-            {MY_DAY_TASKS.map((t, i) => (
+            {visibleTasks.map((t, i) => (
               <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className={cn(
                   "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center",
@@ -189,6 +188,13 @@ export default function HomeMockup() {
               </li>
             ))}
           </ul>
+          {MY_DAY_TASKS.length > 5 && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <button onClick={() => setTasksExpanded(!tasksExpanded)} className="text-xs text-primary font-medium hover:underline">
+                {tasksExpanded ? "Свернуть" : `Показать все ${MY_DAY_TASKS.length}`}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* ═══ 5. INBOX ═══ */}
@@ -196,13 +202,12 @@ export default function HomeMockup() {
           <div className="px-5 py-3 bg-muted/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Inbox className="h-4 w-4 text-warning" />
-              <span className="text-sm font-medium text-foreground">Не распределено</span>
-              <span className="text-xs text-muted-foreground">· разобрать вечером</span>
+              <span className="text-sm font-medium text-foreground">Новое. Не распределено</span>
             </div>
             <span className="text-xs font-semibold bg-warning/15 text-warning px-2 py-0.5 rounded-full">{INBOX_TASKS.length}</span>
           </div>
           <ul className="divide-y divide-border">
-            {INBOX_TASKS.map((t, i) => (
+            {visibleInbox.map((t, i) => (
               <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
                 <span className={cn(
                   "h-2 w-2 rounded-full shrink-0",
@@ -213,11 +218,13 @@ export default function HomeMockup() {
               </li>
             ))}
           </ul>
-          <div className="px-5 py-2.5 border-t border-border">
-            <button className="text-xs text-primary font-medium hover:underline">
-              Все {INBOX_TASKS.length} → разобрать
-            </button>
-          </div>
+          {INBOX_TASKS.length > 5 && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <button onClick={() => setInboxExpanded(!inboxExpanded)} className="text-xs text-primary font-medium hover:underline">
+                {inboxExpanded ? "Свернуть" : `Показать все ${INBOX_TASKS.length}`}
+              </button>
+            </div>
+          )}
         </section>
 
         <div className="h-8" />
