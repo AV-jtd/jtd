@@ -24,7 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
 
-  const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean) => {
+  const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean, attempt = 0) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2500;
+
     try {
       const [profileRes, roleRes, adminExistsRes] = await Promise.all([
         supabase.from("profiles").select("is_approved").eq("id", userId).single(),
@@ -32,10 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.rpc("admin_exists"),
       ]);
 
-      // Only apply results if this is still the latest fetch and component is mounted
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
-      // If no admins exist, first user becomes admin
       const noAdminsExist = adminExistsRes.data === false;
       if (noAdminsExist) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
@@ -52,8 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(!!roleRes.data);
       setLoading(false);
     } catch (err) {
-      console.error("[Auth] fetchProfile failed:", err);
-      if (fetchIdRef.current === fetchId && isMounted()) {
+      console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
+      if (fetchIdRef.current !== fetchId || !isMounted()) return;
+
+      if (attempt < MAX_RETRIES - 1) {
+        setTimeout(() => {
+          if (fetchIdRef.current === fetchId && isMounted()) {
+            fetchProfile(userId, fetchId, isMounted, attempt + 1);
+          }
+        }, RETRY_DELAY);
+      } else {
+        console.error("[Auth] All retries exhausted, clearing loading state");
         setLoading(false);
       }
     }
