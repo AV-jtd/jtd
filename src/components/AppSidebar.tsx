@@ -99,19 +99,40 @@ export default function AppSidebar({
     "hsl(var(--tag-pink))", "hsl(var(--tag-teal))",
   ];
 
-  const menuItems = [
-    { id: "all", icon: List, label: "Все задачи" },
-    { id: "inbox", icon: Inbox, label: "Входящие" },
-    { id: "myday", icon: Star, label: "Мой день" },
-    { id: "assigned", icon: Users, label: "Делегированные" },
-    { id: "deferred", icon: Clock, label: "Отложенные" },
-    { id: "subordinates", icon: UsersRound, label: "Команда" },
-    { id: "community", icon: Globe, label: "Сообщество" },
-    { id: "calendar", icon: CalendarDays, label: "Календарь" },
-    { id: "dashboard", icon: BarChart3, label: "Дашборд" },
-    { id: "wiki", icon: BookOpen, label: "База знаний" },
-    { id: "archive", icon: Archive, label: "Архив" },
+  const menuSections = [
+    {
+      label: "Действуй",
+      items: [
+        { id: "inbox", icon: Inbox, label: "Входящие" },
+        { id: "myday", icon: Star, label: "Мой день" },
+        { id: "assigned", icon: Users, label: "Делегированные" },
+      ],
+    },
+    {
+      label: null, // Projects & Tags — rendered separately below
+      items: [],
+    },
+    {
+      label: "Пересмотр",
+      items: [
+        { id: "dashboard", icon: BarChart3, label: "Обзор" },
+        { id: "calendar", icon: CalendarDays, label: "Календарь" },
+        { id: "deferred", icon: Clock, label: "Отложенные" },
+        { id: "archive", icon: Archive, label: "Архив" },
+      ],
+    },
+    {
+      label: "Ещё",
+      collapsed: true,
+      items: [
+        { id: "all", icon: List, label: "Все задачи" },
+        { id: "subordinates", icon: UsersRound, label: "Команда" },
+        { id: "community", icon: Globe, label: "Сообщество" },
+        { id: "wiki", icon: BookOpen, label: "База знаний" },
+      ],
+    },
   ];
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Separate root groups and subgroups — hide archived
   const rootGroups = groups.filter(g => !g.parent_id && !(g as any).closed_at);
