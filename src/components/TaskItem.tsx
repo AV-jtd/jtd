@@ -1185,11 +1185,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       <Loader2 className="h-3 w-3 animate-spin" /> Подбираем тэги...
                     </p>
                   )}
-                  {availableTags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
+                  {availableTags.filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase()))).length === 0 && (
                     <p className="text-xs text-muted-foreground px-2 py-1">Нет тэгов</p>
                   )}
                   {availableTags
-                    .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase())))
                     .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                     .map(tag => (
                       <button
@@ -1521,7 +1521,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         </p>
                       )}
                       {availableTags
-                        .filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                        .filter(t => ((t.name + " " + (tagCategoryPath.get(t.id) || "")).toLowerCase().includes(tagSearch.toLowerCase())))
                         .filter(t => tagSearch || !suggestedTagIds.includes(t.id))
                         .map(tag => (
                           <button
