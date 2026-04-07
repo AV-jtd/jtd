@@ -17,7 +17,6 @@ import { useDependencies } from "@/hooks/useDependencies";
 import { NPD_GATES } from "@/modules/npd/components/matrix/types";
 import type { TaskGroup, Task } from "@/hooks/useTasks";
 import { useTasks } from "@/hooks/useTasks";
-import { PopoverSearch } from "@/components/ui/popover-search";
 
 interface MilestoneDialogProps {
   open: boolean;
@@ -124,7 +123,7 @@ export default function MilestoneDialog({
     });
 
     // Tasks from this project
-    const tasks = (allTasks?.tasks || []).filter(t => t.group_id && groupIds.has(t.group_id));
+    const tasks = (allTasks || []).filter(t => t.group_id && groupIds.has(t.group_id));
     tasks.forEach(t => {
       if (milestone && t.id === milestone.id) return;
       items.push({ id: t.id, label: `📋 ${t.title}`, type: "task" });
