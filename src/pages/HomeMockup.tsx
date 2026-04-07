@@ -127,7 +127,61 @@ export default function HomeMockup() {
           ))}
         </div>
 
-        {/* ═══ 4. INBOX ═══ */}
+        {/* ═══ 4. MY DAY ═══ */}
+        <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">Задачи</span>
+              <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{MY_DAY_TASKS.length}</span>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="px-5 pb-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setActiveFilter(f)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border",
+                  activeFilter === f
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:bg-muted/60"
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Task list */}
+          <ul className="divide-y divide-border">
+            {MY_DAY_TASKS.map((t, i) => (
+              <li key={i} className="px-5 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors cursor-pointer">
+                <div className={cn(
+                  "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center",
+                  t.overdue ? "border-destructive" : "border-border"
+                )} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{t.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-muted-foreground truncate">{t.project}</span>
+                    <span className="text-[10px] text-muted-foreground">·</span>
+                    <span className="text-[10px] text-muted-foreground">{t.assignee}</span>
+                  </div>
+                </div>
+                <span className={cn(
+                  "text-xs whitespace-nowrap",
+                  t.overdue ? "text-destructive font-medium" : "text-muted-foreground"
+                )}>
+                  {t.deadline}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ═══ 5. INBOX ═══ */}
         <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-5 py-3 bg-muted/40 flex items-center justify-between">
             <div className="flex items-center gap-2">
