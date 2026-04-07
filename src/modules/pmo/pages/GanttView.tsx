@@ -1706,9 +1706,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           <GanttTaskPopover
                             task={task}
                             project={row.project}
-                            onUpdate={(id, updates) => updateTask.mutate({ id, ...updates })}
-                            onToggle={(id, completed) => toggleTask.mutate({ id, is_completed: completed })}
-                            onDelete={(id) => deleteTask.mutate(id)}
+                            onUpdate={(id, updates) => { const t = allTasks.find(x => x.id === id); if (t) undoableUpdate(t, updates); else updateTask.mutate({ id, ...updates }); }}
+                            onToggle={(id, completed) => { const t = allTasks.find(x => x.id === id); if (t) undoableToggle(t); else toggleTask.mutate({ id, is_completed: completed }); }}
+                            onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                             onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                           >
                             <span
