@@ -1173,7 +1173,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                             className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
                           >
                             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                            <span className="truncate">{tag.name}</span>
+                            <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                             <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
                           </button>
                         ))}
@@ -1198,7 +1198,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                       >
                         <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                        <span className="truncate">{tag.name}</span>
+                        <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                       </button>
                     ))}
                 </div>
@@ -1508,7 +1508,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                                 className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-primary/10 transition-colors border-l-2 border-primary/30"
                               >
                                 <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                                <span className="truncate">{tag.name}</span>
+                                <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                                 <Sparkles className="h-3 w-3 text-primary/50 ml-auto shrink-0" />
                               </button>
                             ))}
@@ -1530,7 +1530,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                             className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
                           >
                             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color || undefined }} />
-                            <span className="truncate">{tag.name}</span>
+                            <span className="truncate">{tag.name}{tagCategoryPath.get(tag.id) && <span className="text-muted-foreground text-[10px] ml-1 opacity-60">{tagCategoryPath.get(tag.id)}</span>}</span>
                           </button>
                         ))}
                     </div>
