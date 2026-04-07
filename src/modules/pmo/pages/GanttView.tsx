@@ -1985,5 +1985,6 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         </SheetContent>
       </Sheet>
     </div>
+    </div>
   );
 }
