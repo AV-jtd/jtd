@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { DailyInsights, InsightItem } from "@/hooks/useAiInsights";
 import {
   Sparkles, RefreshCw, X, Loader2, TrendingUp, AlertTriangle, CheckCircle2, Target,
-  ChevronDown, ExternalLink, User, ArrowUpRight, ArrowDownLeft, Clock,
+  ChevronDown, ExternalLink, User, ArrowUpRight, ArrowDownLeft, Clock, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,8 @@ interface AiInsightsCardProps {
   onStatClick?: (key: StatChipKey) => void;
   /** Show only stat chips without AI greeting/insights (e.g. in project view) */
   compactMode?: boolean;
+  /** Project name shown in compact mode header */
+  compactLabel?: string;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
@@ -125,14 +127,20 @@ function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, compactMode,
+  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, compactMode, compactLabel,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   // Compact mode: only show stat chips row
   if (compactMode && roleStats) {
     return (
-      <div className="mx-3 mt-3 rounded-xl border border-border/50 bg-muted/30 overflow-hidden px-2 py-2">
+      <div className="mx-3 mt-3 rounded-xl border border-border/50 bg-muted/30 overflow-hidden px-2 py-2 space-y-1">
+        {compactLabel && (
+          <div className="flex items-center gap-1.5 px-1">
+            <BarChart3 className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-medium text-muted-foreground truncate">{compactLabel}</span>
+          </div>
+        )}
         <StatChipRow stats={roleStats} onStatClick={onStatClick} />
       </div>
     );

@@ -703,6 +703,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             roleStats={roleStats}
             onStatClick={handleStatChipClick}
             compactMode={activeView === "group"}
+            compactLabel={activeView === "group" && activeGroup ? activeGroup.name : undefined}
           />
         )}
 
