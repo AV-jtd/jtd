@@ -514,7 +514,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <div className="max-w-2xl mx-auto px-6 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-3 sm:space-y-4">
         {/* Breadcrumbs for subprojects */}
         {activeView === "group" && breadcrumbChain.length > 1 && (
           <nav className="flex items-center gap-1 mb-3 text-xs text-muted-foreground overflow-x-auto scrollbar-none">
