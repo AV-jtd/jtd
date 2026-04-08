@@ -88,7 +88,7 @@ export default function HomeMockup() {
                   >
                     <p className="text-2xl font-bold" style={{ color: cell.color }}>{cell.count}</p>
                     <p className="text-xs font-medium text-foreground mt-0.5 leading-tight">{cell.label}</p>
-                    {cell.sub && <p className="text-[10px] text-muted-foreground">{cell.sub}</p>}
+                    
                   </button>
                 ))}
               </div>
