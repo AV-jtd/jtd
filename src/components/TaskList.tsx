@@ -686,13 +686,13 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </div>
         )}
 
-        {/* AI Insights — show on inbox/myday/all views */}
-        {!batchMode && (activeView === "inbox" || activeView === "myday" || activeView === "today" || activeView === "all") && (
+        {/* AI Insights — show on inbox/myday/all/group views */}
+        {!batchMode && (activeView === "inbox" || activeView === "myday" || activeView === "today" || activeView === "all" || activeView === "group") && (
           <AiInsightsCard
-            insights={insights}
-            loading={insightsLoading}
-            error={insightsError}
-            dismissed={insightsDismissed}
+            insights={activeView === "group" ? null : insights}
+            loading={activeView === "group" ? false : insightsLoading}
+            error={activeView === "group" ? null : insightsError}
+            dismissed={activeView === "group" ? false : insightsDismissed}
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
             onNavigateToTask={(taskId) => {
@@ -702,6 +702,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             onNavigateToProject={onProjectClick}
             roleStats={roleStats}
             onStatClick={handleStatChipClick}
+            compactMode={activeView === "group"}
           />
         )}
 

@@ -33,6 +33,8 @@ interface AiInsightsCardProps {
   roleStats?: TaskRoleStats;
   /** Called when user clicks a stat chip */
   onStatClick?: (key: StatChipKey) => void;
+  /** Show only stat chips without AI greeting/insights (e.g. in project view) */
+  compactMode?: boolean;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
@@ -123,9 +125,18 @@ function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, roleStats, onStatClick,
+  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, compactMode,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Compact mode: only show stat chips row
+  if (compactMode && roleStats) {
+    return (
+      <div className="mx-3 mt-3 rounded-xl border border-border/50 bg-muted/30 overflow-hidden px-2 py-2">
+        <StatChipRow stats={roleStats} onStatClick={onStatClick} />
+      </div>
+    );
+  }
 
   if (dismissed) return null;
 
