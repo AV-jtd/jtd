@@ -1184,6 +1184,7 @@ Deno.serve(async (req) => {
     }
 
     // === Check pending /spisok context (for voice, forwarded, or bulk-like messages) ===
+    // Voice messages ALWAYS check pending context (transcriptions often don't have list markers)
     const isPendingContextCandidate = isFromVoice || message._forwarded || detectBulkMessage(message.text);
     if (isPendingContextCandidate && !message.text.startsWith("/")) {
       const { data: pendingCtx } = await supabase
@@ -1207,7 +1208,7 @@ Deno.serve(async (req) => {
           await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
 
           const results = await createBulkTasks(supabase, parsedTasks, userId, ctxGroupId, members);
-          const confirmLines = results.map((r, i) =>
+          const confirmLines = results.map((r: any, i: number) =>
             `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
           );
 
@@ -1221,6 +1222,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Voice messages without pending context → always try AI bulk parse ===
+    if (isFromVoice && !message.text.startsWith("/")) {
+      const parsedTasks = await aiBulkParse(message.text, [], undefined);
+      if (parsedTasks && parsedTasks.length >= 1) {
+        const results = await createBulkTasks(supabase, parsedTasks, userId, null, []);
+        const confirmLines = results.map((r: any, i: number) =>
+          `${i + 1}. ✅ ${r.title}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+        );
+
+        await sendTelegramMessage(BOT_TOKEN, chatId,
+          `🎤📦 Создано ${results.length} задач из голосового:\n\n${confirmLines.join("\n")}\n\n💡 Используй /spisok Проект для привязки к проекту`
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+      // If AI couldn't parse multiple tasks, fall through to single task creation
+    }
+
     // === Auto-detect bulk task lists in private chat ===
     const isBulkCandidate = detectBulkMessage(message.text);
     if (isBulkCandidate && !message.text.startsWith("/")) {
@@ -1230,7 +1248,7 @@ Deno.serve(async (req) => {
       
       if (parsedTasks && parsedTasks.length >= 2) {
         const results = await createBulkTasks(supabase, parsedTasks, userId, null, members);
-        const confirmLines = results.map((r, i) =>
+        const confirmLines = results.map((r: any, i: number) =>
           `${i + 1}. ✅ ${r.title}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
         );
         
