@@ -218,39 +218,18 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     };
   }, [tasks, user?.id]);
 
+  // Active stat chip filter (toggle pattern)
+  const [activeStatFilter, setActiveStatFilter] = useState<StatChipKey | null>(null);
+
   const handleStatChipClick = useCallback((key: StatChipKey) => {
-    // Reset filters first
+    // Toggle: clicking same chip again resets filter
+    setActiveStatFilter(prev => prev === key ? null : key);
+    // Reset other filters
     setPriorityFilter(null);
     setAssigneeFilter(null);
     setProjectFilter(null);
     setSearchFilter("");
-
-    switch (key) {
-      case "responsible":
-        onViewChange?.("all");
-        setAssigneeFilter("me");
-        break;
-      case "delegated_by_me":
-        onViewChange?.("assigned");
-        setDelegationTab("by_me");
-        break;
-      case "delegated_to_me":
-        onViewChange?.("assigned");
-        setDelegationTab("to_me");
-        break;
-      case "overdue":
-        onViewChange?.("all");
-        setPriorityFilter("overdue");
-        break;
-      case "drift":
-        // Show all tasks, no specific view for drift yet — just go to all
-        onViewChange?.("all");
-        break;
-      case "completed":
-        onViewChange?.("all");
-        break;
-    }
-  }, [onViewChange]);
+  }, []);
 
   const filteredTasks = useMemo(() => {
     const now = new Date();
