@@ -1050,6 +1050,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             )}
           </div>
         )}
+        </div>{/* end task list card */}
       </div>
     </main>
   );
