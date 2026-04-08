@@ -97,8 +97,8 @@ const STAT_CHIPS: StatChipDef[] = [
 
 function StatChipRow({ stats, onStatClick, activeKey }: { stats: TaskRoleStats; onStatClick?: (key: StatChipKey) => void; activeKey?: StatChipKey | null }) {
   return (
-    <div className="pl-6 -mx-1 overflow-x-auto scrollbar-none">
-      <div className="flex items-center gap-1.5 pb-0.5 px-1">
+    <div className="-mx-1 overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1 sm:gap-1.5 pb-0.5 px-1">
         {STAT_CHIPS.map(chip => {
           const value = chip.getValue(stats);
           if (value === 0 && !chip.showZero) return null;
@@ -113,7 +113,7 @@ function StatChipRow({ stats, onStatClick, activeKey }: { stats: TaskRoleStats; 
                 onStatClick?.(chip.key);
               }}
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all whitespace-nowrap",
+                "inline-flex items-center gap-0.5 sm:gap-1 rounded-full border px-1.5 sm:px-2 py-1 text-[11px] font-medium transition-all whitespace-nowrap",
                 "cursor-pointer active:scale-95",
                 isActive
                   ? cn(chip.activeColor, "ring-1 ring-offset-1 ring-primary/30")
@@ -121,15 +121,22 @@ function StatChipRow({ stats, onStatClick, activeKey }: { stats: TaskRoleStats; 
               )}
               title={chip.label}
             >
-              <Icon className={cn("h-3 w-3", chip.color)} />
-              <span className={cn("tabular-nums", chip.color)}>{value}</span>
-              <span className="text-muted-foreground text-[10px]">{chip.label}</span>
+              <Icon className={cn("h-3 w-3 shrink-0", chip.color)} />
+              <span className={cn("tabular-nums font-semibold", chip.color)}>{value}</span>
+              <span className="text-muted-foreground text-[10px] hidden sm:inline">{chip.label}</span>
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+/** Extract first name from "Имя Фамилия" */
+function smartName(fullName?: string): string | undefined {
+  if (!fullName) return undefined;
+  const first = fullName.trim().split(/\s+/)[0];
+  return first || fullName;
 }
 
 function AiInsightsCardInner({
@@ -209,7 +216,7 @@ function AiInsightsCardInner({
         <div className="flex items-start gap-2 w-full">
           <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <p className="text-sm font-medium text-foreground leading-snug flex-1">
-            {userName ? `Привет, ${userName}` : insights.greeting}
+            Привет, {smartName(userName) || "👋"}
           </p>
 
           <div className="flex items-center gap-0.5 shrink-0">
