@@ -165,6 +165,7 @@ export default function Index() {
                 });
               }}
               onAiOpen={() => setAiOpen(true)}
+              onViewChange={(v) => { setActiveView(v); setActiveGroupId(null); setActiveTagFilters([]); }}
             />
             {chatOpen && activeGroupId && activeView === "group" && (
               <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
