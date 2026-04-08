@@ -33,6 +33,8 @@ interface AiInsightsCardProps {
   roleStats?: TaskRoleStats;
   /** Called when user clicks a stat chip */
   onStatClick?: (key: StatChipKey) => void;
+  /** Show only stat chips without AI greeting/insights (e.g. in project view) */
+  compactMode?: boolean;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
