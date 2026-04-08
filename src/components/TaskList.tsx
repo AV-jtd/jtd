@@ -90,6 +90,7 @@ interface TaskListProps {
   onProjectClick?: (groupId: string) => void;
   onInsightTaskNavigate?: (taskId: string, groupId: string | null) => void;
   onAiOpen?: () => void;
+  onViewChange?: (view: string) => void;
 }
 
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen }: TaskListProps) {
