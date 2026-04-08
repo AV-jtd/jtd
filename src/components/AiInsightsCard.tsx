@@ -35,6 +35,8 @@ interface AiInsightsCardProps {
   onStatClick?: (key: StatChipKey) => void;
   /** Show only stat chips without AI greeting/insights (e.g. in project view) */
   compactMode?: boolean;
+  /** Project name shown in compact mode header */
+  compactLabel?: string;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
