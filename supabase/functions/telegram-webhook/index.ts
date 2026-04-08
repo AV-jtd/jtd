@@ -1091,20 +1091,28 @@ Deno.serve(async (req) => {
     }
 
     // === /spisok in private chat ===
-    if (message.text.startsWith("/spisok")) {
-      const bulkArgs = message.text.replace(/^\/spisok\s*/, "").trim();
+    if (message.text.startsWith("/spisok") || message.text === "/s" || message.text === "/t" || message.text === "/p" || message.text === "/d"
+        || message.text.startsWith("/s ") || message.text.startsWith("/t ") || message.text.startsWith("/p ") || message.text.startsWith("/d ")) {
+      const bulkArgs = message.text.replace(/^\/(spisok|s|t|p|d)\s*/, "").trim();
       if (!bulkArgs) {
+        // Save pending context WITHOUT project — next message (voice/text/forward) will be parsed as tasks
+        await supabase.from("telegram_pending_context").upsert({
+          chat_id: chatId,
+          user_id: userId,
+          context_type: "spisok",
+          group_id: null,
+          group_name: null,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "chat_id" });
+
         await sendTelegramMessage(BOT_TOKEN, chatId,
-          "📦 *Пакетное создание задач*\n\n" +
-          "Формат:\n" +
-          "`/spisok Название проекта`\n" +
-          "`- Задача 1 @user 3д`\n" +
-          "`- Задача 2 5д`\n" +
-          "`- Задача 3 завтра`\n\n" +
-          "Или:\n" +
-          "`/spisok Проект` — затем отправь голосовое или перешли сообщение\n\n" +
-          "🎤 Также можно отправить голосовое сообщение.\n" +
-          "📨 Можно переслать сообщение — бот распознает задачи.",
+          "📦 *Режим пакетного создания задач*\n\n" +
+          "Теперь отправь:\n" +
+          "• 📝 Список задач текстом\n" +
+          "• 🎤 Голосовое сообщение\n" +
+          "• 📨 Перешли сообщение\n\n" +
+          "💡 Чтобы привязать к проекту: `/spisok Название проекта`\n\n" +
+          "⏰ Контекст активен 10 минут.",
           "Markdown"
         );
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
