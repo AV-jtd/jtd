@@ -3,7 +3,7 @@ import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailable
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import AiInsightsCard from "./AiInsightsCard";
+import AiInsightsCard, { type StatChipKey, type TaskRoleStats } from "./AiInsightsCard";
 import BulkTaskDialog from "./BulkTaskDialog";
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
