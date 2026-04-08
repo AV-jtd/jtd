@@ -700,6 +700,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               onInsightTaskNavigate?.(taskId, task?.group_id ?? null);
             }}
             onNavigateToProject={onProjectClick}
+            roleStats={roleStats}
+            onStatClick={handleStatChipClick}
           />
         )}
 
