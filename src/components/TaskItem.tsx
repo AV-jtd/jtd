@@ -485,7 +485,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { data: tagCategories = [] } = useTagCategories();
   const { data: chatComments = [] } = useTaskComments(task.id);
   const [expanded, setExpanded] = useState(false);
-  const [mobileExpanded, setMobileExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   const [highlighted, setHighlighted] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
@@ -796,9 +795,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
     transition,
   };
 
-  // Compact mobile view: 1-line task, tap to expand
-  const showCompact = isMobile && !mobileExpanded && !initialOpen && !selectable;
-
   return (
     <>
     <div
@@ -818,63 +814,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         }
       }}
     >
-      {showCompact ? (
-        /* ── Compact mobile row ── */
-        <div className="flex items-center gap-2 p-2.5" onClick={() => setMobileExpanded(true)}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
-                setClosureDialogOpen(true);
-              } else {
-                undoableToggleTask();
-              }
-            }}
-            className="-m-1 p-1 touch-manipulation"
-          >
-            <span className={cn(
-              "h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-              task.is_completed
-                ? "bg-primary border-primary"
-                : "border-muted-foreground/40"
-            )}>
-              {task.is_completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-            </span>
-          </button>
-          <span className={cn(
-            "text-sm flex-1 min-w-0 truncate",
-            task.is_completed && "line-through text-muted-foreground"
-          )}>
-            {task.title}
-          </span>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {task.is_important && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
-            {task.deadline && (
-              <span className={cn(
-                "text-[10px] tabular-nums",
-                deadlineOverdue ? "text-destructive font-medium" : "text-muted-foreground"
-              )}>
-                {formatDeadline(task.deadline)}
-              </span>
-            )}
-            {subtasks.length > 0 && (
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                {completedSubs}/{subtasks.length}
-              </span>
-            )}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40" />
-          </div>
-        </div>
-      ) : (
-      <>{/* ── Full view ── */}
-      {isMobile && mobileExpanded && (
-        <button
-          onClick={() => setMobileExpanded(false)}
-          className="flex items-center justify-center w-full py-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-        >
-          <ChevronDown className="h-3.5 w-3.5 rotate-180" />
-        </button>
-      )}
       <div className="flex items-start gap-3 p-3.5">
         {/* Selection checkbox */}
         {selectable && (
@@ -1986,8 +1925,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </button>
           )}
         </div>
-      )}
-      </>
       )}
     </div>
 
