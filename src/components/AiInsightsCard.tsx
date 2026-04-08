@@ -33,10 +33,14 @@ interface AiInsightsCardProps {
   roleStats?: TaskRoleStats;
   /** Called when user clicks a stat chip */
   onStatClick?: (key: StatChipKey) => void;
+  /** Currently active stat filter key */
+  activeStatFilter?: StatChipKey | null;
   /** Show only stat chips without AI greeting/insights (e.g. in project view) */
   compactMode?: boolean;
   /** Project name shown in compact mode header */
   compactLabel?: string;
+  /** User display name for simplified greeting */
+  userName?: string;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
@@ -91,7 +95,7 @@ const STAT_CHIPS: StatChipDef[] = [
   { key: "completed", icon: CheckCircle2, label: "Выполнено", color: "text-emerald-500 dark:text-emerald-400", activeColor: "bg-emerald-500/10 border-emerald-500/25 hover:bg-emerald-500/15", getValue: s => s.completed },
 ];
 
-function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick?: (key: StatChipKey) => void }) {
+function StatChipRow({ stats, onStatClick, activeKey }: { stats: TaskRoleStats; onStatClick?: (key: StatChipKey) => void; activeKey?: StatChipKey | null }) {
   return (
     <div className="pl-6 -mx-1 overflow-x-auto scrollbar-none">
       <div className="flex items-center gap-1.5 pb-0.5 px-1">
@@ -99,6 +103,7 @@ function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick
           const value = chip.getValue(stats);
           if (value === 0 && !chip.showZero) return null;
           const Icon = chip.icon;
+          const isActive = activeKey === chip.key;
           return (
             <button
               key={chip.key}
@@ -110,13 +115,15 @@ function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all whitespace-nowrap",
                 "cursor-pointer active:scale-95",
-                chip.activeColor,
+                isActive
+                  ? cn(chip.activeColor, "ring-1 ring-offset-1 ring-primary/30")
+                  : chip.activeColor,
               )}
               title={chip.label}
             >
               <Icon className={cn("h-3 w-3", chip.color)} />
               <span className={cn("tabular-nums", chip.color)}>{value}</span>
-              <span className="text-muted-foreground hidden sm:inline text-[10px]">{chip.label}</span>
+              <span className="text-muted-foreground text-[10px]">{chip.label}</span>
             </button>
           );
         })}
@@ -127,7 +134,7 @@ function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, compactMode, compactLabel,
+  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -141,7 +148,7 @@ function AiInsightsCardInner({
             <span className="text-[10px] font-medium text-muted-foreground truncate">{compactLabel}</span>
           </div>
         )}
-        <StatChipRow stats={roleStats} onStatClick={onStatClick} />
+        <StatChipRow stats={roleStats} onStatClick={onStatClick} activeKey={activeStatFilter} />
       </div>
     );
   }
@@ -202,7 +209,7 @@ function AiInsightsCardInner({
         <div className="flex items-start gap-2 w-full">
           <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <p className="text-sm font-medium text-foreground leading-snug flex-1">
-            {insights.greeting}
+            {userName ? `Привет, ${userName}` : insights.greeting}
           </p>
 
           <div className="flex items-center gap-0.5 shrink-0">
@@ -231,7 +238,7 @@ function AiInsightsCardInner({
 
         {/* Interactive stat chips */}
         {roleStats && (
-          <StatChipRow stats={roleStats} onStatClick={onStatClick} />
+          <StatChipRow stats={roleStats} onStatClick={onStatClick} activeKey={activeStatFilter} />
         )}
 
         <div className="flex items-start gap-2 pl-6 min-w-0">
