@@ -79,16 +79,15 @@ export default function HomeMockup() {
           {aiExpanded && (
             <>
               {/* Role grid */}
-              <div className="px-5 pb-4 grid grid-cols-3 gap-2.5">
+              <div className="px-3 pb-3 grid grid-cols-3 gap-1.5">
                 {ROLE_CELLS.map((cell) => (
                   <button
                     key={cell.label}
-                    className="rounded-lg p-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer border border-transparent hover:border-border"
+                    className="rounded-lg px-2 py-2 text-left transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer border border-transparent hover:border-border"
                     style={{ backgroundColor: cell.bg }}
                   >
-                    <p className="text-2xl font-bold" style={{ color: cell.color }}>{cell.count}</p>
-                    <p className="text-xs font-medium text-foreground mt-0.5 leading-tight">{cell.label}</p>
-                    
+                    <p className="text-lg font-bold leading-none" style={{ color: cell.color }}>{cell.count}</p>
+                    <p className="text-[10px] font-medium text-foreground mt-1 leading-tight">{cell.label}</p>
                   </button>
                 ))}
               </div>
