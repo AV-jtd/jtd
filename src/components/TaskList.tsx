@@ -3,7 +3,7 @@ import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailable
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import AiInsightsCard from "./AiInsightsCard";
+import AiInsightsCard, { type StatChipKey, type TaskRoleStats } from "./AiInsightsCard";
 import BulkTaskDialog from "./BulkTaskDialog";
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
@@ -90,9 +90,10 @@ interface TaskListProps {
   onProjectClick?: (groupId: string) => void;
   onInsightTaskNavigate?: (taskId: string, groupId: string | null) => void;
   onAiOpen?: () => void;
+  onViewChange?: (view: string) => void;
 }
 
-export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen }: TaskListProps) {
+export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen, onViewChange }: TaskListProps) {
   const { user } = useAuth();
   const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
   const { data: tasks = [], isLoading } = useTasks(
@@ -203,6 +204,53 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     const toMe = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id && !t.is_completed).length;
     return { byMe, toMe };
   }, [tasks, user?.id]);
+
+  const roleStats = useMemo((): TaskRoleStats => {
+    const now = new Date();
+    const activeTasks = tasks.filter(t => !t.is_completed);
+    return {
+      responsible: activeTasks.filter(t => t.assigned_to === user?.id).length,
+      delegatedByMe: activeTasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id).length,
+      delegatedToMe: activeTasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id).length,
+      overdue: activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length,
+      drift: activeTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length,
+      completed: tasks.filter(t => t.is_completed && t.completed_at && (now.getTime() - new Date(t.completed_at).getTime()) < 7 * 24 * 60 * 60 * 1000).length,
+    };
+  }, [tasks, user?.id]);
+
+  const handleStatChipClick = useCallback((key: StatChipKey) => {
+    // Reset filters first
+    setPriorityFilter(null);
+    setAssigneeFilter(null);
+    setProjectFilter(null);
+    setSearchFilter("");
+
+    switch (key) {
+      case "responsible":
+        onViewChange?.("all");
+        setAssigneeFilter("me");
+        break;
+      case "delegated_by_me":
+        onViewChange?.("assigned");
+        setDelegationTab("by_me");
+        break;
+      case "delegated_to_me":
+        onViewChange?.("assigned");
+        setDelegationTab("to_me");
+        break;
+      case "overdue":
+        onViewChange?.("all");
+        setPriorityFilter("overdue");
+        break;
+      case "drift":
+        // Show all tasks, no specific view for drift yet — just go to all
+        onViewChange?.("all");
+        break;
+      case "completed":
+        onViewChange?.("all");
+        break;
+    }
+  }, [onViewChange]);
 
   const filteredTasks = useMemo(() => {
     const now = new Date();
@@ -652,6 +700,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               onInsightTaskNavigate?.(taskId, task?.group_id ?? null);
             }}
             onNavigateToProject={onProjectClick}
+            roleStats={roleStats}
+            onStatClick={handleStatChipClick}
           />
         )}
 

@@ -2,10 +2,23 @@ import { memo, useState } from "react";
 import { DailyInsights, InsightItem } from "@/hooks/useAiInsights";
 import {
   Sparkles, RefreshCw, X, Loader2, TrendingUp, AlertTriangle, CheckCircle2, Target,
-  ChevronDown, ExternalLink,
+  ChevronDown, ExternalLink, User, ArrowUpRight, ArrowDownLeft, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
+/** Stat chip keys for navigation */
+export type StatChipKey = "responsible" | "delegated_by_me" | "delegated_to_me" | "overdue" | "drift" | "completed";
+
+export interface TaskRoleStats {
+  responsible: number;
+  delegatedByMe: number;
+  delegatedToMe: number;
+  overdue: number;
+  drift: number;
+  completed: number;
+}
 
 interface AiInsightsCardProps {
   insights: DailyInsights | null;
@@ -16,6 +29,10 @@ interface AiInsightsCardProps {
   onDismiss: () => void;
   onNavigateToTask?: (taskId: string) => void;
   onNavigateToProject?: (groupId: string) => void;
+  /** Clickable stat chip counts computed from real tasks */
+  roleStats?: TaskRoleStats;
+  /** Called when user clicks a stat chip */
+  onStatClick?: (key: StatChipKey) => void;
 }
 
 function getNavigationLabel(taskId?: string, groupId?: string) {
@@ -51,9 +68,62 @@ function InsightLinkAction({
   );
 }
 
+interface StatChipDef {
+  key: StatChipKey;
+  icon: React.ElementType;
+  label: string;
+  color: string;
+  activeColor: string;
+  getValue: (s: TaskRoleStats) => number;
+  showZero?: boolean;
+}
+
+const STAT_CHIPS: StatChipDef[] = [
+  { key: "responsible", icon: User, label: "Ответственный", color: "text-primary", activeColor: "bg-primary/10 border-primary/25 hover:bg-primary/15", getValue: s => s.responsible, showZero: true },
+  { key: "delegated_by_me", icon: ArrowUpRight, label: "Поручил", color: "text-blue-500 dark:text-blue-400", activeColor: "bg-blue-500/10 border-blue-500/25 hover:bg-blue-500/15", getValue: s => s.delegatedByMe },
+  { key: "delegated_to_me", icon: ArrowDownLeft, label: "Поручено мне", color: "text-violet-500 dark:text-violet-400", activeColor: "bg-violet-500/10 border-violet-500/25 hover:bg-violet-500/15", getValue: s => s.delegatedToMe },
+  { key: "overdue", icon: AlertTriangle, label: "Просрочено", color: "text-destructive", activeColor: "bg-destructive/10 border-destructive/25 hover:bg-destructive/15", getValue: s => s.overdue },
+  { key: "drift", icon: TrendingUp, label: "Дрифт", color: "text-amber-500 dark:text-amber-400", activeColor: "bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15", getValue: s => s.drift },
+  { key: "completed", icon: CheckCircle2, label: "Выполнено", color: "text-emerald-500 dark:text-emerald-400", activeColor: "bg-emerald-500/10 border-emerald-500/25 hover:bg-emerald-500/15", getValue: s => s.completed },
+];
+
+function StatChipRow({ stats, onStatClick }: { stats: TaskRoleStats; onStatClick?: (key: StatChipKey) => void }) {
+  return (
+    <div className="pl-6 -mx-1 overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1.5 pb-0.5 px-1">
+        {STAT_CHIPS.map(chip => {
+          const value = chip.getValue(stats);
+          if (value === 0 && !chip.showZero) return null;
+          const Icon = chip.icon;
+          return (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStatClick?.(chip.key);
+              }}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all whitespace-nowrap",
+                "cursor-pointer active:scale-95",
+                chip.activeColor,
+              )}
+              title={chip.label}
+            >
+              <Icon className={cn("h-3 w-3", chip.color)} />
+              <span className={cn("tabular-nums", chip.color)}>{value}</span>
+              <span className="text-muted-foreground hidden sm:inline text-[10px]">{chip.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject,
+  onNavigateToTask, onNavigateToProject, roleStats, onStatClick,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -63,7 +133,6 @@ function AiInsightsCardInner({
     return (
       <div className="mx-3 mt-3 rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 overflow-hidden">
         <div className="w-full flex flex-col gap-2 px-4 py-3.5">
-          {/* Ghost greeting */}
           <div className="flex items-start gap-2 w-full">
             <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5 animate-pulse" />
             <div className="flex-1 space-y-1.5">
@@ -71,29 +140,15 @@ function AiInsightsCardInner({
               <Skeleton className="h-3.5 w-1/2 bg-primary/10" />
             </div>
           </div>
-
-          {/* Ghost stats */}
-          <div className="flex items-center gap-4 pl-6 flex-wrap">
-            <div className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-foreground/20" />
-              <Skeleton className="h-4 w-6 bg-primary/8" />
-            </div>
-            <div className="flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 text-foreground/20" />
-              <Skeleton className="h-4 w-6 bg-primary/8" />
-            </div>
-            <div className="flex items-center gap-1">
-              <Target className="h-3 w-3 text-foreground/20" />
-              <Skeleton className="h-4 w-6 bg-primary/8" />
-            </div>
+          <div className="flex items-center gap-2 pl-6 flex-wrap">
+            {[1,2,3,4].map(i => (
+              <Skeleton key={i} className="h-6 w-20 rounded-full bg-primary/8" />
+            ))}
           </div>
-
-          {/* Ghost focus */}
           <div className="flex items-start gap-2 pl-6">
             <Target className="h-3.5 w-3.5 text-primary/30 shrink-0 mt-0.5" />
             <Skeleton className="h-3.5 w-4/5 bg-primary/8" />
           </div>
-
           <p className="text-[11px] text-muted-foreground pl-6 flex items-center gap-1.5">
             <Loader2 className="h-3 w-3 animate-spin text-primary" />
             ИИ анализирует ваши задачи...
@@ -105,7 +160,6 @@ function AiInsightsCardInner({
 
   if (error || !insights) return null;
 
-  const { stats } = insights;
   const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
   const navigateToFocus = () => {
     if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
@@ -156,16 +210,10 @@ function AiInsightsCardInner({
           </div>
         </div>
 
-        <div className="flex items-center gap-4 pl-6 flex-wrap">
-          <StatBadge icon={TrendingUp} label="Активных" value={stats.active} variant="default" />
-          {stats.overdue > 0 && (
-            <StatBadge icon={AlertTriangle} label="Просрочено" value={stats.overdue} variant="danger" />
-          )}
-          <StatBadge icon={Target} label="На неделе" value={stats.dueThisWeek} variant="warning" />
-          {stats.completedRecently > 0 && (
-            <StatBadge icon={CheckCircle2} label="Сделано" value={stats.completedRecently} variant="success" />
-          )}
-        </div>
+        {/* Interactive stat chips */}
+        {roleStats && (
+          <StatChipRow stats={roleStats} onStatClick={onStatClick} />
+        )}
 
         <div className="flex items-start gap-2 pl-6 min-w-0">
           <Target className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
@@ -255,28 +303,6 @@ function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
           onClick={handleNavigate}
         />
       )}
-    </div>
-  );
-}
-
-function StatBadge({ icon: Icon, label, value, variant }: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  variant: "default" | "danger" | "warning" | "success";
-}) {
-  const colorMap = {
-    default: "text-foreground/60",
-    danger: "text-destructive",
-    warning: "text-amber-500 dark:text-amber-400",
-    success: "text-emerald-500 dark:text-emerald-400",
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      <Icon className={cn("h-3 w-3", colorMap[variant])} />
-      <span className={cn("text-xs font-semibold tabular-nums", colorMap[variant])}>{value}</span>
-      <span className="text-[10px] text-muted-foreground hidden sm:inline">{label}</span>
     </div>
   );
 }
