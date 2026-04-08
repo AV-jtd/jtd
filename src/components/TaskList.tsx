@@ -514,7 +514,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <div className="max-w-2xl mx-auto px-6 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-3 sm:space-y-4">
         {/* Breadcrumbs for subprojects */}
         {activeView === "group" && breadcrumbChain.length > 1 && (
           <nav className="flex items-center gap-1 mb-3 text-xs text-muted-foreground overflow-x-auto scrollbar-none">
@@ -546,8 +546,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </nav>
         )}
 
+        {/* ── Section: Header + Insights ── */}
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
         {/* Header */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
           {activeView === "group" && parentGroup && (
             <button
               onClick={() => onProjectClick?.(parentGroup.id)}
@@ -713,7 +715,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             userName={user?.user_metadata?.display_name || undefined}
           />
         )}
+        </div>{/* end header+insights card */}
 
+        {/* ── Section: Task List ── */}
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
@@ -1045,6 +1050,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             )}
           </div>
         )}
+        </div>{/* end task list card */}
       </div>
     </main>
   );
