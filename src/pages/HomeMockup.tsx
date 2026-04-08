@@ -8,19 +8,12 @@ import { cn } from "@/lib/utils";
 
 /* ─── Static mock data ─── */
 const ROLE_CELLS = [
-  { label: "Входящие", sub: "Не распределено", count: 7, color: "hsl(var(--warning))", bg: "hsl(var(--warning) / .1)" },
-  { label: "Я ответственный", sub: "", count: 12, color: "hsl(var(--tag-purple))", bg: "hsl(var(--tag-purple) / .1)" },
-  { label: "Я поручил", sub: "", count: 5, color: "hsl(var(--success))", bg: "hsl(var(--success) / .1)" },
-  { label: "Просроченные", sub: "", count: 3, color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / .1)" },
-  { label: "На сегодня", sub: "", count: 8, color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / .1)" },
-  { label: "На неделю", sub: "", count: 19, color: "hsl(var(--tag-teal))", bg: "hsl(var(--tag-teal) / .1)" },
-];
-
-const SUMMARY = [
-  { label: "Просрочено", value: 3, accent: "hsl(var(--destructive))" },
-  { label: "На неделе", value: 8, accent: "hsl(var(--warning))" },
-  { label: "Drift", value: "+4д", accent: "hsl(var(--tag-purple))" },
-  { label: "Сделано сегодня", value: 2, accent: "hsl(var(--success))" },
+  { label: "Я ответственный", count: 12, color: "hsl(var(--tag-purple))", bg: "hsl(var(--tag-purple) / .1)" },
+  { label: "Мне поручено", count: 8, color: "hsl(var(--primary))", bg: "hsl(var(--primary) / .1)" },
+  { label: "Я поручил", count: 5, color: "hsl(var(--success))", bg: "hsl(var(--success) / .1)" },
+  { label: "Просрочено", count: 3, color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / .1)" },
+  { label: "Drift", count: "+4д", color: "hsl(var(--warning))", bg: "hsl(var(--warning) / .1)" },
+  { label: "Выполнено", count: 2, color: "hsl(var(--tag-teal))", bg: "hsl(var(--tag-teal) / .1)" },
 ];
 
 const INBOX_TASKS = [
@@ -95,7 +88,7 @@ export default function HomeMockup() {
                   >
                     <p className="text-2xl font-bold" style={{ color: cell.color }}>{cell.count}</p>
                     <p className="text-xs font-medium text-foreground mt-0.5 leading-tight">{cell.label}</p>
-                    {cell.sub && <p className="text-[10px] text-muted-foreground">{cell.sub}</p>}
+                    
                   </button>
                 ))}
               </div>
@@ -123,19 +116,6 @@ export default function HomeMockup() {
           </div>
         </div>
 
-        {/* ═══ 3. SUMMARY ═══ */}
-        <div className="grid grid-cols-4 gap-3">
-          {SUMMARY.map((s) => (
-            <button
-              key={s.label}
-              className="rounded-xl bg-card border border-border shadow-sm px-4 py-3 text-left hover:shadow-md transition-shadow cursor-pointer overflow-hidden relative"
-            >
-              <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: s.accent }} />
-              <p className="text-2xl font-bold text-foreground mt-1">{s.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-            </button>
-          ))}
-        </div>
 
         {/* ═══ 4. MY DAY ═══ */}
         <section className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
