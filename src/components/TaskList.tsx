@@ -303,8 +303,33 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
       nextTasks = nextTasks.filter(t => t.title.toLowerCase().includes(normalizedSearch));
     }
 
+    // Apply stat chip filter
+    if (activeStatFilter) {
+      const now2 = new Date();
+      switch (activeStatFilter) {
+        case "responsible":
+          nextTasks = nextTasks.filter(t => t.assigned_to === user?.id && !t.is_completed);
+          break;
+        case "delegated_by_me":
+          nextTasks = nextTasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id && !t.is_completed);
+          break;
+        case "delegated_to_me":
+          nextTasks = nextTasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id && !t.is_completed);
+          break;
+        case "overdue":
+          nextTasks = nextTasks.filter(t => t.deadline && !t.is_completed && new Date(t.deadline) < now2);
+          break;
+        case "drift":
+          nextTasks = nextTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline && !t.is_completed);
+          break;
+        case "completed":
+          nextTasks = nextTasks.filter(t => t.is_completed && t.completed_at && (now2.getTime() - new Date(t.completed_at).getTime()) < 7 * 24 * 60 * 60 * 1000);
+          break;
+      }
+    }
+
     return nextTasks;
-  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab]);
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab, activeStatFilter]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
@@ -681,8 +706,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             onNavigateToProject={onProjectClick}
             roleStats={roleStats}
             onStatClick={handleStatChipClick}
+            activeStatFilter={activeStatFilter}
             compactMode={activeView === "group"}
             compactLabel={activeView === "group" && activeGroup ? activeGroup.name : undefined}
+            userName={user?.user_metadata?.display_name || undefined}
           />
         )}
 
