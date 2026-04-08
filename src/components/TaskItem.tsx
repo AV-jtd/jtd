@@ -1988,6 +1988,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         </div>
       )}
     </div>
+    </>
+    )}
 
     {/* Move subtask to another task picker */}
     {moveSubtaskId && (
