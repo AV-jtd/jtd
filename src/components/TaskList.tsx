@@ -715,7 +715,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             userName={user?.user_metadata?.display_name || undefined}
           />
         )}
+        </div>{/* end header+insights card */}
 
+        {/* ── Section: Task List ── */}
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
