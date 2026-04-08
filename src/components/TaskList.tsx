@@ -151,9 +151,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     return () => window.removeEventListener("keydown", handler);
   }, [batchMode]);
 
-  // Clear selection when view changes
+  // Clear selection and stat filter when view changes
   useEffect(() => {
     setSelectedIds(new Set());
+    setActiveStatFilter(null);
   }, [activeView, activeGroupId]);
 
   const toggleSelect = useCallback((id: string) => {
