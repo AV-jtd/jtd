@@ -546,8 +546,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </nav>
         )}
 
+        {/* ── Section: Header + Insights ── */}
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
         {/* Header */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
           {activeView === "group" && parentGroup && (
             <button
               onClick={() => onProjectClick?.(parentGroup.id)}
