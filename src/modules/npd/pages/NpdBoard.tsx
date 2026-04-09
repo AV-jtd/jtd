@@ -381,18 +381,11 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
       const completed = projectTasks.filter((t) => t.is_completed).length;
       const overdue = projectTasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
 
-      // Collect ALL gate keys from own + child subproject tags
+      // Use ONLY the parent project's own gate tags (not children's) for column placement
       const allGateKeysSet = new Set<string>();
       for (const tagId of projectGateTags) {
         const key = tagIdToGateKey.get(tagId);
         if (key) allGateKeysSet.add(key);
-      }
-      for (const child of childGroups) {
-        const cTags = allGroupTags.filter((gt) => gt.group_id === child.id);
-        for (const ct of cTags) {
-          const key = tagIdToGateKey.get(ct.tag_id);
-          if (key) allGateKeysSet.add(key);
-        }
       }
       // Sort by gate order
       const allGateKeys = GATE_ORDER.filter((k) => allGateKeysSet.has(k));
