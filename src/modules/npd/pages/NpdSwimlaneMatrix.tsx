@@ -31,8 +31,6 @@ import GateSummary from "../components/matrix/GateSummary";
 
 export { NPD_GATES, NPD_STREAMS };
 
-const PROJECT_ROW_KEY = "__project__";
-
 export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } = {}) {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -503,18 +501,14 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     return map;
   }, [allTasks, descendantGroupIdSet, getTaskStream]);
 
-  const projectTasks = useMemo(() => {
-    if (!projectId) return [] as Task[];
-    return allTasks.filter(task => task.group_id === projectId && !getTaskStream(task.id));
-  }, [allTasks, getTaskStream, projectId]);
-
   // ── Inbox ──
   const inboxData = useMemo(() => {
+    const parentTasks = allTasks.filter(task => task.group_id === projectId && !getTaskStream(task.id));
     const unmatchedSubTasks = allTasks.filter(task => task.group_id && task.group_id !== projectId && descendantGroupIdSet.has(task.group_id) && !getTaskStream(task.id));
     return {
-      parentTasks: [] as Task[],
+      parentTasks,
       unmatchedSubTasks,
-      totalCount: unmatchedSubTasks.length,
+      totalCount: parentTasks.length + unmatchedSubTasks.length,
     };
   }, [allTasks, descendantGroupIdSet, getTaskStream, projectId]);
 
@@ -607,14 +601,12 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     const currentStream = getTaskStream(taskId);
     const task = allTasks.find(t => t.id === taskId);
     const isInboxTarget = targetStream === "__inbox__";
-    const isProjectRootTarget = targetStream === PROJECT_ROW_KEY;
     const gateChanged = currentGate !== targetGate;
-    const streamChanged = !isInboxTarget && !isProjectRootTarget && currentStream !== targetStream;
-    if (!gateChanged && !streamChanged && !isInboxTarget && !isProjectRootTarget) return;
-    if (isProjectRootTarget && task?.group_id === projectId && !currentStream && !gateChanged) return;
+    const streamChanged = !isInboxTarget && currentStream !== targetStream;
+    if (!gateChanged && !streamChanged && !isInboxTarget) return;
 
-    if (isInboxTarget || isProjectRootTarget) {
-      if (task?.group_id !== projectId || currentStream) {
+    if (isInboxTarget) {
+      if (task?.group_id !== projectId) {
         await supabase.from("tasks").update({ group_id: projectId! }).eq("id", taskId);
         for (const tt of allTaskTags.filter(tt => tt.task_id === taskId)) {
           if (streamTagIds.has(tt.tag_id)) await supabase.from("task_tags").delete().eq("task_id", taskId).eq("tag_id", tt.tag_id);
@@ -632,7 +624,6 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     if (gateChanged) parts.push(NPD_GATES.find(g => g.key === targetGate)?.short ?? targetGate);
     if (streamChanged) parts.push(targetStream);
     if (isInboxTarget && !streamChanged) parts.push("Входящие");
-    if (isProjectRootTarget && !streamChanged) parts.push("Общее");
     toast.success(`Задача перемещена → ${parts.join(" · ")}`);
   }, [dndOverCell, getTaskGate, getTaskStream, allTasks, moveTaskToGate, moveTaskToStream, queryClient, projectId, allTaskTags, streamTagIds]);
 
@@ -803,32 +794,6 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
         >
           <div className="min-w-max">
             <GateColumnHeaders />
-
-            {projectTasks.length > 0 && (
-              <StreamRow
-                stream={PROJECT_ROW_KEY}
-                label="Общее"
-                isCollapsed={collapsed.has(PROJECT_ROW_KEY)}
-                currentGate={projectId ? getSubprojectGate(projectId) : null}
-                tasks={projectTasks}
-                users={users}
-                allDependencies={allDependencies}
-                allTasks={allTasks}
-                projectGroupIds={projectGroupIds}
-                projectId={projectId!}
-                dndOverCell={dndOverCell}
-                getTaskGate={getTaskGate}
-                getGateStartDate={(_, gateKey) => getGateStartDate(NPD_STREAMS[0], gateKey)}
-                getCreateGroupId={() => projectId ?? null}
-                onToggleCollapse={() => toggleCollapse(PROJECT_ROW_KEY)}
-                onDeadlineChange={handleDeadlineChange}
-                onAssigneeChange={handleAssigneeChange}
-                onToggle={handleToggle}
-                onAddDependency={handleAddDependency}
-                onExpand={setDetailTaskId}
-                onQuickCreate={handleQuickCreate}
-              />
-            )}
 
             {streamsData.map(({ stream, currentGate, tasks }) => (
               <StreamRow
