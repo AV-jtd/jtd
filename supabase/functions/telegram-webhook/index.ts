@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
 
                   const results = await createBulkTasks(supabaseGrp, parsedTasks, grpUserId, ctxGroupId, members);
                   const confirmLines = results.map((r: any, i: number) =>
-                    `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+                    `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
                   );
 
                   const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
 
         const results = await createBulkTasks(supabase, parsedTasks, userId, groupId, members);
         const confirmLines = results.map((r, i) =>
-          `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+          `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
         );
 
         await sendTelegramMessage(BOT_TOKEN, chatId,
@@ -1173,7 +1173,7 @@ Deno.serve(async (req) => {
 
       const results = await createBulkTasks(supabase, parsedTasks, userId, bulkGroupId, members);
       const confirmLines = results.map((r, i) =>
-        `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+        `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
       );
 
       const projectInfo = bulkGroupName ? ` в 📁 ${escapeMarkdown(bulkGroupName)}` : "";
@@ -1209,7 +1209,7 @@ Deno.serve(async (req) => {
 
           const results = await createBulkTasks(supabase, parsedTasks, userId, ctxGroupId, members);
           const confirmLines = results.map((r: any, i: number) =>
-            `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+            `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
           );
 
           const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
@@ -2104,6 +2104,7 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
 interface BulkParsedTask {
   title: string;
   assigned_to_name?: string | null;
+  participant_names?: string[] | null;
   deadline_days?: number | null;
   deadline_date?: string | null;
   subtasks?: string[];
@@ -2145,7 +2146,8 @@ async function aiBulkParse(
 
 Для каждой задачи определи:
 - title: краткое название задачи (глагол + объект)
-- assigned_to_name: имя/@username ответственного (из доступных участников), если упомянут
+- assigned_to_name: имя/@username ОТВЕТСТВЕННОГО (один человек, главный исполнитель), если упомянут
+- participant_names: массив имён/@username УЧАСТНИКОВ задачи (все остальные упомянутые люди, кроме ответственного). Например: "задача для Маши и Пети" → assigned_to_name: "Маша", participant_names: ["Петя"]
 - deadline_days: срок в днях от сегодня (если указано "3д", "через 5 дней", "неделю" и т.п.)
 - deadline_date: конкретная дата YYYY-MM-DD (если указана дата)
 - subtasks: подзадачи, если задача комплексная (вложенные пункты)
@@ -2155,7 +2157,9 @@ ${projectName ? `Проект: "${projectName}"` : ""}
 Доступные участники:\n${userList}
 Текущая дата: ${today}
 
-ВАЖНО: Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
+ВАЖНО: 
+- Если упомянуто несколько людей для одной задачи — первый (или явно указанный как ответственный) → assigned_to_name, остальные → participant_names.
+- Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
           },
           { role: "user", content: `Извлеки задачи из:\n\n${text}` },
         ],
@@ -2174,7 +2178,8 @@ ${projectName ? `Проект: "${projectName}"` : ""}
                       type: "object",
                       properties: {
                         title: { type: "string" },
-                        assigned_to_name: { type: "string", description: "Имя или @username ответственного" },
+                        assigned_to_name: { type: "string", description: "Имя или @username ответственного (один человек)" },
+                        participant_names: { type: "array", items: { type: "string" }, description: "Имена/@username участников задачи (кроме ответственного)" },
                         deadline_days: { type: "number", description: "Срок в днях от сегодня" },
                         deadline_date: { type: "string", description: "Дата YYYY-MM-DD" },
                         subtasks: { type: "array", items: { type: "string" } },
@@ -2215,6 +2220,7 @@ ${projectName ? `Проект: "${projectName}"` : ""}
 interface BulkTaskResult {
   title: string;
   assignee?: string;
+  participants?: string[];
   deadline?: string;
   subtaskCount?: number;
 }
@@ -2285,6 +2291,27 @@ async function createBulkTasks(
       });
     }
 
+    // Resolve and add participants
+    const resolvedParticipantNames: string[] = [];
+    if (task.participant_names && task.participant_names.length > 0 && members.length > 0) {
+      for (const pName of task.participant_names) {
+        const needle = pName.replace("@", "").toLowerCase();
+        const match = members.find(m =>
+          m.telegram_username?.toLowerCase() === needle ||
+          m.name.toLowerCase().includes(needle) ||
+          needle.includes(m.name.toLowerCase())
+        );
+        if (match && match.id !== userId && match.id !== taskData.assigned_to) {
+          await supabase.from("task_participants").insert({
+            task_id: newTask.id,
+            user_id: match.id,
+            role: "participant",
+          });
+          resolvedParticipantNames.push(match.name);
+        }
+      }
+    }
+
     // Add subtasks
     let subtaskCount = 0;
     if (task.subtasks && task.subtasks.length > 0) {
@@ -2301,6 +2328,7 @@ async function createBulkTasks(
     results.push({
       title: task.title.substring(0, 60),
       assignee: assigneeName,
+      participants: resolvedParticipantNames.length > 0 ? resolvedParticipantNames : undefined,
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
     });
