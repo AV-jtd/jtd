@@ -395,7 +395,7 @@ Deno.serve(async (req) => {
       // === /task — create task in linked project ===
       if (command === "task") {
         if (!args.trim()) {
-          await sendTelegramMessage(BOT_TOKEN, chatId, "📝 Формат: `/task Текст задачи @ответственный !срок`", "Markdown");
+          await sendTelegramMessage(BOT_TOKEN, chatId, "📝 Формат: `/task Текст задачи @ответственный @участник1 @участник2 !срок`", "Markdown");
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
