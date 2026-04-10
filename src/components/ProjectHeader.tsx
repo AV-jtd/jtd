@@ -57,9 +57,10 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
       const allIds = [projectId, ...childIds];
       const { data: groupTags } = await supabase
         .from("group_tags" as any)
-        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
+        .select("group_id, tag_id")
+        .in("group_id", allIds) as { data: { group_id: string; tag_id: string }[] | null; error: any };
 
-      const relevant = (groupTags || []).filter((gt: any) => allIds.includes(gt.group_id));
+      const relevant = groupTags || [];
 
       let maxIdx = -1;
       for (const gt of relevant) {

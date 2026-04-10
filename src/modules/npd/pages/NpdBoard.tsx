@@ -349,11 +349,22 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const { data: allGroupTags = [], isLoading: isGroupTagsLoading } = useQuery({
     queryKey: ["npd-group-tags", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("group_tags" as any)
-        .select("group_id, tag_id") as { data: { group_id: string; tag_id: string }[] | null; error: any };
-      if (error) throw error;
-      return data || [];
+      // Fetch ALL group_tags — default Supabase limit is 1000 rows which is insufficient
+      const all: { group_id: string; tag_id: string }[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("group_tags" as any)
+          .select("group_id, tag_id")
+          .range(from, from + PAGE - 1) as { data: { group_id: string; tag_id: string }[] | null; error: any };
+        if (error) throw error;
+        const chunk = data || [];
+        all.push(...chunk);
+        if (chunk.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
     },
     enabled: !!user,
   });
