@@ -403,39 +403,52 @@ Deno.serve(async (req) => {
         const isImportant = taskText.startsWith("!");
         if (isImportant) taskText = taskText.substring(1).trim();
 
-        // Extract @assignee
-        const assigneeMatch = taskText.match(/@(\S+)/);
+        // Extract ALL @mentions: first = assignee, rest = participants
+        const allMentions = taskText.match(/@(\S+)/g) || [];
+        const mentionUsernames = allMentions.map(m => m.substring(1).toLowerCase());
         let assigneeUsername: string | null = null;
         let assignedTo: string | null = null;
         let assigneeFuzzyHint = "";
-        if (assigneeMatch) {
-          assigneeUsername = assigneeMatch[1].toLowerCase();
-          taskText = taskText.replace(/@\S+/, "").trim();
+        const explicitParticipantIds: string[] = [];
+        const explicitParticipantNames: string[] = [];
 
-          // Look for assignee among group members + owner
+        if (mentionUsernames.length > 0) {
+          // Remove all @mentions from text
+          taskText = taskText.replace(/@\S+/g, "").replace(/\s+/g, " ").trim();
+
           const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
-          const { data: assignee } = await supabase
+          const { data: allProfiles } = await supabase
             .from("profiles")
-            .select("id, telegram_username")
-            .eq("telegram_username", assigneeUsername)
+            .select("id, telegram_username, display_name")
             .in("id", memberIds)
-            .single();
+            .not("telegram_username", "is", null);
 
-          if (assignee) {
-            assignedTo = assignee.id;
-          } else {
-            // Fuzzy hint
-            const { data: profiles } = await supabase
-              .from("profiles")
-              .select("telegram_username, display_name")
-              .in("id", memberIds)
-              .not("telegram_username", "is", null);
-            if (profiles) {
-              const suggestions = profiles
-                .filter(p => p.telegram_username && fuzzyMatch(assigneeUsername!, p.telegram_username))
-                .slice(0, 3);
-              if (suggestions.length > 0) {
-                assigneeFuzzyHint = `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username}`).join(", ")}`;
+          const profileMap = new Map((allProfiles || []).map(p => [p.telegram_username?.toLowerCase(), p]));
+
+          for (let i = 0; i < mentionUsernames.length; i++) {
+            const uname = mentionUsernames[i];
+            const profile = profileMap.get(uname);
+            if (i === 0) {
+              // First mention = assignee
+              assigneeUsername = uname;
+              if (profile) {
+                assignedTo = profile.id;
+              } else {
+                // Fuzzy hint for assignee only
+                if (allProfiles) {
+                  const suggestions = allProfiles
+                    .filter(p => p.telegram_username && fuzzyMatch(uname, p.telegram_username))
+                    .slice(0, 3);
+                  if (suggestions.length > 0) {
+                    assigneeFuzzyHint = `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username}`).join(", ")}`;
+                  }
+                }
+              }
+            } else {
+              // Remaining mentions = participants
+              if (profile) {
+                explicitParticipantIds.push(profile.id);
+                explicitParticipantNames.push(profile.display_name || profile.telegram_username || uname);
               }
             }
           }
