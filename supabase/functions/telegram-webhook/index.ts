@@ -2146,7 +2146,8 @@ async function aiBulkParse(
 
 Для каждой задачи определи:
 - title: краткое название задачи (глагол + объект)
-- assigned_to_name: имя/@username ответственного (из доступных участников), если упомянут
+- assigned_to_name: имя/@username ОТВЕТСТВЕННОГО (один человек, главный исполнитель), если упомянут
+- participant_names: массив имён/@username УЧАСТНИКОВ задачи (все остальные упомянутые люди, кроме ответственного). Например: "задача для Маши и Пети" → assigned_to_name: "Маша", participant_names: ["Петя"]
 - deadline_days: срок в днях от сегодня (если указано "3д", "через 5 дней", "неделю" и т.п.)
 - deadline_date: конкретная дата YYYY-MM-DD (если указана дата)
 - subtasks: подзадачи, если задача комплексная (вложенные пункты)
@@ -2156,7 +2157,9 @@ ${projectName ? `Проект: "${projectName}"` : ""}
 Доступные участники:\n${userList}
 Текущая дата: ${today}
 
-ВАЖНО: Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
+ВАЖНО: 
+- Если упомянуто несколько людей для одной задачи — первый (или явно указанный как ответственный) → assigned_to_name, остальные → participant_names.
+- Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
           },
           { role: "user", content: `Извлеки задачи из:\n\n${text}` },
         ],
@@ -2175,7 +2178,8 @@ ${projectName ? `Проект: "${projectName}"` : ""}
                       type: "object",
                       properties: {
                         title: { type: "string" },
-                        assigned_to_name: { type: "string", description: "Имя или @username ответственного" },
+                        assigned_to_name: { type: "string", description: "Имя или @username ответственного (один человек)" },
+                        participant_names: { type: "array", items: { type: "string" }, description: "Имена/@username участников задачи (кроме ответственного)" },
                         deadline_days: { type: "number", description: "Срок в днях от сегодня" },
                         deadline_date: { type: "string", description: "Дата YYYY-MM-DD" },
                         subtasks: { type: "array", items: { type: "string" } },
