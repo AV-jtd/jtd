@@ -554,6 +554,19 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Add explicitly mentioned participants (@user2, @user3, etc.)
+        if (explicitParticipantIds.length > 0 && newTask) {
+          for (const pid of explicitParticipantIds) {
+            if (pid !== userId && pid !== assignedTo) {
+              await supabase.from("task_participants").insert({
+                task_id: newTask.id,
+                user_id: pid,
+                role: "participant",
+              });
+            }
+          }
+        }
+
         // Add AI-suggested subtasks
         if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
           for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
@@ -585,6 +598,7 @@ Deno.serve(async (req) => {
         if (assigneeUsername) {
           extras.push(assignedTo ? `👤 ${assigneeUsername}` : `⚠️ @${assigneeUsername} не найден${assigneeFuzzyHint}`);
         }
+        if (explicitParticipantNames.length > 0) extras.push(`👥 ${explicitParticipantNames.join(", ")}`);
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
         if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
