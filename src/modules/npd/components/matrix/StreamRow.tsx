@@ -10,6 +10,7 @@ import { NPD_GATES, type Task, type Profile } from "./types";
 
 interface StreamRowProps {
   stream: string;
+  label?: string;
   isCollapsed: boolean;
   currentGate: string | null;
   tasks: Task[];
@@ -32,7 +33,7 @@ interface StreamRowProps {
 }
 
 function StreamRowInner({
-  stream, isCollapsed, currentGate, tasks, users,
+  stream, label, isCollapsed, currentGate, tasks, users,
   allDependencies, allTasks, projectGroupIds, projectId,
   dndOverCell, getTaskGate, getGateStartDate, getCreateGroupId,
   onToggleCollapse, onDeadlineChange, onAssigneeChange, onToggle,
@@ -60,7 +61,7 @@ function StreamRowInner({
               ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             }
-            <span className="text-xs font-semibold text-foreground truncate">{stream}</span>
+            <span className="text-xs font-semibold text-foreground truncate">{label ?? stream}</span>
             <div className="flex items-center gap-1.5 ml-auto shrink-0">
               {overdueTasks.length > 0 && (
                 <span className="text-[9px] text-destructive font-medium flex items-center gap-0.5">
