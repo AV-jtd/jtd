@@ -974,13 +974,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
-            {participants.length > 0 && (() => {
+            {(() => {
               const MAX_CHIPS = 2;
               const MAX_EXPAND = 3;
-              const assignee = participants.find(p => p.role === "assignee");
-              const sorted = assignee
-                ? [assignee, ...participants.filter(p => p.id !== assignee.id)]
+              const assigneeParticipant = participants.find(p => p.role === "assignee");
+              // If assigned_to exists but no participant record, show assignee directly
+              const hasAssigneeFromField = task.assigned_to && !assigneeParticipant;
+              const syntheticAssignee = hasAssigneeFromField
+                ? { id: `synth-${task.assigned_to}`, user_id: task.assigned_to!, role: "assignee" as const, task_id: task.id, created_at: "" }
+                : null;
+              const allParticipants = syntheticAssignee
+                ? [syntheticAssignee, ...participants]
                 : participants;
+              if (allParticipants.length === 0) return null;
+              const assignee = allParticipants.find(p => p.role === "assignee");
+              const sorted = assignee
+                ? [assignee, ...allParticipants.filter(p => p.id !== assignee.id)]
+                : allParticipants;
               const shown = sorted.slice(0, MAX_CHIPS);
               const expandable = sorted.slice(MAX_CHIPS, MAX_CHIPS + MAX_EXPAND);
               const remaining = sorted.length - MAX_CHIPS - expandable.length;
