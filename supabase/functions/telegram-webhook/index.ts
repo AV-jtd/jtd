@@ -2291,6 +2291,27 @@ async function createBulkTasks(
       });
     }
 
+    // Resolve and add participants
+    const resolvedParticipantNames: string[] = [];
+    if (task.participant_names && task.participant_names.length > 0 && members.length > 0) {
+      for (const pName of task.participant_names) {
+        const needle = pName.replace("@", "").toLowerCase();
+        const match = members.find(m =>
+          m.telegram_username?.toLowerCase() === needle ||
+          m.name.toLowerCase().includes(needle) ||
+          needle.includes(m.name.toLowerCase())
+        );
+        if (match && match.id !== userId && match.id !== taskData.assigned_to) {
+          await supabase.from("task_participants").insert({
+            task_id: newTask.id,
+            user_id: match.id,
+            role: "participant",
+          });
+          resolvedParticipantNames.push(match.name);
+        }
+      }
+    }
+
     // Add subtasks
     let subtaskCount = 0;
     if (task.subtasks && task.subtasks.length > 0) {
@@ -2307,6 +2328,7 @@ async function createBulkTasks(
     results.push({
       title: task.title.substring(0, 60),
       assignee: assigneeName,
+      participants: resolvedParticipantNames.length > 0 ? resolvedParticipantNames : undefined,
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
     });
