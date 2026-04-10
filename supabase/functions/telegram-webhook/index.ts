@@ -2220,6 +2220,7 @@ ${projectName ? `Проект: "${projectName}"` : ""}
 interface BulkTaskResult {
   title: string;
   assignee?: string;
+  participants?: string[];
   deadline?: string;
   subtaskCount?: number;
 }
