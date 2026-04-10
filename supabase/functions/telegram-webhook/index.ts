@@ -2104,6 +2104,7 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
 interface BulkParsedTask {
   title: string;
   assigned_to_name?: string | null;
+  participant_names?: string[] | null;
   deadline_days?: number | null;
   deadline_date?: string | null;
   subtasks?: string[];
