@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
 
                   const results = await createBulkTasks(supabaseGrp, parsedTasks, grpUserId, ctxGroupId, members);
                   const confirmLines = results.map((r: any, i: number) =>
-                    `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+                    `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
                   );
 
                   const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
 
         const results = await createBulkTasks(supabase, parsedTasks, userId, groupId, members);
         const confirmLines = results.map((r, i) =>
-          `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+          `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
         );
 
         await sendTelegramMessage(BOT_TOKEN, chatId,
@@ -1173,7 +1173,7 @@ Deno.serve(async (req) => {
 
       const results = await createBulkTasks(supabase, parsedTasks, userId, bulkGroupId, members);
       const confirmLines = results.map((r, i) =>
-        `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+        `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
       );
 
       const projectInfo = bulkGroupName ? ` в 📁 ${escapeMarkdown(bulkGroupName)}` : "";
@@ -1209,7 +1209,7 @@ Deno.serve(async (req) => {
 
           const results = await createBulkTasks(supabase, parsedTasks, userId, ctxGroupId, members);
           const confirmLines = results.map((r: any, i: number) =>
-            `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
+            `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`
           );
 
           const projectInfo = ctxGroupName ? ` в 📁 ${escapeMarkdown(ctxGroupName)}` : "";
