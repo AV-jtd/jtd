@@ -797,20 +797,22 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
       : rootGroups;
 
-    const hasAssigneeOrTagFilter = (selectedAssigneeIds.length > 0 || selectedTagIds.length > 0);
+    const hasDetailFilter = (selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0);
 
     return baseGroups
       .map(g => buildProjectStats(
         g, tasks, groups,
         selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
         selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        selectedParticipantIds.length > 0 ? selectedParticipantIds : undefined,
+        selectedParticipantIds.length > 0 ? participantMap : undefined,
       ))
-      .filter(s => !hasAssigneeOrTagFilter || s.total > 0 || s.subprojects.some(sp => sp.total > 0))
+      .filter(s => !hasDetailFilter || s.total > 0 || s.subprojects.some(sp => sp.total > 0))
       .sort((a, b) => {
         const order: Record<TimingStatus, number> = { overdue: 0, "at-risk": 1, "on-track": 2, completed: 3 };
         return order[a.timingStatus] - order[b.timingStatus];
       });
-  }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds]);
+  }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds, selectedParticipantIds, participantMap]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return projectStats;
