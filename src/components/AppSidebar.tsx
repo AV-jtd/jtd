@@ -63,7 +63,7 @@ export default function AppSidebar({
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [showGroups, setShowGroups] = useState(true);
-  const [showTags, setShowTags] = useState(true);
+  const [showTags, setShowTags] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [tagShareEmail, setTagShareEmail] = useState("");
@@ -975,6 +975,9 @@ export default function AppSidebar({
                 const subcategories = tagCategories.filter(c => c.parent_id === cat.id && c.user_id === user?.id);
                 const matchingCatIds = categoryIdMapping.get(cat.id) || new Set([cat.id]);
                 const catTags = tags.filter(t => matchingCatIds.has((t as any).category_id));
+                const totalSubTags = subcategories.reduce((acc, sc) => acc + tags.filter(t => { const ids = categoryIdMapping.get(sc.id) || new Set([sc.id]); return ids.has((t as any).category_id); }).length, 0);
+                // Hide categories with 0 visible tags (e.g. NPD with only Gate/Stream tags)
+                if (catTags.length === 0 && totalSubTags === 0) return null;
                 const isExpanded = expandedCategories.has(cat.id);
                 return (
                   <div key={cat.id}>
