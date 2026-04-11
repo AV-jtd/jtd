@@ -309,7 +309,9 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        const si = subtaskMap[t.id];
+        const stepsTag = si ? ` [шаги: ✓${si.completed}/${si.total}]` : "";
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}${stepsTag} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
