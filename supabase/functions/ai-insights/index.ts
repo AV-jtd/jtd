@@ -277,6 +277,14 @@ serve(async (req) => {
     if (!projectId) context += `- 📂 Проектов: ${(groups || []).length}\n`;
     if (subprojectNames.length > 0) context += `- 🔀 Стримы: ${subprojectNames.join(", ")}\n`;
 
+    // Subtask/step analytics in context
+    context += `\n📋 Шаги (подзадачи):\n`;
+    context += `- Всего активных шагов: ${activeSubtasks.length}\n`;
+    context += `- 🔴 Просроченных шагов: ${overdueSubtasks.length}\n`;
+    context += `- ⚠️ Шагов без срока: ${subtasksNoDeadline.length}\n`;
+    context += `- 👤 Шагов без ответственного: ${subtasksNoAssignee.length}\n`;
+    if (!projectId) context += `- 📥 Шагов назначено мне: ${subtasksAssignedToMe.length}\n`;
+
     context += `\n📈 Скорость за 4 недели: [${weekBuckets.join(", ")}] задач/нед. Тренд: ${velocityTrend}\n`;
 
     if (overloadedPeople.length > 0) {
