@@ -25,7 +25,7 @@ export interface InsightSmartFilter {
   taskId?: string;
   groupId?: string;
   /** Hint for the kind of filter to apply */
-  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "person";
+  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "stale" | "drift" | "blocked" | "person";
   /** Person id for person-based filters */
   personId?: string;
 }
@@ -55,9 +55,15 @@ interface AiInsightsCardProps {
   userName?: string;
 }
 
-function getSmartFilterLabel(taskId?: string, groupId?: string) {
-  if (groupId) return "Показать ↓";
-  if (taskId) return "Показать ↓";
+function getSmartFilterLabel(hint?: string, taskId?: string, groupId?: string) {
+  if (hint === "overdue") return "Просрочено ↓";
+  if (hint === "no_deadline") return "Без срока ↓";
+  if (hint === "no_assignee") return "Без ответственного ↓";
+  if (hint === "steps") return "Шаги ↓";
+  if (hint === "stale") return "Застывшие ↓";
+  if (hint === "drift") return "Дрифт ↓";
+  if (hint === "blocked") return "Блокеры ↓";
+  if (groupId || taskId) return "Показать ↓";
   return "Открыть";
 }
 
