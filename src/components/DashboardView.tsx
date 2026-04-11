@@ -531,7 +531,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, 
             <Section title="Ближайшие дедлайны" count={stats.upcomingTasks.length}>
               <div className="space-y-1">
                 {stats.upcomingTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} />
+                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} subtaskInfo={subtaskMap?.get(t.id)} />
                 ))}
               </div>
             </Section>
