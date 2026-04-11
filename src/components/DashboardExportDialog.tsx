@@ -25,6 +25,8 @@ interface TaskExport {
   assignee: string;
   deadline: string | null;
   driftDays?: number;
+  stepsTotal?: number;
+  stepsCompleted?: number;
 }
 
 export interface ReportData {
