@@ -418,10 +418,21 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
           <Popover>
             <PopoverTrigger asChild>
               <button className={cn(
-                "text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity",
+                "text-[11px] flex items-center gap-1 hover:opacity-70 transition-opacity",
                 sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
               )}>
-                <Wand2 className="h-3 w-3" />
+                {sub.assigned_to ? (
+                  <span className={cn(
+                    "h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0",
+                    sub.assigned_to !== task.assigned_to && sub.assigned_to !== task.user_id
+                      ? "bg-accent text-accent-foreground ring-1 ring-primary/30"
+                      : "bg-primary/15 text-primary"
+                  )}>
+                    {(getProfileName(sub.assigned_to) || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                  </span>
+                ) : (
+                  <Users className="h-3 w-3" />
+                )}
                 {sub.assigned_to ? getProfileName(sub.assigned_to) : "Ответств."}
               </button>
             </PopoverTrigger>
@@ -1799,7 +1810,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
                       onDelete={(id) => deleteSubtask.mutate(id)}
                       onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
-                      onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                      onUpdateAssignee={(id, uid) => {
+                        updateSubtask.mutate({ id, assigned_to: uid });
+                        if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
+                          addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" });
+                        }
+                      }}
                       onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
                       onMoveToTask={(id) => setMoveSubtaskId(id)}
                       availableUsers={availableUsers}
@@ -1901,7 +1917,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
                   onDelete={(id) => deleteSubtask.mutate(id)}
                   onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
-                   onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                   onUpdateAssignee={(id, uid) => {
+                     updateSubtask.mutate({ id, assigned_to: uid });
+                     if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
+                       addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" });
+                     }
+                   }}
                    onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
                    onMoveToTask={(id) => setMoveSubtaskId(id)}
                    availableUsers={availableUsers}
