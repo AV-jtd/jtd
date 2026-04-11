@@ -43,8 +43,10 @@ function buildReportHtml(report: any): string {
     </div>`;
   }).join("");
 
+  const stepsLabel = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:11px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#3b82f6'};margin-left:4px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+
   const taskRow = (t: any, extra?: string) =>
-    `<tr><td class="task-title">${t.title}</td><td>${t.assignee || "—"}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${extra ? `<td>${extra}</td>` : ""}</tr>`;
+    `<tr><td class="task-title">${t.title}${stepsLabel(t)}</td><td>${t.assignee || "—"}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${extra ? `<td>${extra}</td>` : ""}</tr>`;
 
   const overdueSection = overdueTasks.length > 0 ? `
     <div class="section">
