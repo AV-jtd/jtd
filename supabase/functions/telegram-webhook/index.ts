@@ -502,6 +502,7 @@ Deno.serve(async (req) => {
           user_id: userId,
           group_id: groupId,
           is_important: isImportant,
+          start_at: new Date().toISOString(),
         };
         if (deadline.date) taskData.deadline = deadline.date.toISOString();
         if (assignedTo) taskData.assigned_to = assignedTo;
@@ -1299,6 +1300,7 @@ Deno.serve(async (req) => {
         description: message.text.length > 100 ? taskDesc : undefined,
         user_id: userId,
         position: Date.now(),
+        start_at: new Date().toISOString(),
       });
 
       if (!taskErr) {
@@ -1449,6 +1451,7 @@ Deno.serve(async (req) => {
       title: text.substring(0, 500),
       user_id: userId,
       is_important: isImportant,
+      start_at: new Date().toISOString(),
     };
 
     if (text.length > 500) taskData.description = text;
@@ -2266,6 +2269,7 @@ async function createBulkTasks(
     const taskData: Record<string, any> = {
       title: task.title.substring(0, 500),
       user_id: userId,
+      start_at: new Date().toISOString(),
     };
     if (groupId) taskData.group_id = groupId;
     if (task.priority) taskData.priority = task.priority;

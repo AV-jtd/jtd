@@ -698,6 +698,7 @@ export function useTaskMutations() {
         clientId = (clientData as any)?.id || null;
       }
 
+      const now = new Date().toISOString();
       const { data: taskData, error } = await supabase.from("tasks").insert({
         title: task.title,
         group_id: resolvedGroupId,
@@ -706,6 +707,7 @@ export function useTaskMutations() {
         assigned_to: task.assigned_to || null,
         task_type: taskType,
         client_id: clientId,
+        start_at: now,
       } as any).select().single();
       if (error) throw error;
 
@@ -800,7 +802,7 @@ export function useTaskMutations() {
         priority: null,
         deferred_until: null,
         task_type: task.task_type || 'standard',
-        start_at: null,
+        start_at: new Date().toISOString(),
         client_id: null,
         delegated_from: null,
         requires_approval: false,
@@ -962,6 +964,7 @@ export function useTaskMutations() {
             recurrence: rec,
             recurrence_end_date: endDate,
             parent_recurring_id: (taskData as any).parent_recurring_id || id,
+            start_at: new Date().toISOString(),
           } as any);
         }
       }
