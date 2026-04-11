@@ -361,6 +361,44 @@ serve(async (req) => {
       });
     }
 
+    // Subtask details in context
+    if (overdueSubtasks.length > 0) {
+      context += `\n🔴 Просроченные шаги:\n`;
+      overdueSubtasks.slice(0, 8).forEach((s: any) => {
+        const days = Math.floor((today.getTime() - new Date(s.deadline).getTime()) / (1000 * 60 * 60 * 24));
+        const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        context += `- "${s.title}" (${days} дн. просрочки, ${assignee})${parentTask ? ` ← задача "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    if (subtasksNoDeadline.length > 0) {
+      context += `\n📌 Шаги без срока (${subtasksNoDeadline.length}):\n`;
+      subtasksNoDeadline.slice(0, 6).forEach((s: any) => {
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+        context += `- "${s.title}" (${assignee})${parentTask ? ` ← "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    if (subtasksNoAssignee.length > 0) {
+      context += `\n👤 Шаги без ответственного (${subtasksNoAssignee.length}):\n`;
+      subtasksNoAssignee.slice(0, 6).forEach((s: any) => {
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        context += `- "${s.title}"${s.deadline ? ` [${new Date(s.deadline).toISOString().split("T")[0]}]` : ""}${parentTask ? ` ← "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    // Tasks without deadline (existing)
+    const tasksNoDeadline = activeTasks.filter((t: any) => !t.deadline);
+    if (tasksNoDeadline.length > 0) {
+      context += `\n📌 Задачи без срока (${tasksNoDeadline.length}):\n`;
+      tasksNoDeadline.slice(0, 5).forEach((t: any) => {
+        const assignee = t.assigned_to ? profileMap[t.assigned_to] : "не назначен";
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${assignee})\n`;
+      });
+    }
+
     // ── Lens-specific instructions ──
     const lensInstructions: Record<string, string> = {
       velocity: `ФОКУС АНАЛИЗА: Скорость и динамика.
