@@ -1516,7 +1516,11 @@ export function useTaskMutations() {
 
   const addParticipant = useMutation({
     mutationFn: async ({ task_id, user_id: participantUserId, role }: { task_id: string; user_id: string; role: string }) => {
-      const { error } = await supabase.from("task_participants" as any).insert({ task_id, user_id: participantUserId, role });
+      // Use upsert so existing participants can be promoted to assignee
+      const { error } = await supabase.from("task_participants" as any).upsert(
+        { task_id, user_id: participantUserId, role },
+        { onConflict: "task_id,user_id" }
+      );
       if (error) throw error;
       if (role === "assignee") {
         await supabase.from("tasks").update({ assigned_to: participantUserId }).eq("id", task_id);
