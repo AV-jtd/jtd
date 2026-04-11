@@ -77,6 +77,36 @@ serve(async (req) => {
 
     const { data: tasks } = await tasksQuery;
 
+    // Fetch subtasks for all tasks
+    const taskIds = (tasks || []).map((t: any) => t.id);
+    let allSubtasks: any[] = [];
+    if (taskIds.length > 0) {
+      // Fetch in chunks of 100
+      for (let i = 0; i < taskIds.length; i += 100) {
+        const chunk = taskIds.slice(i, i + 100);
+        const { data: subs } = await supabase
+          .from("subtasks")
+          .select("id, task_id, title, is_completed, deadline, assigned_to")
+          .in("task_id", chunk);
+        if (subs) allSubtasks = allSubtasks.concat(subs);
+      }
+    }
+
+    // Build subtask analytics
+    const activeSubtasks = allSubtasks.filter((s: any) => !s.is_completed);
+    const overdueSubtasks = activeSubtasks.filter((s: any) => s.deadline && new Date(s.deadline) < today);
+    const subtasksNoDeadline = activeSubtasks.filter((s: any) => !s.deadline);
+    const subtasksNoAssignee = activeSubtasks.filter((s: any) => !s.assigned_to);
+    const subtasksAssignedToMe = activeSubtasks.filter((s: any) => s.assigned_to === userId);
+
+    // Build subtask map per task
+    const subtaskMap: Record<string, { total: number; completed: number }> = {};
+    allSubtasks.forEach((s: any) => {
+      if (!subtaskMap[s.task_id]) subtaskMap[s.task_id] = { total: 0, completed: 0 };
+      subtaskMap[s.task_id].total++;
+      if (s.is_completed) subtaskMap[s.task_id].completed++;
+    });
+
     // Fetch projects (all groups user owns, including subprojects)
     const { data: groups } = await supabase
       .from("task_groups")
@@ -247,6 +277,14 @@ serve(async (req) => {
     if (!projectId) context += `- 📂 Проектов: ${(groups || []).length}\n`;
     if (subprojectNames.length > 0) context += `- 🔀 Стримы: ${subprojectNames.join(", ")}\n`;
 
+    // Subtask/step analytics in context
+    context += `\n📋 Шаги (подзадачи):\n`;
+    context += `- Всего активных шагов: ${activeSubtasks.length}\n`;
+    context += `- 🔴 Просроченных шагов: ${overdueSubtasks.length}\n`;
+    context += `- ⚠️ Шагов без срока: ${subtasksNoDeadline.length}\n`;
+    context += `- 👤 Шагов без ответственного: ${subtasksNoAssignee.length}\n`;
+    if (!projectId) context += `- 📥 Шагов назначено мне: ${subtasksAssignedToMe.length}\n`;
+
     context += `\n📈 Скорость за 4 недели: [${weekBuckets.join(", ")}] задач/нед. Тренд: ${velocityTrend}\n`;
 
     if (overloadedPeople.length > 0) {
@@ -271,7 +309,9 @@ serve(async (req) => {
       overdue.slice(0, 10).forEach((t: any) => {
         const days = Math.floor((today.getTime() - new Date(t.deadline).getTime()) / (1000 * 60 * 60 * 24));
         const assignee = t.assigned_to ? profileMap[t.assigned_to] : null;
-        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
+        const si = subtaskMap[t.id];
+        const stepsTag = si ? ` [шаги: ✓${si.completed}/${si.total}]` : "";
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)}${stepsTag} (${days} дн.${assignee ? `, → ${assignee}` : ""})\n`;
       });
     }
 
@@ -323,6 +363,44 @@ serve(async (req) => {
       });
     }
 
+    // Subtask details in context
+    if (overdueSubtasks.length > 0) {
+      context += `\n🔴 Просроченные шаги:\n`;
+      overdueSubtasks.slice(0, 8).forEach((s: any) => {
+        const days = Math.floor((today.getTime() - new Date(s.deadline).getTime()) / (1000 * 60 * 60 * 24));
+        const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        context += `- "${s.title}" (${days} дн. просрочки, ${assignee})${parentTask ? ` ← задача "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    if (subtasksNoDeadline.length > 0) {
+      context += `\n📌 Шаги без срока (${subtasksNoDeadline.length}):\n`;
+      subtasksNoDeadline.slice(0, 6).forEach((s: any) => {
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+        context += `- "${s.title}" (${assignee})${parentTask ? ` ← "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    if (subtasksNoAssignee.length > 0) {
+      context += `\n👤 Шаги без ответственного (${subtasksNoAssignee.length}):\n`;
+      subtasksNoAssignee.slice(0, 6).forEach((s: any) => {
+        const parentTask = (tasks || []).find((t: any) => t.id === s.task_id);
+        context += `- "${s.title}"${s.deadline ? ` [${new Date(s.deadline).toISOString().split("T")[0]}]` : ""}${parentTask ? ` ← "${parentTask.title}" [task_id:${parentTask.id}]` : ""}\n`;
+      });
+    }
+
+    // Tasks without deadline (existing)
+    const tasksNoDeadline = activeTasks.filter((t: any) => !t.deadline);
+    if (tasksNoDeadline.length > 0) {
+      context += `\n📌 Задачи без срока (${tasksNoDeadline.length}):\n`;
+      tasksNoDeadline.slice(0, 5).forEach((t: any) => {
+        const assignee = t.assigned_to ? profileMap[t.assigned_to] : "не назначен";
+        context += `- "${t.title}" [task_id:${t.id}]${groupTag(t.group_id)} (${assignee})\n`;
+      });
+    }
+
     // ── Lens-specific instructions ──
     const lensInstructions: Record<string, string> = {
       velocity: `ФОКУС АНАЛИЗА: Скорость и динамика.
@@ -365,7 +443,9 @@ ${dayContext}
 11. Для focusOfDay укажи focusTaskId или focusGroupId
 12. Не включай [task_id:...] или [group_id:...] в текст — только через поля JSON
 13. В тексте ВСЕГДА используй НАЗВАНИЯ проектов (они указаны в скобках как "проект ИМЯ"), НИКОГДА не пиши UUID в тексте
-14. ЗАПРЕЩЕНО: общие фразы типа "обратите внимание на просроченные задачи". Будь конкретен!`
+14. ЗАПРЕЩЕНО: общие фразы типа "обратите внимание на просроченные задачи". Будь конкретен!
+15. ВАЖНО: Если есть шаги (подзадачи) без сроков или без ответственных — ОБЯЗАТЕЛЬНО предупреди: "Не назначены сроки/ответственные для шагов X, Y в задачах A, B". Назови конкретные шаги и задачи.
+16. Просроченные шаги тоже важны — выводи их как urgentItems наравне с задачами.`
       : `Ты — проактивный AI-аналитик по продуктивности. Ты даёшь УНИКАЛЬНЫЙ дайджест, каждый раз с новым углом.
 
 ${lensInstructions[todayLens]}
@@ -388,7 +468,9 @@ ${dayContext}
 14. В тексте ВСЕГДА используй НАЗВАНИЯ проектов (они указаны как "проект ИМЯ"), НИКОГДА не пиши UUID в тексте
 
 Если задач мало (< 5) — предложи стратегию на неделю.
-Если всё ок — найди точку роста, а не просто похвали.`;
+Если всё ок — найди точку роста, а не просто похвали.
+
+ВАЖНО: Если есть шаги (подзадачи) без сроков или без ответственных — ОБЯЗАТЕЛЬНО предупреди: "Не назначены сроки/ответственные для шагов X, Y в задачах A, B". Назови конкретные шаги и задачи. Просроченные шаги тоже выводи как urgentItems.`;
 
     const userPrompt = projectId
       ? `Ситуация по проекту "${projectName}":\n\n${context}\n\nДай анализ в фокусе "${todayLens}".`
