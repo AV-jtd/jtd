@@ -746,6 +746,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const isLoading = tasksLoading || groupsLoading || usersLoading || tagsLoading;
 
