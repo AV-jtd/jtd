@@ -153,7 +153,7 @@ function smartName(fullName?: string): string | undefined {
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
+  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -207,7 +207,9 @@ function AiInsightsCardInner({
 
   const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
   const navigateToFocus = () => {
-    if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
+    if (onSmartFilter) {
+      onSmartFilter({ taskId: insights.focusTaskId, groupId: insights.focusGroupId });
+    } else if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
     else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
   };
 
@@ -268,7 +270,7 @@ function AiInsightsCardInner({
           {hasFocusLink && (
             <InsightLinkAction
               compact
-              label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+              label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
               onClick={navigateToFocus}
             />
           )}
@@ -300,7 +302,7 @@ function AiInsightsCardInner({
               {hasFocusLink && (
                 <div className="ml-auto">
                   <InsightLinkAction
-                    label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+                    label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
                     onClick={navigateToFocus}
                   />
                 </div>
