@@ -857,6 +857,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     setSelectedProjectIds([]);
     setSelectedAssigneeIds([]);
     setSelectedTagIds([]);
+    setSelectedParticipantIds([]);
   };
 
   if (isLoading) {
