@@ -1065,6 +1065,7 @@ export default function AppSidebar({
                         {subcategories.map((subcat) => {
                           const matchingSubIds = categoryIdMapping.get(subcat.id) || new Set([subcat.id]);
                           const subTags = tags.filter(t => matchingSubIds.has((t as any).category_id));
+                          if (subTags.length === 0) return null;
                           const isSubExpanded = expandedCategories.has(subcat.id);
                           return (
                             <div key={subcat.id}>
