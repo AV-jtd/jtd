@@ -1012,6 +1012,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             onNavigateToTask={handleNavigateToTask}
             users={users}
             onClose={() => setExpandedMetric(null)}
+            subtaskMap={subtaskMap}
           />
         )}
 
