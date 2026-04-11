@@ -511,7 +511,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, 
             <Section title="Подпроекты" count={stats.subprojects.filter(sp => sp.total > 0).length}>
               <div className="space-y-2">
                 {stats.subprojects.filter(sp => sp.total > 0).map(sp => (
-                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} />
+                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} subtaskMap={subtaskMap} />
                 ))}
               </div>
             </Section>
