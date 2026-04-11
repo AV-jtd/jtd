@@ -509,6 +509,7 @@ ${dayContext}
                         text: { type: "string", description: "Краткий текст пункта" },
                         task_id: { type: "string", description: "UUID задачи из контекста [task_id:...], если упоминается конкретная задача. Копируй UUID точно." },
                         group_id: { type: "string", description: "UUID проекта из контекста [group_id:...], если задача принадлежит проекту. Копируй UUID точно." },
+                        hint: { type: "string", enum: ["overdue", "no_deadline", "no_assignee", "steps", "stale", "drift", "blocked"], description: "Тип проблемы для умной фильтрации: overdue=просрочено, no_deadline=нет срока, no_assignee=нет ответственного, steps=проблемы с шагами, stale=застывшие задачи, drift=сдвиг дедлайнов, blocked=блокеры" },
                       },
                       required: ["emoji", "text"],
                     },
