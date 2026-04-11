@@ -1810,7 +1810,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
                       onDelete={(id) => deleteSubtask.mutate(id)}
                       onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
-                      onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                      onUpdateAssignee={(id, uid) => {
+                        updateSubtask.mutate({ id, assigned_to: uid });
+                        if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
+                          addParticipant.mutate({ taskId: task.id, userId: uid });
+                        }
+                      }}
                       onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
                       onMoveToTask={(id) => setMoveSubtaskId(id)}
                       availableUsers={availableUsers}
@@ -1912,7 +1917,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   onToggle={(id, done) => toggleSubtask.mutate({ id, is_completed: done })}
                   onDelete={(id) => deleteSubtask.mutate(id)}
                   onUpdateDeadline={(id, dl) => updateSubtask.mutate({ id, deadline: dl })}
-                   onUpdateAssignee={(id, uid) => updateSubtask.mutate({ id, assigned_to: uid })}
+                   onUpdateAssignee={(id, uid) => {
+                     updateSubtask.mutate({ id, assigned_to: uid });
+                     if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
+                       addParticipant.mutate({ taskId: task.id, userId: uid });
+                     }
+                   }}
                    onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
                    onMoveToTask={(id) => setMoveSubtaskId(id)}
                    availableUsers={availableUsers}
