@@ -993,6 +993,13 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
                 </div>
               )}
             />
+            <MultiSelectFilter
+              label="Участник"
+              icon={Users}
+              items={participantItems}
+              selectedIds={selectedParticipantIds}
+              onToggle={(id) => setSelectedParticipantIds(prev => toggleInArray(prev, id))}
+            />
           </div>
         </div>
 
