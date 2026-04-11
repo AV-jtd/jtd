@@ -3,7 +3,7 @@ import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMuta
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Users } from "lucide-react";
+import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
@@ -238,12 +238,15 @@ function SummaryCard({ icon: Icon, value, label, color, active, onClick }: {
 }
 
 // --- Expanded metric panel ---
-function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose }: {
+type SubtaskMap = Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>;
+
+function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose, subtaskMap }: {
   metric: SummaryMetric;
   projectStats: ProjectStats[];
   onNavigateToTask: (taskId: string) => void;
   users: Profile[];
   onClose: () => void;
+  subtaskMap?: SubtaskMap;
 }) {
   const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
 
@@ -307,6 +310,7 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
               userName={userName(t.assigned_to || t.user_id)}
               variant={variant}
               drift={metric === "drift" ? drift : undefined}
+              subtaskInfo={subtaskMap?.get(t.id)}
             />
           );
         })}
@@ -431,12 +435,13 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
 }
 
 // --- Project Card ---
-function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }: {
+function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, subtaskMap }: {
   stats: ProjectStats;
   onNavigateToTask: (taskId: string) => void;
   users: Profile[];
   level?: number;
   onCreateTask?: (groupId: string, params: QuickCreateResult) => Promise<void>;
+  subtaskMap?: SubtaskMap;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
@@ -506,7 +511,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             <Section title="Подпроекты" count={stats.subprojects.filter(sp => sp.total > 0).length}>
               <div className="space-y-2">
                 {stats.subprojects.filter(sp => sp.total > 0).map(sp => (
-                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} />
+                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} subtaskMap={subtaskMap} />
                 ))}
               </div>
             </Section>
@@ -516,7 +521,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             <Section title="Просроченные" count={stats.overdueTasks.length} variant="destructive">
               <div className="space-y-1">
                 {stats.overdueTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} variant="overdue" subtaskInfo={subtaskMap?.get(t.id)} />
                 ))}
               </div>
             </Section>
@@ -526,7 +531,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             <Section title="Ближайшие дедлайны" count={stats.upcomingTasks.length}>
               <div className="space-y-1">
                 {stats.upcomingTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} />
+                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} subtaskInfo={subtaskMap?.get(t.id)} />
                 ))}
               </div>
             </Section>
@@ -536,7 +541,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }
             <Section title="Сдвиг сроков" count={stats.driftTasks.length} variant="warning">
               <div className="space-y-1">
                 {stats.driftTasks.map(({ task: t, driftDays }) => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} drift={driftDays} />
+                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} drift={driftDays} subtaskInfo={subtaskMap?.get(t.id)} />
                 ))}
               </div>
             </Section>
@@ -600,40 +605,86 @@ function Section({ title, count, children, variant }: { title: string; count: nu
   );
 }
 
-function TaskRow({ task, onClick, userName, variant, drift }: {
+function TaskRow({ task, onClick, userName, variant, drift, subtaskInfo }: {
   task: Task; onClick: () => void; userName: string; variant?: "overdue"; drift?: number;
+  subtaskInfo?: { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] };
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasSteps = subtaskInfo && subtaskInfo.total > 0;
+  const stepPct = hasSteps ? Math.round((subtaskInfo.completed / subtaskInfo.total) * 100) : 0;
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
-    >
-      <span className={cn(
-        "text-xs truncate flex-1",
-        variant === "overdue" ? "text-red-600 dark:text-red-400" : "text-foreground",
-        task.is_completed && "line-through text-muted-foreground"
-      )}>
-        {task.title}
-      </span>
-      {drift !== undefined && (
+    <div>
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
+      >
+        {hasSteps && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+          >
+            <ChevronDownIcon className={cn("h-3 w-3 text-muted-foreground transition-transform", !expanded && "-rotate-90")} />
+          </button>
+        )}
         <span className={cn(
-          "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
-          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+          "text-xs truncate flex-1",
+          variant === "overdue" ? "text-red-600 dark:text-red-400" : "text-foreground",
+          task.is_completed && "line-through text-muted-foreground"
         )}>
-          {drift > 0 ? `+${drift}д` : `${drift}д`}
+          {task.title}
         </span>
+        {hasSteps && (
+          <span className={cn(
+            "inline-flex items-center gap-1 text-[10px] shrink-0 px-1.5 py-0.5 rounded-md border font-medium",
+            stepPct === 100
+              ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+              : stepPct > 0
+                ? "text-primary border-primary/30 bg-primary/10"
+                : "text-muted-foreground border-border bg-muted/50"
+          )}>
+            <ListChecks className="h-3 w-3" />
+            {subtaskInfo.completed}/{subtaskInfo.total}
+          </span>
+        )}
+        {drift !== undefined && (
+          <span className={cn(
+            "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+            drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+          )}>
+            {drift > 0 ? `+${drift}д` : `${drift}д`}
+          </span>
+        )}
+        {task.deadline && (
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {format(new Date(task.deadline), "d MMM", { locale: ru })}
+          </span>
+        )}
+        {userName && (
+          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate hidden sm:inline">
+            {userName}
+          </span>
+        )}
+      </button>
+      {hasSteps && expanded && (
+        <div className="ml-6 pl-2 border-l-2 border-border/60 space-y-0.5 py-1 animate-fade-in">
+          {subtaskInfo.subtasks.map(st => (
+            <div key={st.id} className="flex items-center gap-2 px-2 py-0.5">
+              <CheckCircle2 className={cn(
+                "h-3 w-3 shrink-0",
+                st.is_completed ? "text-primary" : "text-muted-foreground/40"
+              )} />
+              <span className={cn(
+                "text-[11px] truncate",
+                st.is_completed && "line-through text-muted-foreground"
+              )}>
+                {st.title}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
-      {task.deadline && (
-        <span className="text-[10px] text-muted-foreground shrink-0">
-          {format(new Date(task.deadline), "d MMM", { locale: ru })}
-        </span>
-      )}
-      {userName && (
-        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate hidden sm:inline">
-          {userName}
-        </span>
-      )}
-    </button>
+    </div>
   );
 }
 
@@ -731,6 +782,32 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     },
     enabled: !!user,
   });
+
+  // Fetch all subtasks for step progress display
+  const { data: allSubtasks = [] } = useQuery({
+    queryKey: ["subtasks_all_dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subtasks")
+        .select("id, task_id, title, is_completed");
+      if (error) throw error;
+      return (data || []) as { id: string; task_id: string; title: string; is_completed: boolean }[];
+    },
+    enabled: !!user,
+  });
+
+  // Build subtask map: taskId -> { total, completed }
+  const subtaskMap = useMemo(() => {
+    const map = new Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>();
+    allSubtasks.forEach(s => {
+      if (!map.has(s.task_id)) map.set(s.task_id, { total: 0, completed: 0, subtasks: [] });
+      const entry = map.get(s.task_id)!;
+      entry.total++;
+      if (s.is_completed) entry.completed++;
+      entry.subtasks.push({ id: s.id, title: s.title, is_completed: s.is_completed });
+    });
+    return map;
+  }, [allSubtasks]);
 
   // Build a map: taskId -> Set<userId> for fast lookup
   const participantMap = useMemo(() => {
@@ -935,6 +1012,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             onNavigateToTask={handleNavigateToTask}
             users={users}
             onClose={() => setExpandedMetric(null)}
+            subtaskMap={subtaskMap}
           />
         )}
 
@@ -1038,7 +1116,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             </div>
           ) : (
             filtered.map(stats => (
-              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} />
+              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} subtaskMap={subtaskMap} />
             ))
           )}
         </div>
