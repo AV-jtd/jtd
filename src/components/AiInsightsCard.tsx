@@ -55,9 +55,9 @@ interface AiInsightsCardProps {
   userName?: string;
 }
 
-function getNavigationLabel(taskId?: string, groupId?: string) {
-  if (taskId) return "К задаче";
-  if (groupId) return "К проекту";
+function getSmartFilterLabel(taskId?: string, groupId?: string) {
+  if (groupId) return "Показать ↓";
+  if (taskId) return "Показать ↓";
   return "Открыть";
 }
 
