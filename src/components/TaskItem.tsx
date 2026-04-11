@@ -1813,7 +1813,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       onUpdateAssignee={(id, uid) => {
                         updateSubtask.mutate({ id, assigned_to: uid });
                         if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
-                          addParticipant.mutate({ taskId: task.id, userId: uid });
+                          addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" });
                         }
                       }}
                       onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
@@ -1920,7 +1920,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                    onUpdateAssignee={(id, uid) => {
                      updateSubtask.mutate({ id, assigned_to: uid });
                      if (uid && uid !== task.user_id && uid !== task.assigned_to && !participants.some(p => p.user_id === uid)) {
-                       addParticipant.mutate({ taskId: task.id, userId: uid });
+                       addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" });
                      }
                    }}
                    onPromote={(id) => promoteSubtaskToTask.mutate({ subtaskId: id })}
