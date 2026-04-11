@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { DailyInsights, InsightItem } from "@/hooks/useAiInsights";
 import {
   Sparkles, RefreshCw, X, Loader2, TrendingUp, AlertTriangle, CheckCircle2, Target,
-  ChevronDown, ExternalLink, User, ArrowUpRight, ArrowDownLeft, Clock, BarChart3,
+  ChevronDown, Filter, User, ArrowUpRight, ArrowDownLeft, Clock, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,16 @@ export interface TaskRoleStats {
   completed: number;
 }
 
+/** Smart filter descriptor derived from an insight item */
+export interface InsightSmartFilter {
+  taskId?: string;
+  groupId?: string;
+  /** Hint for the kind of filter to apply */
+  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "person";
+  /** Person id for person-based filters */
+  personId?: string;
+}
+
 interface AiInsightsCardProps {
   insights: DailyInsights | null;
   loading: boolean;
@@ -29,6 +39,8 @@ interface AiInsightsCardProps {
   onDismiss: () => void;
   onNavigateToTask?: (taskId: string) => void;
   onNavigateToProject?: (groupId: string) => void;
+  /** Called when user clicks a smart-filter action on an insight */
+  onSmartFilter?: (filter: InsightSmartFilter) => void;
   /** Clickable stat chip counts computed from real tasks */
   roleStats?: TaskRoleStats;
   /** Called when user clicks a stat chip */
@@ -43,9 +55,9 @@ interface AiInsightsCardProps {
   userName?: string;
 }
 
-function getNavigationLabel(taskId?: string, groupId?: string) {
-  if (taskId) return "К задаче";
-  if (groupId) return "К проекту";
+function getSmartFilterLabel(taskId?: string, groupId?: string) {
+  if (groupId) return "Показать ↓";
+  if (taskId) return "Показать ↓";
   return "Открыть";
 }
 
@@ -71,7 +83,7 @@ function InsightLinkAction({
       )}
     >
       <span>{label}</span>
-      <ExternalLink className="h-3 w-3" />
+      <Filter className="h-3 w-3" />
     </button>
   );
 }
@@ -141,7 +153,7 @@ function smartName(fullName?: string): string | undefined {
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
+  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -195,7 +207,9 @@ function AiInsightsCardInner({
 
   const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
   const navigateToFocus = () => {
-    if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
+    if (onSmartFilter) {
+      onSmartFilter({ taskId: insights.focusTaskId, groupId: insights.focusGroupId });
+    } else if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
     else if (insights.focusGroupId && onNavigateToProject) onNavigateToProject(insights.focusGroupId);
   };
 
@@ -256,7 +270,7 @@ function AiInsightsCardInner({
           {hasFocusLink && (
             <InsightLinkAction
               compact
-              label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+              label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
               onClick={navigateToFocus}
             />
           )}
@@ -274,6 +288,7 @@ function AiInsightsCardInner({
                 <InsightRow
                   key={i}
                   item={item}
+                  onSmartFilter={onSmartFilter}
                   onNavigateToTask={onNavigateToTask}
                   onNavigateToProject={onNavigateToProject}
                 />
@@ -288,7 +303,7 @@ function AiInsightsCardInner({
               {hasFocusLink && (
                 <div className="ml-auto">
                   <InsightLinkAction
-                    label={getNavigationLabel(insights.focusTaskId, insights.focusGroupId)}
+                    label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
                     onClick={navigateToFocus}
                   />
                 </div>
@@ -314,14 +329,17 @@ function AiInsightsCardInner({
   );
 }
 
-function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
+function InsightRow({ item, onSmartFilter, onNavigateToTask, onNavigateToProject }: {
   item: InsightItem;
+  onSmartFilter?: (filter: InsightSmartFilter) => void;
   onNavigateToTask?: (id: string) => void;
   onNavigateToProject?: (id: string) => void;
 }) {
   const hasLink = Boolean(item.task_id || item.group_id);
-  const handleNavigate = () => {
-    if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
+  const handleAction = () => {
+    if (onSmartFilter) {
+      onSmartFilter({ taskId: item.task_id, groupId: item.group_id });
+    } else if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
     else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
   };
 
@@ -332,8 +350,8 @@ function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
       {hasLink && (
         <InsightLinkAction
           compact
-          label={getNavigationLabel(item.task_id, item.group_id)}
-          onClick={handleNavigate}
+          label={getSmartFilterLabel(item.task_id, item.group_id)}
+          onClick={handleAction}
         />
       )}
     </div>
