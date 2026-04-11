@@ -20,6 +20,16 @@ export interface TaskRoleStats {
   completed: number;
 }
 
+/** Smart filter descriptor derived from an insight item */
+export interface InsightSmartFilter {
+  taskId?: string;
+  groupId?: string;
+  /** Hint for the kind of filter to apply */
+  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "person";
+  /** Person id for person-based filters */
+  personId?: string;
+}
+
 interface AiInsightsCardProps {
   insights: DailyInsights | null;
   loading: boolean;
@@ -29,6 +39,8 @@ interface AiInsightsCardProps {
   onDismiss: () => void;
   onNavigateToTask?: (taskId: string) => void;
   onNavigateToProject?: (groupId: string) => void;
+  /** Called when user clicks a smart-filter action on an insight */
+  onSmartFilter?: (filter: InsightSmartFilter) => void;
   /** Clickable stat chip counts computed from real tasks */
   roleStats?: TaskRoleStats;
   /** Called when user clicks a stat chip */
