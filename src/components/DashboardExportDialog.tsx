@@ -189,10 +189,12 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
     </tr>`;
   }).join("");
 
+  const stepsLabel = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:11px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#3b82f6'};margin-left:4px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+
   const taskTable = (tasks: any[], extraHeader?: string) => {
     if (tasks.length === 0) return "<p style='color:#94a3b8;font-size:13px'>Нет данных</p>";
     return `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Дедлайн</th>${extraHeader ? `<th>${extraHeader}</th>` : ""}</tr></thead><tbody>
-      ${tasks.map(t => `<tr><td>${t.title}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
+      ${tasks.map(t => `<tr><td>${t.title}${stepsLabel(t)}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
     </tbody></table>`;
   };
 
