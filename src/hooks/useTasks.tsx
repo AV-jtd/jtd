@@ -698,6 +698,7 @@ export function useTaskMutations() {
         clientId = (clientData as any)?.id || null;
       }
 
+      const now = new Date().toISOString();
       const { data: taskData, error } = await supabase.from("tasks").insert({
         title: task.title,
         group_id: resolvedGroupId,
@@ -706,6 +707,7 @@ export function useTaskMutations() {
         assigned_to: task.assigned_to || null,
         task_type: taskType,
         client_id: clientId,
+        start_at: now,
       } as any).select().single();
       if (error) throw error;
 
