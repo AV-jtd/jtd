@@ -137,7 +137,7 @@ export default function GlobalSearch({
         tasks: [...taskMap.values()].slice(0, 10),
         groups: groupsRes.data || [],
         clients: clientsRes.data || [],
-        tags: (tagsRes.data || []).filter((tag: { id: string }) => !linkedTagIds.has(tag.id)),
+        tags: (tagsRes.data || []).filter((tag: { id: string; name: string }) => !linkedTagIds.has(tag.id) && !/^Gate \d/i.test(tag.name)),
       };
     },
     enabled: !!user && open && deferredQuery.length > 0,
