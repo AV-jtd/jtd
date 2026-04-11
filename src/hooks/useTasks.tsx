@@ -802,7 +802,7 @@ export function useTaskMutations() {
         priority: null,
         deferred_until: null,
         task_type: task.task_type || 'standard',
-        start_at: null,
+        start_at: new Date().toISOString(),
         client_id: null,
         delegated_from: null,
         requires_approval: false,
