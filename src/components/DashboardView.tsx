@@ -435,12 +435,13 @@ ${overdue.length > 0 ? `\nПросроченные задачи (${overdue.lengt
 }
 
 // --- Project Card ---
-function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask }: {
+function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, subtaskMap }: {
   stats: ProjectStats;
   onNavigateToTask: (taskId: string) => void;
   users: Profile[];
   level?: number;
   onCreateTask?: (groupId: string, params: QuickCreateResult) => Promise<void>;
+  subtaskMap?: SubtaskMap;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [wikiOpen, setWikiOpen] = useState(false);
