@@ -521,7 +521,7 @@ function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, 
             <Section title="Просроченные" count={stats.overdueTasks.length} variant="destructive">
               <div className="space-y-1">
                 {stats.overdueTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} variant="overdue" />
+                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} variant="overdue" subtaskInfo={subtaskMap?.get(t.id)} />
                 ))}
               </div>
             </Section>
