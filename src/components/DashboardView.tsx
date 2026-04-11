@@ -965,6 +965,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             summary={summary}
             users={users}
             aiSummary={aiSummaryText || undefined}
+            subtaskMap={subtaskMap}
           />
         </div>
 
