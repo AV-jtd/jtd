@@ -266,7 +266,7 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
   }
 
   if (weekTasks.length > 0) {
-    const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>📅 На этой неделе</h2>${items}</div>`);
   }
 
@@ -313,7 +313,7 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
 </body></html>`;
 }
 
-export default function DashboardExportDialog({ projectStats, summary, users, aiSummary, trigger }: DashboardExportDialogProps) {
+export default function DashboardExportDialog({ projectStats, summary, users, aiSummary, trigger, subtaskMap }: DashboardExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingPpt, setLoadingPpt] = useState(false);
@@ -323,8 +323,8 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
   const [period, setPeriod] = useState<PeriodKey>("this_week");
 
   const reportData = useCallback(() =>
-    buildReportData(projectStats, summary, users, period),
-    [projectStats, summary, users, period]
+    buildReportData(projectStats, summary, users, period, subtaskMap),
+    [projectStats, summary, users, period, subtaskMap]
   );
 
   const handlePdf = () => {
