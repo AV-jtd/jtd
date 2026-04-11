@@ -328,14 +328,17 @@ function AiInsightsCardInner({
   );
 }
 
-function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
+function InsightRow({ item, onSmartFilter, onNavigateToTask, onNavigateToProject }: {
   item: InsightItem;
+  onSmartFilter?: (filter: InsightSmartFilter) => void;
   onNavigateToTask?: (id: string) => void;
   onNavigateToProject?: (id: string) => void;
 }) {
   const hasLink = Boolean(item.task_id || item.group_id);
-  const handleNavigate = () => {
-    if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
+  const handleAction = () => {
+    if (onSmartFilter) {
+      onSmartFilter({ taskId: item.task_id, groupId: item.group_id });
+    } else if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
     else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
   };
 
@@ -346,8 +349,8 @@ function InsightRow({ item, onNavigateToTask, onNavigateToProject }: {
       {hasLink && (
         <InsightLinkAction
           compact
-          label={getNavigationLabel(item.task_id, item.group_id)}
-          onClick={handleNavigate}
+          label={getSmartFilterLabel(item.task_id, item.group_id)}
+          onClick={handleAction}
         />
       )}
     </div>
