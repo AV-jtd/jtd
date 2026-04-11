@@ -732,6 +732,32 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     enabled: !!user,
   });
 
+  // Fetch all subtasks for step progress display
+  const { data: allSubtasks = [] } = useQuery({
+    queryKey: ["subtasks_all_dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subtasks")
+        .select("id, task_id, title, is_completed");
+      if (error) throw error;
+      return (data || []) as { id: string; task_id: string; title: string; is_completed: boolean }[];
+    },
+    enabled: !!user,
+  });
+
+  // Build subtask map: taskId -> { total, completed }
+  const subtaskMap = useMemo(() => {
+    const map = new Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>();
+    allSubtasks.forEach(s => {
+      if (!map.has(s.task_id)) map.set(s.task_id, { total: 0, completed: 0, subtasks: [] });
+      const entry = map.get(s.task_id)!;
+      entry.total++;
+      if (s.is_completed) entry.completed++;
+      entry.subtasks.push({ id: s.id, title: s.title, is_completed: s.is_completed });
+    });
+    return map;
+  }, [allSubtasks]);
+
   // Build a map: taskId -> Set<userId> for fast lookup
   const participantMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
