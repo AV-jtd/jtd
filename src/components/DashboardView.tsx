@@ -109,6 +109,8 @@ function buildProjectStats(
   allGroups: TaskGroup[],
   filterAssignees?: string[],
   filterTagIds?: string[],
+  filterParticipantIds?: string[],
+  participantMap?: Map<string, Set<string>>,
 ): ProjectStats {
   let tasks = allTasks.filter(t => t.group_id === group.id);
 
@@ -123,9 +125,15 @@ function buildProjectStats(
       filterTagIds.some(tagId => t.task_tags?.some(tt => tt.tag_id === tagId))
     );
   }
+  if (filterParticipantIds && filterParticipantIds.length > 0 && participantMap) {
+    tasks = tasks.filter(t => {
+      const taskParticipants = participantMap.get(t.id);
+      return taskParticipants && filterParticipantIds.some(pid => taskParticipants.has(pid));
+    });
+  }
 
   const childGroups = allGroups.filter(g => g.parent_id === group.id);
-  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups, filterAssignees, filterTagIds));
+  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups, filterAssignees, filterTagIds, filterParticipantIds, participantMap));
 
   const allProjectTasks = [...tasks, ...subprojects.flatMap(sp => sp.tasks)];
   const total = allProjectTasks.length;
