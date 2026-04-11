@@ -46,6 +46,8 @@ export interface ReportData {
   periodLabel?: string;
 }
 
+export type SubtaskMapExport = Map<string, { total: number; completed: number }>;
+
 interface DashboardExportDialogProps {
   projectStats: any[];
   summary: {
@@ -58,6 +60,7 @@ interface DashboardExportDialogProps {
   users: any[];
   aiSummary?: string;
   trigger?: React.ReactNode;
+  subtaskMap?: SubtaskMapExport;
 }
 
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all";
