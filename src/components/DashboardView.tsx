@@ -310,6 +310,7 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
               userName={userName(t.assigned_to || t.user_id)}
               variant={variant}
               drift={metric === "drift" ? drift : undefined}
+              subtaskInfo={subtaskMap?.get(t.id)}
             />
           );
         })}
