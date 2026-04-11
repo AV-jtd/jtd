@@ -3,7 +3,7 @@ import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMuta
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Users } from "lucide-react";
+import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
