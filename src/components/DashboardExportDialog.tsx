@@ -102,7 +102,7 @@ function getPeriodRange(period: PeriodKey): { start: Date | null; end: Date | nu
   }
 }
 
-export function buildReportData(projectStats: any[], summary: any, users: any[], period: PeriodKey = "all"): ReportData {
+export function buildReportData(projectStats: any[], summary: any, users: any[], period: PeriodKey = "all", subtaskMap?: SubtaskMapExport): ReportData {
   const userName = (userId: string) => users.find((u: any) => u.id === userId)?.display_name || "—";
   const now = new Date();
   const weekFromNow = addDays(startOfDay(now), 7);
@@ -127,22 +127,26 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const weekTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const driftTasks = periodTasks
     .filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map((t: any) => ({
-      title: t.title,
-      assignee: userName(t.assigned_to || t.user_id),
-      deadline: t.deadline,
-      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
-    }))
+    .map((t: any) => {
+      const si = subtaskMap?.get(t.id);
+      return {
+        title: t.title,
+        assignee: userName(t.assigned_to || t.user_id),
+        deadline: t.deadline,
+        driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
+        ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}),
+      };
+    })
     .sort((a, b) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
     .slice(0, 30);
 
@@ -150,7 +154,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) > weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 20)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const projects = projectStats.map((s: any) => ({
     name: s.group.name,
