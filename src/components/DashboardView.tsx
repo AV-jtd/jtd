@@ -1,5 +1,9 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMutations, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Users } from "lucide-react";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
@@ -105,6 +109,8 @@ function buildProjectStats(
   allGroups: TaskGroup[],
   filterAssignees?: string[],
   filterTagIds?: string[],
+  filterParticipantIds?: string[],
+  participantMap?: Map<string, Set<string>>,
 ): ProjectStats {
   let tasks = allTasks.filter(t => t.group_id === group.id);
 
@@ -119,9 +125,15 @@ function buildProjectStats(
       filterTagIds.some(tagId => t.task_tags?.some(tt => tt.tag_id === tagId))
     );
   }
+  if (filterParticipantIds && filterParticipantIds.length > 0 && participantMap) {
+    tasks = tasks.filter(t => {
+      const taskParticipants = participantMap.get(t.id);
+      return taskParticipants && filterParticipantIds.some(pid => taskParticipants.has(pid));
+    });
+  }
 
   const childGroups = allGroups.filter(g => g.parent_id === group.id);
-  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups, filterAssignees, filterTagIds));
+  const subprojects = childGroups.map(cg => buildProjectStats(cg, allTasks, allGroups, filterAssignees, filterTagIds, filterParticipantIds, participantMap));
 
   const allProjectTasks = [...tasks, ...subprojects.flatMap(sp => sp.tasks)];
   const total = allProjectTasks.length;
@@ -697,6 +709,7 @@ const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
 ];
 
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
+  const { user } = useAuth();
   const { data: tasks = [], isLoading: tasksLoading, isFetching: tasksFetching } = useTasks();
   const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
@@ -706,10 +719,34 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
 
+  // Fetch all task_participants for participant filter
+  const { data: allParticipants = [] } = useQuery({
+    queryKey: ["task_participants_all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_participants" as any)
+        .select("task_id, user_id");
+      if (error) throw error;
+      return (data || []) as unknown as { task_id: string; user_id: string }[];
+    },
+    enabled: !!user,
+  });
+
+  // Build a map: taskId -> Set<userId> for fast lookup
+  const participantMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    allParticipants.forEach(p => {
+      if (!map.has(p.task_id)) map.set(p.task_id, new Set());
+      map.get(p.task_id)!.add(p.user_id);
+    });
+    return map;
+  }, [allParticipants]);
+
   // "Build Dashboard" filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const isLoading = tasksLoading || groupsLoading || usersLoading || tagsLoading;
 
@@ -742,27 +779,40 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     [tags]
   );
 
-  const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0;
+  const participantItems = useMemo(() => {
+    const ids = new Set<string>();
+    allParticipants.forEach(p => ids.add(p.user_id));
+    return Array.from(ids)
+      .map(id => {
+        const u = users.find(u => u.id === id);
+        return { id, label: u?.display_name || "Без имени" };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allParticipants, users]);
+
+  const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
 
   const projectStats = useMemo(() => {
     const baseGroups = selectedProjectIds.length > 0
       ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
       : rootGroups;
 
-    const hasAssigneeOrTagFilter = (selectedAssigneeIds.length > 0 || selectedTagIds.length > 0);
+    const hasDetailFilter = (selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0);
 
     return baseGroups
       .map(g => buildProjectStats(
         g, tasks, groups,
         selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
         selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        selectedParticipantIds.length > 0 ? selectedParticipantIds : undefined,
+        selectedParticipantIds.length > 0 ? participantMap : undefined,
       ))
-      .filter(s => !hasAssigneeOrTagFilter || s.total > 0 || s.subprojects.some(sp => sp.total > 0))
+      .filter(s => !hasDetailFilter || s.total > 0 || s.subprojects.some(sp => sp.total > 0))
       .sort((a, b) => {
         const order: Record<TimingStatus, number> = { overdue: 0, "at-risk": 1, "on-track": 2, completed: 3 };
         return order[a.timingStatus] - order[b.timingStatus];
       });
-  }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds]);
+  }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds, selectedParticipantIds, participantMap]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return projectStats;
@@ -807,6 +857,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     setSelectedProjectIds([]);
     setSelectedAssigneeIds([]);
     setSelectedTagIds([]);
+    setSelectedParticipantIds([]);
   };
 
   if (isLoading) {
@@ -941,6 +992,13 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
                   <span className="text-xs truncate">{item.label}</span>
                 </div>
               )}
+            />
+            <MultiSelectFilter
+              label="Участник"
+              icon={Users}
+              items={participantItems}
+              selectedIds={selectedParticipantIds}
+              onToggle={(id) => setSelectedParticipantIds(prev => toggleInArray(prev, id))}
             />
           </div>
         </div>
