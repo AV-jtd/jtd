@@ -43,6 +43,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no users opted in" }));
   }
 
+  // Fetch all profiles for name resolution
+  const { data: allProfiles } = await supabase.from("profiles").select("id, display_name").limit(200);
+  const profileMap: Record<string, string> = {};
+  (allProfiles || []).forEach((p: any) => { profileMap[p.id] = p.display_name || "Без имени"; });
+
   let sentCount = 0;
 
   for (const profile of eligibleProfiles) {
@@ -58,12 +63,38 @@ Deno.serve(async (req) => {
       if (!groups || groups.length === 0) continue;
 
       const groupIds = groups.map(g => g.id);
+
+      // Also get subgroups
+      const { data: subgroups } = await supabase
+        .from("task_groups")
+        .select("id")
+        .in("parent_id", groupIds);
+      const allGroupIds = [...groupIds, ...(subgroups || []).map(sg => sg.id)];
+
       const { data: tasks } = await supabase
         .from("tasks")
         .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id")
-        .in("group_id", groupIds);
+        .in("group_id", allGroupIds);
 
       if (!tasks || tasks.length === 0) continue;
+
+      // Fetch subtasks for these tasks
+      const taskIds = tasks.map(t => t.id);
+      const { data: subtasks } = await supabase
+        .from("subtasks")
+        .select("id, task_id, title, is_completed, deadline, assigned_to")
+        .in("task_id", taskIds);
+
+      const allSubtasks = subtasks || [];
+
+      // Build subtask stats per task
+      const subtaskMap: Record<string, { total: number; completed: number; items: any[] }> = {};
+      allSubtasks.forEach(s => {
+        if (!subtaskMap[s.task_id]) subtaskMap[s.task_id] = { total: 0, completed: 0, items: [] };
+        subtaskMap[s.task_id].total++;
+        if (s.is_completed) subtaskMap[s.task_id].completed++;
+        subtaskMap[s.task_id].items.push(s);
+      });
 
       const now = new Date();
       const total = tasks.length;
@@ -77,13 +108,27 @@ Deno.serve(async (req) => {
       weekEnd.setDate(weekEnd.getDate() + 7);
       const weekTasks = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekEnd);
 
+      // Overdue subtasks
+      const overdueSteps = allSubtasks.filter(s => !s.is_completed && s.deadline && new Date(s.deadline) < now);
+
+      // Steps without deadline or assignee
+      const stepsNoDeadline = allSubtasks.filter(s => !s.is_completed && !s.deadline);
+      const stepsNoAssignee = allSubtasks.filter(s => !s.is_completed && !s.assigned_to);
+
+      // Subtask step label helper
+      const stepLabel = (taskId: string) => {
+        const info = subtaskMap[taskId];
+        if (!info || info.total === 0) return "";
+        return ` [✓${info.completed}/${info.total}]`;
+      };
+
       // Build message
       const lines: string[] = [
         `📊 <b>Ежедневный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
         `📅 Дедлайнов на неделе: <b>${weekTasks.length}</b>`,
-        `⚠️ Просрочено: <b>${overdue.length}</b>`,
+        `⚠️ Просрочено: <b>${overdue.length}</b> задач${overdueSteps.length > 0 ? `, <b>${overdueSteps.length}</b> шагов` : ""}`,
         `↔ Drift: <b>${driftTasks.length}</b>`,
       ];
 
@@ -91,18 +136,51 @@ Deno.serve(async (req) => {
         lines.push(``, `<b>⚠️ Просроченные:</b>`);
         overdue.slice(0, 5).forEach(t => {
           const dl = t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "";
-          lines.push(`  • ${t.title} (${dl})`);
+          const assignee = t.assigned_to ? profileMap[t.assigned_to] : "";
+          lines.push(`  • ${t.title}${stepLabel(t.id)} (${dl}${assignee ? `, ${assignee}` : ""})`);
         });
         if (overdue.length > 5) lines.push(`  ... и ещё ${overdue.length - 5}`);
+      }
+
+      // Overdue steps section
+      if (overdueSteps.length > 0) {
+        lines.push(``, `<b>⏰ Просроченные шаги:</b>`);
+        overdueSteps.slice(0, 5).forEach(s => {
+          const dl = s.deadline ? new Date(s.deadline).toLocaleDateString("ru-RU") : "";
+          const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+          const parentTask = tasks.find(t => t.id === s.task_id);
+          lines.push(`  • ${s.title} (${dl}, ${assignee})${parentTask ? ` ← ${parentTask.title}` : ""}`);
+        });
+        if (overdueSteps.length > 5) lines.push(`  ... и ещё ${overdueSteps.length - 5}`);
       }
 
       if (weekTasks.length > 0) {
         lines.push(``, `<b>📅 На этой неделе:</b>`);
         weekTasks.slice(0, 5).forEach(t => {
           const dl = t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "";
-          lines.push(`  • ${t.title} (${dl})`);
+          const assignee = t.assigned_to ? profileMap[t.assigned_to] : "";
+          lines.push(`  • ${t.title}${stepLabel(t.id)} (${dl}${assignee ? `, ${assignee}` : ""})`);
         });
         if (weekTasks.length > 5) lines.push(`  ... и ещё ${weekTasks.length - 5}`);
+      }
+
+      // Warning: steps without deadline or assignee
+      if (stepsNoDeadline.length > 0 || stepsNoAssignee.length > 0) {
+        lines.push(``, `<b>💡 Требуют внимания:</b>`);
+        if (stepsNoDeadline.length > 0) {
+          lines.push(`  📌 <b>${stepsNoDeadline.length}</b> шагов без срока`);
+          stepsNoDeadline.slice(0, 3).forEach(s => {
+            const parentTask = tasks.find(t => t.id === s.task_id);
+            lines.push(`    • "${s.title}"${parentTask ? ` ← ${parentTask.title}` : ""}`);
+          });
+        }
+        if (stepsNoAssignee.length > 0) {
+          lines.push(`  👤 <b>${stepsNoAssignee.length}</b> шагов без ответственного`);
+          stepsNoAssignee.slice(0, 3).forEach(s => {
+            const parentTask = tasks.find(t => t.id === s.task_id);
+            lines.push(`    • "${s.title}"${parentTask ? ` ← ${parentTask.title}` : ""}`);
+          });
+        }
       }
 
       // Save as dashboard_report
@@ -113,12 +191,21 @@ Deno.serve(async (req) => {
           const gc = gt.filter(t => t.is_completed).length;
           return { name: g.name, color: g.color, total: gt.length, completed: gc, overdue: gt.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length, driftCount: 0, avgDriftDays: 0, timingStatus: "on-track", nextDeadline: null };
         }),
-        overdueTasks: overdue.slice(0, 10).map(t => ({ title: t.title, assignee: "—", deadline: t.deadline })),
-        weekTasks: weekTasks.slice(0, 10).map(t => ({ title: t.title, assignee: "—", deadline: t.deadline })),
+        overdueTasks: overdue.slice(0, 10).map(t => {
+          const si = subtaskMap[t.id];
+          return { title: t.title, assignee: t.assigned_to ? profileMap[t.assigned_to] : "—", deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) };
+        }),
+        weekTasks: weekTasks.slice(0, 10).map(t => {
+          const si = subtaskMap[t.id];
+          return { title: t.title, assignee: t.assigned_to ? profileMap[t.assigned_to] : "—", deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) };
+        }),
         driftTasks: [],
         upcomingTasks: [],
         period: "auto_daily",
         periodLabel: "Авто-отчёт",
+        overdueStepsCount: overdueSteps.length,
+        stepsNoDeadlineCount: stepsNoDeadline.length,
+        stepsNoAssigneeCount: stepsNoAssignee.length,
       };
 
       await supabase.from("dashboard_reports").insert({
