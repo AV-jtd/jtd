@@ -25,6 +25,8 @@ interface TaskExport {
   assignee: string;
   deadline: string | null;
   driftDays?: number;
+  stepsTotal?: number;
+  stepsCompleted?: number;
 }
 
 export interface ReportData {
@@ -44,6 +46,8 @@ export interface ReportData {
   periodLabel?: string;
 }
 
+export type SubtaskMapExport = Map<string, { total: number; completed: number }>;
+
 interface DashboardExportDialogProps {
   projectStats: any[];
   summary: {
@@ -56,6 +60,7 @@ interface DashboardExportDialogProps {
   users: any[];
   aiSummary?: string;
   trigger?: React.ReactNode;
+  subtaskMap?: SubtaskMapExport;
 }
 
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all";
@@ -97,7 +102,7 @@ function getPeriodRange(period: PeriodKey): { start: Date | null; end: Date | nu
   }
 }
 
-export function buildReportData(projectStats: any[], summary: any, users: any[], period: PeriodKey = "all"): ReportData {
+export function buildReportData(projectStats: any[], summary: any, users: any[], period: PeriodKey = "all", subtaskMap?: SubtaskMapExport): ReportData {
   const userName = (userId: string) => users.find((u: any) => u.id === userId)?.display_name || "—";
   const now = new Date();
   const weekFromNow = addDays(startOfDay(now), 7);
@@ -122,22 +127,26 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const weekTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const driftTasks = periodTasks
     .filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map((t: any) => ({
-      title: t.title,
-      assignee: userName(t.assigned_to || t.user_id),
-      deadline: t.deadline,
-      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
-    }))
+    .map((t: any) => {
+      const si = subtaskMap?.get(t.id);
+      return {
+        title: t.title,
+        assignee: userName(t.assigned_to || t.user_id),
+        deadline: t.deadline,
+        driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
+        ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}),
+      };
+    })
     .sort((a, b) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
     .slice(0, 30);
 
@@ -145,7 +154,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) > weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 20)
-    .map((t: any) => ({ title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline }));
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
   const projects = projectStats.map((s: any) => ({
     name: s.group.name,
@@ -180,10 +189,12 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
     </tr>`;
   }).join("");
 
+  const stepsLabel = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:11px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#3b82f6'};margin-left:4px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+
   const taskTable = (tasks: any[], extraHeader?: string) => {
     if (tasks.length === 0) return "<p style='color:#94a3b8;font-size:13px'>Нет данных</p>";
     return `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Дедлайн</th>${extraHeader ? `<th>${extraHeader}</th>` : ""}</tr></thead><tbody>
-      ${tasks.map(t => `<tr><td>${t.title}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
+      ${tasks.map(t => `<tr><td>${t.title}${stepsLabel(t)}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
     </tbody></table>`;
   };
 
@@ -247,13 +258,15 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
   }).join("");
   slides.push(`<div class="slide"><h2>Проекты</h2>${rows}</div>`);
 
+  const pptSteps = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:12px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#60a5fa'};margin-left:6px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+
   if (overdueTasks.length > 0) {
-    const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>⚠️ Не сделано</h2>${items}</div>`);
   }
 
   if (weekTasks.length > 0) {
-    const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>📅 На этой неделе</h2>${items}</div>`);
   }
 
@@ -300,7 +313,7 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
 </body></html>`;
 }
 
-export default function DashboardExportDialog({ projectStats, summary, users, aiSummary, trigger }: DashboardExportDialogProps) {
+export default function DashboardExportDialog({ projectStats, summary, users, aiSummary, trigger, subtaskMap }: DashboardExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
   const [loadingPpt, setLoadingPpt] = useState(false);
@@ -310,8 +323,8 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
   const [period, setPeriod] = useState<PeriodKey>("this_week");
 
   const reportData = useCallback(() =>
-    buildReportData(projectStats, summary, users, period),
-    [projectStats, summary, users, period]
+    buildReportData(projectStats, summary, users, period, subtaskMap),
+    [projectStats, summary, users, period, subtaskMap]
   );
 
   const handlePdf = () => {
