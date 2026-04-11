@@ -3,7 +3,7 @@ import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailable
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
-import AiInsightsCard, { type StatChipKey, type TaskRoleStats } from "./AiInsightsCard";
+import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
 import BulkTaskDialog from "./BulkTaskDialog";
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
@@ -700,6 +700,35 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             dismissed={activeView === "group" ? false : insightsDismissed}
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
+            onSmartFilter={(filter: InsightSmartFilter) => {
+              // Smart filter: apply project filter or highlight task in-place
+              setActiveStatFilter(null);
+              setPriorityFilter(null);
+              setAssigneeFilter(null);
+              setSearchFilter("");
+              if (filter.groupId) {
+                // Filter to project
+                setProjectFilter(filter.groupId);
+                if (filter.taskId) {
+                  // Also highlight the specific task
+                  setTimeout(() => {
+                    const el = document.querySelector(`[data-task-id="${filter.taskId}"]`);
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 100);
+                }
+              } else if (filter.taskId) {
+                setProjectFilter(null);
+                // Find task's project and highlight
+                const task = tasks.find(t => t.id === filter.taskId);
+                if (task?.group_id) {
+                  setProjectFilter(task.group_id);
+                }
+                setTimeout(() => {
+                  const el = document.querySelector(`[data-task-id="${filter.taskId}"]`);
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 100);
+              }
+            }}
             onNavigateToTask={(taskId) => {
               const task = tasks.find(t => t.id === taskId);
               onInsightTaskNavigate?.(taskId, task?.group_id ?? null);
