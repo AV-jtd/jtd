@@ -2269,6 +2269,7 @@ async function createBulkTasks(
     const taskData: Record<string, any> = {
       title: task.title.substring(0, 500),
       user_id: userId,
+      start_at: new Date().toISOString(),
     };
     if (groupId) taskData.group_id = groupId;
     if (task.priority) taskData.priority = task.priority;
