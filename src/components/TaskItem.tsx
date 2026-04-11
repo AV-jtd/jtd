@@ -1134,7 +1134,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
 
           <UserPicker
             users={availableUsers}
-            excludeIds={participantIds}
+            excludeIds={[]}
             title="🪄 Назначить ответственного"
             placeholder="Кому поручить?"
             open={userPickerOpen === "quick-assignee"}
@@ -1401,7 +1401,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   {canReassign && (
                     <UserPicker
                       users={availableUsers}
-                      excludeIds={[...participantIds, currentUser!.id]}
+                      excludeIds={[currentUser!.id]}
                       title="Переназначить задачу"
                       placeholder="Кому передать?"
                       open={userPickerOpen === "reassign"}
@@ -1422,7 +1422,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               ) : (
                 <UserPicker
                   users={availableUsers}
-                  excludeIds={participantIds}
+                  excludeIds={[]}
                   open={userPickerOpen === "assignee"}
                   onOpenChange={(open) => setUserPickerOpen(open ? "assignee" : null)}
                   onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}

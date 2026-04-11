@@ -1,0 +1,1 @@
+ALTER TABLE public.task_participants ADD CONSTRAINT task_participants_task_user_unique UNIQUE (task_id, user_id);
