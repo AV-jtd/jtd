@@ -709,6 +709,7 @@ const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
 ];
 
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
+  const { user } = useAuth();
   const { data: tasks = [], isLoading: tasksLoading, isFetching: tasksFetching } = useTasks();
   const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
@@ -717,6 +718,29 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
+
+  // Fetch all task_participants for participant filter
+  const { data: allParticipants = [] } = useQuery({
+    queryKey: ["task_participants_all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_participants" as any)
+        .select("task_id, user_id");
+      if (error) throw error;
+      return (data || []) as { task_id: string; user_id: string }[];
+    },
+    enabled: !!user,
+  });
+
+  // Build a map: taskId -> Set<userId> for fast lookup
+  const participantMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    allParticipants.forEach(p => {
+      if (!map.has(p.task_id)) map.set(p.task_id, new Set());
+      map.get(p.task_id)!.add(p.user_id);
+    });
+    return map;
+  }, [allParticipants]);
 
   // "Build Dashboard" filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
