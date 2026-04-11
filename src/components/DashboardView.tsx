@@ -238,12 +238,15 @@ function SummaryCard({ icon: Icon, value, label, color, active, onClick }: {
 }
 
 // --- Expanded metric panel ---
-function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose }: {
+type SubtaskMap = Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>;
+
+function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose, subtaskMap }: {
   metric: SummaryMetric;
   projectStats: ProjectStats[];
   onNavigateToTask: (taskId: string) => void;
   users: Profile[];
   onClose: () => void;
+  subtaskMap?: SubtaskMap;
 }) {
   const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
 
