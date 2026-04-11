@@ -288,6 +288,7 @@ function AiInsightsCardInner({
                 <InsightRow
                   key={i}
                   item={item}
+                  onSmartFilter={onSmartFilter}
                   onNavigateToTask={onNavigateToTask}
                   onNavigateToProject={onNavigateToProject}
                 />
