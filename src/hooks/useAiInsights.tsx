@@ -7,6 +7,8 @@ export interface InsightItem {
   text: string;
   task_id?: string;
   group_id?: string;
+  /** Hint for smart filtering: what kind of issue this insight is about */
+  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "stale" | "drift" | "blocked";
 }
 
 export interface DailyInsights {

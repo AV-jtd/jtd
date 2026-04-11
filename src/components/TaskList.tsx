@@ -701,32 +701,58 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             onRefresh={refreshInsights}
             onDismiss={dismissInsights}
             onSmartFilter={(filter: InsightSmartFilter) => {
-              // Smart filter: apply project filter or highlight task in-place
+              // Smart compound filter: combine project + hint-based filters
               setActiveStatFilter(null);
               setPriorityFilter(null);
               setAssigneeFilter(null);
               setSearchFilter("");
+
+              // Apply hint-based filters
+              if (filter.hint === "overdue") {
+                setPriorityFilter("overdue");
+              } else if (filter.hint === "no_assignee") {
+                setAssigneeFilter("unassigned");
+              } else if (filter.hint === "no_deadline" || filter.hint === "steps") {
+                // Use search to highlight context
+                const hintSearch = filter.hint === "no_deadline" ? "" : "";
+                setSearchFilter(hintSearch);
+              }
+
+              // Apply project scope
               if (filter.groupId) {
-                // Filter to project
                 setProjectFilter(filter.groupId);
-                if (filter.taskId) {
-                  // Also highlight the specific task
-                  setTimeout(() => {
-                    const el = document.querySelector(`[data-task-id="${filter.taskId}"]`);
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 100);
-                }
               } else if (filter.taskId) {
-                setProjectFilter(null);
-                // Find task's project and highlight
                 const task = tasks.find(t => t.id === filter.taskId);
                 if (task?.group_id) {
                   setProjectFilter(task.group_id);
+                } else {
+                  setProjectFilter(null);
                 }
+              } else if (!filter.hint) {
+                setProjectFilter(null);
+              }
+
+              // Stat chip hints (map to stat chips for overdue/drift)
+              if (filter.hint === "drift") {
+                setActiveStatFilter("drift");
+                setPriorityFilter(null);
+                setProjectFilter(filter.groupId || null);
+              } else if (filter.hint === "stale") {
+                // Stale = no recent activity, show overdue as closest match
+                setActiveStatFilter("overdue");
+                setProjectFilter(filter.groupId || null);
+              }
+
+              // Scroll to specific task if referenced
+              if (filter.taskId) {
                 setTimeout(() => {
                   const el = document.querySelector(`[data-task-id="${filter.taskId}"]`);
-                  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 100);
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    el.classList.add("ring-2", "ring-primary/50", "rounded-lg");
+                    setTimeout(() => el.classList.remove("ring-2", "ring-primary/50", "rounded-lg"), 2000);
+                  }
+                }, 150);
               }
             }}
             onNavigateToTask={(taskId) => {

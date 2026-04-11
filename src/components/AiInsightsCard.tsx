@@ -25,7 +25,7 @@ export interface InsightSmartFilter {
   taskId?: string;
   groupId?: string;
   /** Hint for the kind of filter to apply */
-  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "person";
+  hint?: "overdue" | "no_deadline" | "no_assignee" | "steps" | "stale" | "drift" | "blocked" | "person";
   /** Person id for person-based filters */
   personId?: string;
 }
@@ -55,9 +55,15 @@ interface AiInsightsCardProps {
   userName?: string;
 }
 
-function getSmartFilterLabel(taskId?: string, groupId?: string) {
-  if (groupId) return "Показать ↓";
-  if (taskId) return "Показать ↓";
+function getSmartFilterLabel(hint?: string, taskId?: string, groupId?: string) {
+  if (hint === "overdue") return "Просрочено ↓";
+  if (hint === "no_deadline") return "Без срока ↓";
+  if (hint === "no_assignee") return "Без ответственного ↓";
+  if (hint === "steps") return "Шаги ↓";
+  if (hint === "stale") return "Застывшие ↓";
+  if (hint === "drift") return "Дрифт ↓";
+  if (hint === "blocked") return "Блокеры ↓";
+  if (groupId || taskId) return "Показать ↓";
   return "Открыть";
 }
 
@@ -270,7 +276,7 @@ function AiInsightsCardInner({
           {hasFocusLink && (
             <InsightLinkAction
               compact
-              label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
+              label={getSmartFilterLabel(undefined, insights.focusTaskId, insights.focusGroupId)}
               onClick={navigateToFocus}
             />
           )}
@@ -303,7 +309,7 @@ function AiInsightsCardInner({
               {hasFocusLink && (
                 <div className="ml-auto">
                   <InsightLinkAction
-                    label={getSmartFilterLabel(insights.focusTaskId, insights.focusGroupId)}
+                    label={getSmartFilterLabel(undefined, insights.focusTaskId, insights.focusGroupId)}
                     onClick={navigateToFocus}
                   />
                 </div>
@@ -335,10 +341,10 @@ function InsightRow({ item, onSmartFilter, onNavigateToTask, onNavigateToProject
   onNavigateToTask?: (id: string) => void;
   onNavigateToProject?: (id: string) => void;
 }) {
-  const hasLink = Boolean(item.task_id || item.group_id);
+  const hasLink = Boolean(item.task_id || item.group_id || item.hint);
   const handleAction = () => {
     if (onSmartFilter) {
-      onSmartFilter({ taskId: item.task_id, groupId: item.group_id });
+      onSmartFilter({ taskId: item.task_id, groupId: item.group_id, hint: item.hint });
     } else if (item.task_id && onNavigateToTask) onNavigateToTask(item.task_id);
     else if (item.group_id && onNavigateToProject) onNavigateToProject(item.group_id);
   };
@@ -350,7 +356,7 @@ function InsightRow({ item, onSmartFilter, onNavigateToTask, onNavigateToProject
       {hasLink && (
         <InsightLinkAction
           compact
-          label={getSmartFilterLabel(item.task_id, item.group_id)}
+          label={getSmartFilterLabel(item.hint, item.task_id, item.group_id)}
           onClick={handleAction}
         />
       )}
