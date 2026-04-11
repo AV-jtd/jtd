@@ -1032,7 +1032,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
               <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                 {activeTasks.map((task, i) => (
-                  <div key={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
+                  <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
                     <TaskItem
                       task={task}
                       sortable={!batchMode}
