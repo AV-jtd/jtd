@@ -258,8 +258,10 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
   }).join("");
   slides.push(`<div class="slide"><h2>Проекты</h2>${rows}</div>`);
 
+  const pptSteps = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:12px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#60a5fa'};margin-left:6px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+
   if (overdueTasks.length > 0) {
-    const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
     slides.push(`<div class="slide"><h2>⚠️ Не сделано</h2>${items}</div>`);
   }
 
