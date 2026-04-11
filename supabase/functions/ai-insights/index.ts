@@ -77,6 +77,36 @@ serve(async (req) => {
 
     const { data: tasks } = await tasksQuery;
 
+    // Fetch subtasks for all tasks
+    const taskIds = (tasks || []).map((t: any) => t.id);
+    let allSubtasks: any[] = [];
+    if (taskIds.length > 0) {
+      // Fetch in chunks of 100
+      for (let i = 0; i < taskIds.length; i += 100) {
+        const chunk = taskIds.slice(i, i + 100);
+        const { data: subs } = await supabase
+          .from("subtasks")
+          .select("id, task_id, title, is_completed, deadline, assigned_to")
+          .in("task_id", chunk);
+        if (subs) allSubtasks = allSubtasks.concat(subs);
+      }
+    }
+
+    // Build subtask analytics
+    const activeSubtasks = allSubtasks.filter((s: any) => !s.is_completed);
+    const overdueSubtasks = activeSubtasks.filter((s: any) => s.deadline && new Date(s.deadline) < today);
+    const subtasksNoDeadline = activeSubtasks.filter((s: any) => !s.deadline);
+    const subtasksNoAssignee = activeSubtasks.filter((s: any) => !s.assigned_to);
+    const subtasksAssignedToMe = activeSubtasks.filter((s: any) => s.assigned_to === userId);
+
+    // Build subtask map per task
+    const subtaskMap: Record<string, { total: number; completed: number }> = {};
+    allSubtasks.forEach((s: any) => {
+      if (!subtaskMap[s.task_id]) subtaskMap[s.task_id] = { total: 0, completed: 0 };
+      subtaskMap[s.task_id].total++;
+      if (s.is_completed) subtaskMap[s.task_id].completed++;
+    });
+
     // Fetch projects (all groups user owns, including subprojects)
     const { data: groups } = await supabase
       .from("task_groups")
