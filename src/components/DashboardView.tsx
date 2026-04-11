@@ -600,40 +600,86 @@ function Section({ title, count, children, variant }: { title: string; count: nu
   );
 }
 
-function TaskRow({ task, onClick, userName, variant, drift }: {
+function TaskRow({ task, onClick, userName, variant, drift, subtaskInfo }: {
   task: Task; onClick: () => void; userName: string; variant?: "overdue"; drift?: number;
+  subtaskInfo?: { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] };
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasSteps = subtaskInfo && subtaskInfo.total > 0;
+  const stepPct = hasSteps ? Math.round((subtaskInfo.completed / subtaskInfo.total) * 100) : 0;
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
-    >
-      <span className={cn(
-        "text-xs truncate flex-1",
-        variant === "overdue" ? "text-red-600 dark:text-red-400" : "text-foreground",
-        task.is_completed && "line-through text-muted-foreground"
-      )}>
-        {task.title}
-      </span>
-      {drift !== undefined && (
+    <div>
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
+      >
+        {hasSteps && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+          >
+            <ChevronDownIcon className={cn("h-3 w-3 text-muted-foreground transition-transform", !expanded && "-rotate-90")} />
+          </button>
+        )}
         <span className={cn(
-          "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
-          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+          "text-xs truncate flex-1",
+          variant === "overdue" ? "text-red-600 dark:text-red-400" : "text-foreground",
+          task.is_completed && "line-through text-muted-foreground"
         )}>
-          {drift > 0 ? `+${drift}д` : `${drift}д`}
+          {task.title}
         </span>
+        {hasSteps && (
+          <span className={cn(
+            "inline-flex items-center gap-1 text-[10px] shrink-0 px-1.5 py-0.5 rounded-md border font-medium",
+            stepPct === 100
+              ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+              : stepPct > 0
+                ? "text-primary border-primary/30 bg-primary/10"
+                : "text-muted-foreground border-border bg-muted/50"
+          )}>
+            <ListChecks className="h-3 w-3" />
+            {subtaskInfo.completed}/{subtaskInfo.total}
+          </span>
+        )}
+        {drift !== undefined && (
+          <span className={cn(
+            "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+            drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+          )}>
+            {drift > 0 ? `+${drift}д` : `${drift}д`}
+          </span>
+        )}
+        {task.deadline && (
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {format(new Date(task.deadline), "d MMM", { locale: ru })}
+          </span>
+        )}
+        {userName && (
+          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate hidden sm:inline">
+            {userName}
+          </span>
+        )}
+      </button>
+      {hasSteps && expanded && (
+        <div className="ml-6 pl-2 border-l-2 border-border/60 space-y-0.5 py-1 animate-fade-in">
+          {subtaskInfo.subtasks.map(st => (
+            <div key={st.id} className="flex items-center gap-2 px-2 py-0.5">
+              <CheckCircle2 className={cn(
+                "h-3 w-3 shrink-0",
+                st.is_completed ? "text-primary" : "text-muted-foreground/40"
+              )} />
+              <span className={cn(
+                "text-[11px] truncate",
+                st.is_completed && "line-through text-muted-foreground"
+              )}>
+                {st.title}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
-      {task.deadline && (
-        <span className="text-[10px] text-muted-foreground shrink-0">
-          {format(new Date(task.deadline), "d MMM", { locale: ru })}
-        </span>
-      )}
-      {userName && (
-        <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate hidden sm:inline">
-          {userName}
-        </span>
-      )}
-    </button>
+    </div>
   );
 }
 
