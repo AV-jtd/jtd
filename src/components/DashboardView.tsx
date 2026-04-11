@@ -727,7 +727,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         .from("task_participants" as any)
         .select("task_id, user_id");
       if (error) throw error;
-      return (data || []) as { task_id: string; user_id: string }[];
+      return (data || []) as unknown as { task_id: string; user_id: string }[];
     },
     enabled: !!user,
   });
