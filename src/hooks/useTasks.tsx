@@ -964,6 +964,7 @@ export function useTaskMutations() {
             recurrence: rec,
             recurrence_end_date: endDate,
             parent_recurring_id: (taskData as any).parent_recurring_id || id,
+            start_at: new Date().toISOString(),
           } as any);
         }
       }
