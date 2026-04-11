@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { DailyInsights, InsightItem } from "@/hooks/useAiInsights";
 import {
   Sparkles, RefreshCw, X, Loader2, TrendingUp, AlertTriangle, CheckCircle2, Target,
-  ChevronDown, ExternalLink, User, ArrowUpRight, ArrowDownLeft, Clock, BarChart3,
+  ChevronDown, Filter, User, ArrowUpRight, ArrowDownLeft, Clock, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,7 +83,7 @@ function InsightLinkAction({
       )}
     >
       <span>{label}</span>
-      <ExternalLink className="h-3 w-3" />
+      <Filter className="h-3 w-3" />
     </button>
   );
 }
