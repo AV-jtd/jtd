@@ -779,7 +779,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     [tags]
   );
 
-  const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0;
+  const participantItems = useMemo(() => {
+    const ids = new Set<string>();
+    allParticipants.forEach(p => ids.add(p.user_id));
+    return Array.from(ids)
+      .map(id => {
+        const u = users.find(u => u.id === id);
+        return { id, label: u?.display_name || "Без имени" };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allParticipants, users]);
+
+  const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
 
   const projectStats = useMemo(() => {
     const baseGroups = selectedProjectIds.length > 0
