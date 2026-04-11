@@ -1116,7 +1116,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             </div>
           ) : (
             filtered.map(stats => (
-              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} />
+              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} subtaskMap={subtaskMap} />
             ))
           )}
         </div>
