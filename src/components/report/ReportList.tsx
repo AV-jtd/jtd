@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, FileBarChart, Trash2, Loader2, Check, Download, Save } from "lucide-react";
+import { Plus, FileBarChart, Trash2, Loader2, Check, Download, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useReportPages, useReportMutations, ReportBlock } from "@/hooks/useReports";
 import ReportEditor from "./ReportEditor";
+import ReportPreview from "./ReportPreview";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -20,6 +21,7 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
   const [openReportId, setOpenReportId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const openReport = reports.find(r => r.id === openReportId);
@@ -64,7 +66,7 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
       <div className="space-y-3">
         {/* Report header */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setOpenReportId(null)}>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setOpenReportId(null); setViewMode("edit"); }}>
             ← Назад
           </Button>
           <div className="flex-1">
@@ -93,16 +95,44 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
             {saveStatus === "saved" && <><Check className="h-3 w-3 text-emerald-500" /> Сохранено</>}
           </div>
 
+          {/* View toggle */}
+          <div className="flex border border-border rounded-md overflow-hidden shrink-0">
+            <button
+              className={cn("px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 transition-colors",
+                viewMode === "edit" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+              )}
+              onClick={() => setViewMode("edit")}
+            >
+              <Pencil className="h-3 w-3" /> Редактор
+            </button>
+            <button
+              className={cn("px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 transition-colors",
+                viewMode === "preview" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+              )}
+              onClick={() => setViewMode("preview")}
+            >
+              <Eye className="h-3 w-3" /> Просмотр
+            </button>
+          </div>
+
           {/* Export JSON */}
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={handleExportJson}>
             <Download className="h-3 w-3" /> JSON
           </Button>
         </div>
 
-        <ReportEditor
-          blocks={openReport.blocks}
-          onChange={handleBlocksChange}
-        />
+        {viewMode === "edit" ? (
+          <ReportEditor
+            blocks={openReport.blocks}
+            onChange={handleBlocksChange}
+          />
+        ) : (
+          <ReportPreview
+            title={openReport.title}
+            blocks={openReport.blocks}
+            coverColor={openReport.cover_color}
+          />
+        )}
       </div>
     );
   }
