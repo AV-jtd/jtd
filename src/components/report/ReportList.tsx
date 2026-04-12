@@ -21,6 +21,7 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
   const [openReportId, setOpenReportId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const openReport = reports.find(r => r.id === openReportId);
