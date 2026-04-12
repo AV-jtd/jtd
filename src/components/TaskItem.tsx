@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
 
 import { useNavigate } from "react-router-dom";
-import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks, useTagCategories, TagCategory } from "@/hooks/useTasks";
+import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks, useTagCategories, TaskGroup, type Tag as TagType, type TagCategory } from "@/hooks/useTasks";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable as useSortableDnd } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
@@ -45,6 +45,13 @@ interface TaskItemProps {
   selected?: boolean;
   onToggleSelect?: () => void;
   onLongPress?: () => void;
+  // Shared data props — lifted from parent to avoid per-item hook subscriptions
+  sharedTags?: TagType[];
+  sharedUsers?: Profile[];
+  sharedGroups?: TaskGroup[];
+  sharedTagCategories?: TagCategory[];
+  sharedLinkedTagIds?: Set<string>;
+  sharedMutations?: ReturnType<typeof useTaskMutations>;
 }
 
 const PRIORITIES = [
@@ -482,21 +489,30 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
   );
 }
 
-function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress }: TaskItemProps) {
+function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations }: TaskItemProps) {
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
   const { pushUndo } = useUndo();
-  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, promoteSubtaskToTask, demoteTaskToSubtask, moveSubtaskToTask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = useTaskMutations();
-  const { data: allTags = [] } = useVisibleTags();
-  const linkedTagIds = useLinkedTagIds();
-  const { data: availableUsers = [] } = useAvailableUsers();
+  // Use shared data from parent when available to avoid per-item hook subscriptions
+  const _ownMutations = useTaskMutations();
+  const mutations = sharedMutations || _ownMutations;
+  const { toggleTask, toggleImportant, deleteTask, updateTask, addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks, promoteSubtaskToTask, demoteTaskToSubtask, moveSubtaskToTask, addTaskTag, removeTaskTag, addParticipant, removeParticipant, submitForApproval, approveTask, rejectTask } = mutations;
+  const { data: _ownTags = [] } = useVisibleTags();
+  const allTags = sharedTags || _ownTags;
+  const _ownLinkedTagIds = useLinkedTagIds();
+  const linkedTagIds = sharedLinkedTagIds || _ownLinkedTagIds;
+  const { data: _ownUsers = [] } = useAvailableUsers();
+  const availableUsers = sharedUsers || _ownUsers;
   const { data: participants = [] } = useTaskParticipants(task.id);
-  const { data: allGroups = [] } = useTaskGroups();
-  const { data: tagCategories = [] } = useTagCategories();
-  const { data: chatComments = [] } = useTaskComments(task.id);
+  const { data: _ownGroups = [] } = useTaskGroups();
+  const allGroups = sharedGroups || _ownGroups;
+  const { data: _ownCategories = [] } = useTagCategories();
+  const tagCategories = sharedTagCategories || _ownCategories;
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
+  // Lazy-load comments only when detail panel is open to avoid N queries
+  const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   const [highlighted, setHighlighted] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);

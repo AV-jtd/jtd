@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers } from "@/hooks/useTasks";
+import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
@@ -103,7 +103,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useVisibleTags();
   const { data: availableUsers = [] } = useAvailableUsers();
-  const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = useTaskMutations();
+  const { data: tagCategories = [] } = useTagCategories();
+  const linkedTagIds = useLinkedTagIds();
+  const mutations = useTaskMutations();
+  const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = mutations;
   const [priorityFilter, setPriorityFilter] = useState<number | "important" | "overdue" | "pending_approval" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
@@ -511,6 +514,16 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const parentGroup = activeGroup?.parent_id ? groups.find(g => g.id === activeGroup.parent_id) : null;
   const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
+
+  // Shared data props for TaskItem — avoids N duplicate hook subscriptions
+  const sharedTaskItemProps = useMemo(() => ({
+    sharedTags: allTags,
+    sharedUsers: availableUsers,
+    sharedGroups: groups,
+    sharedTagCategories: tagCategories,
+    sharedLinkedTagIds: linkedTagIds,
+    sharedMutations: mutations,
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations]);
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -986,6 +999,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                           <TaskItem
                             key={task.id}
                             task={task}
+                            {...sharedTaskItemProps}
                             initialOpen={task.id === highlightTaskId}
                             onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                             onTagClick={onTagClick}
@@ -1037,6 +1051,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                       <TaskItem
                         key={task.id}
                         task={task}
+                        {...sharedTaskItemProps}
                         initialOpen={task.id === highlightTaskId}
                         onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                         onTagClick={onTagClick}
@@ -1061,6 +1076,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
                     <TaskItem
                       task={task}
+                      {...sharedTaskItemProps}
                       sortable={!batchMode}
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
@@ -1085,6 +1101,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     <TaskItem
                       key={task.id}
                       task={task}
+                      {...sharedTaskItemProps}
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                       onTagClick={onTagClick}
