@@ -254,7 +254,7 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
 function buildPptHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
   const periodStr = data.periodLabel || dateStr;
-  const { summary, projects, overdueTasks, weekTasks } = data;
+  const { summary, projects, overdueTasks, weekTasks, completedTasks, driftTasks } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
   const statusColors: Record<string, string> = { "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280" };
@@ -265,7 +265,7 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
 
   slides.push(`<div class="slide"><h2>Ключевые метрики</h2><div class="grid4">
     <div class="card"><div class="val" style="color:#3b82f6">${summary.completionRate}%</div><div class="lbl">Прогресс</div></div>
-    <div class="card"><div class="val" style="color:#3b82f6">${summary.tasksThisWeek}</div><div class="lbl">Дедлайнов на неделе</div></div>
+    <div class="card"><div class="val" style="color:#10b981">${summary.totalCompleted || 0}</div><div class="lbl">Выполнено</div></div>
     <div class="card"><div class="val" style="color:#ef4444">${summary.totalOverdue}</div><div class="lbl">Просрочено</div></div>
     <div class="card"><div class="val" style="color:#f59e0b">${summary.totalDrift}</div><div class="lbl">Drift</div></div>
   </div></div>`);
@@ -277,16 +277,16 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
   slides.push(`<div class="slide"><h2>Проекты</h2>${rows}</div>`);
 
   const pptSteps = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:12px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#60a5fa'};margin-left:6px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+  const taskSlide = (title: string, tasks: any[], max = 8) => {
+    if (tasks.length === 0) return;
+    const items = tasks.slice(0, max).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    slides.push(`<div class="slide"><h2>${title} (${tasks.length})</h2>${items}</div>`);
+  };
 
-  if (overdueTasks.length > 0) {
-    const items = overdueTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
-    slides.push(`<div class="slide"><h2>⚠️ Не сделано</h2>${items}</div>`);
-  }
-
-  if (weekTasks.length > 0) {
-    const items = weekTasks.slice(0, 8).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
-    slides.push(`<div class="slide"><h2>📅 На этой неделе</h2>${items}</div>`);
-  }
+  taskSlide("✅ Выполнено", completedTasks);
+  taskSlide("⚠️ Просрочено", overdueTasks);
+  taskSlide("📅 На этой неделе", weekTasks);
+  taskSlide("↔ Drift", driftTasks);
 
   if (aiSummary) {
     slides.push(`<div class="slide"><h2>🤖 ИИ-анализ</h2><div class="ai-body">${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div></div>`);
