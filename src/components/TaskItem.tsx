@@ -45,6 +45,13 @@ interface TaskItemProps {
   selected?: boolean;
   onToggleSelect?: () => void;
   onLongPress?: () => void;
+  // Shared data props — lifted from parent to avoid per-item hook subscriptions
+  sharedTags?: Tag[];
+  sharedUsers?: Profile[];
+  sharedGroups?: TaskGroup[];
+  sharedTagCategories?: TagCategory[];
+  sharedLinkedTagIds?: Set<string>;
+  sharedMutations?: ReturnType<typeof useTaskMutations>;
 }
 
 const PRIORITIES = [
