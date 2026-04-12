@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, FileBarChart, Trash2, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, FileBarChart, Trash2, Loader2, Check, Download, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useReportPages, useReportMutations, ReportBlock } from "@/hooks/useReports";
@@ -19,8 +19,37 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
   const { createReport, updateReport, deleteReport } = useReportMutations(groupId);
   const [openReportId, setOpenReportId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const openReport = reports.find(r => r.id === openReportId);
+
+  const handleBlocksChange = useCallback((blocks: ReportBlock[]) => {
+    if (!openReportId) return;
+    setSaveStatus("saving");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      updateReport.mutate({ id: openReportId, blocks }, {
+        onSuccess: () => {
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        },
+      });
+    }, 600); // debounce 600ms
+  }, [openReportId, updateReport]);
+
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  const handleExportJson = () => {
+    if (!openReport) return;
+    const blob = new Blob([JSON.stringify(openReport.blocks, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${openReport.title}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return (
@@ -57,11 +86,22 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
               </button>
             )}
           </div>
+
+          {/* Save status */}
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+            {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Сохранение...</>}
+            {saveStatus === "saved" && <><Check className="h-3 w-3 text-emerald-500" /> Сохранено</>}
+          </div>
+
+          {/* Export JSON */}
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={handleExportJson}>
+            <Download className="h-3 w-3" /> JSON
+          </Button>
         </div>
 
         <ReportEditor
           blocks={openReport.blocks}
-          onChange={(blocks: ReportBlock[]) => updateReport.mutate({ id: openReport.id, blocks })}
+          onChange={handleBlocksChange}
         />
       </div>
     );
@@ -69,12 +109,11 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
 
   return (
     <div className="space-y-3">
-      {/* Report cards */}
       {reports.length === 0 ? (
         <div className="text-center py-8">
           <FileBarChart className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Нет отчётов</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">Создайте первый отчёт с KPI, графиками и таблицами</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Создайте отчёт или импортируйте JSON-данные</p>
         </div>
       ) : (
         <div className="space-y-2">
