@@ -1076,6 +1076,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                   <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
                     <TaskItem
                       task={task}
+                      {...sharedTaskItemProps}
                       sortable={!batchMode}
                       initialOpen={task.id === highlightTaskId}
                       onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
