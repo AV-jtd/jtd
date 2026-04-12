@@ -7,7 +7,7 @@ import ReportEditor from "./ReportEditor";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
-import { ConfirmDelete } from "@/components/ConfirmDelete";
+import ConfirmDelete from "@/components/ConfirmDelete";
 
 interface ReportListProps {
   groupId: string;
