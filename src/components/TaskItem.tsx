@@ -509,9 +509,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const allGroups = sharedGroups || _ownGroups;
   const { data: _ownCategories = [] } = useTagCategories();
   const tagCategories = sharedTagCategories || _ownCategories;
-  const { data: chatComments = [] } = useTaskComments(task.id);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
+  // Lazy-load comments only when detail panel is open to avoid N queries
+  const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   const [highlighted, setHighlighted] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
