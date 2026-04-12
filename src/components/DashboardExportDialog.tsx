@@ -159,6 +159,12 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .slice(0, 20)
     .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
 
+  const completedTasks = periodTasks
+    .filter((t: any) => t.is_completed && t.completed_at)
+    .sort((a: any, b: any) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
+    .slice(0, 30)
+    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.completed_at, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
+
   const projects = projectStats.map((s: any) => ({
     name: s.group.name,
     color: s.group.color,
@@ -171,7 +177,13 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     nextDeadline: s.nextDeadline,
   }));
 
-  return { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, period, periodLabel };
+  const totalTasks = periodTasks.length;
+  const totalCompleted = periodTasks.filter((t: any) => t.is_completed).length;
+
+  return {
+    summary: { ...summary, totalTasks, totalCompleted },
+    projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, period, periodLabel,
+  };
 }
 
 function buildPdfHtml(data: ReportData, aiSummary?: string): string {
