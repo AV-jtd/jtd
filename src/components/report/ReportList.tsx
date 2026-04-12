@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, FileBarChart, Trash2, Loader2, Check, Download, Save } from "lucide-react";
+import { Plus, FileBarChart, Trash2, Loader2, Check, Download, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useReportPages, useReportMutations, ReportBlock } from "@/hooks/useReports";
 import ReportEditor from "./ReportEditor";
+import ReportPreview from "./ReportPreview";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
