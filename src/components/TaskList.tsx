@@ -515,6 +515,16 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const parentGroup = activeGroup?.parent_id ? groups.find(g => g.id === activeGroup.parent_id) : null;
   const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
 
+  // Shared data props for TaskItem — avoids N duplicate hook subscriptions
+  const sharedTaskItemProps = useMemo(() => ({
+    sharedTags: allTags,
+    sharedUsers: availableUsers,
+    sharedGroups: groups,
+    sharedTagCategories: tagCategories,
+    sharedLinkedTagIds: linkedTagIds,
+    sharedMutations: mutations,
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations]);
+
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
