@@ -16,7 +16,7 @@ interface ProjectWikiTabProps {
   groupName: string;
   groupDescription?: string;
   compact?: boolean;
-  defaultTab?: "wiki" | "structured";
+  defaultTab?: "wiki" | "structured" | "reports";
 }
 
 export default function ProjectWikiTab({ groupId, groupName, groupDescription, compact, defaultTab }: ProjectWikiTabProps) {
