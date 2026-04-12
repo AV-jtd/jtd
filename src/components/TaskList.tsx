@@ -999,6 +999,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                           <TaskItem
                             key={task.id}
                             task={task}
+                            {...sharedTaskItemProps}
                             initialOpen={task.id === highlightTaskId}
                             onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
                             onTagClick={onTagClick}
