@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { Plus, GripVertical, Trash2, BarChart3, Type, Hash, Link2, Minus, Table2, ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { Plus, GripVertical, Trash2, BarChart3, Type, Hash, Link2, Minus, Table2, ChevronDown, ChevronRight, Pencil, Copy, Columns, Maximize2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,10 +80,12 @@ function defaultBlockData(type: ReportBlockType): Record<string, any> {
 }
 
 // ─── Sortable Block Wrapper ───
-function SortableBlock({ block, onUpdate, onRemove, readOnly }: {
+function SortableBlock({ block, onUpdate, onRemove, onDuplicate, onToggleWidth, readOnly }: {
   block: ReportBlock;
   onUpdate: (data: Record<string, any>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onToggleWidth: () => void;
   readOnly?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
@@ -107,7 +109,13 @@ function SortableBlock({ block, onUpdate, onRemove, readOnly }: {
         </div>
       )}
       {!readOnly && (
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Дублировать" onClick={onDuplicate}>
+            <Copy className="h-3 w-3 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" title={block.width === "half" ? "На всю ширину" : "Половина"} onClick={onToggleWidth}>
+            {block.width === "half" ? <Maximize2 className="h-3 w-3 text-muted-foreground" /> : <Columns className="h-3 w-3 text-muted-foreground" />}
+          </Button>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove}>
             <Trash2 className="h-3 w-3 text-destructive" />
           </Button>
