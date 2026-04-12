@@ -110,6 +110,7 @@ export default function AppSidebar({
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
     { id: "dashboard", icon: BarChart3, label: "Дашборд" },
     { id: "wiki", icon: BookOpen, label: "База знаний" },
+    { id: "reports", icon: BarChart3, label: "Отчёты" },
     { id: "archive", icon: Archive, label: "Архив" },
   ];
 
