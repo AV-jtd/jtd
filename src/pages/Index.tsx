@@ -11,7 +11,7 @@ import DashboardView from "@/components/DashboardView";
 import ArchiveView from "@/components/ArchiveView";
 import CommunityView from "@/components/CommunityView";
 import WikiHubView from "@/components/WikiHubView";
-import ReportsHubView from "@/components/ReportsHubView";
+
 import ProjectChat from "@/components/ProjectChat";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -207,7 +207,7 @@ export default function Index() {
           {activeView === "community" && <CommunityView />}
           {activeView === "archive" && <ArchiveView />}
           {activeView === "wiki" && <WikiHubView />}
-          {activeView === "reports" && <ReportsHubView />}
+          
         </div>
 
         {/* Messenger panel */}
