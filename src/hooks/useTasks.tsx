@@ -795,7 +795,7 @@ export function useTaskMutations() {
         updated_at: new Date().toISOString(),
         completed_at: null,
         description: null,
-        assigned_to: null,
+        assigned_to: task.assigned_to || null,
         recurrence: null,
         recurrence_end_date: null,
         parent_recurring_id: null,
@@ -818,6 +818,7 @@ export function useTaskMutations() {
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error(_e.message); },
     onSettled: (_d, _e, task) => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_participants"] });
       if (task.task_type === 'crm') {
         qc.invalidateQueries({ queryKey: ["tags"] });
         qc.invalidateQueries({ queryKey: ["tag_categories"] });
