@@ -87,7 +87,7 @@ export default function Index() {
   if (!user) return <Navigate to="/auth" replace />;
   if (!isApproved) return <Navigate to="/pending" replace />;
 
-  const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki", "reports"].includes(activeView);
+  const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki"].includes(activeView);
 
   const handleNavAction = () => {};
 
