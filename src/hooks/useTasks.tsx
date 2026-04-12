@@ -818,6 +818,7 @@ export function useTaskMutations() {
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error(_e.message); },
     onSettled: (_d, _e, task) => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_participants"] });
       if (task.task_type === 'crm') {
         qc.invalidateQueries({ queryKey: ["tags"] });
         qc.invalidateQueries({ queryKey: ["tag_categories"] });
