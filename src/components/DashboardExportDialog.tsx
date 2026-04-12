@@ -189,7 +189,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
 function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
   const periodStr = data.periodLabel || dateStr;
-  const { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks } = data;
+  const { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
   const statusColors: Record<string, string> = { "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280" };
@@ -208,7 +208,7 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
 
   const taskTable = (tasks: any[], extraHeader?: string) => {
     if (tasks.length === 0) return "<p style='color:#94a3b8;font-size:13px'>Нет данных</p>";
-    return `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Дедлайн</th>${extraHeader ? `<th>${extraHeader}</th>` : ""}</tr></thead><tbody>
+    return `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Дата</th>${extraHeader ? `<th>${extraHeader}</th>` : ""}</tr></thead><tbody>
       ${tasks.map(t => `<tr><td>${t.title}${stepsLabel(t)}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
     </tbody></table>`;
   };
@@ -219,7 +219,7 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   h1{font-size:24px;border-bottom:3px solid #3b82f6;padding-bottom:8px;margin-bottom:4px}
   .period{font-size:14px;color:#64748b;margin-bottom:24px}
   h2{font-size:16px;margin:24px 0 10px;color:#1e40af}
-  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px}
   .m{background:#f0f9ff;border-radius:10px;padding:14px;text-align:center}
   .m .v{font-size:26px;font-weight:700;color:#3b82f6}
   .m .l{font-size:11px;color:#64748b}
@@ -233,17 +233,20 @@ function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   <p class="period">Период: ${periodStr} · Создан ${dateStr}</p>
   <div class="metrics">
     <div class="m"><div class="v">${summary.completionRate}%</div><div class="l">Прогресс</div></div>
+    <div class="m"><div class="v">${summary.totalTasks || 0}</div><div class="l">Всего задач</div></div>
+    <div class="m"><div class="v" style="color:#10b981">${summary.totalCompleted || 0}</div><div class="l">Выполнено</div></div>
     <div class="m"><div class="v">${summary.tasksThisWeek}</div><div class="l">Дедлайнов</div></div>
     <div class="m"><div class="v" style="color:#ef4444">${summary.totalOverdue}</div><div class="l">Просрочено</div></div>
     <div class="m"><div class="v" style="color:#f59e0b">${summary.totalDrift}</div><div class="l">Drift</div></div>
   </div>
   ${aiSummary ? `<div class="ai"><strong>🤖 ИИ-анализ:</strong><br/>${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div>` : ""}
-  <h2>📋 Проекты</h2>
+  <h2>📋 Проекты (${projects.length})</h2>
   <table><thead><tr><th>Проект</th><th>Статус</th><th>%</th><th>Задач</th><th>Просрочено</th><th>Drift</th></tr></thead><tbody>${projectRows}</tbody></table>
-  ${overdueTasks.length > 0 ? `<h2>⚠️ Не сделано (просрочено)</h2>${taskTable(overdueTasks)}` : ""}
-  ${weekTasks.length > 0 ? `<h2>📅 Должно быть сделано на этой неделе</h2>${taskTable(weekTasks)}` : ""}
-  ${driftTasks.length > 0 ? `<h2>↔ Перенесённые сроки</h2>${taskTable(driftTasks, "Drift")}` : ""}
-  ${upcomingTasks.length > 0 ? `<h2>🔮 Ближайшие планы</h2>${taskTable(upcomingTasks)}` : ""}
+  ${completedTasks.length > 0 ? `<h2>✅ Выполнено за период (${completedTasks.length})</h2>${taskTable(completedTasks)}` : ""}
+  ${overdueTasks.length > 0 ? `<h2>⚠️ Не сделано — просрочено (${overdueTasks.length})</h2>${taskTable(overdueTasks)}` : ""}
+  ${weekTasks.length > 0 ? `<h2>📅 Дедлайны на этой неделе (${weekTasks.length})</h2>${taskTable(weekTasks)}` : ""}
+  ${driftTasks.length > 0 ? `<h2>↔ Перенесённые сроки (${driftTasks.length})</h2>${taskTable(driftTasks, "Drift")}` : ""}
+  ${upcomingTasks.length > 0 ? `<h2>🔮 Ближайшие планы (${upcomingTasks.length})</h2>${taskTable(upcomingTasks)}` : ""}
   <p style="text-align:center;margin-top:32px;font-size:12px;color:#94a3b8">JustTODOit · ${dateStr}</p>
 </body></html>`;
 }
