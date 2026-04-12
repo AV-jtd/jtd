@@ -2,10 +2,9 @@ import { useState, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { BookOpen, LayoutGrid, FileDown, Presentation, Maximize2, Minimize2, FileBarChart } from "lucide-react";
+import { BookOpen, LayoutGrid, FileDown, Presentation, Maximize2, Minimize2 } from "lucide-react";
 import WikiEditor from "./WikiEditor";
 import StructuredOverview from "./StructuredOverview";
-import ReportList from "@/components/report/ReportList";
 import { useWikiPages } from "@/hooks/useWiki";
 import { useTasks } from "@/hooks/useTasks";
 import { toast } from "sonner";
@@ -16,7 +15,7 @@ interface ProjectWikiTabProps {
   groupName: string;
   groupDescription?: string;
   compact?: boolean;
-  defaultTab?: "wiki" | "structured" | "reports";
+  defaultTab?: "wiki" | "structured";
 }
 
 export default function ProjectWikiTab({ groupId, groupName, groupDescription, compact, defaultTab }: ProjectWikiTabProps) {
@@ -95,9 +94,6 @@ export default function ProjectWikiTab({ groupId, groupName, groupDescription, c
           <TabsTrigger value="structured" className="text-xs gap-1 h-7 px-3">
             <LayoutGrid className="h-3 w-3" /> Обзор
           </TabsTrigger>
-          <TabsTrigger value="reports" className="text-xs gap-1 h-7 px-3">
-            <FileBarChart className="h-3 w-3" /> Отчёты
-          </TabsTrigger>
         </TabsList>
         {toolbar}
       </div>
@@ -106,9 +102,6 @@ export default function ProjectWikiTab({ groupId, groupName, groupDescription, c
       </TabsContent>
       <TabsContent value="structured" className="mt-2">
         <StructuredOverview groupId={groupId} groupName={groupName} groupDescription={groupDescription} compact={!isFullscreen} />
-      </TabsContent>
-      <TabsContent value="reports" className="mt-2">
-        <ReportList groupId={groupId} compact={!isFullscreen} />
       </TabsContent>
     </Tabs>
   );
