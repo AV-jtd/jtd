@@ -795,7 +795,7 @@ export function useTaskMutations() {
         updated_at: new Date().toISOString(),
         completed_at: null,
         description: null,
-        assigned_to: null,
+        assigned_to: task.assigned_to || null,
         recurrence: null,
         recurrence_end_date: null,
         parent_recurring_id: null,
