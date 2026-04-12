@@ -36,12 +36,15 @@ export interface ReportData {
     totalOverdue: number;
     totalDrift: number;
     totalProjects: number;
+    totalTasks?: number;
+    totalCompleted?: number;
   };
   projects: ProjectStatExport[];
   overdueTasks: TaskExport[];
   weekTasks: TaskExport[];
   driftTasks: TaskExport[];
   upcomingTasks: TaskExport[];
+  completedTasks: TaskExport[];
   period?: string;
   periodLabel?: string;
 }
