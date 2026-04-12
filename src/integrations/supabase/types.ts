@@ -623,6 +623,47 @@ export type Database = {
         }
         Relationships: []
       }
+      report_pages: {
+        Row: {
+          blocks: Json
+          cover_color: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocks?: Json
+          cover_color?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocks?: Json
+          cover_color?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_pages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtasks: {
         Row: {
           assigned_to: string | null
