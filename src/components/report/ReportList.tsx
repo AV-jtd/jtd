@@ -119,7 +119,7 @@ export default function ReportList({ groupId, compact }: ReportListProps) {
         variant="outline"
         size="sm"
         className="w-full border-dashed h-8 text-xs gap-1.5"
-        onClick={() => createReport.mutateAsync().then(r => r && setOpenReportId((r as any).id))}
+        onClick={() => createReport.mutateAsync("Новый отчёт").then(r => r && setOpenReportId((r as any).id))}
         disabled={createReport.isPending}
       >
         {createReport.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
