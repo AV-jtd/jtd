@@ -95,6 +95,9 @@ export default function ProjectWikiTab({ groupId, groupName, groupDescription, c
           <TabsTrigger value="structured" className="text-xs gap-1 h-7 px-3">
             <LayoutGrid className="h-3 w-3" /> Обзор
           </TabsTrigger>
+          <TabsTrigger value="reports" className="text-xs gap-1 h-7 px-3">
+            <FileBarChart className="h-3 w-3" /> Отчёты
+          </TabsTrigger>
         </TabsList>
         {toolbar}
       </div>
@@ -103,6 +106,9 @@ export default function ProjectWikiTab({ groupId, groupName, groupDescription, c
       </TabsContent>
       <TabsContent value="structured" className="mt-2">
         <StructuredOverview groupId={groupId} groupName={groupName} groupDescription={groupDescription} compact={!isFullscreen} />
+      </TabsContent>
+      <TabsContent value="reports" className="mt-2">
+        <ReportList groupId={groupId} compact={!isFullscreen} />
       </TabsContent>
     </Tabs>
   );
