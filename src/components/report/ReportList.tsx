@@ -10,7 +10,7 @@ import { ru } from "date-fns/locale";
 import ConfirmDelete from "@/components/ConfirmDelete";
 
 interface ReportListProps {
-  groupId: string;
+  groupId: string | null;
   compact?: boolean;
 }
 
