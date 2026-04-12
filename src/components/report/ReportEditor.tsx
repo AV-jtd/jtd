@@ -439,6 +439,7 @@ function ProjectLinkBlock({ data, onUpdate, readOnly }: { data: Record<string, a
 // ─── Main Editor ───
 export default function ReportEditor({ blocks, onChange, readOnly }: ReportEditorProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -472,6 +473,37 @@ export default function ReportEditor({ blocks, onChange, readOnly }: ReportEdito
     onChange(blocks.filter(b => b.id !== id));
   };
 
+  const duplicateBlock = (id: string) => {
+    const idx = blocks.findIndex(b => b.id === id);
+    if (idx === -1) return;
+    const src = blocks[idx];
+    const copy: ReportBlock = { ...src, id: genId(), data: { ...src.data } };
+    const next = [...blocks];
+    next.splice(idx + 1, 0, copy);
+    onChange(next);
+  };
+
+  const toggleWidth = (id: string) => {
+    onChange(blocks.map(b => b.id === id ? { ...b, width: b.width === "half" ? "full" : "half" } : b));
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result as string);
+        const imported = jsonToBlocks(json);
+        onChange([...blocks, ...imported]);
+      } catch {
+        alert("Не удалось разобрать JSON файл");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   return (
     <div className="space-y-3">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -483,6 +515,8 @@ export default function ReportEditor({ blocks, onChange, readOnly }: ReportEdito
                 block={block}
                 onUpdate={data => updateBlock(block.id, data)}
                 onRemove={() => removeBlock(block.id)}
+                onDuplicate={() => duplicateBlock(block.id)}
+                onToggleWidth={() => toggleWidth(block.id)}
                 readOnly={readOnly}
               />
             ))}
@@ -494,36 +528,115 @@ export default function ReportEditor({ blocks, onChange, readOnly }: ReportEdito
         <div className="text-center py-8 text-muted-foreground">
           <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">Пустой отчёт</p>
-          <p className="text-xs mt-1">Добавьте блоки: KPI, графики, таблицы, текст</p>
+          <p className="text-xs mt-1">Добавьте блоки или импортируйте JSON-данные</p>
         </div>
       )}
 
       {!readOnly && (
-        <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full border-dashed h-9 text-xs gap-2"
+              onClick={() => setShowMenu(!showMenu)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Добавить блок
+            </Button>
+            {showMenu && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-border rounded-lg shadow-lg p-2 grid grid-cols-3 gap-1 z-20 animate-fade-in">
+                {BLOCK_TYPES.map(bt => (
+                  <button
+                    key={bt.type}
+                    onClick={() => addBlock(bt.type)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary/50 transition-colors text-left"
+                  >
+                    <span className="text-muted-foreground">{bt.icon}</span>
+                    <span className="text-xs text-foreground">{bt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportJson} />
           <Button
             variant="outline"
             size="sm"
-            className="w-full border-dashed h-9 text-xs gap-2"
-            onClick={() => setShowMenu(!showMenu)}
+            className="h-9 text-xs gap-1.5 shrink-0"
+            onClick={() => fileInputRef.current?.click()}
           >
-            <Plus className="h-3.5 w-3.5" /> Добавить блок
+            <Upload className="h-3.5 w-3.5" /> Импорт JSON
           </Button>
-          {showMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-border rounded-lg shadow-lg p-2 grid grid-cols-3 gap-1 z-20 animate-fade-in">
-              {BLOCK_TYPES.map(bt => (
-                <button
-                  key={bt.type}
-                  onClick={() => addBlock(bt.type)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary/50 transition-colors text-left"
-                >
-                  <span className="text-muted-foreground">{bt.icon}</span>
-                  <span className="text-xs text-foreground">{bt.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
   );
+}
+
+// ─── JSON → Blocks converter ───
+function jsonToBlocks(json: any): ReportBlock[] {
+  const blocks: ReportBlock[] = [];
+
+  // If array of blocks directly
+  if (Array.isArray(json)) {
+    // Could be pre-formatted blocks or raw data
+    if (json[0]?.type && json[0]?.data) {
+      return json.map(b => ({ ...b, id: genId() }));
+    }
+    // Array of objects → table
+    const cols = Object.keys(json[0] || {});
+    blocks.push({
+      id: genId(), type: "table", width: "full",
+      data: { title: "Импортированные данные", columns: cols, rows: json.map((r: any) => cols.map(c => String(r[c] ?? ""))) },
+    });
+    return blocks;
+  }
+
+  // Object with named sections
+  if (typeof json === "object" && json !== null) {
+    // Look for common patterns
+    for (const [key, val] of Object.entries(json)) {
+      if (val === null || val === undefined) continue;
+
+      // KPI-like: { label, value } or simple number
+      if (typeof val === "number" || typeof val === "string") {
+        blocks.push({
+          id: genId(), type: "kpi", width: "half",
+          data: { label: key, value: String(val), suffix: "", trend: "", color: "#3b82f6" },
+        });
+        continue;
+      }
+
+      // Array → chart or table
+      if (Array.isArray(val)) {
+        if (val.length > 0 && typeof val[0] === "object" && val[0] !== null) {
+          const keys = Object.keys(val[0]);
+          // If has "name" and "value" → chart
+          if (keys.includes("name") && keys.includes("value")) {
+            blocks.push({
+              id: genId(), type: "chart", width: "full",
+              data: { chartType: "bar", title: key, data: val, color: "#3b82f6" },
+            });
+          } else {
+            // Table
+            blocks.push({
+              id: genId(), type: "table", width: "full",
+              data: { title: key, columns: keys, rows: val.map((r: any) => keys.map(k => String(r[k] ?? ""))) },
+            });
+          }
+        }
+        continue;
+      }
+
+      // Nested object → text block with JSON
+      if (typeof val === "object") {
+        blocks.push({
+          id: genId(), type: "text", width: "full",
+          data: { content: `**${key}**\n${JSON.stringify(val, null, 2)}` },
+        });
+      }
+    }
+  }
+
+  return blocks;
 }
