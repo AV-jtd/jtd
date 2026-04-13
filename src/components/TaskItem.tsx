@@ -964,11 +964,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 })()}
               </span>
             )}
-            {task.start_at && (
-              <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                🚀 {format(parseISO(task.start_at), "d MMM", { locale: ru })}
-              </span>
-            )}
             {task.deferred_until && new Date(task.deferred_until) > new Date() && (
               <span className="text-xs flex items-center gap-1 text-muted-foreground">
                 <Clock className="h-3 w-3" />
