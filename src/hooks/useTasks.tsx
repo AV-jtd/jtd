@@ -871,6 +871,17 @@ export function useTaskMutations() {
           }
         }
       }
+      // Grace period: if deadline changes within 24h of creation, also update original_deadline
+      if ('deadline' in updates && updates.deadline) {
+        const { data: currentTask } = await supabase.from("tasks").select("created_at, original_deadline").eq("id", id).single();
+        if (currentTask) {
+          const createdAt = new Date(currentTask.created_at);
+          const hoursSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+          if (hoursSinceCreation <= 24) {
+            (updates as any).original_deadline = updates.deadline;
+          }
+        }
+      }
 
       const { error } = await supabase.from("tasks").update(updates).eq("id", id);
       if (error) throw error;
