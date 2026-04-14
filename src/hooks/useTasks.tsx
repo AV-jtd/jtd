@@ -586,7 +586,92 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
-  const reorderGroups = useMutation({
+  const updateBaselineSettings = useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string; baseline_approver_id?: string | null; baseline_auto_lock_hours?: number }) => {
+      const { error } = await supabase.from("task_groups").update(fields as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, ...fields }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, ...fields } : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
+  const lockBaseline = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("task_groups").update({
+        baseline_status: 'locked',
+        baseline_locked_at: now,
+      } as any).eq("id", id);
+      if (error) throw error;
+
+      const { data: subgroups } = await supabase.from("task_groups").select("id").eq("parent_id", id);
+      if (subgroups?.length) {
+        await Promise.all(subgroups.map(sg =>
+          supabase.from("task_groups").update({ baseline_status: 'locked', baseline_locked_at: now } as any).eq("id", sg.id)
+        ));
+      }
+
+      const allGroupIds = [id, ...(subgroups || []).map(sg => sg.id)];
+      const { data: tasks } = await supabase.from("tasks").select("id, deadline").in("group_id", allGroupIds).not("deadline", "is", null);
+      if (tasks?.length) {
+        await Promise.all(tasks.map(t =>
+          supabase.from("tasks").update({ original_deadline: t.deadline } as any).eq("id", t.id)
+        ));
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g =>
+        g.id === id || g.parent_id === id
+          ? { ...g, baseline_status: 'locked', baseline_locked_at: new Date().toISOString() }
+          : g
+      ));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const unlockBaseline = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.from("task_groups").update({
+        baseline_status: 'planning',
+        baseline_locked_at: null,
+      } as any).eq("id", id);
+      if (error) throw error;
+
+      const { data: subgroups } = await supabase.from("task_groups").select("id").eq("parent_id", id);
+      if (subgroups?.length) {
+        await Promise.all(subgroups.map(sg =>
+          supabase.from("task_groups").update({ baseline_status: 'planning', baseline_locked_at: null } as any).eq("id", sg.id)
+        ));
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g =>
+        g.id === id || g.parent_id === id
+          ? { ...g, baseline_status: 'planning', baseline_locked_at: null }
+          : g
+      ));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
+
     mutationFn: async (items: { id: string; position: number }[]) => {
       const promises = items.map(({ id, position }) =>
         supabase.from("task_groups").update({ position }).eq("id", id)
