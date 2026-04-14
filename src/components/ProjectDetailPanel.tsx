@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useVisibleTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
+import { Slider } from "@/components/ui/slider";
 import TaskItem from "@/components/TaskItem";
 import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw } from "lucide-react";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
