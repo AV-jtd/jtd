@@ -673,6 +673,7 @@ export function useTaskMutations() {
 
 
   const reorderGroups = useMutation({
+    mutationFn: async (items: { id: string; position: number }[]) => {
       const promises = items.map(({ id, position }) =>
         supabase.from("task_groups").update({ position }).eq("id", id)
       );
