@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useVisibleTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
+import { Slider } from "@/components/ui/slider";
 import TaskItem from "@/components/TaskItem";
-import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw } from "lucide-react";
+import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw, Lock, Clock } from "lucide-react";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,7 +26,7 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupMemberRole, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupMemberRole, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject, updateBaselineSettings } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -334,6 +335,75 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           </button>
         )}
       </div>
+
+
+      {/* Baseline Lock Settings */}
+      {!group.parent_id && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Lock className="h-3 w-3" /> Фиксация сроков
+          </p>
+          {/* Approver picker */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-24 shrink-0">Утверждающий:</span>
+              {(group as any).baseline_approver_id ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-foreground">{getProfileName((group as any).baseline_approver_id)}</span>
+                  <button
+                    onClick={() => updateBaselineSettings.mutate({ id: group.id, baseline_approver_id: null })}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                      <Plus className="h-2.5 w-2.5" /> Выбрать
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" side="bottom">
+                    <PopoverSearchList
+                      items={availableUsers.filter(u => u.id !== group.user_id)}
+                      searchKey={(u) => u.display_name || u.email || ""}
+                      placeholder="Найти..."
+                      emptyText="Нет пользователей"
+                      renderItem={(u) => (
+                        <button
+                          key={u.id}
+                          onClick={() => updateBaselineSettings.mutate({ id: group.id, baseline_approver_id: u.id })}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors text-left"
+                        >
+                          {u.display_name || "Без имени"}
+                        </button>
+                      )}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+            {/* Auto-lock hours slider */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-24 shrink-0 flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Автолок:
+              </span>
+              <Slider
+                value={[(group as any).baseline_auto_lock_hours || 48]}
+                onValueChange={([v]) => updateBaselineSettings.mutate({ id: group.id, baseline_auto_lock_hours: v })}
+                min={24}
+                max={120}
+                step={24}
+                className="flex-1"
+              />
+              <span className="text-xs font-mono text-muted-foreground w-10 text-right tabular-nums">
+                {((group as any).baseline_auto_lock_hours || 48)}ч
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       <div className="space-y-1.5">

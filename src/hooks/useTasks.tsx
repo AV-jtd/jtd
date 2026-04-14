@@ -16,7 +16,7 @@ export type Task = Tables<"tasks"> & {
   original_deadline?: string | null;
   deferred_until?: string | null;
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number };
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
@@ -586,6 +586,92 @@ export function useTaskMutations() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
   });
 
+  const updateBaselineSettings = useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string; baseline_approver_id?: string | null; baseline_auto_lock_hours?: number }) => {
+      const { error } = await supabase.from("task_groups").update(fields as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, ...fields }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, ...fields } : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
+  const lockBaseline = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("task_groups").update({
+        baseline_status: 'locked',
+        baseline_locked_at: now,
+      } as any).eq("id", id);
+      if (error) throw error;
+
+      const { data: subgroups } = await supabase.from("task_groups").select("id").eq("parent_id", id);
+      if (subgroups?.length) {
+        await Promise.all(subgroups.map(sg =>
+          supabase.from("task_groups").update({ baseline_status: 'locked', baseline_locked_at: now } as any).eq("id", sg.id)
+        ));
+      }
+
+      const allGroupIds = [id, ...(subgroups || []).map(sg => sg.id)];
+      const { data: tasks } = await supabase.from("tasks").select("id, deadline").in("group_id", allGroupIds).not("deadline", "is", null);
+      if (tasks?.length) {
+        await Promise.all(tasks.map(t =>
+          supabase.from("tasks").update({ original_deadline: t.deadline } as any).eq("id", t.id)
+        ));
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g =>
+        g.id === id || g.parent_id === id
+          ? { ...g, baseline_status: 'locked', baseline_locked_at: new Date().toISOString() }
+          : g
+      ));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const unlockBaseline = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.from("task_groups").update({
+        baseline_status: 'planning',
+        baseline_locked_at: null,
+      } as any).eq("id", id);
+      if (error) throw error;
+
+      const { data: subgroups } = await supabase.from("task_groups").select("id").eq("parent_id", id);
+      if (subgroups?.length) {
+        await Promise.all(subgroups.map(sg =>
+          supabase.from("task_groups").update({ baseline_status: 'planning', baseline_locked_at: null } as any).eq("id", sg.id)
+        ));
+      }
+    },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g =>
+        g.id === id || g.parent_id === id
+          ? { ...g, baseline_status: 'planning', baseline_locked_at: null }
+          : g
+      ));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["task_groups"] }),
+  });
+
+
   const reorderGroups = useMutation({
     mutationFn: async (items: { id: string; position: number }[]) => {
       const promises = items.map(({ id, position }) =>
@@ -871,13 +957,19 @@ export function useTaskMutations() {
           }
         }
       }
-      // Grace period: if deadline changes within 24h of creation, also update original_deadline
+      // Baseline lock: if project is in 'planning' status, update original_deadline with deadline
       if ('deadline' in updates && updates.deadline) {
-        const { data: currentTask } = await supabase.from("tasks").select("created_at, original_deadline").eq("id", id).single();
-        if (currentTask) {
-          const createdAt = new Date(currentTask.created_at);
-          const hoursSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-          if (hoursSinceCreation <= 24) {
+        const { data: currentTask } = await supabase.from("tasks").select("group_id").eq("id", id).single();
+        if (currentTask?.group_id) {
+          // Check project (or parent project) baseline_status
+          const { data: projectGroup } = await supabase.from("task_groups").select("baseline_status, parent_id").eq("id", currentTask.group_id).single();
+          let isPlanning = (projectGroup as any)?.baseline_status === 'planning';
+          // If subproject, also check parent project status
+          if (!isPlanning && projectGroup?.parent_id) {
+            const { data: parentGroup } = await supabase.from("task_groups").select("baseline_status").eq("id", projectGroup.parent_id).single();
+            isPlanning = (parentGroup as any)?.baseline_status === 'planning';
+          }
+          if (isPlanning) {
             (updates as any).original_deadline = updates.deadline;
           }
         }
@@ -1797,6 +1889,7 @@ export function useTaskMutations() {
 
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
+    updateBaselineSettings, lockBaseline, unlockBaseline,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks,
