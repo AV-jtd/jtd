@@ -871,13 +871,19 @@ export function useTaskMutations() {
           }
         }
       }
-      // Grace period: if deadline changes within 24h of creation, also update original_deadline
+      // Baseline lock: if project is in 'planning' status, update original_deadline with deadline
       if ('deadline' in updates && updates.deadline) {
-        const { data: currentTask } = await supabase.from("tasks").select("created_at, original_deadline").eq("id", id).single();
-        if (currentTask) {
-          const createdAt = new Date(currentTask.created_at);
-          const hoursSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-          if (hoursSinceCreation <= 24) {
+        const { data: currentTask } = await supabase.from("tasks").select("group_id").eq("id", id).single();
+        if (currentTask?.group_id) {
+          // Check project (or parent project) baseline_status
+          const { data: projectGroup } = await supabase.from("task_groups").select("baseline_status, parent_id").eq("id", currentTask.group_id).single();
+          let isPlanning = (projectGroup as any)?.baseline_status === 'planning';
+          // If subproject, also check parent project status
+          if (!isPlanning && projectGroup?.parent_id) {
+            const { data: parentGroup } = await supabase.from("task_groups").select("baseline_status").eq("id", projectGroup.parent_id).single();
+            isPlanning = (parentGroup as any)?.baseline_status === 'planning';
+          }
+          if (isPlanning) {
             (updates as any).original_deadline = updates.deadline;
           }
         }
