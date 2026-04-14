@@ -26,7 +26,7 @@ interface ProjectDetailPanelProps {
 }
 
 export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
-  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupMemberRole, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject } = useTaskMutations();
+  const { updateGroupDescription, addGroupMember, removeGroupMember, updateGroupMemberRole, updateGroupParent, addGroupTag, removeGroupTag, updateGroupProjectType, closeProject, updateBaselineSettings } = useTaskMutations();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: members = [] } = useGroupMembers(group.id);
   const { data: availableUsers = [] } = useAvailableUsers();
