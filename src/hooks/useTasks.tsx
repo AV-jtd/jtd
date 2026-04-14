@@ -1889,6 +1889,7 @@ export function useTaskMutations() {
 
   return {
     addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
+    updateBaselineSettings, lockBaseline, unlockBaseline,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
     addSubtask, toggleSubtask, deleteSubtask, updateSubtask, reorderSubtasks,
