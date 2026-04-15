@@ -319,11 +319,14 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
     const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
     const now = new Date();
+    const weekFromNow = addDays(startOfDay(now), 7);
 
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
     const activeTasks = unique.filter(t => !t.is_completed);
+    const completedTasks = unique.filter(t => t.is_completed);
 
+    // Assignee workload
     const assigneeLoad: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
     activeTasks.forEach(t => {
       const uid = t.assigned_to || t.user_id;
@@ -332,6 +335,29 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       assigneeLoad[uid].total++;
       if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
       if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
+    });
+
+    // Velocity: completed last 7 days vs prior 7 days
+    const d7 = subDays(now, 7);
+    const d14 = subDays(now, 14);
+    const completedLast7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d7).length;
+    const completedPrior7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
+
+    // Deadline clustering: tasks due in next 7 days grouped by day
+    const upcomingByDay: Record<string, number> = {};
+    activeTasks.forEach(t => {
+      if (t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow) {
+        const key = format(new Date(t.deadline), "yyyy-MM-dd");
+        upcomingByDay[key] = (upcomingByDay[key] || 0) + 1;
+      }
+    });
+    const peakDay = Object.entries(upcomingByDay).sort(([, a], [, b]) => b - a)[0];
+
+    // Stalled projects (no completions in 14 days, still active)
+    const stalledProjects = projectStats.filter(s => {
+      if (s.total === 0 || s.timingStatus === "completed") return false;
+      const projectTasks = [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)];
+      return !projectTasks.some(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14);
     });
 
     const projectSummaries = projectStats.slice(0, 20).map(s => {
@@ -347,9 +373,12 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
     const dataContext = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
 Проекты (${projectStats.length}):\n${projectSummaries}
-\nНагрузка исполнителей:\n${loadSummary}`;
+\nНагрузка исполнителей:\n${loadSummary}
+\nВелосити: завершено ${completedLast7} задач за 7 дн (пред. неделя: ${completedPrior7})
+Пик дедлайнов: ${peakDay ? `${format(parseISO(peakDay[0]), "dd MMM", { locale: ru })} — ${peakDay[1]} задач` : "нет"}
+Застопоренных проектов (0 завершений за 14 дн): ${stalledProjects.length > 0 ? stalledProjects.map(s => s.group.name).join(", ") : "нет"}`;
 
-    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 60 символов)",\n  "desc": "объяснение (до 120 символов)",\n  "action": "конкретное действие (до 40 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: требует действия сегодня\n- amber: требует действия на этой неделе\n- green: положительная динамика\n- Всегда 1-2 red, 1-2 amber, 1 green\n- Смотри на: % просроченных, drift кластеры у одного человека, проекты с 0% и просрочками, перегрузку исполнителей`;
+    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня\n- amber: предупреждения, действие на этой неделе\n- green: положительная динамика или достижение\n- Всегда 1-2 red, 1-2 amber, 0-1 green\n\nАнализируй ВСЕ аспекты проектного управления:\n1. Критический путь: проекты с максимальным % просрочек\n2. Velocity: тренд завершения задач (растет/падает)\n3. Drift паттерны: системные переносы у одного исполнителя или проекта\n4. Пиковая нагрузка: кластеризация дедлайнов\n5. Застой: проекты без прогресса\n6. Перегрузка: дисбаланс задач между исполнителями\n7. Прогноз: при текущей velocity успеваем ли к ближайшим вехам\n\nДавай конкретные actionable рекомендации руководителю.`;
 
     try {
       let fullText = "";
@@ -463,29 +492,22 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       case "green": return "text-emerald-600/80 dark:text-emerald-400/80";
     }
   };
-  const signalBtn = (level: AiSignal["level"]) => {
-    switch (level) {
-      case "red": return "bg-red-400/25 text-red-800 dark:text-red-300 hover:bg-red-400/40";
-      case "amber": return "bg-amber-400/25 text-amber-800 dark:text-amber-300 hover:bg-amber-400/40";
-      case "green": return "bg-emerald-400/25 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-400/40";
-    }
-  };
-
   return (
     <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
-      <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-medium text-primary flex-1">Сигналы — требует вашего внимания сегодня</span>
+      <div className="px-3 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2">
+        <Sparkles className="h-3 w-3 text-primary" />
+        <span className="text-[11px] font-medium text-primary flex-1">ИИ-сигналы</span>
+        {loading && <Loader2 className="h-3 w-3 animate-spin text-primary/60" />}
         <button
           onClick={() => generate(true)}
           disabled={loading}
-          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
-          title="Обновить сигналы"
+          className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+          title="Обновить"
         >
           <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
         </button>
       </div>
-      <div className="p-2 space-y-1.5">
+      <div className="p-1.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
         {signals.map((signal, i) => {
           const matchedProject = projectStats.find(s =>
             signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
@@ -501,33 +523,27 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
           };
 
           return (
-            <div key={i} className={cn("flex items-start gap-2 p-2.5 rounded-lg", signalBg(signal.level))}>
-              <div className={cn("h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5", signalIconBg(signal.level))}>
-                {signal.level === "red" && <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />}
-                {signal.level === "amber" && <TrendingUp className="h-3 w-3 text-amber-600 dark:text-amber-400" />}
-                {signal.level === "green" && <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />}
+            <button
+              key={i}
+              onClick={handleActionClick}
+              className={cn(
+                "flex items-start gap-1.5 p-2 rounded-md text-left transition-all hover:ring-1 hover:ring-primary/20",
+                signalBg(signal.level)
+              )}
+            >
+              <div className={cn("h-4 w-4 rounded flex items-center justify-center shrink-0 mt-px", signalIconBg(signal.level))}>
+                {signal.level === "red" && <AlertTriangle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />}
+                {signal.level === "amber" && <TrendingUp className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />}
+                {signal.level === "green" && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />}
               </div>
               <div className="flex-1 min-w-0">
-                <div className={cn("text-xs font-medium mb-0.5", signalTitle(signal.level))}>{signal.title}</div>
-                <div className={cn("text-[11px] leading-relaxed mb-1.5", signalDesc(signal.level))}>{signal.desc}</div>
-                <div className="flex gap-1 flex-wrap">
-                  <button
-                    onClick={handleActionClick}
-                    className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
-                  >
-                    {signal.action} →
-                  </button>
-                  {signal.person && matchedPerson && (
-                    <button
-                      onClick={() => onNavigateToPerson?.(matchedPerson.id)}
-                      className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
-                    >
-                      Все задачи →
-                    </button>
-                  )}
+                <div className={cn("text-[11px] font-medium leading-tight", signalTitle(signal.level))}>{signal.title}</div>
+                <div className={cn("text-[10px] leading-snug mt-0.5", signalDesc(signal.level))}>{signal.desc}</div>
+                <div className={cn("text-[9px] mt-1 font-medium opacity-70", signalTitle(signal.level))}>
+                  {signal.action} →
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
