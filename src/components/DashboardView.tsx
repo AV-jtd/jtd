@@ -1836,6 +1836,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           <TeamWorkloadCard
             projectStats={projectStats}
             users={users}
+            subtaskMap={subtaskMap}
+            onOpenTask={(taskId) => setSheetTaskId(taskId)}
             onFilterByPerson={(userId) => {
               setSelectedAssigneeIds([userId]);
               setSelectedProjectIds([]);
