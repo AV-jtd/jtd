@@ -1221,7 +1221,32 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
         {/* AI Signals — structured signal cards */}
-        <AiSignalsPanel projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
+        <AiSignalsPanel
+          projectStats={projectStats}
+          users={users}
+          onAiTextChange={setAiSummaryText}
+          onNavigateToProject={(groupId) => {
+            setSelectedProjectIds([groupId]);
+            setSelectedAssigneeIds([]);
+            setSelectedTagIds([]);
+            setSelectedParticipantIds([]);
+            setFilter("all");
+          }}
+          onNavigateToPerson={(userId) => {
+            setSelectedAssigneeIds([userId]);
+            setSelectedProjectIds([]);
+            setSelectedTagIds([]);
+            setSelectedParticipantIds([]);
+            setFilter("all");
+          }}
+          onFilterOverdue={() => {
+            setFilter("overdue");
+            setSelectedProjectIds([]);
+            setSelectedAssigneeIds([]);
+            setSelectedTagIds([]);
+            setSelectedParticipantIds([]);
+          }}
+        />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
