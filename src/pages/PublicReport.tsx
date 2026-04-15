@@ -1,0 +1,229 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+type ReportData = {
+  title: string;
+  created_at: string;
+  ai_summary: string | null;
+  report_data: any;
+};
+
+const statusColors: Record<string, string> = {
+  "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280",
+};
+const statusLabels: Record<string, string> = {
+  "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён",
+};
+
+export default function PublicReport() {
+  const [params] = useSearchParams();
+  const token = params.get("token");
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "analysis">("overview");
+
+  useEffect(() => {
+    if (!token) { setError(true); setLoading(false); return; }
+    supabase
+      .from("dashboard_reports")
+      .select("title, created_at, ai_summary, report_data")
+      .eq("token", token)
+      .gt("expires_at", new Date().toISOString())
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data) setError(true);
+        else setReport(data as ReportData);
+        setLoading(false);
+      });
+  }, [token]);
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "system-ui, sans-serif", background: "#f8fafc" }}>
+      <p style={{ color: "#64748b" }}>Загрузка отчёта...</p>
+    </div>
+  );
+
+  if (error || !report) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "system-ui, sans-serif", background: "#f8fafc" }}>
+      <div style={{ textAlign: "center" }}>
+        <h1 style={{ color: "#ef4444", fontSize: 48, fontWeight: 700 }}>404</h1>
+        <p style={{ color: "#64748b" }}>Отчёт не найден или срок действия ссылки истёк</p>
+      </div>
+    </div>
+  );
+
+  const d = report.report_data || {};
+  const projects = d.projects || [];
+  const summary = d.summary || {};
+  const dateStr = new Date(report.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  const periodLabel = d.periodLabel || dateStr;
+  const weekTasks = d.weekTasks || [];
+  const overdueTasks = d.overdueTasks || [];
+  const driftTasks = d.driftTasks || [];
+  const upcomingTasks = d.upcomingTasks || [];
+  const completedTasks = d.completedTasks || [];
+
+  const stepsLabel = (t: any) => t.stepsTotal > 0
+    ? <span style={{ fontSize: 11, marginLeft: 4, color: t.stepsCompleted === t.stepsTotal ? "#10b981" : "#3b82f6" }}>✓{t.stepsCompleted}/{t.stepsTotal}</span>
+    : null;
+
+  const TaskTable = ({ tasks, extraHeader }: { tasks: any[]; extraHeader?: string }) => (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <thead>
+        <tr>
+          <th style={thStyle}>Задача</th>
+          <th style={thStyle}>Ответственный</th>
+          <th style={thStyle}>Дата</th>
+          {extraHeader && <th style={thStyle}>{extraHeader}</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {tasks.map((t: any, i: number) => (
+          <tr key={i}>
+            <td style={{ ...tdStyle, fontWeight: 500, maxWidth: 340 }}>{t.title}{stepsLabel(t)}</td>
+            <td style={tdStyle}>{t.assignee || "—"}</td>
+            <td style={tdStyle}>{t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>
+            {t.driftDays !== undefined && <td style={tdStyle}><span style={{ color: "#f59e0b", fontWeight: 600 }}>+{t.driftDays} дн.</span></td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const Section = ({ icon, title, tasks, extraHeader, defaultOpen = true }: { icon: string; title: string; tasks: any[]; extraHeader?: string; defaultOpen?: boolean }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    if (tasks.length === 0) return null;
+    return (
+      <div style={sectionStyle}>
+        <h2 style={{ ...sectionHeaderStyle, cursor: "pointer", userSelect: "none" }} onClick={() => setOpen(!open)}>
+          <span>{icon} {title} <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8" }}>({tasks.length})</span></span>
+          <span style={{ fontSize: 14, color: "#94a3b8", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform .2s" }}>▾</span>
+        </h2>
+        {open && <div style={{ padding: "0 20px 16px" }}><TaskTable tasks={tasks} extraHeader={extraHeader} /></div>}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", background: "#f8fafc", color: "#1e293b", lineHeight: 1.6, minHeight: "100vh" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
+        <div style={{ textAlign: "center", marginBottom: 32, paddingBottom: 20, borderBottom: "3px solid #3b82f6" }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: "#0f172a" }}>{report.title}</h1>
+          <div style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>Период: {periodLabel} · Создан {dateStr}</div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 12, marginBottom: 28 }}>
+          <Metric value={`${summary.completionRate || 0}%`} label="Прогресс" color="#3b82f6" />
+          <Metric value={summary.totalTasks || summary.tasksThisWeek || 0} label="Всего задач" color="#0f172a" />
+          <Metric value={summary.totalCompleted || 0} label="Выполнено" color="#10b981" />
+          <Metric value={summary.totalOverdue || 0} label="Просрочено" color="#ef4444" />
+          <Metric value={summary.totalDrift || 0} label="Drift" color="#f59e0b" />
+          <Metric value={projects.length} label="Проектов" color="#3b82f6" />
+        </div>
+
+        <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap" }}>
+          {(["overview", "tasks", "analysis"] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              style={{
+                padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                border: activeTab === tab ? "1px solid #3b82f6" : "1px solid #e2e8f0",
+                background: activeTab === tab ? "#3b82f6" : "#fff",
+                color: activeTab === tab ? "#fff" : "#1e293b",
+                cursor: "pointer",
+              }}>
+              {tab === "overview" ? "Обзор" : tab === "tasks" ? "Задачи" : "Анализ"}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "overview" && (
+          <div style={sectionStyle}>
+            <h2 style={sectionHeaderStyle}>📊 Проекты ({projects.length})</h2>
+            <div style={{ padding: "0 20px 16px" }}>
+              {projects.length === 0 && <p style={{ color: "#94a3b8", fontSize: 13 }}>Нет проектов</p>}
+              {projects.map((p: any, i: number) => {
+                const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+                const sc = statusColors[p.timingStatus] || "#6b7280";
+                const sl = statusLabels[p.timingStatus] || p.timingStatus;
+                return (
+                  <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginBottom: 8 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 14, flexShrink: 0, background: p.color || "#3b82f6" }}>
+                        {(p.name || "?")[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          {p.name}
+                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 99, border: `1px solid ${sc}30`, background: `${sc}15`, color: sc, fontWeight: 500 }}>{sl}</span>
+                        </div>
+                        <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3, margin: "6px 0 4px", overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 3, width: `${pct}%`, background: p.color || "#3b82f6", transition: "width .5s ease" }} />
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>
+                          {pct}% · {p.completed}/{p.total} задач
+                          {p.overdue > 0 && <span style={{ color: "#ef4444" }}> · ⚠ {p.overdue} просрочено</span>}
+                          {p.driftCount > 0 && <span style={{ color: "#f59e0b" }}> · ↔ {p.driftCount} drift</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "tasks" && (
+          <>
+            <Section icon="✅" title="Выполнено за период" tasks={completedTasks} />
+            <Section icon="⚠️" title="Просрочено" tasks={overdueTasks} />
+            <Section icon="📅" title="Дедлайны на неделе" tasks={weekTasks} />
+            <Section icon="↔" title="Перенесённые сроки" tasks={driftTasks} extraHeader="Drift" />
+            <Section icon="📋" title="Ближайшие планы" tasks={upcomingTasks} />
+            {[completedTasks, overdueTasks, weekTasks, driftTasks, upcomingTasks].every(a => a.length === 0) && (
+              <div style={sectionStyle}><div style={{ padding: "12px 20px" }}><p style={{ color: "#94a3b8", fontSize: 13 }}>Нет задач за указанный период</p></div></div>
+            )}
+          </>
+        )}
+
+        {activeTab === "analysis" && (
+          report.ai_summary ? (
+            <div style={{ ...sectionStyle, background: "linear-gradient(135deg,#f0f9ff,#faf5ff)", borderColor: "#c7d2fe" }}>
+              <h2 style={sectionHeaderStyle}>🤖 ИИ-анализ</h2>
+              <div style={{ fontSize: 13, lineHeight: 1.8, color: "#334155", padding: "0 20px 16px" }}
+                dangerouslySetInnerHTML={{ __html: report.ai_summary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/^- /gm, "• ") }} />
+            </div>
+          ) : (
+            <div style={sectionStyle}><div style={{ padding: "12px 20px" }}><p style={{ color: "#94a3b8", fontSize: 13 }}>ИИ-анализ не был включён в этот отчёт</p></div></div>
+          )
+        )}
+
+        <div style={{ textAlign: "center", marginTop: 28, fontSize: 12, color: "#94a3b8" }}>Отчёт создан в JustTODOit · {dateStr}</div>
+      </div>
+
+      <button onClick={() => window.print()} style={{ position: "fixed", bottom: 20, right: 20, padding: "10px 18px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 12px rgba(59,130,246,.3)", zIndex: 100 }}>
+        🖨️ Печать / PDF
+      </button>
+    </div>
+  );
+}
+
+function Metric({ value, label, color }: { value: any; label: string; color: string }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, textAlign: "center" }}>
+      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, textTransform: "uppercase", letterSpacing: ".3px" }}>{label}</div>
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = { textAlign: "left", padding: "8px 12px", background: "#f8fafc", borderBottom: "2px solid #e2e8f0", color: "#64748b", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: ".3px" };
+const tdStyle: React.CSSProperties = { padding: "8px 12px", borderBottom: "1px solid #f1f5f9" };
+const sectionStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, marginBottom: 12, overflow: "hidden" };
+const sectionHeaderStyle: React.CSSProperties = { fontSize: 15, fontWeight: 600, padding: "14px 20px", margin: 0, display: "flex", justifyContent: "space-between", alignItems: "center" };
