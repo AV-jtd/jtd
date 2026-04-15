@@ -428,13 +428,17 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onAiTextChan
     }
   }, [projectStats, users, loading]);
 
+  generateRef.current = generate;
+
   // Auto-load on mount when projectStats are ready
   const statsReady = projectStats.length > 0;
-  useState(() => { hasLoaded.current = false; });
-  if (statsReady && !hasLoaded.current && !loading && signals.length === 0 && !error) {
-    hasLoaded.current = true;
-    setTimeout(() => generate(), 100);
-  }
+  // useEffect to auto-trigger once
+  React.useEffect(() => {
+    if (statsReady && !hasLoaded.current) {
+      hasLoaded.current = true;
+      generateRef.current?.();
+    }
+  }, [statsReady]);
 
   if (!statsReady) return null;
 
