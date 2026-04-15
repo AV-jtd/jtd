@@ -1980,6 +1980,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             label="Прогресс"
             value={`${summary.completionRate}%`}
             color="hsl(var(--primary))"
+            trend={`${summary.totalTasks} задач`}
+            trendType="flat"
           />
           <KpiCard
             label="Выполнено"
