@@ -1219,6 +1219,20 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
 
   const subprojectsWithTasks = ps.subprojects.filter(sp => sp.total > 0);
 
+  // Unique assignees
+  const assigneeInfo = useMemo(() => {
+    const allT = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+    const unique = Array.from(new Map(allT.map(t => [t.id, t])).values());
+    const active = unique.filter(t => !t.is_completed);
+    const ids = [...new Set(active.map(t => t.assigned_to).filter(Boolean))] as string[];
+    return { assigneeIds: ids, hasUnassigned: active.some(t => !t.assigned_to), unassignedCount: active.filter(t => !t.assigned_to).length };
+  }, [ps]);
+
+  const getInitials = (name: string) => {
+    const parts = name.split(/\s+/);
+    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
+  };
+
   return (
     <div className="border-t border-border px-3 pb-3 pt-2 space-y-3 bg-muted/20 animate-fade-in">
       <div className="flex items-center gap-3 flex-wrap">
@@ -1233,6 +1247,29 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         {ps.overdue > 0 && <span className="text-[10px] text-red-500">⚠ {ps.overdue} просроч.</span>}
         {ps.driftCount > 0 && <span className="text-[10px] text-amber-600 dark:text-amber-400">↗ drift ø{ps.avgDriftDays}д</span>}
         {ps.nextDeadline && <span className="text-[10px] text-muted-foreground">⏰ {format(new Date(ps.nextDeadline), "dd MMM", { locale: ru })}</span>}
+      </div>
+
+      {/* Assignees row */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] text-muted-foreground shrink-0">Команда:</span>
+        {assigneeInfo.assigneeIds.map(uid => {
+          const u = users.find(u => u.id === uid);
+          const name = u?.display_name || "?";
+          return (
+            <span key={uid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              <span className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[7px] font-semibold">{getInitials(name)}</span>
+              {name.split(" ")[0]}
+            </span>
+          );
+        })}
+        {assigneeInfo.assigneeIds.length === 0 && !assigneeInfo.hasUnassigned && (
+          <span className="text-[10px] text-muted-foreground">—</span>
+        )}
+        {assigneeInfo.hasUnassigned && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium">
+            👤 Назначьте ответственного · {assigneeInfo.unassignedCount}
+          </span>
+        )}
       </div>
 
       {subprojectsWithTasks.length > 0 && (
