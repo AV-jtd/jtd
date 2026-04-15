@@ -1027,6 +1027,179 @@ function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift
   );
 }
 
+// --- My Day Block ---
+function MyDayBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
+  tasks: Task[]; user: any; onOpenTask: (taskId: string) => void; users: Profile[]; subtaskMap: SubtaskMap;
+}) {
+  const [range, setRange] = useState<"day" | "week">("day");
+  const now = new Date();
+  const endDate = range === "day" ? addDays(startOfDay(now), 1) : addDays(startOfDay(now), 7);
+
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter(t => {
+      if (t.is_completed) return false;
+      const isMine = t.assigned_to === user.id || (!t.assigned_to && t.user_id === user.id);
+      if (!isMine) return false;
+      if (!t.deadline) return range === "day";
+      return new Date(t.deadline) <= endDate;
+    }).sort((a, b) => {
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    });
+  }, [tasks, user, range, endDate]);
+
+  const overdue = myTasks.filter(t => t.deadline && new Date(t.deadline) < now);
+  const upcoming = myTasks.filter(t => !t.deadline || new Date(t.deadline) >= now);
+  const userName = (uid: string | null) => uid ? users.find(u => u.id === uid)?.display_name || "—" : "—";
+
+  return (
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+        <CalendarClock className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-xs font-medium text-foreground flex-1">Мой день</span>
+        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+          {(["day", "week"] as const).map(r => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={cn(
+                "text-[10px] px-2 py-0.5 rounded transition-colors",
+                range === r ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {r === "day" ? "День" : "Неделя"}
+            </button>
+          ))}
+        </div>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{myTasks.length}</span>
+      </div>
+      <div className="max-h-[300px] overflow-y-auto scrollbar-thin divide-y divide-border">
+        {overdue.length > 0 && (
+          <div className="px-2 pt-1.5 pb-1">
+            <span className="text-[10px] font-semibold text-destructive px-1">Просрочено · {overdue.length}</span>
+            <div className="mt-0.5 space-y-0.5">
+              {overdue.map(t => (
+                <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" />
+              ))}
+            </div>
+          </div>
+        )}
+        {upcoming.length > 0 && (
+          <div className="px-2 pt-1.5 pb-1">
+            <span className="text-[10px] font-semibold text-foreground px-1">
+              {range === "day" ? "Сегодня" : "На неделе"} · {upcoming.length}
+            </span>
+            <div className="mt-0.5 space-y-0.5">
+              {upcoming.map(t => (
+                <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} />
+              ))}
+            </div>
+          </div>
+        )}
+        {myTasks.length === 0 && (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+            {range === "day" ? "На сегодня задач нет 🎉" : "На эту неделю задач нет 🎉"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Delegations Block ---
+function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
+  tasks: Task[]; user: any; onOpenTask: (taskId: string) => void; users: Profile[]; subtaskMap: SubtaskMap;
+}) {
+  const [mode, setMode] = useState<"to-me" | "from-me">("to-me");
+
+  const delegatedTasks = useMemo(() => {
+    if (!user) return [];
+    if (mode === "to-me") {
+      return tasks.filter(t => !t.is_completed && t.assigned_to === user.id && t.delegated_from && t.delegated_from !== user.id)
+        .sort((a, b) => {
+          if (!a.deadline) return 1;
+          if (!b.deadline) return -1;
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        });
+    }
+    return tasks.filter(t => !t.is_completed && t.delegated_from === user.id && t.assigned_to && t.assigned_to !== user.id)
+      .sort((a, b) => {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      });
+  }, [tasks, user, mode]);
+
+  const now = new Date();
+  const userName = (uid: string | null) => uid ? users.find(u => u.id === uid)?.display_name || "—" : "—";
+
+  return (
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+        <ArrowRightLeft className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-xs font-medium text-foreground flex-1">Поручения</span>
+        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+          {(["to-me", "from-me"] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "text-[10px] px-2 py-0.5 rounded transition-colors",
+                mode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {m === "to-me" ? "Мне" : "От меня"}
+            </button>
+          ))}
+        </div>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{delegatedTasks.length}</span>
+      </div>
+      <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
+        {delegatedTasks.length > 0 ? (
+          <div className="px-2 py-1.5 space-y-0.5">
+            {delegatedTasks.map(t => {
+              const isOverdue = t.deadline && new Date(t.deadline) < now;
+              const personId = mode === "to-me" ? t.delegated_from : t.assigned_to;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => onOpenTask(t.id)}
+                  className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                >
+                  <span className={cn("text-[11px] truncate flex-1", isOverdue && "text-destructive")}>
+                    {t.title}
+                  </span>
+                  {(() => {
+                    const stepsInfo = subtaskMap.get(t.id);
+                    return stepsInfo && stepsInfo.total > 0 ? (
+                      <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                        <CheckCircle className="h-2.5 w-2.5" />{stepsInfo.completed}/{stepsInfo.total}
+                      </span>
+                    ) : null;
+                  })()}
+                  <span className="text-[9px] text-muted-foreground shrink-0 max-w-[60px] truncate">
+                    {mode === "to-me" ? `от ${userName(personId)}` : userName(personId)}
+                  </span>
+                  {t.deadline && (
+                    <span className={cn("text-[9px] shrink-0", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+                      {format(new Date(t.deadline), "d MMM", { locale: ru })}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+            {mode === "to-me" ? "Нет поручений для вас" : "Вы не поручали задач"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // --- Multi-select filter popover ---
 function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, renderItem }: {
@@ -1404,6 +1577,24 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             setExpandedKpi("overdue");
           }}
         />
+
+        {/* Two-column grid: My Day + Delegations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <MyDayBlock
+            tasks={tasks}
+            user={user}
+            onOpenTask={(taskId) => setSheetTaskId(taskId)}
+            users={users}
+            subtaskMap={subtaskMap}
+          />
+          <DelegationsBlock
+            tasks={tasks}
+            user={user}
+            onOpenTask={(taskId) => setSheetTaskId(taskId)}
+            users={users}
+            subtaskMap={subtaskMap}
+          />
+        </div>
 
         {/* Two-column grid: Hot Projects + Team Workload */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
