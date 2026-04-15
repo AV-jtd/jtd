@@ -441,8 +441,10 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
             const jsonMatch = fullText.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]) as AiSignal[];
-              setSignals(parsed.slice(0, 5));
-              onAiTextChange?.(parsed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+              const trimmed = parsed.slice(0, 5);
+              setSignals(trimmed);
+              setCachedSignals(trimmed);
+              onAiTextChange?.(trimmed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
             } else {
               setError("Не удалось разобрать ответ ИИ");
             }
