@@ -559,6 +559,7 @@ function HotProjectsCard({ projectStats, onNavigateToProject }: {
   onNavigateToProject?: (groupId: string) => void;
 }) {
   const [sortBy, setSortBy] = useState<"overdue" | "progress">("overdue");
+  const [collapsed, setCollapsed] = useState(false);
 
   const sorted = useMemo(() => {
     const withIssues = projectStats.filter(s => s.total > 0);
@@ -567,62 +568,89 @@ function HotProjectsCard({ projectStats, onNavigateToProject }: {
       const pctA = a.total > 0 ? a.completed / a.total : 0;
       const pctB = b.total > 0 ? b.completed / b.total : 0;
       return pctA - pctB;
-    }).slice(0, 6);
+    }).slice(0, 8);
   }, [projectStats, sortBy]);
 
   const criticalCount = projectStats.filter(s => s.overdue > 0 || (s.total > 0 && s.completed === 0)).length;
+  const totalOverdue = projectStats.reduce((s, p) => s + p.overdue, 0);
+  const totalDrift = projectStats.reduce((s, p) => s + p.driftCount, 0);
+  const avgProgress = projectStats.length > 0
+    ? Math.round(projectStats.reduce((s, p) => s + (p.total > 0 ? p.completed / p.total : 0), 0) / projectStats.length * 100)
+    : 0;
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full px-3 py-2 border-b border-border flex items-center gap-1.5 hover:bg-muted/30 transition-colors"
+      >
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-        <span className="text-xs font-medium text-foreground flex-1">Горящие проекты</span>
+        <span className="text-xs font-medium text-foreground">Горящие проекты</span>
         {criticalCount > 0 && (
           <span className="text-[10px] px-1.5 py-px rounded bg-red-500/10 text-red-600 dark:text-red-400 font-medium">
-            {criticalCount} критичных
+            {criticalCount} крит.
           </span>
         )}
-        <button
-          onClick={() => setSortBy(s => s === "overdue" ? "progress" : "overdue")}
-          className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
-        >
-          {sortBy === "overdue" ? "по просрочкам ↕" : "по прогрессу ↕"}
-        </button>
-      </div>
-      <div>
-        {sorted.map(s => {
-          const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
-          const barColor = s.overdue > 0 ? "bg-red-500" : s.driftCount > 0 ? "bg-amber-500" : "bg-emerald-500";
-          return (
-            <button
-              key={s.group.id}
-              onClick={() => onNavigateToProject?.(s.group.id)}
-              className="w-full flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-border hover:bg-muted/50 transition-colors text-left"
-            >
-              <span className="text-xs font-medium text-foreground flex-1 truncate">{s.group.name}</span>
-              <div className="w-12 h-[3px] bg-muted rounded-sm overflow-hidden shrink-0">
-                <div className={cn("h-full rounded-sm", barColor)} style={{ width: `${pct}%` }} />
-              </div>
-              <span className={cn("text-[10px] min-w-[26px] text-right shrink-0", pct === 0 && s.overdue > 0 ? "text-red-500" : "text-muted-foreground")}>
-                {pct}%
-              </span>
-              {s.overdue > 0 && (
-                <span className="text-[10px] px-1.5 py-px rounded bg-red-500/10 text-red-600 dark:text-red-400 whitespace-nowrap shrink-0">
-                  {s.overdue} просроч.{s.driftCount > 0 ? ` · ${s.driftCount} drift` : ""}
-                </span>
-              )}
-              {s.overdue === 0 && s.driftCount > 0 && (
-                <span className="text-[10px] px-1.5 py-px rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 whitespace-nowrap shrink-0">
-                  {s.driftCount} drift
-                </span>
-              )}
-            </button>
-          );
-        })}
-        {sorted.length === 0 && (
-          <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет проектов</div>
+        <span className="flex-1" />
+        {collapsed && (
+          <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            {totalOverdue > 0 && <span className="text-red-500 font-medium">⚠ {totalOverdue}</span>}
+            {totalDrift > 0 && <span className="text-amber-500">{totalDrift} drift</span>}
+            <span>{avgProgress}% сред.</span>
+          </span>
         )}
-      </div>
+        <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", collapsed && "-rotate-90")} />
+      </button>
+      {!collapsed && (
+        <div>
+          <div className="px-3 py-1.5 flex items-center gap-2 border-b border-border bg-muted/20">
+            <span className="text-[10px] text-muted-foreground">
+              {projectStats.length} проектов · {avgProgress}% сред. прогресс
+            </span>
+            {totalOverdue > 0 && <span className="text-[10px] text-red-500 font-medium">⚠ {totalOverdue} просроч.</span>}
+            {totalDrift > 0 && <span className="text-[10px] text-amber-500">{totalDrift} drift</span>}
+            <span className="flex-1" />
+            <button
+              onClick={(e) => { e.stopPropagation(); setSortBy(s => s === "overdue" ? "progress" : "overdue"); }}
+              className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
+            >
+              {sortBy === "overdue" ? "по просрочкам ↕" : "по прогрессу ↕"}
+            </button>
+          </div>
+          {sorted.map(s => {
+            const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+            const barColor = s.overdue > 0 ? "bg-red-500" : s.driftCount > 0 ? "bg-amber-500" : "bg-emerald-500";
+            return (
+              <button
+                key={s.group.id}
+                onClick={() => onNavigateToProject?.(s.group.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-border hover:bg-muted/50 transition-colors text-left"
+              >
+                <span className="text-xs font-medium text-foreground flex-1 truncate">{s.group.name}</span>
+                <div className="w-12 h-[3px] bg-muted rounded-sm overflow-hidden shrink-0">
+                  <div className={cn("h-full rounded-sm", barColor)} style={{ width: `${pct}%` }} />
+                </div>
+                <span className={cn("text-[10px] min-w-[26px] text-right shrink-0", pct === 0 && s.overdue > 0 ? "text-red-500" : "text-muted-foreground")}>
+                  {pct}%
+                </span>
+                {s.overdue > 0 && (
+                  <span className="text-[10px] px-1.5 py-px rounded bg-red-500/10 text-red-600 dark:text-red-400 whitespace-nowrap shrink-0">
+                    {s.overdue} просроч.{s.driftCount > 0 ? ` · ${s.driftCount} drift` : ""}
+                  </span>
+                )}
+                {s.overdue === 0 && s.driftCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-px rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 whitespace-nowrap shrink-0">
+                    {s.driftCount} drift
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {sorted.length === 0 && (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет проектов</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
