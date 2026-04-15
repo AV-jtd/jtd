@@ -1405,6 +1405,24 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           }}
         />
 
+        {/* Two-column grid: My Day + Delegations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <MyDayBlock
+            tasks={tasks}
+            user={user}
+            onOpenTask={(taskId) => setSheetTaskId(taskId)}
+            users={users}
+            subtaskMap={subtaskMap}
+          />
+          <DelegationsBlock
+            tasks={tasks}
+            user={user}
+            onOpenTask={(taskId) => setSheetTaskId(taskId)}
+            users={users}
+            subtaskMap={subtaskMap}
+          />
+        </div>
+
         {/* Two-column grid: Hot Projects + Team Workload */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           <HotProjectsCard
