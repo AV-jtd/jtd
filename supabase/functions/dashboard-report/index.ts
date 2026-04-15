@@ -214,6 +214,7 @@ Deno.serve(async (req) => {
 
   const html = buildReportHtml(report);
   return new Response(html, {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    status: 200,
+    headers: new Headers({ "Content-Type": "text/html; charset=utf-8" }),
   });
 });
