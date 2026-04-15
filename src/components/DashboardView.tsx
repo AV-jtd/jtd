@@ -1461,6 +1461,21 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
       </div>
+
+      {/* Task detail Sheet (like NPD/PMO) */}
+      <Sheet open={!!sheetTaskId} onOpenChange={(open) => { if (!open) setSheetTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
+          {sheetTaskId && (() => {
+            const task = tasks.find(t => t.id === sheetTaskId);
+            if (!task) return null;
+            return (
+              <div className="p-4">
+                <TaskItem task={task} initialOpen />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </main>
   );
 }
