@@ -1161,7 +1161,11 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             users={users}
             aiSummary={aiSummaryText || undefined}
             subtaskMap={subtaskMap}
-            triggerLabel="Экспорт для встречи →"
+            trigger={
+              <button className="text-[11px] px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors whitespace-nowrap">
+                Экспорт для встречи →
+              </button>
+            }
           />
         </div>
 
