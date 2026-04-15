@@ -1970,8 +1970,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         </div>
 
-        {/* KPI row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        {/* KPI row — horizontal scroll on mobile */}
+        <div className="overflow-x-auto scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="flex sm:grid sm:grid-cols-4 lg:grid-cols-7 gap-2 min-w-max sm:min-w-0">
           <KpiCard
             label="Прогресс"
             value={`${summary.completionRate}%`}
