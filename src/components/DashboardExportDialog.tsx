@@ -403,8 +403,7 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
 
       if (error) throw error;
 
-      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const url = `${baseUrl}/functions/v1/dashboard-report?token=${result.token}`;
+      const url = `${window.location.origin}/report?token=${result.token}`;
       setPublicUrl(url);
       toast.success("Публичная ссылка создана (30 дней)");
     } catch (e: any) {
