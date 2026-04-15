@@ -502,19 +502,20 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
   return (
     <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
-      <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-medium text-primary flex-1">Сигналы — требует вашего внимания сегодня</span>
+      <div className="px-3 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2">
+        <Sparkles className="h-3 w-3 text-primary" />
+        <span className="text-[11px] font-medium text-primary flex-1">ИИ-сигналы</span>
+        {loading && <Loader2 className="h-3 w-3 animate-spin text-primary/60" />}
         <button
           onClick={() => generate(true)}
           disabled={loading}
-          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
-          title="Обновить сигналы"
+          className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+          title="Обновить"
         >
           <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
         </button>
       </div>
-      <div className="p-2 space-y-1.5">
+      <div className="p-1.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
         {signals.map((signal, i) => {
           const matchedProject = projectStats.find(s =>
             signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
@@ -530,33 +531,27 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
           };
 
           return (
-            <div key={i} className={cn("flex items-start gap-2 p-2.5 rounded-lg", signalBg(signal.level))}>
-              <div className={cn("h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5", signalIconBg(signal.level))}>
-                {signal.level === "red" && <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />}
-                {signal.level === "amber" && <TrendingUp className="h-3 w-3 text-amber-600 dark:text-amber-400" />}
-                {signal.level === "green" && <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />}
+            <button
+              key={i}
+              onClick={handleActionClick}
+              className={cn(
+                "flex items-start gap-1.5 p-2 rounded-md text-left transition-all hover:ring-1 hover:ring-primary/20",
+                signalBg(signal.level)
+              )}
+            >
+              <div className={cn("h-4 w-4 rounded flex items-center justify-center shrink-0 mt-px", signalIconBg(signal.level))}>
+                {signal.level === "red" && <AlertTriangle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />}
+                {signal.level === "amber" && <TrendingUp className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />}
+                {signal.level === "green" && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />}
               </div>
               <div className="flex-1 min-w-0">
-                <div className={cn("text-xs font-medium mb-0.5", signalTitle(signal.level))}>{signal.title}</div>
-                <div className={cn("text-[11px] leading-relaxed mb-1.5", signalDesc(signal.level))}>{signal.desc}</div>
-                <div className="flex gap-1 flex-wrap">
-                  <button
-                    onClick={handleActionClick}
-                    className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
-                  >
-                    {signal.action} →
-                  </button>
-                  {signal.person && matchedPerson && (
-                    <button
-                      onClick={() => onNavigateToPerson?.(matchedPerson.id)}
-                      className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
-                    >
-                      Все задачи →
-                    </button>
-                  )}
+                <div className={cn("text-[11px] font-medium leading-tight", signalTitle(signal.level))}>{signal.title}</div>
+                <div className={cn("text-[10px] leading-snug mt-0.5", signalDesc(signal.level))}>{signal.desc}</div>
+                <div className={cn("text-[9px] mt-1 font-medium opacity-70", signalTitle(signal.level))}>
+                  {signal.action} →
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
