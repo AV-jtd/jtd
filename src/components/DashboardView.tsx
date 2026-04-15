@@ -214,19 +214,19 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
     <button
       onClick={onClick}
       className={cn(
-        "bg-card rounded-lg border border-border p-3 text-left transition-all hover:border-muted-foreground/30",
+        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink",
         active && "border-primary ring-2 ring-primary/20"
       )}
     >
-      <div className="text-[10px] text-muted-foreground mb-1 flex items-center justify-between">
+      <div className="text-[10px] text-muted-foreground mb-0.5 sm:mb-1 flex items-center justify-between whitespace-nowrap">
         <span>{label}</span>
         {active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
       </div>
-      <div className="text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
+      <div className="text-xl sm:text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
         {value}
       </div>
       {trend && (
-        <div className={cn("text-[10px] font-medium", trendColor[trendType || "flat"])}>
+        <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap", trendColor[trendType || "flat"])}>
           {trend}
         </div>
       )}
@@ -1908,12 +1908,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5">
 
         {/* Header bar */}
-        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
+        <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
+          <span className="text-xs sm:text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
 
-          {/* Filters inline */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Filters — scroll on mobile */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none flex-nowrap sm:flex-wrap">
             <MultiSelectFilter
               label="Проекты"
               icon={FolderOpen}
@@ -1970,8 +1970,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         </div>
 
-        {/* KPI row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        {/* KPI row — horizontal scroll on mobile */}
+        <div className="overflow-x-auto scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="flex sm:grid sm:grid-cols-4 lg:grid-cols-7 gap-2 min-w-max sm:min-w-0">
           <KpiCard
             label="Прогресс"
             value={`${summary.completionRate}%`}
@@ -2028,6 +2029,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             trend={`из ${summary.totalProjects} всего`}
             trendType="flat"
           />
+          </div>
         </div>
 
         {/* Detail panel from KPI click */}
@@ -2146,9 +2148,10 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         />
 
         {/* Action bar */}
-        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5">
+        <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2">
           <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-xs text-muted-foreground flex-1">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
+          <span className="text-[11px] sm:text-xs text-muted-foreground flex-1 hidden sm:block">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
+          <span className="text-[11px] text-muted-foreground flex-1 sm:hidden">Экспорт отчёта</span>
           <DashboardExportDialog
             projectStats={projectStats}
             summary={summary}
