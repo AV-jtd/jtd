@@ -1126,7 +1126,8 @@ function MyDayBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
 function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
   tasks: Task[]; user: any; onOpenTask: (taskId: string) => void; users: Profile[]; subtaskMap: SubtaskMap;
 }) {
-  const [mode, setMode] = useState<"to-me" | "from-me">("to-me");
+  const [mode, setMode] = useState<"to-me" | "from-me">("from-me");
+  const [collapsed, setCollapsed] = useState(false);
 
   const delegatedTasks = useMemo(() => {
     if (!user) return [];
