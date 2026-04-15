@@ -7,7 +7,7 @@ import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react"
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw
 } from "lucide-react";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
