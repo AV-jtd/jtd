@@ -1101,6 +1101,20 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         </div>
 
+        {/* Interactive project & task list */}
+        <ProjectTaskList
+          projectStats={projectStats}
+          users={users}
+          onNavigateToTask={handleNavigateToTask}
+          onNavigateToProject={(groupId) => {
+            setSelectedProjectIds([groupId]);
+            setSelectedAssigneeIds([]);
+            setSelectedTagIds([]);
+            setSelectedParticipantIds([]);
+          }}
+        />
+
+        {/* Action bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5">
           <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="text-xs text-muted-foreground flex-1">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
