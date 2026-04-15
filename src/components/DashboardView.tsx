@@ -1132,14 +1132,14 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
   const delegatedTasks = useMemo(() => {
     if (!user) return [];
     if (mode === "to-me") {
-      return tasks.filter(t => !t.is_completed && t.assigned_to === user.id && t.delegated_from && t.delegated_from !== user.id)
+      return tasks.filter(t => !t.is_completed && t.assigned_to === user.id && t.user_id !== user.id)
         .sort((a, b) => {
           if (!a.deadline) return 1;
           if (!b.deadline) return -1;
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         });
     }
-    return tasks.filter(t => !t.is_completed && t.delegated_from === user.id && t.assigned_to && t.assigned_to !== user.id)
+    return tasks.filter(t => !t.is_completed && t.user_id === user.id && t.assigned_to && t.assigned_to !== user.id)
       .sort((a, b) => {
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
