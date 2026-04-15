@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMutations, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react"
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw
 } from "lucide-react";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
@@ -319,116 +319,223 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
   );
 }
 
-// --- AI Summary Panel ---
-function AiDashboardSummary({ projectStats, users, onAiTextChange }: { projectStats: ProjectStats[]; users: Profile[]; onAiTextChange?: (text: string) => void }) {
-  const [aiText, setAiText] = useState("");
+// --- AI Signal type ---
+interface AiSignal {
+  level: "red" | "amber" | "green";
+  title: string;
+  desc: string;
+  action: string;
+  project: string | null;
+  person: string | null;
+}
+
+function signalLevelStyles(level: AiSignal["level"]) {
+  switch (level) {
+    case "red": return { bg: "bg-red-500/10 border-red-500/30 dark:bg-red-500/15", dot: "bg-red-500", text: "text-red-700 dark:text-red-400", badge: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20" };
+    case "amber": return { bg: "bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/15", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20" };
+    case "green": return { bg: "bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-500/15", dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-400", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" };
+  }
+}
+
+// --- AI Signals Panel ---
+function AiSignalsPanel({ projectStats, users, onNavigateToProject, onAiTextChange }: {
+  projectStats: ProjectStats[];
+  users: Profile[];
+  onNavigateToProject?: (groupName: string) => void;
+  onAiTextChange?: (text: string) => void;
+}) {
+  const [signals, setSignals] = useState<AiSignal[]>([]);
   const [loading, setLoading] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
+  const generateRef = useRef<(() => void) | null>(null);
 
   const generate = useCallback(async () => {
-    if (loading) return;
-    setVisible(true);
+    if (loading || projectStats.length === 0) return;
     setLoading(true);
-    setAiText("");
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    setError(null);
 
     const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
     const now = new Date();
 
-    const projectSummaries = projectStats.slice(0, 15).map(s => {
-      const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
-      return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, статус: ${getStatusLabel(s.timingStatus)}`;
-    }).join("\n");
-
+    // Build assignee workload map
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-    const overdue = unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
-    const topOverdue = overdue.slice(0, 10).map(t =>
-      `  • "${t.title}" (просрочено ${differenceInDays(now, new Date(t.deadline!))} дн., отв: ${userName(t.assigned_to || t.user_id)})`
-    ).join("\n");
+    const activeTasks = unique.filter(t => !t.is_completed);
 
-    const context = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
-Всего проектов: ${projectStats.length}
-Проекты:\n${projectSummaries}
-${overdue.length > 0 ? `\nПросроченные задачи (${overdue.length}):\n${topOverdue}` : "Просроченных задач нет."}`;
+    const assigneeLoad: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
+    activeTasks.forEach(t => {
+      const uid = t.assigned_to || t.user_id;
+      const name = userName(uid);
+      if (!assigneeLoad[uid]) assigneeLoad[uid] = { name, total: 0, overdue: 0, drift: 0 };
+      assigneeLoad[uid].total++;
+      if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
+      if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
+    });
 
-    const prompt = `Проанализируй текущее состояние портфеля проектов. Выдели главные риски, блокеры, рекомендации по приоритизации. Будь конкретен, используй данные. Формат: markdown, кратко (5-8 пунктов).\n\nДанные:\n${context}`;
+    const projectSummaries = projectStats.slice(0, 20).map(s => {
+      const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+      return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, avg drift: ${s.avgDriftDays}д, статус: ${getStatusLabel(s.timingStatus)}`;
+    }).join("\n");
+
+    const loadSummary = Object.values(assigneeLoad)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+      .map(a => `  • ${a.name}: ${a.total} задач, ${a.overdue} просрочено, ${a.drift} drift`)
+      .join("\n");
+
+    const dataContext = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
+Проекты (${projectStats.length}):\n${projectSummaries}
+\nНагрузка исполнителей:\n${loadSummary}`;
+
+    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 60 символов)",\n  "desc": "объяснение (до 120 символов)",\n  "action": "конкретное действие (до 40 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: требует действия сегодня\n- amber: требует действия на этой неделе\n- green: положительная динамика\n- Всегда 1-2 red, 1-2 amber, 1 green\n- Смотри на: % просроченных, drift кластеры у одного человека, проекты с 0% и просрочками, перегрузку исполнителей`;
 
     try {
+      let fullText = "";
       await streamChat({
         url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
         body: {
           message: prompt,
           context: { module: "pmo" },
+          systemPrompt: "Ты аналитик операционного управления. Анализируй данные проектов и возвращай ТОЛЬКО JSON. Никакого текста до или после JSON.",
         },
-        onDelta: (chunk) => { setAiText(prev => { const next = prev + chunk; onAiTextChange?.(next); return next; }); },
-        onDone: () => setLoading(false),
-        signal: controller.signal,
+        onDelta: (chunk) => { fullText += chunk; },
+        onDone: () => {
+          try {
+            // Extract JSON array from response
+            const jsonMatch = fullText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]) as AiSignal[];
+              setSignals(parsed.slice(0, 5));
+              onAiTextChange?.(parsed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+            } else {
+              setError("Не удалось разобрать ответ ИИ");
+            }
+          } catch {
+            setError("Не удалось разобрать ответ ИИ");
+          }
+          setLoading(false);
+        },
       });
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         const errMsg = e instanceof StreamChatError && (e.status === 429 || e.status === 402)
           ? (e.status === 429 ? "Слишком много запросов. Попробуйте через минуту." : "Необходимо пополнить баланс ИИ.")
           : "ИИ временно недоступен. Попробуйте позже.";
-        setAiText(errMsg);
+        setError(errMsg);
       }
       setLoading(false);
     }
   }, [projectStats, users, loading]);
 
-  if (!visible) {
+  generateRef.current = generate;
+
+  // Auto-load on mount when projectStats are ready
+  const statsReady = projectStats.length > 0;
+  // useEffect to auto-trigger once
+  useEffect(() => {
+    if (statsReady && !hasLoaded.current) {
+      hasLoaded.current = true;
+      generateRef.current?.();
+    }
+  }, [statsReady]);
+
+  if (!statsReady) return null;
+
+  // Loading skeleton
+  if (loading && signals.length === 0) {
     return (
-      <button
-        onClick={generate}
-        disabled={projectStats.length === 0}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group mb-4 w-full disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <Sparkles className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors" />
-        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-          ✨ ИИ-анализ{projectStats.length > 0 ? ` (${projectStats.length} проектов)` : ""}
-        </span>
-      </button>
+      <div className="mb-4 space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+          <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="rounded-xl border border-border p-3 animate-pulse">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-2.5 w-2.5 rounded-full bg-muted" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+            </div>
+            <div className="h-3 bg-muted rounded w-3/4" />
+          </div>
+        ))}
+      </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="mb-4 rounded-xl border border-border p-3 flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground flex-1">{error}</span>
+        <button onClick={generate} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
+      </div>
+    );
+  }
+
+  if (signals.length === 0) return null;
+
   return (
-    <div className="bg-card rounded-xl border border-border p-4 mb-4 animate-fade-in">
-      <div className="flex items-center justify-between mb-3">
+    <div className="mb-4 space-y-2">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold text-foreground">ИИ-анализ</span>
-          {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />}
+          <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={generate}
-            disabled={loading}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => { setVisible(false); abortRef.current?.abort(); setAiText(""); }}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+          title="Обновить сигналы"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+        </button>
       </div>
-      <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
-        {aiText ? (
-          <ReactMarkdown>{aiText}</ReactMarkdown>
-        ) : loading ? (
-          <div className="space-y-2">
-            <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
-            <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
-            <div className="h-3 bg-muted rounded animate-pulse w-5/6" />
-          </div>
-        ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {signals.map((signal, i) => {
+          const styles = signalLevelStyles(signal.level);
+          const matchedProject = projectStats.find(s =>
+            signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
+          );
+          return (
+            <button
+              key={i}
+              onClick={() => {
+                if (matchedProject) onNavigateToProject?.(matchedProject.group.name);
+              }}
+              className={cn(
+                "rounded-xl border p-3 text-left transition-all hover:shadow-md",
+                styles.bg,
+                matchedProject && "cursor-pointer"
+              )}
+            >
+              <div className="flex items-start gap-2 mb-1.5">
+                <div className={cn("h-2.5 w-2.5 rounded-full mt-1 shrink-0", styles.dot)} />
+                <span className={cn("text-sm font-semibold leading-snug flex-1", styles.text)}>
+                  {signal.title}
+                </span>
+              </div>
+              <p className="text-xs text-foreground/70 leading-relaxed mb-2 pl-[18px]">{signal.desc}</p>
+              <div className="pl-[18px] flex items-center gap-2 flex-wrap">
+                <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border", styles.badge)}>
+                  {signal.action}
+                </span>
+                {signal.project && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <FolderOpen className="h-3 w-3" />{signal.project}
+                  </span>
+                )}
+                {signal.person && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <User className="h-3 w-3" />{signal.person}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1082,8 +1189,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           </div>
         </div>
 
-        {/* AI Summary — after filters so it uses filtered projectStats */}
-        <AiDashboardSummary projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
+        {/* AI Signals — structured signal cards */}
+        <AiSignalsPanel projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
