@@ -1151,6 +1151,31 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
   const overdueCount = delegatedTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
   const userName = (uid: string | null) => uid ? users.find(u => u.id === uid)?.display_name || "—" : "—";
 
+  // Group by person (assignee in "from-me", creator in "to-me")
+  const grouped = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    delegatedTasks.forEach(t => {
+      const pid = mode === "from-me" ? (t.assigned_to || "") : t.user_id;
+      if (!map.has(pid)) map.set(pid, []);
+      map.get(pid)!.push(t);
+    });
+    return Array.from(map.entries())
+      .map(([pid, tasks]) => ({
+        personId: pid,
+        name: userName(pid),
+        tasks,
+        overdue: tasks.filter(t => t.deadline && new Date(t.deadline) < now).length,
+      }))
+      .sort((a, b) => b.overdue - a.overdue || b.tasks.length - a.tasks.length);
+  }, [delegatedTasks, mode, users, now]);
+
+  const [expandedPersons, setExpandedPersons] = useState<Set<string>>(new Set());
+  const togglePerson = (pid: string) => setExpandedPersons(prev => {
+    const next = new Set(prev);
+    next.has(pid) ? next.delete(pid) : next.add(pid);
+    return next;
+  });
+
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
       <button
@@ -1181,38 +1206,66 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
         {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
       </button>
       {!collapsed && (
-        <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
-          {delegatedTasks.length > 0 ? (
-            <div className="px-2 py-1.5 space-y-0.5">
-              {delegatedTasks.map(t => {
-                const isOverdue = t.deadline && new Date(t.deadline) < now;
-                const personId = mode === "to-me" ? t.user_id : t.assigned_to;
+        <div className="max-h-[350px] overflow-y-auto scrollbar-thin">
+          {grouped.length > 0 ? (
+            <div className="divide-y divide-border">
+              {grouped.map(g => {
+                const isOpen = expandedPersons.has(g.personId);
+                const getInitials = (name: string) => {
+                  const parts = name.split(/\s+/);
+                  return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
+                };
                 return (
-                  <button
-                    key={t.id}
-                    onClick={() => onOpenTask(t.id)}
-                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <span className={cn("text-[11px] truncate flex-1", isOverdue && "text-destructive")}>
-                      {t.title}
-                    </span>
-                    {(() => {
-                      const stepsInfo = subtaskMap.get(t.id);
-                      return stepsInfo && stepsInfo.total > 0 ? (
-                        <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
-                          <CheckCircle className="h-2.5 w-2.5" />{stepsInfo.completed}/{stepsInfo.total}
-                        </span>
-                      ) : null;
-                    })()}
-                    <span className="text-[9px] text-muted-foreground shrink-0 max-w-[70px] truncate">
-                      {mode === "to-me" ? `от ${userName(personId)}` : userName(personId)}
-                    </span>
-                    {t.deadline && (
-                      <span className={cn("text-[9px] shrink-0", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-                        {format(new Date(t.deadline), "d MMM", { locale: ru })}
-                      </span>
+                  <div key={g.personId}>
+                    <button
+                      onClick={() => togglePerson(g.personId)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium shrink-0",
+                        g.overdue > 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-primary/10 text-primary"
+                      )}>
+                        {getInitials(g.name)}
+                      </div>
+                      <span className="text-[11px] font-medium text-foreground flex-1 truncate">{g.name}</span>
+                      <span className="text-[9px] text-muted-foreground">{g.tasks.length} задач</span>
+                      {g.overdue > 0 && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-destructive/10 text-destructive font-medium">{g.overdue} просроч.</span>
+                      )}
+                      {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    </button>
+                    {isOpen && (
+                      <div className="px-2 pb-1.5 space-y-0.5">
+                        {g.tasks.map(t => {
+                          const isOverdue = t.deadline && new Date(t.deadline) < now;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => onOpenTask(t.id)}
+                              className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left ml-5"
+                            >
+                              <span className={cn("text-[11px] truncate flex-1", isOverdue && "text-destructive")}>
+                                {t.title}
+                              </span>
+                              {(() => {
+                                const stepsInfo = subtaskMap.get(t.id);
+                                return stepsInfo && stepsInfo.total > 0 ? (
+                                  <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                                    <CheckCircle className="h-2.5 w-2.5" />{stepsInfo.completed}/{stepsInfo.total}
+                                  </span>
+                                ) : null;
+                              })()}
+                              {t.deadline && (
+                                <span className={cn("text-[9px] shrink-0", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+                                  {format(new Date(t.deadline), "d MMM", { locale: ru })}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
