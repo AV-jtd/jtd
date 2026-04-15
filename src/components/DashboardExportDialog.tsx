@@ -29,6 +29,14 @@ interface TaskExport {
   stepsCompleted?: number;
 }
 
+export interface AssigneeSummary {
+  name: string;
+  total: number;
+  completed: number;
+  overdue: number;
+  drift: number;
+}
+
 export interface ReportData {
   summary: {
     completionRate: number;
@@ -45,6 +53,7 @@ export interface ReportData {
   driftTasks: TaskExport[];
   upcomingTasks: TaskExport[];
   completedTasks: TaskExport[];
+  assigneeSummary?: AssigneeSummary[];
   period?: string;
   periodLabel?: string;
 }
