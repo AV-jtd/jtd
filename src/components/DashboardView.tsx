@@ -319,7 +319,10 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
   );
 }
 
-// --- AI Signal type ---
+// --- AI Signal type & cache ---
+const AI_SIGNALS_CACHE_KEY = "jtd_ai_signals_cache";
+const AI_SIGNALS_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
 interface AiSignal {
   level: "red" | "amber" | "green";
   title: string;
@@ -327,6 +330,20 @@ interface AiSignal {
   action: string;
   project: string | null;
   person: string | null;
+}
+
+function getCachedSignals(): AiSignal[] | null {
+  try {
+    const raw = localStorage.getItem(AI_SIGNALS_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > AI_SIGNALS_TTL) { localStorage.removeItem(AI_SIGNALS_CACHE_KEY); return null; }
+    return data as AiSignal[];
+  } catch { return null; }
+}
+
+function setCachedSignals(data: AiSignal[]) {
+  try { localStorage.setItem(AI_SIGNALS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
 function signalLevelStyles(level: AiSignal["level"]) {
