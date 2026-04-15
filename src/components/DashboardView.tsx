@@ -338,10 +338,12 @@ function signalLevelStyles(level: AiSignal["level"]) {
 }
 
 // --- AI Signals Panel ---
-function AiSignalsPanel({ projectStats, users, onNavigateToProject, onAiTextChange }: {
+function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateToPerson, onFilterOverdue, onAiTextChange }: {
   projectStats: ProjectStats[];
   users: Profile[];
-  onNavigateToProject?: (groupName: string) => void;
+  onNavigateToProject?: (groupId: string) => void;
+  onNavigateToPerson?: (userId: string) => void;
+  onFilterOverdue?: () => void;
   onAiTextChange?: (text: string) => void;
 }) {
   const [signals, setSignals] = useState<AiSignal[]>([]);
