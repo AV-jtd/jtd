@@ -118,6 +118,8 @@ Deno.serve(async (req) => {
       task_participant_added: `${senderName} добавил вас в задачу`,
       new_task_in_group: `${senderName} создал задачу в проекте`,
       task_delegated: `${senderName} делегировал вам задачу`,
+      baseline_approver_assigned: `${senderName} назначил вас утверждающим сроки`,
+      baseline_locked: `Сроки проекта зафиксированы`,
     };
     const title = titles[event] || "Уведомление";
     const body = taskTitle || "";

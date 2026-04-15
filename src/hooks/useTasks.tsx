@@ -590,6 +590,12 @@ export function useTaskMutations() {
     mutationFn: async ({ id, ...fields }: { id: string; baseline_approver_id?: string | null; baseline_auto_lock_hours?: number }) => {
       const { error } = await supabase.from("task_groups").update(fields as any).eq("id", id);
       if (error) throw error;
+
+      // Notify new approver
+      if (fields.baseline_approver_id) {
+        const { data: group } = await supabase.from("task_groups").select("name").eq("id", id).single();
+        notifyEvent("baseline_approver_assigned", group?.name || "Проект", [fields.baseline_approver_id]);
+      }
     },
     onMutate: async ({ id, ...fields }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
