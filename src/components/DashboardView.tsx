@@ -1872,7 +1872,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       });
 
     return {
-      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects, tasksThisWeek,
+      completionRate, totalCompleted, totalOverdue, totalDrift: currentDrift, activeProjects, tasksThisWeek,
       totalProjects: projectStats.length,
       totalTasks: uniqueTasks.length,
       overdueTasks, driftTasks,
@@ -1880,6 +1880,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       overdueLastWeek,
       unassignedTasks,
       noDeadlineTasks,
+      driftLastWeek,
     };
   }, [projectStats]);
 
