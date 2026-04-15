@@ -1148,14 +1148,22 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
   }, [tasks, user, mode]);
 
   const now = new Date();
+  const overdueCount = delegatedTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
   const userName = (uid: string | null) => uid ? users.find(u => u.id === uid)?.display_name || "—" : "—";
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full px-3 py-2 border-b border-border flex items-center gap-1.5 hover:bg-muted/30 transition-colors"
+      >
         <ArrowRightLeft className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="text-xs font-medium text-foreground flex-1">Поручения</span>
-        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+        <span className="text-xs font-medium text-foreground">Поручения</span>
+        {overdueCount > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">⚠ {overdueCount}</span>
+        )}
+        <span className="flex-1" />
+        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5" onClick={e => e.stopPropagation()}>
           {(["to-me", "from-me"] as const).map(m => (
             <button
               key={m}
@@ -1170,48 +1178,51 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
           ))}
         </div>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{delegatedTasks.length}</span>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
-        {delegatedTasks.length > 0 ? (
-          <div className="px-2 py-1.5 space-y-0.5">
-            {delegatedTasks.map(t => {
-              const isOverdue = t.deadline && new Date(t.deadline) < now;
-              const personId = mode === "to-me" ? t.delegated_from : t.assigned_to;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => onOpenTask(t.id)}
-                  className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                >
-                  <span className={cn("text-[11px] truncate flex-1", isOverdue && "text-destructive")}>
-                    {t.title}
-                  </span>
-                  {(() => {
-                    const stepsInfo = subtaskMap.get(t.id);
-                    return stepsInfo && stepsInfo.total > 0 ? (
-                      <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
-                        <CheckCircle className="h-2.5 w-2.5" />{stepsInfo.completed}/{stepsInfo.total}
-                      </span>
-                    ) : null;
-                  })()}
-                  <span className="text-[9px] text-muted-foreground shrink-0 max-w-[60px] truncate">
-                    {mode === "to-me" ? `от ${userName(personId)}` : userName(personId)}
-                  </span>
-                  {t.deadline && (
-                    <span className={cn("text-[9px] shrink-0", isOverdue ? "text-red-500" : "text-muted-foreground")}>
-                      {format(new Date(t.deadline), "d MMM", { locale: ru })}
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+      </button>
+      {!collapsed && (
+        <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
+          {delegatedTasks.length > 0 ? (
+            <div className="px-2 py-1.5 space-y-0.5">
+              {delegatedTasks.map(t => {
+                const isOverdue = t.deadline && new Date(t.deadline) < now;
+                const personId = mode === "to-me" ? t.user_id : t.assigned_to;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onOpenTask(t.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <span className={cn("text-[11px] truncate flex-1", isOverdue && "text-destructive")}>
+                      {t.title}
                     </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-            {mode === "to-me" ? "Нет поручений для вас" : "Вы не поручали задач"}
-          </div>
-        )}
-      </div>
+                    {(() => {
+                      const stepsInfo = subtaskMap.get(t.id);
+                      return stepsInfo && stepsInfo.total > 0 ? (
+                        <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                          <CheckCircle className="h-2.5 w-2.5" />{stepsInfo.completed}/{stepsInfo.total}
+                        </span>
+                      ) : null;
+                    })()}
+                    <span className="text-[9px] text-muted-foreground shrink-0 max-w-[70px] truncate">
+                      {mode === "to-me" ? `от ${userName(personId)}` : userName(personId)}
+                    </span>
+                    {t.deadline && (
+                      <span className={cn("text-[9px] shrink-0", isOverdue ? "text-red-500" : "text-muted-foreground")}>
+                        {format(new Date(t.deadline), "d MMM", { locale: ru })}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {mode === "to-me" ? "Нет поручений для вас" : "Вы не поручали задач"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
