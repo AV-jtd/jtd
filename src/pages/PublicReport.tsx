@@ -171,6 +171,7 @@ export default function PublicReport() {
         </div>
 
         {activeTab === "overview" && (
+          <>
           <div style={sectionStyle}>
             <h2 style={sectionHeaderStyle}>📊 Проекты ({projects.length})</h2>
             <div style={{ padding: "0 20px 16px" }}>
@@ -247,6 +248,7 @@ export default function PublicReport() {
               </div>
             </div>
           )}
+          </>
         )}
 
         {activeTab === "tasks" && (
