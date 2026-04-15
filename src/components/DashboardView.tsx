@@ -1099,6 +1099,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
+  const [sheetTaskId, setSheetTaskId] = useState<string | null>(null);
   const { addTask } = useTaskMutations();
   const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
