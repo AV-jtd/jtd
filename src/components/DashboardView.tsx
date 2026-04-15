@@ -285,6 +285,111 @@ function DetailPanel({ title, tasks, onNavigateToTask, users, onClose }: {
   );
 }
 
+// --- AI Analysis Types ---
+type AnalysisType = "signals" | "risks" | "trends";
+
+const ANALYSIS_TYPES: { key: AnalysisType; label: string; icon: React.ElementType; desc: string }[] = [
+  { key: "signals", label: "Сигналы", icon: Sparkles, desc: "Ключевые проблемы и достижения" },
+  { key: "risks", label: "Риск-радар", icon: AlertTriangle, desc: "Риски по каждому проекту" },
+  { key: "trends", label: "Тренды", icon: Activity, desc: "Velocity и прогнозы" },
+];
+
+interface RiskItem { project: string; severity: "high" | "medium" | "low"; issue: string; recommendation: string; }
+interface TrendItem { title: string; direction: "up" | "down" | "flat"; metric: string; insight: string; forecast?: string; }
+
+const AI_RISKS_CACHE_KEY = "jtd_ai_risks_cache";
+const AI_TRENDS_CACHE_KEY = "jtd_ai_trends_cache";
+
+function getCachedByKey<T>(key: string, ttl: number): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > ttl) { localStorage.removeItem(key); return null; }
+    return data as T;
+  } catch { return null; }
+}
+function setCacheByKey<T>(key: string, data: T) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+function buildDataContext(projectStats: ProjectStats[], users: Profile[]) {
+  const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
+  const now = new Date();
+  const weekFromNow = addDays(startOfDay(now), 7);
+  const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
+  const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+  const activeTasks = unique.filter(t => !t.is_completed);
+  const completedTasks = unique.filter(t => t.is_completed);
+
+  const assigneeLoad: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
+  activeTasks.forEach(t => {
+    const uid = t.assigned_to || t.user_id;
+    const name = userName(uid);
+    if (!assigneeLoad[uid]) assigneeLoad[uid] = { name, total: 0, overdue: 0, drift: 0 };
+    assigneeLoad[uid].total++;
+    if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
+    if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
+  });
+
+  const d7 = subDays(now, 7);
+  const d14 = subDays(now, 14);
+  const completedLast7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d7).length;
+  const completedPrior7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
+
+  const upcomingByDay: Record<string, number> = {};
+  activeTasks.forEach(t => {
+    if (t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow) {
+      const key = format(new Date(t.deadline), "yyyy-MM-dd");
+      upcomingByDay[key] = (upcomingByDay[key] || 0) + 1;
+    }
+  });
+  const peakDay = Object.entries(upcomingByDay).sort(([, a], [, b]) => b - a)[0];
+
+  const stalledProjects = projectStats.filter(s => {
+    if (s.total === 0 || s.timingStatus === "completed") return false;
+    const projectTasks = [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)];
+    return !projectTasks.some(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14);
+  });
+
+  const projectSummaries = projectStats.slice(0, 20).map(s => {
+    const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+    return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, avg drift: ${s.avgDriftDays}д, статус: ${getStatusLabel(s.timingStatus)}`;
+  }).join("\n");
+
+  const loadSummary = Object.values(assigneeLoad)
+    .sort((a, b) => b.total - a.total).slice(0, 10)
+    .map(a => `  • ${a.name}: ${a.total} задач, ${a.overdue} просрочено, ${a.drift} drift`)
+    .join("\n");
+
+  return `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
+Проекты (${projectStats.length}):\n${projectSummaries}
+\nНагрузка исполнителей:\n${loadSummary}
+\nВелосити: завершено ${completedLast7} задач за 7 дн (пред. неделя: ${completedPrior7})
+Пик дедлайнов: ${peakDay ? `${format(parseISO(peakDay[0]), "dd MMM", { locale: ru })} — ${peakDay[1]} задач` : "нет"}
+Застопоренных проектов (0 завершений за 14 дн): ${stalledProjects.length > 0 ? stalledProjects.map(s => s.group.name).join(", ") : "нет"}`;
+}
+
+function getPromptForType(type: AnalysisType, dataContext: string): { prompt: string; systemPrompt: string } {
+  switch (type) {
+    case "signals":
+      return {
+        systemPrompt: "Ты аналитик операционного управления. Анализируй данные проектов и возвращай ТОЛЬКО JSON. Никакого текста до или после JSON.",
+        prompt: `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня\n- amber: предупреждения, действие на этой неделе\n- green: положительная динамика или достижение\n- Всегда 1-2 red, 1-2 amber, 0-1 green\n\nАнализируй: критический путь, velocity, drift паттерны, пиковую нагрузку, застой, перегрузку, прогноз.`,
+      };
+    case "risks":
+      return {
+        systemPrompt: "Ты риск-менеджер проектного портфеля. Оцени каждый проект и верни ТОЛЬКО JSON.",
+        prompt: `Данные проектов:\n${dataContext}\n\nВерни JSON массив рисков:\n[{\n  "project": "название проекта",\n  "severity": "high"|"medium"|"low",\n  "issue": "описание риска (до 80 символов)",\n  "recommendation": "рекомендация (до 60 символов)"\n}]\n\nПравила:\n- high: срыв сроков, критическая просрочка, блокер\n- medium: дрифт, перегрузка, застой\n- low: незначительные отклонения\n- Анализируй каждый проект с задачами. Пропускай проекты без проблем\n- Максимум 8 рисков, сортируй по severity desc`,
+      };
+    case "trends":
+      return {
+        systemPrompt: "Ты аналитик трендов и прогнозов. Анализируй динамику и верни ТОЛЬКО JSON.",
+        prompt: `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 трендов:\n[{\n  "title": "название тренда (до 40 символов)",\n  "direction": "up"|"down"|"flat",\n  "metric": "ключевая метрика (число или %)",\n  "insight": "объяснение тренда (до 100 символов)",\n  "forecast": "прогноз на неделю (до 60 символов) или null"\n}]\n\nАнализируй:\n1. Velocity (скорость закрытия задач, сравни неделю с предыдущей)\n2. Тренд просрочек (растут/падают)\n3. Drift паттерны (системные переносы)\n4. Прогноз завершения ключевых проектов\n5. Баланс нагрузки команды`,
+      };
+  }
+}
+
 // --- AI Signals Panel (restyled) ---
 function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateToPerson, onFilterOverdue, onAiTextChange }: {
   projectStats: ProjectStats[];
@@ -295,112 +400,62 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   onAiTextChange?: (text: string) => void;
 }) {
   const [signals, setSignals] = useState<AiSignal[]>(() => getCachedSignals() || []);
+  const [risks, setRisks] = useState<RiskItem[]>(() => getCachedByKey<RiskItem[]>(AI_RISKS_CACHE_KEY, AI_SIGNALS_TTL) || []);
+  const [trends, setTrends] = useState<TrendItem[]>(() => getCachedByKey<TrendItem[]>(AI_TRENDS_CACHE_KEY, AI_SIGNALS_TTL) || []);
+  const [activeType, setActiveType] = useState<AnalysisType>("signals");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasLoaded = useRef(false);
-  const generateRef = useRef<(() => void) | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
+  // Sync AI text for export
   useEffect(() => {
     if (signals.length > 0) {
       onAiTextChange?.(signals.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const generate = useCallback(async (forceRefresh = false) => {
+  const generate = useCallback(async (type: AnalysisType, forceRefresh = false) => {
     if (loading || projectStats.length === 0) return;
+
+    // Check cache
     if (!forceRefresh) {
-      const cached = getCachedSignals();
-      if (cached && cached.length > 0) {
-        setSignals(cached);
-        onAiTextChange?.(cached.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
-        return;
-      }
+      if (type === "signals") { const c = getCachedSignals(); if (c && c.length > 0) { setSignals(c); onAiTextChange?.(c.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n")); return; } }
+      if (type === "risks") { const c = getCachedByKey<RiskItem[]>(AI_RISKS_CACHE_KEY, AI_SIGNALS_TTL); if (c && c.length > 0) { setRisks(c); return; } }
+      if (type === "trends") { const c = getCachedByKey<TrendItem[]>(AI_TRENDS_CACHE_KEY, AI_SIGNALS_TTL); if (c && c.length > 0) { setTrends(c); return; } }
     }
+
     setLoading(true);
     setError(null);
+    setCollapsed(false);
 
-    const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
-    const now = new Date();
-    const weekFromNow = addDays(startOfDay(now), 7);
-
-    const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
-    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-    const activeTasks = unique.filter(t => !t.is_completed);
-    const completedTasks = unique.filter(t => t.is_completed);
-
-    // Assignee workload
-    const assigneeLoad: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
-    activeTasks.forEach(t => {
-      const uid = t.assigned_to || t.user_id;
-      const name = userName(uid);
-      if (!assigneeLoad[uid]) assigneeLoad[uid] = { name, total: 0, overdue: 0, drift: 0 };
-      assigneeLoad[uid].total++;
-      if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
-      if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
-    });
-
-    // Velocity: completed last 7 days vs prior 7 days
-    const d7 = subDays(now, 7);
-    const d14 = subDays(now, 14);
-    const completedLast7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d7).length;
-    const completedPrior7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
-
-    // Deadline clustering: tasks due in next 7 days grouped by day
-    const upcomingByDay: Record<string, number> = {};
-    activeTasks.forEach(t => {
-      if (t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow) {
-        const key = format(new Date(t.deadline), "yyyy-MM-dd");
-        upcomingByDay[key] = (upcomingByDay[key] || 0) + 1;
-      }
-    });
-    const peakDay = Object.entries(upcomingByDay).sort(([, a], [, b]) => b - a)[0];
-
-    // Stalled projects (no completions in 14 days, still active)
-    const stalledProjects = projectStats.filter(s => {
-      if (s.total === 0 || s.timingStatus === "completed") return false;
-      const projectTasks = [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)];
-      return !projectTasks.some(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14);
-    });
-
-    const projectSummaries = projectStats.slice(0, 20).map(s => {
-      const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
-      return `- ${s.group.name}: ${pct}% (${s.completed}/${s.total}), просрочено: ${s.overdue}, drift: ${s.driftCount}, avg drift: ${s.avgDriftDays}д, статус: ${getStatusLabel(s.timingStatus)}`;
-    }).join("\n");
-
-    const loadSummary = Object.values(assigneeLoad)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10)
-      .map(a => `  • ${a.name}: ${a.total} задач, ${a.overdue} просрочено, ${a.drift} drift`)
-      .join("\n");
-
-    const dataContext = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
-Проекты (${projectStats.length}):\n${projectSummaries}
-\nНагрузка исполнителей:\n${loadSummary}
-\nВелосити: завершено ${completedLast7} задач за 7 дн (пред. неделя: ${completedPrior7})
-Пик дедлайнов: ${peakDay ? `${format(parseISO(peakDay[0]), "dd MMM", { locale: ru })} — ${peakDay[1]} задач` : "нет"}
-Застопоренных проектов (0 завершений за 14 дн): ${stalledProjects.length > 0 ? stalledProjects.map(s => s.group.name).join(", ") : "нет"}`;
-
-    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня\n- amber: предупреждения, действие на этой неделе\n- green: положительная динамика или достижение\n- Всегда 1-2 red, 1-2 amber, 0-1 green\n\nАнализируй ВСЕ аспекты проектного управления:\n1. Критический путь: проекты с максимальным % просрочек\n2. Velocity: тренд завершения задач (растет/падает)\n3. Drift паттерны: системные переносы у одного исполнителя или проекта\n4. Пиковая нагрузка: кластеризация дедлайнов\n5. Застой: проекты без прогресса\n6. Перегрузка: дисбаланс задач между исполнителями\n7. Прогноз: при текущей velocity успеваем ли к ближайшим вехам\n\nДавай конкретные actionable рекомендации руководителю.`;
+    const dataContext = buildDataContext(projectStats, users);
+    const { prompt, systemPrompt } = getPromptForType(type, dataContext);
 
     try {
       let fullText = "";
       await streamChat({
         url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
-        body: {
-          message: prompt,
-          context: { module: "pmo" },
-          systemPrompt: "Ты аналитик операционного управления. Анализируй данные проектов и возвращай ТОЛЬКО JSON. Никакого текста до или после JSON.",
-        },
+        body: { message: prompt, context: { module: "pmo" }, systemPrompt },
         onDelta: (chunk) => { fullText += chunk; },
         onDone: () => {
           try {
             const jsonMatch = fullText.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
-              const parsed = JSON.parse(jsonMatch[0]) as AiSignal[];
-              const trimmed = parsed.slice(0, 5);
-              setSignals(trimmed);
-              setCachedSignals(trimmed);
-              onAiTextChange?.(trimmed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (type === "signals") {
+                const trimmed = parsed.slice(0, 5) as AiSignal[];
+                setSignals(trimmed);
+                setCachedSignals(trimmed);
+                onAiTextChange?.(trimmed.map((s: AiSignal) => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+              } else if (type === "risks") {
+                const trimmed = parsed.slice(0, 8) as RiskItem[];
+                setRisks(trimmed);
+                setCacheByKey(AI_RISKS_CACHE_KEY, trimmed);
+              } else if (type === "trends") {
+                const trimmed = parsed.slice(0, 5) as TrendItem[];
+                setTrends(trimmed);
+                setCacheByKey(AI_TRENDS_CACHE_KEY, trimmed);
+              }
             } else {
               setError("Не удалось разобрать ответ ИИ");
             }
@@ -421,50 +476,16 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
     }
   }, [projectStats, users, loading]);
 
-  generateRef.current = generate;
-
+  const currentData = activeType === "signals" ? signals : activeType === "risks" ? risks : trends;
+  const hasData = currentData.length > 0;
   const statsReady = projectStats.length > 0;
-  useEffect(() => {
-    if (statsReady && !hasLoaded.current) {
-      hasLoaded.current = true;
-      generateRef.current?.();
-    }
-  }, [statsReady]);
 
   if (!statsReady) return null;
 
-  // Loading skeleton
-  if (loading && signals.length === 0) {
-    return (
-      <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
-        <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
-          <span className="text-xs font-medium text-primary flex-1">Сигналы — анализ…</span>
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />
-        </div>
-        <div className="p-3 space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="rounded-lg p-2.5 animate-pulse bg-muted/50">
-              <div className="h-3.5 bg-muted rounded w-2/3 mb-1.5" />
-              <div className="h-3 bg-muted rounded w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-card rounded-lg border border-border p-3 flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="text-xs text-muted-foreground flex-1">{error}</span>
-        <button onClick={() => generate(true)} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
-      </div>
-    );
-  }
-
-  if (signals.length === 0) return null;
+  // Header summary counts
+  const redCount = signals.filter(s => s.level === "red").length;
+  const amberCount = signals.filter(s => s.level === "amber").length;
+  const highRisks = risks.filter(r => r.severity === "high").length;
 
   const signalBg = (level: AiSignal["level"]) => {
     switch (level) {
@@ -494,61 +515,220 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       case "green": return "text-emerald-600/80 dark:text-emerald-400/80";
     }
   };
+
+  const RISK_SEVERITY = {
+    high: { bg: "bg-red-500/8 dark:bg-red-500/15", border: "border-red-500/20", text: "text-red-700 dark:text-red-400", label: "🔴 Высокий" },
+    medium: { bg: "bg-amber-500/8 dark:bg-amber-500/15", border: "border-amber-500/20", text: "text-amber-700 dark:text-amber-400", label: "🟡 Средний" },
+    low: { bg: "bg-blue-500/8 dark:bg-blue-500/15", border: "border-blue-500/20", text: "text-blue-700 dark:text-blue-400", label: "🔵 Низкий" },
+  };
+
+  const trendIcon = (dir: string) => {
+    if (dir === "up") return "📈";
+    if (dir === "down") return "📉";
+    return "➡️";
+  };
+  const trendColor = (dir: string) => {
+    if (dir === "up") return "text-emerald-700 dark:text-emerald-400";
+    if (dir === "down") return "text-red-700 dark:text-red-400";
+    return "text-muted-foreground";
+  };
+
   return (
     <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
-      <div className="px-3 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2">
-        <Sparkles className="h-3 w-3 text-primary" />
-        <span className="text-[11px] font-medium text-primary flex-1">ИИ-сигналы</span>
-        {loading && <Loader2 className="h-3 w-3 animate-spin text-primary/60" />}
-        <button
-          onClick={() => generate(true)}
-          disabled={loading}
-          className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
-          title="Обновить"
-        >
-          <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-        </button>
+      {/* Header */}
+      <div
+        className="px-3 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2 cursor-pointer hover:bg-primary/8 transition-colors"
+        onClick={() => setCollapsed(v => !v)}
+      >
+        <Sparkles className="h-3 w-3 text-primary shrink-0" />
+        <span className="text-[11px] font-medium text-primary">ИИ-аналитика</span>
+
+        {/* Collapsed summary */}
+        {collapsed && (signals.length > 0 || risks.length > 0) && (
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            {redCount > 0 && <span className="text-red-500 font-medium">🔴 {redCount}</span>}
+            {amberCount > 0 && <span className="text-amber-500">🟡 {amberCount}</span>}
+            {highRisks > 0 && <span className="text-red-500">⚠ {highRisks} рисков</span>}
+            {signals.length > 0 && <span>{signals.length} сигн.</span>}
+          </span>
+        )}
+
+        <div className="flex items-center gap-1 ml-auto shrink-0">
+          {loading && <Loader2 className="h-3 w-3 animate-spin text-primary/60" />}
+          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", collapsed && "-rotate-90")} />
+        </div>
       </div>
-      <div className="p-1.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
-        {signals.map((signal, i) => {
-          const matchedProject = projectStats.find(s =>
-            signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
-          );
-          const matchedPerson = signal.person
-            ? users.find(u => u.display_name?.toLowerCase().includes(signal.person!.toLowerCase()))
-            : null;
 
-          const handleActionClick = () => {
-            if (matchedProject) onNavigateToProject?.(matchedProject.group.id);
-            else if (matchedPerson) onNavigateToPerson?.(matchedPerson.id);
-            else if (signal.level === "red") onFilterOverdue?.();
-          };
+      {/* Body */}
+      {!collapsed && (
+        <div>
+          {/* Analysis type tabs */}
+          <div className="px-2 pt-2 pb-1 flex items-center gap-1">
+            {ANALYSIS_TYPES.map(t => {
+              const Icon = t.icon;
+              const isActive = activeType === t.key;
+              const hasCache = t.key === "signals" ? signals.length > 0 : t.key === "risks" ? risks.length > 0 : trends.length > 0;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveType(t.key)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all",
+                    isActive
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+                  )}
+                  title={t.desc}
+                >
+                  <Icon className="h-3 w-3" />
+                  {t.label}
+                  {hasCache && <span className="h-1.5 w-1.5 rounded-full bg-primary/50" />}
+                </button>
+              );
+            })}
 
-          return (
-            <button
-              key={i}
-              onClick={handleActionClick}
-              className={cn(
-                "flex items-start gap-1.5 p-2 rounded-md text-left transition-all hover:ring-1 hover:ring-primary/20",
-                signalBg(signal.level)
-              )}
-            >
-              <div className={cn("h-4 w-4 rounded flex items-center justify-center shrink-0 mt-px", signalIconBg(signal.level))}>
-                {signal.level === "red" && <AlertTriangle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />}
-                {signal.level === "amber" && <TrendingUp className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />}
-                {signal.level === "green" && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className={cn("text-[11px] font-medium leading-tight", signalTitle(signal.level))}>{signal.title}</div>
-                <div className={cn("text-[10px] leading-snug mt-0.5", signalDesc(signal.level))}>{signal.desc}</div>
-                <div className={cn("text-[9px] mt-1 font-medium opacity-70", signalTitle(signal.level))}>
-                  {signal.action} →
+            <div className="ml-auto flex items-center gap-0.5">
+              <button
+                onClick={() => generate(activeType, true)}
+                disabled={loading}
+                className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+                title="Обновить"
+              >
+                <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+              </button>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mx-2 mb-2 px-2.5 py-1.5 rounded-md bg-destructive/5 border border-destructive/20 flex items-center gap-2">
+              <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />
+              <span className="text-[11px] text-destructive flex-1">{error}</span>
+              <button onClick={() => generate(activeType, true)} className="text-[11px] text-primary hover:underline shrink-0">Повторить</button>
+            </div>
+          )}
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="px-2 pb-2 space-y-1.5">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="rounded-lg p-2.5 animate-pulse bg-muted/50">
+                  <div className="h-3.5 bg-muted rounded w-2/3 mb-1.5" />
+                  <div className="h-3 bg-muted rounded w-full" />
                 </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              ))}
+            </div>
+          )}
+
+          {/* No data - generate button */}
+          {!loading && !hasData && (
+            <div className="px-3 pb-3 pt-1">
+              <button
+                onClick={() => generate(activeType, true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-primary/20 text-primary hover:bg-primary/5 hover:border-primary/40 transition-all"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs font-medium">Запросить {ANALYSIS_TYPES.find(t => t.key === activeType)?.label.toLowerCase()}</span>
+              </button>
+              <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                {ANALYSIS_TYPES.find(t => t.key === activeType)?.desc}
+              </p>
+            </div>
+          )}
+
+          {/* Signals view */}
+          {!loading && activeType === "signals" && signals.length > 0 && (
+            <div className="p-1.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+              {signals.map((signal, i) => {
+                const matchedProject = projectStats.find(s =>
+                  signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
+                );
+                const matchedPerson = signal.person
+                  ? users.find(u => u.display_name?.toLowerCase().includes(signal.person!.toLowerCase()))
+                  : null;
+                const handleActionClick = () => {
+                  if (matchedProject) onNavigateToProject?.(matchedProject.group.id);
+                  else if (matchedPerson) onNavigateToPerson?.(matchedPerson.id);
+                  else if (signal.level === "red") onFilterOverdue?.();
+                };
+                return (
+                  <button
+                    key={i}
+                    onClick={handleActionClick}
+                    className={cn(
+                      "flex items-start gap-1.5 p-2 rounded-md text-left transition-all hover:ring-1 hover:ring-primary/20",
+                      signalBg(signal.level)
+                    )}
+                  >
+                    <div className={cn("h-4 w-4 rounded flex items-center justify-center shrink-0 mt-px", signalIconBg(signal.level))}>
+                      {signal.level === "red" && <AlertTriangle className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />}
+                      {signal.level === "amber" && <TrendingUp className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />}
+                      {signal.level === "green" && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={cn("text-[11px] font-medium leading-tight", signalTitle(signal.level))}>{signal.title}</div>
+                      <div className={cn("text-[10px] leading-snug mt-0.5", signalDesc(signal.level))}>{signal.desc}</div>
+                      <div className={cn("text-[9px] mt-1 font-medium opacity-70", signalTitle(signal.level))}>
+                        {signal.action} →
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Risks view */}
+          {!loading && activeType === "risks" && risks.length > 0 && (
+            <div className="px-2 pb-2 space-y-1">
+              {risks.map((risk, i) => {
+                const cfg = RISK_SEVERITY[risk.severity] || RISK_SEVERITY.low;
+                const matchedProject = projectStats.find(s =>
+                  s.group.name.toLowerCase().includes(risk.project.toLowerCase())
+                );
+                return (
+                  <button
+                    key={i}
+                    onClick={() => matchedProject && onNavigateToProject?.(matchedProject.group.id)}
+                    className={cn(
+                      "w-full flex items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all hover:ring-1 hover:ring-primary/20",
+                      cfg.bg, cfg.border
+                    )}
+                  >
+                    <span className={cn("text-[10px] font-medium shrink-0 w-16 pt-0.5", cfg.text)}>{cfg.label}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-medium text-foreground">{risk.project}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{risk.issue}</div>
+                      <div className="text-[9px] text-muted-foreground/80 mt-0.5">💡 {risk.recommendation}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Trends view */}
+          {!loading && activeType === "trends" && trends.length > 0 && (
+            <div className="px-2 pb-2 space-y-1">
+              {trends.map((trend, i) => (
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2">
+                  <span className="text-base shrink-0 mt-0.5">{trendIcon(trend.direction)}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-[11px] font-medium", trendColor(trend.direction))}>{trend.title}</span>
+                      <span className="text-[10px] font-mono font-semibold text-foreground bg-muted px-1 py-0.5 rounded">{trend.metric}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{trend.insight}</div>
+                    {trend.forecast && (
+                      <div className="text-[9px] text-primary/80 mt-0.5 font-medium">🔮 {trend.forecast}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
