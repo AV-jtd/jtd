@@ -1913,7 +1913,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         {/* Header bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-xs sm:text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
+          <span className="text-xs sm:text-sm font-medium text-foreground flex-1">Дашборд</span>
 
           {/* Filters — scroll on mobile */}
           <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none flex-nowrap sm:flex-wrap">
