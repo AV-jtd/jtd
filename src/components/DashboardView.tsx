@@ -375,7 +375,18 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       onAiTextChange?.(signals.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generate = useCallback(async (forceRefresh = false) => {
     if (loading || projectStats.length === 0) return;
+    // Check cache unless force refresh
+    if (!forceRefresh) {
+      const cached = getCachedSignals();
+      if (cached && cached.length > 0) {
+        setSignals(cached);
+        onAiTextChange?.(cached.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
 
