@@ -433,7 +433,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onAiTextChan
   // Auto-load on mount when projectStats are ready
   const statsReady = projectStats.length > 0;
   // useEffect to auto-trigger once
-  React.useEffect(() => {
+  useEffect(() => {
     if (statsReady && !hasLoaded.current) {
       hasLoaded.current = true;
       generateRef.current?.();
