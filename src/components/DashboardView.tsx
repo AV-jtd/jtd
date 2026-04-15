@@ -348,6 +348,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onAiTextChan
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
+  const generateRef = useRef<(() => void) | null>(null);
 
   const generate = useCallback(async () => {
     if (loading || projectStats.length === 0) return;
