@@ -2148,9 +2148,10 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         />
 
         {/* Action bar */}
-        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5">
+        <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2">
           <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-xs text-muted-foreground flex-1">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
+          <span className="text-[11px] sm:text-xs text-muted-foreground flex-1 hidden sm:block">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
+          <span className="text-[11px] text-muted-foreground flex-1 sm:hidden">Экспорт отчёта</span>
           <DashboardExportDialog
             projectStats={projectStats}
             summary={summary}
