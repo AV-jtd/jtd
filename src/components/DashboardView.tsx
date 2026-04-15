@@ -782,6 +782,7 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
       <PopoverContent className="w-56 p-2" align="start">
         <PopoverSearchList
           items={items}
+          searchKey={(item) => item.label}
           renderItem={(item) => (
             <button
               key={item.id}
@@ -951,7 +952,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       });
 
     return {
-      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects,
+      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects, tasksThisWeek,
       totalProjects: projectStats.length,
       totalTasks: uniqueTasks.length,
       overdueTasks, driftTasks,
