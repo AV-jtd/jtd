@@ -506,7 +506,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       <div className="mb-4 rounded-xl border border-border p-3 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-xs text-muted-foreground flex-1">{error}</span>
-        <button onClick={generate} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
+        <button onClick={() => generate(true)} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
       </div>
     );
   }
@@ -521,7 +521,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
           <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
         </div>
         <button
-          onClick={generate}
+          onClick={() => generate(true)}
           disabled={loading}
           className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
           title="Обновить сигналы"
