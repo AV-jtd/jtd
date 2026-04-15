@@ -1855,6 +1855,10 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const unassignedTasks = activeTasks.filter(t => !t.assigned_to);
     const noDeadlineTasks = activeTasks.filter(t => !t.deadline);
 
+    // WoW for drift (tasks that had drift a week ago - approximate by created_at)
+    const driftLastWeek = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline && new Date(t.created_at) < d7).length;
+    const currentDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+
     // Overdue & drift task lists for detail panel
     const overdueTasks = uniqueTasks
       .filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
