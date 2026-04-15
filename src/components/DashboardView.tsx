@@ -492,14 +492,6 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       case "green": return "text-emerald-600/80 dark:text-emerald-400/80";
     }
   };
-  const signalBtn = (level: AiSignal["level"]) => {
-    switch (level) {
-      case "red": return "bg-red-400/25 text-red-800 dark:text-red-300 hover:bg-red-400/40";
-      case "amber": return "bg-amber-400/25 text-amber-800 dark:text-amber-300 hover:bg-amber-400/40";
-      case "green": return "bg-emerald-400/25 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-400/40";
-    }
-  };
-
   return (
     <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
       <div className="px-3 py-1.5 border-b border-border bg-primary/5 flex items-center gap-2">
