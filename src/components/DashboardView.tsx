@@ -363,13 +363,18 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   onFilterOverdue?: () => void;
   onAiTextChange?: (text: string) => void;
 }) {
-  const [signals, setSignals] = useState<AiSignal[]>([]);
+  const [signals, setSignals] = useState<AiSignal[]>(() => getCachedSignals() || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
   const generateRef = useRef<(() => void) | null>(null);
 
-  const generate = useCallback(async () => {
+  // Emit cached text on mount
+  useEffect(() => {
+    if (signals.length > 0) {
+      onAiTextChange?.(signals.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
     if (loading || projectStats.length === 0) return;
     setLoading(true);
     setError(null);
