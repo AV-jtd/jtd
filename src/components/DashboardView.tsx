@@ -214,7 +214,7 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
     <button
       onClick={onClick}
       className={cn(
-        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink",
+        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink flex flex-col",
         active && "border-primary ring-2 ring-primary/20"
       )}
     >
@@ -225,11 +225,9 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
       <div className="text-xl sm:text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
         {value}
       </div>
-      {trend && (
-        <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap", trendColor[trendType || "flat"])}>
-          {trend}
-        </div>
-      )}
+      <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap min-h-[14px]", trendColor[trendType || "flat"])}>
+        {trend || "\u00A0"}
+      </div>
     </button>
   );
 }
