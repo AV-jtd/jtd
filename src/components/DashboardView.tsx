@@ -936,6 +936,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const totalOverdue = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
     const totalDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
     const activeProjects = projectStats.filter(s => s.total > 0 && s.timingStatus !== "completed").length;
+    const tasksThisWeek = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
 
     // Overdue & drift task lists for detail panel
     const overdueTasks = uniqueTasks
