@@ -2011,6 +2011,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color="hsl(38, 92%, 50%)"
             active={expandedKpi === "drift"}
             onClick={() => setExpandedKpi(prev => prev === "drift" ? null : "drift")}
+            trend={(() => {
+              const diff = summary.totalDrift - summary.driftLastWeek;
+              if (diff === 0) return undefined;
+              return `${diff > 0 ? "+" : ""}${diff} за нед`;
+            })()}
+            trendType={summary.totalDrift > summary.driftLastWeek ? "up-bad" : summary.totalDrift < summary.driftLastWeek ? "down-good" : "flat"}
           />
           <KpiCard
             label="Без ответственного"
