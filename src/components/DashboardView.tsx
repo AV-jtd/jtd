@@ -656,16 +656,20 @@ function HotProjectsCard({ projectStats, onNavigateToProject }: {
 }
 
 // --- Team Workload Card ---
-function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
+function TeamWorkloadCard({ projectStats, users, onFilterByPerson, onOpenTask, subtaskMap }: {
   projectStats: ProjectStats[];
   users: Profile[];
   onFilterByPerson?: (userId: string) => void;
+  onOpenTask?: (taskId: string) => void;
+  subtaskMap: SubtaskMap;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [sortBy, setSortBy] = useState<"overdue" | "total">("overdue");
+  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
 
-  const workload = useMemo(() => {
-    const now = new Date();
+  const now = useMemo(() => new Date(), []);
+
+  const { allUniqueTasks, workload } = useMemo(() => {
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
     const active = unique.filter(t => !t.is_completed);
@@ -681,7 +685,6 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
       if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) map[uid].drift++;
     });
 
-    // Count today's completions
     const today = new Date(); today.setHours(0,0,0,0);
     const completed = unique.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= today);
     completed.forEach(t => {
@@ -692,14 +695,29 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
       map[uid].completedToday++;
     });
 
-    return Object.entries(map)
+    const wl = Object.entries(map)
       .map(([id, d]) => ({ id, ...d }))
       .sort((a, b) => {
         if (sortBy === "overdue") return b.overdue - a.overdue || b.total - a.total;
         return b.total - a.total || b.overdue - a.overdue;
       })
       .slice(0, 10);
-  }, [projectStats, users, sortBy]);
+
+    return { allUniqueTasks: unique, workload: wl };
+  }, [projectStats, users, sortBy, now]);
+
+  const personTasks = useMemo(() => {
+    if (!expandedPersonId) return [];
+    return allUniqueTasks
+      .filter(t => !t.is_completed && (t.assigned_to === expandedPersonId || (!t.assigned_to && t.user_id === expandedPersonId)))
+      .sort((a, b) => {
+        const aOver = a.deadline && new Date(a.deadline) < now ? 1 : 0;
+        const bOver = b.deadline && new Date(b.deadline) < now ? 1 : 0;
+        if (bOver !== aOver) return bOver - aOver;
+        if (a.deadline && b.deadline) return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        return a.deadline ? -1 : 1;
+      });
+  }, [expandedPersonId, allUniqueTasks, now]);
 
   const maxTotal = Math.max(...workload.map(w => w.total), 1);
   const totalPeopleWithOverdue = workload.filter(w => w.overdue > 0).length;
@@ -723,6 +741,16 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
     if (w.overdue > 0) return "bg-red-500";
     if (w.drift > 0) return "bg-amber-500";
     return "bg-emerald-500";
+  };
+
+  const fmtDeadline = (d: string | null) => {
+    if (!d) return "";
+    const dt = new Date(d);
+    const diff = Math.ceil((dt.getTime() - now.getTime()) / 86400000);
+    if (diff < 0) return `${Math.abs(diff)}д назад`;
+    if (diff === 0) return "сегодня";
+    if (diff === 1) return "завтра";
+    return `${diff}д`;
   };
 
   return (
@@ -761,43 +789,79 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
             </button>
           </div>
           {workload.map(w => {
+            const isExpanded = expandedPersonId === w.id;
             return (
-              <button
-                key={w.id}
-                onClick={() => onFilterByPerson?.(w.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-border hover:bg-muted/50 transition-colors text-left"
-              >
-                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-medium shrink-0", avatarStyle(w))}>
-                  {getInitials(w.name)}
-                </div>
-                <span className="text-xs text-foreground flex-1 truncate">{w.name}</span>
-                <span className="text-[10px] text-muted-foreground shrink-0">{w.total}</span>
-                <div className="w-14 h-1 bg-muted rounded-sm overflow-hidden shrink-0">
-                  <div className={cn("h-full rounded-sm", barColor(w))} style={{ width: `${Math.round((w.total / maxTotal) * 100)}%` }} />
-                </div>
-                {w.overdue > 0 && (
-                  <span className="text-[10px] min-w-[70px] text-right shrink-0 text-red-500 font-medium">
-                    {w.overdue} просроч.
-                  </span>
+              <div key={w.id} className="border-b last:border-b-0 border-border">
+                <button
+                  onClick={() => setExpandedPersonId(prev => prev === w.id ? null : w.id)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors text-left",
+                    isExpanded && "bg-muted/30"
+                  )}
+                >
+                  <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-medium shrink-0", avatarStyle(w))}>
+                    {getInitials(w.name)}
+                  </div>
+                  <span className="text-xs text-foreground flex-1 truncate">{w.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{w.total}</span>
+                  <div className="w-14 h-1 bg-muted rounded-sm overflow-hidden shrink-0">
+                    <div className={cn("h-full rounded-sm", barColor(w))} style={{ width: `${Math.round((w.total / maxTotal) * 100)}%` }} />
+                  </div>
+                  {w.overdue > 0 && (
+                    <span className="text-[10px] min-w-[70px] text-right shrink-0 text-red-500 font-medium">
+                      {w.overdue} просроч.
+                    </span>
+                  )}
+                  {w.overdue === 0 && w.drift > 0 && (
+                    <span className="text-[10px] min-w-[70px] text-right shrink-0 text-amber-500">
+                      {w.drift} drift
+                    </span>
+                  )}
+                  {w.overdue === 0 && w.drift === 0 && (
+                    <span className="text-[10px] min-w-[70px] text-right shrink-0 text-emerald-500">в норме</span>
+                  )}
+                  {w.completedToday > 0 && (
+                    <span className="text-[10px] text-emerald-500 shrink-0">✓{w.completedToday}</span>
+                  )}
+                  <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", isExpanded ? "" : "-rotate-90")} />
+                </button>
+                {isExpanded && (
+                  <div className="bg-muted/10 border-t border-border">
+                    {personTasks.length === 0 && (
+                      <div className="px-3 py-2 text-[10px] text-muted-foreground text-center">Нет активных задач</div>
+                    )}
+                    {personTasks.map(t => {
+                      const isOverdue = t.deadline && new Date(t.deadline) < now;
+                      const subs = subtaskMap[t.id];
+                      const stepsLabel = subs ? `✓ ${subs.done}/${subs.total}` : null;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => onOpenTask?.(t.id)}
+                          className="w-full flex items-center gap-2 px-5 py-1.5 hover:bg-muted/50 transition-colors text-left border-b last:border-b-0 border-border/50"
+                        >
+                          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", isOverdue ? "bg-red-500" : "bg-muted-foreground/30")} />
+                          <span className="text-[11px] text-foreground flex-1 truncate">{t.title}</span>
+                          {stepsLabel && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">{stepsLabel}</span>
+                          )}
+                          {t.deadline && (
+                            <span className={cn("text-[10px] shrink-0", isOverdue ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                              {fmtDeadline(t.deadline)}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {w.overdue === 0 && w.drift > 0 && (
-                  <span className="text-[10px] min-w-[70px] text-right shrink-0 text-amber-500">
-                    {w.drift} drift
-                  </span>
-                )}
-                {w.overdue === 0 && w.drift === 0 && (
-                  <span className="text-[10px] min-w-[70px] text-right shrink-0 text-emerald-500">в норме</span>
-                )}
-                {w.completedToday > 0 && (
-                  <span className="text-[10px] text-emerald-500 shrink-0">✓{w.completedToday}</span>
-                )}
-              </button>
-          );
-        })}
-        {workload.length === 0 && (
-          <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет данных</div>
-        )}
-      </div>
+              </div>
+            );
+          })}
+          {workload.length === 0 && (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет данных</div>
+          )}
+        </div>
       )}
     </div>
   );
