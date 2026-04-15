@@ -18,6 +18,8 @@ interface ProjectStatExport {
   avgDriftDays: number;
   timingStatus: string;
   nextDeadline: string | null;
+  assignees?: string[];
+  unassignedCount?: number;
 }
 
 interface TaskExport {
@@ -27,6 +29,8 @@ interface TaskExport {
   driftDays?: number;
   stepsTotal?: number;
   stepsCompleted?: number;
+  project?: string | null;
+  originalDeadline?: string;
 }
 
 export interface AssigneeSummary {
@@ -35,6 +39,7 @@ export interface AssigneeSummary {
   completed: number;
   overdue: number;
   drift: number;
+  noDeadline: number;
 }
 
 export interface ReportData {
@@ -46,6 +51,11 @@ export interface ReportData {
     totalProjects: number;
     totalTasks?: number;
     totalCompleted?: number;
+    activeProjects?: number;
+    unassignedCount?: number;
+    noDeadlineCount?: number;
+    completedThisWeek?: number;
+    completedLastWeek?: number;
   };
   projects: ProjectStatExport[];
   overdueTasks: TaskExport[];
@@ -53,6 +63,8 @@ export interface ReportData {
   driftTasks: TaskExport[];
   upcomingTasks: TaskExport[];
   completedTasks: TaskExport[];
+  unassignedTasks?: TaskExport[];
+  noDeadlineTasks?: TaskExport[];
   assigneeSummary?: AssigneeSummary[];
   period?: string;
   periodLabel?: string;
@@ -118,12 +130,13 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
   const userName = (userId: string) => users.find((u: any) => u.id === userId)?.display_name || "—";
   const now = new Date();
   const weekFromNow = addDays(startOfDay(now), 7);
+  const d7 = subDays(now, 7);
+  const d14 = subDays(now, 14);
   const { start: pStart, end: pEnd, label: periodLabel } = getPeriodRange(period);
 
   const allTasks = projectStats.flatMap((s: any) => [...s.tasks.map((t: any) => ({ ...t, _projectName: s.group.name })), ...s.subprojects.flatMap((sp: any) => sp.tasks.map((t: any) => ({ ...t, _projectName: `${s.group.name} / ${sp.group.name}` })))]);
   const unique = Array.from(new Map(allTasks.map((t: any) => [t.id, t])).values());
 
-  // Filter tasks by period if set
   const inPeriod = (t: any) => {
     if (!pStart || !pEnd) return true;
     const dl = t.deadline ? new Date(t.deadline) : null;
@@ -135,7 +148,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
 
   const periodTasks = unique.filter(inPeriod);
 
-  const mapTask = (t: any, extraFields?: Record<string, any>) => {
+  const mapTask = (t: any, extraFields?: Record<string, any>): TaskExport => {
     const si = subtaskMap?.get(t.id);
     return {
       title: t.title,
@@ -180,185 +193,360 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .slice(0, 30)
     .map((t: any) => mapTask(t, { deadline: t.completed_at }));
 
-  const projects = projectStats.map((s: any) => ({
-    name: s.group.name,
-    color: s.group.color,
-    total: s.total,
-    completed: s.completed,
-    overdue: s.overdue,
-    driftCount: s.driftCount,
-    avgDriftDays: s.avgDriftDays,
-    timingStatus: s.timingStatus,
-    nextDeadline: s.nextDeadline,
-  }));
+  // New: unassigned & no-deadline task lists
+  const unassignedTasks = periodTasks
+    .filter((t: any) => !t.is_completed && !t.assigned_to)
+    .slice(0, 20)
+    .map((t: any) => mapTask(t));
+
+  const noDeadlineTasks = periodTasks
+    .filter((t: any) => !t.is_completed && !t.deadline)
+    .slice(0, 20)
+    .map((t: any) => mapTask(t));
+
+  // Project data with assignees
+  const projects = projectStats.map((s: any) => {
+    const allT = [...s.tasks, ...s.subprojects.flatMap((sp: any) => sp.tasks)];
+    const active = allT.filter((t: any) => !t.is_completed);
+    const assigneeIds = [...new Set(active.map((t: any) => t.assigned_to).filter(Boolean))] as string[];
+    const unassigned = active.filter((t: any) => !t.assigned_to).length;
+    return {
+      name: s.group.name,
+      color: s.group.color,
+      total: s.total,
+      completed: s.completed,
+      overdue: s.overdue,
+      driftCount: s.driftCount,
+      avgDriftDays: s.avgDriftDays,
+      timingStatus: s.timingStatus,
+      nextDeadline: s.nextDeadline,
+      assignees: assigneeIds.map((id: string) => userName(id)),
+      unassignedCount: unassigned,
+    };
+  });
 
   const totalTasks = periodTasks.length;
   const totalCompleted = periodTasks.filter((t: any) => t.is_completed).length;
+  const activeTasks = periodTasks.filter((t: any) => !t.is_completed);
+  const activeProjects = projectStats.filter((s: any) => s.total > 0 && s.timingStatus !== "completed").length;
+  const unassignedCount = activeTasks.filter((t: any) => !t.assigned_to).length;
+  const noDeadlineCount = activeTasks.filter((t: any) => !t.deadline).length;
+
+  // WoW
+  const completedThisWeek = unique.filter((t: any) => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
+  const completedLastWeek = unique.filter((t: any) => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
 
   // Build assignee summary
   const assigneeMap: Record<string, AssigneeSummary> = {};
   periodTasks.forEach((t: any) => {
     const uid = t.assigned_to || t.user_id;
     const name = userName(uid);
-    if (!assigneeMap[uid]) assigneeMap[uid] = { name, total: 0, completed: 0, overdue: 0, drift: 0 };
+    if (!assigneeMap[uid]) assigneeMap[uid] = { name, total: 0, completed: 0, overdue: 0, drift: 0, noDeadline: 0 };
     assigneeMap[uid].total++;
     if (t.is_completed) assigneeMap[uid].completed++;
     if (!t.is_completed && t.deadline && new Date(t.deadline) < now) assigneeMap[uid].overdue++;
     if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeMap[uid].drift++;
+    if (!t.is_completed && !t.deadline) assigneeMap[uid].noDeadline++;
   });
   const assigneeSummary = Object.values(assigneeMap).sort((a, b) => b.total - a.total);
 
   return {
-    summary: { ...summary, totalTasks, totalCompleted },
-    projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, assigneeSummary, period, periodLabel,
+    summary: { ...summary, totalTasks, totalCompleted, activeProjects, unassignedCount, noDeadlineCount, completedThisWeek, completedLastWeek },
+    projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, unassignedTasks, noDeadlineTasks, assigneeSummary, period, periodLabel,
   };
 }
 
+// ==================== PDF Report ====================
 function buildPdfHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
   const periodStr = data.periodLabel || dateStr;
-  const { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks } = data;
+  const { summary, projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, unassignedTasks, noDeadlineTasks, assigneeSummary } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
   const statusColors: Record<string, string> = { "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280" };
 
-  const projectRows = projects.map(p => {
-    const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-    return `<tr>
-      <td><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${p.color || '#3b82f6'};margin-right:6px"></span>${p.name}</td>
-      <td><span style="color:${statusColors[p.timingStatus] || '#6b7280'}">${statusLabels[p.timingStatus] || ''}</span></td>
-      <td>${pct}%</td><td>${p.completed}/${p.total}</td><td style="color:${p.overdue > 0 ? '#ef4444' : 'inherit'}">${p.overdue}</td>
-      <td style="color:${p.driftCount > 0 ? '#f59e0b' : 'inherit'}">${p.driftCount}</td>
-    </tr>`;
-  }).join("");
+  const stepsLabel = (t: any) => t.stepsTotal > 0 ? `<span class="steps ${t.stepsCompleted === t.stepsTotal ? 'done' : ''}">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
 
-  const stepsLabel = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:11px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#3b82f6'};margin-left:4px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
-
-  const taskTable = (tasks: any[], extraHeader?: string) => {
-    if (tasks.length === 0) return "<p style='color:#94a3b8;font-size:13px'>Нет данных</p>";
-    return `<table><thead><tr><th>Задача</th><th>Ответственный</th><th>Дата</th>${extraHeader ? `<th>${extraHeader}</th>` : ""}</tr></thead><tbody>
-      ${tasks.map(t => `<tr><td>${t.title}${stepsLabel(t)}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td style="color:#f59e0b">+${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
+  const taskRows = (tasks: any[], extra?: string) => {
+    if (tasks.length === 0) return "<p class='empty'>Нет данных</p>";
+    return `<table><thead><tr><th>Задача</th><th>Проект</th><th>Ответственный</th><th>Дата</th>${extra ? `<th>${extra}</th>` : ""}</tr></thead><tbody>
+      ${tasks.map(t => `<tr><td class="task-name">${t.title}${stepsLabel(t)}</td><td class="proj">${t.project || "—"}</td><td>${t.assignee}</td><td>${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>${t.driftDays !== undefined ? `<td class="drift-val">${t.driftDays > 0 ? "+" : ""}${t.driftDays} дн.</td>` : ""}</tr>`).join("")}
     </tbody></table>`;
   };
 
+  const projectRows = projects.map(p => {
+    const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+    const sc = statusColors[p.timingStatus] || "#6b7280";
+    const assigneePills = (p.assignees || []).slice(0, 3).map(n => `<span class="apill">${n.split(" ")[0]}</span>`).join("");
+    const moreAssignees = (p.assignees || []).length > 3 ? `<span class="apill more">+${(p.assignees || []).length - 3}</span>` : "";
+    const unassignedBadge = (p.unassignedCount || 0) > 0 ? `<span class="apill warn">👤 ${p.unassignedCount}</span>` : "";
+    return `<tr>
+      <td><span class="dot" style="background:${p.color || '#3b82f6'}"></span>${p.name}</td>
+      <td><span class="status-pill" style="color:${sc};background:${sc}15;border-color:${sc}30">${statusLabels[p.timingStatus] || ''}</span></td>
+      <td><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${p.color || '#3b82f6'}"></div></div>${pct}%</td>
+      <td>${p.completed}/${p.total}</td>
+      <td class="${p.overdue > 0 ? 'val-red' : ''}">${p.overdue}</td>
+      <td class="${p.driftCount > 0 ? 'val-amber' : ''}">${p.driftCount}</td>
+      <td class="assignees-cell">${assigneePills}${moreAssignees}${unassignedBadge}</td>
+    </tr>`;
+  }).join("");
+
+  const assigneeRows = (assigneeSummary || []).map(a => {
+    const pct = a.total > 0 ? Math.round((a.completed / a.total) * 100) : 0;
+    return `<tr>
+      <td class="task-name">${a.name}</td>
+      <td class="center">${a.total}</td>
+      <td class="center val-green">${a.completed}</td>
+      <td class="center ${a.overdue > 0 ? 'val-red' : ''}">${a.overdue}</td>
+      <td class="center ${a.drift > 0 ? 'val-amber' : ''}">${a.drift}</td>
+      <td class="center ${a.noDeadline > 0 ? 'val-purple' : ''}">${a.noDeadline}</td>
+      <td><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${pct === 100 ? '#10b981' : '#3b82f6'}"></div></div>${pct}%</td>
+    </tr>`;
+  }).join("");
+
+  const wowDiff = (summary.completedThisWeek || 0) - (summary.completedLastWeek || 0);
+  const wowLabel = wowDiff > 0 ? `↑${wowDiff}` : wowDiff < 0 ? `↓${Math.abs(wowDiff)}` : "=";
+  const wowColor = wowDiff > 0 ? "#10b981" : wowDiff < 0 ? "#ef4444" : "#64748b";
+
   return `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Отчёт — ${periodStr}</title>
 <style>
-  body{font-family:-apple-system,system-ui,sans-serif;max-width:900px;margin:40px auto;color:#1e293b;padding:0 24px}
-  h1{font-size:24px;border-bottom:3px solid #3b82f6;padding-bottom:8px;margin-bottom:4px}
-  .period{font-size:14px;color:#64748b;margin-bottom:24px}
-  h2{font-size:16px;margin:24px 0 10px;color:#1e40af}
-  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px}
-  .m{background:#f0f9ff;border-radius:10px;padding:14px;text-align:center}
-  .m .v{font-size:26px;font-weight:700;color:#3b82f6}
-  .m .l{font-size:11px;color:#64748b}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px}
-  th{text-align:left;padding:6px 10px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;font-size:11px;color:#64748b;text-transform:uppercase}
-  td{padding:6px 10px;border-bottom:1px solid #f1f5f9}
-  .ai{background:#f0f9ff;border:1px solid #c7d2fe;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.7}
-  @media print{body{margin:16px}}
+  :root{--blue:#3b82f6;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--purple:#8b5cf6;--slate:#64748b;--light:#f8fafc}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:960px;margin:0 auto;color:#1e293b;padding:0;background:#fff}
+  .header{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;padding:40px 32px 32px;position:relative;overflow:hidden}
+  .header::after{content:'';position:absolute;top:-40%;right:-10%;width:50%;height:180%;background:radial-gradient(ellipse,rgba(59,130,246,.15) 0%,transparent 70%);pointer-events:none}
+  .header h1{font-size:28px;font-weight:700;margin-bottom:4px;position:relative}
+  .header .sub{font-size:13px;color:#94a3b8;position:relative}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:-20px 24px 0;position:relative;z-index:1;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);border:1px solid #e2e8f0}
+  .metric{background:#fff;padding:16px 12px;text-align:center;border-right:1px solid #f1f5f9}
+  .metric:last-child{border-right:none}
+  .metric .v{font-size:28px;font-weight:700}
+  .metric .l{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  .metric .trend{font-size:10px;font-weight:600;margin-top:2px}
+  .content{padding:24px 32px}
+  h2{font-size:15px;font-weight:700;color:#0f172a;margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+  h2 .count{font-size:11px;font-weight:500;color:#94a3b8}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
+  th{text-align:left;padding:6px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+  td{padding:6px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  .task-name{font-weight:500;max-width:280px}
+  .proj{font-size:11px;color:#64748b;max-width:140px}
+  .center{text-align:center}
+  .val-red{color:#ef4444;font-weight:600}
+  .val-amber{color:#f59e0b;font-weight:600}
+  .val-green{color:#10b981;font-weight:600}
+  .val-purple{color:#8b5cf6;font-weight:600}
+  .drift-val{color:#f59e0b;font-weight:600;white-space:nowrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .status-pill{font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid;font-weight:500;white-space:nowrap}
+  .bar-wrap{display:inline-block;width:48px;height:5px;background:#f1f5f9;border-radius:3px;margin-right:4px;overflow:hidden;vertical-align:middle}
+  .bar-fill{height:100%;border-radius:3px}
+  .steps{font-size:10px;margin-left:4px;color:#3b82f6}
+  .steps.done{color:#10b981}
+  .apill{display:inline-block;font-size:9px;padding:1px 6px;border-radius:99px;background:#f0f9ff;color:#3b82f6;margin-right:2px;font-weight:500}
+  .apill.more{background:#f1f5f9;color:#64748b}
+  .apill.warn{background:#fff7ed;color:#ea580c}
+  .assignees-cell{white-space:nowrap}
+  .ai-block{background:linear-gradient(135deg,#f0f9ff,#faf5ff);border:1px solid #c7d2fe;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:12px;line-height:1.8}
+  .empty{color:#94a3b8;font-size:12px;padding:8px 0}
+  .section-alert{display:flex;gap:12px;padding:14px 16px;border-radius:10px;margin:12px 0;align-items:flex-start}
+  .section-alert.orange{background:#fff7ed;border:1px solid #fed7aa}
+  .section-alert.purple{background:#faf5ff;border:1px solid #e9d5ff}
+  .section-alert .icon{font-size:18px;flex-shrink:0}
+  .section-alert .body{flex:1;font-size:12px;line-height:1.6}
+  .section-alert .title{font-weight:600;margin-bottom:2px}
+  .footer{text-align:center;padding:24px 0 32px;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;margin-top:16px}
+  @media print{body{margin:0}.header{padding:24px 20px 20px}.metrics{margin:-16px 16px 0}.content{padding:16px 20px}}
 </style></head><body>
-  <h1>📊 Отчёт по портфелю</h1>
-  <p class="period">Период: ${periodStr} · Создан ${dateStr}</p>
-  <div class="metrics">
-    <div class="m"><div class="v">${summary.completionRate}%</div><div class="l">Прогресс</div></div>
-    <div class="m"><div class="v">${summary.totalTasks || 0}</div><div class="l">Всего задач</div></div>
-    <div class="m"><div class="v" style="color:#10b981">${summary.totalCompleted || 0}</div><div class="l">Выполнено</div></div>
-    <div class="m"><div class="v">${summary.tasksThisWeek}</div><div class="l">Дедлайнов</div></div>
-    <div class="m"><div class="v" style="color:#ef4444">${summary.totalOverdue}</div><div class="l">Просрочено</div></div>
-    <div class="m"><div class="v" style="color:#f59e0b">${summary.totalDrift}</div><div class="l">Drift</div></div>
+  <div class="header">
+    <h1>📊 Отчёт по портфелю</h1>
+    <p class="sub">${periodStr} · ${dateStr}</p>
   </div>
-  ${aiSummary ? `<div class="ai"><strong>🤖 ИИ-анализ:</strong><br/>${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div>` : ""}
-  <h2>📋 Проекты (${projects.length})</h2>
-  <table><thead><tr><th>Проект</th><th>Статус</th><th>%</th><th>Задач</th><th>Просрочено</th><th>Drift</th></tr></thead><tbody>${projectRows}</tbody></table>
-  ${completedTasks.length > 0 ? `<h2>✅ Выполнено за период (${completedTasks.length})</h2>${taskTable(completedTasks)}` : ""}
-  ${overdueTasks.length > 0 ? `<h2>⚠️ Не сделано — просрочено (${overdueTasks.length})</h2>${taskTable(overdueTasks)}` : ""}
-  ${weekTasks.length > 0 ? `<h2>📅 Дедлайны на этой неделе (${weekTasks.length})</h2>${taskTable(weekTasks)}` : ""}
-  ${driftTasks.length > 0 ? `<h2>↔ Перенесённые сроки (${driftTasks.length})</h2>${taskTable(driftTasks, "Drift")}` : ""}
-  ${upcomingTasks.length > 0 ? `<h2>🔮 Ближайшие планы (${upcomingTasks.length})</h2>${taskTable(upcomingTasks)}` : ""}
-  <p style="text-align:center;margin-top:32px;font-size:12px;color:#94a3b8">JustTODOit · ${dateStr}</p>
+
+  <div class="metrics">
+    <div class="metric"><div class="v" style="color:var(--blue)">${summary.completionRate}%</div><div class="l">Прогресс</div><div class="trend" style="color:var(--slate)">${summary.totalTasks || 0} задач</div></div>
+    <div class="metric"><div class="v" style="color:var(--green)">${summary.totalCompleted || 0}</div><div class="l">Выполнено</div><div class="trend" style="color:${wowColor}">${wowLabel} к прош. нед</div></div>
+    <div class="metric"><div class="v" style="color:var(--red)">${summary.totalOverdue}</div><div class="l">Просрочено</div></div>
+    <div class="metric"><div class="v" style="color:var(--amber)">${summary.totalDrift}</div><div class="l">Drift</div></div>
+  </div>
+
+  <div class="content">
+    ${(summary.unassignedCount || 0) > 0 || (summary.noDeadlineCount || 0) > 0 ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      ${(summary.unassignedCount || 0) > 0 ? `<div class="section-alert orange"><span class="icon">👤</span><div class="body"><div class="title">${summary.unassignedCount} задач без ответственного</div>Назначьте исполнителей для контроля</div></div>` : ""}
+      ${(summary.noDeadlineCount || 0) > 0 ? `<div class="section-alert purple"><span class="icon">📅</span><div class="body"><div class="title">${summary.noDeadlineCount} задач без сроков</div>Установите дедлайны для планирования</div></div>` : ""}
+    </div>` : ""}
+
+    ${aiSummary ? `<div class="ai-block"><strong>🤖 ИИ-анализ:</strong><br/>${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div>` : ""}
+
+    <h2>📋 Проекты <span class="count">(${projects.length})</span></h2>
+    <table><thead><tr><th>Проект</th><th>Статус</th><th>Прогресс</th><th>Задач</th><th>⚠</th><th>↗</th><th>Команда</th></tr></thead><tbody>${projectRows}</tbody></table>
+
+    ${(assigneeSummary || []).length > 0 ? `
+    <h2>👥 Загрузка команды <span class="count">(${(assigneeSummary || []).length})</span></h2>
+    <table><thead><tr><th>Исполнитель</th><th class="center">Всего</th><th class="center">✓</th><th class="center">⚠</th><th class="center">↗</th><th class="center">📅</th><th>Прогресс</th></tr></thead><tbody>${assigneeRows}</tbody></table>` : ""}
+
+    ${completedTasks.length > 0 ? `<h2>✅ Выполнено <span class="count">(${completedTasks.length})</span></h2>${taskRows(completedTasks)}` : ""}
+    ${overdueTasks.length > 0 ? `<h2>⚠️ Просрочено <span class="count">(${overdueTasks.length})</span></h2>${taskRows(overdueTasks)}` : ""}
+    ${weekTasks.length > 0 ? `<h2>📅 Дедлайны на неделе <span class="count">(${weekTasks.length})</span></h2>${taskRows(weekTasks)}` : ""}
+    ${driftTasks.length > 0 ? `<h2>↔ Перенесённые сроки <span class="count">(${driftTasks.length})</span></h2>${taskRows(driftTasks, "Drift")}` : ""}
+    ${(unassignedTasks || []).length > 0 ? `<h2>👤 Без ответственного <span class="count">(${(unassignedTasks || []).length})</span></h2>${taskRows(unassignedTasks || [])}` : ""}
+    ${upcomingTasks.length > 0 ? `<h2>🔮 Ближайшие планы <span class="count">(${upcomingTasks.length})</span></h2>${taskRows(upcomingTasks)}` : ""}
+  </div>
+  <div class="footer">JustTODOit · ${dateStr}</div>
 </body></html>`;
 }
 
+// ==================== PPT Report ====================
 function buildPptHtml(data: ReportData, aiSummary?: string): string {
   const dateStr = format(new Date(), "d MMMM yyyy", { locale: ru });
   const periodStr = data.periodLabel || dateStr;
-  const { summary, projects, overdueTasks, weekTasks, completedTasks, driftTasks } = data;
+  const { summary, projects, overdueTasks, weekTasks, completedTasks, driftTasks, assigneeSummary } = data;
 
   const statusLabels: Record<string, string> = { "on-track": "В графике", "at-risk": "Drift", "overdue": "Просрочено", "completed": "Завершён" };
-  const statusColors: Record<string, string> = { "on-track": "#10b981", "at-risk": "#f59e0b", "overdue": "#ef4444", "completed": "#6b7280" };
+  const statusColors: Record<string, string> = { "on-track": "#34d399", "at-risk": "#fbbf24", "overdue": "#f87171", "completed": "#6b7280" };
+
+  const wowDiff = (summary.completedThisWeek || 0) - (summary.completedLastWeek || 0);
 
   const slides: string[] = [];
 
-  slides.push(`<div class="slide title"><h1>📊 Отчёт по портфелю</h1><p class="sub">${periodStr}</p></div>`);
+  // Slide 1: Title
+  slides.push(`<div class="slide title-slide">
+    <div class="title-accent"></div>
+    <div class="title-content">
+      <div class="title-badge">PORTFOLIO REPORT</div>
+      <h1>Отчёт по портфелю</h1>
+      <p class="sub">${periodStr}</p>
+      <div class="title-meta">${summary.activeProjects || summary.totalProjects} проектов · ${summary.totalTasks || 0} задач · ${dateStr}</div>
+    </div>
+  </div>`);
 
-  slides.push(`<div class="slide"><h2>Ключевые метрики</h2><div class="grid4">
-    <div class="card"><div class="val" style="color:#3b82f6">${summary.completionRate}%</div><div class="lbl">Прогресс</div></div>
-    <div class="card"><div class="val" style="color:#10b981">${summary.totalCompleted || 0}</div><div class="lbl">Выполнено</div></div>
-    <div class="card"><div class="val" style="color:#ef4444">${summary.totalOverdue}</div><div class="lbl">Просрочено</div></div>
-    <div class="card"><div class="val" style="color:#f59e0b">${summary.totalDrift}</div><div class="lbl">Drift</div></div>
-  </div></div>`);
+  // Slide 2: KPIs
+  slides.push(`<div class="slide">
+    <h2>Ключевые метрики</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-val" style="color:#60a5fa">${summary.completionRate}%</div><div class="kpi-lbl">Прогресс</div><div class="kpi-sub">${summary.totalTasks || 0} задач</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#34d399">${summary.totalCompleted || 0}</div><div class="kpi-lbl">Выполнено</div><div class="kpi-sub" style="color:${wowDiff >= 0 ? '#34d399' : '#f87171'}">${wowDiff > 0 ? '+' : ''}${wowDiff} к пр. нед</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#f87171">${summary.totalOverdue}</div><div class="kpi-lbl">Просрочено</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#fbbf24">${summary.totalDrift}</div><div class="kpi-lbl">Drift</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#fb923c">${summary.unassignedCount || 0}</div><div class="kpi-lbl">Без ответств.</div></div>
+      <div class="kpi"><div class="kpi-val" style="color:#a78bfa">${summary.noDeadlineCount || 0}</div><div class="kpi-lbl">Без сроков</div></div>
+    </div>
+  </div>`);
 
-  const rows = projects.slice(0, 8).map(p => {
+  // Slide 3: Projects
+  const projItems = projects.slice(0, 10).map(p => {
     const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-    return `<div class="prow"><div class="picon" style="background:${p.color || '#3b82f6'}">${p.name[0]}</div><div class="pinfo"><div class="pname">${p.name} <span style="color:${statusColors[p.timingStatus]};font-size:14px">${statusLabels[p.timingStatus]}</span></div><div class="pbar"><div class="pfill" style="width:${pct}%;background:${p.color || '#3b82f6'}"></div></div><div class="pmeta">${pct}% · ${p.completed}/${p.total}${p.overdue > 0 ? ` · ⚠ ${p.overdue}` : ""}</div></div></div>`;
+    const assigneeStr = (p.assignees || []).slice(0, 2).map(n => n.split(" ")[0]).join(", ");
+    return `<div class="proj-row">
+      <div class="proj-icon" style="background:${p.color || '#3b82f6'}">${p.name[0]}</div>
+      <div class="proj-body">
+        <div class="proj-top"><span class="proj-name">${p.name}</span><span class="proj-status" style="color:${statusColors[p.timingStatus]}">${statusLabels[p.timingStatus]}</span></div>
+        <div class="proj-bar"><div class="proj-fill" style="width:${pct}%;background:${p.color || '#3b82f6'}"></div></div>
+        <div class="proj-meta">${pct}% · ${p.completed}/${p.total}${p.overdue > 0 ? ` · <span style="color:#f87171">⚠ ${p.overdue}</span>` : ""}${assigneeStr ? ` · ${assigneeStr}` : ""}${(p.unassignedCount || 0) > 0 ? ` · <span style="color:#fb923c">👤 ${p.unassignedCount}</span>` : ""}</div>
+      </div>
+    </div>`;
   }).join("");
-  slides.push(`<div class="slide"><h2>Проекты</h2>${rows}</div>`);
+  slides.push(`<div class="slide"><h2>Проекты (${projects.length})</h2>${projItems}</div>`);
 
-  const pptSteps = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:12px;color:${t.stepsCompleted === t.stepsTotal ? '#10b981' : '#60a5fa'};margin-left:6px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
+  // Slide 4: Team load
+  if ((assigneeSummary || []).length > 0) {
+    const teamRows = (assigneeSummary || []).slice(0, 8).map(a => {
+      const pct = a.total > 0 ? Math.round((a.completed / a.total) * 100) : 0;
+      return `<div class="team-row">
+        <div class="team-avatar">${a.name.split(/\s+/).map(p => p[0]).join("").substring(0, 2).toUpperCase()}</div>
+        <span class="team-name">${a.name}</span>
+        <span class="team-stat">${a.total} задач</span>
+        <span class="team-stat" style="color:#34d399">✓${a.completed}</span>
+        ${a.overdue > 0 ? `<span class="team-stat" style="color:#f87171">⚠${a.overdue}</span>` : ""}
+        ${a.drift > 0 ? `<span class="team-stat" style="color:#fbbf24">↗${a.drift}</span>` : ""}
+        <div class="team-bar"><div class="team-fill" style="width:${pct}%;background:${pct === 100 ? '#34d399' : '#60a5fa'}"></div></div>
+        <span class="team-pct">${pct}%</span>
+      </div>`;
+    }).join("");
+    slides.push(`<div class="slide"><h2>Загрузка команды</h2>${teamRows}</div>`);
+  }
+
+  // Task slides
+  const pptSteps = (t: any) => t.stepsTotal > 0 ? `<span style="font-size:12px;color:${t.stepsCompleted === t.stepsTotal ? '#34d399' : '#60a5fa'};margin-left:6px">✓${t.stepsCompleted}/${t.stepsTotal}</span>` : "";
   const taskSlide = (title: string, tasks: any[], max = 8) => {
     if (tasks.length === 0) return;
-    const items = tasks.slice(0, max).map(t => `<div class="trow"><span class="tt">${t.title}${pptSteps(t)}</span><span class="ta">${t.assignee}</span><span class="td">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span></div>`).join("");
+    const items = tasks.slice(0, max).map(t => `<div class="task-row"><span class="task-title">${t.title}${pptSteps(t)}</span><span class="task-assignee">${t.assignee}</span><span class="task-date">${t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : ""}</span>${t.driftDays !== undefined ? `<span class="task-drift">${t.driftDays > 0 ? '+' : ''}${t.driftDays}д</span>` : ""}</div>`).join("");
     slides.push(`<div class="slide"><h2>${title} (${tasks.length})</h2>${items}</div>`);
   };
 
   taskSlide("✅ Выполнено", completedTasks);
   taskSlide("⚠️ Просрочено", overdueTasks);
   taskSlide("📅 На этой неделе", weekTasks);
-  taskSlide("↔ Drift", driftTasks);
+  if (driftTasks.length > 0) taskSlide("↔ Drift", driftTasks);
 
+  // AI slide
   if (aiSummary) {
     slides.push(`<div class="slide"><h2>🤖 ИИ-анализ</h2><div class="ai-body">${aiSummary.replace(/\n/g, "<br/>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</div></div>`);
   }
 
+  // Final slide
+  slides.push(`<div class="slide title-slide"><div class="title-accent"></div><div class="title-content"><h1>Спасибо</h1><p class="sub">JustTODOit · ${dateStr}</p></div></div>`);
+
   return `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Презентация</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#f1f5f9}
-  .slide{width:100vw;height:100vh;display:flex;flex-direction:column;justify-content:center;padding:80px}
-  .title{align-items:center;text-align:center}
-  .title h1{font-size:56px;margin-bottom:12px}
-  .sub{font-size:20px;color:#94a3b8}
-  h2{font-size:36px;color:#60a5fa;margin-bottom:28px}
-  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
-  .card{background:#1e293b;border-radius:12px;padding:24px;text-align:center}
-  .val{font-size:48px;font-weight:700}
-  .lbl{font-size:14px;color:#94a3b8;margin-top:4px}
-  .prow{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #1e293b}
-  .picon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0}
-  .pinfo{flex:1}
-  .pname{font-size:16px;font-weight:600;display:flex;gap:12px;align-items:center}
-  .pbar{height:6px;background:#1e293b;border-radius:3px;margin:6px 0 4px}
-  .pfill{height:100%;border-radius:3px}
-  .pmeta{font-size:13px;color:#94a3b8}
-  .trow{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b;align-items:center}
-  .tt{flex:1;font-size:16px;font-weight:500}
-  .ta{font-size:14px;color:#94a3b8;width:150px}
-  .td{font-size:14px;color:#94a3b8;width:100px}
-  .ai-body{font-size:18px;line-height:1.8;color:#cbd5e1}
-  @media print{.slide{page-break-after:always}}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#080c14;color:#e2e8f0;overflow:hidden}
+  .slide{width:100vw;height:100vh;display:none;flex-direction:column;justify-content:center;padding:60px 80px;position:relative;background:#0b1120}
+  .slide:first-child{display:flex}
+  .title-slide{align-items:center;text-align:center;background:linear-gradient(160deg,#0b1120 0%,#162033 50%,#0f1d36 100%)}
+  .title-accent{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#3b82f6,#8b5cf6,#3b82f6)}
+  .title-content{position:relative}
+  .title-badge{font-size:12px;letter-spacing:4px;color:#60a5fa;margin-bottom:16px;font-weight:600}
+  .title-slide h1{font-size:52px;font-weight:700;color:#f1f5f9;margin-bottom:8px}
+  .sub{font-size:18px;color:#64748b}
+  .title-meta{font-size:14px;color:#475569;margin-top:20px}
+  h2{font-size:28px;color:#f1f5f9;margin-bottom:24px;font-weight:700}
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .kpi{background:linear-gradient(135deg,#1e293b,#1a2332);border:1px solid #334155;border-radius:16px;padding:28px 20px;text-align:center}
+  .kpi-val{font-size:44px;font-weight:700}
+  .kpi-lbl{font-size:13px;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+  .kpi-sub{font-size:12px;margin-top:4px;font-weight:600}
+  .proj-row{display:flex;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #1e293b}
+  .proj-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;flex-shrink:0}
+  .proj-body{flex:1}
+  .proj-top{display:flex;gap:12px;align-items:center}
+  .proj-name{font-size:15px;font-weight:600}
+  .proj-status{font-size:13px;font-weight:500}
+  .proj-bar{height:5px;background:#1e293b;border-radius:3px;margin:5px 0 4px}
+  .proj-fill{height:100%;border-radius:3px}
+  .proj-meta{font-size:12px;color:#94a3b8}
+  .team-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #1e293b}
+  .team-avatar{width:32px;height:32px;border-radius:99px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#60a5fa;flex-shrink:0}
+  .team-name{flex:1;font-size:15px;font-weight:500}
+  .team-stat{font-size:13px;color:#94a3b8;min-width:50px}
+  .team-bar{width:80px;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;flex-shrink:0}
+  .team-fill{height:100%;border-radius:3px}
+  .team-pct{font-size:13px;color:#94a3b8;width:36px;text-align:right}
+  .task-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b;align-items:center}
+  .task-title{flex:1;font-size:15px;font-weight:500}
+  .task-assignee{font-size:13px;color:#94a3b8;width:140px}
+  .task-date{font-size:13px;color:#94a3b8;width:90px}
+  .task-drift{font-size:13px;color:#fbbf24;font-weight:600;width:60px}
+  .ai-body{font-size:16px;line-height:1.8;color:#cbd5e1}
+  .nav{position:fixed;bottom:20px;right:24px;display:flex;gap:8px;z-index:100}
+  .nav button{background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
+  .nav button:hover{background:#334155}
+  .counter{position:fixed;bottom:24px;left:24px;font-size:12px;color:#475569;z-index:100}
+  @media print{.slide{page-break-after:always;display:flex!important}.nav,.counter{display:none}}
 </style></head><body>
   ${slides.join("\n")}
+  <div class="counter"><span id="cur">1</span> / ${slides.length}</div>
+  <div class="nav"><button onclick="go(-1)">← Назад</button><button onclick="go(1)">Далее →</button></div>
   <script>
-    let c=0;const s=document.querySelectorAll('.slide');
-    s.forEach((x,i)=>{if(i>0)x.style.display='none'});
-    document.addEventListener('keydown',e=>{
-      if(e.key==='ArrowRight'||e.key===' '){if(c<s.length-1){s[c].style.display='none';c++;s[c].style.display='flex'}}
-      if(e.key==='ArrowLeft'){if(c>0){s[c].style.display='none';c--;s[c].style.display='flex'}}
-    });
+    let c=0;const s=document.querySelectorAll('.slide'),ct=document.getElementById('cur');
+    function go(d){const n=c+d;if(n>=0&&n<s.length){s[c].style.display='none';c=n;s[c].style.display='flex';ct.textContent=c+1}}
+    document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')go(1);if(e.key==='ArrowLeft')go(-1)});
   </script>
 </body></html>`;
 }
 
+// ==================== MAIN COMPONENT ====================
 export default function DashboardExportDialog({ projectStats, summary, users, aiSummary, trigger, subtaskMap }: DashboardExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState(false);
@@ -469,7 +657,6 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
         </DialogHeader>
 
         <div className="space-y-2.5 pt-1">
-          {/* Period selector */}
           <div className="space-y-1">
             <p className="text-[11px] font-medium text-muted-foreground">Период отчёта</p>
             <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
@@ -485,7 +672,7 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Отчёт включает метрики, проекты, просроченные, перенесённые задачи и ИИ-анализ
+            Включает метрики, проекты, команду, просроченные, перенесённые задачи и ИИ-анализ
           </p>
 
           <button
@@ -513,7 +700,7 @@ export default function DashboardExportDialog({ projectStats, summary, users, ai
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">Скачать презентацию</p>
-              <p className="text-[11px] text-muted-foreground">HTML-файл со слайдами (← → навигация)</p>
+              <p className="text-[11px] text-muted-foreground">HTML-слайды (← → навигация)</p>
             </div>
             {loadingPpt && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </button>
