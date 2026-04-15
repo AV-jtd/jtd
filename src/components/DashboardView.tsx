@@ -319,11 +319,14 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
     const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
     const now = new Date();
+    const weekFromNow = addDays(startOfDay(now), 7);
 
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
     const activeTasks = unique.filter(t => !t.is_completed);
+    const completedTasks = unique.filter(t => t.is_completed);
 
+    // Assignee workload
     const assigneeLoad: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
     activeTasks.forEach(t => {
       const uid = t.assigned_to || t.user_id;
@@ -332,6 +335,29 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       assigneeLoad[uid].total++;
       if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
       if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
+    });
+
+    // Velocity: completed last 7 days vs prior 7 days
+    const d7 = subDays(now, 7);
+    const d14 = subDays(now, 14);
+    const completedLast7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d7).length;
+    const completedPrior7 = completedTasks.filter(t => t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
+
+    // Deadline clustering: tasks due in next 7 days grouped by day
+    const upcomingByDay: Record<string, number> = {};
+    activeTasks.forEach(t => {
+      if (t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow) {
+        const key = format(new Date(t.deadline), "yyyy-MM-dd");
+        upcomingByDay[key] = (upcomingByDay[key] || 0) + 1;
+      }
+    });
+    const peakDay = Object.entries(upcomingByDay).sort(([, a], [, b]) => b - a)[0];
+
+    // Stalled projects (no completions in 14 days, still active)
+    const stalledProjects = projectStats.filter(s => {
+      if (s.total === 0 || s.timingStatus === "completed") return false;
+      const projectTasks = [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)];
+      return !projectTasks.some(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14);
     });
 
     const projectSummaries = projectStats.slice(0, 20).map(s => {
@@ -347,9 +373,12 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
     const dataContext = `Дата: ${format(now, "d MMMM yyyy", { locale: ru })}
 Проекты (${projectStats.length}):\n${projectSummaries}
-\nНагрузка исполнителей:\n${loadSummary}`;
+\nНагрузка исполнителей:\n${loadSummary}
+\nВелосити: завершено ${completedLast7} задач за 7 дн (пред. неделя: ${completedPrior7})
+Пик дедлайнов: ${peakDay ? `${format(parseISO(peakDay[0]), "dd MMM", { locale: ru })} — ${peakDay[1]} задач` : "нет"}
+Застопоренных проектов (0 завершений за 14 дн): ${stalledProjects.length > 0 ? stalledProjects.map(s => s.group.name).join(", ") : "нет"}`;
 
-    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 60 символов)",\n  "desc": "объяснение (до 120 символов)",\n  "action": "конкретное действие (до 40 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: требует действия сегодня\n- amber: требует действия на этой неделе\n- green: положительная динамика\n- Всегда 1-2 red, 1-2 amber, 1 green\n- Смотри на: % просроченных, drift кластеры у одного человека, проекты с 0% и просрочками, перегрузку исполнителей`;
+    const prompt = `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня\n- amber: предупреждения, действие на этой неделе\n- green: положительная динамика или достижение\n- Всегда 1-2 red, 1-2 amber, 0-1 green\n\nАнализируй ВСЕ аспекты проектного управления:\n1. Критический путь: проекты с максимальным % просрочек\n2. Velocity: тренд завершения задач (растет/падает)\n3. Drift паттерны: системные переносы у одного исполнителя или проекта\n4. Пиковая нагрузка: кластеризация дедлайнов\n5. Застой: проекты без прогресса\n6. Перегрузка: дисбаланс задач между исполнителями\n7. Прогноз: при текущей velocity успеваем ли к ближайшим вехам\n\nДавай конкретные actionable рекомендации руководителю.`;
 
     try {
       let fullText = "";
