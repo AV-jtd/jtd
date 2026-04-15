@@ -1028,9 +1028,6 @@ function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift
 }
 
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [taskFilter, setTaskFilter] = useState<"all" | "overdue" | "drift" | "upcoming" | "done">("all");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const toggle = (id: string) => setExpandedIds(prev => {
     const next = new Set(prev);
