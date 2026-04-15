@@ -41,7 +41,7 @@ export default function ReportsView() {
   };
 
   const getReportUrl = (token: string) =>
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard-report?token=${token}`;
+    `${window.location.origin}/report?token=${token}`;
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
 
