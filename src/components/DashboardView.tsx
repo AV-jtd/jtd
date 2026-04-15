@@ -1908,12 +1908,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5">
 
         {/* Header bar */}
-        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
+        <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
+          <span className="text-xs sm:text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
 
-          {/* Filters inline */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Filters — scroll on mobile */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none flex-nowrap sm:flex-wrap">
             <MultiSelectFilter
               label="Проекты"
               icon={FolderOpen}
