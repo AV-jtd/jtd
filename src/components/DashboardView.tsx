@@ -813,6 +813,7 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
 }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<"all" | "overdue" | "drift" | "on-track" | "completed">("all");
+  const [collapsed, setCollapsed] = useState(false);
 
   const toggle = (id: string) => setExpandedIds(prev => {
     const next = new Set(prev);
@@ -821,8 +822,8 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
   });
 
   const userName = (userId: string | null) => {
-    if (!userId) return "—";
-    return users.find(u => u.id === userId)?.display_name || "—";
+    if (!userId) return "";
+    return users.find(u => u.id === userId)?.display_name || "";
   };
 
   const filteredProjects = useMemo(() => {
@@ -831,103 +832,153 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
     return projectStats.filter(s => s.timingStatus === statusFilter);
   }, [projectStats, statusFilter]);
 
+  const totalProjects = projectStats.length;
+  const totalOverdue = projectStats.reduce((s, p) => s + p.overdue, 0);
+  const totalDrift = projectStats.reduce((s, p) => s + p.driftCount, 0);
+  const totalTasks = projectStats.reduce((s, p) => s + p.total, 0);
+  const totalCompleted = projectStats.reduce((s, p) => s + p.completed, 0);
+  const avgPct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+
+  const d7 = subDays(new Date(), 7);
+  const weeklyDone = useMemo(() => {
+    return projectStats.reduce((sum, ps) => {
+      const allT = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+      return sum + allT.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
+    }, 0);
+  }, [projectStats, d7]);
+
+  const unassignedCount = useMemo(() => {
+    return projectStats.reduce((sum, ps) => {
+      const allT = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+      return sum + allT.filter(t => !t.is_completed && !t.assigned_to).length;
+    }, 0);
+  }, [projectStats]);
+
   if (projectStats.length === 0) return null;
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-2 flex-wrap">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full px-3 py-2 border-b border-border flex items-center gap-1.5 hover:bg-muted/30 transition-colors"
+      >
         <ListChecks className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="text-xs font-medium text-foreground flex-1">Проекты и задачи</span>
-        <div className="flex items-center gap-0.5">
-          {(["all", "overdue", "drift", "on-track", "completed"] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={cn(
-                "text-[10px] px-2 py-0.5 rounded transition-colors",
-                statusFilter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {f === "all" ? "Все" : f === "overdue" ? "Просрочено" : f === "drift" ? "Drift" : f === "on-track" ? "В графике" : "Завершено"}
-            </button>
-          ))}
-        </div>
-      </div>
+        <span className="text-xs font-medium text-foreground">Проекты и задачи</span>
+        <span className="text-[10px] px-1.5 py-px rounded bg-primary/10 text-primary font-medium">{totalProjects}</span>
+        <span className="flex-1" />
+        <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {totalOverdue > 0 && <span className="text-red-500 font-medium">⚠ {totalOverdue}</span>}
+          {totalDrift > 0 && <span className="text-amber-500">↗ {totalDrift}</span>}
+          {unassignedCount > 0 && <span className="text-orange-500">👤 {unassignedCount}</span>}
+          <span className="text-emerald-500">✓{weeklyDone}/нед</span>
+          <span>{avgPct}%</span>
+        </span>
+        <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", collapsed && "-rotate-90")} />
+      </button>
 
-      <div className="divide-y divide-border max-h-[600px] overflow-y-auto scrollbar-thin">
-        {filteredProjects.map(ps => {
-          const isExpanded = expandedIds.has(ps.group.id);
-          const pct = ps.total > 0 ? Math.round((ps.completed / ps.total) * 100) : 0;
-
-          return (
-            <div key={ps.group.id}>
+      {!collapsed && (
+        <>
+          <div className="px-3 py-1.5 border-b border-border flex items-center gap-0.5 flex-wrap bg-muted/20">
+            {(["all", "overdue", "drift", "on-track", "completed"] as const).map(f => (
               <button
-                onClick={() => toggle(ps.group.id)}
-                className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded transition-colors",
+                  statusFilter === f
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
               >
-                <div
-                  className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
-                  style={{ backgroundColor: ps.group.color || "hsl(var(--primary))" }}
-                >
-                  {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs font-medium text-foreground truncate flex-1">{ps.group.name}</span>
-
-                <span className={cn(
-                  "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
-                  ps.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
-                  ps.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
-                  ps.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
-                  "text-muted-foreground bg-muted border-border"
-                )}>
-                  {getStatusLabel(ps.timingStatus)}
-                </span>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Progress value={pct} className="w-14 h-1.5" />
-                  <span className="text-[10px] text-muted-foreground">{pct}% · {ps.completed}/{ps.total}</span>
-                </div>
-
-                {ps.overdue > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                    <AlertTriangle className="h-3 w-3" />{ps.overdue}
-                  </span>
-                )}
-                {ps.driftCount > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
-                    <ArrowRightLeft className="h-3 w-3" />{ps.driftCount}
-                  </span>
-                )}
-
-                {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                {f === "all" ? "Все" : f === "overdue" ? "Просрочено" : f === "drift" ? "Drift" : f === "on-track" ? "В графике" : "Завершено"}
               </button>
+            ))}
+          </div>
 
-              {isExpanded && (
-                <ExpandedProjectSummary
-                  ps={ps}
-                  userName={userName}
-                  onOpenTask={onOpenTask}
-                  onNavigateToProject={onNavigateToProject}
-                  subtaskMap={subtaskMap}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+          <div className="divide-y divide-border max-h-[600px] overflow-y-auto scrollbar-thin">
+            {filteredProjects.map(ps => {
+              const isExpanded = expandedIds.has(ps.group.id);
+              const pct = ps.total > 0 ? Math.round((ps.completed / ps.total) * 100) : 0;
+
+              return (
+                <div key={ps.group.id}>
+                  <button
+                    onClick={() => toggle(ps.group.id)}
+                    className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <div
+                      className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
+                      style={{ backgroundColor: ps.group.color || "hsl(var(--primary))" }}
+                    >
+                      {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-medium text-foreground truncate flex-1">{ps.group.name}</span>
+
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
+                      ps.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
+                      ps.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
+                      ps.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
+                      "text-muted-foreground bg-muted border-border"
+                    )}>
+                      {getStatusLabel(ps.timingStatus)}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Progress value={pct} className="w-14 h-1.5" />
+                      <span className="text-[10px] text-muted-foreground">{pct}% · {ps.completed}/{ps.total}</span>
+                    </div>
+
+                    {ps.overdue > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                        <AlertTriangle className="h-3 w-3" />{ps.overdue}
+                      </span>
+                    )}
+                    {ps.driftCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
+                        <ArrowRightLeft className="h-3 w-3" />{ps.driftCount}
+                      </span>
+                    )}
+
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                  </button>
+
+                  {isExpanded && (
+                    <ExpandedProjectSummary
+                      ps={ps}
+                      userName={userName}
+                      onOpenTask={onOpenTask}
+                      onNavigateToProject={onNavigateToProject}
+                      subtaskMap={subtaskMap}
+                      users={users}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject, subtaskMap }: {
+function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject, subtaskMap, users }: {
   ps: ProjectStats;
   userName: (userId: string | null) => string;
   onOpenTask: (taskId: string) => void;
   onNavigateToProject: (groupId: string) => void;
   subtaskMap: SubtaskMap;
+  users: Profile[];
 }) {
+  const [expandedSubprojects, setExpandedSubprojects] = useState<Set<string>>(new Set());
+
+  const toggleSp = (id: string) => setExpandedSubprojects(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
   const recentDone = useMemo(() => {
     const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
@@ -935,6 +986,20 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
     return unique
       .filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7)
       .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
+  }, [ps]);
+
+  // Weekly activity indicator
+  const d7 = subDays(new Date(), 7);
+  const weeklyCreated = useMemo(() => {
+    const allT = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+    return allT.filter(t => new Date(t.created_at) >= d7).length;
+  }, [ps, d7]);
+
+  // Unassigned tasks
+  const unassignedTasks = useMemo(() => {
+    const allT = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+    const unique = Array.from(new Map(allT.map(t => [t.id, t])).values());
+    return unique.filter(t => !t.is_completed && !t.assigned_to);
   }, [ps]);
 
   const subprojectsWithTasks = ps.subprojects.filter(sp => sp.total > 0);
@@ -949,6 +1014,7 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
           <FolderOpen className="h-3 w-3" /> Открыть проект
         </button>
         <span className="text-[10px] text-emerald-600 dark:text-emerald-400">✓ {recentDone.length} за 7 дн</span>
+        {weeklyCreated > 0 && <span className="text-[10px] text-blue-500">+ {weeklyCreated} новых</span>}
         {ps.overdue > 0 && <span className="text-[10px] text-red-500">⚠ {ps.overdue} просроч.</span>}
         {ps.driftCount > 0 && <span className="text-[10px] text-amber-600 dark:text-amber-400">↗ drift ø{ps.avgDriftDays}д</span>}
         {ps.nextDeadline && <span className="text-[10px] text-muted-foreground">⏰ {format(new Date(ps.nextDeadline), "dd MMM", { locale: ru })}</span>}
@@ -956,34 +1022,70 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
 
       {subprojectsWithTasks.length > 0 && (
         <DashboardSummarySection title="Подпроекты" count={subprojectsWithTasks.length}>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {subprojectsWithTasks.map(sp => {
               const spPct = sp.total > 0 ? Math.round((sp.completed / sp.total) * 100) : 0;
+              const isSpExpanded = expandedSubprojects.has(sp.group.id);
               return (
-                <div key={sp.group.id} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50">
-                  <div
-                    className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[8px] font-semibold"
-                    style={{ backgroundColor: sp.group.color || "hsl(var(--primary))" }}
+                <div key={sp.group.id}>
+                  <button
+                    onClick={() => toggleSp(sp.group.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left"
                   >
-                    {sp.group.icon && sp.group.icon !== "list" ? sp.group.icon : sp.group.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-[11px] font-medium truncate flex-1">{sp.group.name}</span>
-                  <span className={cn(
-                    "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
-                    sp.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
-                    sp.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
-                    sp.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
-                    "text-muted-foreground bg-muted border-border"
-                  )}>
-                    {getStatusLabel(sp.timingStatus)}
-                  </span>
-                  {sp.overdue > 0 && <span className="text-[9px] text-red-500">⚠ {sp.overdue}</span>}
-                  {sp.driftCount > 0 && <span className="text-[9px] text-amber-500">↗ {sp.driftCount}</span>}
-                  <Progress value={spPct} className="w-10 h-1" />
-                  <span className="text-[9px] text-muted-foreground">{spPct}% · {sp.completed}/{sp.total}</span>
+                    <div
+                      className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[8px] font-semibold"
+                      style={{ backgroundColor: sp.group.color || "hsl(var(--primary))" }}
+                    >
+                      {sp.group.icon && sp.group.icon !== "list" ? sp.group.icon : sp.group.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-[11px] font-medium truncate flex-1">{sp.group.name}</span>
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
+                      sp.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
+                      sp.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
+                      sp.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
+                      "text-muted-foreground bg-muted border-border"
+                    )}>
+                      {getStatusLabel(sp.timingStatus)}
+                    </span>
+                    {sp.overdue > 0 && <span className="text-[9px] text-red-500">⚠ {sp.overdue}</span>}
+                    {sp.driftCount > 0 && <span className="text-[9px] text-amber-500">↗ {sp.driftCount}</span>}
+                    <Progress value={spPct} className="w-10 h-1" />
+                    <span className="text-[9px] text-muted-foreground">{spPct}% · {sp.completed}/{sp.total}</span>
+                    {isSpExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {isSpExpanded && (
+                    <div className="ml-5 pl-2 border-l-2 border-border/50 space-y-0.5 py-1 animate-fade-in">
+                      {sp.overdueTasks.length > 0 && sp.overdueTasks.map(t => (
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned />
+                      ))}
+                      {sp.upcomingTasks.map(t => (
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                      ))}
+                      {sp.tasks.filter(t => !t.is_completed && !sp.overdueTasks.includes(t) && !sp.upcomingTasks.includes(t)).slice(0, 5).map(t => (
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                      ))}
+                      {sp.total > 0 && sp.tasks.filter(t => !t.is_completed).length === 0 && (
+                        <span className="text-[10px] text-muted-foreground px-2">Все задачи выполнены ✓</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {unassignedTasks.length > 0 && (
+        <DashboardSummarySection title="Назначьте ответственного" count={unassignedTasks.length} variant="unassigned">
+          <div className="space-y-0.5">
+            {unassignedTasks.slice(0, 5).map(t => (
+              <TaskSummaryRow key={t.id} task={t} userName="" onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+            ))}
+            {unassignedTasks.length > 5 && (
+              <span className="text-[10px] text-muted-foreground px-2">…и ещё {unassignedTasks.length - 5}</span>
+            )}
           </div>
         </DashboardSummarySection>
       )}
@@ -1002,7 +1104,7 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         <DashboardSummarySection title="Просроченные" count={ps.overdueTasks.length} variant="destructive">
           <div className="space-y-0.5">
             {ps.overdueTasks.map(t => (
-              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" />
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned />
             ))}
           </div>
         </DashboardSummarySection>
@@ -1012,7 +1114,7 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         <DashboardSummarySection title="Сдвиг сроков" count={ps.driftTasks.length} variant="warning">
           <div className="space-y-0.5">
             {ps.driftTasks.map(({ task: t, driftDays }) => (
-              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} drift={driftDays} />
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} drift={driftDays} showUnassigned />
             ))}
           </div>
         </DashboardSummarySection>
@@ -1022,7 +1124,7 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         <DashboardSummarySection title="Ближайшие дедлайны" count={ps.upcomingTasks.length}>
           <div className="space-y-0.5">
             {ps.upcomingTasks.map(t => (
-              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} />
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
             ))}
           </div>
         </DashboardSummarySection>
@@ -1036,7 +1138,7 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
 }
 
 function DashboardSummarySection({ title, count, children, variant }: {
-  title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" | "success";
+  title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" | "success" | "unassigned";
 }) {
   return (
     <div>
@@ -1046,6 +1148,7 @@ function DashboardSummarySection({ title, count, children, variant }: {
           variant === "destructive" ? "text-destructive" :
           variant === "warning" ? "text-amber-500" :
           variant === "success" ? "text-emerald-600 dark:text-emerald-400" :
+          variant === "unassigned" ? "text-orange-500" :
           "text-foreground"
         )}>{title}</span>
         <span className="text-[9px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{count}</span>
@@ -1055,8 +1158,8 @@ function DashboardSummarySection({ title, count, children, variant }: {
   );
 }
 
-function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift }: {
-  task: Task; userName: string; onOpenTask: (taskId: string) => void; subtaskMap: SubtaskMap; variant?: "overdue" | "done"; drift?: number;
+function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift, showUnassigned }: {
+  task: Task; userName: string; onOpenTask: (taskId: string) => void; subtaskMap: SubtaskMap; variant?: "overdue" | "done"; drift?: number; showUnassigned?: boolean;
 }) {
   const stepsInfo = subtaskMap.get(task.id);
   const now = new Date();
@@ -1103,8 +1206,14 @@ function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift
         </span>
       )}
 
-      {userName && userName !== "—" && (
-        <span className="text-[9px] text-muted-foreground shrink-0 max-w-[70px] truncate">{userName}</span>
+      {showUnassigned && !task.assigned_to && (
+        <span className="text-[9px] text-orange-500 shrink-0 inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/20">
+          <User className="h-2.5 w-2.5" />?
+        </span>
+      )}
+
+      {userName && (
+        <span className="text-[9px] text-muted-foreground shrink-0 max-w-[80px] truncate">{userName}</span>
       )}
     </button>
   );
