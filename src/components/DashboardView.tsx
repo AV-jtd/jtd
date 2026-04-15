@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMutations, Task, TaskGroup, Profile, Tag } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
