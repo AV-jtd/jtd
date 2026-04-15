@@ -68,6 +68,7 @@ export default function PublicReport() {
   const driftTasks = d.driftTasks || [];
   const upcomingTasks = d.upcomingTasks || [];
   const completedTasks = d.completedTasks || [];
+  const assigneeSummary = d.assigneeSummary || [];
 
   const stepsLabel = (t: any) => t.stepsTotal > 0
     ? <span style={{ fontSize: 11, marginLeft: 4, color: t.stepsCompleted === t.stepsTotal ? "#10b981" : "#3b82f6" }}>✓{t.stepsCompleted}/{t.stepsTotal}</span>
