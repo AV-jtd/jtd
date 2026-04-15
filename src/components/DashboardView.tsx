@@ -1057,10 +1057,20 @@ function MyDayBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full px-3 py-2 border-b border-border flex items-center gap-1.5 hover:bg-muted/30 transition-colors"
+      >
         <CalendarClock className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="text-xs font-medium text-foreground flex-1">Мой день</span>
-        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+        <span className="text-xs font-medium text-foreground">Мой день</span>
+        {overdue.length > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">⚠ {overdue.length}</span>
+        )}
+        {upcoming.length > 0 && (
+          <span className="text-[9px] text-muted-foreground">{upcoming.length} в работе</span>
+        )}
+        <span className="flex-1" />
+        <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5" onClick={e => e.stopPropagation()}>
           {(["day", "week"] as const).map(r => (
             <button
               key={r}
@@ -1075,36 +1085,39 @@ function MyDayBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
           ))}
         </div>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{myTasks.length}</span>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto scrollbar-thin divide-y divide-border">
-        {overdue.length > 0 && (
-          <div className="px-2 pt-1.5 pb-1">
-            <span className="text-[10px] font-semibold text-destructive px-1">Просрочено · {overdue.length}</span>
-            <div className="mt-0.5 space-y-0.5">
-              {overdue.map(t => (
-                <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" />
-              ))}
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+      </button>
+      {!collapsed && (
+        <div className="max-h-[300px] overflow-y-auto scrollbar-thin divide-y divide-border">
+          {overdue.length > 0 && (
+            <div className="px-2 pt-1.5 pb-1">
+              <span className="text-[10px] font-semibold text-destructive px-1">Просрочено · {overdue.length}</span>
+              <div className="mt-0.5 space-y-0.5">
+                {overdue.map(t => (
+                  <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-        {upcoming.length > 0 && (
-          <div className="px-2 pt-1.5 pb-1">
-            <span className="text-[10px] font-semibold text-foreground px-1">
-              {range === "day" ? "Сегодня" : "На неделе"} · {upcoming.length}
-            </span>
-            <div className="mt-0.5 space-y-0.5">
-              {upcoming.map(t => (
-                <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} />
-              ))}
+          )}
+          {upcoming.length > 0 && (
+            <div className="px-2 pt-1.5 pb-1">
+              <span className="text-[10px] font-semibold text-foreground px-1">
+                {range === "day" ? "Сегодня" : "На неделе"} · {upcoming.length}
+              </span>
+              <div className="mt-0.5 space-y-0.5">
+                {upcoming.map(t => (
+                  <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-        {myTasks.length === 0 && (
-          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-            {range === "day" ? "На сегодня задач нет 🎉" : "На эту неделю задач нет 🎉"}
-          </div>
-        )}
-      </div>
+          )}
+          {myTasks.length === 0 && (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {range === "day" ? "На сегодня задач нет 🎉" : "На эту неделю задач нет 🎉"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
