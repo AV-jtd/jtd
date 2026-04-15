@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
       task_participant_added: "push_task_participant_added",
       new_task_in_group: "push_new_task_in_group",
       task_delegated: "push_task_delegated",
+      baseline_approver_assigned: "push_task_assigned",
+      baseline_locked: "push_task_assigned",
     };
 
     const telegramPrefKey: Record<string, string> = {
@@ -83,6 +85,8 @@ Deno.serve(async (req) => {
       task_participant_added: "telegram_task_participant_added",
       new_task_in_group: "telegram_new_task_in_group",
       task_delegated: "telegram_task_delegated",
+      baseline_approver_assigned: "telegram_task_assigned",
+      baseline_locked: "telegram_task_assigned",
     };
 
     const prefColumn = pushPrefKey[event];
