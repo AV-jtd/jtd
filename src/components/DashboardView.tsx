@@ -15,7 +15,7 @@ import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday, getDay } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -697,53 +697,6 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
         {workload.length === 0 && (
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет данных</div>
         )}
-      </div>
-    </div>
-  );
-}
-
-// --- Weekly Activity Chart ---
-function WeeklyActivityChart({ tasks }: { tasks: Task[] }) {
-  const dayNames = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-
-  const { bars, maxCount, bestDay } = useMemo(() => {
-    const now = new Date();
-    const buckets: { label: string; count: number; dayOfWeek: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = subDays(now, i);
-      const key = format(d, "yyyy-MM-dd");
-      const count = tasks.filter(t => t.is_completed && t.completed_at && format(new Date(t.completed_at), "yyyy-MM-dd") === key).length;
-      buckets.push({ label: dayNames[getDay(d)], count, dayOfWeek: getDay(d) });
-    }
-    const maxCount = Math.max(...buckets.map(b => b.count), 1);
-    const bestIdx = buckets.reduce((best, b, i) => b.count > buckets[best].count ? i : best, 0);
-    return { bars: buckets, maxCount, bestDay: bestIdx };
-  }, [tasks]);
-
-  return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        <span className="text-xs font-medium text-foreground flex-1">Активность команды — выполнено задач по дням</span>
-        <span className="text-[10px] text-muted-foreground">эта неделя</span>
-      </div>
-      <div className="flex gap-1 px-3 py-2.5 items-end" style={{ height: 90 }}>
-        {bars.map((b, i) => {
-          const pct = maxCount > 0 ? (b.count / maxCount) * 100 : 0;
-          const isBest = i === bestDay && b.count > 0;
-          const isWeekend = b.dayOfWeek === 0 || b.dayOfWeek === 6;
-          const barColor = isWeekend ? "bg-muted-foreground/30" : isBest ? "bg-emerald-600" : "bg-emerald-400/70";
-          const numColor = isWeekend ? "text-muted-foreground" : isBest ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-emerald-600 dark:text-emerald-400";
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className="flex-1 flex items-end w-full" style={{ minHeight: 50 }}>
-                <div className={cn("w-full rounded-t min-h-[3px]", barColor)} style={{ height: `${Math.max(pct, 5)}%` }} />
-              </div>
-              <span className={cn("text-[11px]", numColor)}>{b.count}</span>
-              <span className="text-[10px] text-muted-foreground">{isBest ? `${b.label} ★` : b.label}</span>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
