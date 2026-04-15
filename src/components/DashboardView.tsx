@@ -1032,6 +1032,7 @@ function MyDayBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
   tasks: Task[]; user: any; onOpenTask: (taskId: string) => void; users: Profile[]; subtaskMap: SubtaskMap;
 }) {
   const [range, setRange] = useState<"day" | "week">("day");
+  const [collapsed, setCollapsed] = useState(false);
   const now = new Date();
   const endDate = range === "day" ? addDays(startOfDay(now), 1) : addDays(startOfDay(now), 7);
 
