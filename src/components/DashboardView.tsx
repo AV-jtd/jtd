@@ -1970,18 +1970,23 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         </div>
 
-        {/* KPI row — 5 cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {/* KPI row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
           <KpiCard
             label="Прогресс"
             value={`${summary.completionRate}%`}
             color="hsl(var(--primary))"
-            active={false}
           />
           <KpiCard
             label="Выполнено"
             value={summary.totalCompleted}
             color="hsl(142, 71%, 45%)"
+            trend={(() => {
+              const diff = summary.completedThisWeek - summary.completedLastWeek;
+              if (diff === 0) return `${summary.completedThisWeek}/нед`;
+              return `${diff > 0 ? "+" : ""}${diff} к прошлой нед`;
+            })()}
+            trendType={summary.completedThisWeek > summary.completedLastWeek ? "up-good" : summary.completedThisWeek < summary.completedLastWeek ? "down-bad" : "flat"}
           />
           <KpiCard
             label="Просрочено"
@@ -1989,6 +1994,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color="hsl(0, 72%, 58%)"
             active={expandedKpi === "overdue"}
             onClick={() => setExpandedKpi(prev => prev === "overdue" ? null : "overdue")}
+            trend={(() => {
+              const diff = summary.totalOverdue - summary.overdueLastWeek;
+              if (diff === 0) return undefined;
+              return `${diff > 0 ? "+" : ""}${diff} за нед`;
+            })()}
+            trendType={summary.totalOverdue > summary.overdueLastWeek ? "up-bad" : summary.totalOverdue < summary.overdueLastWeek ? "down-good" : "flat"}
           />
           <KpiCard
             label="Drift"
@@ -1996,6 +2007,20 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color="hsl(38, 92%, 50%)"
             active={expandedKpi === "drift"}
             onClick={() => setExpandedKpi(prev => prev === "drift" ? null : "drift")}
+          />
+          <KpiCard
+            label="Без ответственного"
+            value={summary.unassignedTasks.length}
+            color={summary.unassignedTasks.length > 0 ? "hsl(25, 95%, 53%)" : "hsl(var(--muted-foreground))"}
+            active={expandedKpi === "unassigned"}
+            onClick={() => setExpandedKpi(prev => prev === "unassigned" ? null : "unassigned")}
+          />
+          <KpiCard
+            label="Без сроков"
+            value={summary.noDeadlineTasks.length}
+            color={summary.noDeadlineTasks.length > 0 ? "hsl(280, 67%, 55%)" : "hsl(var(--muted-foreground))"}
+            active={expandedKpi === "no_deadline"}
+            onClick={() => setExpandedKpi(prev => prev === "no_deadline" ? null : "no_deadline")}
           />
           <KpiCard
             label="Активных проектов"
@@ -2019,6 +2044,24 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           <DetailPanel
             title="Задачи с отклонениями"
             tasks={summary.driftTasks}
+            onNavigateToTask={handleNavigateToTask}
+            users={users}
+            onClose={() => setExpandedKpi(null)}
+          />
+        )}
+        {expandedKpi === "unassigned" && (
+          <DetailPanel
+            title="Задачи без ответственного"
+            tasks={summary.unassignedTasks}
+            onNavigateToTask={handleNavigateToTask}
+            users={users}
+            onClose={() => setExpandedKpi(null)}
+          />
+        )}
+        {expandedKpi === "no_deadline" && (
+          <DetailPanel
+            title="Задачи без сроков"
+            tasks={summary.noDeadlineTasks}
             onNavigateToTask={handleNavigateToTask}
             users={users}
             onClose={() => setExpandedKpi(null)}
