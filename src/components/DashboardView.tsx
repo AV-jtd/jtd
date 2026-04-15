@@ -1184,8 +1184,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           </div>
         </div>
 
-        {/* AI Summary — after filters so it uses filtered projectStats */}
-        <AiDashboardSummary projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
+        {/* AI Signals — structured signal cards */}
+        <AiSignalsPanel projectStats={projectStats} users={users} onAiTextChange={setAiSummaryText} />
 
         {/* Status filters */}
         <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
