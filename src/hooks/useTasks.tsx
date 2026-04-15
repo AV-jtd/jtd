@@ -610,6 +610,8 @@ export function useTaskMutations() {
   const lockBaseline = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       const now = new Date().toISOString();
+      const { data: group } = await supabase.from("task_groups").select("name, baseline_approver_id").eq("id", id).single();
+
       const { error } = await supabase.from("task_groups").update({
         baseline_status: 'locked',
         baseline_locked_at: now,
@@ -629,6 +631,11 @@ export function useTaskMutations() {
         await Promise.all(tasks.map(t =>
           supabase.from("tasks").update({ original_deadline: t.deadline } as any).eq("id", t.id)
         ));
+      }
+
+      // Notify approver that baseline was locked
+      if ((group as any)?.baseline_approver_id) {
+        notifyEvent("baseline_locked", group?.name || "Проект", [(group as any).baseline_approver_id]);
       }
     },
     onMutate: async ({ id }) => {
