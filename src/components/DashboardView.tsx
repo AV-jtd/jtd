@@ -1026,11 +1026,8 @@ function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift
     </button>
   );
 }
-  projectStats: ProjectStats[];
-  users: Profile[];
-  onNavigateToTask: (taskId: string) => void;
-  onNavigateToProject: (groupId: string) => void;
-}) {
+
+
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [taskFilter, setTaskFilter] = useState<"all" | "overdue" | "drift" | "upcoming" | "done">("all");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
