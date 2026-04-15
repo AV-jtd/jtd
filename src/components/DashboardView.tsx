@@ -7,14 +7,15 @@ import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react"
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
-  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw
+  SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw,
+  Activity, Zap
 } from "lucide-react";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday, getDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,6 @@ import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
 type FilterStatus = "all" | TimingStatus;
@@ -59,30 +59,12 @@ function getTimingStatus(tasks: Task[]): TimingStatus {
   return "on-track";
 }
 
-function getStatusColor(status: TimingStatus) {
-  switch (status) {
-    case "on-track": return "bg-emerald-500";
-    case "at-risk": return "bg-amber-500";
-    case "overdue": return "bg-red-500";
-    case "completed": return "bg-muted-foreground/40";
-  }
-}
-
 function getStatusLabel(status: TimingStatus) {
   switch (status) {
     case "on-track": return "В графике";
     case "at-risk": return "Сдвиг";
     case "overdue": return "Просрочено";
     case "completed": return "Завершён";
-  }
-}
-
-function getStatusBadgeVariant(status: TimingStatus) {
-  switch (status) {
-    case "on-track": return "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400";
-    case "at-risk": return "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400";
-    case "overdue": return "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400";
-    case "completed": return "text-muted-foreground bg-muted border-border";
   }
 }
 
@@ -182,146 +164,9 @@ function buildProjectStats(
   };
 }
 
-// --- Sparkline ---
-function Sparkline({ data, color = "hsl(var(--primary))" }: { data: { date: string; count: number }[]; color?: string }) {
-  const hasData = data.some(d => d.count > 0);
-  if (!hasData) return null;
-  return (
-    <div className="h-8 w-20 shrink-0">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`spark-${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="count"
-            stroke={color}
-            strokeWidth={1.5}
-            fill={`url(#spark-${color.replace(/[^a-z0-9]/gi, "")})`}
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// --- Clickable Summary Card ---
-type SummaryMetric = "progress" | "deadlines" | "overdue" | "drift";
-
-function SummaryCard({ icon: Icon, value, label, color, active, onClick }: {
-  icon: any; value: number | string; label: string; color: string;
-  active?: boolean; onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "bg-card rounded-xl border border-border p-3 flex items-center gap-3 overflow-hidden transition-all text-left",
-        onClick && "cursor-pointer hover:shadow-md hover:border-primary/30",
-        active && "ring-2 ring-primary/40 border-primary/30 shadow-md"
-      )}
-    >
-      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", color)}>
-        <Icon className="h-4.5 w-4.5 text-white" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-lg font-bold leading-tight truncate">{value}</p>
-        <p className="text-[11px] text-muted-foreground leading-tight truncate">{label}</p>
-      </div>
-    </button>
-  );
-}
-
-// --- Expanded metric panel ---
-type SubtaskMap = Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>;
-
-function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose, subtaskMap }: {
-  metric: SummaryMetric;
-  projectStats: ProjectStats[];
-  onNavigateToTask: (taskId: string) => void;
-  users: Profile[];
-  onClose: () => void;
-  subtaskMap?: SubtaskMap;
-}) {
-  const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
-
-  const { title, tasks, variant } = useMemo(() => {
-    const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
-    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-    const now = new Date();
-    const weekFromNow = addDays(startOfDay(now), 7);
-
-    switch (metric) {
-      case "deadlines":
-        return {
-          title: "Дедлайны на неделе",
-          tasks: unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
-            .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()),
-          variant: undefined as "overdue" | undefined,
-        };
-      case "overdue":
-        return {
-          title: "Просроченные задачи",
-          tasks: unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
-            .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()),
-          variant: "overdue" as const,
-        };
-      case "drift":
-        return {
-          title: "Задачи с отклонениями",
-          tasks: unique.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-            .sort((a, b) => {
-              const da = differenceInDays(new Date(a.deadline!), new Date(a.original_deadline!));
-              const db = differenceInDays(new Date(b.deadline!), new Date(b.original_deadline!));
-              return Math.abs(db) - Math.abs(da);
-            }),
-          variant: undefined,
-        };
-      default:
-        return { title: "", tasks: [], variant: undefined };
-    }
-  }, [metric, projectStats]);
-
-  if (metric === "progress" || tasks.length === 0) return null;
-
-  return (
-    <div className="bg-card rounded-xl border border-border p-3 mb-4 animate-fade-in">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-foreground">{title} ({tasks.length})</span>
-        <button onClick={onClose} className="p-1 rounded-md hover:bg-muted transition-colors">
-          <X className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      </div>
-      <div className="space-y-0.5 max-h-64 overflow-y-auto scrollbar-thin">
-        {tasks.map(t => {
-          const drift = t.original_deadline && t.deadline && t.original_deadline !== t.deadline
-            ? differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!))
-            : undefined;
-          return (
-            <TaskRow
-              key={t.id}
-              task={t}
-              onClick={() => onNavigateToTask(t.id)}
-              userName={userName(t.assigned_to || t.user_id)}
-              variant={variant}
-              drift={metric === "drift" ? drift : undefined}
-              subtaskInfo={subtaskMap?.get(t.id)}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // --- AI Signal type & cache ---
 const AI_SIGNALS_CACHE_KEY = "jtd_ai_signals_cache";
-const AI_SIGNALS_TTL = 4 * 60 * 60 * 1000; // 4 hours
+const AI_SIGNALS_TTL = 4 * 60 * 60 * 1000;
 
 interface AiSignal {
   level: "red" | "amber" | "green";
@@ -346,15 +191,99 @@ function setCachedSignals(data: AiSignal[]) {
   try { localStorage.setItem(AI_SIGNALS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
-function signalLevelStyles(level: AiSignal["level"]) {
-  switch (level) {
-    case "red": return { bg: "bg-red-500/10 border-red-500/30 dark:bg-red-500/15", dot: "bg-red-500", text: "text-red-700 dark:text-red-400", badge: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20" };
-    case "amber": return { bg: "bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/15", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20" };
-    case "green": return { bg: "bg-emerald-500/10 border-emerald-500/30 dark:bg-emerald-500/15", dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-400", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" };
-  }
+// --- KPI Card ---
+function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
+  label: string;
+  value: string | number;
+  trend?: string;
+  trendType?: "up-good" | "up-bad" | "down-good" | "down-bad" | "flat";
+  active?: boolean;
+  onClick?: () => void;
+  color?: string;
+}) {
+  const trendColor = {
+    "up-good": "text-emerald-600 dark:text-emerald-400",
+    "up-bad": "text-red-500",
+    "down-good": "text-emerald-600 dark:text-emerald-400",
+    "down-bad": "text-red-500",
+    "flat": "text-muted-foreground",
+  };
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "bg-card rounded-lg border border-border p-3 text-left transition-all hover:border-muted-foreground/30",
+        active && "border-primary ring-2 ring-primary/20"
+      )}
+    >
+      <div className="text-[10px] text-muted-foreground mb-1 flex items-center justify-between">
+        <span>{label}</span>
+        {active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+      </div>
+      <div className="text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
+        {value}
+      </div>
+      {trend && (
+        <div className={cn("text-[10px] font-medium", trendColor[trendType || "flat"])}>
+          {trend}
+        </div>
+      )}
+    </button>
+  );
 }
 
-// --- AI Signals Panel ---
+// --- Detail Panel (expandable from KPI click) ---
+type SubtaskMap = Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>;
+
+function DetailPanel({ title, tasks, onNavigateToTask, users, onClose }: {
+  title: string;
+  tasks: Task[];
+  onNavigateToTask: (taskId: string) => void;
+  users: Profile[];
+  onClose: () => void;
+}) {
+  const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
+  if (tasks.length === 0) return null;
+  return (
+    <div className="bg-card rounded-lg border-2 border-primary overflow-hidden animate-fade-in">
+      <div className="px-3 py-2.5 bg-primary/5 border-b border-border flex items-center gap-2">
+        <AlertTriangle className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-medium text-primary flex-1">{title} — топ по срочности</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-base leading-none">×</button>
+      </div>
+      <div className="p-2.5 space-y-1 max-h-56 overflow-y-auto scrollbar-thin">
+        {tasks.slice(0, 10).map(t => {
+          const now = new Date();
+          const overdueDays = t.deadline ? Math.max(0, differenceInDays(now, new Date(t.deadline))) : 0;
+          const drift = t.original_deadline && t.deadline && t.original_deadline !== t.deadline
+            ? differenceInDays(new Date(t.deadline), new Date(t.original_deadline))
+            : null;
+          return (
+            <button
+              key={t.id}
+              onClick={() => onNavigateToTask(t.id)}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/50 hover:bg-muted transition-colors text-left"
+            >
+              <span className="text-xs text-foreground flex-1 truncate">{t.title}</span>
+              <span className="text-[11px] text-muted-foreground shrink-0">{userName(t.assigned_to || t.user_id)}</span>
+              {t.deadline && (
+                <span className="text-[11px] text-red-500 shrink-0">
+                  {format(new Date(t.deadline), "d MMM", { locale: ru })}
+                  {overdueDays > 0 && ` +${overdueDays}д`}
+                </span>
+              )}
+              {drift !== null && (
+                <span className="text-[11px] text-amber-500 shrink-0">↗ {drift > 0 ? `+${drift}` : drift}д</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- AI Signals Panel (restyled) ---
 function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateToPerson, onFilterOverdue, onAiTextChange }: {
   projectStats: ProjectStats[];
   users: Profile[];
@@ -369,7 +298,6 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   const hasLoaded = useRef(false);
   const generateRef = useRef<(() => void) | null>(null);
 
-  // Emit cached text on mount
   useEffect(() => {
     if (signals.length > 0) {
       onAiTextChange?.(signals.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
@@ -378,7 +306,6 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
   const generate = useCallback(async (forceRefresh = false) => {
     if (loading || projectStats.length === 0) return;
-    // Check cache unless force refresh
     if (!forceRefresh) {
       const cached = getCachedSignals();
       if (cached && cached.length > 0) {
@@ -393,7 +320,6 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
     const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
     const now = new Date();
 
-    // Build assignee workload map
     const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
     const activeTasks = unique.filter(t => !t.is_completed);
@@ -437,7 +363,6 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
         onDelta: (chunk) => { fullText += chunk; },
         onDone: () => {
           try {
-            // Extract JSON array from response
             const jsonMatch = fullText.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]) as AiSignal[];
@@ -467,9 +392,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
   generateRef.current = generate;
 
-  // Auto-load on mount when projectStats are ready
   const statsReady = projectStats.length > 0;
-  // useEffect to auto-trigger once
   useEffect(() => {
     if (statsReady && !hasLoaded.current) {
       hasLoaded.current = true;
@@ -482,28 +405,27 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   // Loading skeleton
   if (loading && signals.length === 0) {
     return (
-      <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-          <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
+      <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
+        <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
+          <span className="text-xs font-medium text-primary flex-1">Сигналы — анализ…</span>
           <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />
         </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="rounded-xl border border-border p-3 animate-pulse">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-muted" />
-              <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="p-3 space-y-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-lg p-2.5 animate-pulse bg-muted/50">
+              <div className="h-3.5 bg-muted rounded w-2/3 mb-1.5" />
+              <div className="h-3 bg-muted rounded w-full" />
             </div>
-            <div className="h-3 bg-muted rounded w-3/4" />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="mb-4 rounded-xl border border-border p-3 flex items-center gap-2">
+      <div className="bg-card rounded-lg border border-border p-3 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-xs text-muted-foreground flex-1">{error}</span>
         <button onClick={() => generate(true)} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
@@ -513,26 +435,58 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
 
   if (signals.length === 0) return null;
 
+  const signalBg = (level: AiSignal["level"]) => {
+    switch (level) {
+      case "red": return "bg-red-500/8 dark:bg-red-500/15";
+      case "amber": return "bg-amber-500/8 dark:bg-amber-500/15";
+      case "green": return "bg-emerald-500/8 dark:bg-emerald-500/15";
+    }
+  };
+  const signalIconBg = (level: AiSignal["level"]) => {
+    switch (level) {
+      case "red": return "bg-red-400/30";
+      case "amber": return "bg-amber-400/30";
+      case "green": return "bg-emerald-400/30";
+    }
+  };
+  const signalTitle = (level: AiSignal["level"]) => {
+    switch (level) {
+      case "red": return "text-red-700 dark:text-red-400";
+      case "amber": return "text-amber-700 dark:text-amber-400";
+      case "green": return "text-emerald-700 dark:text-emerald-400";
+    }
+  };
+  const signalDesc = (level: AiSignal["level"]) => {
+    switch (level) {
+      case "red": return "text-red-600/80 dark:text-red-400/80";
+      case "amber": return "text-amber-600/80 dark:text-amber-400/80";
+      case "green": return "text-emerald-600/80 dark:text-emerald-400/80";
+    }
+  };
+  const signalBtn = (level: AiSignal["level"]) => {
+    switch (level) {
+      case "red": return "bg-red-400/25 text-red-800 dark:text-red-300 hover:bg-red-400/40";
+      case "amber": return "bg-amber-400/25 text-amber-800 dark:text-amber-300 hover:bg-amber-400/40";
+      case "green": return "bg-emerald-400/25 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-400/40";
+    }
+  };
+
   return (
-    <div className="mb-4 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
-        </div>
+    <div className="bg-card rounded-lg border border-primary/30 overflow-hidden">
+      <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-medium text-primary flex-1">Сигналы — требует вашего внимания сегодня</span>
         <button
           onClick={() => generate(true)}
           disabled={loading}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
           title="Обновить сигналы"
         >
-          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+          <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
         </button>
       </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="p-2 space-y-1.5">
         {signals.map((signal, i) => {
-          const styles = signalLevelStyles(signal.level);
           const matchedProject = projectStats.find(s =>
             signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
           );
@@ -540,64 +494,38 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
             ? users.find(u => u.display_name?.toLowerCase().includes(signal.person!.toLowerCase()))
             : null;
 
-          const handleActionClick = (e: React.MouseEvent) => {
-            e.stopPropagation();
-            if (matchedProject) {
-              onNavigateToProject?.(matchedProject.group.id);
-            } else if (matchedPerson) {
-              onNavigateToPerson?.(matchedPerson.id);
-            } else if (signal.level === "red") {
-              onFilterOverdue?.();
-            }
+          const handleActionClick = () => {
+            if (matchedProject) onNavigateToProject?.(matchedProject.group.id);
+            else if (matchedPerson) onNavigateToPerson?.(matchedPerson.id);
+            else if (signal.level === "red") onFilterOverdue?.();
           };
 
           return (
-            <div
-              key={i}
-              className={cn(
-                "rounded-xl border p-3 text-left transition-all",
-                styles.bg,
-              )}
-            >
-              <div className="flex items-start gap-2 mb-1.5">
-                <div className={cn("h-2.5 w-2.5 rounded-full mt-1 shrink-0", styles.dot)} />
-                <span className={cn("text-sm font-semibold leading-snug flex-1", styles.text)}>
-                  {signal.title}
-                </span>
+            <div key={i} className={cn("flex items-start gap-2 p-2.5 rounded-lg", signalBg(signal.level))}>
+              <div className={cn("h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5", signalIconBg(signal.level))}>
+                {signal.level === "red" && <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />}
+                {signal.level === "amber" && <TrendingUp className="h-3 w-3 text-amber-600 dark:text-amber-400" />}
+                {signal.level === "green" && <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />}
               </div>
-              <p className="text-xs text-foreground/70 leading-relaxed mb-2 pl-[18px]">{signal.desc}</p>
-              <div className="pl-[18px] flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={handleActionClick}
-                  className={cn(
-                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border cursor-pointer hover:opacity-80 transition-all hover:shadow-sm",
-                    styles.badge
+              <div className="flex-1 min-w-0">
+                <div className={cn("text-xs font-medium mb-0.5", signalTitle(signal.level))}>{signal.title}</div>
+                <div className={cn("text-[11px] leading-relaxed mb-1.5", signalDesc(signal.level))}>{signal.desc}</div>
+                <div className="flex gap-1 flex-wrap">
+                  <button
+                    onClick={handleActionClick}
+                    className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
+                  >
+                    {signal.action} →
+                  </button>
+                  {signal.person && matchedPerson && (
+                    <button
+                      onClick={() => onNavigateToPerson?.(matchedPerson.id)}
+                      className={cn("text-[10px] px-2 py-0.5 rounded font-medium transition-colors", signalBtn(signal.level))}
+                    >
+                      Все задачи →
+                    </button>
                   )}
-                >
-                  {signal.action}
-                </button>
-                {signal.project && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (matchedProject) onNavigateToProject?.(matchedProject.group.id); }}
-                    className={cn(
-                      "text-[10px] flex items-center gap-1 hover:underline transition-colors",
-                      matchedProject ? "text-primary cursor-pointer" : "text-muted-foreground"
-                    )}
-                  >
-                    <FolderOpen className="h-3 w-3" />{signal.project}
-                  </button>
-                )}
-                {signal.person && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (matchedPerson) onNavigateToPerson?.(matchedPerson.id); }}
-                    className={cn(
-                      "text-[10px] flex items-center gap-1 hover:underline transition-colors",
-                      matchedPerson ? "text-primary cursor-pointer" : "text-muted-foreground"
-                    )}
-                  >
-                    <User className="h-3 w-3" />{signal.person}
-                  </button>
-                )}
+                </div>
               </div>
             </div>
           );
@@ -607,256 +535,216 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   );
 }
 
-// --- Project Card ---
-function ProjectCard({ stats, onNavigateToTask, users, level = 0, onCreateTask, subtaskMap }: {
-  stats: ProjectStats;
-  onNavigateToTask: (taskId: string) => void;
-  users: Profile[];
-  level?: number;
-  onCreateTask?: (groupId: string, params: QuickCreateResult) => Promise<void>;
-  subtaskMap?: SubtaskMap;
+// --- Hot Projects Card ---
+function HotProjectsCard({ projectStats, onNavigateToProject }: {
+  projectStats: ProjectStats[];
+  onNavigateToProject?: (groupId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [wikiOpen, setWikiOpen] = useState(false);
-  const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-  const userName = (userId: string) => users.find(u => u.id === userId)?.display_name || "—";
+  const [sortBy, setSortBy] = useState<"overdue" | "progress">("overdue");
+
+  const sorted = useMemo(() => {
+    const withIssues = projectStats.filter(s => s.total > 0);
+    return [...withIssues].sort((a, b) => {
+      if (sortBy === "overdue") return b.overdue - a.overdue;
+      const pctA = a.total > 0 ? a.completed / a.total : 0;
+      const pctB = b.total > 0 ? b.completed / b.total : 0;
+      return pctA - pctB;
+    }).slice(0, 6);
+  }, [projectStats, sortBy]);
+
+  const criticalCount = projectStats.filter(s => s.overdue > 0 || (s.total > 0 && s.completed === 0)).length;
 
   return (
-    <div className={cn(
-      "bg-card rounded-xl border border-border overflow-hidden transition-shadow",
-      expanded && "shadow-md",
-      level > 0 && "border-dashed"
-    )}>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
-      >
-        <div
-          className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-white text-sm font-semibold"
-          style={{ backgroundColor: stats.group.color || "hsl(var(--primary))" }}
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        <span className="text-xs font-medium text-foreground flex-1">Горящие проекты</span>
+        {criticalCount > 0 && (
+          <span className="text-[10px] px-1.5 py-px rounded bg-red-500/10 text-red-600 dark:text-red-400 font-medium">
+            {criticalCount} критичных
+          </span>
+        )}
+        <button
+          onClick={() => setSortBy(s => s === "overdue" ? "progress" : "overdue")}
+          className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
         >
-          {stats.group.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm truncate">{stats.group.name}</span>
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-full border font-medium",
-              getStatusBadgeVariant(stats.timingStatus)
-            )}>
-              {getStatusLabel(stats.timingStatus)}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <div className="flex-1 max-w-[140px]">
-              <Progress value={pct} className="h-1.5" />
-            </div>
-            <span className="text-[11px] text-muted-foreground">{pct}% · {stats.completed}/{stats.total}</span>
-          </div>
-        </div>
-        <Sparkline data={stats.completionHistory} color={stats.group.color || "hsl(var(--primary))"} />
-        <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-          {stats.overdue > 0 && (
-            <span className="flex items-center gap-1 text-red-500 font-medium">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {stats.overdue}
-            </span>
-          )}
-          {stats.driftCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium px-1.5 py-0.5 rounded-md border border-dashed border-amber-500/40 text-xs">
-              <TrendingUp className="h-3.5 w-3.5" />
-              {stats.driftCount}
-            </span>
-          )}
-          {stats.nextDeadline && (
-            <span className="hidden sm:flex items-center gap-1">
-              <CalendarClock className="h-3.5 w-3.5" />
-              {format(new Date(stats.nextDeadline), "d MMM", { locale: ru })}
-            </span>
-          )}
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border px-4 pb-4 pt-3 space-y-4 animate-fade-in">
-          {stats.subprojects.filter(sp => sp.total > 0).length > 0 && (
-            <Section title="Подпроекты" count={stats.subprojects.filter(sp => sp.total > 0).length}>
-              <div className="space-y-2">
-                {stats.subprojects.filter(sp => sp.total > 0).map(sp => (
-                  <ProjectCard key={sp.group.id} stats={sp} onNavigateToTask={onNavigateToTask} users={users} level={level + 1} onCreateTask={onCreateTask} subtaskMap={subtaskMap} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {stats.overdueTasks.length > 0 && (
-            <Section title="Просроченные" count={stats.overdueTasks.length} variant="destructive">
-              <div className="space-y-1">
-                {stats.overdueTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} variant="overdue" subtaskInfo={subtaskMap?.get(t.id)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {stats.upcomingTasks.length > 0 && (
-            <Section title="Ближайшие дедлайны" count={stats.upcomingTasks.length}>
-              <div className="space-y-1">
-                {stats.upcomingTasks.map(t => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} subtaskInfo={subtaskMap?.get(t.id)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {stats.driftTasks.length > 0 && (
-            <Section title="Сдвиг сроков" count={stats.driftTasks.length} variant="warning">
-              <div className="space-y-1">
-                {stats.driftTasks.map(({ task: t, driftDays }) => (
-                  <TaskRow key={t.id} task={t} onClick={() => onNavigateToTask(t.id)} userName={userName(t.assigned_to || t.user_id)} drift={driftDays} subtaskInfo={subtaskMap?.get(t.id)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {stats.total === 0 && stats.subprojects.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">Нет задач в проекте</p>
-          )}
-
-          {stats.total > 0 && stats.overdueTasks.length === 0 && stats.upcomingTasks.length === 0 && stats.driftTasks.length === 0 && stats.subprojects.filter(sp => sp.total > 0).length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">Нет событий для отображения</p>
-          )}
-
-          <div className="flex items-center gap-2">
-            {onCreateTask && (
-              <QuickCreateForm
-                users={users}
-                singleType="task"
-                compact
-                onCreate={(params) => onCreateTask(stats.group.id, params)}
-              />
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setWikiOpen(true); }}
-              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground">База знаний</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      <Dialog open={wikiOpen} onOpenChange={setWikiOpen}>
-        <DialogContent className="max-w-[90vw] w-[90vw] h-[85vh] p-4 flex flex-col">
-          <div className="flex-1 overflow-y-auto">
-            <ProjectWikiTab
-              groupId={stats.group.id}
-              groupName={stats.group.name}
-              groupDescription={stats.group.description || undefined}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function Section({ title, count, children, variant }: { title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className={cn(
-          "text-xs font-semibold",
-          variant === "destructive" ? "text-red-500" : variant === "warning" ? "text-amber-500" : "text-foreground"
-        )}>{title}</span>
-        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+          {sortBy === "overdue" ? "по просрочкам ↕" : "по прогрессу ↕"}
+        </button>
       </div>
-      {children}
+      <div>
+        {sorted.map(s => {
+          const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+          const barColor = s.overdue > 0 ? "bg-red-500" : s.driftCount > 0 ? "bg-amber-500" : "bg-emerald-500";
+          return (
+            <button
+              key={s.group.id}
+              onClick={() => onNavigateToProject?.(s.group.id)}
+              className="w-full flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-border hover:bg-muted/50 transition-colors text-left"
+            >
+              <span className="text-xs font-medium text-foreground flex-1 truncate">{s.group.name}</span>
+              <div className="w-12 h-[3px] bg-muted rounded-sm overflow-hidden shrink-0">
+                <div className={cn("h-full rounded-sm", barColor)} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={cn("text-[10px] min-w-[26px] text-right shrink-0", pct === 0 && s.overdue > 0 ? "text-red-500" : "text-muted-foreground")}>
+                {pct}%
+              </span>
+              {s.overdue > 0 && (
+                <span className="text-[10px] px-1.5 py-px rounded bg-red-500/10 text-red-600 dark:text-red-400 whitespace-nowrap shrink-0">
+                  {s.overdue} просроч.{s.driftCount > 0 ? ` · ${s.driftCount} drift` : ""}
+                </span>
+              )}
+              {s.overdue === 0 && s.driftCount > 0 && (
+                <span className="text-[10px] px-1.5 py-px rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 whitespace-nowrap shrink-0">
+                  {s.driftCount} drift
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {sorted.length === 0 && (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет проектов</div>
+        )}
+      </div>
     </div>
   );
 }
 
-function TaskRow({ task, onClick, userName, variant, drift, subtaskInfo }: {
-  task: Task; onClick: () => void; userName: string; variant?: "overdue"; drift?: number;
-  subtaskInfo?: { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] };
+// --- Team Workload Card ---
+function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
+  projectStats: ProjectStats[];
+  users: Profile[];
+  onFilterByPerson?: (userId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasSteps = subtaskInfo && subtaskInfo.total > 0;
-  const stepPct = hasSteps ? Math.round((subtaskInfo.completed / subtaskInfo.total) * 100) : 0;
+  const workload = useMemo(() => {
+    const now = new Date();
+    const allTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
+    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+    const active = unique.filter(t => !t.is_completed);
+
+    const map: Record<string, { name: string; total: number; overdue: number; drift: number }> = {};
+    active.forEach(t => {
+      const uid = t.assigned_to || t.user_id;
+      const u = users.find(u => u.id === uid);
+      if (!u) return;
+      if (!map[uid]) map[uid] = { name: u.display_name || "—", total: 0, overdue: 0, drift: 0 };
+      map[uid].total++;
+      if (t.deadline && new Date(t.deadline) < now) map[uid].overdue++;
+      if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) map[uid].drift++;
+    });
+
+    return Object.entries(map)
+      .map(([id, d]) => ({ id, ...d }))
+      .sort((a, b) => b.overdue - a.overdue || b.total - a.total)
+      .slice(0, 8);
+  }, [projectStats, users]);
+
+  const maxTotal = Math.max(...workload.map(w => w.total), 1);
+
+  const getInitials = (name: string) => {
+    const parts = name.split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  };
+
+  const avatarStyle = (w: { overdue: number; drift: number }) => {
+    if (w.overdue > 0) return "bg-red-500/10 text-red-600 dark:text-red-400";
+    if (w.drift > 0) return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+    return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+  };
+
+  const barColor = (w: { overdue: number; drift: number }) => {
+    if (w.overdue > 0) return "bg-red-500";
+    if (w.drift > 0) return "bg-amber-500";
+    return "bg-emerald-500";
+  };
+
+  const statText = (w: { overdue: number; drift: number }) => {
+    if (w.overdue > 0) return { text: `${w.overdue} просроч.`, color: "text-red-500 font-medium" };
+    if (w.drift > 0) return { text: `${w.drift} drift`, color: "text-amber-500" };
+    return { text: "в норме", color: "text-emerald-500" };
+  };
 
   return (
-    <div>
-      <button
-        onClick={onClick}
-        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left group"
-      >
-        {hasSteps && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
-          >
-            <ChevronDownIcon className={cn("h-3 w-3 text-muted-foreground transition-transform", !expanded && "-rotate-90")} />
-          </button>
-        )}
-        <span className={cn(
-          "text-xs truncate flex-1",
-          variant === "overdue" ? "text-red-600 dark:text-red-400" : "text-foreground",
-          task.is_completed && "line-through text-muted-foreground"
-        )}>
-          {task.title}
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="text-xs font-medium text-foreground flex-1">Загрузка команды</span>
+        <span className="text-[10px] px-1.5 py-px rounded bg-primary/10 text-primary font-medium">
+          {workload.length} чел.
         </span>
-        {hasSteps && (
-          <span className={cn(
-            "inline-flex items-center gap-1 text-[10px] shrink-0 px-1.5 py-0.5 rounded-md border font-medium",
-            stepPct === 100
-              ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-              : stepPct > 0
-                ? "text-primary border-primary/30 bg-primary/10"
-                : "text-muted-foreground border-border bg-muted/50"
-          )}>
-            <ListChecks className="h-3 w-3" />
-            {subtaskInfo.completed}/{subtaskInfo.total}
-          </span>
+      </div>
+      <div>
+        {workload.map(w => {
+          const stat = statText(w);
+          return (
+            <button
+              key={w.id}
+              onClick={() => onFilterByPerson?.(w.id)}
+              className="w-full flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-border hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-medium shrink-0", avatarStyle(w))}>
+                {getInitials(w.name)}
+              </div>
+              <span className="text-xs text-foreground flex-1 truncate">{w.name}</span>
+              <div className="w-14 h-1 bg-muted rounded-sm overflow-hidden shrink-0">
+                <div className={cn("h-full rounded-sm", barColor(w))} style={{ width: `${Math.round((w.total / maxTotal) * 100)}%` }} />
+              </div>
+              <span className={cn("text-[10px] min-w-[70px] text-right shrink-0", stat.color)}>{stat.text}</span>
+            </button>
+          );
+        })}
+        {workload.length === 0 && (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет данных</div>
         )}
-        {drift !== undefined && (
-          <span className={cn(
-            "text-[10px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
-            drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
-          )}>
-            {drift > 0 ? `+${drift}д` : `${drift}д`}
-          </span>
-        )}
-        {task.deadline && (
-          <span className="text-[10px] text-muted-foreground shrink-0">
-            {format(new Date(task.deadline), "d MMM", { locale: ru })}
-          </span>
-        )}
-        {userName && (
-          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate hidden sm:inline">
-            {userName}
-          </span>
-        )}
-      </button>
-      {hasSteps && expanded && (
-        <div className="ml-6 pl-2 border-l-2 border-border/60 space-y-0.5 py-1 animate-fade-in">
-          {subtaskInfo.subtasks.map(st => (
-            <div key={st.id} className="flex items-center gap-2 px-2 py-0.5">
-              <CheckCircle2 className={cn(
-                "h-3 w-3 shrink-0",
-                st.is_completed ? "text-primary" : "text-muted-foreground/40"
-              )} />
-              <span className={cn(
-                "text-[11px] truncate",
-                st.is_completed && "line-through text-muted-foreground"
-              )}>
-                {st.title}
-              </span>
+      </div>
+    </div>
+  );
+}
+
+// --- Weekly Activity Chart ---
+function WeeklyActivityChart({ tasks }: { tasks: Task[] }) {
+  const dayNames = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+
+  const { bars, maxCount, bestDay } = useMemo(() => {
+    const now = new Date();
+    const buckets: { label: string; count: number; dayOfWeek: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = subDays(now, i);
+      const key = format(d, "yyyy-MM-dd");
+      const count = tasks.filter(t => t.is_completed && t.completed_at && format(new Date(t.completed_at), "yyyy-MM-dd") === key).length;
+      buckets.push({ label: dayNames[getDay(d)], count, dayOfWeek: getDay(d) });
+    }
+    const maxCount = Math.max(...buckets.map(b => b.count), 1);
+    const bestIdx = buckets.reduce((best, b, i) => b.count > buckets[best].count ? i : best, 0);
+    return { bars: buckets, maxCount, bestDay: bestIdx };
+  }, [tasks]);
+
+  return (
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="text-xs font-medium text-foreground flex-1">Активность команды — выполнено задач по дням</span>
+        <span className="text-[10px] text-muted-foreground">эта неделя</span>
+      </div>
+      <div className="flex gap-1 px-3 py-2.5 items-end" style={{ height: 90 }}>
+        {bars.map((b, i) => {
+          const pct = maxCount > 0 ? (b.count / maxCount) * 100 : 0;
+          const isBest = i === bestDay && b.count > 0;
+          const isWeekend = b.dayOfWeek === 0 || b.dayOfWeek === 6;
+          const barColor = isWeekend ? "bg-muted-foreground/30" : isBest ? "bg-emerald-600" : "bg-emerald-400/70";
+          const numColor = isWeekend ? "text-muted-foreground" : isBest ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-emerald-600 dark:text-emerald-400";
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="flex-1 flex items-end w-full" style={{ minHeight: 50 }}>
+                <div className={cn("w-full rounded-t min-h-[3px]", barColor)} style={{ height: `${Math.max(pct, 5)}%` }} />
+              </div>
+              <span className={cn("text-[11px]", numColor)}>{b.count}</span>
+              <span className="text-[10px] text-muted-foreground">{isBest ? `${b.label} ★` : b.label}</span>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -874,16 +762,18 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className={cn(
-          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors",
-          hasSelection
-            ? "bg-primary/10 text-primary border-primary/30"
-            : "bg-card text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
-        )}>
+        <button
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-all",
+            hasSelection
+              ? "bg-primary/10 border-primary/30 text-foreground font-medium"
+              : "bg-card border-border text-muted-foreground hover:border-primary/20 hover:text-foreground"
+          )}
+        >
           <Icon className="h-3.5 w-3.5" />
-          {label}
+          <span>{label}</span>
           {hasSelection && (
-            <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px] font-bold ml-0.5">
+            <span className="bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 leading-none font-semibold">
               {selectedIds.length}
             </span>
           )}
@@ -893,7 +783,6 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
         <PopoverSearchList
           items={items}
           searchKey={(item) => item.label}
-          placeholder="Поиск..."
           renderItem={(item) => (
             <button
               key={item.id}
@@ -923,27 +812,18 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
   );
 }
 
-// --- Filter buttons ---
-const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
-  { value: "all", label: "Все" },
-  { value: "overdue", label: "Просрочено" },
-  { value: "at-risk", label: "Drift" },
-  { value: "on-track", label: "В графике" },
-  { value: "completed", label: "Завершено" },
-];
+// ===== MAIN COMPONENT =====
 
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
   const { user } = useAuth();
-  const { data: tasks = [], isLoading: tasksLoading, isFetching: tasksFetching } = useTasks();
-  const { data: groups = [], isLoading: groupsLoading, isFetching: groupsFetching } = useTaskGroups();
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
+  const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
   const { addTask } = useTaskMutations();
-  const [filter, setFilter] = useState<FilterStatus>("all");
-  const [expandedMetric, setExpandedMetric] = useState<SummaryMetric | null>(null);
+  const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
 
-  // Fetch all task_participants for participant filter
   const { data: allParticipants = [] } = useQuery({
     queryKey: ["task_participants_all"],
     queryFn: async () => {
@@ -956,7 +836,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     enabled: !!user,
   });
 
-  // Fetch all subtasks for step progress display
   const { data: allSubtasks = [] } = useQuery({
     queryKey: ["subtasks_all_dashboard"],
     queryFn: async () => {
@@ -969,7 +848,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     enabled: !!user,
   });
 
-  // Build subtask map: taskId -> { total, completed }
   const subtaskMap = useMemo(() => {
     const map = new Map<string, { total: number; completed: number; subtasks: { id: string; title: string; is_completed: boolean }[] }>();
     allSubtasks.forEach(s => {
@@ -982,7 +860,6 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     return map;
   }, [allSubtasks]);
 
-  // Build a map: taskId -> Set<userId> for fast lookup
   const participantMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     allParticipants.forEach(p => {
@@ -992,7 +869,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     return map;
   }, [allParticipants]);
 
-  // "Build Dashboard" filters
+  // Filters
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -1009,34 +886,19 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     rootGroups.map(g => ({ id: g.id, label: g.name, color: g.color })),
     [rootGroups]
   );
-
   const assigneeItems = useMemo(() => {
     const ids = new Set<string>();
-    tasks.forEach(t => {
-      if (t.assigned_to) ids.add(t.assigned_to);
-      ids.add(t.user_id);
-    });
+    tasks.forEach(t => { if (t.assigned_to) ids.add(t.assigned_to); ids.add(t.user_id); });
     return Array.from(ids)
-      .map(id => {
-        const u = users.find(u => u.id === id);
-        return { id, label: u?.display_name || "Без имени" };
-      })
+      .map(id => ({ id, label: users.find(u => u.id === id)?.display_name || "Без имени" }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [tasks, users]);
-
-  const tagItems = useMemo(() =>
-    tags.map(t => ({ id: t.id, label: t.name, color: t.color })),
-    [tags]
-  );
-
+  const tagItems = useMemo(() => tags.map(t => ({ id: t.id, label: t.name, color: t.color })), [tags]);
   const participantItems = useMemo(() => {
     const ids = new Set<string>();
     allParticipants.forEach(p => ids.add(p.user_id));
     return Array.from(ids)
-      .map(id => {
-        const u = users.find(u => u.id === id);
-        return { id, label: u?.display_name || "Без имени" };
-      })
+      .map(id => ({ id, label: users.find(u => u.id === id)?.display_name || "Без имени" }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [allParticipants, users]);
 
@@ -1047,7 +909,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
       : rootGroups;
 
-    const hasDetailFilter = (selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0);
+    const hasDetailFilter = selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
 
     return baseGroups
       .map(g => buildProjectStats(
@@ -1064,43 +926,41 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       });
   }, [rootGroups, groups, tasks, selectedProjectIds, selectedAssigneeIds, selectedTagIds, selectedParticipantIds, participantMap]);
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return projectStats;
-    return projectStats.filter(s => s.timingStatus === filter);
-  }, [projectStats, filter]);
-
+  // Compute summary KPIs
   const summary = useMemo(() => {
-    const totalProjects = projectStats.length;
-    const overdueProjects = projectStats.filter(s => s.timingStatus === "overdue").length;
-    const atRiskProjects = projectStats.filter(s => s.timingStatus === "at-risk").length;
     const now = new Date();
     const weekFromNow = addDays(startOfDay(now), 7);
-
     const relevantTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const uniqueTasks = Array.from(new Map(relevantTasks.map(t => [t.id, t])).values());
-    const tasksThisWeek = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
-    const totalOverdue = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
     const totalCompleted = uniqueTasks.filter(t => t.is_completed).length;
     const completionRate = uniqueTasks.length > 0 ? Math.round((totalCompleted / uniqueTasks.length) * 100) : 0;
+    const totalOverdue = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
     const totalDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
-    return { totalProjects, overdueProjects, atRiskProjects, tasksThisWeek, completionRate, totalOverdue, totalDrift };
+    const activeProjects = projectStats.filter(s => s.total > 0 && s.timingStatus !== "completed").length;
+    const tasksThisWeek = uniqueTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
+
+    // Overdue & drift task lists for detail panel
+    const overdueTasks = uniqueTasks
+      .filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
+      .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+    const driftTasks = uniqueTasks
+      .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+      .sort((a, b) => {
+        const da = Math.abs(differenceInDays(new Date(a.deadline!), new Date(a.original_deadline!)));
+        const db = Math.abs(differenceInDays(new Date(b.deadline!), new Date(b.original_deadline!)));
+        return db - da;
+      });
+
+    return {
+      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects, tasksThisWeek,
+      totalProjects: projectStats.length,
+      totalTasks: uniqueTasks.length,
+      overdueTasks, driftTasks,
+    };
   }, [projectStats]);
 
   const handleNavigateToTask = (taskId: string) => {
     onNavigateToTaskProp?.(taskId);
-  };
-
-  const handleCreateTask = useCallback(async (groupId: string, params: QuickCreateResult) => {
-    await addTask.mutateAsync({
-      title: params.title,
-      group_id: groupId,
-      deadline: params.deadline ? params.deadline.toISOString() : null,
-      assigned_to: params.assigneeId || null,
-    });
-  }, [addTask]);
-
-  const toggleMetric = (m: SummaryMetric) => {
-    setExpandedMetric(prev => prev === m ? null : m);
   };
 
   const clearAllCustomFilters = () => {
@@ -1123,89 +983,15 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
 
   return (
     <main className="flex-1 overflow-y-auto scrollbar-thin">
-      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* Header */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
-          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-lg sm:text-xl font-semibold text-foreground leading-tight">Дашборд проектов</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{summary.totalProjects} проектов</p>
-          </div>
-          <DashboardExportDialog
-            projectStats={projectStats}
-            summary={summary}
-            users={users}
-            aiSummary={aiSummaryText || undefined}
-            subtaskMap={subtaskMap}
-          />
-        </div>
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5">
 
-        {/* Summary — clickable */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-          <SummaryCard
-            icon={TrendingUp}
-            value={`${summary.completionRate}%`}
-            label="Общий прогресс"
-            color="bg-primary"
-            active={expandedMetric === "progress"}
-            onClick={() => toggleMetric("progress")}
-          />
-          <SummaryCard
-            icon={CalendarClock}
-            value={summary.tasksThisWeek}
-            label="Дедлайнов на неделе"
-            color="bg-blue-500"
-            active={expandedMetric === "deadlines"}
-            onClick={() => toggleMetric("deadlines")}
-          />
-          <SummaryCard
-            icon={AlertTriangle}
-            value={summary.totalOverdue}
-            label="Просроченных задач"
-            color="bg-red-500"
-            active={expandedMetric === "overdue"}
-            onClick={() => toggleMetric("overdue")}
-          />
-          <SummaryCard
-            icon={ArrowRightLeft}
-            value={summary.totalDrift}
-            label="С отклонениями"
-            color="bg-amber-500"
-            active={expandedMetric === "drift"}
-            onClick={() => toggleMetric("drift")}
-          />
-        </div>
+        {/* Header bar */}
+        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
+          <BarChart3 className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-medium text-foreground flex-1">Дашборд руководителя</span>
 
-        {/* Expanded metric panel */}
-        {expandedMetric && expandedMetric !== "progress" && (
-          <MetricExpander
-            metric={expandedMetric}
-            projectStats={projectStats}
-            onNavigateToTask={handleNavigateToTask}
-            users={users}
-            onClose={() => setExpandedMetric(null)}
-            subtaskMap={subtaskMap}
-          />
-        )}
-
-        {/* Build Dashboard — multi-select filters */}
-        <div className="bg-card rounded-xl border border-border p-3 mb-4">
-          <div className="flex items-center gap-2 mb-2.5">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-semibold text-foreground">Построить дашборд</span>
-            {hasCustomFilters && (
-              <button
-                onClick={clearAllCustomFilters}
-                className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                <X className="h-3 w-3" />
-                Сбросить
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
+          {/* Filters inline */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <MultiSelectFilter
               label="Проекты"
               icon={FolderOpen}
@@ -1214,10 +1000,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
               onToggle={(id) => setSelectedProjectIds(prev => toggleInArray(prev, id))}
               renderItem={(item) => (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="h-3 w-3 rounded shrink-0"
-                    style={{ backgroundColor: item.color || "hsl(var(--primary))" }}
-                  />
+                  <div className="h-3 w-3 rounded shrink-0" style={{ backgroundColor: item.color || "hsl(var(--primary))" }} />
                   <span className="text-xs truncate">{item.label}</span>
                 </div>
               )}
@@ -1237,10 +1020,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
               onToggle={(id) => setSelectedTagIds(prev => toggleInArray(prev, id))}
               renderItem={(item) => (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: item.color || "#6366f1" }}
-                  />
+                  <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || "#6366f1" }} />
                   <span className="text-xs truncate">{item.label}</span>
                 </div>
               )}
@@ -1252,10 +1032,78 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
               selectedIds={selectedParticipantIds}
               onToggle={(id) => setSelectedParticipantIds(prev => toggleInArray(prev, id))}
             />
+            {hasCustomFilters && (
+              <button onClick={clearAllCustomFilters} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
+
+          <DashboardExportDialog
+            projectStats={projectStats}
+            summary={summary}
+            users={users}
+            aiSummary={aiSummaryText || undefined}
+            subtaskMap={subtaskMap}
+          />
         </div>
 
-        {/* AI Signals — structured signal cards */}
+        {/* KPI row — 5 cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <KpiCard
+            label="Прогресс"
+            value={`${summary.completionRate}%`}
+            color="hsl(var(--primary))"
+            active={false}
+          />
+          <KpiCard
+            label="Выполнено"
+            value={summary.totalCompleted}
+            color="hsl(142, 71%, 45%)"
+          />
+          <KpiCard
+            label="Просрочено"
+            value={summary.totalOverdue}
+            color="hsl(0, 72%, 58%)"
+            active={expandedKpi === "overdue"}
+            onClick={() => setExpandedKpi(prev => prev === "overdue" ? null : "overdue")}
+          />
+          <KpiCard
+            label="Drift"
+            value={summary.totalDrift}
+            color="hsl(38, 92%, 50%)"
+            active={expandedKpi === "drift"}
+            onClick={() => setExpandedKpi(prev => prev === "drift" ? null : "drift")}
+          />
+          <KpiCard
+            label="Активных проектов"
+            value={summary.activeProjects}
+            trend={`из ${summary.totalProjects} всего`}
+            trendType="flat"
+          />
+        </div>
+
+        {/* Detail panel from KPI click */}
+        {expandedKpi === "overdue" && (
+          <DetailPanel
+            title="Просроченные задачи"
+            tasks={summary.overdueTasks}
+            onNavigateToTask={handleNavigateToTask}
+            users={users}
+            onClose={() => setExpandedKpi(null)}
+          />
+        )}
+        {expandedKpi === "drift" && (
+          <DetailPanel
+            title="Задачи с отклонениями"
+            tasks={summary.driftTasks}
+            onNavigateToTask={handleNavigateToTask}
+            users={users}
+            onClose={() => setExpandedKpi(null)}
+          />
+        )}
+
+        {/* AI Signals */}
         <AiSignalsPanel
           projectStats={projectStats}
           users={users}
@@ -1265,60 +1113,62 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             setSelectedAssigneeIds([]);
             setSelectedTagIds([]);
             setSelectedParticipantIds([]);
-            setFilter("all");
           }}
           onNavigateToPerson={(userId) => {
             setSelectedAssigneeIds([userId]);
             setSelectedProjectIds([]);
             setSelectedTagIds([]);
             setSelectedParticipantIds([]);
-            setFilter("all");
           }}
           onFilterOverdue={() => {
-            setFilter("overdue");
-            setSelectedProjectIds([]);
-            setSelectedAssigneeIds([]);
-            setSelectedTagIds([]);
-            setSelectedParticipantIds([]);
+            setExpandedKpi("overdue");
           }}
         />
 
-        {/* Status filters */}
-        <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap overflow-x-auto scrollbar-none">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          {FILTER_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setFilter(opt.value)}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
-                filter === opt.value
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-          {filter !== "all" && (
-            <button onClick={() => setFilter("all")} className="p-1 rounded-full hover:bg-muted transition-colors">
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          )}
+        {/* Two-column grid: Hot Projects + Team Workload */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <HotProjectsCard
+            projectStats={projectStats}
+            onNavigateToProject={(groupId) => {
+              setSelectedProjectIds([groupId]);
+              setSelectedAssigneeIds([]);
+              setSelectedTagIds([]);
+              setSelectedParticipantIds([]);
+            }}
+          />
+          <TeamWorkloadCard
+            projectStats={projectStats}
+            users={users}
+            onFilterByPerson={(userId) => {
+              setSelectedAssigneeIds([userId]);
+              setSelectedProjectIds([]);
+              setSelectedTagIds([]);
+              setSelectedParticipantIds([]);
+            }}
+          />
         </div>
 
-        {/* Project cards */}
-        <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              {filter === "all" ? "Нет проектов" : "Нет проектов с таким статусом"}
-            </div>
-          ) : (
-            filtered.map(stats => (
-              <ProjectCard key={stats.group.id} stats={stats} onNavigateToTask={handleNavigateToTask} users={users} onCreateTask={handleCreateTask} subtaskMap={subtaskMap} />
-            ))
-          )}
+        {/* Weekly activity bar chart */}
+        <WeeklyActivityChart tasks={tasks} />
+
+        {/* Action bar */}
+        <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5">
+          <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-xs text-muted-foreground flex-1">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
+          <DashboardExportDialog
+            projectStats={projectStats}
+            summary={summary}
+            users={users}
+            aiSummary={aiSummaryText || undefined}
+            subtaskMap={subtaskMap}
+            trigger={
+              <button className="text-[11px] px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors whitespace-nowrap">
+                Экспорт для встречи →
+              </button>
+            }
+          />
         </div>
+
       </div>
     </main>
   );
