@@ -1078,6 +1078,18 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
               const isExpanded = expandedIds.has(ps.group.id);
               const pct = ps.total > 0 ? Math.round((ps.completed / ps.total) * 100) : 0;
 
+              // Unique assignees for this project
+              const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+              const uniqueTasksArr = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+              const activeTasks = uniqueTasksArr.filter(t => !t.is_completed);
+              const assigneeIds = [...new Set(activeTasks.map(t => t.assigned_to).filter(Boolean))] as string[];
+              const hasUnassigned = activeTasks.some(t => !t.assigned_to);
+
+              const getInitials = (name: string) => {
+                const parts = name.split(/\s+/);
+                return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
+              };
+
               return (
                 <div key={ps.group.id}>
                   <button
@@ -1090,10 +1102,35 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
                     >
                       {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-xs font-medium text-foreground truncate flex-1">{ps.group.name}</span>
+                    <span className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{ps.group.name}</span>
+
+                    {/* Assignee pills */}
+                    <div className="hidden sm:flex items-center gap-0.5 shrink-0">
+                      {assigneeIds.slice(0, 3).map(uid => {
+                        const u = users.find(u => u.id === uid);
+                        const name = u?.display_name || "?";
+                        return (
+                          <div
+                            key={uid}
+                            className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-medium"
+                            title={name}
+                          >
+                            {getInitials(name)}
+                          </div>
+                        );
+                      })}
+                      {assigneeIds.length > 3 && (
+                        <span className="text-[9px] text-muted-foreground ml-0.5">+{assigneeIds.length - 3}</span>
+                      )}
+                      {hasUnassigned && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium whitespace-nowrap ml-0.5">
+                          👤 !
+                        </span>
+                      )}
+                    </div>
 
                     <span className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
+                      "text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0",
                       ps.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
                       ps.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
                       ps.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
