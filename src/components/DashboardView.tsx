@@ -1240,7 +1240,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   }, [projectStats]);
 
   const handleNavigateToTask = (taskId: string) => {
-    onNavigateToTaskProp?.(taskId);
+    setSheetTaskId(taskId);
   };
 
   const clearAllCustomFilters = () => {
