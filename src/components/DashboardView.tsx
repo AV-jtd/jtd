@@ -214,7 +214,7 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
     <button
       onClick={onClick}
       className={cn(
-        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink",
+        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink flex flex-col",
         active && "border-primary ring-2 ring-primary/20"
       )}
     >
@@ -225,11 +225,9 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
       <div className="text-xl sm:text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
         {value}
       </div>
-      {trend && (
-        <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap", trendColor[trendType || "flat"])}>
-          {trend}
-        </div>
-      )}
+      <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap min-h-[14px]", trendColor[trendType || "flat"])}>
+        {trend || "\u00A0"}
+      </div>
     </button>
   );
 }
@@ -1857,6 +1855,10 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const unassignedTasks = activeTasks.filter(t => !t.assigned_to);
     const noDeadlineTasks = activeTasks.filter(t => !t.deadline);
 
+    // WoW for drift (tasks that had drift a week ago - approximate by created_at)
+    const driftLastWeek = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline && new Date(t.created_at) < d7).length;
+    const currentDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+
     // Overdue & drift task lists for detail panel
     const overdueTasks = uniqueTasks
       .filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
@@ -1870,7 +1872,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       });
 
     return {
-      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects, tasksThisWeek,
+      completionRate, totalCompleted, totalOverdue, totalDrift: currentDrift, activeProjects, tasksThisWeek,
       totalProjects: projectStats.length,
       totalTasks: uniqueTasks.length,
       overdueTasks, driftTasks,
@@ -1878,6 +1880,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       overdueLastWeek,
       unassignedTasks,
       noDeadlineTasks,
+      driftLastWeek,
     };
   }, [projectStats]);
 
@@ -1977,6 +1980,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             label="Прогресс"
             value={`${summary.completionRate}%`}
             color="hsl(var(--primary))"
+            trend={`${summary.totalTasks} задач`}
+            trendType="flat"
           />
           <KpiCard
             label="Выполнено"
@@ -2008,6 +2013,12 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color="hsl(38, 92%, 50%)"
             active={expandedKpi === "drift"}
             onClick={() => setExpandedKpi(prev => prev === "drift" ? null : "drift")}
+            trend={(() => {
+              const diff = summary.totalDrift - summary.driftLastWeek;
+              if (diff === 0) return undefined;
+              return `${diff > 0 ? "+" : ""}${diff} за нед`;
+            })()}
+            trendType={summary.totalDrift > summary.driftLastWeek ? "up-bad" : summary.totalDrift < summary.driftLastWeek ? "down-good" : "flat"}
           />
           <KpiCard
             label="Без ответственного"
@@ -2015,6 +2026,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color={summary.unassignedTasks.length > 0 ? "hsl(25, 95%, 53%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "unassigned"}
             onClick={() => setExpandedKpi(prev => prev === "unassigned" ? null : "unassigned")}
+            trend={summary.unassignedTasks.length > 0 ? `${Math.round(summary.unassignedTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.unassignedTasks.length > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Без сроков"
@@ -2022,6 +2035,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color={summary.noDeadlineTasks.length > 0 ? "hsl(280, 67%, 55%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "no_deadline"}
             onClick={() => setExpandedKpi(prev => prev === "no_deadline" ? null : "no_deadline")}
+            trend={summary.noDeadlineTasks.length > 0 ? `${Math.round(summary.noDeadlineTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.noDeadlineTasks.length > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Активных проектов"
