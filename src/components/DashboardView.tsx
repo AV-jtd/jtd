@@ -214,19 +214,19 @@ function KpiCard({ label, value, trend, trendType, active, onClick, color }: {
     <button
       onClick={onClick}
       className={cn(
-        "bg-card rounded-lg border border-border p-3 text-left transition-all hover:border-muted-foreground/30",
+        "bg-card rounded-lg border border-border p-2.5 sm:p-3 text-left transition-all hover:border-muted-foreground/30 min-w-[120px] sm:min-w-0 shrink-0 sm:shrink",
         active && "border-primary ring-2 ring-primary/20"
       )}
     >
-      <div className="text-[10px] text-muted-foreground mb-1 flex items-center justify-between">
+      <div className="text-[10px] text-muted-foreground mb-0.5 sm:mb-1 flex items-center justify-between whitespace-nowrap">
         <span>{label}</span>
         {active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
       </div>
-      <div className="text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
+      <div className="text-xl sm:text-2xl font-medium leading-none mb-0.5" style={{ color: color || "hsl(var(--foreground))" }}>
         {value}
       </div>
       {trend && (
-        <div className={cn("text-[10px] font-medium", trendColor[trendType || "flat"])}>
+        <div className={cn("text-[9px] sm:text-[10px] font-medium whitespace-nowrap", trendColor[trendType || "flat"])}>
           {trend}
         </div>
       )}
