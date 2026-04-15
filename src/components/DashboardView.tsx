@@ -2029,6 +2029,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             trend={`из ${summary.totalProjects} всего`}
             trendType="flat"
           />
+          </div>
         </div>
 
         {/* Detail panel from KPI click */}
