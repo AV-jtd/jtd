@@ -73,7 +73,34 @@ export default function PublicReport() {
     ? <span style={{ fontSize: 11, marginLeft: 4, color: t.stepsCompleted === t.stepsTotal ? "#10b981" : "#3b82f6" }}>✓{t.stepsCompleted}/{t.stepsTotal}</span>
     : null;
 
-  const TaskTable = ({ tasks, extraHeader }: { tasks: any[]; extraHeader?: string }) => (
+  const TaskTable = ({ tasks, extraHeader }: { tasks: any[]; extraHeader?: string }) => {
+    // Group tasks by project
+    const hasProjects = tasks.some((t: any) => t.project);
+    if (!hasProjects) {
+      return <FlatTable tasks={tasks} extraHeader={extraHeader} />;
+    }
+    // Group by project
+    const groups: Record<string, any[]> = {};
+    tasks.forEach((t: any) => {
+      const key = t.project || "Без проекта";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+    return (
+      <div>
+        {Object.entries(groups).map(([project, items], gi) => (
+          <div key={gi} style={{ marginBottom: gi < Object.keys(groups).length - 1 ? 16 : 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#3b82f6", padding: "6px 12px", background: "#f0f7ff", borderRadius: 6, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              📁 {project} <span style={{ fontWeight: 400, color: "#94a3b8" }}>({items.length})</span>
+            </div>
+            <FlatTable tasks={items} extraHeader={extraHeader} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const FlatTable = ({ tasks, extraHeader }: { tasks: any[]; extraHeader?: string }) => (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
       <thead>
         <tr>
@@ -89,7 +116,7 @@ export default function PublicReport() {
             <td style={{ ...tdStyle, fontWeight: 500, maxWidth: 340 }}>{t.title}{stepsLabel(t)}</td>
             <td style={tdStyle}>{t.assignee || "—"}</td>
             <td style={tdStyle}>{t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "—"}</td>
-            {t.driftDays !== undefined && <td style={tdStyle}><span style={{ color: "#f59e0b", fontWeight: 600 }}>+{t.driftDays} дн.</span></td>}
+            {t.driftDays !== undefined && <td style={tdStyle}><span style={{ color: t.driftDays > 0 ? "#ef4444" : "#f59e0b", fontWeight: 600 }}>+{t.driftDays} дн.{t.originalDeadline ? ` (было: ${new Date(t.originalDeadline).toLocaleDateString("ru-RU")})` : ""}</span></td>}
           </tr>
         ))}
       </tbody>

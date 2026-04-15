@@ -111,7 +111,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
   const weekFromNow = addDays(startOfDay(now), 7);
   const { start: pStart, end: pEnd, label: periodLabel } = getPeriodRange(period);
 
-  const allTasks = projectStats.flatMap((s: any) => [...s.tasks, ...s.subprojects.flatMap((sp: any) => sp.tasks)]);
+  const allTasks = projectStats.flatMap((s: any) => [...s.tasks.map((t: any) => ({ ...t, _projectName: s.group.name })), ...s.subprojects.flatMap((sp: any) => sp.tasks.map((t: any) => ({ ...t, _projectName: `${s.group.name} / ${sp.group.name}` })))]);
   const unique = Array.from(new Map(allTasks.map((t: any) => [t.id, t])).values());
 
   // Filter tasks by period if set
@@ -126,44 +126,50 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
 
   const periodTasks = unique.filter(inPeriod);
 
+  const mapTask = (t: any, extraFields?: Record<string, any>) => {
+    const si = subtaskMap?.get(t.id);
+    return {
+      title: t.title,
+      assignee: userName(t.assigned_to || t.user_id),
+      deadline: t.deadline,
+      project: t._projectName || null,
+      ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}),
+      ...extraFields,
+    };
+  };
+
   const overdueTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
+    .map((t: any) => mapTask(t));
 
   const weekTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 30)
-    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
+    .map((t: any) => mapTask(t));
 
   const driftTasks = periodTasks
     .filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map((t: any) => {
-      const si = subtaskMap?.get(t.id);
-      return {
-        title: t.title,
-        assignee: userName(t.assigned_to || t.user_id),
-        deadline: t.deadline,
-        driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
-        ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}),
-      };
-    })
-    .sort((a, b) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
+    .map((t: any) => mapTask(t, {
+      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
+      originalDeadline: t.original_deadline,
+    }))
+    .sort((a: any, b: any) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
     .slice(0, 30);
 
   const upcomingTasks = periodTasks
     .filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) > weekFromNow)
     .sort((a: any, b: any) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
     .slice(0, 20)
-    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
+    .map((t: any) => mapTask(t));
 
   const completedTasks = periodTasks
     .filter((t: any) => t.is_completed && t.completed_at)
     .sort((a: any, b: any) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
     .slice(0, 30)
-    .map((t: any) => { const si = subtaskMap?.get(t.id); return { title: t.title, assignee: userName(t.assigned_to || t.user_id), deadline: t.completed_at, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) }; });
+    .map((t: any) => mapTask(t, { deadline: t.completed_at }));
 
   const projects = projectStats.map((s: any) => ({
     name: s.group.name,
