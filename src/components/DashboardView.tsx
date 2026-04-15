@@ -319,7 +319,10 @@ function MetricExpander({ metric, projectStats, onNavigateToTask, users, onClose
   );
 }
 
-// --- AI Signal type ---
+// --- AI Signal type & cache ---
+const AI_SIGNALS_CACHE_KEY = "jtd_ai_signals_cache";
+const AI_SIGNALS_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
 interface AiSignal {
   level: "red" | "amber" | "green";
   title: string;
@@ -327,6 +330,20 @@ interface AiSignal {
   action: string;
   project: string | null;
   person: string | null;
+}
+
+function getCachedSignals(): AiSignal[] | null {
+  try {
+    const raw = localStorage.getItem(AI_SIGNALS_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > AI_SIGNALS_TTL) { localStorage.removeItem(AI_SIGNALS_CACHE_KEY); return null; }
+    return data as AiSignal[];
+  } catch { return null; }
+}
+
+function setCachedSignals(data: AiSignal[]) {
+  try { localStorage.setItem(AI_SIGNALS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
 function signalLevelStyles(level: AiSignal["level"]) {
@@ -346,14 +363,30 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
   onFilterOverdue?: () => void;
   onAiTextChange?: (text: string) => void;
 }) {
-  const [signals, setSignals] = useState<AiSignal[]>([]);
+  const [signals, setSignals] = useState<AiSignal[]>(() => getCachedSignals() || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
   const generateRef = useRef<(() => void) | null>(null);
 
-  const generate = useCallback(async () => {
+  // Emit cached text on mount
+  useEffect(() => {
+    if (signals.length > 0) {
+      onAiTextChange?.(signals.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generate = useCallback(async (forceRefresh = false) => {
     if (loading || projectStats.length === 0) return;
+    // Check cache unless force refresh
+    if (!forceRefresh) {
+      const cached = getCachedSignals();
+      if (cached && cached.length > 0) {
+        setSignals(cached);
+        onAiTextChange?.(cached.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
 
@@ -408,8 +441,10 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
             const jsonMatch = fullText.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]) as AiSignal[];
-              setSignals(parsed.slice(0, 5));
-              onAiTextChange?.(parsed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
+              const trimmed = parsed.slice(0, 5);
+              setSignals(trimmed);
+              setCachedSignals(trimmed);
+              onAiTextChange?.(trimmed.map(s => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
             } else {
               setError("Не удалось разобрать ответ ИИ");
             }
@@ -471,7 +506,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
       <div className="mb-4 rounded-xl border border-border p-3 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-xs text-muted-foreground flex-1">{error}</span>
-        <button onClick={generate} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
+        <button onClick={() => generate(true)} className="text-xs text-primary hover:underline shrink-0">Повторить</button>
       </div>
     );
   }
@@ -486,7 +521,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
           <span className="text-xs font-semibold text-foreground">Сигналы ИИ</span>
         </div>
         <button
-          onClick={generate}
+          onClick={() => generate(true)}
           disabled={loading}
           className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
           title="Обновить сигналы"
