@@ -2024,6 +2024,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color={summary.unassignedTasks.length > 0 ? "hsl(25, 95%, 53%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "unassigned"}
             onClick={() => setExpandedKpi(prev => prev === "unassigned" ? null : "unassigned")}
+            trend={summary.unassignedTasks.length > 0 ? `${Math.round(summary.unassignedTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.unassignedTasks.length > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Без сроков"
@@ -2031,6 +2033,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             color={summary.noDeadlineTasks.length > 0 ? "hsl(280, 67%, 55%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "no_deadline"}
             onClick={() => setExpandedKpi(prev => prev === "no_deadline" ? null : "no_deadline")}
+            trend={summary.noDeadlineTasks.length > 0 ? `${Math.round(summary.noDeadlineTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.noDeadlineTasks.length > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Активных проектов"
