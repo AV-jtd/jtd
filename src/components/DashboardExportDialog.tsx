@@ -195,9 +195,22 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
   const totalTasks = periodTasks.length;
   const totalCompleted = periodTasks.filter((t: any) => t.is_completed).length;
 
+  // Build assignee summary
+  const assigneeMap: Record<string, AssigneeSummary> = {};
+  periodTasks.forEach((t: any) => {
+    const uid = t.assigned_to || t.user_id;
+    const name = userName(uid);
+    if (!assigneeMap[uid]) assigneeMap[uid] = { name, total: 0, completed: 0, overdue: 0, drift: 0 };
+    assigneeMap[uid].total++;
+    if (t.is_completed) assigneeMap[uid].completed++;
+    if (!t.is_completed && t.deadline && new Date(t.deadline) < now) assigneeMap[uid].overdue++;
+    if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeMap[uid].drift++;
+  });
+  const assigneeSummary = Object.values(assigneeMap).sort((a, b) => b.total - a.total);
+
   return {
     summary: { ...summary, totalTasks, totalCompleted },
-    projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, period, periodLabel,
+    projects, overdueTasks, weekTasks, driftTasks, upcomingTasks, completedTasks, assigneeSummary, period, periodLabel,
   };
 }
 
