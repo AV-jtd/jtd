@@ -68,6 +68,7 @@ export default function PublicReport() {
   const driftTasks = d.driftTasks || [];
   const upcomingTasks = d.upcomingTasks || [];
   const completedTasks = d.completedTasks || [];
+  const assigneeSummary = d.assigneeSummary || [];
 
   const stepsLabel = (t: any) => t.stepsTotal > 0
     ? <span style={{ fontSize: 11, marginLeft: 4, color: t.stepsCompleted === t.stepsTotal ? "#10b981" : "#3b82f6" }}>✓{t.stepsCompleted}/{t.stepsTotal}</span>
@@ -170,6 +171,7 @@ export default function PublicReport() {
         </div>
 
         {activeTab === "overview" && (
+          <>
           <div style={sectionStyle}>
             <h2 style={sectionHeaderStyle}>📊 Проекты ({projects.length})</h2>
             <div style={{ padding: "0 20px 16px" }}>
@@ -204,6 +206,49 @@ export default function PublicReport() {
               })}
             </div>
           </div>
+
+          {assigneeSummary.length > 0 && (
+            <div style={sectionStyle}>
+              <h2 style={sectionHeaderStyle}>👤 Сводка по исполнителям ({assigneeSummary.length})</h2>
+              <div style={{ padding: "0 20px 16px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Исполнитель</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Всего</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Выполнено</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Просрочено</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>Drift</th>
+                      <th style={{ ...thStyle, textAlign: "center" }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assigneeSummary.map((a: any, i: number) => {
+                      const pct = a.total > 0 ? Math.round((a.completed / a.total) * 100) : 0;
+                      return (
+                        <tr key={i}>
+                          <td style={{ ...tdStyle, fontWeight: 500 }}>{a.name}</td>
+                          <td style={{ ...tdStyle, textAlign: "center" }}>{a.total}</td>
+                          <td style={{ ...tdStyle, textAlign: "center", color: "#10b981", fontWeight: a.completed > 0 ? 600 : 400 }}>{a.completed}</td>
+                          <td style={{ ...tdStyle, textAlign: "center", color: a.overdue > 0 ? "#ef4444" : "#94a3b8", fontWeight: a.overdue > 0 ? 600 : 400 }}>{a.overdue}</td>
+                          <td style={{ ...tdStyle, textAlign: "center", color: a.drift > 0 ? "#f59e0b" : "#94a3b8", fontWeight: a.drift > 0 ? 600 : 400 }}>{a.drift}</td>
+                          <td style={{ ...tdStyle, textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <div style={{ width: 40, height: 5, background: "#f1f5f9", borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ height: "100%", borderRadius: 3, width: `${pct}%`, background: pct === 100 ? "#10b981" : "#3b82f6" }} />
+                              </div>
+                              <span style={{ fontSize: 11, color: "#64748b" }}>{pct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {activeTab === "tasks" && (
