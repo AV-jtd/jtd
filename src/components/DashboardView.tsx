@@ -501,16 +501,27 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
           const matchedProject = projectStats.find(s =>
             signal.project && s.group.name.toLowerCase().includes(signal.project.toLowerCase())
           );
+          const matchedPerson = signal.person
+            ? users.find(u => u.display_name?.toLowerCase().includes(signal.person!.toLowerCase()))
+            : null;
+
+          const handleActionClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (matchedProject) {
+              onNavigateToProject?.(matchedProject.group.id);
+            } else if (matchedPerson) {
+              onNavigateToPerson?.(matchedPerson.id);
+            } else if (signal.level === "red") {
+              onFilterOverdue?.();
+            }
+          };
+
           return (
-            <button
+            <div
               key={i}
-              onClick={() => {
-                if (matchedProject) onNavigateToProject?.(matchedProject.group.name);
-              }}
               className={cn(
-                "rounded-xl border p-3 text-left transition-all hover:shadow-md",
+                "rounded-xl border p-3 text-left transition-all",
                 styles.bg,
-                matchedProject && "cursor-pointer"
               )}
             >
               <div className="flex items-start gap-2 mb-1.5">
@@ -521,21 +532,39 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
               </div>
               <p className="text-xs text-foreground/70 leading-relaxed mb-2 pl-[18px]">{signal.desc}</p>
               <div className="pl-[18px] flex items-center gap-2 flex-wrap">
-                <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border", styles.badge)}>
+                <button
+                  onClick={handleActionClick}
+                  className={cn(
+                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border cursor-pointer hover:opacity-80 transition-all hover:shadow-sm",
+                    styles.badge
+                  )}
+                >
                   {signal.action}
-                </span>
+                </button>
                 {signal.project && (
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (matchedProject) onNavigateToProject?.(matchedProject.group.id); }}
+                    className={cn(
+                      "text-[10px] flex items-center gap-1 hover:underline transition-colors",
+                      matchedProject ? "text-primary cursor-pointer" : "text-muted-foreground"
+                    )}
+                  >
                     <FolderOpen className="h-3 w-3" />{signal.project}
-                  </span>
+                  </button>
                 )}
                 {signal.person && (
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (matchedPerson) onNavigateToPerson?.(matchedPerson.id); }}
+                    className={cn(
+                      "text-[10px] flex items-center gap-1 hover:underline transition-colors",
+                      matchedPerson ? "text-primary cursor-pointer" : "text-muted-foreground"
+                    )}
+                  >
                     <User className="h-3 w-3" />{signal.person}
-                  </span>
+                  </button>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
