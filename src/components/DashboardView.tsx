@@ -1432,13 +1432,14 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         <ProjectTaskList
           projectStats={projectStats}
           users={users}
-          onNavigateToTask={handleNavigateToTask}
+          onOpenTask={(taskId) => setSheetTaskId(taskId)}
           onNavigateToProject={(groupId) => {
             setSelectedProjectIds([groupId]);
             setSelectedAssigneeIds([]);
             setSelectedTagIds([]);
             setSelectedParticipantIds([]);
           }}
+          subtaskMap={subtaskMap}
         />
 
         {/* Action bar */}
