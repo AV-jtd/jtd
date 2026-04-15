@@ -375,7 +375,7 @@ function getPromptForType(type: AnalysisType, dataContext: string): { prompt: st
     case "signals":
       return {
         systemPrompt: "Ты аналитик операционного управления. Анализируй данные проектов и возвращай ТОЛЬКО JSON. Никакого текста до или после JSON.",
-        prompt: `Данные проектов:\n${dataContext}\n\nВерни JSON массив из 3-5 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня\n- amber: предупреждения, действие на этой неделе\n- green: положительная динамика или достижение\n- Всегда 1-2 red, 1-2 amber, 0-1 green\n\nАнализируй: критический путь, velocity, drift паттерны, пиковую нагрузку, застой, перегрузку, прогноз.`,
+        prompt: `Данные проектов:\n${dataContext}\n\nВерни JSON массив ровно из 6 сигналов:\n[{\n  "level": "red"|"amber"|"green",\n  "title": "короткий заголовок (до 50 символов)",\n  "desc": "объяснение (до 100 символов)",\n  "action": "конкретное действие (до 35 символов)",\n  "project": "название проекта или null",\n  "person": "имя человека или null"\n}]\n\nПравила:\n- red: критические проблемы, требует действия сегодня (2 шт)\n- amber: предупреждения, действие на этой неделе (2 шт)\n- green: положительная динамика или достижение (2 шт)\n\nКаждый сигнал — уникальный аспект:\n1. Критический путь / просрочки\n2. Перегрузка конкретного исполнителя\n3. Пик дедлайнов на ближайшие дни\n4. Drift паттерн (системные переносы)\n5. Застой проекта без прогресса\n6. Velocity или достижение\n\nДавай конкретные actionable рекомендации руководителю. Упоминай конкретные проекты и людей.`,
       };
     case "risks":
       return {
@@ -443,7 +443,7 @@ function AiSignalsPanel({ projectStats, users, onNavigateToProject, onNavigateTo
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
               if (type === "signals") {
-                const trimmed = parsed.slice(0, 5) as AiSignal[];
+                const trimmed = parsed.slice(0, 6) as AiSignal[];
                 setSignals(trimmed);
                 setCachedSignals(trimmed);
                 onAiTextChange?.(trimmed.map((s: AiSignal) => `[${s.level.toUpperCase()}] ${s.title}: ${s.desc}`).join("\n"));
