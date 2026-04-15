@@ -3,7 +3,9 @@ import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMuta
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Users, ListChecks, ChevronDown as ChevronDownIcon } from "lucide-react";
+import { Users, ListChecks, ChevronDown as ChevronDownIcon, CheckCircle } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
@@ -718,16 +720,16 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
   );
 }
 
-// --- Interactive Project & Task List ---
-function ProjectTaskList({ projectStats, users, onNavigateToTask, onNavigateToProject }: {
+// --- Interactive Project & Task List (with summary sections like SubprojectCards) ---
+function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject, subtaskMap }: {
   projectStats: ProjectStats[];
   users: Profile[];
-  onNavigateToTask: (taskId: string) => void;
+  onOpenTask: (taskId: string) => void;
   onNavigateToProject: (groupId: string) => void;
+  subtaskMap: SubtaskMap;
 }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [taskFilter, setTaskFilter] = useState<"all" | "overdue" | "drift" | "upcoming" | "done">("all");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "overdue" | "drift" | "on-track" | "completed">("all");
 
   const toggle = (id: string) => setExpandedIds(prev => {
     const next = new Set(prev);
@@ -735,49 +737,16 @@ function ProjectTaskList({ projectStats, users, onNavigateToTask, onNavigateToPr
     return next;
   });
 
-  const getStatusDot = (status: TimingStatus) => {
-    const colors: Record<TimingStatus, string> = {
-      "on-track": "bg-emerald-500",
-      "at-risk": "bg-amber-500",
-      "overdue": "bg-red-500",
-      "completed": "bg-muted-foreground/50",
-    };
-    return colors[status];
-  };
-
   const userName = (userId: string | null) => {
     if (!userId) return "—";
     return users.find(u => u.id === userId)?.display_name || "—";
   };
 
-  const getFilteredTasks = (ps: ProjectStats) => {
-    const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
-    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-    const now = new Date();
-    const weekFromNow = addDays(startOfDay(now), 7);
-
-    switch (taskFilter) {
-      case "overdue":
-        return unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
-      case "drift":
-        return unique.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
-      case "upcoming":
-        return unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
-      case "done":
-        return unique.filter(t => t.is_completed)
-          .sort((a, b) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime())
-          .slice(0, 10);
-      default:
-        return unique.filter(t => !t.is_completed).slice(0, 20);
-    }
-  };
-
-  const getRecentlyCompleted = (ps: ProjectStats) => {
-    const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
-    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
-    const d7 = subDays(new Date(), 7);
-    return unique.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
-  };
+  const filteredProjects = useMemo(() => {
+    if (statusFilter === "all") return projectStats;
+    if (statusFilter === "drift") return projectStats.filter(s => s.timingStatus === "at-risk" || s.driftCount > 0);
+    return projectStats.filter(s => s.timingStatus === statusFilter);
+  }, [projectStats, statusFilter]);
 
   if (projectStats.length === 0) return null;
 
@@ -787,230 +756,79 @@ function ProjectTaskList({ projectStats, users, onNavigateToTask, onNavigateToPr
         <ListChecks className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-xs font-medium text-foreground flex-1">Проекты и задачи</span>
         <div className="flex items-center gap-0.5">
-          {(["all", "overdue", "drift", "upcoming", "done"] as const).map(f => (
+          {(["all", "overdue", "drift", "on-track", "completed"] as const).map(f => (
             <button
               key={f}
-              onClick={() => setTaskFilter(f)}
+              onClick={() => setStatusFilter(f)}
               className={cn(
                 "text-[10px] px-2 py-0.5 rounded transition-colors",
-                taskFilter === f
+                statusFilter === f
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted"
               )}
             >
-              {f === "all" ? "Активные" : f === "overdue" ? "Просрочено" : f === "drift" ? "Drift" : f === "upcoming" ? "Ближайшие" : "Выполнено"}
+              {f === "all" ? "Все" : f === "overdue" ? "Просрочено" : f === "drift" ? "Drift" : f === "on-track" ? "В графике" : "Завершено"}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="divide-y divide-border max-h-[500px] overflow-y-auto scrollbar-thin">
-        {projectStats.map(ps => {
+      <div className="divide-y divide-border max-h-[600px] overflow-y-auto scrollbar-thin">
+        {filteredProjects.map(ps => {
           const isExpanded = expandedIds.has(ps.group.id);
-          const filteredTasks = getFilteredTasks(ps);
           const pct = ps.total > 0 ? Math.round((ps.completed / ps.total) * 100) : 0;
-          const recentDone = getRecentlyCompleted(ps);
-          const now = new Date();
 
           return (
             <div key={ps.group.id}>
-              {/* Project row */}
               <button
                 onClick={() => toggle(ps.group.id)}
                 className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
               >
-                {isExpanded
-                  ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                }
-                <span className={cn("h-2 w-2 rounded-full shrink-0", getStatusDot(ps.timingStatus))} />
-                <span className="text-xs mr-0.5">{ps.group.icon || "📁"}</span>
+                <div
+                  className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
+                  style={{ backgroundColor: ps.group.color || "hsl(var(--primary))" }}
+                >
+                  {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
+                </div>
                 <span className="text-xs font-medium text-foreground truncate flex-1">{ps.group.name}</span>
 
-                {ps.overdue > 0 && (
-                  <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
-                    {ps.overdue} ⚠
-                  </Badge>
-                )}
-                {ps.driftCount > 0 && (
-                  <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">
-                    {ps.driftCount} ↗
-                  </Badge>
-                )}
+                <span className={cn(
+                  "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
+                  ps.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
+                  ps.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
+                  ps.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
+                  "text-muted-foreground bg-muted border-border"
+                )}>
+                  {getStatusLabel(ps.timingStatus)}
+                </span>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Progress value={pct} className="w-12 h-1.5" />
-                  <span className="text-[10px] text-muted-foreground w-7 text-right">{pct}%</span>
+                  <Progress value={pct} className="w-14 h-1.5" />
+                  <span className="text-[10px] text-muted-foreground">{pct}% · {ps.completed}/{ps.total}</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground shrink-0">
-                  {ps.completed}/{ps.total}
-                </span>
+
+                {ps.overdue > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                    <AlertTriangle className="h-3 w-3" />{ps.overdue}
+                  </span>
+                )}
+                {ps.driftCount > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md font-medium text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/40">
+                    <ArrowRightLeft className="h-3 w-3" />{ps.driftCount}
+                  </span>
+                )}
+
+                {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
               </button>
 
-              {/* Expanded content */}
               {isExpanded && (
-                <div className="bg-muted/20">
-                  {/* Project summary strip */}
-                  <div className="px-4 py-1.5 flex items-center gap-3 border-b border-border/50 text-[10px] flex-wrap">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      ✓ {recentDone} за 7 дн
-                    </span>
-                    {ps.overdue > 0 && (
-                      <span className="text-red-500">
-                        ⚠ {ps.overdue} просроч.
-                      </span>
-                    )}
-                    {ps.driftCount > 0 && (
-                      <span className="text-amber-600 dark:text-amber-400">
-                        ↗ drift ø{ps.avgDriftDays}д
-                      </span>
-                    )}
-                    {ps.nextDeadline && (
-                      <span className="text-muted-foreground">
-                        ⏰ {format(new Date(ps.nextDeadline), "dd MMM", { locale: ru })}
-                      </span>
-                    )}
-                    <span className="text-muted-foreground">
-                      {getStatusLabel(ps.timingStatus)}
-                    </span>
-                    <button
-                      onClick={() => onNavigateToProject(ps.group.id)}
-                      className="ml-auto text-primary hover:underline"
-                    >
-                      В проект →
-                    </button>
-                  </div>
-
-                  {/* Subprojects */}
-                  {ps.subprojects.filter(sp => sp.total > 0).map(sp => {
-                    const spPct = sp.total > 0 ? Math.round((sp.completed / sp.total) * 100) : 0;
-                    return (
-                      <div key={sp.group.id} className="px-5 py-1 flex items-center gap-2 border-b border-border/30">
-                        <span className="text-[10px]">{sp.group.icon || "📁"}</span>
-                        <span className="text-[10px] font-medium text-muted-foreground truncate flex-1">{sp.group.name}</span>
-                        {sp.overdue > 0 && <span className="text-[9px] text-red-500">{sp.overdue} ⚠</span>}
-                        <Progress value={spPct} className="w-10 h-1" />
-                        <span className="text-[9px] text-muted-foreground">{sp.completed}/{sp.total}</span>
-                      </div>
-                    );
-                  })}
-
-                  {/* Task rows */}
-                  {filteredTasks.length > 0 ? filteredTasks.map(task => {
-                    const isOverdue = !task.is_completed && task.deadline && new Date(task.deadline) < now;
-                    const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
-                    const driftDays = hasDrift ? differenceInDays(new Date(task.deadline!), new Date(task.original_deadline!)) : 0;
-                    const isSelected = selectedTaskId === task.id;
-
-                    return (
-                      <div key={task.id}>
-                        <button
-                          onClick={() => setSelectedTaskId(isSelected ? null : task.id)}
-                          className={cn(
-                            "w-full px-5 py-1.5 flex items-center gap-2 transition-colors text-left",
-                            isSelected ? "bg-primary/5" : "hover:bg-muted/50"
-                          )}
-                        >
-                          <span className={cn(
-                            "h-1.5 w-1.5 rounded-full shrink-0",
-                            task.is_completed ? "bg-emerald-500" : isOverdue ? "bg-red-500" : "bg-primary/40"
-                          )} />
-                          <span className={cn(
-                            "text-[11px] truncate flex-1",
-                            task.is_completed && "line-through text-muted-foreground",
-                            isOverdue && "text-red-600 dark:text-red-400"
-                          )}>
-                            {task.title}
-                          </span>
-
-                          {task.is_completed && task.completed_at && (
-                            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 shrink-0">
-                              ✓ {format(new Date(task.completed_at), "dd MMM", { locale: ru })}
-                            </span>
-                          )}
-
-                          {hasDrift && (
-                            <span className="text-[9px] text-amber-600 dark:text-amber-400 shrink-0">
-                              ↗ {driftDays > 0 ? `+${driftDays}д` : `${driftDays}д`}
-                            </span>
-                          )}
-
-                          {task.assigned_to && (
-                            <span className="text-[9px] text-muted-foreground truncate max-w-[80px] shrink-0">
-                              {userName(task.assigned_to)}
-                            </span>
-                          )}
-
-                          {task.deadline && !task.is_completed && (
-                            <span className={cn(
-                              "text-[9px] shrink-0",
-                              isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"
-                            )}>
-                              {format(new Date(task.deadline), "dd MMM", { locale: ru })}
-                            </span>
-                          )}
-                        </button>
-
-                        {/* Inline task detail card */}
-                        {isSelected && (
-                          <div className="mx-5 mb-1.5 p-2.5 rounded-md bg-card border border-border shadow-sm animate-fade-in">
-                            <div className="flex items-start gap-2 mb-1.5">
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium text-foreground">{task.title}</div>
-                                {task.description && (
-                                  <div className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{task.description}</div>
-                                )}
-                              </div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onNavigateToTask(task.id); }}
-                                className="text-[10px] px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
-                              >
-                                Открыть ↗
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
-                              <span className="text-muted-foreground">
-                                Автор: <span className="text-foreground">{userName(task.user_id)}</span>
-                              </span>
-                              {task.assigned_to && (
-                                <span className="text-muted-foreground">
-                                  Ответственный: <span className="text-foreground">{userName(task.assigned_to)}</span>
-                                </span>
-                              )}
-                              {task.deadline && (
-                                <span className={cn(isOverdue ? "text-red-500" : "text-muted-foreground")}>
-                                  Дедлайн: <span className={cn("text-foreground", isOverdue && "text-red-500 font-medium")}>
-                                    {format(new Date(task.deadline), "dd MMM yyyy", { locale: ru })}
-                                    {isOverdue && ` (${Math.abs(differenceInDays(new Date(task.deadline!), now))}д назад)`}
-                                  </span>
-                                </span>
-                              )}
-                              {task.original_deadline && task.deadline && task.original_deadline !== task.deadline && (
-                                <span className="text-amber-600 dark:text-amber-400">
-                                  Было: {format(new Date(task.original_deadline), "dd MMM", { locale: ru })} → {format(new Date(task.deadline), "dd MMM", { locale: ru })}
-                                </span>
-                              )}
-                              {task.start_at && (
-                                <span className="text-muted-foreground">
-                                  Старт: {format(new Date(task.start_at), "dd MMM", { locale: ru })}
-                                </span>
-                              )}
-                              {task.is_completed && task.completed_at && (
-                                <span className="text-emerald-600 dark:text-emerald-400">
-                                  Завершено: {format(new Date(task.completed_at), "dd MMM yyyy", { locale: ru })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }) : (
-                    <div className="px-6 py-3 text-[10px] text-muted-foreground text-center">
-                      Нет задач по выбранному фильтру
-                    </div>
-                  )}
-                </div>
+                <ExpandedProjectSummary
+                  ps={ps}
+                  userName={userName}
+                  onOpenTask={onOpenTask}
+                  onNavigateToProject={onNavigateToProject}
+                  subtaskMap={subtaskMap}
+                />
               )}
             </div>
           );
@@ -1019,6 +837,196 @@ function ProjectTaskList({ projectStats, users, onNavigateToTask, onNavigateToPr
     </div>
   );
 }
+
+function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject, subtaskMap }: {
+  ps: ProjectStats;
+  userName: (userId: string | null) => string;
+  onOpenTask: (taskId: string) => void;
+  onNavigateToProject: (groupId: string) => void;
+  subtaskMap: SubtaskMap;
+}) {
+  const recentDone = useMemo(() => {
+    const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+    const d7 = subDays(new Date(), 7);
+    return unique
+      .filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7)
+      .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
+  }, [ps]);
+
+  const subprojectsWithTasks = ps.subprojects.filter(sp => sp.total > 0);
+
+  return (
+    <div className="border-t border-border px-3 pb-3 pt-2 space-y-3 bg-muted/20 animate-fade-in">
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={() => onNavigateToProject(ps.group.id)}
+          className="text-[11px] text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+        >
+          <FolderOpen className="h-3 w-3" /> Открыть проект
+        </button>
+        <span className="text-[10px] text-emerald-600 dark:text-emerald-400">✓ {recentDone.length} за 7 дн</span>
+        {ps.overdue > 0 && <span className="text-[10px] text-red-500">⚠ {ps.overdue} просроч.</span>}
+        {ps.driftCount > 0 && <span className="text-[10px] text-amber-600 dark:text-amber-400">↗ drift ø{ps.avgDriftDays}д</span>}
+        {ps.nextDeadline && <span className="text-[10px] text-muted-foreground">⏰ {format(new Date(ps.nextDeadline), "dd MMM", { locale: ru })}</span>}
+      </div>
+
+      {subprojectsWithTasks.length > 0 && (
+        <DashboardSummarySection title="Подпроекты" count={subprojectsWithTasks.length}>
+          <div className="space-y-1">
+            {subprojectsWithTasks.map(sp => {
+              const spPct = sp.total > 0 ? Math.round((sp.completed / sp.total) * 100) : 0;
+              return (
+                <div key={sp.group.id} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50">
+                  <div
+                    className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[8px] font-semibold"
+                    style={{ backgroundColor: sp.group.color || "hsl(var(--primary))" }}
+                  >
+                    {sp.group.icon && sp.group.icon !== "list" ? sp.group.icon : sp.group.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[11px] font-medium truncate flex-1">{sp.group.name}</span>
+                  <span className={cn(
+                    "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",
+                    sp.timingStatus === "overdue" ? "text-red-700 bg-red-500/10 border-red-500/20 dark:text-red-400" :
+                    sp.timingStatus === "at-risk" ? "text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400" :
+                    sp.timingStatus === "on-track" ? "text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400" :
+                    "text-muted-foreground bg-muted border-border"
+                  )}>
+                    {getStatusLabel(sp.timingStatus)}
+                  </span>
+                  {sp.overdue > 0 && <span className="text-[9px] text-red-500">⚠ {sp.overdue}</span>}
+                  {sp.driftCount > 0 && <span className="text-[9px] text-amber-500">↗ {sp.driftCount}</span>}
+                  <Progress value={spPct} className="w-10 h-1" />
+                  <span className="text-[9px] text-muted-foreground">{spPct}% · {sp.completed}/{sp.total}</span>
+                </div>
+              );
+            })}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {recentDone.length > 0 && (
+        <DashboardSummarySection title="Выполнено (7 дн)" count={recentDone.length} variant="success">
+          <div className="space-y-0.5">
+            {recentDone.slice(0, 5).map(t => (
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="done" />
+            ))}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {ps.overdueTasks.length > 0 && (
+        <DashboardSummarySection title="Просроченные" count={ps.overdueTasks.length} variant="destructive">
+          <div className="space-y-0.5">
+            {ps.overdueTasks.map(t => (
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" />
+            ))}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {ps.driftTasks.length > 0 && (
+        <DashboardSummarySection title="Сдвиг сроков" count={ps.driftTasks.length} variant="warning">
+          <div className="space-y-0.5">
+            {ps.driftTasks.map(({ task: t, driftDays }) => (
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} drift={driftDays} />
+            ))}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {ps.upcomingTasks.length > 0 && (
+        <DashboardSummarySection title="Ближайшие дедлайны" count={ps.upcomingTasks.length}>
+          <div className="space-y-0.5">
+            {ps.upcomingTasks.map(t => (
+              <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} />
+            ))}
+          </div>
+        </DashboardSummarySection>
+      )}
+
+      {ps.total === 0 && subprojectsWithTasks.length === 0 && (
+        <p className="text-[11px] text-muted-foreground text-center py-1">Нет задач</p>
+      )}
+    </div>
+  );
+}
+
+function DashboardSummarySection({ title, count, children, variant }: {
+  title: string; count: number; children: React.ReactNode; variant?: "destructive" | "warning" | "success";
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={cn(
+          "text-[11px] font-semibold",
+          variant === "destructive" ? "text-destructive" :
+          variant === "warning" ? "text-amber-500" :
+          variant === "success" ? "text-emerald-600 dark:text-emerald-400" :
+          "text-foreground"
+        )}>{title}</span>
+        <span className="text-[9px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift }: {
+  task: Task; userName: string; onOpenTask: (taskId: string) => void; subtaskMap: SubtaskMap; variant?: "overdue" | "done"; drift?: number;
+}) {
+  const stepsInfo = subtaskMap.get(task.id);
+  const now = new Date();
+  const overdueDays = variant === "overdue" && task.deadline ? Math.max(0, differenceInDays(now, new Date(task.deadline))) : 0;
+
+  return (
+    <button
+      onClick={() => onOpenTask(task.id)}
+      className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
+    >
+      <span className={cn(
+        "text-[11px] truncate flex-1",
+        variant === "overdue" ? "text-destructive" : variant === "done" ? "line-through text-muted-foreground" : "text-foreground"
+      )}>
+        {task.title}
+      </span>
+
+      {stepsInfo && stepsInfo.total > 0 && (
+        <span className="text-[9px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+          <CheckCircle className="h-2.5 w-2.5" />
+          {stepsInfo.completed}/{stepsInfo.total}
+        </span>
+      )}
+
+      {drift !== undefined && (
+        <span className={cn(
+          "text-[9px] font-mono font-semibold shrink-0 px-1 py-0.5 rounded border border-dashed",
+          drift > 0 ? "text-amber-600 dark:text-amber-400 border-amber-500/40" : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+        )}>
+          {drift > 0 ? `+${drift}д` : `${drift}д`}
+        </span>
+      )}
+
+      {variant === "done" && task.completed_at && (
+        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 shrink-0">
+          ✓ {format(new Date(task.completed_at), "d MMM", { locale: ru })}
+        </span>
+      )}
+
+      {task.deadline && variant !== "done" && (
+        <span className={cn("text-[9px] shrink-0", variant === "overdue" ? "text-red-500" : "text-muted-foreground")}>
+          {format(new Date(task.deadline), "d MMM", { locale: ru })}
+          {overdueDays > 0 && ` (+${overdueDays}д)`}
+        </span>
+      )}
+
+      {userName && userName !== "—" && (
+        <span className="text-[9px] text-muted-foreground shrink-0 max-w-[70px] truncate">{userName}</span>
+      )}
+    </button>
+  );
+}
+
 
 // --- Multi-select filter popover ---
 function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, renderItem }: {
@@ -1091,6 +1099,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
+  const [sheetTaskId, setSheetTaskId] = useState<string | null>(null);
   const { addTask } = useTaskMutations();
   const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
@@ -1231,7 +1240,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   }, [projectStats]);
 
   const handleNavigateToTask = (taskId: string) => {
-    onNavigateToTaskProp?.(taskId);
+    setSheetTaskId(taskId);
   };
 
   const clearAllCustomFilters = () => {
@@ -1423,13 +1432,14 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         <ProjectTaskList
           projectStats={projectStats}
           users={users}
-          onNavigateToTask={handleNavigateToTask}
+          onOpenTask={(taskId) => setSheetTaskId(taskId)}
           onNavigateToProject={(groupId) => {
             setSelectedProjectIds([groupId]);
             setSelectedAssigneeIds([]);
             setSelectedTagIds([]);
             setSelectedParticipantIds([]);
           }}
+          subtaskMap={subtaskMap}
         />
 
         {/* Action bar */}
@@ -1451,6 +1461,21 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         </div>
 
       </div>
+
+      {/* Task detail Sheet (like NPD/PMO) */}
+      <Sheet open={!!sheetTaskId} onOpenChange={(open) => { if (!open) setSheetTaskId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
+          {sheetTaskId && (() => {
+            const task = tasks.find(t => t.id === sheetTaskId);
+            if (!task) return null;
+            return (
+              <div className="p-4">
+                <TaskItem task={task} initialOpen />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </main>
   );
 }
