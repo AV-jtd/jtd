@@ -702,6 +702,203 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
   );
 }
 
+// --- Interactive Project & Task List ---
+function ProjectTaskList({ projectStats, users, onNavigateToTask, onNavigateToProject }: {
+  projectStats: ProjectStats[];
+  users: Profile[];
+  onNavigateToTask: (taskId: string) => void;
+  onNavigateToProject: (groupId: string) => void;
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [taskFilter, setTaskFilter] = useState<"all" | "overdue" | "drift" | "upcoming">("all");
+
+  const toggle = (id: string) => setExpandedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const getStatusDot = (status: TimingStatus) => {
+    const colors: Record<TimingStatus, string> = {
+      "on-track": "bg-emerald-500",
+      "at-risk": "bg-amber-500",
+      "overdue": "bg-red-500",
+      "completed": "bg-muted-foreground/50",
+    };
+    return colors[status];
+  };
+
+  const userName = (userId: string | null) => {
+    if (!userId) return "—";
+    return users.find(u => u.id === userId)?.display_name || "—";
+  };
+
+  const getFilteredTasks = (ps: ProjectStats) => {
+    const allTasks = [...ps.tasks, ...ps.subprojects.flatMap(sp => sp.tasks)];
+    const unique = Array.from(new Map(allTasks.map(t => [t.id, t])).values());
+    const now = new Date();
+    const weekFromNow = addDays(startOfDay(now), 7);
+
+    switch (taskFilter) {
+      case "overdue":
+        return unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+      case "drift":
+        return unique.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
+      case "upcoming":
+        return unique.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+      default:
+        return unique.filter(t => !t.is_completed).slice(0, 15);
+    }
+  };
+
+  if (projectStats.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 flex-wrap">
+        <ListChecks className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-xs font-medium text-foreground flex-1">Проекты и задачи</span>
+        <div className="flex items-center gap-1">
+          {(["all", "overdue", "drift", "upcoming"] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setTaskFilter(f)}
+              className={cn(
+                "text-[10px] px-2 py-1 rounded transition-colors",
+                taskFilter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {f === "all" ? "Активные" : f === "overdue" ? "Просрочено" : f === "drift" ? "Drift" : "Ближайшие"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="divide-y divide-border max-h-[420px] overflow-y-auto scrollbar-thin">
+        {projectStats.map(ps => {
+          const isExpanded = expandedIds.has(ps.group.id);
+          const filteredTasks = getFilteredTasks(ps);
+          const pct = ps.total > 0 ? Math.round((ps.completed / ps.total) * 100) : 0;
+
+          return (
+            <div key={ps.group.id}>
+              {/* Project row */}
+              <button
+                onClick={() => toggle(ps.group.id)}
+                className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
+              >
+                {isExpanded
+                  ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                }
+                <span className={cn("h-2 w-2 rounded-full shrink-0", getStatusDot(ps.timingStatus))} />
+                <span className="text-xs mr-1">{ps.group.icon || "📁"}</span>
+                <span className="text-xs font-medium text-foreground truncate flex-1">{ps.group.name}</span>
+
+                {ps.overdue > 0 && (
+                  <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
+                    {ps.overdue} просроч.
+                  </Badge>
+                )}
+                {ps.driftCount > 0 && (
+                  <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">
+                    {ps.driftCount} drift
+                  </Badge>
+                )}
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Progress value={pct} className="w-12 h-1.5" />
+                  <span className="text-[10px] text-muted-foreground w-7 text-right">{pct}%</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {ps.completed}/{ps.total}
+                </span>
+              </button>
+
+              {/* Expanded task list */}
+              {isExpanded && (
+                <div className="bg-muted/30">
+                  {/* Subprojects */}
+                  {ps.subprojects.filter(sp => sp.total > 0).map(sp => (
+                    <div key={sp.group.id} className="px-6 py-1.5 flex items-center gap-2 border-b border-border/50">
+                      <span className="text-[10px]">{sp.group.icon || "📁"}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground truncate flex-1">{sp.group.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{sp.completed}/{sp.total}</span>
+                    </div>
+                  ))}
+
+                  {/* Task rows */}
+                  {filteredTasks.length > 0 ? filteredTasks.map(task => {
+                    const now = new Date();
+                    const isOverdue = !task.is_completed && task.deadline && new Date(task.deadline) < now;
+                    const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
+                    const driftDays = hasDrift ? differenceInDays(new Date(task.deadline!), new Date(task.original_deadline!)) : 0;
+
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => onNavigateToTask(task.id)}
+                        className="w-full px-6 py-1.5 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <span className={cn(
+                          "h-1.5 w-1.5 rounded-full shrink-0",
+                          task.is_completed ? "bg-emerald-500" : isOverdue ? "bg-red-500" : "bg-primary/40"
+                        )} />
+                        <span className={cn(
+                          "text-[11px] truncate flex-1",
+                          task.is_completed && "line-through text-muted-foreground",
+                          isOverdue && "text-red-600 dark:text-red-400"
+                        )}>
+                          {task.title}
+                        </span>
+
+                        {hasDrift && (
+                          <span className="text-[9px] text-amber-600 dark:text-amber-400 shrink-0">
+                            ↗ {driftDays > 0 ? `+${driftDays}д` : `${driftDays}д`}
+                          </span>
+                        )}
+
+                        {task.assigned_to && (
+                          <span className="text-[9px] text-muted-foreground truncate max-w-[80px] shrink-0">
+                            {userName(task.assigned_to)}
+                          </span>
+                        )}
+
+                        {task.deadline && (
+                          <span className={cn(
+                            "text-[9px] shrink-0",
+                            isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"
+                          )}>
+                            {format(new Date(task.deadline), "dd MMM", { locale: ru })}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }) : (
+                    <div className="px-6 py-3 text-[10px] text-muted-foreground text-center">
+                      Нет задач по выбранному фильтру
+                    </div>
+                  )}
+
+                  {/* Link to full project */}
+                  <button
+                    onClick={() => onNavigateToProject(ps.group.id)}
+                    className="w-full px-6 py-1.5 text-[10px] text-primary hover:underline text-left"
+                  >
+                    Открыть проект →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // --- Multi-select filter popover ---
 function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, renderItem }: {
   label: string;
@@ -1101,6 +1298,20 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
         </div>
 
+        {/* Interactive project & task list */}
+        <ProjectTaskList
+          projectStats={projectStats}
+          users={users}
+          onNavigateToTask={handleNavigateToTask}
+          onNavigateToProject={(groupId) => {
+            setSelectedProjectIds([groupId]);
+            setSelectedAssigneeIds([]);
+            setSelectedTagIds([]);
+            setSelectedParticipantIds([]);
+          }}
+        />
+
+        {/* Action bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2.5 flex items-center gap-2.5">
           <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="text-xs text-muted-foreground flex-1">Экспортировать отчёт для встречи или поделиться ссылкой на дашборд</span>
