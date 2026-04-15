@@ -798,6 +798,7 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Нет данных</div>
         )}
       </div>
+      )}
     </div>
   );
 }
