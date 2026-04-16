@@ -180,7 +180,7 @@ function DeadlineQuickPopover({ task, onUpdate }: { task: Task; onUpdate: (id: s
   );
 }
 
-/* ── Dates section with days input for detail panel ── */
+/* ── Dates section — compact single row ── */
 function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: string, updates: Partial<Task>) => void }) {
   const [daysInput, setDaysInput] = useState(7);
   const [showDays, setShowDays] = useState(false);
@@ -191,32 +191,34 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
         <Calendar className="h-3 w-3" /> Даты
       </p>
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
+      {/* Compact single row: Deadline — Start */}
+      <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-[10px] text-muted-foreground/60 shrink-0">Срок</span>
           <input
             type="date"
             value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
             onChange={(e) => onUpdate(task.id, { deadline: e.target.value || null })}
-            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary/20 transition-all w-[110px]"
           />
           {task.deadline && (
             <button onClick={() => onUpdate(task.id, { deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
+        <span className="text-muted-foreground/30">—</span>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-[10px] text-muted-foreground/60 shrink-0">Начало</span>
           <input
             type="date"
             value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
             onChange={(e) => onUpdate(task.id, { deferred_until: e.target.value || null })}
-            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary/20 transition-all w-[110px]"
           />
           {task.deferred_until && (
             <button onClick={() => onUpdate(task.id, { deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
@@ -228,7 +230,7 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
         className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
       >
         <Clock className="h-3 w-3" />
-        {showDays ? "Скрыть" : "Задать через кол-во дней..."}
+        {showDays ? "Скрыть" : "Через N дней..."}
       </button>
       {showDays && (
         <div className="flex items-center gap-2 flex-wrap">
