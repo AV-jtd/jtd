@@ -345,6 +345,7 @@ export type Database = {
           telegram_task_completed: boolean
           telegram_task_delegated: boolean
           telegram_task_participant_added: boolean
+          telegram_weekly_ai_review: boolean
           telegram_weekly_report: boolean
           updated_at: string
           user_id: string
@@ -368,6 +369,7 @@ export type Database = {
           telegram_task_completed?: boolean
           telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
+          telegram_weekly_ai_review?: boolean
           telegram_weekly_report?: boolean
           updated_at?: string
           user_id: string
@@ -391,6 +393,7 @@ export type Database = {
           telegram_task_completed?: boolean
           telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
+          telegram_weekly_ai_review?: boolean
           telegram_weekly_report?: boolean
           updated_at?: string
           user_id?: string
