@@ -22,6 +22,7 @@ export interface NotificationPrefs {
   telegram_new_task_in_group: boolean;
   telegram_task_delegated: boolean;
   telegram_weekly_report: boolean;
+  telegram_weekly_ai_review: boolean;
 }
 
 const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
@@ -42,6 +43,7 @@ const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
   telegram_new_task_in_group: false,
   telegram_task_delegated: false,
   telegram_weekly_report: false,
+  telegram_weekly_ai_review: true,
 };
 
 export function useNotificationPreferences() {
