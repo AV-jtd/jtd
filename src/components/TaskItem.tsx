@@ -1409,12 +1409,37 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </button>
               )}
               {!task.is_completed && (
-                <DeadlineQuickPopover task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)}>
-                  <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Перенести срок
-                  </button>
-                </DeadlineQuickPopover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Перенести срок
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Перенести на</p>
+                    {[
+                      { label: "Завтра", days: 1 },
+                      { label: "Через 3 дня", days: 3 },
+                      { label: "Через неделю", days: 7 },
+                      { label: "Через 2 недели", days: 14 },
+                    ].map(opt => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + opt.days);
+                      const val = format(d, "yyyy-MM-dd");
+                      return (
+                        <button
+                          key={opt.days}
+                          onClick={() => undoableUpdateTask(task.id, { deadline: val })}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                        >
+                          {opt.label}
+                          <span className="ml-auto text-[10px] text-muted-foreground">{format(d, "d MMM", { locale: ru })}</span>
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
 
