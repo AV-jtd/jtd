@@ -292,6 +292,16 @@ export default function Settings() {
                       onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
                     />
                   </div>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <span className="text-sm">Недельный ИИ-обзор в Telegram</span>
+                      <p className="text-xs text-muted-foreground">Пятница в 08:08 МСК — ИИ-анализ, достижения, фокус</p>
+                    </div>
+                    <Switch
+                      checked={!!(prefs as any)?.telegram_weekly_ai_review}
+                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
+                    />
+                  </div>
 
                   <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
                   {([
