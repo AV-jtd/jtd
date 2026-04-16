@@ -74,7 +74,7 @@ function TaskFiltersBar({
   ].filter(Boolean).length;
 
   return (
-    <div className="flex items-center gap-1 mb-4 -mx-1 px-1 md:mx-0 md:px-0">
+    <div className="flex items-center gap-1 mb-4 -mx-1 px-1 md:mx-0 md:px-0 overflow-x-auto scrollbar-none shrink-0">
       {/* Search */}
       <div className="relative flex-1 min-w-0 max-w-[200px]">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

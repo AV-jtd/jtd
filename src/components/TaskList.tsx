@@ -977,8 +977,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             {groupedSections.map(section => {
               const isCollapsed = collapsedGroups.has(section.key);
               const isProjectGroup = groupBy === "project";
+              const isOverdueSection = section.key === "overdue";
               const sectionContent = (
-                <div key={section.key} className="animate-fade-in">
+                <div key={section.key} className={cn(
+                  "animate-fade-in",
+                  isOverdueSection && "rounded-xl border border-destructive/20 bg-destructive/5 p-2"
+                )}>
                   <button
                     onClick={() => toggleCollapse(section.key)}
                     className="flex items-center gap-2 w-full px-1 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
@@ -987,8 +991,11 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
                     {section.color && (
                       <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: section.color }} />
                     )}
-                    <span className="text-xs font-semibold text-foreground truncate">{section.label}</span>
-                    <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded-full bg-muted">
+                    <span className={cn("text-xs font-semibold truncate", isOverdueSection ? "text-destructive" : "text-foreground")}>{section.label}</span>
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      isOverdueSection ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+                    )}>
                       {section.tasks.length}
                     </span>
                   </button>

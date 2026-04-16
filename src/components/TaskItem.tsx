@@ -180,7 +180,7 @@ function DeadlineQuickPopover({ task, onUpdate }: { task: Task; onUpdate: (id: s
   );
 }
 
-/* ── Dates section with days input for detail panel ── */
+/* ── Dates section — compact single row ── */
 function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: string, updates: Partial<Task>) => void }) {
   const [daysInput, setDaysInput] = useState(7);
   const [showDays, setShowDays] = useState(false);
@@ -191,32 +191,34 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
         <Calendar className="h-3 w-3" /> Даты
       </p>
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Срок</span>
+      {/* Compact single row: Deadline — Start */}
+      <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-[10px] text-muted-foreground/60 shrink-0">Срок</span>
           <input
             type="date"
             value={task.deadline ? format(parseISO(task.deadline), "yyyy-MM-dd") : ""}
             onChange={(e) => onUpdate(task.id, { deadline: e.target.value || null })}
-            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary/20 transition-all w-[110px]"
           />
           {task.deadline && (
             <button onClick={() => onUpdate(task.id, { deadline: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 w-12">Начало</span>
+        <span className="text-muted-foreground/30">—</span>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-[10px] text-muted-foreground/60 shrink-0">Начало</span>
           <input
             type="date"
             value={task.deferred_until ? format(parseISO(task.deferred_until), "yyyy-MM-dd") : ""}
             onChange={(e) => onUpdate(task.id, { deferred_until: e.target.value || null })}
-            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+            className="text-xs bg-muted/50 outline-none border border-border rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary/20 transition-all w-[110px]"
           />
           {task.deferred_until && (
             <button onClick={() => onUpdate(task.id, { deferred_until: null })} className="text-muted-foreground hover:text-destructive transition-colors">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
@@ -228,7 +230,7 @@ function DeadlineDetailSection({ task, onUpdate }: { task: Task; onUpdate: (id: 
         className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
       >
         <Clock className="h-3 w-3" />
-        {showDays ? "Скрыть" : "Задать через кол-во дней..."}
+        {showDays ? "Скрыть" : "Через N дней..."}
       </button>
       {showDays && (
         <div className="flex items-center gap-2 flex-wrap">
@@ -1370,6 +1372,107 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             isMobile ? "px-4 pb-4 pt-2" : "px-3.5 pb-3 ml-8 border-t border-border pt-3"
           )}>
             {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
+
+            {/* Overdue alert banner */}
+            {deadlineOverdue && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <span className="text-destructive text-xs font-semibold flex items-center gap-1">
+                  ⚠ Просрочено на {differenceInDays(new Date(), parseISO(task.deadline!))} дн.
+                </span>
+              </div>
+            )}
+
+            {/* Quick actions: close + reschedule */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {!task.is_completed && (
+                <button
+                  onClick={() => {
+                    if (task.requires_approval && task.approval_status !== "approved") {
+                      setClosureDialogOpen(true);
+                    } else {
+                      undoableToggleTask();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Закрыть задачу
+                </button>
+              )}
+              {task.is_completed && (
+                <button
+                  onClick={() => undoableToggleTask()}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors font-medium"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Вернуть в работу
+                </button>
+              )}
+              {!task.is_completed && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Перенести срок
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" side="bottom">
+                    <p className="text-xs font-medium text-muted-foreground px-2 py-1">Перенести на</p>
+                    {[
+                      { label: "Завтра", days: 1 },
+                      { label: "Через 3 дня", days: 3 },
+                      { label: "Через неделю", days: 7 },
+                      { label: "Через 2 недели", days: 14 },
+                    ].map(opt => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + opt.days);
+                      const val = format(d, "yyyy-MM-dd");
+                      return (
+                        <button
+                          key={opt.days}
+                          onClick={() => undoableUpdateTask(task.id, { deadline: val })}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                        >
+                          {opt.label}
+                          <span className="ml-auto text-[10px] text-muted-foreground">{format(d, "d MMM", { locale: ru })}</span>
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+
+            {/* Project line — visible in detail */}
+            {task.group_id && (() => {
+              const group = allGroups.find(g => g.id === task.group_id);
+              if (!group) return null;
+              const parentGroup = group.parent_id ? allGroups.find(g => g.id === group.parent_id) : null;
+              return (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
+                  {parentGroup && (
+                    <>
+                      <span
+                        className="cursor-pointer hover:underline underline-offset-2"
+                        style={{ color: parentGroup.color || '#3b82f6' }}
+                        onClick={() => onProjectClick?.(parentGroup.id)}
+                      >
+                        {parentGroup.icon && parentGroup.icon !== 'list' ? parentGroup.icon + ' ' : ''}{parentGroup.name}
+                      </span>
+                      <span className="text-muted-foreground/40">/</span>
+                    </>
+                  )}
+                  <span
+                    className="font-medium cursor-pointer hover:underline underline-offset-2"
+                    style={{ color: group.color || '#3b82f6' }}
+                    onClick={() => onProjectClick?.(group.id)}
+                  >
+                    {group.icon && group.icon !== 'list' ? group.icon + ' ' : ''}{group.name}
+                  </span>
+                </div>
+              );
+            })()}
           {/* Description */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
