@@ -4,12 +4,19 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   if (!BOT_TOKEN) {
     return new Response(JSON.stringify({ error: "TELEGRAM_BOT_TOKEN not set" }), { status: 500 });
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Check if today is a workday (Mon-Fri) in Moscow timezone
+  const moscowNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const dayOfWeek = moscowNow.getDay(); // 0=Sun, 6=Sat
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "weekend" }));
+  }
 
   // Get all users who have telegram_chat_id AND telegram_weekly_report enabled
   const { data: profiles, error: profErr } = await supabase
@@ -21,6 +28,7 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no profiles with telegram" }));
   }
 
+  // Check notification preferences - only send to users with telegram_weekly_report enabled
   const userIds = profiles.map(p => p.id);
   const { data: prefs } = await supabase
     .from("notification_preferences")
@@ -29,18 +37,6 @@ Deno.serve(async (_req) => {
     .eq("telegram_weekly_report", true);
 
   const enabledUserIds = new Set((prefs || []).map(p => p.user_id));
-
-  // Also include users who don't have a prefs row yet (default = enabled)
-  const { data: allPrefsRows } = await supabase
-    .from("notification_preferences")
-    .select("user_id")
-    .in("user_id", userIds);
-  const hasPrefsRow = new Set((allPrefsRows || []).map(p => p.user_id));
-  // Users without prefs row get default (enabled)
-  for (const uid of userIds) {
-    if (!hasPrefsRow.has(uid)) enabledUserIds.add(uid);
-  }
-
   const eligibleProfiles = profiles.filter(p => enabledUserIds.has(p.id));
 
   if (eligibleProfiles.length === 0) {
@@ -48,60 +44,41 @@ Deno.serve(async (_req) => {
   }
 
   // Fetch all profiles for name resolution
-  const { data: allProfiles } = await supabase.from("profiles").select("id, display_name").limit(500);
+  const { data: allProfiles } = await supabase.from("profiles").select("id, display_name").limit(200);
   const profileMap: Record<string, string> = {};
   (allProfiles || []).forEach((p: any) => { profileMap[p.id] = p.display_name || "Без имени"; });
-
-  const now = new Date();
-  const weekAgo = new Date(now);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoIso = weekAgo.toISOString();
 
   let sentCount = 0;
 
   for (const profile of eligibleProfiles) {
     try {
-      // Get user's active projects (including where user is member)
-      const { data: ownGroups } = await supabase
+      // Get user's active projects
+      const { data: groups } = await supabase
         .from("task_groups")
-        .select("id, name, icon")
+        .select("id, name, color")
         .eq("user_id", profile.id)
         .is("parent_id", null)
         .is("closed_at", null);
 
-      const { data: memberGroups } = await supabase
-        .from("group_members")
-        .select("group_id, task_groups(id, name, icon)")
-        .eq("user_id", profile.id);
-
-      const groupsMap = new Map<string, { id: string; name: string; icon: string | null }>();
-      (ownGroups || []).forEach(g => groupsMap.set(g.id, g));
-      (memberGroups || []).forEach((m: any) => {
-        if (m.task_groups && !m.task_groups.closed_at) {
-          groupsMap.set(m.task_groups.id, m.task_groups);
-        }
-      });
-
-      const groups = Array.from(groupsMap.values());
-      if (groups.length === 0) continue;
+      if (!groups || groups.length === 0) continue;
 
       const groupIds = groups.map(g => g.id);
 
       // Also get subgroups
       const { data: subgroups } = await supabase
         .from("task_groups")
-        .select("id, parent_id")
+        .select("id")
         .in("parent_id", groupIds);
       const allGroupIds = [...groupIds, ...(subgroups || []).map(sg => sg.id)];
 
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id, created_at")
+        .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id")
         .in("group_id", allGroupIds);
 
       if (!tasks || tasks.length === 0) continue;
 
-      // Subtasks
+      // Fetch subtasks for these tasks
       const taskIds = tasks.map(t => t.id);
       const { data: subtasks } = await supabase
         .from("subtasks")
@@ -110,110 +87,134 @@ Deno.serve(async (_req) => {
 
       const allSubtasks = subtasks || [];
 
-      // === Weekly stats ===
-      const completedThisWeek = tasks.filter(t => t.is_completed && t.completed_at && t.completed_at >= weekAgoIso);
-      const createdThisWeek = tasks.filter(t => t.created_at >= weekAgoIso);
-      const totalActive = tasks.filter(t => !t.is_completed).length;
+      // Build subtask stats per task
+      const subtaskMap: Record<string, { total: number; completed: number; items: any[] }> = {};
+      allSubtasks.forEach(s => {
+        if (!subtaskMap[s.task_id]) subtaskMap[s.task_id] = { total: 0, completed: 0, items: [] };
+        subtaskMap[s.task_id].total++;
+        if (s.is_completed) subtaskMap[s.task_id].completed++;
+        subtaskMap[s.task_id].items.push(s);
+      });
+
+      const now = new Date();
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.is_completed).length;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
       const overdue = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
       const driftTasks = tasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
 
-      // Next week deadlines
-      const nextWeekEnd = new Date(now);
-      nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-      const nextWeekTasks = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= nextWeekEnd);
+      // Week deadlines
+      const weekEnd = new Date(now);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekTasks = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekEnd);
 
-      // Overdue steps
+      // Overdue subtasks
       const overdueSteps = allSubtasks.filter(s => !s.is_completed && s.deadline && new Date(s.deadline) < now);
-      const completedStepsThisWeek = allSubtasks.filter(s => s.is_completed); // rough, no completed_at on subtasks
 
-      // Tasks without assignee
-      const unassigned = tasks.filter(t => !t.is_completed && !t.assigned_to);
+      // Steps without deadline or assignee
+      const stepsNoDeadline = allSubtasks.filter(s => !s.is_completed && !s.deadline);
+      const stepsNoAssignee = allSubtasks.filter(s => !s.is_completed && !s.assigned_to);
 
-      // Per-project summary
-      const projectStats = groups.map(g => {
-        const projGroupIds = [g.id, ...(subgroups || []).filter(sg => sg.parent_id === g.id).map(sg => sg.id)];
-        const projTasks = tasks.filter(t => projGroupIds.includes(t.group_id!));
-        const completed = projTasks.filter(t => t.is_completed).length;
-        const total = projTasks.length;
-        const projComplWeek = projTasks.filter(t => t.is_completed && t.completed_at && t.completed_at >= weekAgoIso).length;
-        const projOverdue = projTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
-        return { name: g.name, icon: g.icon, total, completed, projComplWeek, projOverdue };
-      }).filter(p => p.total > 0);
+      // Subtask step label helper
+      const stepLabel = (taskId: string) => {
+        const info = subtaskMap[taskId];
+        if (!info || info.total === 0) return "";
+        return ` [✓${info.completed}/${info.total}]`;
+      };
 
       // Build message
-      const pct = totalActive + completedThisWeek.length > 0
-        ? Math.round((completedThisWeek.length / (totalActive + completedThisWeek.length)) * 100)
-        : 0;
-
       const lines: string[] = [
-        `📊 <b>Недельный ревью · ${now.toLocaleDateString("ru-RU")}</b>`,
+        `📊 <b>Ежедневный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
-        `<b>📈 Итоги недели:</b>`,
-        `  ✅ Выполнено: <b>${completedThisWeek.length}</b> задач`,
-        `  📝 Создано: <b>${createdThisWeek.length}</b> новых`,
-        `  📌 В работе: <b>${totalActive}</b>`,
-        `  ⚠️ Просрочено: <b>${overdue.length}</b>`,
-        `  ↗ Drift: <b>${driftTasks.length}</b>`,
+        `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
+        `📅 Дедлайнов на неделе: <b>${weekTasks.length}</b>`,
+        `⚠️ Просрочено: <b>${overdue.length}</b> задач${overdueSteps.length > 0 ? `, <b>${overdueSteps.length}</b> шагов` : ""}`,
+        `↔ Drift: <b>${driftTasks.length}</b>`,
       ];
 
-      if (unassigned.length > 0) {
-        lines.push(`  👤 Без ответственного: <b>${unassigned.length}</b>`);
-      }
-
-      // Project breakdown
-      if (projectStats.length > 0) {
-        lines.push(``, `<b>📁 По проектам:</b>`);
-        projectStats.slice(0, 8).forEach(p => {
-          const pctP = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-          const overdueHint = p.projOverdue > 0 ? ` ⚠${p.projOverdue}` : "";
-          const weekHint = p.projComplWeek > 0 ? ` (+${p.projComplWeek} за нед.)` : "";
-          lines.push(`  ${p.icon || "📁"} ${p.name}: ${pctP}% (${p.completed}/${p.total})${weekHint}${overdueHint}`);
-        });
-      }
-
-      // Overdue tasks
       if (overdue.length > 0) {
         lines.push(``, `<b>⚠️ Просроченные:</b>`);
         overdue.slice(0, 5).forEach(t => {
           const dl = t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "";
-          const assignee = t.assigned_to ? profileMap[t.assigned_to] : "—";
-          lines.push(`  • ${t.title} (${dl}, ${assignee})`);
+          const assignee = t.assigned_to ? profileMap[t.assigned_to] : "";
+          lines.push(`  • ${t.title}${stepLabel(t.id)} (${dl}${assignee ? `, ${assignee}` : ""})`);
         });
         if (overdue.length > 5) lines.push(`  ... и ещё ${overdue.length - 5}`);
       }
 
-      // Next week
-      if (nextWeekTasks.length > 0) {
-        lines.push(``, `<b>📅 Дедлайны на следующей неделе:</b>`);
-        nextWeekTasks.slice(0, 5).forEach(t => {
+      // Overdue steps section
+      if (overdueSteps.length > 0) {
+        lines.push(``, `<b>⏰ Просроченные шаги:</b>`);
+        overdueSteps.slice(0, 5).forEach(s => {
+          const dl = s.deadline ? new Date(s.deadline).toLocaleDateString("ru-RU") : "";
+          const assignee = s.assigned_to ? profileMap[s.assigned_to] : "не назначен";
+          const parentTask = tasks.find(t => t.id === s.task_id);
+          lines.push(`  • ${s.title} (${dl}, ${assignee})${parentTask ? ` ← ${parentTask.title}` : ""}`);
+        });
+        if (overdueSteps.length > 5) lines.push(`  ... и ещё ${overdueSteps.length - 5}`);
+      }
+
+      if (weekTasks.length > 0) {
+        lines.push(``, `<b>📅 На этой неделе:</b>`);
+        weekTasks.slice(0, 5).forEach(t => {
           const dl = t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "";
           const assignee = t.assigned_to ? profileMap[t.assigned_to] : "";
-          lines.push(`  • ${t.title} (${dl}${assignee ? `, ${assignee}` : ""})`);
+          lines.push(`  • ${t.title}${stepLabel(t.id)} (${dl}${assignee ? `, ${assignee}` : ""})`);
         });
-        if (nextWeekTasks.length > 5) lines.push(`  ... и ещё ${nextWeekTasks.length - 5}`);
+        if (weekTasks.length > 5) lines.push(`  ... и ещё ${weekTasks.length - 5}`);
       }
 
-      // Overdue steps
-      if (overdueSteps.length > 0) {
-        lines.push(``, `<b>⏰ Просроченные шаги: ${overdueSteps.length}</b>`);
-        overdueSteps.slice(0, 3).forEach(s => {
-          const parent = tasks.find(t => t.id === s.task_id);
-          const assignee = s.assigned_to ? profileMap[s.assigned_to] : "—";
-          lines.push(`  • ${s.title} (${assignee})${parent ? ` ← ${parent.title}` : ""}`);
-        });
+      // Warning: steps without deadline or assignee
+      if (stepsNoDeadline.length > 0 || stepsNoAssignee.length > 0) {
+        lines.push(``, `<b>💡 Требуют внимания:</b>`);
+        if (stepsNoDeadline.length > 0) {
+          lines.push(`  📌 <b>${stepsNoDeadline.length}</b> шагов без срока`);
+          stepsNoDeadline.slice(0, 3).forEach(s => {
+            const parentTask = tasks.find(t => t.id === s.task_id);
+            lines.push(`    • "${s.title}"${parentTask ? ` ← ${parentTask.title}` : ""}`);
+          });
+        }
+        if (stepsNoAssignee.length > 0) {
+          lines.push(`  👤 <b>${stepsNoAssignee.length}</b> шагов без ответственного`);
+          stepsNoAssignee.slice(0, 3).forEach(s => {
+            const parentTask = tasks.find(t => t.id === s.task_id);
+            lines.push(`    • "${s.title}"${parentTask ? ` ← ${parentTask.title}` : ""}`);
+          });
+        }
       }
 
-      // Motivation
-      if (completedThisWeek.length >= 10) {
-        lines.push(``, `🔥 Отличная неделя! ${completedThisWeek.length} задач закрыто!`);
-      } else if (completedThisWeek.length >= 5) {
-        lines.push(``, `💪 Хорошая продуктивность! Так держать.`);
-      } else if (overdue.length > 0) {
-        lines.push(``, `⚡ На следующей неделе стоит сфокусироваться на просроченных задачах.`);
-      }
+      // Save as dashboard_report
+      const reportData = {
+        summary: { completionRate: pct, tasksThisWeek: weekTasks.length, totalOverdue: overdue.length, totalDrift: driftTasks.length, totalProjects: groups.length },
+        projects: groups.map(g => {
+          const gt = tasks.filter(t => t.group_id === g.id);
+          const gc = gt.filter(t => t.is_completed).length;
+          return { name: g.name, color: g.color, total: gt.length, completed: gc, overdue: gt.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length, driftCount: 0, avgDriftDays: 0, timingStatus: "on-track", nextDeadline: null };
+        }),
+        overdueTasks: overdue.slice(0, 10).map(t => {
+          const si = subtaskMap[t.id];
+          return { title: t.title, assignee: t.assigned_to ? profileMap[t.assigned_to] : "—", deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) };
+        }),
+        weekTasks: weekTasks.slice(0, 10).map(t => {
+          const si = subtaskMap[t.id];
+          return { title: t.title, assignee: t.assigned_to ? profileMap[t.assigned_to] : "—", deadline: t.deadline, ...(si ? { stepsTotal: si.total, stepsCompleted: si.completed } : {}) };
+        }),
+        driftTasks: [],
+        upcomingTasks: [],
+        period: "auto_daily",
+        periodLabel: "Авто-отчёт",
+        overdueStepsCount: overdueSteps.length,
+        stepsNoDeadlineCount: stepsNoDeadline.length,
+        stepsNoAssigneeCount: stepsNoAssignee.length,
+      };
 
-      lines.push(``, `<i>Хороших выходных! 🎉</i>`);
+      await supabase.from("dashboard_reports").insert({
+        user_id: profile.id,
+        title: `Авто-отчёт · ${now.toLocaleDateString("ru-RU")}`,
+        report_data: reportData,
+      });
 
+      // Send Telegram message
       const text = lines.join("\n");
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
