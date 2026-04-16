@@ -1372,6 +1372,82 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             isMobile ? "px-4 pb-4 pt-2" : "px-3.5 pb-3 ml-8 border-t border-border pt-3"
           )}>
             {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
+
+            {/* Overdue alert banner */}
+            {deadlineOverdue && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <span className="text-destructive text-xs font-semibold flex items-center gap-1">
+                  ⚠ Просрочено на {differenceInDays(new Date(), parseISO(task.deadline!))} дн.
+                </span>
+              </div>
+            )}
+
+            {/* Quick actions: close + reschedule */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {!task.is_completed && (
+                <button
+                  onClick={() => {
+                    if (task.requires_approval && task.approval_status !== "approved") {
+                      setClosureDialogOpen(true);
+                    } else {
+                      undoableToggleTask();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Закрыть задачу
+                </button>
+              )}
+              {task.is_completed && (
+                <button
+                  onClick={() => undoableToggleTask()}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors font-medium"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Вернуть в работу
+                </button>
+              )}
+              {!task.is_completed && (
+                <DeadlineQuickPopover task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)}>
+                  <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors font-medium">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Перенести срок
+                  </button>
+                </DeadlineQuickPopover>
+              )}
+            </div>
+
+            {/* Project line — visible in detail */}
+            {task.group_id && (() => {
+              const group = allGroups.find(g => g.id === task.group_id);
+              if (!group) return null;
+              const parentGroup = group.parent_id ? allGroups.find(g => g.id === group.parent_id) : null;
+              return (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
+                  {parentGroup && (
+                    <>
+                      <span
+                        className="cursor-pointer hover:underline underline-offset-2"
+                        style={{ color: parentGroup.color || '#3b82f6' }}
+                        onClick={() => onProjectClick?.(parentGroup.id)}
+                      >
+                        {parentGroup.icon && parentGroup.icon !== 'list' ? parentGroup.icon + ' ' : ''}{parentGroup.name}
+                      </span>
+                      <span className="text-muted-foreground/40">/</span>
+                    </>
+                  )}
+                  <span
+                    className="font-medium cursor-pointer hover:underline underline-offset-2"
+                    style={{ color: group.color || '#3b82f6' }}
+                    onClick={() => onProjectClick?.(group.id)}
+                  >
+                    {group.icon && group.icon !== 'list' ? group.icon + ' ' : ''}{group.name}
+                  </span>
+                </div>
+              );
+            })()}
           {/* Description */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
