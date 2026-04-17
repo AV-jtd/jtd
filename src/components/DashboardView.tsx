@@ -885,12 +885,7 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
   const totalOverdueSum = workload.reduce((s, w) => s + w.overdue, 0);
   const totalActive = workload.reduce((s, w) => s + w.total, 0);
 
-  const getInitials = (name: string) => {
-    const parts = name.split(/\s+/);
-    return parts.length >= 2
-      ? (parts[0][0] + parts[1][0]).toUpperCase()
-      : name.substring(0, 2).toUpperCase();
-  };
+
 
   const avatarStyle = (w: { overdue: number; drift: number }) => {
     if (w.overdue > 0) return "bg-red-500/10 text-red-600 dark:text-red-400";
