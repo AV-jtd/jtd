@@ -32,6 +32,7 @@ import ConfirmDelete from "@/components/ConfirmDelete";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getInitials, getAvatarColors } from "@/lib/initials";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 interface TaskItemProps {
@@ -431,13 +432,14 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
                 sub.assigned_to ? "text-primary" : "text-muted-foreground/50"
               )}>
                 {sub.assigned_to ? (
-                  <span className={cn(
-                    "h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0",
-                    sub.assigned_to !== task.assigned_to && sub.assigned_to !== task.user_id
-                      ? "bg-accent text-accent-foreground ring-1 ring-primary/30"
-                      : "bg-primary/15 text-primary"
-                  )}>
-                    {(getProfileName(sub.assigned_to) || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                  <span
+                    className={cn(
+                      "h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0",
+                      sub.assigned_to !== task.assigned_to && sub.assigned_to !== task.user_id && "ring-1 ring-primary/30"
+                    )}
+                    style={getAvatarColors(getProfileName(sub.assigned_to))}
+                  >
+                    {getInitials(getProfileName(sub.assigned_to))}
                   </span>
                 ) : (
                   <Users className="h-3 w-3" />
