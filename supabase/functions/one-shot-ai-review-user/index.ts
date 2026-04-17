@@ -215,7 +215,12 @@ async function generateAiReview(data: any, userName: string): Promise<string | n
       max_tokens: 1200, temperature: 0.7,
     }),
   });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.choices?.[0]?.message?.content || null;
+    if (!res.ok) return buildFallbackReport(data, userName);
+    const json = await res.json();
+    return json.choices?.[0]?.message?.content || buildFallbackReport(data, userName);
+  } catch (e) {
+    console.error("AI gateway error:", e);
+    return buildFallbackReport(data, userName);
+  }
 }
+
