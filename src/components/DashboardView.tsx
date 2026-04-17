@@ -1102,10 +1102,12 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
                       {assigneeIds.slice(0, 3).map(uid => {
                         const u = users.find(u => u.id === uid);
                         const name = u?.display_name || "?";
+                        const colors = getAvatarColors(name);
                         return (
                           <div
                             key={uid}
-                            className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-medium"
+                            className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium"
+                            style={colors}
                             title={name}
                           >
                             {getInitials(name)}
