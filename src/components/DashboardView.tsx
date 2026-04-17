@@ -1646,25 +1646,21 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
             <div className="divide-y divide-border">
               {grouped.map(g => {
                 const isOpen = expandedPersons.has(g.personId);
-                const getInitials = (name: string) => {
-                  const trimmed = (name || "").trim();
-                  if (!trimmed) return "—";
-                  const parts = trimmed.split(/\s+/).filter(Boolean);
-                  if (parts.length >= 2 && parts[0]?.[0] && parts[1]?.[0]) {
-                    return (parts[0][0] + parts[1][0]).toUpperCase();
-                  }
-                  return trimmed.substring(0, 2).toUpperCase();
-                };
+                const avatarColors = getAvatarColors(g.name);
                 return (
                   <div key={g.personId}>
                     <button
                       onClick={() => togglePerson(g.personId)}
                       className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors text-left"
                     >
-                      <div className={cn(
-                        "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium shrink-0",
-                        g.overdue > 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-primary/10 text-primary"
-                      )}>
+                      <div
+                        className={cn(
+                          "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium shrink-0",
+                          g.overdue > 0 && "ring-2 ring-destructive/40"
+                        )}
+                        style={avatarColors}
+                        title={g.name}
+                      >
                         {getInitials(g.name)}
                       </div>
                       <span className="text-[11px] font-medium text-foreground flex-1 truncate">{g.name}</span>
