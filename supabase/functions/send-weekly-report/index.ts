@@ -19,10 +19,12 @@ Deno.serve(async (req) => {
   }
 
   // Get all users who have telegram_chat_id AND telegram_weekly_report enabled
+  // Only personal chats (positive IDs) — group chats have negative IDs and would cause duplicate sends
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
     .select("id, display_name, telegram_chat_id")
-    .not("telegram_chat_id", "is", null);
+    .not("telegram_chat_id", "is", null)
+    .gt("telegram_chat_id", 0);
 
   if (profErr || !profiles || profiles.length === 0) {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no profiles with telegram" }));
