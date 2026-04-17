@@ -1656,8 +1656,13 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
               {grouped.map(g => {
                 const isOpen = expandedPersons.has(g.personId);
                 const getInitials = (name: string) => {
-                  const parts = name.split(/\s+/);
-                  return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
+                  const trimmed = (name || "").trim();
+                  if (!trimmed) return "—";
+                  const parts = trimmed.split(/\s+/).filter(Boolean);
+                  if (parts.length >= 2 && parts[0]?.[0] && parts[1]?.[0]) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                  }
+                  return trimmed.substring(0, 2).toUpperCase();
                 };
                 return (
                   <div key={g.personId}>
