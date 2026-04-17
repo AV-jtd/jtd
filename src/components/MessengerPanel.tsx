@@ -10,6 +10,7 @@ import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getInitials, getAvatarColors } from "@/lib/initials";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -309,8 +310,11 @@ function TaskChatFull({ taskId, taskTitle, availableUsers }: { taskId: string; t
               return (
                 <div key={c.id} className="group/msg">
                   <div className="flex items-center gap-1.5">
-                    <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-semibold text-primary shrink-0">
-                      {getProfileName(c.user_id)[0]?.toUpperCase() || "?"}
+                    <div
+                      className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-semibold shrink-0"
+                      style={getAvatarColors(getProfileName(c.user_id))}
+                    >
+                      {getInitials(getProfileName(c.user_id))}
                     </div>
                     <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
                       {getProfileName(c.user_id)}
