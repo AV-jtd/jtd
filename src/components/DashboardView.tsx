@@ -1081,10 +1081,8 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
               const assigneeIds = [...new Set(activeTasks.map(t => t.assigned_to).filter(Boolean))] as string[];
               const hasUnassigned = activeTasks.some(t => !t.assigned_to);
 
-              const getInitials = (name: string) => {
-                const parts = name.split(/\s+/);
-                return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
-              };
+
+              const getInitialsLocal = (name: string) => name; // placeholder removed; use util
 
               return (
                 <div key={ps.group.id}>
