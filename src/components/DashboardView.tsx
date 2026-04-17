@@ -1246,10 +1246,11 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         {assigneeInfo.assigneeIds.map(uid => {
           const u = users.find(u => u.id === uid);
           const name = u?.display_name || "?";
+          const colors = getAvatarColors(name);
           return (
-            <span key={uid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              <span className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[7px] font-semibold">{getInitials(name)}</span>
-              {name.split(" ")[0]}
+            <span key={uid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-foreground font-medium" title={name}>
+              <span className="h-4 w-4 rounded-full flex items-center justify-center text-[7px] font-semibold" style={colors}>{getInitials(name)}</span>
+              {name.split(/\s+/).filter(Boolean)[0] || name}
             </span>
           );
         })}
