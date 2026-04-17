@@ -54,31 +54,49 @@ Deno.serve(async (req) => {
 
   for (const profile of eligibleProfiles) {
     try {
-      // Get user's active projects
-      const { data: groups } = await supabase
-        .from("task_groups")
-        .select("id, name, color")
-        .eq("user_id", profile.id)
-        .is("parent_id", null)
-        .is("closed_at", null);
+      // Get all groups: owned + member-of (top-level only)
+      const [ownedRes, memberRes] = await Promise.all([
+        supabase.from("task_groups").select("id, name, color").eq("user_id", profile.id).is("parent_id", null).is("closed_at", null),
+        supabase.from("group_members").select("group_id, task_groups!inner(id, name, color, parent_id, closed_at, user_id)").eq("user_id", profile.id),
+      ]);
 
-      if (!groups || groups.length === 0) continue;
+      const ownedGroups = (ownedRes.data || []).map((g: any) => ({ id: g.id, name: g.name, color: g.color }));
+      const memberGroups = (memberRes.data || [])
+        .map((m: any) => m.task_groups)
+        .filter((g: any) => g && g.parent_id === null && g.closed_at === null && g.user_id !== profile.id)
+        .map((g: any) => ({ id: g.id, name: g.name, color: g.color }));
+
+      const groupsMap = new Map<string, { id: string; name: string; color: string }>();
+      [...ownedGroups, ...memberGroups].forEach((g) => groupsMap.set(g.id, g));
+      const groups = Array.from(groupsMap.values());
+
+      if (groups.length === 0) continue;
 
       const groupIds = groups.map(g => g.id);
 
-      // Also get subgroups
       const { data: subgroups } = await supabase
         .from("task_groups")
         .select("id")
         .in("parent_id", groupIds);
-      const allGroupIds = [...groupIds, ...(subgroups || []).map(sg => sg.id)];
+      const allGroupIds = [...groupIds, ...(subgroups || []).map((sg: any) => sg.id)];
 
-      const { data: tasks } = await supabase
+      // Get tasks in those groups, then keep only ones where user is involved
+      const { data: rawTasks } = await supabase
         .from("tasks")
-        .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id")
+        .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id, user_id, created_at")
         .in("group_id", allGroupIds);
 
-      if (!tasks || tasks.length === 0) continue;
+      const { data: parts } = await supabase
+        .from("task_participants")
+        .select("task_id")
+        .eq("user_id", profile.id);
+      const participantTaskIds = new Set((parts || []).map((p: any) => p.task_id));
+
+      const tasks = (rawTasks || []).filter((t: any) =>
+        t.user_id === profile.id || t.assigned_to === profile.id || participantTaskIds.has(t.id)
+      );
+
+      if (tasks.length === 0) continue;
 
       // Fetch subtasks for these tasks
       const taskIds = tasks.map(t => t.id);
