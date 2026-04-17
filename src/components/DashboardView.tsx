@@ -1221,10 +1221,8 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
     return { assigneeIds: ids, hasUnassigned: active.some(t => !t.assigned_to), unassignedCount: active.filter(t => !t.assigned_to).length };
   }, [ps]);
 
-  const getInitials = (name: string) => {
-    const parts = name.split(/\s+/);
-    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
-  };
+
+
 
   return (
     <div className="border-t border-border px-3 pb-3 pt-2 space-y-3 bg-muted/20 animate-fade-in">
