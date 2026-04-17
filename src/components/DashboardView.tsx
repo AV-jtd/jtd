@@ -1082,7 +1082,6 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
               const hasUnassigned = activeTasks.some(t => !t.assigned_to);
 
 
-              const getInitialsLocal = (name: string) => name; // placeholder removed; use util
 
               return (
                 <div key={ps.group.id}>
