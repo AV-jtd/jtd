@@ -851,6 +851,25 @@ Deno.serve(async (req) => {
             { telegram_username: username.toLowerCase(), chat_id: chatId, updated_at: new Date().toISOString() },
             { onConflict: "telegram_username" }
           );
+
+        // Auto-update profiles.telegram_chat_id with the personal (positive) chat_id.
+        // This overwrites any previously stored group chat_id (negative) so weekly
+        // personal reports reach the user's private chat.
+        if (chatId > 0) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, telegram_chat_id")
+            .ilike("telegram_username", username)
+            .maybeSingle();
+
+          if (profile && profile.telegram_chat_id !== chatId) {
+            await supabase
+              .from("profiles")
+              .update({ telegram_chat_id: chatId })
+              .eq("id", profile.id);
+            console.log(`[/start] Updated telegram_chat_id for @${username}: ${profile.telegram_chat_id} → ${chatId}`);
+          }
+        }
       }
 
       await sendTelegramMessage(
