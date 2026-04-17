@@ -454,7 +454,7 @@ function buildPptHtml(data: ReportData, aiSummary?: string): string {
     const teamRows = (assigneeSummary || []).slice(0, 8).map(a => {
       const pct = a.total > 0 ? Math.round((a.completed / a.total) * 100) : 0;
       return `<div class="team-row">
-        <div class="team-avatar">${a.name.split(/\s+/).map(p => p[0]).join("").substring(0, 2).toUpperCase()}</div>
+        <div class="team-avatar">${(a.name || "—").trim().replace(/\s+/g, "").slice(0, 2).toUpperCase()}</div>
         <span class="team-name">${a.name}</span>
         <span class="team-stat">${a.total} задач</span>
         <span class="team-stat" style="color:#34d399">✓${a.completed}</span>
