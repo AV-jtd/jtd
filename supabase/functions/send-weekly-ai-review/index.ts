@@ -22,10 +22,12 @@ Deno.serve(async () => {
   }
 
   // Get users with telegram_chat_id
+  // Only personal chats (positive IDs) — group chats have negative IDs and would cause duplicate sends
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, display_name, telegram_chat_id")
-    .not("telegram_chat_id", "is", null);
+    .not("telegram_chat_id", "is", null)
+    .gt("telegram_chat_id", 0);
 
   if (!profiles || profiles.length === 0) {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no profiles" }));
