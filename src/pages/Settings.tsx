@@ -284,8 +284,8 @@ export default function Settings() {
                   <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">Автоотчёты</p>
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <span className="text-sm">Ежедневный отчёт в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пн-Пт в 08:08 МСК — прогресс, просрочки, планы</p>
+                      <span className="text-sm">Еженедельный отчёт в Telegram</span>
+                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
                     </div>
                     <Switch
                       checked={!!(prefs as any)?.telegram_weekly_report}
@@ -294,8 +294,8 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <span className="text-sm">Недельный ИИ-обзор в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пятница в 08:08 МСК — ИИ-анализ, достижения, фокус</p>
+                      <span className="text-sm">Еженедельный ИИ-обзор в Telegram</span>
+                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
                     </div>
                     <Switch
                       checked={!!(prefs as any)?.telegram_weekly_ai_review}
