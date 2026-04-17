@@ -27,6 +27,7 @@ import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
+import { getInitials, getAvatarColors } from "@/lib/initials";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
 type FilterStatus = "all" | TimingStatus;
