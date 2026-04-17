@@ -27,6 +27,7 @@ import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Checkbox } from "@/components/ui/checkbox";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
+import { getInitials, getAvatarColors } from "@/lib/initials";
 
 type TimingStatus = "on-track" | "at-risk" | "overdue" | "completed";
 type FilterStatus = "all" | TimingStatus;
@@ -884,12 +885,7 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
   const totalOverdueSum = workload.reduce((s, w) => s + w.overdue, 0);
   const totalActive = workload.reduce((s, w) => s + w.total, 0);
 
-  const getInitials = (name: string) => {
-    const parts = name.split(/\s+/);
-    return parts.length >= 2
-      ? (parts[0][0] + parts[1][0]).toUpperCase()
-      : name.substring(0, 2).toUpperCase();
-  };
+
 
   const avatarStyle = (w: { overdue: number; drift: number }) => {
     if (w.overdue > 0) return "bg-red-500/10 text-red-600 dark:text-red-400";
@@ -1085,10 +1081,7 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
               const assigneeIds = [...new Set(activeTasks.map(t => t.assigned_to).filter(Boolean))] as string[];
               const hasUnassigned = activeTasks.some(t => !t.assigned_to);
 
-              const getInitials = (name: string) => {
-                const parts = name.split(/\s+/);
-                return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
-              };
+
 
               return (
                 <div key={ps.group.id}>
@@ -1109,10 +1102,12 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
                       {assigneeIds.slice(0, 3).map(uid => {
                         const u = users.find(u => u.id === uid);
                         const name = u?.display_name || "?";
+                        const colors = getAvatarColors(name);
                         return (
                           <div
                             key={uid}
-                            className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-medium"
+                            className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium"
+                            style={colors}
                             title={name}
                           >
                             {getInitials(name)}
@@ -1228,10 +1223,8 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
     return { assigneeIds: ids, hasUnassigned: active.some(t => !t.assigned_to), unassignedCount: active.filter(t => !t.assigned_to).length };
   }, [ps]);
 
-  const getInitials = (name: string) => {
-    const parts = name.split(/\s+/);
-    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
-  };
+
+
 
   return (
     <div className="border-t border-border px-3 pb-3 pt-2 space-y-3 bg-muted/20 animate-fade-in">
@@ -1255,10 +1248,11 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
         {assigneeInfo.assigneeIds.map(uid => {
           const u = users.find(u => u.id === uid);
           const name = u?.display_name || "?";
+          const colors = getAvatarColors(name);
           return (
-            <span key={uid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              <span className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[7px] font-semibold">{getInitials(name)}</span>
-              {name.split(" ")[0]}
+            <span key={uid} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-foreground font-medium" title={name}>
+              <span className="h-4 w-4 rounded-full flex items-center justify-center text-[7px] font-semibold" style={colors}>{getInitials(name)}</span>
+              {name.split(/\s+/).filter(Boolean)[0] || name}
             </span>
           );
         })}
@@ -1655,25 +1649,21 @@ function DelegationsBlock({ tasks, user, onOpenTask, users, subtaskMap }: {
             <div className="divide-y divide-border">
               {grouped.map(g => {
                 const isOpen = expandedPersons.has(g.personId);
-                const getInitials = (name: string) => {
-                  const trimmed = (name || "").trim();
-                  if (!trimmed) return "—";
-                  const parts = trimmed.split(/\s+/).filter(Boolean);
-                  if (parts.length >= 2 && parts[0]?.[0] && parts[1]?.[0]) {
-                    return (parts[0][0] + parts[1][0]).toUpperCase();
-                  }
-                  return trimmed.substring(0, 2).toUpperCase();
-                };
+                const avatarColors = getAvatarColors(g.name);
                 return (
                   <div key={g.personId}>
                     <button
                       onClick={() => togglePerson(g.personId)}
                       className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors text-left"
                     >
-                      <div className={cn(
-                        "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium shrink-0",
-                        g.overdue > 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-primary/10 text-primary"
-                      )}>
+                      <div
+                        className={cn(
+                          "h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-medium shrink-0",
+                          g.overdue > 0 && "ring-2 ring-destructive/40"
+                        )}
+                        style={avatarColors}
+                        title={g.name}
+                      >
                         {getInitials(g.name)}
                       </div>
                       <span className="text-[11px] font-medium text-foreground flex-1 truncate">{g.name}</span>
