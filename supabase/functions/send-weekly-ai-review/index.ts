@@ -90,31 +90,49 @@ async function gatherWeekData(supabase: any, userId: string, profileMap: Record<
   const weekEnd = new Date(now);
   weekEnd.setDate(weekEnd.getDate() + 7);
 
-  // Get user's active projects
-  const { data: groups } = await supabase
-    .from("task_groups")
-    .select("id, name")
-    .eq("user_id", userId)
-    .is("parent_id", null)
-    .is("closed_at", null);
+  // Get all groups: owned + member-of (top-level only)
+  const [ownedRes, memberRes] = await Promise.all([
+    supabase.from("task_groups").select("id, name").eq("user_id", userId).is("parent_id", null).is("closed_at", null),
+    supabase.from("group_members").select("group_id, task_groups!inner(id, name, parent_id, closed_at, user_id)").eq("user_id", userId),
+  ]);
 
-  if (!groups || groups.length === 0) return null;
+  const ownedGroups = (ownedRes.data || []).map((g: any) => ({ id: g.id, name: g.name }));
+  const memberGroups = (memberRes.data || [])
+    .map((m: any) => m.task_groups)
+    .filter((g: any) => g && g.parent_id === null && g.closed_at === null && g.user_id !== userId)
+    .map((g: any) => ({ id: g.id, name: g.name }));
+
+  const groupsMap = new Map<string, { id: string; name: string }>();
+  [...ownedGroups, ...memberGroups].forEach((g) => groupsMap.set(g.id, g));
+  const groups = Array.from(groupsMap.values());
+
+  if (groups.length === 0) return null;
 
   const groupIds = groups.map((g: any) => g.id);
 
-  // Get subgroups
   const { data: subgroups } = await supabase
     .from("task_groups")
     .select("id")
     .in("parent_id", groupIds);
   const allGroupIds = [...groupIds, ...(subgroups || []).map((sg: any) => sg.id)];
 
-  const { data: tasks } = await supabase
+  const { data: rawTasks } = await supabase
     .from("tasks")
-    .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id, created_at")
+    .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, group_id, created_at, user_id")
     .in("group_id", allGroupIds);
 
-  if (!tasks || tasks.length === 0) return null;
+  // Filter to tasks where user is actually involved
+  const { data: parts } = await supabase
+    .from("task_participants")
+    .select("task_id")
+    .eq("user_id", userId);
+  const participantTaskIds = new Set((parts || []).map((p: any) => p.task_id));
+
+  const tasks = (rawTasks || []).filter((t: any) =>
+    t.user_id === userId || t.assigned_to === userId || participantTaskIds.has(t.id)
+  );
+
+  if (tasks.length === 0) return null;
 
   const taskIds = tasks.map((t: any) => t.id);
   const { data: subtasks } = await supabase
