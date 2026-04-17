@@ -148,8 +148,44 @@ async function gatherWeekData(supabase: any, userId: string, profileMap: Record<
   };
 }
 
+function buildFallbackReport(data: any, userName: string): string {
+  const now = new Date();
+  const lines = [
+    `📊 <b>Недельный обзор · ${now.toLocaleDateString("ru-RU")}</b>`,
+    ``,
+    `Привет, <b>${userName}</b>! Вот итоги недели:`,
+    ``,
+    `📈 <b>Метрики:</b>`,
+    `  • Прогресс: <b>${data.completionRate}%</b> (${data.completedTotal}/${data.totalTasks})`,
+    `  • Выполнено за неделю: <b>${data.completedThisWeek}</b>`,
+    `  • Создано за неделю: <b>${data.createdThisWeek}</b>`,
+    `  • Просрочено: <b>${data.overdueCount}</b> задач, <b>${data.overdueStepsCount}</b> шагов`,
+    `  • Дедлайнов на след. неделе: <b>${data.upcomingWeekCount}</b>`,
+    `  • Проектов активно: <b>${data.totalProjects}</b>`,
+  ];
+  if (data.overdueCount > 0) {
+    lines.push(``, `⚠️ <b>Просроченные:</b>`);
+    data.topOverdue.forEach((t: any) => {
+      lines.push(`  • ${t.title} (${new Date(t.deadline).toLocaleDateString("ru-RU")})`);
+    });
+  }
+  if (data.upcomingWeekCount > 0) {
+    lines.push(``, `🎯 <b>На следующей неделе:</b>`);
+    data.topUpcoming.forEach((t: any) => {
+      lines.push(`  • ${t.title} (${new Date(t.deadline).toLocaleDateString("ru-RU")})`);
+    });
+  }
+  if (data.noDeadlineCount > 0 || data.noAssigneeCount > 0) {
+    lines.push(``, `💡 <b>Рекомендация:</b>`);
+    if (data.noDeadlineCount > 0) lines.push(`  📌 ${data.noDeadlineCount} задач без срока`);
+    if (data.noAssigneeCount > 0) lines.push(`  👤 ${data.noAssigneeCount} задач без ответственного`);
+  }
+  return lines.join("\n");
+}
+
 async function generateAiReview(data: any, userName: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY) return null;
+  if (!LOVABLE_API_KEY) return buildFallbackReport(data, userName);
+  try {
   const prompt = `Ты — ИИ-менеджер проектов. Составь краткий еженедельный обзор для менеджера "${userName}".
 
 Данные за неделю:
