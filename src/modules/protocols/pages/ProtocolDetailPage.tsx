@@ -61,33 +61,15 @@ export default function ProtocolDetailPage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 flex items-start gap-3">
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-2xl"
-                style={{
-                  backgroundColor: `${protocol.color ?? "#6366f1"}20`,
-                  color: protocol.color ?? "#6366f1",
-                }}
-              >
-                {protocol.icon ?? "📋"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="truncate text-2xl font-semibold text-foreground">
-                    {protocol.name}
-                  </h1>
-                  {isDraft && (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                      Черновик
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Создан {format(parseISO(protocol.created_at), "d MMMM yyyy", { locale: ru })}
-                  {protocol.closed_at && " · Архив"}
-                </p>
-              </div>
-            </div>
+            <ProtocolHeader
+              protocol={protocol as any}
+              isDraft={isDraft}
+              internalAttendeeIds={Array.from(new Set(
+                tasks
+                  .filter((t) => t.group_id === id && t.assigned_to)
+                  .map((t) => t.assigned_to as string)
+              ))}
+            />
 
             {isDraft && (
               <div className="mb-5 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] p-4">
