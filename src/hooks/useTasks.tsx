@@ -885,6 +885,8 @@ export function useTaskMutations() {
         source_protocol_id: null,
         is_draft: false,
         external_ref: null,
+        external_assignee: null,
+        status_meta: {},
         subtasks: [],
         task_tags: [],
       };
