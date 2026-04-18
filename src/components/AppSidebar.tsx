@@ -63,7 +63,7 @@ export default function AppSidebar({
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
   const [showGroups, setShowGroups] = useState(true);
-  const [showTags, setShowTags] = useState(false);
+  
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [tagShareEmail, setTagShareEmail] = useState("");
