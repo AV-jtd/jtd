@@ -1,10 +1,13 @@
 import { useMemo, useState, useRef, KeyboardEvent } from "react";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
+import { useProtocolStatuses, type ProtocolStatusTag } from "@/hooks/useProtocolStatuses";
+import { useSetTaskStatus } from "@/hooks/useSetTaskStatus";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, FolderOpen, Loader2,
+  Building2, Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -22,15 +25,21 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const { data: allTasks = [], isLoading } = useTasks();
   const { data: groups = [] } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
+  const { data: statuses = [] } = useProtocolStatuses();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
+  const setStatus = useSetTaskStatus();
 
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const isProtocolDraft = (protocol as any)?.draft_status === "draft";
+  const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
+    ((protocol as any)?.protocol_meta?.external_attendees as any[]) ?? [];
 
   const tasks = useMemo(
     () => allTasks.filter((t) => t.group_id === protocolId),
     [allTasks, protocolId],
   );
+
+  const allStatusTagIds = useMemo(() => statuses.map((s) => s.id), [statuses]);
 
   // ---------- Smart filter ----------
   const [smart, setSmart] = useState<SmartFilter>("all");
@@ -260,7 +269,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("deadline")}
                   />
                 </Th>
-                <Th className="w-28 text-center">
+                <Th className="w-44 text-center">
                   <SortHeader
                     label="Статус"
                     active={sortKey === "status"}
@@ -268,12 +277,13 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("status")}
                   />
                 </Th>
+                <Th className="w-12 text-center" />
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
                     {tasks.length === 0
                       ? "Пока пусто. Добавьте первую строку протокола ниже."
                       : "Под текущие фильтры строк нет."}
@@ -286,6 +296,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     task={task}
                     index={idx + 1}
                     users={users}
+                    statuses={statuses}
+                    allStatusTagIds={allStatusTagIds}
+                    externalAttendees={externalAttendees}
                     expanded={expandedId === task.id}
                     onToggleExpand={() =>
                       setExpandedId((e) => (e === task.id ? null : task.id))
@@ -293,6 +306,21 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onToggleComplete={() =>
                       toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
                     }
+                    onChangeStatus={(tag) => {
+                      setStatus.mutate({
+                        taskId: task.id,
+                        newTagId: tag?.id ?? null,
+                        newTagName: tag?.name ?? null,
+                        allStatusTagIds,
+                        currentStatusMeta: (task.status_meta as any) ?? null,
+                      });
+                      const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                      if (isFinal && !task.is_completed) {
+                        toggleTask.mutate({ id: task.id, is_completed: true });
+                      } else if (!isFinal && task.is_completed && tag) {
+                        toggleTask.mutate({ id: task.id, is_completed: false });
+                      }
+                    }}
                     onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
                     onDelete={() => deleteTask.mutate(task.id)}
                   />
@@ -305,7 +333,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <Plus className="mx-auto h-3.5 w-3.5" />
                 </td>
                 <td />
-                <td className="px-3 py-2" colSpan={4}>
+                <td className="px-3 py-2" colSpan={5}>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
@@ -334,14 +362,19 @@ export default function ProtocolTableView({ protocolId }: Props) {
 /* ----------------------- Row ----------------------- */
 
 function ProtocolRow({
-  task, index, users, expanded, onToggleExpand, onToggleComplete, onUpdate, onDelete,
+  task, index, users, statuses, allStatusTagIds, externalAttendees,
+  expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
   users: Profile[];
+  statuses: ProtocolStatusTag[];
+  allStatusTagIds: string[];
+  externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
+  onChangeStatus: (tag: ProtocolStatusTag | null) => void;
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
 }) {
@@ -353,6 +386,20 @@ function ProtocolRow({
 
   const [editTitle, setEditTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(task.title);
+
+  const taskTagIds = useMemo(
+    () => new Set((task.task_tags ?? []).map((tt) => tt.tag_id)),
+    [task.task_tags],
+  );
+  const currentStatus = useMemo(
+    () => statuses.find((s) => taskTagIds.has(s.id)) ?? null,
+    [statuses, taskTagIds],
+  );
+  const sentAt = (task.status_meta as any)?.sent_at as string | undefined;
+
+  const externalRef = (task.external_assignee as any) as
+    | { name?: string; organization?: string; role?: string }
+    | null;
 
   const commitTitle = () => {
     setEditTitle(false);
@@ -414,7 +461,12 @@ function ProtocolRow({
           <AssigneePicker
             users={users}
             value={task.assigned_to}
-            onChange={(uid) => onUpdate({ assigned_to: uid })}
+            externalValue={externalRef}
+            externalOptions={externalAttendees}
+            onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
+            onChangeExternal={(ext) =>
+              onUpdate({ assigned_to: null, external_assignee: (ext as any) })
+            }
           />
         </td>
         <td className="px-3 py-2">
@@ -426,6 +478,14 @@ function ProtocolRow({
           />
         </td>
         <td className="px-3 py-2 text-center">
+          <StatusPicker
+            statuses={statuses}
+            value={currentStatus}
+            sentAt={sentAt ?? null}
+            onChange={onChangeStatus}
+          />
+        </td>
+        <td className="px-2 py-2 text-center">
           <Checkbox
             checked={task.is_completed}
             onCheckedChange={() => onToggleComplete()}
@@ -436,7 +496,7 @@ function ProtocolRow({
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={6} className="px-6 py-4">
+          <td colSpan={7} className="px-6 py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
@@ -488,11 +548,14 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, onChange,
+  users, value, externalValue, externalOptions, onChange, onChangeExternal,
 }: {
   users: Profile[];
   value: string | null;
+  externalValue?: { name?: string; organization?: string; role?: string } | null;
+  externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
   onChange: (uid: string | null) => void;
+  onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -500,6 +563,18 @@ function AssigneePicker({
   const filtered = users.filter((u) =>
     !search.trim() || u.display_name?.toLowerCase().includes(search.toLowerCase()),
   );
+  const filteredExternals = (externalOptions ?? []).filter((e) =>
+    !search.trim() ||
+    e.name.toLowerCase().includes(search.toLowerCase()) ||
+    e.organization?.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const externalLabel = externalValue?.name
+    ? externalValue.organization
+      ? `${externalValue.organization} · ${externalValue.name}`
+      : externalValue.name
+    : null;
+
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>
@@ -508,14 +583,18 @@ function AssigneePicker({
             "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
             current
               ? "bg-primary/10 text-primary hover:bg-primary/15"
-              : "text-muted-foreground hover:bg-muted",
+              : externalLabel
+                ? "bg-purple-500/10 text-purple-700 hover:bg-purple-500/15 dark:text-purple-300"
+                : "text-muted-foreground hover:bg-muted",
           )}
         >
-          <User2 className="h-3 w-3" />
-          {current ? current.display_name || "Без имени" : "Назначить"}
+          {externalLabel ? <Building2 className="h-3 w-3" /> : <User2 className="h-3 w-3" />}
+          <span className="max-w-[140px] truncate">
+            {current ? current.display_name || "Без имени" : externalLabel ?? "Назначить"}
+          </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2" align="start">
+      <PopoverContent className="w-64 p-2" align="start">
         <Input
           autoFocus
           value={search}
@@ -523,31 +602,177 @@ function AssigneePicker({
           placeholder="Поиск…"
           className="mb-2 h-7 text-xs"
         />
-        <div className="max-h-48 space-y-0.5 overflow-y-auto">
-          {value && (
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {(value || externalLabel) && (
             <button
-              onClick={() => { onChange(null); setOpen(false); }}
+              onClick={() => {
+                onChange(null);
+                onChangeExternal?.(null);
+                setOpen(false);
+              }}
               className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
             >
               Снять ответственного
             </button>
           )}
-          {filtered.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => { onChange(u.id); setOpen(false); }}
-              className={cn(
-                "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
-                u.id === value && "bg-primary/10 text-primary",
-              )}
-            >
-              {u.display_name || "Без имени"}
-            </button>
-          ))}
-          {filtered.length === 0 && (
+
+          {filtered.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Команда
+              </div>
+              {filtered.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    onChange(u.id);
+                    onChangeExternal?.(null);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                    u.id === value && "bg-primary/10 text-primary",
+                  )}
+                >
+                  {u.display_name || "Без имени"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredExternals.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Внешние (из шапки)
+              </div>
+              {filteredExternals.map((e, i) => {
+                const active =
+                  externalValue?.name === e.name &&
+                  externalValue?.organization === e.organization;
+                return (
+                  <button
+                    key={`${e.name}-${i}`}
+                    onClick={() => {
+                      onChangeExternal?.({
+                        name: e.name,
+                        organization: e.organization,
+                        role: e.role,
+                      });
+                      onChange(null);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      active && "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 shrink-0 opacity-60" />
+                      <span className="truncate font-medium">{e.name}</span>
+                    </div>
+                    {(e.organization || e.role) && (
+                      <div className="ml-4 truncate text-[10px] text-muted-foreground">
+                        {[e.organization, e.role].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {(externalOptions?.length ?? 0) === 0 && (
+            <div className="rounded bg-muted/40 px-2 py-1.5 text-[10px] text-muted-foreground/80">
+              💡 Добавьте внешних в шапке протокола, чтобы назначать их ответственными.
+            </div>
+          )}
+
+          {filtered.length === 0 && filteredExternals.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
         </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function StatusPicker({
+  statuses, value, sentAt, onChange,
+}: {
+  statuses: ProtocolStatusTag[];
+  value: ProtocolStatusTag | null;
+  sentAt: string | null;
+  onChange: (tag: ProtocolStatusTag | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isSent = value?.name?.includes("Отправлено");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+            value
+              ? "border border-border hover:bg-muted/70"
+              : "text-muted-foreground hover:bg-muted",
+          )}
+          style={
+            value?.color
+              ? { backgroundColor: `${value.color}1f`, color: value.color, borderColor: `${value.color}40` }
+              : undefined
+          }
+          title={isSent && sentAt ? `Отправлено ${format(parseISO(sentAt), "d MMM, HH:mm", { locale: ru })}` : undefined}
+        >
+          {value ? (
+            <>
+              <span className="truncate">{value.name}</span>
+              {isSent && sentAt && (
+                <span className="hidden text-[10px] opacity-70 sm:inline">
+                  · {format(parseISO(sentAt), "d MMM", { locale: ru })}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <Circle className="h-3 w-3" />
+              Статус
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1.5" align="end">
+        <div className="space-y-0.5">
+          {value && (
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+            >
+              Снять статус
+            </button>
+          )}
+          {statuses.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => { onChange(s); setOpen(false); }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted",
+                value?.id === s.id && "ring-1 ring-primary/40",
+              )}
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: s.color ?? "hsl(var(--muted-foreground))" }}
+              />
+              <span className="flex-1 truncate">{s.name}</span>
+            </button>
+          ))}
+        </div>
+        {isSent && sentAt && (
+          <div className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+            📤 Отправлено: {format(parseISO(sentAt), "d MMMM yyyy, HH:mm", { locale: ru })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
