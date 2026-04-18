@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { channelManager } from "@/lib/channelManager";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
 
@@ -49,21 +50,28 @@ export function useGroupMessages(groupId: string | null) {
     enabled: !!user && !!groupId,
   });
 
-  // Realtime subscription
+  // Realtime subscription via shared LRU channel manager (max 5 active chat channels)
   useEffect(() => {
     if (!groupId || !user) return;
-    const channel = supabase
-      .channel(`group_messages_${groupId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "group_messages", filter: `group_id=eq.${groupId}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["group_messages", groupId] });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const key = `group_messages_${groupId}`;
+    return channelManager.subscribe(
+      key,
+      () =>
+        supabase
+          .channel(key)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "group_messages",
+              filter: `group_id=eq.${groupId}`,
+            },
+            () => channelManager.notify(key)
+          )
+          .subscribe(),
+      () => qc.invalidateQueries({ queryKey: ["group_messages", groupId] })
+    );
   }, [groupId, user, qc]);
 
   return query;

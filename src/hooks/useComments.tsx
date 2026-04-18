@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { channelManager } from "@/lib/channelManager";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
 
@@ -17,21 +18,28 @@ export function useTaskComments(taskId: string | null) {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  // Real-time subscription for live chat
+  // Real-time subscription via shared LRU channel manager (max 5 active chat channels)
   useEffect(() => {
     if (!user || !taskId) return;
-    const channel = supabase
-      .channel(`task-comments-${taskId}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "task_comments",
-        filter: `task_id=eq.${taskId}`,
-      }, () => {
-        qc.invalidateQueries({ queryKey: ["task_comments", taskId] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const key = `task-comments-${taskId}`;
+    return channelManager.subscribe(
+      key,
+      () =>
+        supabase
+          .channel(key)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "task_comments",
+              filter: `task_id=eq.${taskId}`,
+            },
+            () => channelManager.notify(key)
+          )
+          .subscribe(),
+      () => qc.invalidateQueries({ queryKey: ["task_comments", taskId] })
+    );
   }, [user, taskId, qc]);
 
   return useQuery({
