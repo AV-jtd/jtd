@@ -599,6 +599,54 @@ export type Database = {
           },
         ]
       }
+      protocol_templates: {
+        Row: {
+          created_at: string
+          default_columns: Json
+          description: string | null
+          icon: string | null
+          id: string
+          is_system: boolean
+          name: string
+          optional_axes: string[]
+          position: number
+          required_axes: string[]
+          system_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_columns?: Json
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          optional_axes?: string[]
+          position?: number
+          required_axes?: string[]
+          system_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_columns?: Json
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          optional_axes?: string[]
+          position?: number
+          required_axes?: string[]
+          system_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -1668,6 +1716,10 @@ export type Database = {
         Returns: boolean
       }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
+      seed_protocol_templates: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       seed_system_tag_categories: {
         Args: { _user_id: string }
         Returns: undefined
