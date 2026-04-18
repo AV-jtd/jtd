@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
-import { useTeams } from "@/hooks/useTeams";
+import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import { toast } from "sonner";
 
 // pdfjs lazy import (избегаем тяжёлой загрузки)
@@ -68,7 +68,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: templates = [] } = useProtocolTemplates();
-  const { data: teamMembers = [] } = useTeams();
+  const { data: teamMembers = [] } = useAvailableUsers();
 
   const [step, setStep] = useState<Step>("input");
   const [text, setText] = useState("");
@@ -386,7 +386,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                   <RowCard
                     key={idx}
                     row={row}
-                    teamMembers={teamMembers as any[]}
+                    teamMembers={teamMembers as Profile[]}
                     onChange={(patch) => updateRow(idx, patch)}
                     onRemove={() => removeRow(idx)}
                   />
@@ -421,7 +421,7 @@ function RowCard({
   row, teamMembers, onChange, onRemove,
 }: {
   row: ParsedRow;
-  teamMembers: any[];
+  teamMembers: Profile[];
   onChange: (patch: Partial<ParsedRow>) => void;
   onRemove: () => void;
 }) {
@@ -436,7 +436,7 @@ function RowCard({
   const suggestedAssignee = useMemo(() => {
     if (!row.assignee_hint || row.assignee_id) return null;
     const hint = row.assignee_hint.toLowerCase();
-    return teamMembers.find((m: any) => {
+    return teamMembers.find((m) => {
       const name = (m.display_name || m.email || "").toLowerCase();
       return hint.split(/\s+/).some((part) => part.length > 2 && name.includes(part));
     });
@@ -444,7 +444,7 @@ function RowCard({
 
   useEffect(() => {
     if (suggestedAssignee && !row.assignee_id) {
-      onChange({ assignee_id: suggestedAssignee.user_id || suggestedAssignee.id });
+      onChange({ assignee_id: suggestedAssignee.id });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedAssignee?.id]);
@@ -487,8 +487,8 @@ function RowCard({
                   title="Назначить ответственного"
                 >
                   <option value="">{row.assignee_hint}</option>
-                  {teamMembers.map((m: any) => (
-                    <option key={m.user_id || m.id} value={m.user_id || m.id}>
+                  {teamMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
                       {m.display_name || m.email}
                     </option>
                   ))}
