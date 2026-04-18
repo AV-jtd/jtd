@@ -46,7 +46,9 @@ export default function ProtocolsList() {
       ).length;
       const active = total - completed;
       const isArchived = !!p.closed_at;
-      return { group: p, total, completed, overdue, active, isArchived };
+      const isDraft = (p as any).draft_status === "draft";
+      const draftCount = ts.filter((t) => (t as any).is_draft).length;
+      return { group: p, total, completed, overdue, active, isArchived, isDraft, draftCount };
     });
   }, [protocols, tasksByProtocol]);
 
