@@ -362,14 +362,19 @@ export default function ProtocolTableView({ protocolId }: Props) {
 /* ----------------------- Row ----------------------- */
 
 function ProtocolRow({
-  task, index, users, expanded, onToggleExpand, onToggleComplete, onUpdate, onDelete,
+  task, index, users, statuses, allStatusTagIds, externalAttendees,
+  expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
   users: Profile[];
+  statuses: ProtocolStatusTag[];
+  allStatusTagIds: string[];
+  externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
+  onChangeStatus: (tag: ProtocolStatusTag | null) => void;
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
 }) {
@@ -381,6 +386,20 @@ function ProtocolRow({
 
   const [editTitle, setEditTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(task.title);
+
+  const taskTagIds = useMemo(
+    () => new Set((task.task_tags ?? []).map((tt) => tt.tag_id)),
+    [task.task_tags],
+  );
+  const currentStatus = useMemo(
+    () => statuses.find((s) => taskTagIds.has(s.id)) ?? null,
+    [statuses, taskTagIds],
+  );
+  const sentAt = (task.status_meta as any)?.sent_at as string | undefined;
+
+  const externalRef = (task.external_assignee as any) as
+    | { name?: string; organization?: string; role?: string }
+    | null;
 
   const commitTitle = () => {
     setEditTitle(false);
@@ -442,7 +461,12 @@ function ProtocolRow({
           <AssigneePicker
             users={users}
             value={task.assigned_to}
-            onChange={(uid) => onUpdate({ assigned_to: uid })}
+            externalValue={externalRef}
+            externalOptions={externalAttendees}
+            onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
+            onChangeExternal={(ext) =>
+              onUpdate({ assigned_to: null, external_assignee: (ext as any) })
+            }
           />
         </td>
         <td className="px-3 py-2">
@@ -454,6 +478,14 @@ function ProtocolRow({
           />
         </td>
         <td className="px-3 py-2 text-center">
+          <StatusPicker
+            statuses={statuses}
+            value={currentStatus}
+            sentAt={sentAt ?? null}
+            onChange={onChangeStatus}
+          />
+        </td>
+        <td className="px-2 py-2 text-center">
           <Checkbox
             checked={task.is_completed}
             onCheckedChange={() => onToggleComplete()}
