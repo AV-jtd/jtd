@@ -8,7 +8,7 @@ import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
 import ProtocolImportDialog from "@/modules/protocols/components/ProtocolImportDialog";
-import ImportProjectDialog from "@/components/ImportProjectDialog";
+import SmartImportDialog from "@/components/SmartImportDialog";
 import { Download, Sparkles } from "lucide-react";
 
 type StatusFilter = "all" | "active" | "archived";
@@ -81,10 +81,10 @@ export default function ProtocolsList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportProjectDialog
+          <SmartImportDialog
             trigger={
               <button
-                title="Импорт из Excel (.xlsx)"
+                title="Импорт из Excel (.xlsx) — ИИ автоматически определит колонки"
                 className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
               >
                 <Download className="h-4 w-4" />
