@@ -269,7 +269,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("deadline")}
                   />
                 </Th>
-                <Th className="w-28 text-center">
+                <Th className="w-44 text-center">
                   <SortHeader
                     label="Статус"
                     active={sortKey === "status"}
@@ -277,12 +277,13 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("status")}
                   />
                 </Th>
+                <Th className="w-12 text-center" />
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
                     {tasks.length === 0
                       ? "Пока пусто. Добавьте первую строку протокола ниже."
                       : "Под текущие фильтры строк нет."}
