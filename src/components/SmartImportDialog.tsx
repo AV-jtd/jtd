@@ -205,7 +205,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
         return;
       }
 
-      const result = await importRowsToProject(user.id, rows, targetGroupId);
+      const result = await importRowsToProject(user.id, rows, targetGroupId, { asDraft, projectType });
       setImportResult(result);
       setStep("done");
       toast.success(`Импортировано ${result.taskCount} задач`);
