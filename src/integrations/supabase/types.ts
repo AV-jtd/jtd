@@ -955,10 +955,12 @@ export type Database = {
           icon: string | null
           id: string
           linked_tag_id: string | null
+          logo_url: string | null
           name: string
           parent_id: string | null
           position: number
           project_type: string
+          protocol_meta: Json
           user_id: string
         }
         Insert: {
@@ -974,10 +976,12 @@ export type Database = {
           icon?: string | null
           id?: string
           linked_tag_id?: string | null
+          logo_url?: string | null
           name: string
           parent_id?: string | null
           position?: number
           project_type?: string
+          protocol_meta?: Json
           user_id: string
         }
         Update: {
@@ -993,10 +997,12 @@ export type Database = {
           icon?: string | null
           id?: string
           linked_tag_id?: string | null
+          logo_url?: string | null
           name?: string
           parent_id?: string | null
           position?: number
           project_type?: string
+          protocol_meta?: Json
           user_id?: string
         }
         Relationships: [
@@ -1132,6 +1138,7 @@ export type Database = {
           deferred_until: string | null
           delegated_from: string | null
           description: string | null
+          external_assignee: Json | null
           external_ref: string | null
           group_id: string | null
           id: string
@@ -1147,6 +1154,7 @@ export type Database = {
           requires_approval: boolean
           source_protocol_id: string | null
           start_at: string | null
+          status_meta: Json
           task_type: string
           title: string
           updated_at: string
@@ -1164,6 +1172,7 @@ export type Database = {
           deferred_until?: string | null
           delegated_from?: string | null
           description?: string | null
+          external_assignee?: Json | null
           external_ref?: string | null
           group_id?: string | null
           id?: string
@@ -1179,6 +1188,7 @@ export type Database = {
           requires_approval?: boolean
           source_protocol_id?: string | null
           start_at?: string | null
+          status_meta?: Json
           task_type?: string
           title: string
           updated_at?: string
@@ -1196,6 +1206,7 @@ export type Database = {
           deferred_until?: string | null
           delegated_from?: string | null
           description?: string | null
+          external_assignee?: Json | null
           external_ref?: string | null
           group_id?: string | null
           id?: string
@@ -1211,6 +1222,7 @@ export type Database = {
           requires_approval?: boolean
           source_protocol_id?: string | null
           start_at?: string | null
+          status_meta?: Json
           task_type?: string
           title?: string
           updated_at?: string
@@ -1725,6 +1737,10 @@ export type Database = {
         Returns: boolean
       }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
+      seed_protocol_status_for_user: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       seed_protocol_templates: {
         Args: { _user_id: string }
         Returns: undefined
