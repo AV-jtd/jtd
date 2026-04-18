@@ -39,9 +39,11 @@ interface SmartImportDialogProps {
   onSuccess?: (groupId: string) => void;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
+  asDraft?: boolean;
+  projectType?: string;
 }
 
-export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, open: controlledOpen, onOpenChange: controlledOnOpenChange }: SmartImportDialogProps) {
+export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, open: controlledOpen, onOpenChange: controlledOnOpenChange, asDraft, projectType }: SmartImportDialogProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [internalOpen, setInternalOpen] = useState(false);
