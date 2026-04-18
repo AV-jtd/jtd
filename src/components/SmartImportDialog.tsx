@@ -131,7 +131,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: "",
-          action: "map_excel_columns",
+          action: "map_columns",
           context: { headers, sampleRows: rows.slice(0, 5) },
         },
       });
