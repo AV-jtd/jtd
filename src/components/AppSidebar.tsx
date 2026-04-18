@@ -713,14 +713,7 @@ export default function AppSidebar({
           </button>
         ))}
 
-        {/* External route: Протоколы */}
-        <Link
-          to="/protocols"
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-        >
-          <FileText className="h-4 w-4" />
-          Протоколы
-        </Link>
+
 
 
         {/* Projects section */}
