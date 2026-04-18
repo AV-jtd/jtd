@@ -130,23 +130,8 @@ async function checkDuplicateName(
 
 export function useTaskGroups() {
   const { user, loading } = useAuth();
-  const qc = useQueryClient();
 
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel('group_members_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'group_members', filter: `user_id=eq.${user.id}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ["task_groups"] });
-          qc.invalidateQueries({ queryKey: ["group_members"] });
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, qc]);
+  // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
 
   return useQuery({
     queryKey: ["task_groups", user?.id],
@@ -168,19 +153,8 @@ export function useTaskGroups() {
 
 export function useTasks(groupId?: string | null, filterTags?: string[] | null) {
   const { user, loading } = useAuth();
-  const qc = useQueryClient();
 
-  // Real-time: auto-refresh when subtasks change (other participants)
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel("subtasks-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "subtasks" }, () => {
-        qc.invalidateQueries({ queryKey: ["tasks"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, qc]);
+  // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
 
   return useQuery({
     queryKey: ["tasks", user?.id, groupId, filterTags],
