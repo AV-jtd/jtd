@@ -25,15 +25,21 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const { data: allTasks = [], isLoading } = useTasks();
   const { data: groups = [] } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
+  const { data: statuses = [] } = useProtocolStatuses();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
+  const setStatus = useSetTaskStatus();
 
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const isProtocolDraft = (protocol as any)?.draft_status === "draft";
+  const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
+    ((protocol as any)?.protocol_meta?.external_attendees as any[]) ?? [];
 
   const tasks = useMemo(
     () => allTasks.filter((t) => t.group_id === protocolId),
     [allTasks, protocolId],
   );
+
+  const allStatusTagIds = useMemo(() => statuses.map((s) => s.id), [statuses]);
 
   // ---------- Smart filter ----------
   const [smart, setSmart] = useState<SmartFilter>("all");
