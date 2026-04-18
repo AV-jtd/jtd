@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Loader2, Upload, FileText, Sparkles, ArrowLeft, ArrowRight,
+  Loader2, Download, FileText, Sparkles, ArrowLeft, ArrowRight,
   CalendarIcon, User as UserIcon, Tag as TagIcon, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
