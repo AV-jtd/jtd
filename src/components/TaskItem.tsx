@@ -1112,6 +1112,20 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
+            {/* Source protocol badge — задача вышла из протокола встречи */}
+            {task.source_protocol_id && task.source_protocol_id !== task.group_id && (() => {
+              const protocolGroup = allGroups.find(g => g.id === task.source_protocol_id);
+              if (!protocolGroup) return null;
+              return (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors shrink-0"
+                  onClick={(e) => { e.stopPropagation(); navigateTo(`/protocols/${protocolGroup.id}`); }}
+                  title={`Из протокола: ${protocolGroup.name}`}
+                >
+                  📋 {protocolGroup.name}
+                </span>
+              );
+            })()}
             {taskTags.map(tag => (
               <span
                 key={tag.id}
