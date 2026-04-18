@@ -744,28 +744,37 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          icon: string | null
           id: string
+          is_system: boolean
           name: string
           parent_id: string | null
           position: number
+          system_key: string | null
           user_id: string
         }
         Insert: {
           color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          is_system?: boolean
           name: string
           parent_id?: string | null
           position?: number
+          system_key?: string | null
           user_id: string
         }
         Update: {
           color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          is_system?: boolean
           name?: string
           parent_id?: string | null
           position?: number
+          system_key?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1083,6 +1092,7 @@ export type Database = {
           recurrence: string | null
           recurrence_end_date: string | null
           requires_approval: boolean
+          source_protocol_id: string | null
           start_at: string | null
           task_type: string
           title: string
@@ -1112,6 +1122,7 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          source_protocol_id?: string | null
           start_at?: string | null
           task_type?: string
           title: string
@@ -1141,6 +1152,7 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          source_protocol_id?: string | null
           start_at?: string | null
           task_type?: string
           title?: string
@@ -1167,6 +1179,13 @@ export type Database = {
             columns: ["parent_recurring_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_protocol_id_fkey"
+            columns: ["source_protocol_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -1649,6 +1668,10 @@ export type Database = {
         Returns: boolean
       }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
+      seed_system_tag_categories: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       task_has_tag_access: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean

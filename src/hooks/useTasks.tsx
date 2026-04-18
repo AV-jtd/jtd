@@ -882,6 +882,7 @@ export function useTaskMutations() {
         approval_status: null,
         closure_result: null,
         closure_attachments: [],
+        source_protocol_id: null,
         subtasks: [],
         task_tags: [],
       };
