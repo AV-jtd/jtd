@@ -8,11 +8,18 @@ interface ExportRow {
   subproject: string;
   title: string;
   description: string;
+  start_at?: string;
   deadline: string;
   original_deadline: string;
+  completed_at?: string;
+  is_completed_text?: string;
   priority: string;
   status: string;
   assigned_to: string;
+  participants_informed?: string;
+  participants_support?: string;
+  topic?: string;
+  external_ref?: string;
   tags: string;
   subtasks: string;
   recurrence: string;
