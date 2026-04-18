@@ -252,7 +252,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               {extractingPdf ? (
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               ) : (
-                <Upload className="h-8 w-8 text-muted-foreground" />
+                <Download className="h-8 w-8 text-muted-foreground" />
               )}
               <div className="text-sm font-medium text-foreground">
                 {extractingPdf ? "Извлекаем текст из PDF…" : "Перетащите PDF или текстовый файл сюда"}
