@@ -284,6 +284,7 @@ export async function importCsvToProject(
       group_id: taskGroupId,
       user_id: userId,
       position: created,
+      is_draft: asDraft,
     }).select().single();
 
     if (!task) continue;
