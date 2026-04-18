@@ -548,11 +548,14 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, onChange,
+  users, value, externalValue, externalOptions, onChange, onChangeExternal,
 }: {
   users: Profile[];
   value: string | null;
+  externalValue?: { name?: string; organization?: string; role?: string } | null;
+  externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
   onChange: (uid: string | null) => void;
+  onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -560,6 +563,18 @@ function AssigneePicker({
   const filtered = users.filter((u) =>
     !search.trim() || u.display_name?.toLowerCase().includes(search.toLowerCase()),
   );
+  const filteredExternals = (externalOptions ?? []).filter((e) =>
+    !search.trim() ||
+    e.name.toLowerCase().includes(search.toLowerCase()) ||
+    e.organization?.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const externalLabel = externalValue?.name
+    ? externalValue.organization
+      ? `${externalValue.organization} · ${externalValue.name}`
+      : externalValue.name
+    : null;
+
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>
@@ -568,14 +583,18 @@ function AssigneePicker({
             "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
             current
               ? "bg-primary/10 text-primary hover:bg-primary/15"
-              : "text-muted-foreground hover:bg-muted",
+              : externalLabel
+                ? "bg-purple-500/10 text-purple-700 hover:bg-purple-500/15 dark:text-purple-300"
+                : "text-muted-foreground hover:bg-muted",
           )}
         >
-          <User2 className="h-3 w-3" />
-          {current ? current.display_name || "Без имени" : "Назначить"}
+          {externalLabel ? <Building2 className="h-3 w-3" /> : <User2 className="h-3 w-3" />}
+          <span className="max-w-[140px] truncate">
+            {current ? current.display_name || "Без имени" : externalLabel ?? "Назначить"}
+          </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2" align="start">
+      <PopoverContent className="w-64 p-2" align="start">
         <Input
           autoFocus
           value={search}
@@ -583,31 +602,177 @@ function AssigneePicker({
           placeholder="Поиск…"
           className="mb-2 h-7 text-xs"
         />
-        <div className="max-h-48 space-y-0.5 overflow-y-auto">
-          {value && (
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {(value || externalLabel) && (
             <button
-              onClick={() => { onChange(null); setOpen(false); }}
+              onClick={() => {
+                onChange(null);
+                onChangeExternal?.(null);
+                setOpen(false);
+              }}
               className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
             >
               Снять ответственного
             </button>
           )}
-          {filtered.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => { onChange(u.id); setOpen(false); }}
-              className={cn(
-                "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
-                u.id === value && "bg-primary/10 text-primary",
-              )}
-            >
-              {u.display_name || "Без имени"}
-            </button>
-          ))}
-          {filtered.length === 0 && (
+
+          {filtered.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Команда
+              </div>
+              {filtered.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    onChange(u.id);
+                    onChangeExternal?.(null);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                    u.id === value && "bg-primary/10 text-primary",
+                  )}
+                >
+                  {u.display_name || "Без имени"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredExternals.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Внешние (из шапки)
+              </div>
+              {filteredExternals.map((e, i) => {
+                const active =
+                  externalValue?.name === e.name &&
+                  externalValue?.organization === e.organization;
+                return (
+                  <button
+                    key={`${e.name}-${i}`}
+                    onClick={() => {
+                      onChangeExternal?.({
+                        name: e.name,
+                        organization: e.organization,
+                        role: e.role,
+                      });
+                      onChange(null);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      active && "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 shrink-0 opacity-60" />
+                      <span className="truncate font-medium">{e.name}</span>
+                    </div>
+                    {(e.organization || e.role) && (
+                      <div className="ml-4 truncate text-[10px] text-muted-foreground">
+                        {[e.organization, e.role].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {(externalOptions?.length ?? 0) === 0 && (
+            <div className="rounded bg-muted/40 px-2 py-1.5 text-[10px] text-muted-foreground/80">
+              💡 Добавьте внешних в шапке протокола, чтобы назначать их ответственными.
+            </div>
+          )}
+
+          {filtered.length === 0 && filteredExternals.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
         </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function StatusPicker({
+  statuses, value, sentAt, onChange,
+}: {
+  statuses: ProtocolStatusTag[];
+  value: ProtocolStatusTag | null;
+  sentAt: string | null;
+  onChange: (tag: ProtocolStatusTag | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isSent = value?.name?.includes("Отправлено");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+            value
+              ? "border border-border hover:bg-muted/70"
+              : "text-muted-foreground hover:bg-muted",
+          )}
+          style={
+            value?.color
+              ? { backgroundColor: `${value.color}1f`, color: value.color, borderColor: `${value.color}40` }
+              : undefined
+          }
+          title={isSent && sentAt ? `Отправлено ${format(parseISO(sentAt), "d MMM, HH:mm", { locale: ru })}` : undefined}
+        >
+          {value ? (
+            <>
+              <span className="truncate">{value.name}</span>
+              {isSent && sentAt && (
+                <span className="hidden text-[10px] opacity-70 sm:inline">
+                  · {format(parseISO(sentAt), "d MMM", { locale: ru })}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <Circle className="h-3 w-3" />
+              Статус
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1.5" align="end">
+        <div className="space-y-0.5">
+          {value && (
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+            >
+              Снять статус
+            </button>
+          )}
+          {statuses.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => { onChange(s); setOpen(false); }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted",
+                value?.id === s.id && "ring-1 ring-primary/40",
+              )}
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: s.color ?? "hsl(var(--muted-foreground))" }}
+              />
+              <span className="flex-1 truncate">{s.name}</span>
+            </button>
+          ))}
+        </div>
+        {isSent && sentAt && (
+          <div className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+            📤 Отправлено: {format(parseISO(sentAt), "d MMMM yyyy, HH:mm", { locale: ru })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
