@@ -10,8 +10,9 @@ import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw,
-  Activity, Zap
+  Activity, Zap, FileText
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
