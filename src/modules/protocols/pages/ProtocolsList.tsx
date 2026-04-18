@@ -7,9 +7,8 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
-import ProtocolImportDialog from "@/modules/protocols/components/ProtocolImportDialog";
-import SmartImportDialog from "@/components/SmartImportDialog";
-import { Download, Sparkles } from "lucide-react";
+import UnifiedImportDialog from "@/modules/protocols/components/UnifiedImportDialog";
+import { Sparkles } from "lucide-react";
 
 type StatusFilter = "all" | "active" | "archived";
 
