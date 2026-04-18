@@ -24,7 +24,7 @@ import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { initials } from "@/lib/initials";
+import { getInitials } from "@/lib/initials";
 
 type Format = "online" | "offline" | "hybrid";
 
