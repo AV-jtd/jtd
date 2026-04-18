@@ -30,12 +30,14 @@ export default function UnifiedImportDialog({ open, onOpenChange }: Props) {
     }
   };
 
-  // Excel flow — контролируемый SmartImportDialog
+  // Excel flow — контролируемый SmartImportDialog (всегда черновик для протоколов)
   if (open && source === "excel") {
     return (
       <SmartImportDialog
         open={true}
         onOpenChange={handleSourceClose}
+        asDraft={true}
+        projectType="protocol"
         onSuccess={(groupId) => {
           onOpenChange(false);
           navigate(`/protocols/${groupId}`);
