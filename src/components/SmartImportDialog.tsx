@@ -398,9 +398,14 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
                   className="flex-1 gap-1.5"
                 >
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  Импортировать {allRows.length} строк
+                  {asDraft ? `Создать черновик (${allRows.length})` : `Импортировать ${allRows.length} строк`}
                 </Button>
               </div>
+              {asDraft && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  💡 Задачи будут импортированы как <b>черновик</b>. Никто не получит уведомлений, пока вы не нажмёте «Опубликовать» на странице протокола.
+                </p>
+              )}
             </div>
           </>
         )}
@@ -408,7 +413,12 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
         {step === "done" && (
           <div className="flex flex-col items-center gap-2 py-8">
             <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-            <p className="text-sm font-medium">Импортировано {importResult?.taskCount} задач!</p>
+            <p className="text-sm font-medium">
+              {asDraft ? `Черновик создан: ${importResult?.taskCount} задач` : `Импортировано ${importResult?.taskCount} задач!`}
+            </p>
+            {asDraft && (
+              <p className="text-xs text-muted-foreground">Открываю редактор протокола…</p>
+            )}
           </div>
         )}
       </DialogContent>
