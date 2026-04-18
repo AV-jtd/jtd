@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
-import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive } from "lucide-react";
+import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, FileEdit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -46,7 +46,9 @@ export default function ProtocolsList() {
       ).length;
       const active = total - completed;
       const isArchived = !!p.closed_at;
-      return { group: p, total, completed, overdue, active, isArchived };
+      const isDraft = (p as any).draft_status === "draft";
+      const draftCount = ts.filter((t) => (t as any).is_draft).length;
+      return { group: p, total, completed, overdue, active, isArchived, isDraft, draftCount };
     });
   }, [protocols, tasksByProtocol]);
 
@@ -176,10 +178,12 @@ function ProtocolRow({
     overdue: number;
     active: number;
     isArchived: boolean;
+    isDraft: boolean;
+    draftCount: number;
   };
   onOpen: () => void;
 }) {
-  const { group, total, completed, overdue, active, isArchived } = data;
+  const { group, total, completed, overdue, active, isArchived, isDraft, draftCount } = data;
   const created = format(parseISO(group.created_at), "d MMMM yyyy", { locale: ru });
 
   return (
@@ -187,6 +191,7 @@ function ProtocolRow({
       onClick={onOpen}
       className={cn(
         "group flex w-full items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-primary/40 hover:shadow-sm",
+        isDraft && "border-amber-400/50 bg-amber-50/30 dark:border-amber-500/40 dark:bg-amber-950/20",
         isArchived && "opacity-60",
       )}
     >
@@ -199,6 +204,12 @@ function ProtocolRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-foreground">{group.name}</span>
+          {isDraft && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+              <FileEdit className="h-3 w-3" />
+              Черновик{draftCount > 0 ? ` · ${draftCount}` : ""}
+            </span>
+          )}
           {isArchived && (
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
               Архив
