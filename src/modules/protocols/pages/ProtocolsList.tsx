@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
-import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive } from "lucide-react";
+import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
+import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -15,6 +16,7 @@ export default function ProtocolsList() {
   const { data: tasks = [] } = useTasks();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const protocols = useMemo(
     () => groups.filter((g) => g.project_type === "protocol"),
@@ -74,16 +76,29 @@ export default function ProtocolsList() {
             Каждый протокол — это проект. Строки протокола — задачи с ответственными и сроками.
           </p>
         </div>
-        <button
-          onClick={() => {
-            // TODO: открыть диалог создания протокола (Этап 3)
-          }}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Новый протокол
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              // TODO: импорт PDF/текста через ИИ (Этап 4)
+            }}
+            disabled
+            title="Импорт из PDF/текста — скоро"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Upload className="h-4 w-4" />
+            Импорт
+          </button>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Новый протокол
+          </button>
+        </div>
       </div>
+
+      <NewProtocolDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {/* Status tabs */}
       <div className="mb-4 flex items-center gap-1 border-b border-border">
