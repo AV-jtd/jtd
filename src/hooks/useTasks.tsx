@@ -884,6 +884,7 @@ export function useTaskMutations() {
         closure_attachments: [],
         source_protocol_id: null,
         is_draft: false,
+        external_ref: null,
         subtasks: [],
         task_tags: [],
       };

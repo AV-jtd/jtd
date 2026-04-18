@@ -1132,6 +1132,7 @@ export type Database = {
           deferred_until: string | null
           delegated_from: string | null
           description: string | null
+          external_ref: string | null
           group_id: string | null
           id: string
           is_completed: boolean
@@ -1163,6 +1164,7 @@ export type Database = {
           deferred_until?: string | null
           delegated_from?: string | null
           description?: string | null
+          external_ref?: string | null
           group_id?: string | null
           id?: string
           is_completed?: boolean
@@ -1194,6 +1196,7 @@ export type Database = {
           deferred_until?: string | null
           delegated_from?: string | null
           description?: string | null
+          external_ref?: string | null
           group_id?: string | null
           id?: string
           is_completed?: boolean

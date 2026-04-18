@@ -19,14 +19,20 @@ interface ColumnMapping {
 
 const FIELD_OPTIONS = [
   { value: "title", label: "Задача" },
-  { value: "description", label: "Описание" },
-  { value: "start_at", label: "Старт" },
-  { value: "deadline", label: "Дедлайн" },
+  { value: "description", label: "Описание / примечание" },
+  { value: "external_ref", label: "№ п/п (внешний номер)" },
+  { value: "topic", label: "Тема / блок (→ тег)" },
+  { value: "start_at", label: "Старт / постановка" },
+  { value: "deadline", label: "Плановый дедлайн" },
+  { value: "completed_at", label: "Дата факт. исполнения" },
+  { value: "is_completed", label: "Статус выполнения" },
   { value: "priority", label: "Приоритет" },
-  { value: "status", label: "Статус" },
-  { value: "assigned_to", label: "Ответственный" },
+  { value: "status", label: "Статус (текст)" },
+  { value: "assigned_to", label: "Ответственный (один)" },
+  { value: "participants_informed", label: "Информируемые (мульти)" },
+  { value: "participants_support", label: "Поддержка (мульти)" },
   { value: "tags", label: "Теги" },
-  { value: "subtasks", label: "Подзадачи" },
+  { value: "subtasks", label: "Подзадачи / шаги" },
   { value: "project", label: "Проект" },
   { value: "subproject", label: "Подпроект" },
   { value: "type", label: "Тип строки" },
@@ -190,9 +196,15 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
           start_at: get("start_at") || "",
           deadline: get("deadline") || "",
           original_deadline: "",
+          completed_at: get("completed_at") || "",
+          is_completed_text: get("is_completed") || "",
           priority: get("priority") || "",
           status: get("status") || "",
           assigned_to: get("assigned_to") || "",
+          participants_informed: get("participants_informed") || "",
+          participants_support: get("participants_support") || "",
+          topic: get("topic") || "",
+          external_ref: get("external_ref") || "",
           tags: get("tags") || "",
           subtasks: get("subtasks") || "",
           recurrence: "",
@@ -342,12 +354,18 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
               <div className="space-y-1.5">
                 {mapping.map((m, i) => {
                   const isMapped = m.field !== "skip";
+                  const lowConfidence = isMapped && m.confidence < 0.7;
                   return (
                     <div
                       key={i}
                       className={`flex items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
-                        isMapped ? "border-border bg-card" : "border-dashed border-border/60 bg-muted/20"
+                        lowConfidence
+                          ? "border-amber-400/60 bg-amber-50/40 dark:bg-amber-950/20"
+                          : isMapped
+                            ? "border-border bg-card"
+                            : "border-dashed border-border/60 bg-muted/20"
                       }`}
+                      title={lowConfidence ? "AI не уверен в маппинге — проверьте вручную" : undefined}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium truncate" title={m.excel_column}>
@@ -361,7 +379,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
                       </div>
                       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <Select value={m.field} onValueChange={(v) => updateMapping(i, v)}>
-                        <SelectTrigger className="h-8 text-xs w-[200px] shrink-0">
+                        <SelectTrigger className={`h-8 text-xs w-[200px] shrink-0 ${lowConfidence ? "border-amber-400/70" : ""}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -374,6 +392,9 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
                       </Select>
                       {isMapped && m.confidence >= 0.8 && (
                         <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      )}
+                      {lowConfidence && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 shrink-0 font-medium">проверить</span>
                       )}
                     </div>
                   );
