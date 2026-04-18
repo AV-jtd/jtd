@@ -24,6 +24,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const { data: users = [] } = useAvailableUsers();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
 
+  const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
+  const isProtocolDraft = (protocol as any)?.draft_status === "draft";
+
   const tasks = useMemo(
     () => allTasks.filter((t) => t.group_id === protocolId),
     [allTasks, protocolId],
