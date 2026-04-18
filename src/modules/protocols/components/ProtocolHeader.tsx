@@ -323,7 +323,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   title={p.email ?? undefined}
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                    {initials(p.display_name || p.email || "?")}
+                    {getInitials(p.display_name || p.email || "?")}
                   </span>
                   <span className="max-w-[140px] truncate">
                     {p.display_name || p.email || p.id.slice(0, 6)}
