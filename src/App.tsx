@@ -32,6 +32,7 @@ const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
 const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const WikiDemo = lazy(() => import("./pages/WikiDemo"));
 const PublicReport = lazy(() => import("./pages/PublicReport"));
+const Protocols = lazy(() => import("./pages/Protocols"));
 
 // Sync onlineManager with browser online/offline events
 onlineManager.setEventListener((setOnline) => {
@@ -89,6 +90,7 @@ function AppContent() {
               <Route path="/crm" element={<Crm />} />
               <Route path="/npd" element={<Npd />} />
               <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
+              <Route path="/protocols" element={<Protocols />} />
               <Route path="/wiki-demo" element={<WikiDemo />} />
               <Route path="/report" element={<PublicReport />} />
               <Route path="*" element={<NotFound />} />
