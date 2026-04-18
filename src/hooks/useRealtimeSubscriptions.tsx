@@ -1,0 +1,92 @@
+import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
+
+/**
+ * Singleton Realtime subscriptions.
+ * Mounts ONCE at the App root (inside AuthProvider) instead of being
+ * re-created in every useTasks() / useTaskGroups() / useUnreadMessages() instance.
+ *
+ * Previously these channels were opened by hooks that are called from 16+ components,
+ * resulting in 15-20 duplicate WebSocket subscriptions and a global refetch storm
+ * on every subtask change (unfiltered subtasks-realtime channel).
+ *
+ * Invalidations are debounced (500ms) so a burst of changes (e.g. offline-sync replay)
+ * collapses into a single refetch instead of cascading network requests.
+ */
+export function useRealtimeSubscriptions() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const tasksTimer = useRef<number | null>(null);
+  const groupsTimer = useRef<number | null>(null);
+  const unreadTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const debouncedInvalidate = (
+      ref: React.MutableRefObject<number | null>,
+      keys: string[][]
+    ) => {
+      if (ref.current) window.clearTimeout(ref.current);
+      ref.current = window.setTimeout(() => {
+        keys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
+        ref.current = null;
+      }, 500);
+    };
+
+    // Subtasks (was: every useTasks() instance opened this — and unfiltered)
+    const subtasksChannel = supabase
+      .channel("global-subtasks-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "subtasks" },
+        () => debouncedInvalidate(tasksTimer, [["tasks"]])
+      )
+      .subscribe();
+
+    // Group members for THIS user (was: every useTaskGroups() instance opened this)
+    const groupMembersChannel = supabase
+      .channel("global-group-members")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "group_members",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () =>
+          debouncedInvalidate(groupsTimer, [
+            ["task_groups"],
+            ["group_members"],
+          ])
+      )
+      .subscribe();
+
+    // Unread messages badge (was: useUnreadMessages opened this — fine, but consolidated here)
+    const unreadChannel = supabase
+      .channel("global-unread-badge")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "group_messages" },
+        () => debouncedInvalidate(unreadTimer, [["unread_messages"]])
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "task_comments" },
+        () => debouncedInvalidate(unreadTimer, [["unread_messages"]])
+      )
+      .subscribe();
+
+    return () => {
+      if (tasksTimer.current) window.clearTimeout(tasksTimer.current);
+      if (groupsTimer.current) window.clearTimeout(groupsTimer.current);
+      if (unreadTimer.current) window.clearTimeout(unreadTimer.current);
+      supabase.removeChannel(subtasksChannel);
+      supabase.removeChannel(groupMembersChannel);
+      supabase.removeChannel(unreadChannel);
+    };
+  }, [user, qc]);
+}
