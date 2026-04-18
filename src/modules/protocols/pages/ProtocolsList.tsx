@@ -8,6 +8,8 @@ import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
 import ProtocolImportDialog from "@/modules/protocols/components/ProtocolImportDialog";
+import ImportProjectDialog from "@/components/ImportProjectDialog";
+import { Download, Sparkles } from "lucide-react";
 
 type StatusFilter = "all" | "active" | "archived";
 
