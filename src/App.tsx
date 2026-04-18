@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { UndoProvider } from "@/hooks/useUndoStack";
 import { idbPersister } from "@/lib/queryPersist";
 import { usePrefetchData } from "@/hooks/usePrefetch";
+import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "./components/OnlineStatus";
 import PendingSync from "./components/PendingSync";
@@ -69,6 +70,7 @@ function LazyFallback() {
 
 function AppContent() {
   usePrefetchData();
+  useRealtimeSubscriptions();
   return (
     <>
       <Toaster />

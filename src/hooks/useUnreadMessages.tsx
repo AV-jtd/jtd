@@ -129,21 +129,14 @@ export function useUnreadMessages() {
     return () => clearInterval(interval);
   }, [computeUnread, user]);
 
-  // Realtime subscriptions for instant badge updates
+  // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root).
+  // We listen for invalidation signal via QueryClient subscription instead.
   useEffect(() => {
     if (!user) return;
-
-    const channel = supabase
-      .channel("unread-badge")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages" }, () => {
-        computeUnread();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "task_comments" }, () => {
-        computeUnread();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // Listen to query invalidations dispatched by the singleton channel
+    const handler = () => computeUnread();
+    window.addEventListener("jtd:unread-invalidate", handler);
+    return () => window.removeEventListener("jtd:unread-invalidate", handler);
   }, [user, computeUnread]);
 
   const markThreadRead = useCallback(async (threadId: string) => {
