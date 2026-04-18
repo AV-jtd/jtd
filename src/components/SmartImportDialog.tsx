@@ -276,7 +276,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] !flex flex-col overflow-hidden p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="text-base flex items-center gap-2">
             {step === "mapping" && <Sparkles className="h-4 w-4 text-primary" />}
