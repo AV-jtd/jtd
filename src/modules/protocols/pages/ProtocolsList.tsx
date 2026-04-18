@@ -88,18 +88,18 @@ export default function ProtocolsList() {
                 className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
               >
                 <Download className="h-4 w-4" />
-                Excel
+                Импорт Excel
               </button>
             }
             onSuccess={(groupId) => navigate(`/protocols/${groupId}`)}
           />
           <button
             onClick={() => setImportOpen(true)}
-            title="Импорт из PDF или текста через ИИ"
+            title="Импорт из PDF или вставленного текста протокола"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
           >
             <Sparkles className="h-4 w-4" />
-            Импорт ИИ
+            Импорт PDF / текст
           </button>
           <button
             onClick={() => setCreateOpen(true)}
