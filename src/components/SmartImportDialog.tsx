@@ -37,12 +37,19 @@ interface SmartImportDialogProps {
   trigger?: React.ReactNode;
   targetGroupId?: string;
   onSuccess?: (groupId: string) => void;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
 }
 
-export default function SmartImportDialog({ trigger, targetGroupId, onSuccess }: SmartImportDialogProps) {
+export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, open: controlledOpen, onOpenChange: controlledOnOpenChange }: SmartImportDialogProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (controlledOnOpenChange) controlledOnOpenChange(v);
+    else setInternalOpen(v);
+  };
   const [step, setStep] = useState<"upload" | "mapping" | "preview" | "done">("upload");
   const [loading, setLoading] = useState(false);
   const [mapping, setMapping] = useState<ColumnMapping[]>([]);
