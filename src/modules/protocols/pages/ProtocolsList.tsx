@@ -7,9 +7,8 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
-import ProtocolImportDialog from "@/modules/protocols/components/ProtocolImportDialog";
-import SmartImportDialog from "@/components/SmartImportDialog";
-import { Download, Sparkles } from "lucide-react";
+import UnifiedImportDialog from "@/modules/protocols/components/UnifiedImportDialog";
+import { Sparkles } from "lucide-react";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -81,25 +80,13 @@ export default function ProtocolsList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <SmartImportDialog
-            trigger={
-              <button
-                title="Импорт из Excel (.xlsx) — ИИ автоматически определит колонки"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
-              >
-                <Download className="h-4 w-4" />
-                Импорт Excel
-              </button>
-            }
-            onSuccess={(groupId) => navigate(`/protocols/${groupId}`)}
-          />
           <button
             onClick={() => setImportOpen(true)}
-            title="Импорт из PDF или вставленного текста протокола"
+            title="Импорт из Excel, PDF или текста — ИИ автоматически распознает структуру"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
           >
-            <Sparkles className="h-4 w-4" />
-            Импорт PDF / текст
+            <Sparkles className="h-4 w-4 text-primary" />
+            Импорт
           </button>
           <button
             onClick={() => setCreateOpen(true)}
@@ -112,7 +99,7 @@ export default function ProtocolsList() {
       </div>
 
       <NewProtocolDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <ProtocolImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <UnifiedImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Status tabs */}
       <div className="mb-4 flex items-center gap-1 border-b border-border">
