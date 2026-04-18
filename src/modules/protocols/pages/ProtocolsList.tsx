@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
-import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive } from "lucide-react";
+import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, FileEdit } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
