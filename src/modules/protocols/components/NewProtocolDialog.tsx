@@ -18,7 +18,7 @@ import { toast } from "sonner";
 const AXIS_LABELS: Record<string, string> = {
   clients: "Клиент",
   territory: "Территория",
-  site: "Площадка / БЕ",
+  site: "Площадка",
   brand: "Бренд",
   product_category: "Категория продукта",
   product_state: "Состояние",
