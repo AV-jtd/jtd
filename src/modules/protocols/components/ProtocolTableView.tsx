@@ -296,6 +296,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     task={task}
                     index={idx + 1}
                     users={users}
+                    statuses={statuses}
+                    allStatusTagIds={allStatusTagIds}
+                    externalAttendees={externalAttendees}
                     expanded={expandedId === task.id}
                     onToggleExpand={() =>
                       setExpandedId((e) => (e === task.id ? null : task.id))
@@ -303,6 +306,21 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onToggleComplete={() =>
                       toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
                     }
+                    onChangeStatus={(tag) => {
+                      setStatus.mutate({
+                        taskId: task.id,
+                        newTagId: tag?.id ?? null,
+                        newTagName: tag?.name ?? null,
+                        allStatusTagIds,
+                        currentStatusMeta: (task.status_meta as any) ?? null,
+                      });
+                      const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                      if (isFinal && !task.is_completed) {
+                        toggleTask.mutate({ id: task.id, is_completed: true });
+                      } else if (!isFinal && task.is_completed && tag) {
+                        toggleTask.mutate({ id: task.id, is_completed: false });
+                      }
+                    }}
                     onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
                     onDelete={() => deleteTask.mutate(task.id)}
                   />
@@ -315,7 +333,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <Plus className="mx-auto h-3.5 w-3.5" />
                 </td>
                 <td />
-                <td className="px-3 py-2" colSpan={4}>
+                <td className="px-3 py-2" colSpan={5}>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
