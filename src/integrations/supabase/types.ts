@@ -951,6 +951,7 @@ export type Database = {
           color: string | null
           created_at: string
           description: string | null
+          draft_status: string
           icon: string | null
           id: string
           linked_tag_id: string | null
@@ -969,6 +970,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           description?: string | null
+          draft_status?: string
           icon?: string | null
           id?: string
           linked_tag_id?: string | null
@@ -987,6 +989,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           description?: string | null
+          draft_status?: string
           icon?: string | null
           id?: string
           linked_tag_id?: string | null
@@ -1132,6 +1135,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_completed: boolean
+          is_draft: boolean
           is_important: boolean
           original_deadline: string | null
           parent_recurring_id: string | null
@@ -1162,6 +1166,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_completed?: boolean
+          is_draft?: boolean
           is_important?: boolean
           original_deadline?: string | null
           parent_recurring_id?: string | null
@@ -1192,6 +1197,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_completed?: boolean
+          is_draft?: boolean
           is_important?: boolean
           original_deadline?: string | null
           parent_recurring_id?: string | null

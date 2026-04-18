@@ -214,8 +214,10 @@ export async function importCsvToProject(
   userId: string,
   rows: ExportRow[],
   targetGroupId?: string,
+  options?: { asDraft?: boolean; projectType?: string },
 ): Promise<{ groupId: string; taskCount: number }> {
   const projectRow = rows.find(r => r.type === "project");
+  const asDraft = options?.asDraft ?? false;
   let groupId = targetGroupId;
 
   // Create project if not targeting existing
@@ -225,6 +227,8 @@ export async function importCsvToProject(
       name: projectName,
       user_id: userId,
       description: projectRow?.description || null,
+      project_type: options?.projectType ?? 'standard',
+      draft_status: asDraft ? 'draft' : 'published',
     }).select().single();
     if (error || !newGroup) throw new Error("Не удалось создать проект: " + (error?.message || ""));
     groupId = newGroup.id;
@@ -280,6 +284,7 @@ export async function importCsvToProject(
       group_id: taskGroupId,
       user_id: userId,
       position: created,
+      is_draft: asDraft,
     }).select().single();
 
     if (!task) continue;
