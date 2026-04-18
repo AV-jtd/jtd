@@ -276,8 +276,8 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="text-base flex items-center gap-2">
             {step === "mapping" && <Sparkles className="h-4 w-4 text-primary" />}
             {step === "upload" ? "Умный импорт из Excel" : step === "mapping" ? "Маппинг колонок" : step === "done" ? "Готово!" : "Импорт"}
@@ -285,7 +285,7 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
         </DialogHeader>
 
         {step === "upload" && !loading && (
-          <div className="space-y-4">
+          <div className="px-6 py-5 space-y-4">
             <p className="text-xs text-muted-foreground">
               Загрузите любой Excel-файл — AI автоматически определит колонки и предложит маппинг.
             </p>
@@ -314,93 +314,97 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
         )}
 
         {step === "upload" && loading && (
-          <div className="flex flex-col items-center gap-3 py-6">
+          <div className="flex flex-col items-center gap-3 py-10">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-xs text-muted-foreground">AI анализирует колонки...</p>
           </div>
         )}
 
         {step === "mapping" && (
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Проверьте маппинг. AI определил колонки автоматически — поправьте при необходимости.
-            </p>
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-2">
-                {mapping.map((m, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className="w-28 truncate font-medium text-foreground" title={m.excel_column}>
-                      {m.excel_column}
-                    </span>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <Select value={m.field} onValueChange={(v) => updateMapping(i, v)}>
-                      <SelectTrigger className="h-7 text-xs flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FIELD_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {m.confidence >= 0.8 && (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                    )}
-                  </div>
-                ))}
+          <>
+            <div className="px-6 py-3 border-b bg-muted/30">
+              <p className="text-xs text-muted-foreground">
+                AI определил колонки автоматически. Проверьте и поправьте при необходимости.
+              </p>
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                  Распознано: {mapping.filter(m => m.field !== "skip").length}
+                </span>
+                <span>Пропущено: {mapping.filter(m => m.field === "skip").length}</span>
+                <span>Строк: {allRows.length}</span>
               </div>
-            </ScrollArea>
-
-            {rawRows.length > 0 && (
-              <div className="bg-muted rounded-lg p-2 overflow-x-auto">
-                <p className="text-[10px] text-muted-foreground mb-1 font-medium">Превью данных:</p>
-                <table className="text-[10px] w-full">
-                  <thead>
-                    <tr>
-                      {rawHeaders.map((h, i) => (
-                        <th key={i} className="px-1 text-left font-medium text-muted-foreground">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rawRows.map((row, ri) => (
-                      <tr key={ri}>
-                        {rawHeaders.map((_, ci) => (
-                          <td key={ci} className="px-1 py-0.5 text-foreground truncate max-w-[120px]">
-                            {String(row[ci] || "")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => { resetState(); }} className="flex-1">
-                Другой файл
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleImport}
-                disabled={loading || !hasTitleMapping}
-                className="flex-1 gap-1.5"
-              >
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                Импортировать ({allRows.length} строк)
-              </Button>
             </div>
-            {!hasTitleMapping && (
-              <p className="text-[10px] text-destructive">Укажите колонку для поля «Задача»</p>
-            )}
-          </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-3">
+              <div className="space-y-1.5">
+                {mapping.map((m, i) => {
+                  const isMapped = m.field !== "skip";
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
+                        isMapped ? "border-border bg-card" : "border-dashed border-border/60 bg-muted/20"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate" title={m.excel_column}>
+                          {m.excel_column || <span className="text-muted-foreground italic">(без имени)</span>}
+                        </div>
+                        {rawRows[0]?.[i] && (
+                          <div className="text-[10px] text-muted-foreground truncate mt-0.5">
+                            пример: {String(rawRows[0][i]).slice(0, 60)}
+                          </div>
+                        )}
+                      </div>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <Select value={m.field} onValueChange={(v) => updateMapping(i, v)}>
+                        <SelectTrigger className="h-8 text-xs w-[200px] shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FIELD_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isMapped && m.confidence >= 0.8 && (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t bg-background">
+              {!hasTitleMapping && (
+                <p className="text-[11px] text-destructive mb-2">
+                  ⚠ Укажите колонку для поля «Задача» — это обязательно
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { resetState(); }} className="flex-1">
+                  Другой файл
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleImport}
+                  disabled={loading || !hasTitleMapping}
+                  className="flex-1 gap-1.5"
+                >
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  Импортировать {allRows.length} строк
+                </Button>
+              </div>
+            </div>
+          </>
         )}
 
         {step === "done" && (
-          <div className="flex flex-col items-center gap-2 py-4">
+          <div className="flex flex-col items-center gap-2 py-8">
             <CheckCircle2 className="h-8 w-8 text-emerald-500" />
             <p className="text-sm font-medium">Импортировано {importResult?.taskCount} задач!</p>
           </div>
