@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useVisibleTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen, FileText,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen,
 } from "lucide-react";
 
 import SmartImportDialog from "@/components/SmartImportDialog";
@@ -713,14 +713,7 @@ export default function AppSidebar({
           </button>
         ))}
 
-        {/* External route: Протоколы */}
-        <Link
-          to="/protocols"
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-        >
-          <FileText className="h-4 w-4" />
-          Протоколы
-        </Link>
+
 
 
         {/* Projects section */}

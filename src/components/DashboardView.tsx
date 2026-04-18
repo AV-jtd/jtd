@@ -10,8 +10,9 @@ import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw,
-  Activity, Zap
+  Activity, Zap, FileText
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
@@ -1982,7 +1983,16 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         {/* Header bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-xs sm:text-sm font-medium text-foreground flex-1">Дашборд</span>
+          <span className="text-xs sm:text-sm font-medium text-foreground">Дашборд</span>
+          <Link
+            to="/protocols"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            title="Протоколы совещаний"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Протоколы
+          </Link>
+          <div className="flex-1" />
 
           {/* Filters — scroll on mobile */}
           <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none flex-nowrap sm:flex-wrap">
