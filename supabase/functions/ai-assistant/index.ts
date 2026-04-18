@@ -953,18 +953,32 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
               role: "system",
               content: `Ты маппишь колонки Excel-файла к полям задачи. Доступные поля:
 - title: название задачи (обязательное)
-- description: описание
-- deadline: дедлайн (дата)
-- priority: приоритет (1-3)
-- status: статус (done/todo)
-- assigned_to: ответственный
+- description: описание / примечание
+- start_at: дата начала / постановки задачи
+- deadline: ПЛАНОВАЯ дата исполнения / срок
+- completed_at: ФАКТИЧЕСКАЯ дата исполнения / дата закрытия / дата выполнения. ВАЖНО: НЕ путай с deadline!
+- is_completed: статус выполнения (исполнение в срок / выполнено / готово / done)
+- priority: приоритет (1-3, или "высокий/средний/низкий")
+- assigned_to: ОДИН основной ответственный / исполнитель / выполняет
+- participants_informed: информируемые (мульти, через запятую/точку с запятой)
+- participants_support: поддержка / соисполнители / помогают (мульти)
 - tags: теги
-- subtasks: подзадачи
+- subtasks: подзадачи / шаги
+- topic: тема / блок вопросов / категория задачи (создаст тег с этим значением)
 - project: проект
-- subproject: подпроект
+- subproject: подпроект / этап
 - type: тип строки (project/subproject/task)
+- external_ref: внешний номер / № п/п / ID задачи
 
-Анализируй и заголовки, и примеры данных для определения типа колонки.`,
+ПРАВИЛА:
+1. Колонка "ДАТА фактического исполнения", "Дата закрытия", "Дата выполнения" → completed_at, НЕ deadline
+2. Колонка "плановая ДАТА исполнения", "Срок", "Дедлайн" → deadline
+3. Колонка "Информируемый", "Информировать", "CC" → participants_informed
+4. Колонка "Выполняет", "Ответственный", "Исполнитель" → assigned_to
+5. Колонка "Блок вопросов", "Тема", "Категория" → topic (НЕ subtasks!)
+6. Колонка "№ п/п", "№", "Номер" → external_ref (если значения — числа/коды)
+7. Если в примере встречается "нет", "—", "-", "н/д" — это пустые значения, не путай с реальными данными
+8. Анализируй и заголовки, и примеры данных для определения типа колонки.`,
             },
             {
               role: "user",
@@ -987,8 +1001,8 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
                         type: "object",
                         properties: {
                           excel_column: { type: "string", description: "Оригинальное название колонки Excel" },
-                          field: { type: "string", description: "Поле задачи: title, description, deadline, priority, status, assigned_to, tags, subtasks, project, subproject, type, или skip" },
-                          confidence: { type: "number", description: "Уверенность маппинга 0-1" },
+                          field: { type: "string", description: "Поле задачи: title, description, start_at, deadline, completed_at, is_completed, priority, assigned_to, participants_informed, participants_support, tags, subtasks, topic, project, subproject, type, external_ref, или skip" },
+                          confidence: { type: "number", description: "Уверенность маппинга 0-1. Ставь <0.7 если не уверен — пользователь проверит вручную" },
                         },
                         required: ["excel_column", "field", "confidence"],
                         additionalProperties: false,
