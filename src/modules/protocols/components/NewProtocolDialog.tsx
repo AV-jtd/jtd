@@ -70,7 +70,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
       if (!user || !selected) throw new Error("Нет данных");
       if (!name.trim()) throw new Error("Введите название протокола");
 
-      // 1. Create the project (protocol)
+      // 1. Create the project (protocol) — always as DRAFT
       const { data: group, error: gErr } = await supabase
         .from("task_groups")
         .insert({
@@ -79,7 +79,13 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
           icon: selected.icon || "📋",
           color: "#6366f1",
           project_type: "protocol",
+          draft_status: "draft",
           description: description.trim() || `Шаблон: ${selected.name}\nДата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`,
+          protocol_meta: {
+            meeting_date: meetingDate,
+            format: "offline",
+            external_attendees: [],
+          },
         } as any)
         .select()
         .single();

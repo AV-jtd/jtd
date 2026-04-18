@@ -697,7 +697,7 @@ export function useTaskMutations() {
   // ========== TASKS ==========
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string }) => {
+    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string; is_draft?: boolean }) => {
       const taskType = task.task_type || 'standard';
       let clientId: string | null = null;
       let resolvedGroupId = task.group_id || null;
@@ -781,6 +781,7 @@ export function useTaskMutations() {
         task_type: taskType,
         client_id: clientId,
         start_at: now,
+        is_draft: task.is_draft ?? false,
       } as any).select().single();
       if (error) throw error;
 
@@ -805,14 +806,16 @@ export function useTaskMutations() {
           });
         }
 
-        // Notify group members about new task
-        const { data: members } = await supabase
-          .from("group_members")
-          .select("user_id")
-          .eq("group_id", resolvedGroupId);
-        const memberIds = (members || []).map((m: any) => m.user_id);
-        if (memberIds.length > 0) {
-          notifyEvent("new_task_in_group", task.title, memberIds);
+        // Notify group members about new task — SKIP for drafts (protocols)
+        if (!task.is_draft) {
+          const { data: members } = await supabase
+            .from("group_members")
+            .select("user_id")
+            .eq("group_id", resolvedGroupId);
+          const memberIds = (members || []).map((m: any) => m.user_id);
+          if (memberIds.length > 0) {
+            notifyEvent("new_task_in_group", task.title, memberIds);
+          }
         }
       }
 
@@ -885,6 +888,8 @@ export function useTaskMutations() {
         source_protocol_id: null,
         is_draft: false,
         external_ref: null,
+        external_assignee: null,
+        status_meta: {},
         subtasks: [],
         task_tags: [],
       };
