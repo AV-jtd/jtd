@@ -122,7 +122,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const handleCreate = () => {
     const title = newTitle.trim();
     if (!title) return;
-    addTask.mutate({ title, group_id: protocolId });
+    addTask.mutate({ title, group_id: protocolId, is_draft: isProtocolDraft });
     setNewTitle("");
   };
 
