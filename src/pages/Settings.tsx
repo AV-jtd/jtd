@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
+import TagManagementPanel from "@/components/TagManagementPanel";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
@@ -328,6 +329,18 @@ export default function Settings() {
 
             {/* Calendar Subscription */}
             <CalendarSubscription userId={user.id} />
+
+            {/* Tags management */}
+            <div className="border-t border-border pt-6">
+              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                <Tag className="h-5 w-5 text-primary" />
+                Тэги
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
+              </p>
+              <TagManagementPanel />
+            </div>
 
             {/* Import/Export */}
             <div className="border-t border-border pt-6">
