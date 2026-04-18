@@ -7,6 +7,7 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
+import ProtocolImportDialog from "@/modules/protocols/components/ProtocolImportDialog";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -17,6 +18,7 @@ export default function ProtocolsList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const protocols = useMemo(
     () => groups.filter((g) => g.project_type === "protocol"),
@@ -78,15 +80,12 @@ export default function ProtocolsList() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              // TODO: импорт PDF/текста через ИИ (Этап 4)
-            }}
-            disabled
-            title="Импорт из PDF/текста — скоро"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setImportOpen(true)}
+            title="Импорт из PDF или текста через ИИ"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:border-primary/40"
           >
             <Upload className="h-4 w-4" />
-            Импорт
+            Импорт ИИ
           </button>
           <button
             onClick={() => setCreateOpen(true)}
@@ -99,6 +98,7 @@ export default function ProtocolsList() {
       </div>
 
       <NewProtocolDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <ProtocolImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Status tabs */}
       <div className="mb-4 flex items-center gap-1 border-b border-border">
