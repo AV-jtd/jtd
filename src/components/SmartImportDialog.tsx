@@ -65,26 +65,63 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
     setLoading(true);
 
     try {
-      const wb = new ExcelJS.Workbook();
-      await wb.xlsx.load(await file.arrayBuffer());
-      const ws = wb.worksheets[0];
-      if (!ws) throw new Error("Нет листов в файле");
+      const buffer = await file.arrayBuffer();
+      let headers: string[] = [];
+      let rows: any[][] = [];
 
-      const headers: string[] = [];
-      const rows: any[][] = [];
-
-      ws.eachRow((row, rowNumber) => {
-        const vals = (row.values as any[]).slice(1);
-        if (rowNumber === 1) {
-          vals.forEach(v => headers.push(String(v || "").trim()));
-        } else {
-          rows.push(vals.map(v => {
-            if (v instanceof Date) return v.toISOString().split("T")[0];
-            if (v && typeof v === "object" && v.text) return v.text;
-            return v != null ? String(v) : "";
-          }));
+      // Попытка 1: ExcelJS (нативно для .xlsx)
+      let parsedOk = false;
+      try {
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        const ws = wb.worksheets[0];
+        if (ws) {
+          ws.eachRow((row, rowNumber) => {
+            const vals = (row.values as any[]).slice(1);
+            if (rowNumber === 1) {
+              vals.forEach(v => headers.push(String(v ?? "").trim()));
+            } else {
+              rows.push(vals.map(v => {
+                if (v instanceof Date) return v.toISOString().split("T")[0];
+                if (v && typeof v === "object" && v.text) return v.text;
+                if (v && typeof v === "object" && v.result !== undefined) return String(v.result);
+                return v != null ? String(v) : "";
+              }));
+            }
+          });
+          if (headers.length > 0) parsedOk = true;
         }
-      });
+      } catch (e) {
+        console.warn("ExcelJS parsing failed, will try SheetJS:", e);
+      }
+
+      // Попытка 2: SheetJS — поддерживает .xls, .xlsx из Google/Numbers/etc
+      if (!parsedOk) {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+        const sheetName = wb.SheetNames[0];
+        if (!sheetName) throw new Error("Файл не содержит листов или повреждён");
+        const sheet = wb.Sheets[sheetName];
+        const aoa = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "", raw: false });
+        if (aoa.length === 0) throw new Error("Файл пустой");
+        headers = (aoa[0] || []).map((v: any) => String(v ?? "").trim());
+        rows = aoa.slice(1).map((row: any[]) =>
+          row.map((v) => {
+            if (v instanceof Date) return v.toISOString().split("T")[0];
+            return v != null ? String(v) : "";
+          })
+        );
+      }
+
+      // Удаляем полностью пустые строки
+      rows = rows.filter(r => r.some(v => v && String(v).trim()));
+
+      if (headers.length === 0) {
+        throw new Error("Не удалось определить заголовки колонок. Убедитесь, что в первой строке есть названия столбцов.");
+      }
+      if (rows.length === 0) {
+        throw new Error("Файл не содержит данных, только заголовки");
+      }
 
       setRawHeaders(headers);
       setAllRows(rows);
