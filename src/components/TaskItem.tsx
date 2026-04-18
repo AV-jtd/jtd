@@ -1118,7 +1118,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               if (!protocolGroup) return null;
               return (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground cursor-pointer hover:bg-accent/80 transition-colors shrink-0"
                   onClick={(e) => { e.stopPropagation(); navigateTo(`/protocols/${protocolGroup.id}`); }}
                   title={`Из протокола: ${protocolGroup.name}`}
                 >
