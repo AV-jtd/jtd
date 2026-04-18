@@ -18,8 +18,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format, parseISO } from "date-fns";
-import { ru } from "date-fns/locale";
 
 export default function ProtocolDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
