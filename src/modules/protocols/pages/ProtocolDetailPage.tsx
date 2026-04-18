@@ -5,6 +5,7 @@ import ModuleLayout from "@/components/ModuleLayout";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
+import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
