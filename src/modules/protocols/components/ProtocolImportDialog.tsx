@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Loader2, Upload, FileText, Sparkles, ArrowLeft, ArrowRight,
+  Loader2, Download, FileText, Sparkles, ArrowLeft, ArrowRight,
   CalendarIcon, User as UserIcon, Tag as TagIcon, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -252,7 +252,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               {extractingPdf ? (
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               ) : (
-                <Upload className="h-8 w-8 text-muted-foreground" />
+                <Download className="h-8 w-8 text-muted-foreground" />
               )}
               <div className="text-sm font-medium text-foreground">
                 {extractingPdf ? "Извлекаем текст из PDF…" : "Перетащите PDF или текстовый файл сюда"}
