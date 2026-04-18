@@ -65,18 +65,25 @@ export function useRealtimeSubscriptions() {
       )
       .subscribe();
 
-    // Unread messages badge (was: useUnreadMessages opened this — fine, but consolidated here)
+    // Unread messages badge — broadcast a custom event picked up by useUnreadMessages
+    const fireUnread = () => {
+      if (unreadTimer.current) window.clearTimeout(unreadTimer.current);
+      unreadTimer.current = window.setTimeout(() => {
+        window.dispatchEvent(new Event("jtd:unread-invalidate"));
+        unreadTimer.current = null;
+      }, 500);
+    };
     const unreadChannel = supabase
       .channel("global-unread-badge")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "group_messages" },
-        () => debouncedInvalidate(unreadTimer, [["unread_messages"]])
+        fireUnread
       )
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "task_comments" },
-        () => debouncedInvalidate(unreadTimer, [["unread_messages"]])
+        fireUnread
       )
       .subscribe();
 
