@@ -1,10 +1,17 @@
 ---
 name: Outlook Add-in MVP — детальный дизайн
-description: Архитектура, манифест, API-контракт, флоу авторизации и UI Outlook Web Add-in для JustTODOit. Перед кодом — фиксация всех решений.
+description: ⏸ ОТЛОЖЕНО. Архитектура, манифест, API-контракт, флоу авторизации и UI Outlook Web Add-in для JustTODOit. Готов к старту реализации, ждём решения по 3 открытым вопросам.
 type: feature
 ---
 
 # Outlook Add-in MVP — Design Document
+
+⏸ **Статус**: design зафиксирован, реализация отложена. Возвращаемся позже.
+
+## Открытые вопросы перед стартом кода
+1. **Privacy & Compliance doc** — формальный документ или секция в README? (метаданные писем = ПДн).
+2. **Список пилотных юзеров** для PowerShell `New-App -UserList`.
+3. **Refresh-токены** в roamingSettings vs короткоживущие access + еженедельный релогин.
 
 ## 1. Решения (зафиксировано)
 - **Структура**: отдельная папка `/outlook-addin` в монорепо JustTODOit.
@@ -45,35 +52,20 @@ outlook-addin/
 ## 3. Манифест (ключевые поля)
 - `<Type>TaskPaneApp</Type>`, `<Version>1.0.0.0</Version>`.
 - `<Hosts><Host Name="Mailbox"/></Hosts>`.
-- `<Requirements><Set Name="Mailbox" MinVersion="1.5"/></Requirements>` — поддержка Exchange 2019.
-- `<Permissions>ReadWriteMailbox</Permissions>` — чтение тела/заголовков, доступ к Office.context.mailbox.item.
+- `<Requirements><Set Name="Mailbox" MinVersion="1.5"/></Requirements>` — Exchange 2019.
+- `<Permissions>ReadWriteMailbox</Permissions>`.
 - `<SourceLocation DefaultValue="https://jtd.lovable.app/outlook/taskpane.html"/>`.
-- `VersionOverrides` (Mailbox 1.3): кнопка в Read-режиме письма, ContextLaunchEvent для tab «Создать задачу».
+- `VersionOverrides` (Mailbox 1.3): кнопка в Read-режиме письма.
 - AppDomains: `https://jtd.lovable.app`, `https://nvfioycpwyzwukvokwql.supabase.co`.
 
 ## 4. API-контракт (новые edge functions)
 Все функции — `verify_jwt = false`, валидация JWT JustTODOit в коде через `supabase.auth.getUser(token)`.
 
-### `outlook-auth` (POST)
-- **Запрос**: `{ email, password }`.
-- **Логика**: вызывает `supabase.auth.signInWithPassword`, проверяет `profiles.is_approved`. Возвращает `{ access_token, refresh_token, user: { id, display_name, email } }`.
-- **Зачем**: add-in не может использовать GoTrue cookies, нужен явный JWT для roamingSettings.
-
-### `outlook-tasks-today` (GET)
-- **Заголовок**: `Authorization: Bearer <jwt>`.
-- **Ответ**: `[{ id, title, deadline, group_name, is_important, priority }]` — задачи юзера (assigned_to = me OR user_id = me) c `deadline ≤ end_of_day` и `is_completed = false`.
-- **Лимит**: 50.
-
-### `outlook-create-task` (POST)
-- **Запрос**: `{ title, description, group_id?, deadline?, outlook_link: { conversation_id, subject, from_email, received_at, web_link? } }`.
-- **Логика**: insert в `tasks` (user_id = auth.uid, start_at = now()), затем insert в `task_outlook_links`. Возвращает `{ task_id }`.
-
-### `outlook-link-task` (POST)
-- **Запрос**: `{ task_id, outlook_link: {...} }`.
-- **Логика**: проверка прав (RLS через user JWT), insert в `task_outlook_links`. Идемпотентно (unique по `task_id + conversation_id`).
-
-### `outlook-search-tasks` (GET ?q=)
-- **Ответ**: до 20 задач юзера по ILIKE title, не завершённые. Для диалога «Привязать к существующей».
+- **`outlook-auth`** (POST): `{email, password}` → `{access_token, refresh_token, user}`. Проверка `profiles.is_approved`.
+- **`outlook-tasks-today`** (GET, Bearer): `[{id, title, deadline, group_name, is_important, priority}]`, лимит 50.
+- **`outlook-create-task`** (POST): `{title, description, group_id?, deadline?, outlook_link}` → insert tasks + task_outlook_links.
+- **`outlook-link-task`** (POST): `{task_id, outlook_link}` идемпотентно.
+- **`outlook-search-tasks`** (GET ?q=): до 20 задач по ILIKE title.
 
 ## 5. Миграция БД (Level 0)
 ```sql
@@ -109,57 +101,49 @@ CREATE POLICY "Task viewers can see outlook links"
 ```
 
 ## 6. Флоу авторизации
-1. Open taskpane → `Office.onReady` → `roamingSettings.get('jtd_jwt')`.
-2. Нет токена → `<LoginScreen>`. POST `/outlook-auth` → сохранение `access_token` + `refresh_token` в roamingSettings (`saveAsync`).
-3. Есть токен → проверка через `outlook-tasks-today`. На 401 → попытка refresh → если фейл, очистка и LoginScreen.
-4. Logout кнопка очищает roamingSettings.
+1. `Office.onReady` → `roamingSettings.get('jtd_jwt')`.
+2. Нет токена → `<LoginScreen>`. POST `/outlook-auth` → сохранение токенов в roamingSettings.
+3. Есть токен → проверка через `outlook-tasks-today`. На 401 → refresh → если фейл, очистка.
+4. Logout очищает roamingSettings.
 
-⚠ **Безопасность**: roamingSettings шифруются Exchange и привязаны к mailbox. Документировать риск и в Privacy doc указать срок жизни refresh.
+⚠ roamingSettings шифруются Exchange и привязаны к mailbox. Нужен Privacy doc + retention.
 
 ## 7. UI (taskpane 320×600)
-**Шапка**: лого JustTODOit + email юзера + ⋯ (logout).
-**Tabs**:
-- **«Сегодня»** (`TodayList`): список карточек с title, проектом (бейдж), временем дедлайна. Клик → `Office.context.ui.displayDialogAsync` → открывает `https://jtd.lovable.app/?task=<id>`.
-- **«Письмо»** (`EmailPanel`, активен только в Read-режиме): превью subject + from. Две кнопки:
-  - `[+ Создать задачу]` → форма (title prefilled = subject, description = тело trimmed 2k символов, выбор проекта из списка `outlook-tasks-today` метаданных, дедлайн дни 1-30) → POST `outlook-create-task`.
-  - `[🔗 Привязать к задаче]` → `LinkExistingDialog` (поиск + список) → POST `outlook-link-task`.
+- **Шапка**: лого + email + ⋯ (logout).
+- **Tab «Сегодня»**: карточки задач, клик → `displayDialogAsync` → `https://jtd.lovable.app/?task=<id>`.
+- **Tab «Письмо»** (только в Read): subject + from. Две кнопки:
+  - `[+ Создать задачу]`: title=subject, description=тело trimmed 2k, выбор проекта, дедлайн 1-30 дней.
+  - `[🔗 Привязать к задаче]`: поиск + список → `outlook-link-task`.
 
-Дизайн-токены (HSL) синхронизированы с основным приложением: `--primary 217 91% 60%`, glassmorphism убрать (Office рендерит в iframe с белым фоном). Light/Dark — через `Office.context.officeTheme`.
+Дизайн-токены HSL синхронизированы с основным app. Light/Dark через `Office.context.officeTheme`.
 
-## 8. Деплой и публикация
-1. `cd outlook-addin && npm run build` → vite пишет в `../public/outlook/`.
-2. Основной билд JustTODOit раздаёт статику: `https://jtd.lovable.app/outlook/taskpane.html`.
-3. Манифест на сервере: `https://jtd.lovable.app/outlook/manifest.xml`.
-4. Exchange admin (PowerShell):
+## 8. Деплой
+1. `cd outlook-addin && npm run build` → `../public/outlook/`.
+2. `https://jtd.lovable.app/outlook/taskpane.html` + `manifest.xml`.
+3. PowerShell:
 ```powershell
 $ManifestUrl = "https://jtd.lovable.app/outlook/manifest.xml"
-New-App -OrganizationApp -Url $ManifestUrl -DefaultStateForUser Enabled -ProvidedTo SpecificUsers -UserList "user1@company.com","user2@company.com"
+New-App -OrganizationApp -Url $ManifestUrl -DefaultStateForUser Enabled `
+  -ProvidedTo SpecificUsers -UserList "user1@company.com","user2@company.com"
 ```
-5. Откат: `Remove-App -Identity <AppId>`.
+Откат: `Remove-App -Identity <AppId>`.
 
 ## 9. Тестирование
-- **Unit**: `auth.ts` (roamingSettings mock), `api.ts` (fetch mock).
-- **E2E sideload**: OWA → ⚙ → Manage add-ins → Add from URL → manifest.xml.
-- **Outlook Desktop**: File → Manage Add-ins (откроет OWA админку).
-- **Smoke**: open письмо → Today показывает задачи → создать задачу → проверить в JustTODOit что появилась в проекте Inbox + связь в `task_outlook_links`.
+- Unit: `auth.ts`, `api.ts`.
+- Sideload: OWA → ⚙ → Manage add-ins → Add from URL.
+- Smoke: открыть письмо → Today показывает задачи → создать задачу → проверить в JustTODOit.
 
 ## 10. Roadmap после MVP
-- **Level 1**: добавить `email_body_text`, `email_body_html` в `task_outlook_links`. Edge function `ai-assistant` инжектит тело письма в системный prompt при упоминании задачи.
-- **Level 2**: `pgvector` индекс по телам писем для семантического поиска.
-- **Compose-режим**: создавать письмо из задачи (Office.context.mailbox.item.body.setAsync).
-- **Notifications**: показывать в add-in непрочитанные комменты к привязанным задачам.
+- **Level 1**: `email_body_text/html` в task_outlook_links → ai-assistant инжектит в prompt.
+- **Level 2**: pgvector для семантического поиска по телам.
+- **Compose-режим**: создавать письмо из задачи.
+- **Notifications**: непрочитанные комменты в add-in.
 
-## 11. Контрольный список перед кодом
-- [x] Структура папки утверждена.
-- [x] API-контракт зафиксирован.
-- [x] Схема таблицы `task_outlook_links` готова.
-- [ ] Privacy & Compliance doc (ждёт от Артёма).
-- [ ] Финальный список юзеров для PowerShell deploy.
-
-## 12. Следующие шаги (в порядке)
-1. Применить миграцию `task_outlook_links` (Supabase).
-2. Создать 4 edge functions (`outlook-auth`, `outlook-tasks-today`, `outlook-create-task`, `outlook-link-task`, `outlook-search-tasks`).
-3. Завести `outlook-addin/` с Vite-сборкой и манифестом.
-4. Реализовать LoginScreen + HomeScreen + TodayList.
-5. Реализовать EmailPanel + LinkExistingDialog.
-6. Внутренний sideload-тест в OWA.
+## 11. Следующие шаги (когда вернёмся)
+1. Решить 3 открытых вопроса (Privacy, пилотные юзеры, refresh).
+2. Применить миграцию `task_outlook_links`.
+3. Создать 5 edge functions.
+4. Завести `/outlook-addin` со скелетом vite + manifest.
+5. Реализовать LoginScreen + HomeScreen + TodayList.
+6. Реализовать EmailPanel + LinkExistingDialog.
+7. Sideload-тест в OWA.
