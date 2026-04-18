@@ -697,7 +697,7 @@ export function useTaskMutations() {
   // ========== TASKS ==========
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string }) => {
+    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string; is_draft?: boolean }) => {
       const taskType = task.task_type || 'standard';
       let clientId: string | null = null;
       let resolvedGroupId = task.group_id || null;
