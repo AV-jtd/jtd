@@ -781,6 +781,7 @@ export function useTaskMutations() {
         task_type: taskType,
         client_id: clientId,
         start_at: now,
+        is_draft: task.is_draft ?? false,
       } as any).select().single();
       if (error) throw error;
 
