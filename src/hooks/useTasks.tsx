@@ -806,14 +806,16 @@ export function useTaskMutations() {
           });
         }
 
-        // Notify group members about new task
-        const { data: members } = await supabase
-          .from("group_members")
-          .select("user_id")
-          .eq("group_id", resolvedGroupId);
-        const memberIds = (members || []).map((m: any) => m.user_id);
-        if (memberIds.length > 0) {
-          notifyEvent("new_task_in_group", task.title, memberIds);
+        // Notify group members about new task — SKIP for drafts (protocols)
+        if (!task.is_draft) {
+          const { data: members } = await supabase
+            .from("group_members")
+            .select("user_id")
+            .eq("group_id", resolvedGroupId);
+          const memberIds = (members || []).map((m: any) => m.user_id);
+          if (memberIds.length > 0) {
+            notifyEvent("new_task_in_group", task.title, memberIds);
+          }
         }
       }
 
