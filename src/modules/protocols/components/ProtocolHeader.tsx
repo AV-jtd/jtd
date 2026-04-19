@@ -55,6 +55,7 @@ interface ProtocolMeta {
   format?: Format;
   external_attendees?: ExternalAttendee[];
   client_id?: string | null;
+  our_logo_url?: string | null;
 }
 
 interface CrmClient {
