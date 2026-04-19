@@ -792,6 +792,28 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             )}
+
+            {/* Internal attendees (our team — derived from task assignees in this protocol) */}
+            {internalAttendeeIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1">
+                {internalAttendeeIds.map((uid) => {
+                  const p = profiles.find((u) => u.id === uid);
+                  const name = p?.display_name || p?.email || "Участник";
+                  return (
+                    <span
+                      key={uid}
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+                      title={name}
+                    >
+                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500/20 text-[8px] font-bold uppercase">
+                        {getInitials(name)}
+                      </span>
+                      {name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
