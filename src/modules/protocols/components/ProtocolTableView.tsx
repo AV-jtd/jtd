@@ -666,7 +666,18 @@ function ProtocolRow({
   sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
-...
+  index: number;
+  users: Profile[];
+  statuses: ProtocolStatusTag[];
+  allStatusTagIds: string[];
+  externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
+  linkedClient: LinkedClient;
+  parsedPartner: string | null;
+  sortable: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onToggleComplete: () => void;
+  onChangeStatus: (tag: ProtocolStatusTag | null) => void;
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
 }) {
