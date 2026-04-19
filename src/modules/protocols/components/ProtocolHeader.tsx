@@ -792,7 +792,6 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             )}
-            <div className="mt-0.5 text-[10px] text-muted-foreground">Наша сторона</div>
           </div>
         </div>
 
