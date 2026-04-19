@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEventTopicTags, useCreateEventTopic } from "@/hooks/useEventTopicTags";
-import { Plus, Tag as TagIcon, X, Search } from "lucide-react";
+import { Plus, Tag as TagIcon, X, Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import type { Task } from "@/hooks/useTasks";
 
 type Props = {
