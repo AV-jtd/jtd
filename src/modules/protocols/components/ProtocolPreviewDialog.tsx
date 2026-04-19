@@ -192,9 +192,21 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
           ? format(parseISO(t.deadline), "d MMM yyyy", { locale: ru })
           : "без срока";
         const resp = respLabel(t.assigned_to) ?? "не назначен";
+        const topic = getTaskTopic(t);
         lines.push(`  ${i + 1}. ${t.title}`);
+        if (topic) lines.push(`      Тема: ${topic.name}`);
+        const desc = (t.description ?? "").trim();
+        if (desc) {
+          desc.split("\n").forEach((ln) => lines.push(`      ${ln}`));
+        }
         lines.push(`      Ответственный: ${resp} · Срок: ${dl}`);
       });
+    }
+    lines.push("");
+    lines.push("—");
+    lines.push("Сформировано в JustTODOit");
+    return lines.join("\n");
+  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags]);
     }
     lines.push("");
     lines.push("—");
