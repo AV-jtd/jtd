@@ -1323,13 +1323,13 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
                   {isSpExpanded && (
                     <div className="ml-5 pl-2 border-l-2 border-border/50 space-y-0.5 py-1 animate-fade-in">
                       {sp.overdueTasks.length > 0 && sp.overdueTasks.map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned hideProjectBadge />
                       ))}
                       {sp.upcomingTasks.map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned hideProjectBadge />
                       ))}
                       {sp.tasks.filter(t => !t.is_completed && !sp.overdueTasks.includes(t) && !sp.upcomingTasks.includes(t)).slice(0, 5).map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned hideProjectBadge />
                       ))}
                       {sp.total > 0 && sp.tasks.filter(t => !t.is_completed).length === 0 && (
                         <span className="text-[10px] text-muted-foreground px-2">Все задачи выполнены ✓</span>
@@ -1424,20 +1424,49 @@ function DashboardSummarySection({ title, count, children, variant }: {
   );
 }
 
-function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift, showUnassigned }: {
-  task: Task; userName: string; onOpenTask: (taskId: string) => void; subtaskMap: SubtaskMap; variant?: "overdue" | "done"; drift?: number; showUnassigned?: boolean;
+function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift, showUnassigned, hideProjectBadge }: {
+  task: Task; userName: string; onOpenTask: (taskId: string) => void; subtaskMap: SubtaskMap; variant?: "overdue" | "done"; drift?: number; showUnassigned?: boolean; hideProjectBadge?: boolean;
 }) {
+  const { data: allGroups = [] } = useTaskGroups();
   const stepsInfo = subtaskMap.get(task.id);
   const now = new Date();
   const overdueDays = variant === "overdue" && task.deadline ? Math.max(0, differenceInDays(now, new Date(task.deadline))) : 0;
+
+  const projectGroup = task.group_id ? allGroups.find(g => g.id === task.group_id) : null;
+  const parentGroup = projectGroup?.parent_id ? allGroups.find(g => g.id === projectGroup.parent_id) : null;
+  const projectIcon = projectGroup?.icon && projectGroup.icon !== "list" ? projectGroup.icon : null;
+  const projectColor = projectGroup?.color || "hsl(var(--muted-foreground))";
 
   return (
     <button
       onClick={() => onOpenTask(task.id)}
       className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-colors text-left"
     >
+      {!hideProjectBadge && projectGroup && (
+        <span
+          className="inline-flex items-center gap-1 shrink-0 max-w-[140px] px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-[9px] font-medium"
+          title={parentGroup ? `${parentGroup.name} / ${projectGroup.name}` : projectGroup.name}
+        >
+          {projectIcon ? (
+            <span className="text-[10px] leading-none">{projectIcon}</span>
+          ) : (
+            <span
+              className="h-2 w-2 rounded-sm shrink-0"
+              style={{ backgroundColor: projectColor }}
+            />
+          )}
+          <span className="truncate text-muted-foreground">
+            {parentGroup ? `${parentGroup.name} / ${projectGroup.name}` : projectGroup.name}
+          </span>
+        </span>
+      )}
+      {!hideProjectBadge && !projectGroup && (
+        <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-[9px] font-medium text-muted-foreground" title="Без проекта (Входящие)">
+          📥
+        </span>
+      )}
       <span className={cn(
-        "text-[11px] truncate flex-1",
+        "text-[11px] truncate flex-1 min-w-0",
         variant === "overdue" ? "text-destructive" : variant === "done" ? "line-through text-muted-foreground" : "text-foreground"
       )}>
         {task.title}
