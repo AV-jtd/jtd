@@ -245,30 +245,42 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         a4Ref.current.querySelectorAll<HTMLElement>("[data-pdf-section]"),
       );
 
+      // Hide elements marked as preview-only during PDF rendering
+      const hidden = Array.from(
+        a4Ref.current.querySelectorAll<HTMLElement>("[data-hide-in-pdf]"),
+      );
+      const prevDisplay = hidden.map((el) => el.style.display);
+      hidden.forEach((el) => { el.style.display = "none"; });
+
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       let currentY = MARGIN_MM;
       const SECTION_GAP_MM = 3;
 
-      for (const section of sections) {
-        const canvas = await html2canvas(section, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-        });
-        const widthPx = canvas.width / 2;
-        const heightPx = canvas.height / 2;
-        const scaleFactor = CONTENT_WIDTH_MM / widthPx;
-        const heightMM = heightPx * scaleFactor;
+      try {
+        for (const section of sections) {
+          const canvas = await html2canvas(section, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+          });
+          const widthPx = canvas.width / 2;
+          const heightPx = canvas.height / 2;
+          const scaleFactor = CONTENT_WIDTH_MM / widthPx;
+          const heightMM = heightPx * scaleFactor;
 
-        const remaining = A4_HEIGHT_MM - MARGIN_MM - currentY;
-        if (heightMM > remaining && currentY > MARGIN_MM) {
-          pdf.addPage();
-          currentY = MARGIN_MM;
+          const remaining = A4_HEIGHT_MM - MARGIN_MM - currentY;
+          if (heightMM > remaining && currentY > MARGIN_MM) {
+            pdf.addPage();
+            currentY = MARGIN_MM;
+          }
+
+          const imgData = canvas.toDataURL("image/jpeg", 0.95);
+          pdf.addImage(imgData, "JPEG", MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
+          currentY += heightMM + SECTION_GAP_MM;
         }
-
-        const imgData = canvas.toDataURL("image/jpeg", 0.95);
-        pdf.addImage(imgData, "JPEG", MARGIN_MM, currentY, CONTENT_WIDTH_MM, heightMM);
-        currentY += heightMM + SECTION_GAP_MM;
+      } finally {
+        // Restore preview-only elements
+        hidden.forEach((el, i) => { el.style.display = prevDisplay[i]; });
       }
 
       const fname = `Протокол - ${protocol?.name ?? "встреча"}.pdf`.replace(/[\\/:*?"<>|]/g, "_");
