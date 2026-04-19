@@ -460,7 +460,6 @@ export default function ProtocolTableView({ protocolId }: Props) {
                               externalAttendees={externalAttendees}
                               linkedClient={linkedClient ?? null}
                               parsedPartner={parsedSides?.partner ?? null}
-                              topicTags={topicTags}
                               sortable={false}
                               expanded={expandedId === task.id}
                               onToggleExpand={() =>
@@ -506,7 +505,6 @@ export default function ProtocolTableView({ protocolId }: Props) {
                         externalAttendees={externalAttendees}
                         linkedClient={linkedClient ?? null}
                         parsedPartner={parsedSides?.partner ?? null}
-                        topicTags={topicTags}
                         sortable={reorderEnabled}
                         expanded={expandedId === task.id}
                         onToggleExpand={() =>
@@ -664,7 +662,6 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
   sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
-  topicTags = [],
 }: {
   task: Task;
   index: number;
@@ -681,7 +678,6 @@ function ProtocolRow({
   onChangeStatus: (tag: ProtocolStatusTag | null) => void;
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
-  topicTags?: Array<{ id: string; name: string }>;
 }) {
   const overdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   const drift =
