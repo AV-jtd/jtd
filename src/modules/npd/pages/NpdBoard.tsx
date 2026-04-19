@@ -2537,7 +2537,13 @@ function ProjectIcon({ project }: { project: NpdProject }) {
   const [emojiTab, setEmojiTab] = useState(0);
   const { updateGroupAppearance } = useTaskMutations();
 
-  const iconContent = project.icon && project.icon !== "list" ? (
+  const iconContent = (project as any).logo_url ? (
+    <img
+      src={(project as any).logo_url}
+      alt={project.name}
+      className="h-7 w-7 rounded-md object-cover ring-1 ring-border shrink-0"
+    />
+  ) : project.icon && project.icon !== "list" ? (
     <span className="text-sm leading-none">{project.icon}</span>
   ) : (
     <div
