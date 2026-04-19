@@ -46,16 +46,26 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
     return (u.display_name || u.email || "").toLowerCase().includes(q);
   });
 
+  // Live-парсинг title: распознаём @имя, до DD.MM, +Nд, ! → показываем чипы
+  const parsed = useMemo(() => parseQuickTask(title, availableUsers), [title, availableUsers]);
+  const hasInlineMeta = parsed.tokens.length > 0;
+  // Эффективные значения с учётом inline-парсинга (inline имеет приоритет)
+  const effectiveAssignee = parsed.assigneeId || assignedTo;
+  const effectiveDeadline = parsed.deadline || deadline;
+
   const handleAddTask = useCallback(() => {
     if (!title.trim()) return;
+    const cleanTitle = parsed.cleanTitle || title.trim();
+    const finalDeadline = parsed.deadline || deadline;
+    const finalAssignee = parsed.assigneeId || assignedTo;
     const isCrmTask = taskType === "crm";
     if (isCrmTask && !clientName.trim()) return;
 
     onCreateTask({
-      title: title.trim(),
+      title: cleanTitle,
       group_id: activeView === "group" ? activeGroupId : null,
-      deadline: deadline ? format(deadline, "yyyy-MM-dd") : null,
-      assigned_to: assignedTo,
+      deadline: finalDeadline ? format(finalDeadline, "yyyy-MM-dd") : null,
+      assigned_to: finalAssignee,
       task_type: taskType,
       client_name: isCrmTask ? clientName.trim() : undefined,
     });
@@ -65,7 +75,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
     setTaskType("standard");
     setClientName("");
     setAssignedTo(null);
-  }, [activeGroupId, activeView, assignedTo, clientName, deadline, onCreateTask, taskType, title]);
+  }, [activeGroupId, activeView, assignedTo, clientName, deadline, onCreateTask, parsed, taskType, title]);
 
   const iconBtn = (active: boolean) =>
     cn(
