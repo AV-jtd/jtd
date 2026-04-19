@@ -2027,6 +2027,20 @@ function parseDeadline(text: string): { date: Date | null; cleaned: string } {
 
   // Use non-word-boundary approach for Cyrillic (regex \b doesn't work with Unicode)
   const patterns: [RegExp, (m: RegExpMatchArray) => Date][] = [
+    // +Nд / +Nдн (sync with web quickTaskParse)
+    [/(?:^|\s)\+(\d{1,3})\s*д(?:н\w*)?(?:\s|$)/i, (m) => {
+      const d = new Date(now); d.setDate(d.getDate() + parseInt(m[1])); d.setHours(23, 59, 0, 0); return d;
+    }],
+    // "до DD.MM" / "до DD.MM.YYYY" (sync with web quickTaskParse)
+    [/(?:^|\s)до\s+(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s|$)/i, (m) => {
+      let y = parseInt(m[3]); if (y < 100) y += 2000;
+      return new Date(y, parseInt(m[2]) - 1, parseInt(m[1]), 23, 59);
+    }],
+    [/(?:^|\s)до\s+(\d{1,2})[./-](\d{1,2})(?!\.\d)(?:\s|$)/i, (m) => {
+      const d = new Date(now.getFullYear(), parseInt(m[2]) - 1, parseInt(m[1]), 23, 59);
+      if (d < now) d.setFullYear(d.getFullYear() + 1);
+      return d;
+    }],
     [/(?:^|\s)сегодня(?:\s|$)/i, () => {
       const d = new Date(now); d.setHours(23, 59, 0, 0); return d;
     }],
