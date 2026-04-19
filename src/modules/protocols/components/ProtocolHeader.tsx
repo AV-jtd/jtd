@@ -478,20 +478,20 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
 
   return (
-    <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <div className="mb-6 rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5">
       {/* Top row */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3 sm:gap-4">
         {/* Logo / icon */}
         <div className="relative shrink-0">
           {protocol.logo_url ? (
             <img
               src={protocol.logo_url}
               alt="Логотип"
-              className="h-14 w-14 rounded-lg object-cover ring-1 ring-border"
+              className="h-12 w-12 rounded-lg object-cover ring-1 ring-border sm:h-14 sm:w-14"
             />
           ) : (
             <div
-              className="flex h-14 w-14 items-center justify-center rounded-lg text-3xl"
+              className="flex h-12 w-12 items-center justify-center rounded-lg text-2xl sm:h-14 sm:w-14 sm:text-3xl"
               style={{
                 backgroundColor: `${protocol.color ?? "#6366f1"}20`,
                 color: protocol.color ?? "#6366f1",
@@ -533,7 +533,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {editingTitle ? (
               <input
                 autoFocus
@@ -544,15 +544,15 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   if (e.key === "Enter") { e.preventDefault(); commitTitle(); }
                   if (e.key === "Escape") { setTitleVal(protocol.name); setEditingTitle(false); }
                 }}
-                className="flex-1 rounded border border-input bg-background px-2 py-1 text-2xl font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full flex-1 rounded border border-input bg-background px-2 py-1 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-ring sm:text-2xl"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => setEditingTitle(true)}
-                className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+                className="group flex min-w-0 max-w-full items-center gap-2 text-left"
               >
-                <h1 className="truncate text-2xl font-semibold text-foreground">{protocol.name}</h1>
+                <h1 className="min-w-0 break-words text-lg font-semibold leading-tight text-foreground sm:truncate sm:text-2xl">{protocol.name}</h1>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             )}
@@ -702,37 +702,25 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
-            {/* Parsed sides chip */}
-            {sides && (
+            {/* Parsed sides chip — show only when partner is missing in CRM (action needed) */}
+            {sides && partnerNotInCrm && (
               <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]",
-                  partnerNotInCrm
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                    : "border-border bg-muted/40 text-muted-foreground",
-                )}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400"
                 title="Стороны определены из названия встречи"
               >
                 <Sparkles className="h-3 w-3 opacity-70" />
                 <span className="font-medium text-foreground">{sides.partner}</span>
                 <span className="opacity-60">×</span>
                 <span>{sides.ours}</span>
-                {partnerNotInCrm && (
-                  <button
-                    type="button"
-                    onClick={() => openCreateDialog(sides?.partner ?? "", true)}
-                    className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
-                  >
-                    + В CRM
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openCreateDialog(sides?.partner ?? "", true)}
+                  className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                >
+                  + В CRM
+                </button>
               </span>
             )}
-
-            <span className="text-muted-foreground/60">
-              <FmtIcon className="mr-1 inline h-3 w-3" />
-              {FORMAT_LABEL[fmt].label}
-            </span>
           </div>
         </div>
       </div>
