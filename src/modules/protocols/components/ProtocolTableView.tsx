@@ -386,6 +386,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("deadline")}
                   />
                 </Th>
+                <Th className="w-32">
+                  <span className="text-muted-foreground">Тема</span>
+                </Th>
                 <Th className="w-44 text-center">
                   <SortHeader
                     label="Статус"
