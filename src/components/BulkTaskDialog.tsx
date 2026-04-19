@@ -184,13 +184,27 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 
         for (const task of group.tasks) {
           if (!task.selected) continue;
-          
+
+          // Fuzzy-match assignee_name → user_id
+          let assignee: string | null = null;
+          if (task.assignee_name) {
+            const name = task.assignee_name.toLowerCase().trim();
+            const u = users.find(u => {
+              const dn = (u.display_name || "").toLowerCase();
+              const em = (u.email || "").toLowerCase();
+              const tg = (u.telegram_username || "").toLowerCase();
+              return dn === name || tg === name || dn.split(/\s+/)[0] === name || dn.includes(name) || em.startsWith(name + "@");
+            });
+            assignee = u?.id || null;
+          }
+
           if (task.subtasks?.length && user) {
             // Create with subtasks via direct insert to get the task ID
             const { data: newTask } = await supabase.from("tasks").insert({
               title: task.title,
               group_id: targetGroupId,
               deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              assigned_to: assignee,
               task_type: "standard",
               user_id: user.id,
             }).select("id").single();
@@ -205,6 +219,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
               title: task.title,
               group_id: targetGroupId,
               deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              assigned_to: assignee,
               task_type: "standard",
             });
           }
