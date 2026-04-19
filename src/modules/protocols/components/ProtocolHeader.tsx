@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ import {
   WifiOff,
   X,
   Check,
+  Building2,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -38,6 +41,15 @@ interface ProtocolMeta {
   meeting_date?: string;
   format?: Format;
   external_attendees?: ExternalAttendee[];
+  client_id?: string | null;
+}
+
+interface CrmClient {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 interface Props {
@@ -51,7 +63,7 @@ interface Props {
     user_id: string;
   };
   isDraft: boolean;
-  internalAttendeeIds?: string[]; // group_members IDs (for now: collected from tasks.assigned_to)
+  internalAttendeeIds?: string[];
 }
 
 const FORMAT_LABEL: Record<Format, { label: string; icon: typeof Wifi }> = {
@@ -126,7 +138,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     }
   };
 
-  // ---- internal attendees: derived from group_members or assignees ----
+  // ---- internal attendees ----
   const internalAttendees = profiles.filter(p => internalAttendeeIds.includes(p.id));
 
   // ---- external attendees mgmt ----
@@ -159,9 +171,58 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     if (dateVal !== (meta.meeting_date ?? "")) update.mutate({ protocol_meta: { ...meta, meeting_date: dateVal || undefined } });
   };
 
+  // ---- CRM clients ----
+  const { data: clients = [] } = useQuery({
+    queryKey: ["clients", "protocol-picker"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, contact_name, email, phone")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as CrmClient[];
+    },
+    staleTime: 60_000,
+  });
+
+  const linkedClient = useMemo(
+    () => (meta.client_id ? clients.find(c => c.id === meta.client_id) ?? null : null),
+    [meta.client_id, clients],
+  );
+
+  // Auto-match: if no client linked, try to match by external attendee organization name
+  useEffect(() => {
+    if (meta.client_id || clients.length === 0 || externals.length === 0) return;
+    const orgs = new Set(
+      externals
+        .map(e => e.organization?.trim().toLowerCase())
+        .filter((s): s is string => !!s),
+    );
+    if (orgs.size === 0) return;
+    const match = clients.find(c => orgs.has(c.name.trim().toLowerCase()));
+    if (match) {
+      update.mutate({ protocol_meta: { ...meta, client_id: match.id } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externals.map(e => e.organization).join("|"), clients.length, meta.client_id]);
+
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const filteredClients = clients.filter(c =>
+    !clientSearch.trim() ||
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.contact_name?.toLowerCase().includes(clientSearch.toLowerCase()),
+  );
+
+  const linkClient = (id: string | null) => {
+    update.mutate({ protocol_meta: { ...meta, client_id: id } });
+    setClientPickerOpen(false);
+    setClientSearch("");
+  };
+
   return (
     <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
-      {/* Top row: logo + title + draft badge */}
+      {/* Top row */}
       <div className="flex items-start gap-4">
         {/* Logo / icon */}
         <div className="relative shrink-0">
@@ -215,7 +276,6 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
         </div>
 
         <div className="min-w-0 flex-1">
-          {/* Editable title */}
           <div className="flex items-center gap-2">
             {editingTitle ? (
               <input
@@ -246,8 +306,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
             )}
           </div>
 
-          {/* Meta row: date + format */}
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+          {/* Meta row: date + format + CRM link */}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <Popover open={dateOpen} onOpenChange={setDateOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -293,6 +353,77 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 );
               })}
             </div>
+
+            {/* CRM client link */}
+            <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors",
+                    linkedClient
+                      ? "border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                      : "border-dashed border-border bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                  title={linkedClient ? `CRM-клиент: ${linkedClient.name}` : "Привязать к CRM-клиенту"}
+                >
+                  {linkedClient ? <Link2 className="h-3.5 w-3.5" /> : <Building2 className="h-3.5 w-3.5" />}
+                  <span className="max-w-[160px] truncate">
+                    {linkedClient ? linkedClient.name : "Привязать клиента CRM"}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <Input
+                  autoFocus
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  placeholder="Поиск по клиентам CRM…"
+                  className="mb-2 h-7 text-xs"
+                />
+                <div className="max-h-64 overflow-y-auto">
+                  {linkedClient && (
+                    <button
+                      onClick={() => linkClient(null)}
+                      className="mb-1 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+                    >
+                      <Unlink className="h-3 w-3" /> Отвязать клиента
+                    </button>
+                  )}
+                  {filteredClients.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      {clients.length === 0
+                        ? "В CRM пока нет клиентов."
+                        : "Не найдено"}
+                    </div>
+                  ) : (
+                    filteredClients.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => linkClient(c.id)}
+                        className={cn(
+                          "block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted",
+                          c.id === meta.client_id && "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3 w-3 shrink-0 opacity-60" />
+                          <span className="truncate font-medium">{c.name}</span>
+                        </div>
+                        {c.contact_name && (
+                          <div className="ml-4 truncate text-[10px] text-muted-foreground">
+                            {c.contact_name}
+                          </div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+                  💡 Если в шапке указана организация совпадающая с CRM-клиентом, привязка происходит автоматически.
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <span className="text-muted-foreground/60">
               <FmtIcon className="mr-1 inline h-3 w-3" />
