@@ -528,7 +528,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                     >
                       <colgroup>
                         <col style={{ width: 28 }} />
-                        <col style={{ width: 90 }} />
+                        {!groupByTopic && <col style={{ width: 90 }} />}
                         <col />
                         <col style={{ width: 120 }} />
                         <col style={{ width: 75 }} />
@@ -536,44 +536,82 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                       <thead>
                         <tr className="bg-neutral-100 text-left text-neutral-700">
                           <th className="border border-neutral-300 px-2 py-1.5 text-center font-semibold">№</th>
-                          <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Тема</th>
+                          {!groupByTopic && (
+                            <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Тема</th>
+                          )}
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Решение / задача</th>
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Ответственный</th>
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Срок</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tasks.map((t, i) => {
-                          const resp = respLabel(t.assigned_to);
-                          const topic = getTaskTopic(t);
-                          const desc = (t.description ?? "").trim();
-                          return (
-                            <tr key={t.id} className={i % 2 === 1 ? "bg-neutral-50/60" : ""}>
-                              <td className="border border-neutral-300 px-2 py-1.5 text-center text-neutral-500 align-top">
-                                {i + 1}
-                              </td>
-                              <td className="border border-neutral-300 px-2 py-1.5 align-top break-words text-neutral-700">
-                                {topic ? topic.name : <span className="text-neutral-400">—</span>}
-                              </td>
-                              <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
-                                <div className="font-medium text-neutral-900">{t.title}</div>
-                                {desc && (
-                                  <div className="mt-0.5 text-[10px] leading-[1.45] text-neutral-600 whitespace-pre-wrap">
-                                    {desc}
-                                  </div>
+                        {(() => {
+                          const colCount = groupByTopic ? 4 : 5;
+                          const renderRow = (t: any, displayIdx: number, rowIdx: number) => {
+                            const resp = respLabel(t.assigned_to);
+                            const topic = getTaskTopic(t);
+                            const desc = (t.description ?? "").trim();
+                            return (
+                              <tr key={t.id} className={rowIdx % 2 === 1 ? "bg-neutral-50/60" : ""}>
+                                <td className="border border-neutral-300 px-2 py-1.5 text-center text-neutral-500 align-top">
+                                  {displayIdx}
+                                </td>
+                                {!groupByTopic && (
+                                  <td className="border border-neutral-300 px-2 py-1.5 align-top break-words text-neutral-700">
+                                    {topic ? topic.name : <span className="text-neutral-400">—</span>}
+                                  </td>
                                 )}
-                              </td>
-                              <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
-                                {resp ?? <span className="text-neutral-400 italic">не назначен</span>}
-                              </td>
-                              <td className="border border-neutral-300 px-2 py-1.5 align-top text-neutral-700">
-                                {t.deadline
-                                  ? format(parseISO(t.deadline), "d MMM yyyy", { locale: ru })
-                                  : <span className="text-neutral-400">—</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
+                                  <div className="font-medium text-neutral-900">{t.title}</div>
+                                  {desc && (
+                                    <div className="mt-0.5 text-[10px] leading-[1.45] text-neutral-600 whitespace-pre-wrap">
+                                      {desc}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
+                                  {resp ?? <span className="text-neutral-400 italic">не назначен</span>}
+                                </td>
+                                <td className="border border-neutral-300 px-2 py-1.5 align-top text-neutral-700">
+                                  {t.deadline
+                                    ? format(parseISO(t.deadline), "d MMM yyyy", { locale: ru })
+                                    : <span className="text-neutral-400">—</span>}
+                                </td>
+                              </tr>
+                            );
+                          };
+
+                          if (!groupByTopic) {
+                            return tasks.map((t, i) => renderRow(t, i + 1, i));
+                          }
+
+                          // Группировка по теме с сохранением порядка появления
+                          const buckets = new Map<string, { topic: any; rows: any[] }>();
+                          for (const t of tasks) {
+                            const topic = getTaskTopic(t);
+                            const key = topic?.id ?? "__no_topic__";
+                            if (!buckets.has(key)) buckets.set(key, { topic, rows: [] });
+                            buckets.get(key)!.rows.push(t);
+                          }
+                          const out: JSX.Element[] = [];
+                          let runningIdx = 0;
+                          let rowIdx = 0;
+                          for (const [key, { topic, rows }] of buckets) {
+                            out.push(
+                              <tr key={`hdr-${key}`} className="bg-neutral-200/70">
+                                <td colSpan={colCount} className="border border-neutral-300 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-700">
+                                  {topic ? topic.name : "Без темы"} · {rows.length}
+                                </td>
+                              </tr>
+                            );
+                            for (const t of rows) {
+                              runningIdx += 1;
+                              out.push(renderRow(t, runningIdx, rowIdx));
+                              rowIdx += 1;
+                            }
+                          }
+                          return out;
+                        })()}
                       </tbody>
                     </table>
                   )}
