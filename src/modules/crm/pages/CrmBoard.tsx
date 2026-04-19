@@ -2504,19 +2504,25 @@ function CrmCard({
           {completedSteps}/{totalSteps}
         </span>
       )}
-      {task.source_protocol_id && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/protocols/${task.source_protocol_id}`);
-          }}
-          title="Перейти в протокол-источник"
-          className="inline-flex items-center gap-0.5 rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300 px-1 py-px text-[9px] font-medium hover:bg-purple-500/20 transition-colors"
-        >
-          <FileText className="h-2.5 w-2.5" />
-          из протокола
-        </button>
-      )}
+      {task.source_protocol_id && (() => {
+        const protocolGroup = allGroups.find(g => g.id === task.source_protocol_id);
+        const meetingDateStr = (protocolGroup as any)?.protocol_meta?.meeting_date as string | undefined;
+        const dateSource = meetingDateStr || protocolGroup?.created_at;
+        const formattedDate = dateSource ? format(parseISO(dateSource), "d MMM", { locale: ru }) : "";
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/protocols/${task.source_protocol_id}`);
+            }}
+            title={protocolGroup ? `Из протокола: ${protocolGroup.name}` : "Перейти в протокол-источник"}
+            className="inline-flex items-center gap-0.5 rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300 px-1 py-px text-[9px] font-medium hover:bg-purple-500/20 transition-colors"
+          >
+            <FileText className="h-2.5 w-2.5" />
+            из протокола{formattedDate && ` от ${formattedDate}`}
+          </button>
+        );
+      })()}
     </div>
   );
 
