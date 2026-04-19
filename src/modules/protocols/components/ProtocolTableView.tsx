@@ -806,6 +806,9 @@ function ProtocolRow({
             onChange={(v) => onUpdate({ deadline: v })}
           />
         </td>
+        <td className="px-3 py-2">
+          <TopicCell task={task} compact />
+        </td>
         <td className="px-3 py-2 text-center">
           <StatusPicker
             statuses={statuses}
