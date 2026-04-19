@@ -57,6 +57,10 @@ interface ProtocolMeta {
   client_id?: string | null;
   our_logo_url?: string | null;
   our_side_name?: string | null;
+  /** Manually added internal attendees (user ids) — independent from task assignees */
+  internal_attendees?: string[];
+  /** User ids excluded from the auto-derived list (task assignees) */
+  internal_excluded?: string[];
 }
 
 interface CrmClient {
