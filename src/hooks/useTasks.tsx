@@ -175,6 +175,12 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
 
       let tasks = data as Task[];
 
+      // Hide draft protocol rows from global lists.
+      // They remain visible only when explicitly viewing that protocol (groupId set).
+      if (!groupId) {
+        tasks = tasks.filter(t => !(t as any).is_draft);
+      }
+
       if (filterTags && filterTags.length > 0) {
         // Smart project tag filtering: if tag is a linked_tag_id of a project,
         // also include tasks from subprojects
