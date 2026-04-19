@@ -56,6 +56,7 @@ interface ProtocolMeta {
   external_attendees?: ExternalAttendee[];
   client_id?: string | null;
   our_logo_url?: string | null;
+  our_side_name?: string | null;
 }
 
 interface CrmClient {
@@ -219,6 +220,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     update.mutate({ protocol_meta: { ...meta, our_logo_url: null } });
 
   // ---- external attendees (people from partner side, e.g. Лента) ----
+
+  // ---- external attendees (people from partner side, e.g. Лента) ----
   const externals = meta.external_attendees ?? [];
 
   const updateExternals = (next: ExternalAttendee[]) =>
@@ -271,6 +274,23 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
   // Parse sides from protocol title: "Лента x Дороничи" → partner=Лента, ours=Дороничи
   const sides = useMemo(() => parseProtocolSides(protocol.name), [protocol.name]);
+
+  // ---- our side name (override of parsed/default "Дороничи") ----
+  const ourSideName = meta.our_side_name?.trim() || sides?.ours || "Дороничи";
+  const [editingOurName, setEditingOurName] = useState(false);
+  const [ourNameVal, setOurNameVal] = useState(ourSideName);
+  useEffect(() => setOurNameVal(ourSideName), [ourSideName]);
+  const commitOurName = () => {
+    setEditingOurName(false);
+    const v = ourNameVal.trim();
+    const fallback = sides?.ours || "Дороничи";
+    const next = !v || v === fallback ? null : v;
+    if ((meta.our_side_name ?? null) !== next) {
+      update.mutate({ protocol_meta: { ...meta, our_side_name: next } });
+    } else {
+      setOurNameVal(ourSideName);
+    }
+  };
 
   // Auto-match by parsed partner OR by external attendee organization
   useEffect(() => {
@@ -749,13 +769,30 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-foreground">
-              {sides?.ours ?? "Дороничи"}
-            </div>
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
-              Наша сторона
-              {!sides && <span className="ml-1 opacity-60">· укажите в названии «Партнёр × Дороничи»</span>}
-            </div>
+            {editingOurName ? (
+              <input
+                autoFocus
+                value={ourNameVal}
+                onChange={(e) => setOurNameVal(e.target.value)}
+                onBlur={commitOurName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); commitOurName(); }
+                  if (e.key === "Escape") { setOurNameVal(ourSideName); setEditingOurName(false); }
+                }}
+                className="w-full rounded border border-input bg-background px-1.5 py-0.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditingOurName(true)}
+                className="group flex w-full items-center gap-1 text-left"
+                title="Изменить название нашей стороны"
+              >
+                <span className="truncate text-sm font-semibold text-foreground">{ourSideName}</span>
+                <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+            )}
+            <div className="mt-0.5 text-[10px] text-muted-foreground">Наша сторона</div>
           </div>
         </div>
 
