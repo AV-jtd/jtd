@@ -23,7 +23,7 @@ export default function TopicCell({ task, compact }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { topicTags } = useEventTopicTags();
+  const { topicTags, categoryId } = useEventTopicTags();
   const createTopic = useCreateEventTopic();
 
   const topicTagIds = useMemo(() => new Set(topicTags.map((t) => t.id)), [topicTags]);
