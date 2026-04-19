@@ -234,11 +234,28 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
-  const filteredClients = clients.filter(c =>
+
+  // Дедуп клиентов в UI на случай старых дублей или клиентов с одинаковым именем у разных юзеров
+  const dedupedClients = useMemo(() => {
+    const seen = new Map<string, CrmClient>();
+    for (const c of clients) {
+      const key = c.name.trim().toLowerCase();
+      if (!seen.has(key)) seen.set(key, c);
+    }
+    return [...seen.values()];
+  }, [clients]);
+
+  const filteredClients = dedupedClients.filter(c =>
     !clientSearch.trim() ||
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
     c.contact_name?.toLowerCase().includes(clientSearch.toLowerCase()),
   );
+
+  const searchMatchesExisting = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return false;
+    return dedupedClients.some(c => c.name.trim().toLowerCase() === q);
+  }, [clientSearch, dedupedClients]);
 
   const linkClient = (id: string | null) => {
     update.mutate({ protocol_meta: { ...meta, client_id: id } });
