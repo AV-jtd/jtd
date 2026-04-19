@@ -761,6 +761,9 @@ function ProtocolRow({
           </button>
         </td>
         <td className="px-3 py-2">
+          <TopicCell task={task} compact />
+        </td>
+        <td className="px-3 py-2">
           {editTitle ? (
             <input
               autoFocus
@@ -806,9 +809,6 @@ function ProtocolRow({
             drift={!!drift}
             onChange={(v) => onUpdate({ deadline: v })}
           />
-        </td>
-        <td className="px-3 py-2">
-          <TopicCell task={task} compact />
         </td>
         <td className="px-3 py-2 text-center">
           <StatusPicker
