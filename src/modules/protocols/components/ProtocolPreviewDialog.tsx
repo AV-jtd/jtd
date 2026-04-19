@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Download, Copy, Send, FileText, Mail, Loader2, Check } from "lucide-react";
+import { Download, Copy, Send, FileText, Mail, Loader2, Check, Calendar as CalendarIcon, Wifi, Users as UsersIcon, WifiOff, Sparkles, Link2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
@@ -13,6 +13,13 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import ourLogoDefault from "@/assets/our-logo-default.jpg";
+import { getInitials } from "@/lib/initials";
+
+const FORMAT_META: Record<string, { label: string; Icon: typeof Wifi }> = {
+  online: { label: "Онлайн", Icon: Wifi },
+  offline: { label: "Офлайн", Icon: UsersIcon },
+  hybrid: { label: "Гибрид", Icon: WifiOff },
+};
 
 interface Props {
   protocolId: string;
