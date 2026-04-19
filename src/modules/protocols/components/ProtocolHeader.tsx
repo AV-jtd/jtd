@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
+import UserPicker from "@/components/UserPicker";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -57,6 +58,10 @@ interface ProtocolMeta {
   client_id?: string | null;
   our_logo_url?: string | null;
   our_side_name?: string | null;
+  /** Manually added internal attendees (user ids) — independent from task assignees */
+  internal_attendees?: string[];
+  /** User ids excluded from the auto-derived list (task assignees) */
+  internal_excluded?: string[];
 }
 
 interface CrmClient {
@@ -240,6 +245,45 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
   };
   const removeExternal = (idx: number) => {
     updateExternals(externals.filter((_, i) => i !== idx));
+  };
+
+  // ---- internal attendees (our side) ----
+  // Combined list = (auto from task assignees, minus excluded) ∪ manually added
+  const internalManual = meta.internal_attendees ?? [];
+  const internalExcluded = meta.internal_excluded ?? [];
+  const internalCombinedIds = useMemo(() => {
+    const fromTasks = (internalAttendeeIds ?? []).filter(uid => !internalExcluded.includes(uid));
+    return Array.from(new Set([...fromTasks, ...internalManual]));
+  }, [internalAttendeeIds, internalExcluded, internalManual]);
+
+  const [internalPickerOpen, setInternalPickerOpen] = useState(false);
+
+  const addInternalAttendee = (userId: string) => {
+    if (internalExcluded.includes(userId)) {
+      update.mutate({
+        protocol_meta: {
+          ...meta,
+          internal_excluded: internalExcluded.filter(id => id !== userId),
+        },
+      });
+    } else if (!internalManual.includes(userId) && !(internalAttendeeIds ?? []).includes(userId)) {
+      update.mutate({
+        protocol_meta: { ...meta, internal_attendees: [...internalManual, userId] },
+      });
+    }
+  };
+
+  const removeInternalAttendee = (userId: string) => {
+    const isAuto = (internalAttendeeIds ?? []).includes(userId);
+    const isManual = internalManual.includes(userId);
+    const next: ProtocolMeta = { ...meta };
+    if (isManual) {
+      next.internal_attendees = internalManual.filter(id => id !== userId);
+    }
+    if (isAuto && !internalExcluded.includes(userId)) {
+      next.internal_excluded = [...internalExcluded, userId];
+    }
+    update.mutate({ protocol_meta: next });
   };
 
   // ---- meeting date / format ----
@@ -793,24 +837,47 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </button>
             )}
 
-            {/* Internal attendees (our team — derived from task assignees in this protocol) */}
-            {internalAttendeeIds.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-1">
-                {internalAttendeeIds.map((uid) => {
-                  const p = profiles.find((u) => u.id === uid);
-                  const name = p?.display_name || p?.email || "Участник";
-                  return (
-                    <span
-                      key={uid}
-                      className="inline-flex items-center rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
-                      title={name}
+            {/* Internal attendees (our side) — auto from task assignees + manual */}
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {internalCombinedIds.map((uid) => {
+                const p = profiles.find((u) => u.id === uid);
+                const name = p?.display_name || p?.email || "Участник";
+                return (
+                  <span
+                    key={uid}
+                    className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
+                    title={name}
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeInternalAttendee(uid)}
+                      className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                      title="Убрать из участников встречи"
                     >
-                      {name}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                );
+              })}
+              <UserPicker
+                users={profiles}
+                excludeIds={internalCombinedIds}
+                title="Добавить участника"
+                open={internalPickerOpen}
+                onOpenChange={setInternalPickerOpen}
+                onSelect={(u) => addInternalAttendee(u.id)}
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    title="Добавить участника со стороны Дороничей"
+                  >
+                    <Plus className="h-2.5 w-2.5" /> участник
+                  </button>
+                }
+              />
+            </div>
           </div>
         </div>
 
