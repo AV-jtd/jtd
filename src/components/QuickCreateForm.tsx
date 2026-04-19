@@ -272,18 +272,39 @@ export default function QuickCreateForm({
 
             {/* Single mode: title input */}
             {!batchMode && (
-              <Input
-                ref={inputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи..."}
-                className="h-8 text-xs"
-                disabled={saving}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmit();
-                  if (e.key === "Escape") handleOpen(false);
-                }}
-              />
+              <>
+                <Input
+                  ref={inputRef}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи... (@имя, до 25.04, !)"}
+                  className="h-8 text-xs"
+                  disabled={saving}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                    if (e.key === "Escape") handleOpen(false);
+                  }}
+                />
+                {hasInlineMeta && selectedType === "task" && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Sparkles className="h-2.5 w-2.5 text-primary/60 shrink-0" />
+                    {parsed.tokens.map((tok, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium",
+                          tok.kind === "assignee" && "bg-primary/10 text-primary",
+                          tok.kind === "deadline" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                          tok.kind === "important" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          tok.kind === "tag" && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {tok.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Batch mode: textarea */}
