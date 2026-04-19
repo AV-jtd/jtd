@@ -497,6 +497,7 @@ function ProtocolRow({
             externalValue={externalRef}
             externalOptions={externalAttendees}
             linkedClient={linkedClient}
+            parsedPartner={parsedPartner}
             onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
             onChangeExternal={(ext) =>
               onUpdate({ assigned_to: null, external_assignee: (ext as any) })
