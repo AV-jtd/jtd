@@ -777,15 +777,26 @@ function ProtocolRow({
               className="w-full rounded border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           ) : (
-            <button
-              onClick={() => setEditTitle(true)}
-              className={cn(
-                "block w-full text-left text-sm text-foreground hover:underline",
-                task.is_completed && "line-through text-muted-foreground",
+            <div className="space-y-0.5">
+              <button
+                onClick={() => setEditTitle(true)}
+                className={cn(
+                  "block w-full text-left text-sm text-foreground hover:underline",
+                  task.is_completed && "line-through text-muted-foreground",
+                )}
+              >
+                {task.title}
+              </button>
+              {task.description && task.description.trim() && (
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="block w-full text-left text-xs text-muted-foreground/80 line-clamp-2 hover:text-muted-foreground"
+                  title={task.description}
+                >
+                  {task.description}
+                </button>
               )}
-            >
-              {task.title}
-            </button>
+            </div>
           )}
         </td>
         <td className="px-3 py-2">
