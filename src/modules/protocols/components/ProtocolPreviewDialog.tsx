@@ -207,12 +207,6 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     lines.push("Сформировано в JustTODOit");
     return lines.join("\n");
   }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags]);
-    }
-    lines.push("");
-    lines.push("—");
-    lines.push("Сформировано в JustTODOit");
-    return lines.join("\n");
-  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap]);
 
   // ---------- Actions ----------
   const a4Ref = useRef<HTMLDivElement>(null);
