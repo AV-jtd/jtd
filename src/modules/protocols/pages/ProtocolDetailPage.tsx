@@ -6,6 +6,7 @@ import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
+import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
