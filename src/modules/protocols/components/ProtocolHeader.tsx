@@ -29,7 +29,6 @@ import {
   Wifi,
   WifiOff,
   X,
-  Check,
   Building2,
   Link2,
   Unlink,
