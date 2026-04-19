@@ -63,7 +63,7 @@ function TaskFiltersBar({
     return () => window.clearTimeout(timeoutId);
   }, [draftSearch, onSearchChange, searchValue]);
 
-  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || priorityFilter === "pending_approval";
+  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || priorityFilter === "pending_approval" || priorityFilter === "no_dates";
   const hasActiveFilters = priorityFilter !== null || assigneeFilter !== null || projectFilter !== null;
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
@@ -71,6 +71,7 @@ function TaskFiltersBar({
     assigneeFilter !== null,
     projectFilter !== null,
     priorityFilter === "pending_approval",
+    priorityFilter === "no_dates",
   ].filter(Boolean).length;
 
   return (
