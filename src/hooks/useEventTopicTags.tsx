@@ -53,12 +53,14 @@ export function useCreateEventTopic() {
       const trimmed = name.trim();
       if (!trimmed || !user) return null;
 
-      let { data: category } = await supabase
-        .from("tag_categories" as any)
-        .select("id")
-        .eq("system_key", "event_topic")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      let category = (
+        await supabase
+          .from("tag_categories" as any)
+          .select("id")
+          .eq("system_key", "event_topic")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      ).data as { id: string } | null;
 
       if (!category) {
         const { data: createdCategory, error: categoryError } = await supabase
@@ -73,7 +75,7 @@ export function useCreateEventTopic() {
           .single();
 
         if (categoryError) throw categoryError;
-        category = createdCategory;
+        category = createdCategory as { id: string } | null;
       }
 
       const categoryId = category?.id;
