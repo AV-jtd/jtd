@@ -31,8 +31,26 @@ export default function ProtocolTableView({ protocolId }: Props) {
 
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const isProtocolDraft = (protocol as any)?.draft_status === "draft";
+  const protocolMeta = (protocol as any)?.protocol_meta ?? {};
   const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
-    ((protocol as any)?.protocol_meta?.external_attendees as any[]) ?? [];
+    (protocolMeta.external_attendees as any[]) ?? [];
+  const linkedClientId: string | null = protocolMeta.client_id ?? null;
+
+  // Linked CRM client (for contact pickup in assignee picker)
+  const { data: linkedClient } = useQuery({
+    queryKey: ["client", linkedClientId],
+    enabled: !!linkedClientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, contact_name, email, phone")
+        .eq("id", linkedClientId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
 
   const tasks = useMemo(
     () => allTasks.filter((t) => t.group_id === protocolId),
