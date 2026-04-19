@@ -533,8 +533,28 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                     ))
                   )}
                 </div>
+                {/* + Создать клиента (по строке поиска или с пустым именем) */}
+                {clientSearch.trim() && !searchMatchesExisting ? (
+                  <button
+                    type="button"
+                    onClick={() => openCreateDialog(clientSearch.trim(), true)}
+                    className="mt-2 flex w-full items-center gap-1.5 rounded border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-xs text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Создать клиента «{clientSearch.trim()}»
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openCreateDialog("", false)}
+                    className="mt-2 flex w-full items-center gap-1.5 rounded border border-dashed border-border px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Добавить клиента в CRM
+                  </button>
+                )}
                 <div className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
-                  💡 Если в шапке указана организация совпадающая с CRM-клиентом, привязка происходит автоматически.
+                  💡 Шаги воронки появятся автоматически при перетаскивании карточки по этапам в CRM.
                 </div>
               </PopoverContent>
             </Popover>
