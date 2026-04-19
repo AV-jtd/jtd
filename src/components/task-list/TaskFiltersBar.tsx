@@ -11,8 +11,8 @@ export type GroupByOption = "none" | "project" | "deadline" | "assignee";
 interface TaskFiltersBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  priorityFilter: number | "important" | "overdue" | "pending_approval" | null;
-  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | "pending_approval" | null>>;
+  priorityFilter: number | "important" | "overdue" | "pending_approval" | "no_dates" | null;
+  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | "pending_approval" | "no_dates" | null>>;
   assigneeFilter: string | null;
   onAssigneeFilterChange: React.Dispatch<React.SetStateAction<string | null>>;
   projectFilter: string | null;
