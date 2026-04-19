@@ -2454,6 +2454,7 @@ function CrmCard({
   onToggleImportant: () => void;
   onCardClick?: () => void;
 }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const completedSteps = task.subtasks.filter((s) => s.is_completed).length;
   const totalSteps = task.subtasks.length;
