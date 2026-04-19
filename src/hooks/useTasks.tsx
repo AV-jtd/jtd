@@ -175,8 +175,12 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
 
       let tasks = data as Task[];
 
-      // Hide draft protocol rows from global lists.
-      // They remain visible only when explicitly viewing that protocol (groupId set).
+      // ⚠️ INVARIANT — Draft visibility rule (см. mem://features/protocol-draft-publish):
+      // Черновики (is_draft=true) скрываются ТОЛЬКО из глобальных списков (groupId не задан).
+      // При просмотре конкретного протокола (groupId передан) черновики ОБЯЗАНЫ быть видны
+      // владельцу/участникам — иначе протокол выглядит «пустым» до публикации.
+      // Любой компонент внутри страницы протокола ДОЛЖЕН вызывать useTasks(protocolId),
+      // а не useTasks() без аргументов.
       if (!groupId) {
         tasks = tasks.filter(t => !(t as any).is_draft);
       }
