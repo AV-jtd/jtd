@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseProtocolSides } from "@/lib/protocolSides";
 import ProtocolInternalSection from "@/modules/protocols/components/ProtocolInternalSection";
+import ExternalRowInternalLayer from "@/modules/protocols/components/ExternalRowInternalLayer";
 
 type Props = { protocolId: string };
 
