@@ -660,6 +660,37 @@ function AssigneePicker({
             </div>
           )}
 
+          {filteredCompanies.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Компании / Партнёры
+              </div>
+              {filteredCompanies.map((c) => {
+                const active = isCompanyAssignee && externalValue?.name === c;
+                return (
+                  <button
+                    key={`co-${c}`}
+                    onClick={() => {
+                      onChangeExternal?.({ name: c, organization: c, role: "company" });
+                      onChange(null);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      active && "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 shrink-0 opacity-60" />
+                      <span className="truncate font-medium">{c}</span>
+                      <span className="ml-auto text-[9px] uppercase text-muted-foreground/70">компания</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {filteredExternals.length > 0 && (
             <div>
               <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
