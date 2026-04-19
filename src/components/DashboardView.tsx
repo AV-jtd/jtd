@@ -1323,13 +1323,13 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
                   {isSpExpanded && (
                     <div className="ml-5 pl-2 border-l-2 border-border/50 space-y-0.5 py-1 animate-fade-in">
                       {sp.overdueTasks.length > 0 && sp.overdueTasks.map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} variant="overdue" showUnassigned hideProjectBadge />
                       ))}
                       {sp.upcomingTasks.map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned hideProjectBadge />
                       ))}
                       {sp.tasks.filter(t => !t.is_completed && !sp.overdueTasks.includes(t) && !sp.upcomingTasks.includes(t)).slice(0, 5).map(t => (
-                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned />
+                        <TaskSummaryRow key={t.id} task={t} userName={userName(t.assigned_to || t.user_id)} onOpenTask={onOpenTask} subtaskMap={subtaskMap} showUnassigned hideProjectBadge />
                       ))}
                       {sp.total > 0 && sp.tasks.filter(t => !t.is_completed).length === 0 && (
                         <span className="text-[10px] text-muted-foreground px-2">Все задачи выполнены ✓</span>
