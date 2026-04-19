@@ -149,6 +149,7 @@ export function useCreateEventTopic() {
       qc.invalidateQueries({ queryKey: ["tags"] });
       qc.invalidateQueries({ queryKey: ["tag_categories"] });
       qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }
