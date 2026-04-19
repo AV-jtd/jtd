@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEventTopicTags, useCreateEventTopic } from "@/hooks/useEventTopicTags";
-import { Plus, Tag as TagIcon, X, Search, Loader2 } from "lucide-react";
+import { useTaskGroups } from "@/hooks/useTasks";
+import { Plus, Tag as TagIcon, X, Search, Loader2, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import type { Task } from "@/hooks/useTasks";
@@ -25,7 +26,17 @@ export default function TopicCell({ task, compact }: Props) {
   const [search, setSearch] = useState("");
   const assignInFlightRef = useRef<string | null>(null);
   const { topicTags, categoryId } = useEventTopicTags();
+  const { data: taskGroups = [] } = useTaskGroups();
   const createTopic = useCreateEventTopic();
+
+  /** tagId → linked project (task_group) — для индикации «тема = проект». */
+  const tagToProject = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const g of taskGroups) {
+      if (g.linked_tag_id) map.set(g.linked_tag_id, { id: g.id, name: g.name });
+    }
+    return map;
+  }, [taskGroups]);
 
   const topicTagIds = useMemo(() => new Set(topicTags.map((t) => t.id)), [topicTags]);
   const taskTagIds = useMemo(
@@ -36,6 +47,7 @@ export default function TopicCell({ task, compact }: Props) {
     () => topicTags.find((t) => taskTagIds.has(t.id)) ?? null,
     [topicTags, taskTagIds],
   );
+  const currentTopicProject = currentTopic ? tagToProject.get(currentTopic.id) ?? null : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,7 +110,17 @@ export default function TopicCell({ task, compact }: Props) {
       }
 
       const created = await createTopic.mutateAsync(search.trim());
-      if (created?.id) await setTopic(created.id);
+      if (created?.id) {
+        await setTopic(created.id);
+        if (created.linkedGroupId) {
+          toast({
+            title: "Тема привязана к проекту",
+            description: `«${created.name}» — это существующий проект, контекст подхватится автоматически.`,
+          });
+          // Refresh project caches so Folder icon appears immediately
+          qc.invalidateQueries({ queryKey: ["task_groups"] });
+        }
+      }
     } catch (e: any) {
       toast({
         title: "Не удалось создать тему",
@@ -119,14 +141,22 @@ export default function TopicCell({ task, compact }: Props) {
               ? "font-medium text-foreground hover:bg-muted"
               : "text-muted-foreground/60 italic hover:text-foreground hover:bg-muted",
           )}
-          title={currentTopic?.name ?? "Назначить тему"}
+          title={
+            currentTopicProject
+              ? `${currentTopic?.name} • Проект`
+              : currentTopic?.name ?? "Назначить тему"
+          }
         >
           {currentTopic ? (
             <>
-              <span
-                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: currentTopic.color ?? "hsl(var(--primary))" }}
-              />
+              {currentTopicProject ? (
+                <Folder className="h-3 w-3 shrink-0 text-primary" />
+              ) : (
+                <span
+                  className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: currentTopic.color ?? "hsl(var(--primary))" }}
+                />
+              )}
               <span className="truncate">{currentTopic.name}</span>
             </>
           ) : (
@@ -183,6 +213,7 @@ export default function TopicCell({ task, compact }: Props) {
           )}
           {filtered.map((t) => {
             const isCurrent = currentTopic?.id === t.id;
+            const linkedProject = tagToProject.get(t.id);
             return (
               <button
                 key={t.id}
@@ -201,11 +232,16 @@ export default function TopicCell({ task, compact }: Props) {
                   "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted",
                   isCurrent && "bg-muted/50 font-medium",
                 )}
+                title={linkedProject ? `${t.name} • Проект` : t.name}
               >
-                <span
-                  className="inline-block h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: t.color ?? "hsl(var(--primary))" }}
-                />
+                {linkedProject ? (
+                  <Folder className="h-3 w-3 shrink-0 text-primary" />
+                ) : (
+                  <span
+                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: t.color ?? "hsl(var(--primary))" }}
+                  />
+                )}
                 <span className="truncate">{t.name}</span>
               </button>
             );
