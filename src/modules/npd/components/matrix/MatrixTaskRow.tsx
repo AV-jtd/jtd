@@ -96,6 +96,18 @@ function MatrixTaskRowInner({
           </span>
         )}
 
+        {sourceProtocol && (
+          <Link
+            to={`/protocols/${sourceProtocol.id}`}
+            onClick={(e) => e.stopPropagation()}
+            title={`Из протокола: ${sourceProtocol.name}`}
+            className="inline-flex items-center gap-0.5 shrink-0 rounded border border-red-500/30 bg-red-500/5 px-1 py-0.5 text-[8px] font-medium text-red-700 hover:bg-red-500/10 dark:text-red-300 max-w-[100px] truncate"
+          >
+            <FileText className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{sourceProtocol.name}</span>
+          </Link>
+        )}
+
         {onExpand && (
           <button
             onClick={() => onExpand(task.id)}
