@@ -285,8 +285,8 @@ export default function ProtocolTableView({ protocolId }: Props) {
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
@@ -414,6 +414,90 @@ export default function ProtocolTableView({ protocolId }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Mobile card list */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card md:hidden">
+        {sorted.length === 0 ? (
+          <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+            {tasks.length === 0
+              ? "Пока пусто. Нажмите «+» внизу, чтобы добавить первую строку."
+              : "Под текущие фильтры строк нет."}
+          </div>
+        ) : (
+          sorted.map((task, idx) => (
+            <ProtocolMobileRow
+              key={task.id}
+              task={task}
+              index={idx + 1}
+              users={users}
+              statuses={statuses}
+              onToggleComplete={() =>
+                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
+              }
+              onOpen={() => setMobileSheetTaskId(task.id)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Mobile sticky FAB */}
+      <button
+        type="button"
+        onClick={() => setCreateSheetOpen(true)}
+        className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 md:hidden"
+        aria-label="Добавить строку протокола"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {/* Mobile: full task editor sheet */}
+      <Sheet open={!!mobileSheetTaskId} onOpenChange={(v) => !v && setMobileSheetTaskId(null)}>
+        <SheetContent side="bottom" className="h-[90dvh] overflow-y-auto p-3 sm:p-4">
+          {mobileSheetTask && (
+            <TaskItem task={mobileSheetTask} initialOpen sortable={false} />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile: create sheet */}
+      <Sheet open={createSheetOpen} onOpenChange={setCreateSheetOpen}>
+        <SheetContent side="bottom" className="p-4">
+          <div className="mb-3 text-sm font-semibold text-foreground">
+            Новая строка протокола
+          </div>
+          <textarea
+            autoFocus
+            value={createTitle}
+            onChange={(e) => setCreateTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleMobileCreate();
+              }
+            }}
+            placeholder="Что обсудили / о чём договорились…"
+            className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Ответственного, срок и статус добавите в карточке после создания.
+          </p>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setCreateSheetOpen(false); setCreateTitle(""); }}
+              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleMobileCreate}
+              disabled={!createTitle.trim()}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+            >
+              Добавить
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
