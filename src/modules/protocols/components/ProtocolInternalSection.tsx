@@ -100,7 +100,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
               key={t.id}
               task={t}
               users={users}
-              groups={groups}
+              groups={groups as any[]}
               onToggle={() => toggleTask.mutate({ id: t.id, is_completed: !t.is_completed })}
               onUpdate={(patch) => updateTask.mutate({ id: t.id, ...patch })}
               onDelete={() => deleteTask.mutate(t.id)}
