@@ -1654,6 +1654,10 @@ export type Database = {
           parent_id: string
         }[]
       }
+      ensure_protocol_review_task: {
+        Args: { _assignee: string; _protocol_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
