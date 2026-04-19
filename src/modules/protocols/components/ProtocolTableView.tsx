@@ -569,10 +569,30 @@ function AssigneePicker({
     e.organization?.toLowerCase().includes(search.toLowerCase()),
   );
 
+  // Unique companies extracted from external attendees' organizations
+  const companies = useMemo(() => {
+    const set = new Map<string, string>(); // lower -> original
+    for (const e of externalOptions ?? []) {
+      const org = e.organization?.trim();
+      if (org && !set.has(org.toLowerCase())) set.set(org.toLowerCase(), org);
+    }
+    return Array.from(set.values());
+  }, [externalOptions]);
+
+  const filteredCompanies = companies.filter((c) =>
+    !search.trim() || c.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const isCompanyAssignee = !!externalValue?.name &&
+    externalValue.name === externalValue.organization &&
+    externalValue.role === "company";
+
   const externalLabel = externalValue?.name
-    ? externalValue.organization
-      ? `${externalValue.organization} · ${externalValue.name}`
-      : externalValue.name
+    ? isCompanyAssignee
+      ? externalValue.name
+      : externalValue.organization
+        ? `${externalValue.organization} · ${externalValue.name}`
+        : externalValue.name
     : null;
 
   return (
