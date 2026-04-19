@@ -152,6 +152,42 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     }
   };
 
+  // ---- Client (partner) logo upload ----
+  const clientFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingClientLogo, setUploadingClientLogo] = useState(false);
+
+  const handleClientLogoUpload = async (file: File, clientId: string) => {
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploadingClientLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${protocol.user_id}/client-${clientId}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      const { error } = await supabase
+        .from("clients")
+        .update({ logo_url: publicUrl } as any)
+        .eq("id", clientId);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Лого партнёра обновлено");
+    } catch (e) {
+      toast.error("Ошибка загрузки: " + (e as Error).message);
+    } finally {
+      setUploadingClientLogo(false);
+    }
+  };
+
+  const removeClientLogo = async (clientId: string) => {
+    const { error } = await supabase.from("clients").update({ logo_url: null } as any).eq("id", clientId);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["clients"] });
+  };
+
   // ---- internal attendees ----
   const internalAttendees = profiles.filter(p => internalAttendeeIds.includes(p.id));
 
