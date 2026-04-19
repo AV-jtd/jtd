@@ -52,7 +52,7 @@ export default function TopicCell({ task, compact }: Props) {
   const setTopic = async (newTagId: string | null) => {
     const toRemove = (task.task_tags ?? [])
       .map((tt) => tt.tag_id)
-      .filter((id) => topicTagIds.has(id));
+      .filter((id) => topicTagIds.has(id) && id !== newTagId);
 
     if (toRemove.length > 0) {
       const { error } = await supabase
@@ -64,7 +64,9 @@ export default function TopicCell({ task, compact }: Props) {
     }
 
     if (newTagId) {
-      const { error } = await supabase.from("task_tags").insert({ task_id: task.id, tag_id: newTagId });
+      const { error } = await supabase
+        .from("task_tags")
+        .upsert({ task_id: task.id, tag_id: newTagId }, { onConflict: "task_id,tag_id" });
       if (error) throw error;
     }
 
