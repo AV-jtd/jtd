@@ -13,12 +13,14 @@ import { useTaskGroups, useTaskMutations, useTasks, useAvailableUsers } from "@/
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { addDays, format } from "date-fns";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 
 interface GeneratedTask {
   title: string;
   deadline_offset_days?: number;
   priority?: number;
   subtasks?: string[];
+  assignee_name?: string;
   selected?: boolean;
 }
 
