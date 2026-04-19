@@ -839,7 +839,7 @@ function ProtocolRow({
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
