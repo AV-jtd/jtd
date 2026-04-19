@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import {
   Popover,
