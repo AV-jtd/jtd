@@ -967,18 +967,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 </button>
               </div>
             )}
-            {linkedClient?.contact_name && (
-              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                {linkedClient.contact_name}
-              </div>
-            )}
-
-            {/* Custom attendees from partner side */}
+            {/* Custom attendees from partner side — same chip style as our side */}
             <div className="mt-2 flex flex-wrap items-center gap-1">
               {externals.map((p, idx) => (
                 <span
                   key={`${p.name}-${idx}`}
-                  className="group inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300"
+                  className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
                   title={p.role || undefined}
                 >
                   {p.name}
@@ -996,7 +990,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
                     title="Добавить участника со стороны партнёра"
                   >
                     <Plus className="h-2.5 w-2.5" /> участник
