@@ -203,21 +203,34 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     [meta.client_id, clients],
   );
 
-  // Auto-match: if no client linked, try to match by external attendee organization name
+  // Parse sides from protocol title: "Лента x Дороничи" → partner=Лента, ours=Дороничи
+  const sides = useMemo(() => parseProtocolSides(protocol.name), [protocol.name]);
+
+  // Auto-match by parsed partner OR by external attendee organization
   useEffect(() => {
-    if (meta.client_id || clients.length === 0 || externals.length === 0) return;
-    const orgs = new Set(
-      externals
-        .map(e => e.organization?.trim().toLowerCase())
-        .filter((s): s is string => !!s),
-    );
-    if (orgs.size === 0) return;
-    const match = clients.find(c => orgs.has(c.name.trim().toLowerCase()));
-    if (match) {
-      update.mutate({ protocol_meta: { ...meta, client_id: match.id } });
+    if (meta.client_id || clients.length === 0) return;
+    // Priority 1: parsed partner from title
+    if (sides?.partner) {
+      const m = clients.find(c => namesEqual(c.name, sides.partner));
+      if (m) {
+        update.mutate({ protocol_meta: { ...meta, client_id: m.id } });
+        return;
+      }
+    }
+    // Priority 2: external attendees' organizations
+    if (externals.length > 0) {
+      const orgs = new Set(
+        externals
+          .map(e => e.organization?.trim().toLowerCase())
+          .filter((s): s is string => !!s),
+      );
+      if (orgs.size > 0) {
+        const m = clients.find(c => orgs.has(c.name.trim().toLowerCase()));
+        if (m) update.mutate({ protocol_meta: { ...meta, client_id: m.id } });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externals.map(e => e.organization).join("|"), clients.length, meta.client_id]);
+  }, [sides?.partner, externals.map(e => e.organization).join("|"), clients.length, meta.client_id]);
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -232,6 +245,50 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     setClientPickerOpen(false);
     setClientSearch("");
   };
+
+  // ---- Create CRM client dialog (when partner from title is not found) ----
+  const { user } = useAuth();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+
+  const partnerNotInCrm = !!sides?.partner
+    && clients.length > 0
+    && !meta.client_id
+    && !clients.some(c => namesEqual(c.name, sides.partner));
+
+  const openCreateDialog = () => {
+    setNewClientName(sides?.partner ?? "");
+    setCreateDialogOpen(true);
+  };
+
+  const createClientFromTitle = async () => {
+    const name = newClientName.trim();
+    if (!name || !user) return;
+    setCreating(true);
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .insert({ name, user_id: user.id })
+        .select("id")
+        .single();
+      if (error) throw error;
+      // Link to protocol
+      await supabase
+        .from("task_groups")
+        .update({ protocol_meta: { ...meta, client_id: data.id } as any })
+        .eq("id", protocol.id);
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      toast.success(`Клиент «${name}» создан и привязан`);
+      setCreateDialogOpen(false);
+    } catch (e) {
+      toast.error("Не удалось создать клиента: " + (e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
 
   return (
     <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
