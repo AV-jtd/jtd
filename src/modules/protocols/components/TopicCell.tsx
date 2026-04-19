@@ -90,7 +90,10 @@ export default function TopicCell({ task, compact }: Props) {
       }
 
       if (newTagId && !existingTopicIds.includes(newTagId)) {
-        const { error } = await supabase.from("task_tags").insert({ task_id: task.id, tag_id: newTagId });
+        const { error } = await supabase.from("task_tags").upsert(
+          { task_id: task.id, tag_id: newTagId },
+          { onConflict: "task_id,tag_id", ignoreDuplicates: true }
+        );
         if (error) throw error;
       }
 
