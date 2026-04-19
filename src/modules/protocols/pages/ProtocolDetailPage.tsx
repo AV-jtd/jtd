@@ -143,6 +143,12 @@ export default function ProtocolDetailPage() {
             )}
 
             <ProtocolTableView protocolId={protocol.id} />
+
+            {/* 🔴 Internal section (own team) + CRM report placeholder */}
+            <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <ProtocolInternalSection protocolId={protocol.id} />
+              <CrmReportPlaceholder />
+            </div>
           </>
         )}
       </div>
