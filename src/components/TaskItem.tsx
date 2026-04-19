@@ -1130,15 +1130,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
-            {/* 🔴 Internal protocol scope badge */}
-            {(task as any).protocol_scope === "internal" && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 shrink-0"
-                title="Внутренняя задача — не уходит партнёру"
-              >
-                🔴 внутреннее
-              </span>
-            )}
+            {/* Внутренняя пометка убрана из общих списков. В будущем — возможно "внешняя". */}
             {taskTags.map(tag => (
               <span
                 key={tag.id}
