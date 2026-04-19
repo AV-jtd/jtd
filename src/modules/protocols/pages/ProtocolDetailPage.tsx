@@ -103,49 +103,48 @@ export default function ProtocolDetailPage() {
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Удалить черновик протокола?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Будут удалены все {draftTaskCount} задач этого протокола. Это действие нельзя отменить.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Отмена</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              await discardMut.mutateAsync(protocol.id);
-                              navigate("/protocols");
-                            }}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Удалить
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPreviewOpen(true)}
-                      className="gap-1.5"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Превью
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => publishMut.mutate(protocol.id)}
-                      disabled={publishMut.isPending || draftTaskCount === 0}
-                      className="gap-1.5 bg-amber-500 text-white hover:bg-amber-600"
-                    >
-                      {publishMut.isPending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Send className="h-3.5 w-3.5" />
-                      )}
-                      Опубликовать протокол
-                    </Button>
-                  </div>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Удалить черновик протокола?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Будут удалены все {draftTaskCount} задач этого протокола. Это действие нельзя отменить.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={async () => {
+                            await discardMut.mutateAsync(protocol.id);
+                            navigate("/protocols");
+                          }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Удалить
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPreviewOpen(true)}
+                    className="h-8 gap-1.5"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Превью</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => publishMut.mutate(protocol.id)}
+                    disabled={publishMut.isPending || draftTaskCount === 0}
+                    className="h-8 gap-1.5 bg-amber-500 text-white hover:bg-amber-600"
+                  >
+                    {publishMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    Опубликовать
+                  </Button>
                 </div>
               </div>
             )}
