@@ -678,128 +678,128 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
       </AlertDialog>
 
 
-      {/* Attendees */}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        {/* Internal */}
-        <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Users className="h-3.5 w-3.5" />
-            Внутренние участники ({internalAttendees.length})
-          </div>
-          {internalAttendees.length === 0 ? (
-            <p className="text-xs text-muted-foreground/70">
-              Появятся, когда назначите ответственных в задачах ниже.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {internalAttendees.map((p) => (
-                <span
-                  key={p.id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-background px-2 py-0.5 text-xs text-foreground"
-                  title={p.email ?? undefined}
-                >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                    {getInitials(p.display_name || p.email || "?")}
-                  </span>
-                  <span className="max-w-[140px] truncate">
-                    {p.display_name || p.email || p.id.slice(0, 6)}
-                  </span>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* External */}
-        <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              Внешние участники ({externals.length})
-            </div>
-            {!addingExternal && (
-              <button
-                type="button"
-                onClick={() => setAddingExternal(true)}
-                className="inline-flex items-center gap-1 rounded text-[11px] text-primary hover:underline"
-              >
-                <Plus className="h-3 w-3" /> Добавить
-              </button>
+      {/* Sides of the meeting (auto from title + CRM) */}
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {/* Our side (Дороничи) */}
+        <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <div className="relative shrink-0">
+            {protocol.logo_url ? (
+              <img
+                src={protocol.logo_url}
+                alt={sides?.ours ?? "Наша сторона"}
+                className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                {sides?.ours ? getInitials(sides.ours) : "?"}
+              </div>
             )}
           </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Наша сторона
+            </div>
+            <div className="truncate text-sm font-semibold text-foreground">
+              {sides?.ours ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+            </div>
+            {internalAttendees.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {internalAttendees.slice(0, 4).map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary ring-1 ring-background"
+                    title={p.display_name || p.email || undefined}
+                  >
+                    {getInitials(p.display_name || p.email || "?")}
+                  </span>
+                ))}
+                {internalAttendees.length > 4 && (
+                  <span className="inline-flex h-5 items-center rounded-full bg-muted px-1.5 text-[9px] font-semibold text-muted-foreground">
+                    +{internalAttendees.length - 4}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
-          {externals.length === 0 && !addingExternal ? (
-            <p className="text-xs text-muted-foreground/70">
-              Партнёры, контрагенты, гости. Будут доступны для назначения ответственными.
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {externals.map((ext, i) => (
-                <div
-                  key={i}
-                  className="group flex items-center justify-between rounded bg-background px-2 py-1 text-xs"
+        {/* Partner side (CRM client) */}
+        <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <div className="relative shrink-0">
+            {linkedClient?.logo_url ? (
+              <img
+                src={linkedClient.logo_url}
+                alt={linkedClient.name}
+                className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500/10 text-sm font-bold text-purple-600 dark:text-purple-300">
+                {linkedClient
+                  ? getInitials(linkedClient.name)
+                  : sides?.partner
+                    ? getInitials(sides.partner)
+                    : <Building2 className="h-5 w-5 opacity-50" />}
+              </div>
+            )}
+            {linkedClient && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => clientFileInputRef.current?.click()}
+                  disabled={uploadingClientLogo}
+                  className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  title="Загрузить логотип партнёра"
                 >
-                  <div className="min-w-0 flex-1">
-                    <span className="font-medium text-foreground">{ext.name}</span>
-                    {ext.organization && (
-                      <span className="ml-1.5 text-muted-foreground">· {ext.organization}</span>
-                    )}
-                    {ext.role && (
-                      <span className="ml-1.5 text-muted-foreground/70">({ext.role})</span>
-                    )}
-                  </div>
+                  <ImageIcon className="h-2.5 w-2.5" />
+                </button>
+                <input
+                  ref={clientFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && linkedClient) handleClientLogoUpload(file, linkedClient.id);
+                    e.target.value = "";
+                  }}
+                />
+                {linkedClient.logo_url && (
                   <button
                     type="button"
-                    onClick={() => removeExternal(i)}
-                    className="ml-2 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    onClick={() => removeClientLogo(linkedClient.id)}
+                    className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-destructive"
+                    title="Удалить логотип"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-2 w-2" />
                   </button>
-                </div>
-              ))}
+                )}
+              </>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Партнёр {linkedClient && <span className="ml-1 rounded bg-purple-500/15 px-1 py-px text-[9px] font-semibold uppercase text-purple-700 dark:text-purple-300">CRM</span>}
             </div>
-          )}
-
-          {addingExternal && (
-            <div className="mt-2 space-y-1.5 rounded border border-dashed border-border p-2">
-              <Input
-                autoFocus
-                value={newExt.name}
-                onChange={(e) => setNewExt((s) => ({ ...s, name: e.target.value }))}
-                placeholder="ФИО"
-                className="h-7 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); addExternal(); }
-                  if (e.key === "Escape") { setAddingExternal(false); setNewExt({ name: "", organization: "", role: "" }); }
-                }}
-              />
-              <Input
-                value={newExt.organization ?? ""}
-                onChange={(e) => setNewExt((s) => ({ ...s, organization: e.target.value }))}
-                placeholder="Организация (необязательно)"
-                className="h-7 text-xs"
-              />
-              <Input
-                value={newExt.role ?? ""}
-                onChange={(e) => setNewExt((s) => ({ ...s, role: e.target.value }))}
-                placeholder="Должность / роль (необязательно)"
-                className="h-7 text-xs"
-              />
-              <div className="flex items-center gap-1.5">
-                <Button size="sm" className="h-7 gap-1 text-xs" onClick={addExternal} disabled={!newExt.name.trim()}>
-                  <Check className="h-3 w-3" /> Добавить
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => { setAddingExternal(false); setNewExt({ name: "", organization: "", role: "" }); }}
-                >
-                  Отмена
-                </Button>
+            <div className="truncate text-sm font-semibold text-foreground">
+              {linkedClient?.name
+                ?? sides?.partner
+                ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+            </div>
+            {!linkedClient && sides?.partner && (
+              <button
+                type="button"
+                onClick={() => openCreateDialog(sides.partner, true)}
+                className="mt-1 inline-flex items-center gap-1 rounded text-[10px] font-semibold text-primary hover:underline"
+              >
+                <Plus className="h-2.5 w-2.5" /> Добавить в CRM
+              </button>
+            )}
+            {linkedClient?.contact_name && (
+              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                {linkedClient.contact_name}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
