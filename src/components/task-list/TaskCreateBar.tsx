@@ -132,19 +132,25 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button type="button" className={iconBtn(!!assignedTo)}>
-                    {selectedUser ? (
-                      <span className="text-[10px] font-bold leading-none">
-                        {(selectedUser.display_name || selectedUser.email || "?").slice(0, 2).toUpperCase()}
-                      </span>
-                    ) : (
-                      <UserRound className="h-3.5 w-3.5" />
-                    )}
+                  <button type="button" className={iconBtn(!!effectiveAssignee)}>
+                    {(() => {
+                      const u = availableUsers.find(x => x.id === effectiveAssignee);
+                      return u ? (
+                        <span className="text-[10px] font-bold leading-none">
+                          {(u.display_name || u.email || "?").slice(0, 2).toUpperCase()}
+                        </span>
+                      ) : (
+                        <UserRound className="h-3.5 w-3.5" />
+                      );
+                    })()}
                   </button>
                 </PopoverTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                {selectedUser ? (selectedUser.display_name || selectedUser.email) : "Ответственный"}
+                {(() => {
+                  const u = availableUsers.find(x => x.id === effectiveAssignee);
+                  return u ? (u.display_name || u.email) : "Ответственный";
+                })()}
               </TooltipContent>
             </Tooltip>
             <PopoverContent className="w-56 p-2" align="end">
@@ -190,10 +196,10 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button type="button" className={iconBtn(!!deadline)}>
-                    {deadline ? (
+                  <button type="button" className={iconBtn(!!effectiveDeadline)}>
+                    {effectiveDeadline ? (
                       <span className="text-[10px] font-bold leading-none">
-                        {format(deadline, "d", { locale: ru })}
+                        {format(effectiveDeadline, "d", { locale: ru })}
                       </span>
                     ) : (
                       <CalendarIcon className="h-3.5 w-3.5" />
@@ -202,7 +208,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
                 </PopoverTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                {deadline ? format(deadline, "d MMMM", { locale: ru }) : "Срок"}
+                {effectiveDeadline ? format(effectiveDeadline, "d MMMM", { locale: ru }) : "Срок"}
               </TooltipContent>
             </Tooltip>
             <PopoverContent className="w-64 p-0" align="end">
