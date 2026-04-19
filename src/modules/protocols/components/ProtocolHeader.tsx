@@ -861,9 +861,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 </span>
               )}
             </div>
-            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-              <span>Партнёр</span>
-              {!linkedClient && (
+            {!linkedClient && (
+              <div className="mt-0.5">
                 <button
                   type="button"
                   onClick={() => sides?.partner ? openCreateDialog(sides.partner, true) : setClientPickerOpen(true)}
@@ -872,8 +871,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   <Plus className="h-2.5 w-2.5" />
                   {sides?.partner ? `Добавить «${sides.partner}» в CRM` : "Привязать клиента"}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             {linkedClient?.contact_name && (
               <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                 {linkedClient.contact_name}
