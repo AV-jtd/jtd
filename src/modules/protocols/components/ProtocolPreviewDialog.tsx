@@ -37,30 +37,45 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
-  const ourSideName = meta.our_side_name?.trim() || sides?.ours || "Наша сторона";
-  const partnerName = sides?.partner || null;
 
-  // CRM client (for partner logo)
+  // CRM client (для логотипа и имени партнёра)
   const linkedClientId: string | null = meta.client_id ?? null;
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
   useEffect(() => {
     if (!linkedClientId) {
       setClientLogoUrl(null);
+      setClientName(null);
       return;
     }
     let cancelled = false;
     supabase
       .from("clients")
-      .select("logo_url")
+      .select("name, logo_url")
       .eq("id", linkedClientId)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setClientLogoUrl((data as any)?.logo_url ?? null);
+        if (!cancelled) {
+          setClientLogoUrl((data as any)?.logo_url ?? null);
+          setClientName((data as any)?.name ?? null);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [linkedClientId]);
+
+  // Partner: сначала из названия, потом из CRM, потом из organization внешних участников
+  const externals: Array<{ name: string; organization?: string; role?: string }> =
+    meta.external_attendees ?? [];
+  const partnerName =
+    sides?.partner ||
+    clientName ||
+    externals.find((e) => e.organization?.trim())?.organization?.trim() ||
+    null;
+
+  const ourSideName =
+    meta.our_side_name?.trim() || sides?.ours || "Наша сторона";
 
   const tasks = useMemo(
     () =>
