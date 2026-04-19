@@ -35,7 +35,7 @@ import TaskItem from "@/components/TaskItem";
 
 type Props = { protocolId: string };
 
-type SmartFilter = "all" | "active" | "overdue" | "completed" | "unassigned";
+type SmartFilter = "all" | "active" | "overdue" | "completed" | "unassigned" | "nodue";
 
 type SortKey = "index" | "title" | "assignee" | "deadline" | "project" | "status";
 type SortDir = "asc" | "desc" | null;
@@ -93,7 +93,8 @@ export default function ProtocolTableView({ protocolId }: Props) {
       (t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline)),
     ).length;
     const unassigned = tasks.filter((t) => !t.is_completed && !t.assigned_to).length;
-    return { all, active, completed, overdue, unassigned };
+    const nodue = tasks.filter((t) => !t.is_completed && !t.deadline).length;
+    return { all, active, completed, overdue, unassigned, nodue };
   }, [tasks]);
 
   // ---------- Column filters ----------
@@ -132,6 +133,8 @@ export default function ProtocolTableView({ protocolId }: Props) {
       rows = rows.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline)));
     else if (smart === "unassigned")
       rows = rows.filter((t) => !t.is_completed && !t.assigned_to);
+    else if (smart === "nodue")
+      rows = rows.filter((t) => !t.is_completed && !t.deadline);
 
     // Column filters
     if (assigneeFilter.size > 0) {
@@ -267,7 +270,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
   return (
     <div className="space-y-4">
       {/* Smart-filter metric cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <MetricCard
           icon={ListChecks}
           label="Всего"
@@ -306,6 +309,14 @@ export default function ProtocolTableView({ protocolId }: Props) {
           value={metrics.unassigned}
           active={smart === "unassigned"}
           onClick={() => setSmart("unassigned")}
+          tone="warning"
+        />
+        <MetricCard
+          icon={CalendarOff}
+          label="Без срока"
+          value={metrics.nodue}
+          active={smart === "nodue"}
+          onClick={() => setSmart("nodue")}
           tone="warning"
         />
       </div>
