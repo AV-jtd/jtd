@@ -508,7 +508,10 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             </div>
                           </div>
                           {isDraft && (
-                            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                            <span
+                              data-hide-in-pdf
+                              className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                            >
                               Черновик
                             </span>
                           )}
