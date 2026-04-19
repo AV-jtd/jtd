@@ -25,7 +25,8 @@ export default function ProtocolDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: groups = [], isLoading } = useTaskGroups();
-  const { data: tasks = [] } = useTasks();
+  // Pass protocol id so draft (is_draft) tasks are NOT filtered out — drafts must be visible inside the protocol page itself.
+  const { data: tasks = [] } = useTasks(id);
   const publishMut = usePublishProtocol();
   const discardMut = useDiscardProtocolDraft();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
