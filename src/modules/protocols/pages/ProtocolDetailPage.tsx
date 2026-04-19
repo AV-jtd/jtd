@@ -8,6 +8,7 @@ import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView"
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
 import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
 import ProtocolPreviewDialog from "@/modules/protocols/components/ProtocolPreviewDialog";
+import ProtocolSummary from "@/modules/protocols/components/ProtocolSummary";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -148,6 +149,12 @@ export default function ProtocolDetailPage() {
                 </div>
               </div>
             )}
+
+            <ProtocolSummary
+              protocolId={protocol.id}
+              protocolName={protocol.name}
+              protocolMeta={(protocol as any).protocol_meta}
+            />
 
             <ProtocolTableView protocolId={protocol.id} />
 

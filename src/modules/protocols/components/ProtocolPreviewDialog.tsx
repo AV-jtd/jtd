@@ -470,6 +470,18 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                   </div>
                 </div>
 
+                {/* === SECTION 2.5: Public summary (if enabled & public) === */}
+                {meta?.summary?.enabled && meta?.summary?.scope === "public" && meta?.summary?.text?.trim() && (
+                  <div data-pdf-section className="mt-5" style={{ width: contentWidth }}>
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1.5 font-medium">
+                      Саммари встречи
+                    </div>
+                    <div className="rounded-md border border-neutral-300 bg-neutral-50 p-3 text-[11px] leading-[1.55] text-neutral-800 whitespace-pre-wrap">
+                      {meta.summary.text}
+                    </div>
+                  </div>
+                )}
+
                 {/* === SECTION 3: Decisions table === */}
                 <div data-pdf-section className="mt-5" style={{ width: contentWidth }}>
                   <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1.5 font-medium">
