@@ -447,13 +447,15 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
         <Textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder={"Вставьте список задач (по одной на строку):\n\nПодготовить презентацию\nОтправить КП клиенту\nПровести встречу с командой\nСобрать обратную связь"}
-          className="text-xs min-h-[160px] max-h-[260px] resize-none font-mono"
+          placeholder={"Вставьте задачи (по одной на строку):\n\nПодготовить КП @Марк до 25.04 !\nОтправить договор @Ира +3д\nПровести встречу через 7 дн"}
+          className="text-xs min-h-[140px] max-h-[220px] resize-none font-mono"
         />
 
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground">
-            {lines.length > 0 ? `${lines.length} задач для создания` : "Введите задачи"}
+            {lines.length > 0
+              ? `${lines.length} задач${recognizedCount > 0 ? ` · ${recognizedCount} с авто-полями` : ""}`
+              : "Поддержка: @имя, до DD.MM, +Nд, !"}
           </span>
           <Button
             onClick={handleCreate}
