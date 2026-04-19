@@ -6,6 +6,7 @@ import { Download, Copy, Send, FileText, Mail, Loader2, Check } from "lucide-rea
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { parseProtocolSides } from "@/lib/protocolSides";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
