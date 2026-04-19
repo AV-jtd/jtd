@@ -324,6 +324,11 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
                         />
                         <div className="flex-1 min-w-0">
                           <span className="text-[11px] text-foreground leading-tight">{task.title}</span>
+                          {task.assignee_name && (
+                            <span className="text-[9px] text-primary ml-1.5">
+                              @{task.assignee_name}
+                            </span>
+                          )}
                           {task.deadline_offset_days && (
                             <span className="text-[9px] text-muted-foreground ml-1.5">
                               ({task.deadline_offset_days}д)
@@ -371,6 +376,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 function TextTab({ projectId, projectName, onDone }: { projectId?: string | null; projectName?: string | null; onDone: () => void }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
+  const { data: users = [] } = useAvailableUsers();
   const { addTask } = useTaskMutations();
 
   const [text, setText] = useState("");
@@ -381,6 +387,14 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
 
   const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
+  // Превью с распознанными атрибутами
+  const previewLines = lines.map(line => {
+    const stripped = line.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "").trim();
+    const p = parseQuickTask(stripped, users);
+    return { raw: stripped, parsed: p };
+  });
+  const recognizedCount = previewLines.filter(l => l.parsed.tokens.length > 0).length;
+
   const handleCreate = async () => {
     if (!user || lines.length === 0) return;
     setCreating(true);
@@ -389,16 +403,18 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
       const targetGroupId = selectedGroupId !== "__none__" ? selectedGroupId : null;
       let created = 0;
 
-      for (const line of lines) {
-        // Strip leading markers like "- ", "* ", "1. ", "• "
-        const title = line.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "").trim();
+      for (const { raw, parsed } of previewLines) {
+        const title = parsed.cleanTitle || raw;
         if (!title) continue;
 
         await addTask.mutateAsync({
           title,
           group_id: targetGroupId,
+          deadline: parsed.deadline ? parsed.deadline.toISOString() : null,
+          assigned_to: parsed.assigneeId || null,
+          is_important: parsed.isImportant || undefined,
           task_type: "standard",
-        });
+        } as any);
         created++;
       }
 
