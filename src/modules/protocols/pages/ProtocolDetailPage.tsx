@@ -150,6 +150,12 @@ export default function ProtocolDetailPage() {
               </div>
             )}
 
+            <ProtocolSummary
+              protocolId={protocol.id}
+              protocolName={protocol.name}
+              protocolMeta={(protocol as any).protocol_meta}
+            />
+
             <ProtocolTableView protocolId={protocol.id} />
 
             {/* 🔴 Internal section (own team) + CRM report placeholder */}
