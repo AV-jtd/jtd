@@ -327,6 +327,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     allStatusTagIds={allStatusTagIds}
                     externalAttendees={externalAttendees}
                     linkedClient={linkedClient ?? null}
+                    parsedPartner={parsedSides?.partner ?? null}
                     expanded={expandedId === task.id}
                     onToggleExpand={() =>
                       setExpandedId((e) => (e === task.id ? null : task.id))
