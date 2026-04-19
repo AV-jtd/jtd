@@ -274,12 +274,6 @@ function InternalRow({
       {/* Full task details — opens with all standard task features */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
         <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto p-4 sm:p-6">
-          <div className="mb-3 flex items-center gap-2">
-            <Lock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-            <span className="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-300">
-              Внутренняя задача · не уходит партнёру
-            </span>
-          </div>
           <TaskItem task={task} initialOpen sortable={false} />
         </SheetContent>
       </Sheet>
