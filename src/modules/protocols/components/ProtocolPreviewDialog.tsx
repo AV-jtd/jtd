@@ -36,6 +36,12 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const { data: allTasks = [] } = useTasks(protocolId);
   const { data: users = [] } = useAvailableUsers();
 
+  const { topicTags } = useEventTopicTags();
+  const getTaskTopic = (t: any) => {
+    const ids = (t.task_tags ?? []).map((tt: any) => tt.tag_id);
+    return topicTags.find((tag) => ids.includes(tag.id)) ?? null;
+  };
+
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
