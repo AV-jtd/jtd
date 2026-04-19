@@ -46,6 +46,17 @@ function MatrixTaskRowInner({
     d => d.predecessor_id === task.id || d.successor_id === task.id
   );
 
+  // Linked-задача из протокола (живёт в group_id=protocolId,
+  // в матрице — только за счёт status_meta.linked_project_id)
+  const sourceProtocolId = (task as any).source_protocol_id as string | null | undefined;
+  const { data: allGroups = [] } = useTaskGroups();
+  const sourceProtocol = useMemo(
+    () => sourceProtocolId
+      ? (allGroups as any[]).find((g) => g.id === sourceProtocolId && g.project_type === "protocol")
+      : null,
+    [allGroups, sourceProtocolId],
+  );
+
   // Base date for days input: current deadline or today
   const baseDate = task.deadline ? parseISO(task.deadline) : new Date();
 
