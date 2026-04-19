@@ -789,7 +789,7 @@ function ProtocolRow({
               </button>
               {task.description && task.description.trim() && (
                 <button
-                  onClick={() => setExpanded(true)}
+                  onClick={onToggleExpand}
                   className="block w-full text-left text-xs text-muted-foreground/80 line-clamp-2 hover:text-muted-foreground"
                   title={task.description}
                 >
