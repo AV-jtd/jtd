@@ -1,4 +1,6 @@
 import { useMemo, useState, useRef, KeyboardEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useProtocolStatuses, type ProtocolStatusTag } from "@/hooks/useProtocolStatuses";
 import { useSetTaskStatus } from "@/hooks/useSetTaskStatus";
