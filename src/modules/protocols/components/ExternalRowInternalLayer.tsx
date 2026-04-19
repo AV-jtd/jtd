@@ -76,6 +76,8 @@ export default function ExternalRowInternalLayer({ task }: Props) {
     staleTime: 10_000,
   });
 
+  if (!task.group_id) return null;
+
   return (
     <div className="space-y-3">
       {/* ---------- Внутренний контекст ---------- */}
