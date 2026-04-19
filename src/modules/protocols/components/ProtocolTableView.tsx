@@ -57,7 +57,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
   });
 
   const tasks = useMemo(
-    () => allTasks.filter((t) => t.group_id === protocolId),
+    () => allTasks.filter(
+      (t) => t.group_id === protocolId && (t as any).protocol_scope !== "internal",
+    ),
     [allTasks, protocolId],
   );
 
