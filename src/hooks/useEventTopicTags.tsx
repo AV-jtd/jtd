@@ -49,7 +49,9 @@ export function useCreateEventTopic() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (name: string): Promise<{ id: string; name: string } | null> => {
+    mutationFn: async (
+      name: string,
+    ): Promise<{ id: string; name: string; linkedGroupId?: string | null } | null> => {
       const trimmed = name.trim();
       if (!trimmed || !user) return null;
 
@@ -81,6 +83,7 @@ export function useCreateEventTopic() {
       const categoryId = category?.id;
       if (!categoryId) throw new Error("Не удалось определить категорию «Тема»");
 
+      // Look for existing tag (case-insensitive)
       const { data: existing } = await supabase
         .from("tags")
         .select("id, name")
@@ -88,24 +91,57 @@ export function useCreateEventTopic() {
         .eq("user_id", user.id)
         .ilike("name", trimmed)
         .maybeSingle();
-      if (existing) return existing as any;
 
-      const { data, error } = await supabase
-        .from("tags")
-        .insert({
-          name: trimmed,
-          category_id: categoryId,
-          user_id: user.id,
-          color: "hsl(var(--primary))",
-        })
-        .select("id, name")
-        .single();
-      if (error) throw error;
-      return data as any;
+      let tagRow: { id: string; name: string } | null = (existing as any) ?? null;
+
+      if (!tagRow) {
+        const { data, error } = await supabase
+          .from("tags")
+          .insert({
+            name: trimmed,
+            category_id: categoryId,
+            user_id: user.id,
+            color: "hsl(var(--primary))",
+          })
+          .select("id, name")
+          .single();
+        if (error) throw error;
+        tagRow = data as any;
+      }
+
+      if (!tagRow) return null;
+
+      // Auto-link to existing project (task_group) with the same name (case-insensitive),
+      // if such a project exists and doesn't yet have a linked tag.
+      let linkedGroupId: string | null = null;
+      try {
+        const { data: matchingGroup } = await supabase
+          .from("task_groups")
+          .select("id, linked_tag_id")
+          .eq("user_id", user.id)
+          .ilike("name", trimmed)
+          .is("closed_at", null)
+          .maybeSingle();
+
+        if (matchingGroup?.id) {
+          linkedGroupId = matchingGroup.id;
+          if (!matchingGroup.linked_tag_id) {
+            await supabase
+              .from("task_groups")
+              .update({ linked_tag_id: tagRow.id })
+              .eq("id", matchingGroup.id);
+          }
+        }
+      } catch {
+        // Linking is best-effort: don't fail topic creation if it can't be linked.
+      }
+
+      return { ...tagRow, linkedGroupId };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tags"] });
       qc.invalidateQueries({ queryKey: ["tag_categories"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
     },
   });
 }
