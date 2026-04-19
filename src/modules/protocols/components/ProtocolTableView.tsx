@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseProtocolSides } from "@/lib/protocolSides";
-import ProtocolInternalSection from "@/modules/protocols/components/ProtocolInternalSection";
+import ExternalRowInternalLayer from "@/modules/protocols/components/ExternalRowInternalLayer";
 
 type Props = { protocolId: string };
 
@@ -577,12 +577,9 @@ function ProtocolRow({
               </button>
             </div>
 
-            {/* 🔴 Internal triage for this external row (own team only) */}
+            {/* 🔴 Internal layer attached to this external row */}
             <div className="mt-4">
-              <ProtocolInternalSection
-                protocolId={task.group_id!}
-                parentExternalTaskId={task.id}
-              />
+              <ExternalRowInternalLayer task={task} />
             </div>
           </td>
         </tr>

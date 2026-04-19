@@ -79,17 +79,18 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         compact ? "p-3" : "p-4 sm:p-5",
       )}
     >
-      {/* Header */}
+      {/* Header — unified across all rendering contexts */}
       <div className="mb-3 flex items-center gap-2">
-        <Lock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-        <h3 className={cn("font-semibold text-red-700 dark:text-red-300", compact ? "text-xs uppercase tracking-wide" : "text-sm")}>
-          {compact ? "Внутренний триаж по этой строке" : "🔴 Внутренние действия (только для нашей команды)"}
+        <Lock className={cn("text-red-600 dark:text-red-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+        <h3 className={cn("font-semibold text-red-700 dark:text-red-300", compact ? "text-xs" : "text-sm")}>
+          Внутренние задачи
         </h3>
-        {!compact && (
-          <span className="ml-auto rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-700 dark:text-red-300">
-            не уходит партнёру
-          </span>
-        )}
+        <span className={cn(
+          "ml-auto rounded-full bg-red-500/10 font-medium uppercase tracking-wide text-red-700 dark:text-red-300",
+          compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]",
+        )}>
+          не уходит партнёру
+        </span>
       </div>
 
       {/* Existing internal tasks */}
@@ -109,7 +110,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         </ul>
       )}
 
-      {/* Quick create */}
+      {/* Quick create — unified across modes */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/20 bg-card px-2 py-1.5">
         <Plus className="h-3.5 w-3.5 shrink-0 text-red-500/70" />
         <input
@@ -126,7 +127,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         />
         <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
         <DeadlineChip value={deadline} onChange={setDeadline} />
-        {!compact && <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />}
+        <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />
         <button
           onClick={handleCreate}
           disabled={!title.trim()}
