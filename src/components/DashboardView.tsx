@@ -2038,8 +2038,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   }
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin">
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5">
+    <main
+      ref={containerRef}
+      className={cn(
+        "flex-1 overflow-y-auto scrollbar-thin",
+        presentMode !== "off" && "bg-background dashboard-present-mode",
+        presentMode === "in-app" && "fixed inset-0 z-[100]"
+      )}
+    >
+      <div className={cn(
+        "mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5",
+        presentMode === "off" ? "max-w-5xl" : "max-w-7xl text-base"
+      )}>
 
         {/* Header bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
