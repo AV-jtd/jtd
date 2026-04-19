@@ -495,6 +495,33 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
+            {/* Parsed sides chip */}
+            {sides && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]",
+                  partnerNotInCrm
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    : "border-border bg-muted/40 text-muted-foreground",
+                )}
+                title="Стороны определены из названия встречи"
+              >
+                <Sparkles className="h-3 w-3 opacity-70" />
+                <span className="font-medium text-foreground">{sides.partner}</span>
+                <span className="opacity-60">×</span>
+                <span>{sides.ours}</span>
+                {partnerNotInCrm && (
+                  <button
+                    type="button"
+                    onClick={openCreateDialog}
+                    className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                  >
+                    + В CRM
+                  </button>
+                )}
+              </span>
+            )}
+
             <span className="text-muted-foreground/60">
               <FmtIcon className="mr-1 inline h-3 w-3" />
               {FORMAT_LABEL[fmt].label}
@@ -502,6 +529,47 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
         </div>
       </div>
+
+      {/* Create CRM client dialog */}
+      <AlertDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Создать клиента CRM</AlertDialogTitle>
+            <AlertDialogDescription>
+              Партнёр <span className="font-medium text-foreground">«{sides?.partner}»</span> не найден в CRM.
+              Создать карточку клиента и привязать к этому протоколу?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Название клиента
+            </label>
+            <Input
+              autoFocus
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newClientName.trim()) {
+                  e.preventDefault();
+                  createClientFromTitle();
+                }
+              }}
+              placeholder="Например: Лента"
+              className="h-9"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={creating}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); createClientFromTitle(); }}
+              disabled={creating || !newClientName.trim()}
+            >
+              {creating ? "Создаю…" : "Создать и привязать"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Attendees */}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
