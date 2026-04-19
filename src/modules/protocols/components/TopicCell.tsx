@@ -173,9 +173,14 @@ export default function TopicCell({ task, compact }: Props) {
           {search.trim() && !exactMatch && (
             <button
               onClick={handleCreateAndAssign}
-              className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-xs text-foreground hover:bg-muted"
+              disabled={createTopic.isPending}
+              className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-xs text-foreground hover:bg-muted disabled:opacity-50"
             >
-              <Plus className="h-3 w-3" />
+              {createTopic.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Plus className="h-3 w-3" />
+              )}
               Создать тему «{search.trim()}»
             </button>
           )}
