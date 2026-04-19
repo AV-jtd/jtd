@@ -436,83 +436,145 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                   boxSizing: "border-box",
                 }}
               >
-                {/* === SECTION 1: Compact header — title + logos + meta in one block === */}
+                {/* === SECTION 1: Header — mirrors in-app ProtocolHeader (no edit artifacts) === */}
                 <div data-pdf-section style={{ width: contentWidth }}>
-                  {/* Title row with logos on both sides */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <img
-                      src={ourLogo}
-                      alt=""
-                      className="h-10 w-10 rounded-md object-cover ring-1 ring-neutral-200 shrink-0"
-                      crossOrigin="anonymous"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 font-medium">
-                        Протокол встречи
-                      </div>
-                      <h1 className="text-[20px] font-semibold leading-tight text-neutral-900 break-words">
-                        {protocol.name}
-                      </h1>
-                    </div>
-                    {partnerName && (
-                      clientLogoUrl ? (
-                        <img
-                          src={clientLogoUrl}
-                          alt=""
-                          className="h-10 w-10 rounded-md object-cover ring-1 ring-neutral-200 shrink-0"
-                          crossOrigin="anonymous"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-md bg-neutral-100 ring-1 ring-neutral-200 flex items-center justify-center text-neutral-500 text-sm font-semibold shrink-0">
-                          {partnerName.charAt(0)}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Meta line: дата · формат · стороны */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-neutral-600 pb-2.5 border-b border-neutral-200">
-                    <span><span className="text-neutral-500">Дата:</span> <span className="font-medium text-neutral-900">{meetingDateLabel}</span></span>
-                    <span className="text-neutral-300">·</span>
-                    <span><span className="text-neutral-500">Формат:</span> <span className="font-medium text-neutral-900">{formatLabel}</span></span>
-                    <span className="text-neutral-300">·</span>
-                    <span><span className="text-neutral-500">Стороны:</span> <span className="font-medium text-neutral-900">{ourSideName}{partnerName ? ` × ${partnerName}` : ""}</span></span>
-                  </div>
-                </div>
-
-                {/* === SECTION 2: Inline attendees (compact, no boxes) === */}
-                <div data-pdf-section className="mt-3" style={{ width: contentWidth }}>
-                  <div className="space-y-1.5 text-[11px]">
-                    <div className="flex gap-2">
-                      <span className="text-neutral-500 shrink-0 w-[150px]">
-                        Участники · {ourSideName}:
-                      </span>
-                      <span className="text-neutral-900 break-words flex-1">
-                        {internalAttendeeIds.length === 0 ? (
-                          <span className="text-neutral-400 italic">не указаны</span>
-                        ) : (
-                          internalAttendeeIds.map((id) => userName(id) ?? "—").join(", ")
-                        )}
-                      </span>
-                    </div>
-                    {partnerName && (
-                      <div className="flex gap-2">
-                        <span className="text-neutral-500 shrink-0 w-[150px]">
-                          Участники · {partnerName}:
-                        </span>
-                        <span className="text-neutral-900 break-words flex-1">
-                          {externals.length === 0 ? (
-                            <span className="text-neutral-400 italic">не указаны</span>
+                  {(() => {
+                    const isDraft = (protocol as any)?.draft_status === "draft";
+                    const fmtKey = (meta.format ?? "offline") as string;
+                    const FmtIcon = FORMAT_META[fmtKey]?.Icon ?? UsersIcon;
+                    const fmtTxt = FORMAT_META[fmtKey]?.label ?? "Офлайн";
+                    return (
+                      <>
+                        {/* Top row: protocol icon/logo + title + draft chip */}
+                        <div className="flex items-start gap-3">
+                          {protocol.logo_url ? (
+                            <img
+                              src={protocol.logo_url}
+                              alt=""
+                              className="h-12 w-12 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                              crossOrigin="anonymous"
+                            />
                           ) : (
-                            externals.map((e) => {
-                              const extras = [e.role, e.organization].filter(Boolean).join(", ");
-                              return extras ? `${e.name} (${extras})` : e.name;
-                            }).join(", ")
+                            <div
+                              className="flex h-12 w-12 items-center justify-center rounded-lg text-2xl shrink-0"
+                              style={{
+                                backgroundColor: `${protocol.color ?? "#6366f1"}20`,
+                                color: protocol.color ?? "#6366f1",
+                              }}
+                            >
+                              {protocol.icon ?? "📋"}
+                            </div>
                           )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                          <div className="min-w-0 flex-1">
+                            <h1 className="text-[20px] font-semibold leading-tight text-neutral-900 break-words">
+                              {protocol.name}
+                            </h1>
+                            {/* Meta chips row */}
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                              <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-0.5 text-neutral-700">
+                                <CalendarIcon className="h-3 w-3 text-neutral-500" />
+                                <span className="font-medium">{meetingDateLabel}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-0.5 text-neutral-700">
+                                <FmtIcon className="h-3 w-3 text-neutral-500" />
+                                <span className="font-medium">{fmtTxt}</span>
+                              </span>
+                              {linkedClientId && partnerName && (
+                                <span className="inline-flex items-center gap-1 rounded-md border border-purple-300 bg-purple-50 px-2 py-0.5 text-purple-700">
+                                  <Link2 className="h-3 w-3" />
+                                  <span className="font-medium">{partnerName}</span>
+                                </span>
+                              )}
+                              {sides && (
+                                <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-neutral-50 px-2 py-0.5 text-neutral-700">
+                                  <Sparkles className="h-3 w-3 text-neutral-500" />
+                                  <span className="font-medium text-neutral-900">{sides.partner}</span>
+                                  <span className="opacity-50">×</span>
+                                  <span>{sides.ours}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isDraft && (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              Черновик
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Two side cards: our side + partner side */}
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          {/* Our side */}
+                          <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                            <img
+                              src={ourLogo}
+                              alt={ourSideName}
+                              className="h-10 w-10 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                              crossOrigin="anonymous"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[12px] font-semibold text-neutral-900">
+                                {ourSideName}
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {internalAttendeeIds.length === 0 ? (
+                                  <span className="text-[10px] italic text-neutral-400">не указаны</span>
+                                ) : (
+                                  internalAttendeeIds.map((id) => (
+                                    <span
+                                      key={id}
+                                      className="inline-flex items-center rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-700"
+                                    >
+                                      {userName(id) ?? "—"}
+                                    </span>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Partner side */}
+                          <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                            {clientLogoUrl ? (
+                              <img
+                                src={clientLogoUrl}
+                                alt={partnerName ?? ""}
+                                className="h-10 w-10 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                                crossOrigin="anonymous"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-[12px] font-bold text-purple-700 ring-1 ring-purple-200 shrink-0">
+                                {partnerName ? getInitials(partnerName) : "?"}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[12px] font-semibold text-neutral-900">
+                                {partnerName ?? <span className="text-neutral-400">Партнёр</span>}
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {externals.length === 0 ? (
+                                  <span className="text-[10px] italic text-neutral-400">не указаны</span>
+                                ) : (
+                                  externals.map((p, idx) => {
+                                    const extras = [p.role, p.organization].filter(Boolean).join(", ");
+                                    return (
+                                      <span
+                                        key={`${p.name}-${idx}`}
+                                        className="inline-flex items-center rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-700"
+                                        title={extras || undefined}
+                                      >
+                                        {p.name}
+                                      </span>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* === SECTION 2.5: Public summary (if enabled & public) === */}
