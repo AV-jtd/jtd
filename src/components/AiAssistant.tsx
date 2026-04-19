@@ -12,7 +12,8 @@ import {
   Sparkles, Send, Loader2, CheckCircle2, X, Zap, LayoutList,
   Briefcase, FlaskConical, Target, FileBarChart, Download, HelpCircle, Trash2,
 } from "lucide-react";
-import { addDays } from "date-fns";
+import { addDays, format } from "date-fns";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -233,6 +234,23 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
 
       // Smart action: LLM decides intent
       const ctx = await getContext();
+
+      // Pre-parse quick syntax: @user, до DD.MM, +Nд, !important, #tag — same as TaskCreateBar
+      const quick = parseQuickTask(text, users.map(u => ({
+        id: u.id,
+        display_name: u.display_name,
+        email: u.email,
+        telegram_username: (u as any).telegram_username ?? null,
+      })));
+      const quickHints = {
+        cleanTitle: quick.cleanTitle,
+        assigneeId: quick.assigneeId,
+        assigneeLabel: quick.assigneeLabel,
+        deadline: quick.deadline ? format(quick.deadline, "yyyy-MM-dd") : null,
+        isImportant: quick.isImportant,
+        tags: quick.tags,
+      };
+
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
         body: {
           message: text,
@@ -241,6 +259,7 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
             history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           },
           action: "smart",
+          quickHints,
         },
       });
 

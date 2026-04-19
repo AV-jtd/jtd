@@ -37,11 +37,42 @@ function formatTaskTemplates(templates: { title: string; subtasks: string[] }[] 
   return `\n\n📚 ВАЖНО — Шаблоны из проекта пользователя (используй как образец структуры шагов для похожих задач, адаптируй под контекст):\n${examples}`;
 }
 
+interface QuickHints {
+  cleanTitle?: string;
+  assigneeId?: string | null;
+  assigneeLabel?: string | null;
+  deadline?: string | null;  // ISO yyyy-mm-dd
+  isImportant?: boolean;
+  tags?: string[];
+}
+
+function formatQuickHints(hints: QuickHints | undefined): string {
+  if (!hints) return "";
+  const parts: string[] = [];
+  if (hints.assigneeId) parts.push(`- Ответственный: id=${hints.assigneeId} (${hints.assigneeLabel || ""})`);
+  else if (hints.assigneeLabel) parts.push(`- Упомянут ответственный: "${hints.assigneeLabel}" (не найден в списке участников)`);
+  if (hints.deadline) parts.push(`- Дедлайн: ${hints.deadline}`);
+  if (hints.isImportant) parts.push(`- Важная задача (флаг !)`);
+  if (hints.tags?.length) parts.push(`- Теги: ${hints.tags.join(", ")}`);
+  if (!parts.length) return "";
+  return `\n\n🎯 ПРЕД-ПАРСИНГ из строки пользователя (используй эти значения, если создаёшь задачу — НЕ перезаписывай их своими догадками):\n${parts.join("\n")}`;
+}
+
+/** Apply parsed hints as fallback over LLM tool-call result */
+function applyQuickHintsToTask(task: any, hints: QuickHints | undefined) {
+  if (!hints || !task) return task;
+  if (hints.assigneeId && !task.assigned_to_id) task.assigned_to_id = hints.assigneeId;
+  if (hints.assigneeLabel && !task.assigned_to_name) task.assigned_to_name = hints.assigneeLabel;
+  if (hints.deadline && !task.deadline) task.deadline = hints.deadline;
+  if (hints.isImportant && task.is_important !== true) task.is_important = true;
+  return task;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, context, action } = await req.json();
+    const { message, context, action, quickHints } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -95,7 +126,7 @@ ${activeProjectInfo}
 - "важно" → 2 (средний)
 - "когда будет время", "не срочно" → 3 (низкий)
 
-Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}`;
+Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}${formatQuickHints(quickHints)}`;
 
     if (action === "parse_task") {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -161,6 +192,7 @@ ${activeProjectInfo}
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
         const parsed = JSON.parse(toolCall.function.arguments);
+        applyQuickHintsToTask(parsed, quickHints);
         return new Response(JSON.stringify({ action: "create_task", task: parsed }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1509,6 +1541,7 @@ ${ganttContextBlock}
         try {
           const parsed = JSON.parse(tc.function.arguments);
           if (tc.function.name === "create_task") {
+            applyQuickHintsToTask(parsed, quickHints);
             return new Response(JSON.stringify({ action: "create_task", task: parsed }), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
