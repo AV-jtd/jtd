@@ -41,7 +41,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, context, action } = await req.json();
+    const { message, context, action, quickHints } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -95,7 +95,7 @@ ${activeProjectInfo}
 - "важно" → 2 (средний)
 - "когда будет время", "не срочно" → 3 (низкий)
 
-Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}`;
+Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}${formatQuickHints(quickHints)}`;
 
     if (action === "parse_task") {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
