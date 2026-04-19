@@ -63,9 +63,8 @@ PostgreSQL-триггер на `tasks` (AFTER INSERT/UPDATE OF status_meta).
   - вырезать поля `status_meta.linked_*` у внешних строк
 - Внутренние самостоятельные задачи всё равно `group_id = protocolId` и попадают в обычные списки исполнителей.
 
-## TODO: видимость linked-задач в досках NPD/CRM
-- В `NpdSwimlaneMatrix` `useQuery(["npd-matrix-tasks"])` дополнить ИЛИ-условием
-  `status_meta->>'linked_project_id' = projectId`.
-- Распределение по стримам через `status_meta.linked_stream_key`, если нет stream-тега.
-- Бейдж «📋 из протокола <название>» на карточке.
-- Аналогично для CRM-доски (через `client_id` уже работает).
+## Видимость linked-задач в NPD-матрице
+- `NpdSwimlaneMatrix` грузит две пачки задач: (1) `group_id ∈ descendants`, (2) `status_meta->>linked_project_id ∈ descendants`. Дедуп по id.
+- `getTaskStream` для linked-задач берёт `status_meta.linked_stream_key`; `getTaskGate` — gate из linked-проекта.
+- В `MatrixTaskRow` бейдж «📋 <название протокола>» (красный) ведёт на `/protocols/:id`.
+- TODO: аналогично для CRM-доски (через `client_id` уже работает; для linked — добавить ИЛИ-условие).

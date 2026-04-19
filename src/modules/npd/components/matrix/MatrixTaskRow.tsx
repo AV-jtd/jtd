@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import UserPicker from "@/components/UserPicker";
 import {
-  CheckCircle2, CalendarIcon, User, Link2, Expand,
+  CheckCircle2, CalendarIcon, User, Link2, Expand, FileText,
 } from "lucide-react";
 import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useTaskGroups } from "@/hooks/useTasks";
 import type { Task, Profile } from "./types";
 
 interface MatrixTaskRowProps {
@@ -42,6 +44,17 @@ function MatrixTaskRowInner({
 
   const taskDeps = allDependencies.filter(
     d => d.predecessor_id === task.id || d.successor_id === task.id
+  );
+
+  // Linked-задача из протокола (живёт в group_id=protocolId,
+  // в матрице — только за счёт status_meta.linked_project_id)
+  const sourceProtocolId = (task as any).source_protocol_id as string | null | undefined;
+  const { data: allGroups = [] } = useTaskGroups();
+  const sourceProtocol = useMemo(
+    () => sourceProtocolId
+      ? (allGroups as any[]).find((g) => g.id === sourceProtocolId && g.project_type === "protocol")
+      : null,
+    [allGroups, sourceProtocolId],
   );
 
   // Base date for days input: current deadline or today
@@ -81,6 +94,18 @@ function MatrixTaskRowInner({
           <span className="text-[8px] text-primary shrink-0">
             <Link2 className="h-3 w-3" />
           </span>
+        )}
+
+        {sourceProtocol && (
+          <Link
+            to={`/protocols/${sourceProtocol.id}`}
+            onClick={(e) => e.stopPropagation()}
+            title={`Из протокола: ${sourceProtocol.name}`}
+            className="inline-flex items-center gap-0.5 shrink-0 rounded border border-red-500/30 bg-red-500/5 px-1 py-0.5 text-[8px] font-medium text-red-700 hover:bg-red-500/10 dark:text-red-300 max-w-[100px] truncate"
+          >
+            <FileText className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{sourceProtocol.name}</span>
+          </Link>
         )}
 
         {onExpand && (

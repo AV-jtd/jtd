@@ -103,6 +103,8 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     queryFn: async () => {
       if (descendantGroupIds.length === 0) return [];
       const results: Task[] = [];
+      const seen = new Set<string>();
+      // 1. Native tasks (group_id ∈ project hierarchy)
       for (let i = 0; i < descendantGroupIds.length; i += 10) {
         const batch = descendantGroupIds.slice(i, i + 10);
         const { data, error } = await supabase
@@ -111,7 +113,27 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
           .in("group_id", batch)
           .order("position");
         if (error) throw error;
-        if (data) results.push(...(data as Task[]));
+        if (data) for (const t of data as Task[]) {
+          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
+        }
+      }
+      // 2. Linked tasks (status_meta.linked_project_id ∈ project hierarchy)
+      // Эти задачи физически живут в протоколе (group_id=protocolId),
+      // но через linked_project_id отображаются и здесь.
+      for (let i = 0; i < descendantGroupIds.length; i += 10) {
+        const batch = descendantGroupIds.slice(i, i + 10);
+        const orFilter = batch
+          .map((id) => `status_meta->>linked_project_id.eq.${id}`)
+          .join(",");
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .or(orFilter)
+          .order("position");
+        if (error) throw error;
+        if (data) for (const t of data as Task[]) {
+          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
+        }
       }
       return results;
     },
@@ -427,6 +449,13 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     return map;
   }, [allTasks, descendantGroupIdSet]);
 
+  // Helper: linked-задача, привязанная к этому проекту через status_meta
+  const isLinkedTask = useCallback((task: Task): boolean => {
+    const meta: any = (task as any).status_meta ?? {};
+    const linked = meta.linked_project_id as string | undefined;
+    return !!linked && descendantGroupIdSet.has(linked);
+  }, [descendantGroupIdSet]);
+
   const getTaskGate = useCallback((taskId: string): string | null => {
     const tTags = taskTagsByTaskId.get(taskId) ?? [];
     const gateOrder: string[] = NPD_GATES.map(gate => gate.key);
@@ -445,8 +474,19 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
 
     if (bestGate) return bestGate;
 
-    // Fallback: group-based gate
     const task = tasksById.get(taskId);
+
+    // Linked-задача: gate берём из linked_project_id (если совпадает с descendant)
+    if (task && isLinkedTask(task)) {
+      const meta: any = (task as any).status_meta ?? {};
+      const linkedId = meta.linked_project_id as string | undefined;
+      if (linkedId) {
+        const lg = getSubprojectGate(linkedId);
+        if (lg) return lg;
+      }
+    }
+
+    // Fallback: group-based gate
     let groupGate = task?.group_id ? getSubprojectGate(task.group_id) : null;
 
     // Gate milestone override: if task starts after a gate milestone, bump to next gate
@@ -463,7 +503,6 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
             const nextGateIdx = msGateIdx + 1;
             if (nextGateIdx < gateOrder.length) {
               const nextGate = gateOrder[nextGateIdx];
-              // Only override if it would place the task in a later gate
               const currentIdx = groupGate ? gateOrder.indexOf(groupGate) : -1;
               if (nextGateIdx > currentIdx) {
                 return nextGate;
@@ -476,7 +515,7 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     }
 
     return groupGate;
-  }, [getSubprojectGate, tagIdToGateKey, taskTagsByTaskId, tasksById, gateMilestones]);
+  }, [getSubprojectGate, tagIdToGateKey, taskTagsByTaskId, tasksById, gateMilestones, isLinkedTask]);
 
   const getTaskStream = useCallback((taskId: string): string | null => {
     const tTags = taskTagsByTaskId.get(taskId) ?? [];
@@ -485,8 +524,14 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
       if (streamName) return streamName;
     }
     const task = tasksById.get(taskId);
+    // Linked-задача: стрим из status_meta.linked_stream_key
+    if (task && isLinkedTask(task)) {
+      const meta: any = (task as any).status_meta ?? {};
+      const lsk = meta.linked_stream_key as string | undefined;
+      if (lsk && NPD_STREAMS.includes(lsk)) return lsk;
+    }
     return task?.group_id ? getStreamForGroup(task.group_id) : null;
-  }, [getStreamForGroup, streamTagById, taskTagsByTaskId, tasksById]);
+  }, [getStreamForGroup, streamTagById, taskTagsByTaskId, tasksById, isLinkedTask]);
 
   const projectGroupIds = useMemo(() => new Set(descendantGroupIds), [descendantGroupIds]);
 
@@ -494,12 +539,14 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     const map = new Map<string, Task[]>();
     NPD_STREAMS.forEach(stream => map.set(stream, []));
     allTasks.forEach(task => {
-      if (!task.group_id || !descendantGroupIdSet.has(task.group_id)) return;
+      const inHierarchy = !!task.group_id && descendantGroupIdSet.has(task.group_id);
+      const linked = isLinkedTask(task);
+      if (!inHierarchy && !linked) return;
       const streamName = getTaskStream(task.id);
       if (streamName && map.has(streamName)) map.get(streamName)!.push(task);
     });
     return map;
-  }, [allTasks, descendantGroupIdSet, getTaskStream]);
+  }, [allTasks, descendantGroupIdSet, getTaskStream, isLinkedTask]);
 
   // ── Inbox ──
   const inboxData = useMemo(() => {
@@ -511,6 +558,7 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
       totalCount: parentTasks.length + unmatchedSubTasks.length,
     };
   }, [allTasks, descendantGroupIdSet, getTaskStream, projectId]);
+
 
   // ── Gate start date ──
   const getGateStartDate = useCallback((streamName: string, gateKey: string): Date | undefined => {
