@@ -108,9 +108,6 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
 
   const formatLabel = FORMAT_LABEL[meta.format ?? "offline"] ?? "Офлайн";
 
-  const externals: Array<{ name: string; organization?: string; role?: string }> =
-    meta.external_attendees ?? [];
-
   // ---------- Build Email text ----------
   const emailText = useMemo(() => {
     const lines: string[] = [];
