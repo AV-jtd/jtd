@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,6 +23,7 @@ export default function TopicCell({ task, compact }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const assignInFlightRef = useRef<string | null>(null);
   const { topicTags, categoryId } = useEventTopicTags();
   const createTopic = useCreateEventTopic();
 
@@ -50,29 +51,43 @@ export default function TopicCell({ task, compact }: Props) {
   const exactMatch = !!matchedTopic;
 
   const setTopic = async (newTagId: string | null) => {
-    const toRemove = (task.task_tags ?? [])
-      .map((tt) => tt.tag_id)
-      .filter((id) => topicTagIds.has(id) && id !== newTagId);
+    const requestKey = `${task.id}:${newTagId ?? "none"}`;
+    if (assignInFlightRef.current === requestKey) return;
+    assignInFlightRef.current = requestKey;
 
-    if (toRemove.length > 0) {
-      const { error } = await supabase
-        .from("task_tags")
-        .delete()
-        .eq("task_id", task.id)
-        .in("tag_id", toRemove);
-      if (error) throw error;
+    try {
+      const existingTopicIds = (task.task_tags ?? [])
+        .map((tt) => tt.tag_id)
+        .filter((id) => topicTagIds.has(id));
+
+      if (newTagId && existingTopicIds.includes(newTagId) && existingTopicIds.length === 1) {
+        setOpen(false);
+        setSearch("");
+        return;
+      }
+
+      const toRemove = existingTopicIds.filter((id) => id !== newTagId);
+
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from("task_tags")
+          .delete()
+          .eq("task_id", task.id)
+          .in("tag_id", toRemove);
+        if (error) throw error;
+      }
+
+      if (newTagId && !existingTopicIds.includes(newTagId)) {
+        const { error } = await supabase.from("task_tags").insert({ task_id: task.id, tag_id: newTagId });
+        if (error) throw error;
+      }
+
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      setOpen(false);
+      setSearch("");
+    } finally {
+      assignInFlightRef.current = null;
     }
-
-    if (newTagId) {
-      const { error } = await supabase
-        .from("task_tags")
-        .upsert({ task_id: task.id, tag_id: newTagId }, { onConflict: "task_id,tag_id" });
-      if (error) throw error;
-    }
-
-    qc.invalidateQueries({ queryKey: ["tasks"] });
-    setOpen(false);
-    setSearch("");
   };
 
   const handleCreateAndAssign = async () => {
