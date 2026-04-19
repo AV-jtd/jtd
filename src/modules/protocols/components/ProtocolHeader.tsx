@@ -750,9 +750,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-foreground">
-              {sides?.ours ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+              {sides?.ours ?? "Дороничи"}
             </div>
-            <div className="mt-0.5 text-[10px] text-muted-foreground">Наша сторона</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              Наша сторона
+              {!sides && <span className="ml-1 opacity-60">· укажите в названии «Партнёр × Дороничи»</span>}
+            </div>
           </div>
         </div>
 
