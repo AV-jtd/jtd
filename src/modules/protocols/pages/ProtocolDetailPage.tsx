@@ -75,29 +75,32 @@ export default function ProtocolDetailPage() {
             />
 
             {isDraft && (
-              <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
+              <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
-                  <p className="truncate text-sm">
+                  <p className="min-w-0 truncate text-sm">
                     <span className="font-semibold text-foreground">Черновик</span>
-                    <span className="text-muted-foreground"> — {draftTaskCount}{" "}
+                    <span className="hidden text-muted-foreground sm:inline">
+                      {" "}— {draftTaskCount}{" "}
                       {draftTaskCount === 1
                         ? "задача"
                         : draftTaskCount > 1 && draftTaskCount < 5
                         ? "задачи"
                         : "задач"}, исполнители не уведомлены
                     </span>
+                    <span className="text-muted-foreground sm:hidden"> · {draftTaskCount}</span>
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-1">
                   <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
+                        className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-destructive"
+                        aria-label="Удалить черновик"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Удалить</span>
@@ -128,7 +131,8 @@ export default function ProtocolDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setPreviewOpen(true)}
-                    className="h-8 gap-1.5"
+                    className="h-8 gap-1.5 px-2"
+                    aria-label="Превью"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Превью</span>
@@ -137,14 +141,16 @@ export default function ProtocolDetailPage() {
                     size="sm"
                     onClick={() => publishMut.mutate(protocol.id)}
                     disabled={publishMut.isPending || draftTaskCount === 0}
-                    className="h-8 gap-1.5 bg-amber-500 text-white hover:bg-amber-600"
+                    className="h-8 gap-1.5 bg-amber-500 px-2.5 text-white hover:bg-amber-600 sm:px-3"
+                    aria-label="Опубликовать"
                   >
                     {publishMut.isPending ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Send className="h-3.5 w-3.5" />
                     )}
-                    Опубликовать
+                    <span className="hidden xs:inline sm:inline">Опубликовать</span>
+                    <span className="xs:hidden sm:hidden">Публ.</span>
                   </Button>
                 </div>
               </div>
