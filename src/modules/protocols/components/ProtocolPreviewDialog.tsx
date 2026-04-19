@@ -183,7 +183,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         const dl = t.deadline
           ? format(parseISO(t.deadline), "d MMM yyyy", { locale: ru })
           : "без срока";
-        const resp = userName(t.assigned_to) ?? "не назначен";
+        const resp = respLabel(t.assigned_to) ?? "не назначен";
         lines.push(`  ${i + 1}. ${t.title}`);
         lines.push(`      Ответственный: ${resp} · Срок: ${dl}`);
       });
@@ -192,7 +192,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     lines.push("—");
     lines.push("Сформировано в JustTODOit");
     return lines.join("\n");
-  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users]);
+  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap]);
 
   // ---------- Actions ----------
   const a4Ref = useRef<HTMLDivElement>(null);
@@ -471,7 +471,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                       </thead>
                       <tbody>
                         {tasks.map((t, i) => {
-                          const resp = userName(t.assigned_to);
+                          const resp = respLabel(t.assigned_to);
                           return (
                             <tr key={t.id} className={i % 2 === 1 ? "bg-neutral-50/60" : ""}>
                               <td className="border border-neutral-300 px-2 py-1.5 text-center text-neutral-500 align-top">
