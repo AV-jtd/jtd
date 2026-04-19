@@ -102,6 +102,50 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     return u?.display_name || u?.email || null;
   };
 
+  // ---------- Sides toggle: показывать имена или только сторону ----------
+  const [showSideOnly, setShowSideOnly] = useState(false);
+
+  // Подгружаем organization для всех пользователей, упомянутых в задачах
+  const [orgMap, setOrgMap] = useState<Record<string, string | null>>({});
+  useEffect(() => {
+    const ids = Array.from(new Set(tasks.map((t) => t.assigned_to).filter(Boolean) as string[]));
+    if (ids.length === 0) {
+      setOrgMap({});
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("id, organization")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map: Record<string, string | null> = {};
+        (data ?? []).forEach((p: any) => {
+          map[p.id] = (p.organization?.trim() || null);
+        });
+        setOrgMap(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tasks]);
+
+  // Какую сторону показать вместо имени:
+  // 1) явная organization из профиля
+  // 2) иначе — наша сторона (внутренний пользователь по умолчанию)
+  const sideForUser = (id: string | null | undefined): string => {
+    if (!id) return ourSideName;
+    return orgMap[id] || ourSideName;
+  };
+
+  // Метка ответственного с учётом тумблера
+  const respLabel = (id: string | null | undefined): string | null => {
+    if (!id) return null;
+    if (showSideOnly) return sideForUser(id);
+    return userName(id);
+  };
+
   const meetingDateLabel = meta.meeting_date
     ? format(parseISO(meta.meeting_date), "d MMMM yyyy", { locale: ru })
     : "—";
