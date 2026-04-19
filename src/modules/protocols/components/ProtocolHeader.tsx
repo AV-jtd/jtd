@@ -836,24 +836,47 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </button>
             )}
 
-            {/* Internal attendees (our team — derived from task assignees in this protocol) */}
-            {internalAttendeeIds.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-1">
-                {internalAttendeeIds.map((uid) => {
-                  const p = profiles.find((u) => u.id === uid);
-                  const name = p?.display_name || p?.email || "Участник";
-                  return (
-                    <span
-                      key={uid}
-                      className="inline-flex items-center rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
-                      title={name}
+            {/* Internal attendees (our side) — auto from task assignees + manual */}
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {internalCombinedIds.map((uid) => {
+                const p = profiles.find((u) => u.id === uid);
+                const name = p?.display_name || p?.email || "Участник";
+                return (
+                  <span
+                    key={uid}
+                    className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
+                    title={name}
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeInternalAttendee(uid)}
+                      className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                      title="Убрать из участников встречи"
                     >
-                      {name}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                );
+              })}
+              <UserPicker
+                users={profiles}
+                excludeIds={internalCombinedIds}
+                title="Добавить участника"
+                open={internalPickerOpen}
+                onOpenChange={setInternalPickerOpen}
+                onSelect={(u) => addInternalAttendee(u.id)}
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    title="Добавить участника со стороны Дороничей"
+                  >
+                    <Plus className="h-2.5 w-2.5" /> участник
+                  </button>
+                }
+              />
+            </div>
           </div>
         </div>
 
