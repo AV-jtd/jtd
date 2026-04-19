@@ -578,12 +578,13 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, externalValue, externalOptions, onChange, onChangeExternal,
+  users, value, externalValue, externalOptions, linkedClient, onChange, onChangeExternal,
 }: {
   users: Profile[];
   value: string | null;
   externalValue?: { name?: string; organization?: string; role?: string } | null;
   externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
+  linkedClient?: LinkedClient;
   onChange: (uid: string | null) => void;
   onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
 }) {
@@ -599,52 +600,89 @@ function AssigneePicker({
     e.organization?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  // Unique companies extracted from external attendees' organizations
+  // Unique companies extracted from external attendees' organizations + linked CRM client
   const companies = useMemo(() => {
-    const set = new Map<string, string>(); // lower -> original
+    const set = new Map<string, string>();
     for (const e of externalOptions ?? []) {
       const org = e.organization?.trim();
       if (org && !set.has(org.toLowerCase())) set.set(org.toLowerCase(), org);
     }
+    if (linkedClient?.name) {
+      const n = linkedClient.name.trim();
+      if (!set.has(n.toLowerCase())) set.set(n.toLowerCase(), n);
+    }
     return Array.from(set.values());
-  }, [externalOptions]);
+  }, [externalOptions, linkedClient]);
 
   const filteredCompanies = companies.filter((c) =>
     !search.trim() || c.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  // Combined external contacts: header + linked CRM client contact
+  const allExternalContacts = useMemo(() => {
+    const list: Array<{ name: string; organization?: string; role?: string; source: "header" | "crm" }> = [];
+    for (const e of externalOptions ?? []) {
+      list.push({ ...e, source: "header" });
+    }
+    if (linkedClient?.contact_name) {
+      // Skip duplicates by name
+      const exists = list.some(
+        (x) => x.name.trim().toLowerCase() === linkedClient.contact_name!.trim().toLowerCase(),
+      );
+      if (!exists) {
+        list.push({
+          name: linkedClient.contact_name,
+          organization: linkedClient.name,
+          role: "CRM",
+          source: "crm",
+        });
+      }
+    }
+    return list;
+  }, [externalOptions, linkedClient]);
+
+  const filteredAllContacts = allExternalContacts.filter((e) =>
+    !search.trim() ||
+    e.name.toLowerCase().includes(search.toLowerCase()) ||
+    e.organization?.toLowerCase().includes(search.toLowerCase()),
   );
 
   const isCompanyAssignee = !!externalValue?.name &&
     externalValue.name === externalValue.organization &&
     externalValue.role === "company";
 
-  const externalLabel = externalValue?.name
-    ? isCompanyAssignee
-      ? externalValue.name
-      : externalValue.organization
-        ? `${externalValue.organization} · ${externalValue.name}`
-        : externalValue.name
-    : null;
+  // ---- Plain-text label for trigger ----
+  // Format: "Имя" (наши) или "Организация" / "Организация · Имя" (партнёр)
+  const triggerText = current
+    ? (current.display_name || "Без имени")
+    : externalValue?.name
+      ? isCompanyAssignee
+        ? externalValue.name
+        : externalValue.organization
+          ? `${externalValue.organization} · ${externalValue.name}`
+          : externalValue.name
+      : "Назначить";
+
+  const isExternal = !current && !!externalValue?.name;
 
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+            "block w-full text-left text-sm transition-colors hover:underline truncate",
             current
-              ? "bg-primary/10 text-primary hover:bg-primary/15"
-              : externalLabel
-                ? "bg-purple-500/10 text-purple-700 hover:bg-purple-500/15 dark:text-purple-300"
-                : "text-muted-foreground hover:bg-muted",
+              ? "text-foreground"
+              : isExternal
+                ? "text-foreground"
+                : "text-muted-foreground italic",
           )}
+          title={triggerText}
         >
-          {externalLabel ? <Building2 className="h-3 w-3" /> : <User2 className="h-3 w-3" />}
-          <span className="max-w-[140px] truncate">
-            {current ? current.display_name || "Без имени" : externalLabel ?? "Назначить"}
-          </span>
+          {triggerText}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="start">
+      <PopoverContent className="w-72 p-2" align="start">
         <Input
           autoFocus
           value={search}
@@ -652,8 +690,8 @@ function AssigneePicker({
           placeholder="Поиск…"
           className="mb-2 h-7 text-xs"
         />
-        <div className="max-h-64 space-y-2 overflow-y-auto">
-          {(value || externalLabel) && (
+        <div className="max-h-72 space-y-2 overflow-y-auto">
+          {(value || externalValue?.name) && (
             <button
               onClick={() => {
                 onChange(null);
@@ -669,7 +707,7 @@ function AssigneePicker({
           {filtered.length > 0 && (
             <div>
               <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Команда
+                С нашей стороны
               </div>
               {filtered.map((u) => (
                 <button
@@ -693,10 +731,11 @@ function AssigneePicker({
           {filteredCompanies.length > 0 && (
             <div>
               <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Компании / Партнёры
+                Со стороны партнёра — только компания
               </div>
               {filteredCompanies.map((c) => {
                 const active = isCompanyAssignee && externalValue?.name === c;
+                const isCrm = linkedClient?.name?.trim().toLowerCase() === c.trim().toLowerCase();
                 return (
                   <button
                     key={`co-${c}`}
@@ -713,7 +752,11 @@ function AssigneePicker({
                     <div className="flex items-center gap-1.5">
                       <Building2 className="h-3 w-3 shrink-0 opacity-60" />
                       <span className="truncate font-medium">{c}</span>
-                      <span className="ml-auto text-[9px] uppercase text-muted-foreground/70">компания</span>
+                      {isCrm && (
+                        <span className="ml-auto rounded bg-purple-500/15 px-1 py-px text-[9px] uppercase text-purple-700 dark:text-purple-300">
+                          CRM
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -721,18 +764,19 @@ function AssigneePicker({
             </div>
           )}
 
-          {filteredExternals.length > 0 && (
+          {filteredAllContacts.length > 0 && (
             <div>
               <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Внешние (из шапки)
+                Со стороны партнёра — контактное лицо
               </div>
-              {filteredExternals.map((e, i) => {
+              {filteredAllContacts.map((e, i) => {
                 const active =
+                  !isCompanyAssignee &&
                   externalValue?.name === e.name &&
                   externalValue?.organization === e.organization;
                 return (
                   <button
-                    key={`${e.name}-${i}`}
+                    key={`${e.name}-${i}-${e.source}`}
                     onClick={() => {
                       onChangeExternal?.({
                         name: e.name,
@@ -750,10 +794,15 @@ function AssigneePicker({
                     <div className="flex items-center gap-1.5">
                       <Building2 className="h-3 w-3 shrink-0 opacity-60" />
                       <span className="truncate font-medium">{e.name}</span>
+                      {e.source === "crm" && (
+                        <span className="ml-auto rounded bg-purple-500/15 px-1 py-px text-[9px] uppercase text-purple-700 dark:text-purple-300">
+                          CRM
+                        </span>
+                      )}
                     </div>
-                    {(e.organization || e.role) && (
+                    {(e.organization || (e.role && e.role !== "CRM")) && (
                       <div className="ml-4 truncate text-[10px] text-muted-foreground">
-                        {[e.organization, e.role].filter(Boolean).join(" · ")}
+                        {[e.organization, e.role !== "CRM" ? e.role : null].filter(Boolean).join(" · ")}
                       </div>
                     )}
                   </button>
@@ -762,13 +811,13 @@ function AssigneePicker({
             </div>
           )}
 
-          {(externalOptions?.length ?? 0) === 0 && (
+          {filteredCompanies.length === 0 && filteredAllContacts.length === 0 && !linkedClient && (
             <div className="rounded bg-muted/40 px-2 py-1.5 text-[10px] text-muted-foreground/80">
-              💡 Добавьте внешних участников или укажите организацию в шапке протокола, чтобы назначать компанию или контактное лицо ответственным.
+              💡 Добавьте внешних участников или привяжите CRM-клиента в шапке протокола, чтобы назначать компанию или контакт партнёра ответственным.
             </div>
           )}
 
-          {filtered.length === 0 && filteredExternals.length === 0 && (
+          {filtered.length === 0 && filteredAllContacts.length === 0 && filteredCompanies.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
         </div>
