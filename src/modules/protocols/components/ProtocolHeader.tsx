@@ -275,6 +275,23 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
   // Parse sides from protocol title: "Лента x Дороничи" → partner=Лента, ours=Дороничи
   const sides = useMemo(() => parseProtocolSides(protocol.name), [protocol.name]);
 
+  // ---- our side name (override of parsed/default "Дороничи") ----
+  const ourSideName = meta.our_side_name?.trim() || sides?.ours || "Дороничи";
+  const [editingOurName, setEditingOurName] = useState(false);
+  const [ourNameVal, setOurNameVal] = useState(ourSideName);
+  useEffect(() => setOurNameVal(ourSideName), [ourSideName]);
+  const commitOurName = () => {
+    setEditingOurName(false);
+    const v = ourNameVal.trim();
+    const fallback = sides?.ours || "Дороничи";
+    const next = !v || v === fallback ? null : v;
+    if ((meta.our_side_name ?? null) !== next) {
+      update.mutate({ protocol_meta: { ...meta, our_side_name: next } });
+    } else {
+      setOurNameVal(ourSideName);
+    }
+  };
+
   // Auto-match by parsed partner OR by external attendee organization
   useEffect(() => {
     if (meta.client_id || clients.length === 0) return;
