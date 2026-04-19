@@ -213,6 +213,7 @@ export default function TopicCell({ task, compact }: Props) {
           )}
           {filtered.map((t) => {
             const isCurrent = currentTopic?.id === t.id;
+            const linkedProject = tagToProject.get(t.id);
             return (
               <button
                 key={t.id}
@@ -231,11 +232,16 @@ export default function TopicCell({ task, compact }: Props) {
                   "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted",
                   isCurrent && "bg-muted/50 font-medium",
                 )}
+                title={linkedProject ? `${t.name} • Проект` : t.name}
               >
-                <span
-                  className="inline-block h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: t.color ?? "hsl(var(--primary))" }}
-                />
+                {linkedProject ? (
+                  <Folder className="h-3 w-3 shrink-0 text-primary" />
+                ) : (
+                  <span
+                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: t.color ?? "hsl(var(--primary))" }}
+                  />
+                )}
                 <span className="truncate">{t.name}</span>
               </button>
             );
