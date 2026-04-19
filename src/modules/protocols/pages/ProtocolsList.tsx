@@ -195,12 +195,20 @@ function ProtocolRow({
         isArchived && "opacity-60",
       )}
     >
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg"
-        style={{ backgroundColor: `${group.color ?? "#3b82f6"}20`, color: group.color ?? "#3b82f6" }}
-      >
-        {group.icon ?? "📋"}
-      </div>
+      {group.logo_url ? (
+        <img
+          src={group.logo_url}
+          alt={group.name}
+          className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-border"
+        />
+      ) : (
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg"
+          style={{ backgroundColor: `${group.color ?? "#3b82f6"}20`, color: group.color ?? "#3b82f6" }}
+        >
+          {group.icon ?? "📋"}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-foreground">{group.name}</span>

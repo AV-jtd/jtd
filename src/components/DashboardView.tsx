@@ -1090,12 +1090,20 @@ function ProjectTaskList({ projectStats, users, onOpenTask, onNavigateToProject,
                     onClick={() => toggle(ps.group.id)}
                     className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/50 transition-colors text-left"
                   >
-                    <div
-                      className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
-                      style={{ backgroundColor: ps.group.color || "hsl(var(--primary))" }}
-                    >
-                      {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
-                    </div>
+                    {ps.group.logo_url ? (
+                      <img
+                        src={ps.group.logo_url}
+                        alt={ps.group.name}
+                        className="h-7 w-7 rounded-lg object-cover ring-1 ring-border shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-semibold"
+                        style={{ backgroundColor: ps.group.color || "hsl(var(--primary))" }}
+                      >
+                        {ps.group.icon && ps.group.icon !== "list" ? ps.group.icon : ps.group.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <span className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{ps.group.name}</span>
 
                     {/* Assignee pills */}
@@ -1279,12 +1287,20 @@ function ExpandedProjectSummary({ ps, userName, onOpenTask, onNavigateToProject,
                     onClick={() => toggleSp(sp.group.id)}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors text-left"
                   >
-                    <div
-                      className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[8px] font-semibold"
-                      style={{ backgroundColor: sp.group.color || "hsl(var(--primary))" }}
-                    >
-                      {sp.group.icon && sp.group.icon !== "list" ? sp.group.icon : sp.group.name.charAt(0).toUpperCase()}
-                    </div>
+                    {sp.group.logo_url ? (
+                      <img
+                        src={sp.group.logo_url}
+                        alt={sp.group.name}
+                        className="h-5 w-5 rounded object-cover ring-1 ring-border shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[8px] font-semibold"
+                        style={{ backgroundColor: sp.group.color || "hsl(var(--primary))" }}
+                      >
+                        {sp.group.icon && sp.group.icon !== "list" ? sp.group.icon : sp.group.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <span className="text-[11px] font-medium truncate flex-1">{sp.group.name}</span>
                     <span className={cn(
                       "text-[9px] px-1.5 py-0.5 rounded-full border font-medium",

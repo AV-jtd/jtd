@@ -2412,12 +2412,20 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-muted/30 transition-colors min-w-0"
       >
-        <div
-          className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[9px] font-semibold"
-          style={{ backgroundColor: subproject.color || "hsl(var(--primary))" }}
-        >
-          {subproject.icon && subproject.icon !== "list" ? subproject.icon : subproject.name.charAt(0).toUpperCase()}
-        </div>
+        {(subproject as any).logo_url ? (
+          <img
+            src={(subproject as any).logo_url}
+            alt={subproject.name}
+            className="h-5 w-5 rounded object-cover ring-1 ring-border shrink-0"
+          />
+        ) : (
+          <div
+            className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-white text-[9px] font-semibold"
+            style={{ backgroundColor: subproject.color || "hsl(var(--primary))" }}
+          >
+            {subproject.icon && subproject.icon !== "list" ? subproject.icon : subproject.name.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="font-medium text-[11px] truncate">{subproject.name.includes("/") ? subproject.name.split("/").pop()!.trim() : subproject.name}</span>
@@ -2529,7 +2537,13 @@ function ProjectIcon({ project }: { project: NpdProject }) {
   const [emojiTab, setEmojiTab] = useState(0);
   const { updateGroupAppearance } = useTaskMutations();
 
-  const iconContent = project.icon && project.icon !== "list" ? (
+  const iconContent = (project as any).logo_url ? (
+    <img
+      src={(project as any).logo_url}
+      alt={project.name}
+      className="h-7 w-7 rounded-md object-cover ring-1 ring-border shrink-0"
+    />
+  ) : project.icon && project.icon !== "list" ? (
     <span className="text-sm leading-none">{project.icon}</span>
   ) : (
     <div
