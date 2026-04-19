@@ -1,12 +1,13 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye } from "lucide-react";
 import ModuleLayout from "@/components/ModuleLayout";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
 import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
+import ProtocolPreviewDialog from "@/modules/protocols/components/ProtocolPreviewDialog";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ export default function ProtocolDetailPage() {
   const publishMut = usePublishProtocol();
   const discardMut = useDiscardProtocolDraft();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const protocol = useMemo(
     () => groups.find((g) => g.id === id && g.project_type === "protocol"),
@@ -125,6 +127,15 @@ export default function ProtocolDetailPage() {
                       </AlertDialogContent>
                     </AlertDialog>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Превью
+                    </Button>
+                    <Button
                       size="sm"
                       onClick={() => publishMut.mutate(protocol.id)}
                       disabled={publishMut.isPending || draftTaskCount === 0}
@@ -152,6 +163,14 @@ export default function ProtocolDetailPage() {
           </>
         )}
       </div>
+
+      {protocol && (
+        <ProtocolPreviewDialog
+          protocolId={protocol.id}
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+        />
+      )}
     </ModuleLayout>
   );
 }
