@@ -97,6 +97,7 @@ export type Database = {
           email: string | null
           group_id: string | null
           id: string
+          logo_url: string | null
           manager_id: string | null
           name: string
           phone: string | null
@@ -114,6 +115,7 @@ export type Database = {
           email?: string | null
           group_id?: string | null
           id?: string
+          logo_url?: string | null
           manager_id?: string | null
           name: string
           phone?: string | null
@@ -131,6 +133,7 @@ export type Database = {
           email?: string | null
           group_id?: string | null
           id?: string
+          logo_url?: string | null
           manager_id?: string | null
           name?: string
           phone?: string | null
