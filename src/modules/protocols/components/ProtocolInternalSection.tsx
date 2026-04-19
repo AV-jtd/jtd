@@ -3,8 +3,10 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Maximize2,
 } from "lucide-react";
+import TaskItem from "@/components/TaskItem";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -179,59 +181,83 @@ function InternalRow({
   const overdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   const linkedProjectId = (task.status_meta as any)?.linked_project_id as string | undefined;
   const linkedProject = (groups as any[]).find((g) => g.id === linkedProjectId);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   return (
-    <li className="flex items-center gap-2 rounded-md bg-card px-2 py-1.5 text-sm">
-      <Checkbox
-        checked={task.is_completed}
-        onCheckedChange={onToggle}
-        aria-label="Выполнено"
-      />
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate",
-          task.is_completed && "text-muted-foreground line-through",
-        )}
-        title={task.title}
-      >
-        {task.title}
-      </span>
+    <>
+      <li className="flex items-center gap-2 rounded-md bg-card px-2 py-1.5 text-sm">
+        <Checkbox
+          checked={task.is_completed}
+          onCheckedChange={onToggle}
+          aria-label="Выполнено"
+        />
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            task.is_completed && "text-muted-foreground line-through",
+          )}
+          title={task.title}
+        >
+          {task.title}
+        </span>
 
-      <AssigneeChip
-        users={users}
-        value={task.assigned_to}
-        onChange={(uid) => onUpdate({ assigned_to: uid })}
-        compact
-      />
-      <DeadlineChip
-        value={task.deadline}
-        overdue={!!overdue}
-        onChange={(v) => onUpdate({ deadline: v })}
-        compact
-      />
-      <ProjectChip
-        groups={groups as any[]}
-        value={linkedProjectId ?? null}
-        onChange={(pid) => {
-          const meta = { ...((task.status_meta as any) ?? {}) };
-          if (pid) meta.linked_project_id = pid;
-          else delete meta.linked_project_id;
-          onUpdate({ status_meta: meta as any });
-        }}
-        compact
-        currentLabel={linkedProject?.name}
-      />
-      <button
-        onClick={() => {
-          if (confirm("Удалить внутреннюю задачу?")) onDelete();
-        }}
-        className="rounded p-1 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-        aria-label="Удалить"
-        title="Удалить"
-      >
-        <Trash2 className="h-3 w-3" />
-      </button>
-    </li>
+        <AssigneeChip
+          users={users}
+          value={task.assigned_to}
+          onChange={(uid) => onUpdate({ assigned_to: uid })}
+          compact
+        />
+        <DeadlineChip
+          value={task.deadline}
+          overdue={!!overdue}
+          onChange={(v) => onUpdate({ deadline: v })}
+          compact
+        />
+        <ProjectChip
+          groups={groups as any[]}
+          value={linkedProjectId ?? null}
+          onChange={(pid) => {
+            const meta = { ...((task.status_meta as any) ?? {}) };
+            if (pid) meta.linked_project_id = pid;
+            else delete meta.linked_project_id;
+            onUpdate({ status_meta: meta as any });
+          }}
+          compact
+          currentLabel={linkedProject?.name}
+        />
+        <button
+          onClick={() => setDetailsOpen(true)}
+          className="rounded p-1 text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+          aria-label="Раскрыть детали"
+          title="Раскрыть детали (шаги, теги, описание, файлы)"
+        >
+          <Maximize2 className="h-3 w-3" />
+        </button>
+        <button
+          onClick={() => {
+            if (confirm("Удалить внутреннюю задачу?")) onDelete();
+          }}
+          className="rounded p-1 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+          aria-label="Удалить"
+          title="Удалить"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </li>
+
+      {/* Full task details — opens with all standard task features */}
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto p-4 sm:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+            <span className="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-300">
+              Внутренняя задача · не уходит партнёру
+            </span>
+          </div>
+          <TaskItem task={task} initialOpen sortable={false} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
