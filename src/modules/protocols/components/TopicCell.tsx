@@ -117,9 +117,19 @@ export default function TopicCell({ task, compact }: Props) {
             title: "Тема привязана к проекту",
             description: `«${created.name}» — это существующий проект, контекст подхватится автоматически.`,
           });
-          // Refresh project caches so Folder icon appears immediately
           qc.invalidateQueries({ queryKey: ["task_groups"] });
+        } else {
+          toast({
+            title: "Тема создана",
+            description: `«${created.name}» добавлена. Если создашь одноимённый проект — привяжется автоматически.`,
+          });
         }
+      } else {
+        toast({
+          title: "Не удалось создать тему",
+          description: "Тема не была создана. Попробуйте ещё раз.",
+          variant: "destructive",
+        });
       }
     } catch (e: any) {
       toast({
