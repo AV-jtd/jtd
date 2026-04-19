@@ -3,6 +3,7 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,8 @@ type Props = {
   parentExternalTaskId?: string;
   /** Optional pre-filled project for new internal tasks (project_id from header) */
   defaultProjectId?: string | null;
+  /** Optional subtitle shown under the header */
+  subtitle?: string;
 };
 
 /**
@@ -25,7 +28,7 @@ type Props = {
  *  - на уровне протокола (под таблицей) — основной режим
  *  - внутри раскрытой внешней задачи (compact) — мини-триаж
  */
-export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId }: Props) {
+export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle }: Props) {
   const { data: allTasks = [] } = useTasks();
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
@@ -47,6 +50,8 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   const [assignee, setAssignee] = useState<string | null>(null);
   const [deadline, setDeadline] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
+  // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
+  const [listOpen, setListOpen] = useState(false);
 
   const handleCreate = () => {
     const t = title.trim();
@@ -80,7 +85,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
       )}
     >
       {/* Header — unified across all rendering contexts */}
-      <div className="mb-3 flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <Lock className={cn("text-red-600 dark:text-red-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         <h3 className={cn("font-semibold text-red-700 dark:text-red-300", compact ? "text-xs" : "text-sm")}>
           Внутренние задачи
@@ -93,22 +98,13 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         </span>
       </div>
 
-      {/* Existing internal tasks */}
-      {internalTasks.length > 0 && (
-        <ul className="mb-3 space-y-1">
-          {internalTasks.map((t) => (
-            <InternalRow
-              key={t.id}
-              task={t}
-              users={users}
-              groups={groups as any[]}
-              onToggle={() => toggleTask.mutate({ id: t.id, is_completed: !t.is_completed })}
-              onUpdate={(patch) => updateTask.mutate({ id: t.id, ...patch })}
-              onDelete={() => deleteTask.mutate(t.id)}
-            />
-          ))}
-        </ul>
-      )}
+      {/* Subtitle */}
+      <p className={cn(
+        "mb-3 mt-1 text-red-700/70 dark:text-red-300/70",
+        compact ? "text-[11px]" : "text-xs",
+      )}>
+        {subtitle ?? "Привязать задачу — то, что нужно сделать команде по итогам встречи. Партнёр этого не видит."}
+      </p>
 
       {/* Quick create — unified across modes */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/20 bg-card px-2 py-1.5">
@@ -122,7 +118,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
               handleCreate();
             }
           }}
-          placeholder={compact ? "Внутренняя подзадача (Enter)…" : "Внутренняя задача по итогам встречи (Enter)…"}
+          placeholder="Привязать задачу (Enter)…"
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
         />
         <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
@@ -136,6 +132,34 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
           Добавить
         </button>
       </div>
+
+      {/* Existing internal tasks — closed list under the input */}
+      {internalTasks.length > 0 && (
+        <div className="mt-2">
+          <button
+            onClick={() => setListOpen((v) => !v)}
+            className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] font-medium text-red-700/80 transition-colors hover:bg-red-500/5 dark:text-red-300/80"
+          >
+            {listOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Привязанные задачи · {internalTasks.length}
+          </button>
+          {listOpen && (
+            <ul className="mt-1 space-y-1">
+              {internalTasks.map((t) => (
+                <InternalRow
+                  key={t.id}
+                  task={t}
+                  users={users}
+                  groups={groups as any[]}
+                  onToggle={() => toggleTask.mutate({ id: t.id, is_completed: !t.is_completed })}
+                  onUpdate={(patch) => updateTask.mutate({ id: t.id, ...patch })}
+                  onDelete={() => deleteTask.mutate(t.id)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }
