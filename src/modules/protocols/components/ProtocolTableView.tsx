@@ -10,7 +10,7 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
-  ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, FolderOpen, Loader2,
+  ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, CalendarOff, FolderOpen, Loader2,
   Building2, Circle, GripVertical, Trash2,
 } from "lucide-react";
 import {
