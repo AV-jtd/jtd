@@ -802,12 +802,9 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   return (
                     <span
                       key={uid}
-                      className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+                      className="inline-flex items-center rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
                       title={name}
                     >
-                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500/20 text-[8px] font-bold uppercase">
-                        {getInitials(name)}
-                      </span>
                       {name}
                     </span>
                   );
