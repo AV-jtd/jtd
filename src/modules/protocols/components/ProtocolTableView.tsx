@@ -356,6 +356,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <SortHeader label="№" active={sortKey === "index"} dir={sortDir} onClick={() => toggleSort("index")} />
                 </Th>
                 <Th className="w-8" />
+                <Th className="w-40">
+                  <span className="text-muted-foreground">Тема</span>
+                </Th>
                 <Th>
                   <SortHeader
                     label="Наименование"
@@ -386,9 +389,6 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     dir={sortDir}
                     onClick={() => toggleSort("deadline")}
                   />
-                </Th>
-                <Th className="w-32">
-                  <span className="text-muted-foreground">Тема</span>
                 </Th>
                 <Th className="w-44 text-center">
                   <SortHeader
