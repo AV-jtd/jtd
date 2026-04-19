@@ -11,7 +11,9 @@
  * Возвращает { partner, ours } или null, если разделитель не найден.
  */
 
-const SEPARATOR_RE = /\s+(?:x|×|vs\.?|—|–|\/|\u00d7)\s+/i;
+// Разделители: латинская x, кириллическая х, ×, vs, тире (— –), /
+// \u0445 = кириллическая 'х' (строчная), \u0425 = заглавная 'Х', \u00d7 = ×
+const SEPARATOR_RE = /\s+(?:x|\u0445|\u0425|×|\u00d7|vs\.?|—|–|\/)\s+/i;
 
 export interface ProtocolSides {
   partner: string;
