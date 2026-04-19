@@ -576,6 +576,14 @@ function ProtocolRow({
                 Удалить строку
               </button>
             </div>
+
+            {/* 🔴 Internal triage for this external row (own team only) */}
+            <div className="mt-4">
+              <ProtocolInternalSection
+                protocolId={task.group_id!}
+                parentExternalTaskId={task.id}
+              />
+            </div>
           </td>
         </tr>
       )}
