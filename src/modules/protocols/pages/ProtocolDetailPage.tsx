@@ -46,7 +46,7 @@ export default function ProtocolDetailPage() {
 
   return (
     <ModuleLayout moduleContext="pmo">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 pb-28 md:px-8 md:py-8 md:pb-8">
         <button
           onClick={() => navigate("/protocols")}
           className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
