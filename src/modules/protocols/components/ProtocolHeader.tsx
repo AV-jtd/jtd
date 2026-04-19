@@ -557,7 +557,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 {partnerNotInCrm && (
                   <button
                     type="button"
-                    onClick={openCreateDialog}
+                    onClick={() => openCreateDialog(sides?.partner ?? "", true)}
                     className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
                   >
                     + В CRM
@@ -578,10 +578,14 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
       <AlertDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Создать клиента CRM</AlertDialogTitle>
+            <AlertDialogTitle>
+              {autoLinkAfterCreate ? "Создать клиента CRM" : "Новый клиент в CRM"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Партнёр <span className="font-medium text-foreground">«{sides?.partner}»</span> не найден в CRM.
-              Создать карточку клиента и привязать к этому протоколу?
+              {autoLinkAfterCreate
+                ? <>Партнёр <span className="font-medium text-foreground">«{newClientName || sides?.partner}»</span> не найден в CRM. Создать карточку и привязать к этому протоколу?</>
+                : <>Карточка появится в базе CRM. Шаги воронки <span className="font-medium text-foreground">не</span> создаются — они добавятся автоматически при перетаскивании по этапам.</>
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
@@ -595,7 +599,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newClientName.trim()) {
                   e.preventDefault();
-                  createClientFromTitle();
+                  createClient();
                 }
               }}
               placeholder="Например: Лента"
@@ -605,10 +609,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={creating}>Отмена</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); createClientFromTitle(); }}
+              onClick={(e) => { e.preventDefault(); createClient(); }}
               disabled={creating || !newClientName.trim()}
             >
-              {creating ? "Создаю…" : "Создать и привязать"}
+              {creating
+                ? "Создаю…"
+                : autoLinkAfterCreate ? "Создать и привязать" : "Создать"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
