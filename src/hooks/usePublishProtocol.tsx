@@ -3,15 +3,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 /**
+ * Закрывает все мягкие задачи «Изучить, доработать протокол»
+ * (task_type='protocol_review') для указанного протокола с заданным результатом.
+ */
+async function closeProtocolReviews(protocolId: string, resultLabel: string) {
+  await supabase
+    .from("tasks")
+    .update({
+      is_completed: true,
+      completed_at: new Date().toISOString(),
+      closure_result: resultLabel,
+    })
+    .eq("source_protocol_id", protocolId)
+    .eq("task_type", "protocol_review")
+    .eq("is_completed", false);
+}
+
+/**
  * Публикация черновика протокола:
  * 1. Снимает is_draft=true со всех задач проекта.
  * 2. Меняет draft_status проекта на 'published'.
- * После этого срабатывают обычные RLS — задачи станут видны исполнителям.
+ * 3. Авто-закрывает мягкие задачи «Изучить, доработать протокол»
+ *    с результатом «Опубликовано».
  *
- * Уведомления (notify-event) сейчас триггерятся при создании задачи на сервере.
- * Для черновика они не отправлялись, потому что задача только что появилась видимой —
- * мы НЕ повторяем insert; в рамках MVP уведомления для черновиков не отправляются
- * массово. Это можно добавить позже отдельным batch-вызовом notify-event.
+ * После этого срабатывают обычные RLS — задачи станут видны исполнителям.
  */
 export function usePublishProtocol() {
   const qc = useQueryClient();
@@ -31,6 +46,9 @@ export function usePublishProtocol() {
         .eq("id", groupId);
       if (groupErr) throw groupErr;
 
+      // Close soft "review" tasks
+      await closeProtocolReviews(groupId, "Опубликовано");
+
       return { groupId };
     },
     onSuccess: () => {
@@ -49,7 +67,11 @@ export function useDiscardProtocolDraft() {
 
   return useMutation({
     mutationFn: async (groupId: string) => {
-      // Удаляем проект целиком — каскад снесёт задачи
+      // Сначала закрываем review-задачи (у них source_protocol_id, не group_id —
+      // каскад их не тронет)
+      await closeProtocolReviews(groupId, "Черновик удалён");
+
+      // Затем удаляем сам протокол — каскад снесёт его строки
       const { error } = await supabase.from("task_groups").delete().eq("id", groupId);
       if (error) throw error;
       return { groupId };
