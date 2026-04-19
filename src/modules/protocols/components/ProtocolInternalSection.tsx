@@ -36,6 +36,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
+  const isMobile = useIsMobile();
 
   const internalTasks = useMemo(() => {
     return allTasks.filter((t) => {
@@ -55,6 +56,9 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
   const [listOpen, setListOpen] = useState(false);
+  // Whole section collapsed by default on mobile (or when nested in expanded external row)
+  // to reduce visual noise on small screens.
+  const [sectionOpen, setSectionOpen] = useState(!isMobile || !!parentExternalTaskId);
 
   const handleCreate = () => {
     const t = title.trim();
