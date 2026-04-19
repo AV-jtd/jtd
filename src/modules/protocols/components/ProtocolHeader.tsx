@@ -246,6 +246,45 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     updateExternals(externals.filter((_, i) => i !== idx));
   };
 
+  // ---- internal attendees (our side) ----
+  // Combined list = (auto from task assignees, minus excluded) ∪ manually added
+  const internalManual = meta.internal_attendees ?? [];
+  const internalExcluded = meta.internal_excluded ?? [];
+  const internalCombinedIds = useMemo(() => {
+    const fromTasks = (internalAttendeeIds ?? []).filter(uid => !internalExcluded.includes(uid));
+    return Array.from(new Set([...fromTasks, ...internalManual]));
+  }, [internalAttendeeIds, internalExcluded, internalManual]);
+
+  const [internalPickerOpen, setInternalPickerOpen] = useState(false);
+
+  const addInternalAttendee = (userId: string) => {
+    if (internalExcluded.includes(userId)) {
+      update.mutate({
+        protocol_meta: {
+          ...meta,
+          internal_excluded: internalExcluded.filter(id => id !== userId),
+        },
+      });
+    } else if (!internalManual.includes(userId) && !(internalAttendeeIds ?? []).includes(userId)) {
+      update.mutate({
+        protocol_meta: { ...meta, internal_attendees: [...internalManual, userId] },
+      });
+    }
+  };
+
+  const removeInternalAttendee = (userId: string) => {
+    const isAuto = (internalAttendeeIds ?? []).includes(userId);
+    const isManual = internalManual.includes(userId);
+    const next: ProtocolMeta = { ...meta };
+    if (isManual) {
+      next.internal_attendees = internalManual.filter(id => id !== userId);
+    }
+    if (isAuto && !internalExcluded.includes(userId)) {
+      next.internal_excluded = [...internalExcluded, userId];
+    }
+    update.mutate({ protocol_meta: next });
+  };
+
   // ---- meeting date / format ----
   const [dateOpen, setDateOpen] = useState(false);
   const [dateVal, setDateVal] = useState(meta.meeting_date ?? "");
