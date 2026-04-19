@@ -111,21 +111,28 @@ export function useCreateEventTopic() {
 
       if (!tagRow) return null;
 
-      // Auto-link to existing project (task_group) with the same name (case-insensitive),
-      // if such a project exists and doesn't yet have a linked tag.
+      // Auto-link to an existing project (task_group) with the same name (case-insensitive).
+      // Look across ALL accessible groups (RLS filters to owned + member), not only own.
       let linkedGroupId: string | null = null;
       try {
-        const { data: matchingGroup } = await supabase
+        const { data: matchingGroups } = await supabase
           .from("task_groups")
-          .select("id, linked_tag_id")
-          .eq("user_id", user.id)
+          .select("id, linked_tag_id, user_id")
           .ilike("name", trimmed)
-          .is("closed_at", null)
-          .maybeSingle();
+          .is("closed_at", null);
+
+        const candidates = matchingGroups ?? [];
+        // Prefer: already linked to this tag → user's own group → any accessible.
+        const matchingGroup =
+          candidates.find((g) => g.linked_tag_id === tagRow!.id) ??
+          candidates.find((g) => g.user_id === user.id) ??
+          candidates[0] ??
+          null;
 
         if (matchingGroup?.id) {
           linkedGroupId = matchingGroup.id;
-          if (!matchingGroup.linked_tag_id) {
+          if (!matchingGroup.linked_tag_id && matchingGroup.user_id === user.id) {
+            // Only the owner can update linked_tag_id under RLS.
             await supabase
               .from("task_groups")
               .update({ linked_tag_id: tagRow.id })
@@ -133,7 +140,7 @@ export function useCreateEventTopic() {
           }
         }
       } catch {
-        // Linking is best-effort: don't fail topic creation if it can't be linked.
+        // Linking is best-effort.
       }
 
       return { ...tagRow, linkedGroupId };
