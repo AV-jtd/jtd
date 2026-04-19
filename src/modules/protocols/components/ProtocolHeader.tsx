@@ -187,11 +187,26 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     qc.invalidateQueries({ queryKey: ["clients"] });
   };
 
-  // ---- internal attendees ----
-  const internalAttendees = profiles.filter(p => internalAttendeeIds.includes(p.id));
-
-  // ---- external attendees (used for CRM auto-match by organization) ----
+  // ---- external attendees (people from partner side, e.g. Лента) ----
   const externals = meta.external_attendees ?? [];
+
+  const updateExternals = (next: ExternalAttendee[]) =>
+    update.mutate({ protocol_meta: { ...meta, external_attendees: next } });
+
+  const [newExternalName, setNewExternalName] = useState("");
+  const addExternal = () => {
+    const name = newExternalName.trim();
+    if (!name) return;
+    if (externals.some(e => e.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.info("Такой участник уже добавлен");
+      return;
+    }
+    updateExternals([...externals, { name }]);
+    setNewExternalName("");
+  };
+  const removeExternal = (idx: number) => {
+    updateExternals(externals.filter((_, i) => i !== idx));
+  };
 
   // ---- meeting date / format ----
   const [dateOpen, setDateOpen] = useState(false);
