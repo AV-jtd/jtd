@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/initials";
 import { parseProtocolSides, namesEqual } from "@/lib/protocolSides";
+import ourLogoDefault from "@/assets/our-logo-default.jpg";
 
 type Format = "online" | "offline" | "hybrid";
 
@@ -54,6 +55,7 @@ interface ProtocolMeta {
   format?: Format;
   external_attendees?: ExternalAttendee[];
   client_id?: string | null;
+  our_logo_url?: string | null;
 }
 
 interface CrmClient {
@@ -186,6 +188,35 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["clients"] });
   };
+
+  // ---- Our side logo upload (stored in protocol_meta.our_logo_url, per-protocol) ----
+  const ourLogoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingOurLogo, setUploadingOurLogo] = useState(false);
+  const ourLogoUrl = meta.our_logo_url ?? null;
+
+  const handleOurLogoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploadingOurLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${protocol.user_id}/${protocol.id}-our-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      await update.mutateAsync({ protocol_meta: { ...meta, our_logo_url: publicUrl } });
+      toast.success("Логотип нашей стороны обновлён");
+    } catch (e) {
+      toast.error("Ошибка загрузки: " + (e as Error).message);
+    } finally {
+      setUploadingOurLogo(false);
+    }
+  };
+
+  const removeOurLogo = () =>
+    update.mutate({ protocol_meta: { ...meta, our_logo_url: null } });
 
   // ---- external attendees (people from partner side, e.g. Лента) ----
   const externals = meta.external_attendees ?? [];
@@ -678,35 +709,40 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
       {/* Sides of the meeting (auto from title + CRM) */}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {/* Our side (Дороничи) — name + own logo upload */}
+        {/* Our side (Дороничи) — name + own logo upload (independent from header logo) */}
         <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="relative shrink-0">
-            {protocol.logo_url ? (
-              <img
-                src={protocol.logo_url}
-                alt={sides?.ours ?? "Наша сторона"}
-                className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
-              />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                {sides?.ours ? getInitials(sides.ours) : "?"}
-              </div>
-            )}
+            <img
+              src={ourLogoUrl ?? ourLogoDefault}
+              alt={sides?.ours ?? "Наша сторона"}
+              className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
+            />
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              onClick={() => ourLogoInputRef.current?.click()}
+              disabled={uploadingOurLogo}
               className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground disabled:opacity-50"
-              title="Загрузить логотип"
+              title="Загрузить логотип нашей стороны"
             >
               <ImageIcon className="h-2.5 w-2.5" />
             </button>
-            {protocol.logo_url && (
+            <input
+              ref={ourLogoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleOurLogoUpload(file);
+                e.target.value = "";
+              }}
+            />
+            {ourLogoUrl && (
               <button
                 type="button"
-                onClick={() => update.mutate({ logo_url: null })}
+                onClick={removeOurLogo}
                 className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-destructive"
-                title="Удалить логотип"
+                title="Сбросить к дефолтному"
               >
                 <X className="h-2 w-2" />
               </button>
