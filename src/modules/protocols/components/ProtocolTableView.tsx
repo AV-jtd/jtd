@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useProtocolStatuses, type ProtocolStatusTag } from "@/hooks/useProtocolStatuses";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { useSetTaskStatus } from "@/hooks/useSetTaskStatus";
+import TopicCell from "@/modules/protocols/components/TopicCell";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
