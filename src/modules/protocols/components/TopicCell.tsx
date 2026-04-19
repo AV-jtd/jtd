@@ -42,41 +42,44 @@ export default function TopicCell({ task, compact }: Props) {
     return topicTags.filter((t) => t.name.toLowerCase().includes(q));
   }, [topicTags, search]);
 
-  const exactMatch = useMemo(
-    () => topicTags.some((t) => t.name.toLowerCase() === search.trim().toLowerCase()),
-    [topicTags, search],
+  const normalizedSearch = search.trim().toLowerCase();
+  const matchedTopic = useMemo(
+    () => topicTags.find((t) => t.name.toLowerCase() === normalizedSearch) ?? null,
+    [topicTags, normalizedSearch],
   );
+  const exactMatch = !!matchedTopic;
 
   const setTopic = async (newTagId: string | null) => {
-    // Снять все текущие топик-теги у задачи
     const toRemove = (task.task_tags ?? [])
       .map((tt) => tt.tag_id)
       .filter((id) => topicTagIds.has(id));
+
     if (toRemove.length > 0) {
-      await supabase
+      const { error } = await supabase
         .from("task_tags")
         .delete()
         .eq("task_id", task.id)
         .in("tag_id", toRemove);
+      if (error) throw error;
     }
+
     if (newTagId) {
-      await supabase.from("task_tags").insert({ task_id: task.id, tag_id: newTagId });
+      const { error } = await supabase.from("task_tags").insert({ task_id: task.id, tag_id: newTagId });
+      if (error) throw error;
     }
+
     qc.invalidateQueries({ queryKey: ["tasks"] });
     setOpen(false);
     setSearch("");
   };
 
   const handleCreateAndAssign = async () => {
-    if (!categoryId) {
-      toast({
-        title: "Не удалось создать тему",
-        description: "Системная категория «Тема» не найдена для вашего профиля. Обратитесь к администратору.",
-        variant: "destructive",
-      });
-      return;
-    }
     try {
+      if (matchedTopic?.id) {
+        await setTopic(matchedTopic.id);
+        return;
+      }
+
       const created = await createTopic.mutateAsync(search.trim());
       if (created?.id) await setTopic(created.id);
     } catch (e: any) {
@@ -105,7 +108,7 @@ export default function TopicCell({ task, compact }: Props) {
             <>
               <span
                 className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: currentTopic.color ?? "#10b981" }}
+                style={{ backgroundColor: currentTopic.color ?? "hsl(var(--primary))" }}
               />
               <span className="truncate">{currentTopic.name}</span>
             </>
@@ -126,7 +129,7 @@ export default function TopicCell({ task, compact }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && search.trim() && !exactMatch) {
+                if (e.key === "Enter" && search.trim()) {
                   e.preventDefault();
                   handleCreateAndAssign();
                 }
@@ -139,7 +142,17 @@ export default function TopicCell({ task, compact }: Props) {
         <div className="max-h-64 overflow-y-auto py-1">
           {currentTopic && (
             <button
-              onClick={() => setTopic(null)}
+              onClick={async () => {
+                try {
+                  await setTopic(null);
+                } catch (e: any) {
+                  toast({
+                    title: "Не удалось снять тему",
+                    description: e?.message ?? "Неизвестная ошибка",
+                    variant: "destructive",
+                  });
+                }
+              }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
             >
               <X className="h-3 w-3" />
@@ -156,7 +169,17 @@ export default function TopicCell({ task, compact }: Props) {
             return (
               <button
                 key={t.id}
-                onClick={() => setTopic(isCurrent ? null : t.id)}
+                onClick={async () => {
+                  try {
+                    await setTopic(isCurrent ? null : t.id);
+                  } catch (e: any) {
+                    toast({
+                      title: "Не удалось назначить тему",
+                      description: e?.message ?? "Неизвестная ошибка",
+                      variant: "destructive",
+                    });
+                  }
+                }}
                 className={cn(
                   "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted",
                   isCurrent && "bg-muted/50 font-medium",
@@ -164,7 +187,7 @@ export default function TopicCell({ task, compact }: Props) {
               >
                 <span
                   className="inline-block h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: t.color ?? "#10b981" }}
+                  style={{ backgroundColor: t.color ?? "hsl(var(--primary))" }}
                 />
                 <span className="truncate">{t.name}</span>
               </button>
