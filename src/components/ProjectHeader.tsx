@@ -141,7 +141,15 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
         </button>
 
         <div className="flex items-center gap-1.5 min-w-0 shrink">
-          <span className="text-sm shrink-0">{project.icon && project.icon !== "list" ? project.icon : "📁"}</span>
+          {(project as any).logo_url ? (
+            <img
+              src={(project as any).logo_url}
+              alt={project.name}
+              className="h-5 w-5 shrink-0 rounded object-cover ring-1 ring-border"
+            />
+          ) : (
+            <span className="text-sm shrink-0">{project.icon && project.icon !== "list" ? project.icon : "📁"}</span>
+          )}
           <h1 className="text-sm font-bold text-foreground truncate">{project.name}</h1>
         </div>
 
