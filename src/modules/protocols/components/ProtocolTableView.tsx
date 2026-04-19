@@ -583,13 +583,14 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, externalValue, externalOptions, linkedClient, onChange, onChangeExternal,
+  users, value, externalValue, externalOptions, linkedClient, parsedPartner, onChange, onChangeExternal,
 }: {
   users: Profile[];
   value: string | null;
   externalValue?: { name?: string; organization?: string; role?: string } | null;
   externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient?: LinkedClient;
+  parsedPartner?: string | null;
   onChange: (uid: string | null) => void;
   onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
 }) {
@@ -605,7 +606,7 @@ function AssigneePicker({
     e.organization?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  // Unique companies extracted from external attendees' organizations + linked CRM client
+  // Unique companies extracted from external attendees' organizations + linked CRM client + parsed partner from title
   const companies = useMemo(() => {
     const set = new Map<string, string>();
     for (const e of externalOptions ?? []) {
@@ -616,8 +617,12 @@ function AssigneePicker({
       const n = linkedClient.name.trim();
       if (!set.has(n.toLowerCase())) set.set(n.toLowerCase(), n);
     }
+    if (parsedPartner) {
+      const n = parsedPartner.trim();
+      if (n && !set.has(n.toLowerCase())) set.set(n.toLowerCase(), n);
+    }
     return Array.from(set.values());
-  }, [externalOptions, linkedClient]);
+  }, [externalOptions, linkedClient, parsedPartner]);
 
   const filteredCompanies = companies.filter((c) =>
     !search.trim() || c.toLowerCase().includes(search.toLowerCase()),
