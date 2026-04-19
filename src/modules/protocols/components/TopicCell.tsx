@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEventTopicTags, useCreateEventTopic } from "@/hooks/useEventTopicTags";
-import { Plus, Tag as TagIcon, X, Search } from "lucide-react";
+import { Plus, Tag as TagIcon, X, Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import type { Task } from "@/hooks/useTasks";
 
 type Props = {
@@ -22,7 +23,7 @@ export default function TopicCell({ task, compact }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { topicTags } = useEventTopicTags();
+  const { topicTags, categoryId } = useEventTopicTags();
   const createTopic = useCreateEventTopic();
 
   const topicTagIds = useMemo(() => new Set(topicTags.map((t) => t.id)), [topicTags]);
@@ -67,8 +68,24 @@ export default function TopicCell({ task, compact }: Props) {
   };
 
   const handleCreateAndAssign = async () => {
-    const created = await createTopic.mutateAsync(search.trim());
-    if (created?.id) await setTopic(created.id);
+    if (!categoryId) {
+      toast({
+        title: "Не удалось создать тему",
+        description: "Системная категория «Тема» не найдена для вашего профиля. Обратитесь к администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const created = await createTopic.mutateAsync(search.trim());
+      if (created?.id) await setTopic(created.id);
+    } catch (e: any) {
+      toast({
+        title: "Не удалось создать тему",
+        description: e?.message ?? "Неизвестная ошибка",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -156,9 +173,14 @@ export default function TopicCell({ task, compact }: Props) {
           {search.trim() && !exactMatch && (
             <button
               onClick={handleCreateAndAssign}
-              className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-xs text-foreground hover:bg-muted"
+              disabled={createTopic.isPending}
+              className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-xs text-foreground hover:bg-muted disabled:opacity-50"
             >
-              <Plus className="h-3 w-3" />
+              {createTopic.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Plus className="h-3 w-3" />
+              )}
               Создать тему «{search.trim()}»
             </button>
           )}
