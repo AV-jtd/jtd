@@ -233,7 +233,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     update.mutate({ protocol_meta: { ...meta, external_attendees: next } });
 
   const [newExternalName, setNewExternalName] = useState("");
-  const addExternal = () => {
+  const addExternal = async () => {
     const name = newExternalName.trim();
     if (!name) return;
     if (externals.some(e => e.name.trim().toLowerCase() === name.toLowerCase())) {
@@ -242,6 +242,19 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     }
     updateExternals([...externals, { name }]);
     setNewExternalName("");
+
+    // Сохраняем в карточку CRM-клиента: если у привязанного клиента ещё нет contact_name,
+    // записываем туда имя нового участника (чтобы оно сохранилось «на будущее»).
+    const client = meta.client_id ? clients.find(c => c.id === meta.client_id) : null;
+    if (client && !client.contact_name?.trim()) {
+      const { error } = await supabase
+        .from("clients")
+        .update({ contact_name: name })
+        .eq("id", client.id);
+      if (!error) {
+        qc.invalidateQueries({ queryKey: ["clients"] });
+      }
+    }
   };
   const removeExternal = (idx: number) => {
     updateExternals(externals.filter((_, i) => i !== idx));
