@@ -654,9 +654,9 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                   </td>
                                 )}
                                 <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
-                                  <div className="font-medium text-neutral-900">{t.title}</div>
+                                  <div className="text-sm font-medium text-neutral-900 leading-snug">{t.title}</div>
                                   {desc && (
-                                    <div className="mt-0.5 text-[10px] leading-[1.45] text-neutral-600 whitespace-pre-wrap">
+                                    <div className="mt-1 text-xs leading-[1.4] text-neutral-500 line-clamp-2 whitespace-pre-wrap" title={desc}>
                                       {desc}
                                     </div>
                                   )}
