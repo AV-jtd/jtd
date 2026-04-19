@@ -151,7 +151,12 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const handleCreate = () => {
     const title = newTitle.trim();
     if (!title) return;
-    addTask.mutate({ title, group_id: protocolId, is_draft: isProtocolDraft });
+    addTask.mutate({
+      title,
+      group_id: protocolId,
+      is_draft: isProtocolDraft,
+      client_id: linkedClientId ?? undefined,
+    } as any);
     setNewTitle("");
   };
 
@@ -319,6 +324,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     statuses={statuses}
                     allStatusTagIds={allStatusTagIds}
                     externalAttendees={externalAttendees}
+                    linkedClient={linkedClient ?? null}
                     expanded={expandedId === task.id}
                     onToggleExpand={() =>
                       setExpandedId((e) => (e === task.id ? null : task.id))
