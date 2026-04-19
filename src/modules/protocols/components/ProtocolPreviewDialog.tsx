@@ -112,7 +112,15 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
 
   // ---------- Sides toggle: показывать имена или только сторону ----------
   const [showSideOnly, setShowSideOnly] = useState(false);
-  const [groupByTopic, setGroupByTopic] = useState(false);
+  const [groupByTopic, setGroupByTopic] = useState(() => {
+    const topicIds = new Set<string>();
+    for (const t of tasks) {
+      const topic = getTaskTopic(t);
+      if (topic) topicIds.add(topic.id);
+      if (topicIds.size >= 2) return true;
+    }
+    return false;
+  });
 
   // Подгружаем organization для всех пользователей, упомянутых в задачах
   const [orgMap, setOrgMap] = useState<Record<string, string | null>>({});
