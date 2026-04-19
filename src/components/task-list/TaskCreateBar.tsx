@@ -272,6 +272,27 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
         </div>
       </div>
 
+      {/* Inline-парсинг chip-bar */}
+      {hasInlineMeta && (
+        <div className="px-3 pb-2.5 -mt-1 flex items-center gap-1.5 flex-wrap">
+          <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
+          {parsed.tokens.map((tok, i) => (
+            <span
+              key={i}
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                tok.kind === "assignee" && "bg-primary/10 text-primary",
+                tok.kind === "deadline" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                tok.kind === "important" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                tok.kind === "tag" && "bg-muted text-muted-foreground"
+              )}
+            >
+              {tok.label}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* CRM client name input */}
       {taskType === "crm" && (
         <div className="px-3 pb-3 pt-0">
