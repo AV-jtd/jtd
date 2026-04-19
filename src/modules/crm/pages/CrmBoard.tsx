@@ -316,9 +316,10 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         if (missingIds.length > 0) {
           const { data: extraTasks } = await supabase
             .from("tasks")
-            .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, source_protocol_id, task_tags(tag_id)")
+            .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, source_protocol_id, protocol_scope, task_tags(tag_id)")
             .in("id", missingIds)
-            .eq("is_completed", false);
+            .eq("is_completed", false)
+            .neq("protocol_scope", "internal");
           taggedTasks = extraTasks || [];
         }
       }
