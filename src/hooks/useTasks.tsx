@@ -697,7 +697,19 @@ export function useTaskMutations() {
   // ========== TASKS ==========
 
   const addTask = useMutation({
-    mutationFn: async (task: { title: string; group_id?: string | null; deadline?: string | null; assigned_to?: string | null; task_type?: string; client_name?: string; is_draft?: boolean }) => {
+    mutationFn: async (task: {
+      title: string;
+      group_id?: string | null;
+      deadline?: string | null;
+      assigned_to?: string | null;
+      task_type?: string;
+      client_name?: string;
+      is_draft?: boolean;
+      // Protocol-specific fields (for internal tasks created from a protocol)
+      protocol_scope?: "external" | "internal";
+      status_meta?: Record<string, any>;
+      source_protocol_id?: string | null;
+    }) => {
       const taskType = task.task_type || 'standard';
       let clientId: string | null = null;
       let resolvedGroupId = task.group_id || null;
@@ -782,6 +794,10 @@ export function useTaskMutations() {
         client_id: clientId,
         start_at: now,
         is_draft: task.is_draft ?? false,
+        // Protocol fields — propagate so internal tasks stay isolated
+        protocol_scope: task.protocol_scope ?? "external",
+        status_meta: task.status_meta ?? {},
+        source_protocol_id: task.source_protocol_id ?? null,
       } as any).select().single();
       if (error) throw error;
 
@@ -885,12 +901,12 @@ export function useTaskMutations() {
         approval_status: null,
         closure_result: null,
         closure_attachments: [],
-        source_protocol_id: null,
-        is_draft: false,
+        source_protocol_id: task.source_protocol_id ?? null,
+        is_draft: task.is_draft ?? false,
         external_ref: null,
         external_assignee: null,
-        status_meta: {},
-        protocol_scope: 'external',
+        status_meta: task.status_meta ?? {},
+        protocol_scope: task.protocol_scope ?? 'external',
         subtasks: [],
         task_tags: [],
       };
