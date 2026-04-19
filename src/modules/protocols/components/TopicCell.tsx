@@ -141,14 +141,22 @@ export default function TopicCell({ task, compact }: Props) {
               ? "font-medium text-foreground hover:bg-muted"
               : "text-muted-foreground/60 italic hover:text-foreground hover:bg-muted",
           )}
-          title={currentTopic?.name ?? "Назначить тему"}
+          title={
+            currentTopicProject
+              ? `${currentTopic?.name} • Проект`
+              : currentTopic?.name ?? "Назначить тему"
+          }
         >
           {currentTopic ? (
             <>
-              <span
-                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: currentTopic.color ?? "hsl(var(--primary))" }}
-              />
+              {currentTopicProject ? (
+                <Folder className="h-3 w-3 shrink-0 text-primary" />
+              ) : (
+                <span
+                  className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: currentTopic.color ?? "hsl(var(--primary))" }}
+                />
+              )}
               <span className="truncate">{currentTopic.name}</span>
             </>
           ) : (
