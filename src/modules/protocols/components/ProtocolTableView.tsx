@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useProtocolStatuses, type ProtocolStatusTag } from "@/hooks/useProtocolStatuses";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { useSetTaskStatus } from "@/hooks/useSetTaskStatus";
+import TopicCell from "@/modules/protocols/components/TopicCell";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
@@ -96,6 +98,14 @@ export default function ProtocolTableView({ protocolId }: Props) {
   // ---------- Column filters ----------
   const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set());
   const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
+
+  // ---------- Group by topic ----------
+  const [groupByTopic, setGroupByTopic] = useState(false);
+  const { topicTags } = useEventTopicTags();
+  const getTaskTopic = (t: Task) => {
+    const ids = (t.task_tags ?? []).map((tt) => tt.tag_id);
+    return topicTags.find((tag) => ids.includes(tag.id)) ?? null;
+  };
 
   // ---------- Sort ----------
   const [sortKey, setSortKey] = useState<SortKey>("index");
@@ -299,24 +309,41 @@ export default function ProtocolTableView({ protocolId }: Props) {
         />
       </div>
 
-      {/* Active column filter chips */}
-      {(assigneeFilter.size > 0 || projectFilter.size > 0) && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Фильтры:</span>
-          {assigneeFilter.size > 0 && (
-            <FilterChip
-              label={`Ответственный: ${assigneeFilter.size}`}
-              onClear={() => setAssigneeFilter(new Set())}
-            />
+      {/* Active column filter chips + group toggle */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {(assigneeFilter.size > 0 || projectFilter.size > 0) && (
+          <>
+            <span className="text-muted-foreground">Фильтры:</span>
+            {assigneeFilter.size > 0 && (
+              <FilterChip
+                label={`Ответственный: ${assigneeFilter.size}`}
+                onClear={() => setAssigneeFilter(new Set())}
+              />
+            )}
+            {projectFilter.size > 0 && (
+              <FilterChip
+                label={`Проект: ${projectFilter.size}`}
+                onClear={() => setProjectFilter(new Set())}
+              />
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setGroupByTopic((v) => !v)}
+          className={cn(
+            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+            groupByTopic
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted",
           )}
-          {projectFilter.size > 0 && (
-            <FilterChip
-              label={`Проект: ${projectFilter.size}`}
-              onClear={() => setProjectFilter(new Set())}
-            />
-          )}
-        </div>
-      )}
+          title="Сгруппировать строки по теме обсуждения"
+        >
+          <FolderOpen className="h-3 w-3" />
+          {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
+        </button>
+      </div>
+
 
       {/* Desktop table */}
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
@@ -359,6 +386,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     onClick={() => toggleSort("deadline")}
                   />
                 </Th>
+                <Th className="w-32">
+                  <span className="text-muted-foreground">Тема</span>
+                </Th>
                 <Th className="w-44 text-center">
                   <SortHeader
                     label="Статус"
@@ -382,12 +412,86 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 <tbody>
                   {sorted.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
                         {tasks.length === 0
                           ? "Пока пусто. Добавьте первую строку протокола ниже."
                           : "Под текущие фильтры строк нет."}
                       </td>
                     </tr>
+                  ) : groupByTopic ? (
+                    (() => {
+                      // Группировка по теме (event_topic-тег) с сохранением порядка появления
+                      const buckets = new Map<string, { topic: typeof topicTags[number] | null; rows: Task[] }>();
+                      for (const t of sorted) {
+                        const topic = getTaskTopic(t);
+                        const key = topic?.id ?? "__no_topic__";
+                        if (!buckets.has(key)) buckets.set(key, { topic, rows: [] });
+                        buckets.get(key)!.rows.push(t);
+                      }
+                      let runningIndex = 0;
+                      const sections: JSX.Element[] = [];
+                      for (const [key, { topic, rows }] of buckets) {
+                        sections.push(
+                          <tr key={`hdr-${key}`} className="bg-muted/30">
+                            <td colSpan={8} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <span className="inline-flex items-center gap-2">
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: topic?.color ?? "hsl(var(--muted-foreground))" }}
+                                />
+                                {topic?.name ?? "Без темы"}
+                                <span className="text-muted-foreground/60">· {rows.length}</span>
+                              </span>
+                            </td>
+                          </tr>,
+                        );
+                        for (const task of rows) {
+                          runningIndex += 1;
+                          const idx = runningIndex;
+                          sections.push(
+                            <ProtocolRow
+                              key={task.id}
+                              task={task}
+                              index={idx}
+                              users={users}
+                              statuses={statuses}
+                              allStatusTagIds={allStatusTagIds}
+                              externalAttendees={externalAttendees}
+                              linkedClient={linkedClient ?? null}
+                              parsedPartner={parsedSides?.partner ?? null}
+                              sortable={false}
+                              expanded={expandedId === task.id}
+                              onToggleExpand={() =>
+                                setExpandedId((e) => (e === task.id ? null : task.id))
+                              }
+                              onToggleComplete={() =>
+                                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
+                              }
+                              onChangeStatus={(tag) => {
+                                setStatus.mutate({
+                                  taskId: task.id,
+                                  newTagId: tag?.id ?? null,
+                                  newTagName: tag?.name ?? null,
+                                  allStatusTagIds,
+                                  currentStatusMeta: (task.status_meta as any) ?? null,
+                                });
+                                const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                                if (isFinal && !task.is_completed) {
+                                  toggleTask.mutate({ id: task.id, is_completed: true });
+                                } else if (!isFinal && task.is_completed && tag) {
+                                  toggleTask.mutate({ id: task.id, is_completed: false });
+                                }
+                              }}
+                              onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
+                              onDelete={() => {
+                                if (confirm("Удалить строку протокола?")) deleteTask.mutate(task.id);
+                              }}
+                            />,
+                          );
+                        }
+                      }
+                      return sections;
+                    })()
                   ) : (
                     sorted.map((task, idx) => (
                       <ProtocolRow
@@ -440,7 +544,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <Plus className="mx-auto h-3.5 w-3.5" />
                 </td>
                 <td />
-                <td className="px-3 py-2" colSpan={5}>
+                <td className="px-3 py-2" colSpan={6}>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
@@ -702,6 +806,9 @@ function ProtocolRow({
             onChange={(v) => onUpdate({ deadline: v })}
           />
         </td>
+        <td className="px-3 py-2">
+          <TopicCell task={task} compact />
+        </td>
         <td className="px-3 py-2 text-center">
           <StatusPicker
             statuses={statuses}
@@ -732,7 +839,7 @@ function ProtocolRow({
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
