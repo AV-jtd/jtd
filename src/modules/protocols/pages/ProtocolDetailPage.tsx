@@ -74,39 +74,35 @@ export default function ProtocolDetailPage() {
             />
 
             {isDraft && (
-              <div className="mb-5 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        Режим черновика — {draftTaskCount}{" "}
-                        {draftTaskCount === 1
-                          ? "задача"
-                          : draftTaskCount > 1 && draftTaskCount < 5
-                          ? "задачи"
-                          : "задач"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Отредактируйте задачи в таблице ниже. Исполнители ничего не видят и не получают уведомлений до публикации.
-                      </p>
-                    </div>
+              <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Sparkles className="h-3.5 w-3.5" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Удалить черновик
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
+                  <p className="truncate text-sm">
+                    <span className="font-semibold text-foreground">Черновик</span>
+                    <span className="text-muted-foreground"> — {draftTaskCount}{" "}
+                      {draftTaskCount === 1
+                        ? "задача"
+                        : draftTaskCount > 1 && draftTaskCount < 5
+                        ? "задачи"
+                        : "задач"}, исполнители не уведомлены
+                    </span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Удалить</span>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Удалить черновик протокола?</AlertDialogTitle>
                           <AlertDialogDescription>
