@@ -5,13 +5,24 @@ import { useAuth } from "./useAuth";
 import { useTags, useTagCategories } from "./useTasks";
 
 /**
- * Тег категории `event_topic` = «Тема вопроса» в протоколе.
- * Возвращает только теги пользователя из системной категории event_topic.
+ * Тег категории `event_topic` = «Тема» в протоколе.
+ * Важно: темы должны быть видны всем участникам протокола, а не только их создателю,
+ * поэтому возвращаем все доступные event_topic-теги, которые пользователь может читать.
  */
 export function useEventTopicTags() {
   const { user } = useAuth();
   const { data: tags = [] } = useTags();
   const { data: categories = [] } = useTagCategories();
+
+  const eventTopicCategoryIds = useMemo(
+    () =>
+      new Set(
+        categories
+          .filter((c: any) => c.system_key === "event_topic")
+          .map((c: any) => c.id),
+      ),
+    [categories],
+  );
 
   const categoryId = useMemo(
     () =>
@@ -22,11 +33,8 @@ export function useEventTopicTags() {
   );
 
   const topicTags = useMemo(
-    () =>
-      tags.filter(
-        (t) => t.category_id === categoryId && t.user_id === user?.id,
-      ),
-    [tags, categoryId, user?.id],
+    () => tags.filter((t) => !!t.category_id && eventTopicCategoryIds.has(t.category_id)),
+    [tags, eventTopicCategoryIds],
   );
 
   return { categoryId, topicTags };
@@ -34,18 +42,43 @@ export function useEventTopicTags() {
 
 /**
  * Создание новой темы (тега в категории event_topic).
+ * Если системная категория у пользователя ещё не создана, создаём её лениво.
  */
 export function useCreateEventTopic() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { categoryId } = useEventTopicTags();
 
   return useMutation({
     mutationFn: async (name: string): Promise<{ id: string; name: string } | null> => {
       const trimmed = name.trim();
-      if (!trimmed || !user || !categoryId) return null;
+      if (!trimmed || !user) return null;
 
-      // Проверка дублей (case-insensitive)
+      let { data: category } = await supabase
+        .from("tag_categories" as any)
+        .select("id")
+        .eq("system_key", "event_topic")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!category) {
+        const { data: createdCategory, error: categoryError } = await supabase
+          .from("tag_categories" as any)
+          .insert({
+            name: "Тема",
+            system_key: "event_topic",
+            is_system: true,
+            user_id: user.id,
+          })
+          .select("id")
+          .single();
+
+        if (categoryError) throw categoryError;
+        category = createdCategory;
+      }
+
+      const categoryId = category?.id;
+      if (!categoryId) throw new Error("Не удалось определить категорию «Тема»");
+
       const { data: existing } = await supabase
         .from("tags")
         .select("id, name")
@@ -61,7 +94,7 @@ export function useCreateEventTopic() {
           name: trimmed,
           category_id: categoryId,
           user_id: user.id,
-          color: "#10b981",
+          color: "hsl(var(--primary))",
         })
         .select("id, name")
         .single();
@@ -70,6 +103,7 @@ export function useCreateEventTopic() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tags"] });
+      qc.invalidateQueries({ queryKey: ["tag_categories"] });
     },
   });
 }
