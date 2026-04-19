@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { parseProtocolSides } from "@/lib/protocolSides";
 
 type Props = { protocolId: string };
 
@@ -37,6 +38,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
     (protocolMeta.external_attendees as any[]) ?? [];
   const linkedClientId: string | null = protocolMeta.client_id ?? null;
+  const parsedSides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
 
   // Linked CRM client (for contact pickup in assignee picker)
   const { data: linkedClient } = useQuery({
@@ -325,6 +327,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     allStatusTagIds={allStatusTagIds}
                     externalAttendees={externalAttendees}
                     linkedClient={linkedClient ?? null}
+                    parsedPartner={parsedSides?.partner ?? null}
                     expanded={expandedId === task.id}
                     onToggleExpand={() =>
                       setExpandedId((e) => (e === task.id ? null : task.id))
@@ -390,7 +393,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
 type LinkedClient = { id: string; name: string; contact_name: string | null; email: string | null; phone: string | null } | null;
 
 function ProtocolRow({
-  task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient,
+  task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
   expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
@@ -400,6 +403,7 @@ function ProtocolRow({
   allStatusTagIds: string[];
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
+  parsedPartner: string | null;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
@@ -493,6 +497,7 @@ function ProtocolRow({
             externalValue={externalRef}
             externalOptions={externalAttendees}
             linkedClient={linkedClient}
+            parsedPartner={parsedPartner}
             onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
             onChangeExternal={(ext) =>
               onUpdate({ assigned_to: null, external_assignee: (ext as any) })
@@ -578,13 +583,14 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, externalValue, externalOptions, linkedClient, onChange, onChangeExternal,
+  users, value, externalValue, externalOptions, linkedClient, parsedPartner, onChange, onChangeExternal,
 }: {
   users: Profile[];
   value: string | null;
   externalValue?: { name?: string; organization?: string; role?: string } | null;
   externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient?: LinkedClient;
+  parsedPartner?: string | null;
   onChange: (uid: string | null) => void;
   onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
 }) {
@@ -600,7 +606,7 @@ function AssigneePicker({
     e.organization?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  // Unique companies extracted from external attendees' organizations + linked CRM client
+  // Unique companies extracted from external attendees' organizations + linked CRM client + parsed partner from title
   const companies = useMemo(() => {
     const set = new Map<string, string>();
     for (const e of externalOptions ?? []) {
@@ -611,8 +617,12 @@ function AssigneePicker({
       const n = linkedClient.name.trim();
       if (!set.has(n.toLowerCase())) set.set(n.toLowerCase(), n);
     }
+    if (parsedPartner) {
+      const n = parsedPartner.trim();
+      if (n && !set.has(n.toLowerCase())) set.set(n.toLowerCase(), n);
+    }
     return Array.from(set.values());
-  }, [externalOptions, linkedClient]);
+  }, [externalOptions, linkedClient, parsedPartner]);
 
   const filteredCompanies = companies.filter((c) =>
     !search.trim() || c.toLowerCase().includes(search.toLowerCase()),

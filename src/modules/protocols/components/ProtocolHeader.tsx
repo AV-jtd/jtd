@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Calendar as CalendarIcon,
   Image as ImageIcon,
@@ -22,12 +33,14 @@ import {
   Building2,
   Link2,
   Unlink,
+  Sparkles,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/initials";
+import { parseProtocolSides, namesEqual } from "@/lib/protocolSides";
 
 type Format = "online" | "offline" | "hybrid";
 
@@ -190,21 +203,34 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     [meta.client_id, clients],
   );
 
-  // Auto-match: if no client linked, try to match by external attendee organization name
+  // Parse sides from protocol title: "Лента x Дороничи" → partner=Лента, ours=Дороничи
+  const sides = useMemo(() => parseProtocolSides(protocol.name), [protocol.name]);
+
+  // Auto-match by parsed partner OR by external attendee organization
   useEffect(() => {
-    if (meta.client_id || clients.length === 0 || externals.length === 0) return;
-    const orgs = new Set(
-      externals
-        .map(e => e.organization?.trim().toLowerCase())
-        .filter((s): s is string => !!s),
-    );
-    if (orgs.size === 0) return;
-    const match = clients.find(c => orgs.has(c.name.trim().toLowerCase()));
-    if (match) {
-      update.mutate({ protocol_meta: { ...meta, client_id: match.id } });
+    if (meta.client_id || clients.length === 0) return;
+    // Priority 1: parsed partner from title
+    if (sides?.partner) {
+      const m = clients.find(c => namesEqual(c.name, sides.partner));
+      if (m) {
+        update.mutate({ protocol_meta: { ...meta, client_id: m.id } });
+        return;
+      }
+    }
+    // Priority 2: external attendees' organizations
+    if (externals.length > 0) {
+      const orgs = new Set(
+        externals
+          .map(e => e.organization?.trim().toLowerCase())
+          .filter((s): s is string => !!s),
+      );
+      if (orgs.size > 0) {
+        const m = clients.find(c => orgs.has(c.name.trim().toLowerCase()));
+        if (m) update.mutate({ protocol_meta: { ...meta, client_id: m.id } });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externals.map(e => e.organization).join("|"), clients.length, meta.client_id]);
+  }, [sides?.partner, externals.map(e => e.organization).join("|"), clients.length, meta.client_id]);
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -219,6 +245,50 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     setClientPickerOpen(false);
     setClientSearch("");
   };
+
+  // ---- Create CRM client dialog (when partner from title is not found) ----
+  const { user } = useAuth();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+
+  const partnerNotInCrm = !!sides?.partner
+    && clients.length > 0
+    && !meta.client_id
+    && !clients.some(c => namesEqual(c.name, sides.partner));
+
+  const openCreateDialog = () => {
+    setNewClientName(sides?.partner ?? "");
+    setCreateDialogOpen(true);
+  };
+
+  const createClientFromTitle = async () => {
+    const name = newClientName.trim();
+    if (!name || !user) return;
+    setCreating(true);
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .insert({ name, user_id: user.id })
+        .select("id")
+        .single();
+      if (error) throw error;
+      // Link to protocol
+      await supabase
+        .from("task_groups")
+        .update({ protocol_meta: { ...meta, client_id: data.id } as any })
+        .eq("id", protocol.id);
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      toast.success(`Клиент «${name}» создан и привязан`);
+      setCreateDialogOpen(false);
+    } catch (e) {
+      toast.error("Не удалось создать клиента: " + (e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
 
   return (
     <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -425,6 +495,33 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
+            {/* Parsed sides chip */}
+            {sides && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]",
+                  partnerNotInCrm
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    : "border-border bg-muted/40 text-muted-foreground",
+                )}
+                title="Стороны определены из названия встречи"
+              >
+                <Sparkles className="h-3 w-3 opacity-70" />
+                <span className="font-medium text-foreground">{sides.partner}</span>
+                <span className="opacity-60">×</span>
+                <span>{sides.ours}</span>
+                {partnerNotInCrm && (
+                  <button
+                    type="button"
+                    onClick={openCreateDialog}
+                    className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                  >
+                    + В CRM
+                  </button>
+                )}
+              </span>
+            )}
+
             <span className="text-muted-foreground/60">
               <FmtIcon className="mr-1 inline h-3 w-3" />
               {FORMAT_LABEL[fmt].label}
@@ -432,6 +529,47 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
         </div>
       </div>
+
+      {/* Create CRM client dialog */}
+      <AlertDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Создать клиента CRM</AlertDialogTitle>
+            <AlertDialogDescription>
+              Партнёр <span className="font-medium text-foreground">«{sides?.partner}»</span> не найден в CRM.
+              Создать карточку клиента и привязать к этому протоколу?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Название клиента
+            </label>
+            <Input
+              autoFocus
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newClientName.trim()) {
+                  e.preventDefault();
+                  createClientFromTitle();
+                }
+              }}
+              placeholder="Например: Лента"
+              className="h-9"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={creating}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); createClientFromTitle(); }}
+              disabled={creating || !newClientName.trim()}
+            >
+              {creating ? "Создаю…" : "Создать и привязать"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Attendees */}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
