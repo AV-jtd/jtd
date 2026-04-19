@@ -32,7 +32,8 @@ type Props = {
  *  - внутри раскрытой внешней задачи (compact) — мини-триаж
  */
 export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle }: Props) {
-  const { data: allTasks = [] } = useTasks();
+  // Pass protocolId so draft (internal) tasks are visible inside the protocol page.
+  const { data: allTasks = [] } = useTasks(protocolId);
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();

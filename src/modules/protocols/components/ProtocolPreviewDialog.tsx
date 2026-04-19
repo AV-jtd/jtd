@@ -31,7 +31,8 @@ const A4_PADDING = 48; // ~12.7mm — компактно, максимум ме�
 
 export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }: Props) {
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
+  // Pass protocolId so draft tasks are visible in preview before publish.
+  const { data: allTasks = [] } = useTasks(protocolId);
   const { data: users = [] } = useAvailableUsers();
 
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
