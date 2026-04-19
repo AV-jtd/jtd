@@ -1,7 +1,7 @@
-import { memo, type RefObject, type ReactNode, useCallback, useState } from "react";
+import { memo, type RefObject, type ReactNode, useCallback, useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Briefcase, CalendarIcon, Plus, UserRound } from "lucide-react";
+import { Briefcase, CalendarIcon, Plus, UserRound, Sparkles } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/hooks/useTasks";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 
 interface TaskCreateBarProps {
   inputRef: RefObject<HTMLInputElement>;
