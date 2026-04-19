@@ -190,4 +190,30 @@
 
   .todo-glow {
   }
+
+  /* Dashboard presentation mode — bigger fonts for room reviews */
+  .dashboard-present-mode {
+    font-size: 1.125rem;
+  }
+  .dashboard-present-mode .text-xs {
+    font-size: 0.95rem;
+    line-height: 1.4rem;
+  }
+  .dashboard-present-mode .text-\[11px\],
+  .dashboard-present-mode .text-\[10px\] {
+    font-size: 0.85rem;
+    line-height: 1.25rem;
+  }
+  .dashboard-present-mode .text-sm {
+    font-size: 1.05rem;
+    line-height: 1.5rem;
+  }
+  .dashboard-present-mode .text-base {
+    font-size: 1.2rem;
+  }
+  .dashboard-present-mode h1,
+  .dashboard-present-mode h2,
+  .dashboard-present-mode h3 {
+    font-size: 1.5rem;
+  }
 }
