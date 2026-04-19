@@ -361,6 +361,8 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
         deadline: task.deadline ? new Date(task.deadline + "T23:59:59").toISOString() : null,
         group_id: groupId,
         assigned_to: assignee,
+        is_important: task.is_important || false,
+        priority: task.priority ?? null,
         task_type: "standard",
       });
       
