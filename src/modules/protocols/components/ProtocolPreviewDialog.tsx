@@ -323,6 +323,34 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
             </TabsList>
 
             <div className="flex items-center gap-2">
+              {/* Toggle: Имена / Стороны */}
+              <div className="flex items-center rounded-md border border-border bg-background p-0.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setShowSideOnly(false)}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    !showSideOnly
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Показывать имена ответственных"
+                >
+                  Имена
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSideOnly(true)}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    showSideOnly
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Показывать только сторону (Дороничи / Лента)"
+                >
+                  Стороны
+                </button>
+              </div>
+
               {tab === "document" ? (
                 <Button size="sm" onClick={handleDownloadPdf} disabled={busyPdf} className="gap-1.5">
                   {busyPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
