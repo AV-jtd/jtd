@@ -63,6 +63,7 @@ interface CrmClient {
   contact_name: string | null;
   email: string | null;
   phone: string | null;
+  logo_url?: string | null;
 }
 
 interface Props {
