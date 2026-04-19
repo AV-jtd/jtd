@@ -172,6 +172,29 @@ export default function ProtocolTableView({ protocolId }: Props) {
   // ---------- Expanded row ----------
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // ---------- Mobile editor sheet ----------
+  const isMobile = useIsMobile();
+  const [mobileSheetTaskId, setMobileSheetTaskId] = useState<string | null>(null);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const mobileSheetTask = useMemo(
+    () => allTasks.find((t) => t.id === mobileSheetTaskId) ?? null,
+    [allTasks, mobileSheetTaskId],
+  );
+
+  const handleMobileCreate = () => {
+    const title = createTitle.trim();
+    if (!title) return;
+    addTask.mutate({
+      title,
+      group_id: protocolId,
+      is_draft: isProtocolDraft,
+      client_id: linkedClientId ?? undefined,
+    } as any);
+    setCreateTitle("");
+    setCreateSheetOpen(false);
+  };
+
   // ---------- Filter option lists ----------
   const assigneeOptions = useMemo(() => {
     const seen = new Set<string>();
