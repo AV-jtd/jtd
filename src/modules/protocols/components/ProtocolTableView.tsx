@@ -664,24 +664,11 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
   sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
-  topicTags = [],
 }: {
   task: Task;
-  index: number;
-  users: Profile[];
-  statuses: ProtocolStatusTag[];
-  allStatusTagIds: string[];
-  externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
-  linkedClient: LinkedClient;
-  parsedPartner: string | null;
-  sortable: boolean;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  onToggleComplete: () => void;
-  onChangeStatus: (tag: ProtocolStatusTag | null) => void;
+...
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
-  topicTags?: Array<{ id: string; name: string }>;
 }) {
   const overdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
   const drift =
