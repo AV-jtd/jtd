@@ -252,6 +252,23 @@ function TaskFiltersBar({
             </div>
           )}
 
+          {/* Dates */}
+          <div className="p-2 border-b border-border">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Даты</p>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "no_dates" ? null : "no_dates"))}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
+                priorityFilter === "no_dates"
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-foreground hover:bg-muted"
+              )}
+            >
+              <CalendarX className="h-3.5 w-3.5" />
+              Без дат
+            </button>
+          </div>
+
           {/* Pending approval */}
           <div className="p-2">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Статус</p>
