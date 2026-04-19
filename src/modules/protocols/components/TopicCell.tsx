@@ -26,7 +26,17 @@ export default function TopicCell({ task, compact }: Props) {
   const [search, setSearch] = useState("");
   const assignInFlightRef = useRef<string | null>(null);
   const { topicTags, categoryId } = useEventTopicTags();
+  const { data: taskGroups = [] } = useTaskGroups();
   const createTopic = useCreateEventTopic();
+
+  /** tagId → linked project (task_group) — для индикации «тема = проект». */
+  const tagToProject = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const g of taskGroups) {
+      if (g.linked_tag_id) map.set(g.linked_tag_id, { id: g.id, name: g.name });
+    }
+    return map;
+  }, [taskGroups]);
 
   const topicTagIds = useMemo(() => new Set(topicTags.map((t) => t.id)), [topicTags]);
   const taskTagIds = useMemo(
@@ -37,6 +47,7 @@ export default function TopicCell({ task, compact }: Props) {
     () => topicTags.find((t) => taskTagIds.has(t.id)) ?? null,
     [topicTags, taskTagIds],
   );
+  const currentTopicProject = currentTopic ? tagToProject.get(currentTopic.id) ?? null : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
