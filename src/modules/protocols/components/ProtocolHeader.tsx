@@ -954,11 +954,6 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   ?? sides?.partner
                   ?? <span className="text-muted-foreground/70">Партнёр</span>}
               </span>
-              {linkedClient && (
-                <span className="rounded bg-purple-500/15 px-1 py-px text-[9px] font-semibold uppercase text-purple-700 dark:text-purple-300">
-                  CRM
-                </span>
-              )}
             </div>
             {!linkedClient && (
               <div className="mt-0.5">
