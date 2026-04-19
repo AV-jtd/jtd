@@ -387,8 +387,10 @@ export default function ProtocolTableView({ protocolId }: Props) {
 
 /* ----------------------- Row ----------------------- */
 
+type LinkedClient = { id: string; name: string; contact_name: string | null; email: string | null; phone: string | null } | null;
+
 function ProtocolRow({
-  task, index, users, statuses, allStatusTagIds, externalAttendees,
+  task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient,
   expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
@@ -397,6 +399,7 @@ function ProtocolRow({
   statuses: ProtocolStatusTag[];
   allStatusTagIds: string[];
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
+  linkedClient: LinkedClient;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
@@ -489,6 +492,7 @@ function ProtocolRow({
             value={task.assigned_to}
             externalValue={externalRef}
             externalOptions={externalAttendees}
+            linkedClient={linkedClient}
             onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
             onChangeExternal={(ext) =>
               onUpdate({ assigned_to: null, external_assignee: (ext as any) })
