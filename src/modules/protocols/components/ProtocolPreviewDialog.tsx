@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -39,17 +39,23 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   // CRM client (for partner logo)
   const linkedClientId: string | null = meta.client_id ?? null;
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
-  useMemo(() => {
+  useEffect(() => {
     if (!linkedClientId) {
       setClientLogoUrl(null);
       return;
     }
+    let cancelled = false;
     supabase
       .from("clients")
       .select("logo_url")
       .eq("id", linkedClientId)
       .maybeSingle()
-      .then(({ data }) => setClientLogoUrl((data as any)?.logo_url ?? null));
+      .then(({ data }) => {
+        if (!cancelled) setClientLogoUrl((data as any)?.logo_url ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [linkedClientId]);
 
   const tasks = useMemo(
@@ -73,8 +79,8 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
 
   const userName = (id: string | null | undefined) => {
     if (!id) return "—";
-    const u = users.find((x: any) => x.id === id);
-    return u?.display_name || u?.username || u?.email || "—";
+    const u: any = users.find((x: any) => x.id === id);
+    return u?.display_name || u?.email || "—";
   };
 
   const meetingDateLabel = meta.meeting_date
