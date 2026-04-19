@@ -191,24 +191,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
   // ---- internal attendees ----
   const internalAttendees = profiles.filter(p => internalAttendeeIds.includes(p.id));
 
-  // ---- external attendees mgmt ----
+  // ---- external attendees (used for CRM auto-match by organization) ----
   const externals = meta.external_attendees ?? [];
-  const [addingExternal, setAddingExternal] = useState(false);
-  const [newExt, setNewExt] = useState<ExternalAttendee>({ name: "", organization: "", role: "" });
-
-  const addExternal = () => {
-    const name = newExt.name.trim();
-    if (!name) return;
-    const next = [...externals, { name, organization: newExt.organization?.trim() || undefined, role: newExt.role?.trim() || undefined }];
-    update.mutate({ protocol_meta: { ...meta, external_attendees: next } });
-    setNewExt({ name: "", organization: "", role: "" });
-    setAddingExternal(false);
-  };
-
-  const removeExternal = (idx: number) => {
-    const next = externals.filter((_, i) => i !== idx);
-    update.mutate({ protocol_meta: { ...meta, external_attendees: next } });
-  };
 
   // ---- meeting date / format ----
   const [dateOpen, setDateOpen] = useState(false);
