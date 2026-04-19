@@ -38,6 +38,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
     (protocolMeta.external_attendees as any[]) ?? [];
   const linkedClientId: string | null = protocolMeta.client_id ?? null;
+  const parsedSides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
 
   // Linked CRM client (for contact pickup in assignee picker)
   const { data: linkedClient } = useQuery({
