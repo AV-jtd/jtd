@@ -593,11 +593,12 @@ export default function ProtocolTableView({ protocolId }: Props) {
         )}
       </div>
 
-      {/* Mobile sticky FAB */}
+      {/* Mobile sticky FAB — respects iOS safe area */}
       <button
         type="button"
         onClick={() => setCreateSheetOpen(true)}
-        className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 md:hidden"
+        className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 md:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
         aria-label="Добавить строку протокола"
       >
         <Plus className="h-6 w-6" />
