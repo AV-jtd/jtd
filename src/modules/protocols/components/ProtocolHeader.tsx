@@ -234,11 +234,28 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
-  const filteredClients = clients.filter(c =>
+
+  // Дедуп клиентов в UI на случай старых дублей или клиентов с одинаковым именем у разных юзеров
+  const dedupedClients = useMemo(() => {
+    const seen = new Map<string, CrmClient>();
+    for (const c of clients) {
+      const key = c.name.trim().toLowerCase();
+      if (!seen.has(key)) seen.set(key, c);
+    }
+    return [...seen.values()];
+  }, [clients]);
+
+  const filteredClients = dedupedClients.filter(c =>
     !clientSearch.trim() ||
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
     c.contact_name?.toLowerCase().includes(clientSearch.toLowerCase()),
   );
+
+  const searchMatchesExisting = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return false;
+    return dedupedClients.some(c => c.name.trim().toLowerCase() === q);
+  }, [clientSearch, dedupedClients]);
 
   const linkClient = (id: string | null) => {
     update.mutate({ protocol_meta: { ...meta, client_id: id } });
@@ -246,42 +263,69 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     setClientSearch("");
   };
 
-  // ---- Create CRM client dialog (when partner from title is not found) ----
+  // ---- Create CRM client dialog (when partner from title is not found OR from picker "+ Создать") ----
   const { user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [autoLinkAfterCreate, setAutoLinkAfterCreate] = useState(true);
 
   const partnerNotInCrm = !!sides?.partner
     && clients.length > 0
     && !meta.client_id
     && !clients.some(c => namesEqual(c.name, sides.partner));
 
-  const openCreateDialog = () => {
-    setNewClientName(sides?.partner ?? "");
+  const openCreateDialog = (initialName: string, autoLink: boolean) => {
+    setNewClientName(initialName);
+    setAutoLinkAfterCreate(autoLink);
     setCreateDialogOpen(true);
   };
 
-  const createClientFromTitle = async () => {
+  const createClient = async () => {
     const name = newClientName.trim();
     if (!name || !user) return;
     setCreating(true);
     try {
+      // Проверка дублей до вставки (UI-friendly ошибка вместо unique-violation)
+      const existing = clients.find(c => namesEqual(c.name, name));
+      if (existing) {
+        if (autoLinkAfterCreate) {
+          await supabase
+            .from("task_groups")
+            .update({ protocol_meta: { ...meta, client_id: existing.id } as any })
+            .eq("id", protocol.id);
+          qc.invalidateQueries({ queryKey: ["task_groups"] });
+          toast.success(`Клиент «${name}» уже есть — привязан`);
+        } else {
+          toast.info(`Клиент «${name}» уже есть в CRM`);
+        }
+        setCreateDialogOpen(false);
+        setClientPickerOpen(false);
+        setClientSearch("");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("clients")
         .insert({ name, user_id: user.id })
         .select("id")
         .single();
       if (error) throw error;
-      // Link to protocol
-      await supabase
-        .from("task_groups")
-        .update({ protocol_meta: { ...meta, client_id: data.id } as any })
-        .eq("id", protocol.id);
+
+      if (autoLinkAfterCreate) {
+        await supabase
+          .from("task_groups")
+          .update({ protocol_meta: { ...meta, client_id: data.id } as any })
+          .eq("id", protocol.id);
+        qc.invalidateQueries({ queryKey: ["task_groups"] });
+        toast.success(`Клиент «${name}» создан и привязан`);
+      } else {
+        toast.success(`Клиент «${name}» добавлен в CRM`);
+      }
       qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      toast.success(`Клиент «${name}» создан и привязан`);
       setCreateDialogOpen(false);
+      setClientPickerOpen(false);
+      setClientSearch("");
     } catch (e) {
       toast.error("Не удалось создать клиента: " + (e as Error).message);
     } finally {
@@ -489,8 +533,28 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                     ))
                   )}
                 </div>
+                {/* + Создать клиента (по строке поиска или с пустым именем) */}
+                {clientSearch.trim() && !searchMatchesExisting ? (
+                  <button
+                    type="button"
+                    onClick={() => openCreateDialog(clientSearch.trim(), true)}
+                    className="mt-2 flex w-full items-center gap-1.5 rounded border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-xs text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Создать клиента «{clientSearch.trim()}»
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openCreateDialog("", false)}
+                    className="mt-2 flex w-full items-center gap-1.5 rounded border border-dashed border-border px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Добавить клиента в CRM
+                  </button>
+                )}
                 <div className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
-                  💡 Если в шапке указана организация совпадающая с CRM-клиентом, привязка происходит автоматически.
+                  💡 Шаги воронки появятся автоматически при перетаскивании карточки по этапам в CRM.
                 </div>
               </PopoverContent>
             </Popover>
@@ -513,7 +577,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 {partnerNotInCrm && (
                   <button
                     type="button"
-                    onClick={openCreateDialog}
+                    onClick={() => openCreateDialog(sides?.partner ?? "", true)}
                     className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
                   >
                     + В CRM
@@ -534,10 +598,14 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
       <AlertDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Создать клиента CRM</AlertDialogTitle>
+            <AlertDialogTitle>
+              {autoLinkAfterCreate ? "Создать клиента CRM" : "Новый клиент в CRM"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Партнёр <span className="font-medium text-foreground">«{sides?.partner}»</span> не найден в CRM.
-              Создать карточку клиента и привязать к этому протоколу?
+              {autoLinkAfterCreate
+                ? <>Партнёр <span className="font-medium text-foreground">«{newClientName || sides?.partner}»</span> не найден в CRM. Создать карточку и привязать к этому протоколу?</>
+                : <>Карточка появится в базе CRM. Шаги воронки <span className="font-medium text-foreground">не</span> создаются — они добавятся автоматически при перетаскивании по этапам.</>
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
@@ -551,7 +619,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newClientName.trim()) {
                   e.preventDefault();
-                  createClientFromTitle();
+                  createClient();
                 }
               }}
               placeholder="Например: Лента"
@@ -561,10 +629,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={creating}>Отмена</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); createClientFromTitle(); }}
+              onClick={(e) => { e.preventDefault(); createClient(); }}
               disabled={creating || !newClientName.trim()}
             >
-              {creating ? "Создаю…" : "Создать и привязать"}
+              {creating
+                ? "Создаю…"
+                : autoLinkAfterCreate ? "Создать и привязать" : "Создать"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
