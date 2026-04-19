@@ -370,54 +370,67 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 <Th className="w-12 text-center" />
               </tr>
             </thead>
-            <tbody>
-              {sorted.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                    {tasks.length === 0
-                      ? "Пока пусто. Добавьте первую строку протокола ниже."
-                      : "Под текущие фильтры строк нет."}
-                  </td>
-                </tr>
-              ) : (
-                sorted.map((task, idx) => (
-                  <ProtocolRow
-                    key={task.id}
-                    task={task}
-                    index={idx + 1}
-                    users={users}
-                    statuses={statuses}
-                    allStatusTagIds={allStatusTagIds}
-                    externalAttendees={externalAttendees}
-                    linkedClient={linkedClient ?? null}
-                    parsedPartner={parsedSides?.partner ?? null}
-                    expanded={expandedId === task.id}
-                    onToggleExpand={() =>
-                      setExpandedId((e) => (e === task.id ? null : task.id))
-                    }
-                    onToggleComplete={() =>
-                      toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
-                    }
-                    onChangeStatus={(tag) => {
-                      setStatus.mutate({
-                        taskId: task.id,
-                        newTagId: tag?.id ?? null,
-                        newTagName: tag?.name ?? null,
-                        allStatusTagIds,
-                        currentStatusMeta: (task.status_meta as any) ?? null,
-                      });
-                      const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
-                      if (isFinal && !task.is_completed) {
-                        toggleTask.mutate({ id: task.id, is_completed: true });
-                      } else if (!isFinal && task.is_completed && tag) {
-                        toggleTask.mutate({ id: task.id, is_completed: false });
-                      }
-                    }}
-                    onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
-                    onDelete={() => deleteTask.mutate(task.id)}
-                  />
-                ))
-              )}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sorted.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <tbody>
+                  {sorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                        {tasks.length === 0
+                          ? "Пока пусто. Добавьте первую строку протокола ниже."
+                          : "Под текущие фильтры строк нет."}
+                      </td>
+                    </tr>
+                  ) : (
+                    sorted.map((task, idx) => (
+                      <ProtocolRow
+                        key={task.id}
+                        task={task}
+                        index={idx + 1}
+                        users={users}
+                        statuses={statuses}
+                        allStatusTagIds={allStatusTagIds}
+                        externalAttendees={externalAttendees}
+                        linkedClient={linkedClient ?? null}
+                        parsedPartner={parsedSides?.partner ?? null}
+                        sortable={reorderEnabled}
+                        expanded={expandedId === task.id}
+                        onToggleExpand={() =>
+                          setExpandedId((e) => (e === task.id ? null : task.id))
+                        }
+                        onToggleComplete={() =>
+                          toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
+                        }
+                        onChangeStatus={(tag) => {
+                          setStatus.mutate({
+                            taskId: task.id,
+                            newTagId: tag?.id ?? null,
+                            newTagName: tag?.name ?? null,
+                            allStatusTagIds,
+                            currentStatusMeta: (task.status_meta as any) ?? null,
+                          });
+                          const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                          if (isFinal && !task.is_completed) {
+                            toggleTask.mutate({ id: task.id, is_completed: true });
+                          } else if (!isFinal && task.is_completed && tag) {
+                            toggleTask.mutate({ id: task.id, is_completed: false });
+                          }
+                        }}
+                        onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
+                        onDelete={() => {
+                          if (confirm("Удалить строку протокола?")) deleteTask.mutate(task.id);
+                        }}
+                      />
+                    ))
+                  )}
+
 
               {/* Inline add row */}
               <tr className="border-t border-border bg-muted/20">
