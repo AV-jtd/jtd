@@ -110,7 +110,17 @@ export default function TopicCell({ task, compact }: Props) {
       }
 
       const created = await createTopic.mutateAsync(search.trim());
-      if (created?.id) await setTopic(created.id);
+      if (created?.id) {
+        await setTopic(created.id);
+        if (created.linkedGroupId) {
+          toast({
+            title: "Тема привязана к проекту",
+            description: `«${created.name}» — это существующий проект, контекст подхватится автоматически.`,
+          });
+          // Refresh project caches so Folder icon appears immediately
+          qc.invalidateQueries({ queryKey: ["task_groups"] });
+        }
+      }
     } catch (e: any) {
       toast({
         title: "Не удалось создать тему",
