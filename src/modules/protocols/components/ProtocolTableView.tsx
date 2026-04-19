@@ -430,9 +430,11 @@ export default function ProtocolTableView({ protocolId }: Props) {
                       />
                     ))
                   )}
-
-
-              {/* Inline add row */}
+                </tbody>
+              </SortableContext>
+            </DndContext>
+            <tbody>
+              {/* Inline add row (not sortable) */}
               <tr className="border-t border-border bg-muted/20">
                 <td className="px-2 py-2 text-center text-muted-foreground">
                   <Plus className="mx-auto h-3.5 w-3.5" />
