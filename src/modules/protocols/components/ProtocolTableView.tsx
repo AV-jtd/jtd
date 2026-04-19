@@ -412,12 +412,86 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 <tbody>
                   {sorted.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
                         {tasks.length === 0
                           ? "Пока пусто. Добавьте первую строку протокола ниже."
                           : "Под текущие фильтры строк нет."}
                       </td>
                     </tr>
+                  ) : groupByTopic ? (
+                    (() => {
+                      // Группировка по теме (event_topic-тег) с сохранением порядка появления
+                      const buckets = new Map<string, { topic: typeof topicTags[number] | null; rows: Task[] }>();
+                      for (const t of sorted) {
+                        const topic = getTaskTopic(t);
+                        const key = topic?.id ?? "__no_topic__";
+                        if (!buckets.has(key)) buckets.set(key, { topic, rows: [] });
+                        buckets.get(key)!.rows.push(t);
+                      }
+                      let runningIndex = 0;
+                      const sections: JSX.Element[] = [];
+                      for (const [key, { topic, rows }] of buckets) {
+                        sections.push(
+                          <tr key={`hdr-${key}`} className="bg-muted/30">
+                            <td colSpan={8} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <span className="inline-flex items-center gap-2">
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: topic?.color ?? "hsl(var(--muted-foreground))" }}
+                                />
+                                {topic?.name ?? "Без темы"}
+                                <span className="text-muted-foreground/60">· {rows.length}</span>
+                              </span>
+                            </td>
+                          </tr>,
+                        );
+                        for (const task of rows) {
+                          runningIndex += 1;
+                          const idx = runningIndex;
+                          sections.push(
+                            <ProtocolRow
+                              key={task.id}
+                              task={task}
+                              index={idx}
+                              users={users}
+                              statuses={statuses}
+                              allStatusTagIds={allStatusTagIds}
+                              externalAttendees={externalAttendees}
+                              linkedClient={linkedClient ?? null}
+                              parsedPartner={parsedSides?.partner ?? null}
+                              sortable={false}
+                              expanded={expandedId === task.id}
+                              onToggleExpand={() =>
+                                setExpandedId((e) => (e === task.id ? null : task.id))
+                              }
+                              onToggleComplete={() =>
+                                toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
+                              }
+                              onChangeStatus={(tag) => {
+                                setStatus.mutate({
+                                  taskId: task.id,
+                                  newTagId: tag?.id ?? null,
+                                  newTagName: tag?.name ?? null,
+                                  allStatusTagIds,
+                                  currentStatusMeta: (task.status_meta as any) ?? null,
+                                });
+                                const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                                if (isFinal && !task.is_completed) {
+                                  toggleTask.mutate({ id: task.id, is_completed: true });
+                                } else if (!isFinal && task.is_completed && tag) {
+                                  toggleTask.mutate({ id: task.id, is_completed: false });
+                                }
+                              }}
+                              onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
+                              onDelete={() => {
+                                if (confirm("Удалить строку протокола?")) deleteTask.mutate(task.id);
+                              }}
+                            />,
+                          );
+                        }
+                      }
+                      return sections;
+                    })()
                   ) : (
                     sorted.map((task, idx) => (
                       <ProtocolRow
@@ -470,7 +544,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <Plus className="mx-auto h-3.5 w-3.5" />
                 </td>
                 <td />
-                <td className="px-3 py-2" colSpan={5}>
+                <td className="px-3 py-2" colSpan={6}>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
