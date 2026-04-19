@@ -17,6 +17,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseProtocolSides } from "@/lib/protocolSides";
 import ExternalRowInternalLayer from "@/modules/protocols/components/ExternalRowInternalLayer";
+import ProtocolMobileRow from "@/modules/protocols/components/ProtocolMobileRow";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import TaskItem from "@/components/TaskItem";
 
 type Props = { protocolId: string };
 
