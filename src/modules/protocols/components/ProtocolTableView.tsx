@@ -221,6 +221,30 @@ export default function ProtocolTableView({ protocolId }: Props) {
     return list;
   }, [tasks, users]);
 
+  // ---------- DnD reorder (only when sorted by index/position) ----------
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const reorderEnabled = sortKey === "index" || !sortDir;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex((t) => t.id === active.id);
+    const newIndex = sorted.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(sorted, oldIndex, newIndex);
+    // Persist new positions for all affected rows
+    next.forEach((t, idx) => {
+      const newPos = idx;
+      if (t.position !== newPos) {
+        updateTask.mutate({ id: t.id, position: newPos } as any);
+      }
+    });
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
