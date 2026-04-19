@@ -750,9 +750,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-foreground">
-              {sides?.ours ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+              {sides?.ours ?? "Дороничи"}
             </div>
-            <div className="mt-0.5 text-[10px] text-muted-foreground">Наша сторона</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              Наша сторона
+              {!sides && <span className="ml-1 opacity-60">· укажите в названии «Партнёр × Дороничи»</span>}
+            </div>
           </div>
         </div>
 
@@ -814,7 +817,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               <span className="truncate text-sm font-semibold text-foreground">
                 {linkedClient?.name
                   ?? sides?.partner
-                  ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+                  ?? <span className="text-muted-foreground/70">Партнёр</span>}
               </span>
               {linkedClient && (
                 <span className="rounded bg-purple-500/15 px-1 py-px text-[9px] font-semibold uppercase text-purple-700 dark:text-purple-300">
@@ -822,15 +825,19 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 </span>
               )}
             </div>
-            {!linkedClient && sides?.partner && (
-              <button
-                type="button"
-                onClick={() => openCreateDialog(sides.partner, true)}
-                className="mt-0.5 inline-flex items-center gap-1 rounded text-[10px] font-semibold text-primary hover:underline"
-              >
-                <Plus className="h-2.5 w-2.5" /> Добавить в CRM
-              </button>
-            )}
+            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span>Партнёр</span>
+              {!linkedClient && (
+                <button
+                  type="button"
+                  onClick={() => sides?.partner ? openCreateDialog(sides.partner, true) : setClientPickerOpen(true)}
+                  className="inline-flex items-center gap-1 rounded text-[10px] font-semibold text-primary hover:underline"
+                >
+                  <Plus className="h-2.5 w-2.5" />
+                  {sides?.partner ? `Добавить «${sides.partner}» в CRM` : "Привязать клиента"}
+                </button>
+              )}
+            </div>
             {linkedClient?.contact_name && (
               <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                 {linkedClient.contact_name}
