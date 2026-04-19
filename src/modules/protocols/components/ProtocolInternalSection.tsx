@@ -146,7 +146,7 @@ function InternalRow({
 }: {
   task: Task;
   users: Profile[];
-  groups: ReturnType<typeof useTaskGroups>["data"] extends infer T ? (T extends Array<infer U> ? U : never) : never[];
+  groups: any[];
   onToggle: () => void;
   onUpdate: (patch: Partial<Task>) => void;
   onDelete: () => void;
