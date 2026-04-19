@@ -189,6 +189,35 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     qc.invalidateQueries({ queryKey: ["clients"] });
   };
 
+  // ---- Our side logo upload (stored in protocol_meta.our_logo_url, per-protocol) ----
+  const ourLogoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingOurLogo, setUploadingOurLogo] = useState(false);
+  const ourLogoUrl = meta.our_logo_url ?? null;
+
+  const handleOurLogoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploadingOurLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${protocol.user_id}/${protocol.id}-our-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      await update.mutateAsync({ protocol_meta: { ...meta, our_logo_url: publicUrl } });
+      toast.success("Логотип нашей стороны обновлён");
+    } catch (e) {
+      toast.error("Ошибка загрузки: " + (e as Error).message);
+    } finally {
+      setUploadingOurLogo(false);
+    }
+  };
+
+  const removeOurLogo = () =>
+    update.mutate({ protocol_meta: { ...meta, our_logo_url: null } });
+
   // ---- external attendees (people from partner side, e.g. Лента) ----
   const externals = meta.external_attendees ?? [];
 
