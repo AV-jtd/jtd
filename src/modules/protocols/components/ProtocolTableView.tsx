@@ -41,7 +41,8 @@ type SortKey = "index" | "title" | "assignee" | "deadline" | "project" | "status
 type SortDir = "asc" | "desc" | null;
 
 export default function ProtocolTableView({ protocolId }: Props) {
-  const { data: allTasks = [], isLoading } = useTasks();
+  // Pass protocolId so draft (is_draft) tasks are visible inside the protocol — global lists still hide them.
+  const { data: allTasks = [], isLoading } = useTasks(protocolId);
   const { data: groups = [] } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
   const { data: statuses = [] } = useProtocolStatuses();
