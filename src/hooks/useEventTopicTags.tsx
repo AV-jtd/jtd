@@ -51,7 +51,16 @@ export function useEventTopicTags() {
     refetchOnReconnect: "always",
   });
 
-  return { categoryId, topicTags };
+  const normalizedTopicTags = useMemo(
+    () =>
+      topicTags.filter((tag: any) => {
+        if (tag.category_id && eventTopicCategoryIds.includes(tag.category_id)) return true;
+        return false;
+      }),
+    [topicTags, eventTopicCategoryIds],
+  );
+
+  return { categoryId, topicTags: normalizedTopicTags };
 }
 
 /**
