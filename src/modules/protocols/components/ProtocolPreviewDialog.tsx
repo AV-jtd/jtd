@@ -366,6 +366,22 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 </button>
               </div>
 
+              {/* Toggle: Группировка по теме (только для документа) */}
+              {tab === "document" && (
+                <button
+                  type="button"
+                  onClick={() => setGroupByTopic((v) => !v)}
+                  className={`px-2 py-1 rounded-md border text-[11px] transition-colors ${
+                    groupByTopic
+                      ? "border-primary/40 bg-primary/10 text-primary font-medium"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Сгруппировать задачи по теме"
+                >
+                  {groupByTopic ? "По теме ✓" : "По теме"}
+                </button>
+              )}
+
               {tab === "document" ? (
                 <Button size="sm" onClick={handleDownloadPdf} disabled={busyPdf} className="gap-1.5">
                   {busyPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
