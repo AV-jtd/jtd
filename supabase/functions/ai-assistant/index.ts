@@ -67,6 +67,8 @@ function applyQuickHintsToTask(task: any, hints: QuickHints | undefined) {
   if (hints.isImportant && task.is_important !== true) task.is_important = true;
   return task;
 }
+
+serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
