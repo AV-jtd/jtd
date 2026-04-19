@@ -577,12 +577,9 @@ function ProtocolRow({
               </button>
             </div>
 
-            {/* 🔴 Internal triage for this external row (own team only) */}
+            {/* 🔴 Internal layer attached to this external row */}
             <div className="mt-4">
-              <ProtocolInternalSection
-                protocolId={task.group_id!}
-                parentExternalTaskId={task.id}
-              />
+              <ExternalRowInternalLayer task={task} />
             </div>
           </td>
         </tr>
