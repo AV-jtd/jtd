@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import UserPicker from "@/components/UserPicker";
 import {
-  CheckCircle2, CalendarIcon, User, Link2, Expand,
+  CheckCircle2, CalendarIcon, User, Link2, Expand, FileText,
 } from "lucide-react";
 import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useTaskGroups } from "@/hooks/useTasks";
 import type { Task, Profile } from "./types";
 
 interface MatrixTaskRowProps {
