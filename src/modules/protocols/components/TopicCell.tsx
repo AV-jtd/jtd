@@ -68,8 +68,24 @@ export default function TopicCell({ task, compact }: Props) {
   };
 
   const handleCreateAndAssign = async () => {
-    const created = await createTopic.mutateAsync(search.trim());
-    if (created?.id) await setTopic(created.id);
+    if (!categoryId) {
+      toast({
+        title: "Не удалось создать тему",
+        description: "Системная категория «Тема» не найдена для вашего профиля. Обратитесь к администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const created = await createTopic.mutateAsync(search.trim());
+      if (created?.id) await setTopic(created.id);
+    } catch (e: any) {
+      toast({
+        title: "Не удалось создать тему",
+        description: e?.message ?? "Неизвестная ошибка",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
