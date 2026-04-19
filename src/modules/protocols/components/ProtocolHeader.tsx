@@ -263,42 +263,69 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     setClientSearch("");
   };
 
-  // ---- Create CRM client dialog (when partner from title is not found) ----
+  // ---- Create CRM client dialog (when partner from title is not found OR from picker "+ Создать") ----
   const { user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [autoLinkAfterCreate, setAutoLinkAfterCreate] = useState(true);
 
   const partnerNotInCrm = !!sides?.partner
     && clients.length > 0
     && !meta.client_id
     && !clients.some(c => namesEqual(c.name, sides.partner));
 
-  const openCreateDialog = () => {
-    setNewClientName(sides?.partner ?? "");
+  const openCreateDialog = (initialName: string, autoLink: boolean) => {
+    setNewClientName(initialName);
+    setAutoLinkAfterCreate(autoLink);
     setCreateDialogOpen(true);
   };
 
-  const createClientFromTitle = async () => {
+  const createClient = async () => {
     const name = newClientName.trim();
     if (!name || !user) return;
     setCreating(true);
     try {
+      // Проверка дублей до вставки (UI-friendly ошибка вместо unique-violation)
+      const existing = clients.find(c => namesEqual(c.name, name));
+      if (existing) {
+        if (autoLinkAfterCreate) {
+          await supabase
+            .from("task_groups")
+            .update({ protocol_meta: { ...meta, client_id: existing.id } as any })
+            .eq("id", protocol.id);
+          qc.invalidateQueries({ queryKey: ["task_groups"] });
+          toast.success(`Клиент «${name}» уже есть — привязан`);
+        } else {
+          toast.info(`Клиент «${name}» уже есть в CRM`);
+        }
+        setCreateDialogOpen(false);
+        setClientPickerOpen(false);
+        setClientSearch("");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("clients")
         .insert({ name, user_id: user.id })
         .select("id")
         .single();
       if (error) throw error;
-      // Link to protocol
-      await supabase
-        .from("task_groups")
-        .update({ protocol_meta: { ...meta, client_id: data.id } as any })
-        .eq("id", protocol.id);
+
+      if (autoLinkAfterCreate) {
+        await supabase
+          .from("task_groups")
+          .update({ protocol_meta: { ...meta, client_id: data.id } as any })
+          .eq("id", protocol.id);
+        qc.invalidateQueries({ queryKey: ["task_groups"] });
+        toast.success(`Клиент «${name}» создан и привязан`);
+      } else {
+        toast.success(`Клиент «${name}» добавлен в CRM`);
+      }
       qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      toast.success(`Клиент «${name}» создан и привязан`);
       setCreateDialogOpen(false);
+      setClientPickerOpen(false);
+      setClientSearch("");
     } catch (e) {
       toast.error("Не удалось создать клиента: " + (e as Error).message);
     } finally {
