@@ -99,6 +99,14 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const [assigneeFilter, setAssigneeFilter] = useState<Set<string>>(new Set());
   const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
 
+  // ---------- Group by topic ----------
+  const [groupByTopic, setGroupByTopic] = useState(false);
+  const { topicTags } = useEventTopicTags();
+  const getTaskTopic = (t: Task) => {
+    const ids = (t.task_tags ?? []).map((tt) => tt.tag_id);
+    return topicTags.find((tag) => ids.includes(tag.id)) ?? null;
+  };
+
   // ---------- Sort ----------
   const [sortKey, setSortKey] = useState<SortKey>("index");
   const [sortDir, setSortDir] = useState<SortDir>(null);
