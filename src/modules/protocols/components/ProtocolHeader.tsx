@@ -191,7 +191,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, name, contact_name, email, phone")
+        .select("id, name, contact_name, email, phone, logo_url")
         .order("name");
       if (error) throw error;
       return (data ?? []) as CrmClient[];
