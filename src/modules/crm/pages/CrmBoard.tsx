@@ -32,6 +32,8 @@ import {
   FileDown,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
+import { FileText } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -117,6 +119,7 @@ type CrmTask = {
   client_id: string | null;
   group_id: string | null;
   task_type: string;
+  source_protocol_id: string | null;
   task_tags?: { tag_id: string }[];
   subtasks: { id: string; title: string; is_completed: boolean; position: number; deadline: string | null; assigned_to: string | null }[];
   client?: CrmClient | null;
@@ -290,7 +293,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
 
       const { data: crmTasks, error } = await supabase
         .from("tasks")
-        .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, task_tags(tag_id)")
+        .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, source_protocol_id, task_tags(tag_id)")
         .or(orFilters)
         .eq("is_completed", false)
         .order("created_at", { ascending: false });
@@ -312,7 +315,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
         if (missingIds.length > 0) {
           const { data: extraTasks } = await supabase
             .from("tasks")
-            .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, task_tags(tag_id)")
+            .select("id, title, created_at, deadline, is_completed, is_important, assigned_to, client_id, group_id, task_type, source_protocol_id, task_tags(tag_id)")
             .in("id", missingIds)
             .eq("is_completed", false);
           taggedTasks = extraTasks || [];
