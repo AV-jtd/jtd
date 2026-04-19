@@ -1149,6 +1149,7 @@ export type Database = {
           parent_recurring_id: string | null
           position: number
           priority: number | null
+          protocol_scope: string
           recurrence: string | null
           recurrence_end_date: string | null
           requires_approval: boolean
@@ -1183,6 +1184,7 @@ export type Database = {
           parent_recurring_id?: string | null
           position?: number
           priority?: number | null
+          protocol_scope?: string
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
@@ -1217,6 +1219,7 @@ export type Database = {
           parent_recurring_id?: string | null
           position?: number
           priority?: number | null
+          protocol_scope?: string
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean

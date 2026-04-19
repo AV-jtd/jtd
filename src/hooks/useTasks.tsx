@@ -890,6 +890,7 @@ export function useTaskMutations() {
         external_ref: null,
         external_assignee: null,
         status_meta: {},
+        protocol_scope: 'external',
         subtasks: [],
         task_tags: [],
       };

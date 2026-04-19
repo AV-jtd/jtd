@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseProtocolSides } from "@/lib/protocolSides";
+import ProtocolInternalSection from "@/modules/protocols/components/ProtocolInternalSection";
 
 type Props = { protocolId: string };
 
@@ -57,7 +58,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
   });
 
   const tasks = useMemo(
-    () => allTasks.filter((t) => t.group_id === protocolId),
+    () => allTasks.filter(
+      (t) => t.group_id === protocolId && (t as any).protocol_scope !== "internal",
+    ),
     [allTasks, protocolId],
   );
 
@@ -572,6 +575,14 @@ function ProtocolRow({
               >
                 Удалить строку
               </button>
+            </div>
+
+            {/* 🔴 Internal triage for this external row (own team only) */}
+            <div className="mt-4">
+              <ProtocolInternalSection
+                protocolId={task.group_id!}
+                parentExternalTaskId={task.id}
+              />
             </div>
           </td>
         </tr>

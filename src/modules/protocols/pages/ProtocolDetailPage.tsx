@@ -6,6 +6,7 @@ import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
+import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -142,6 +143,12 @@ export default function ProtocolDetailPage() {
             )}
 
             <ProtocolTableView protocolId={protocol.id} />
+
+            {/* 🔴 Internal section (own team) + CRM report placeholder */}
+            <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <ProtocolInternalSection protocolId={protocol.id} />
+              <CrmReportPlaceholder />
+            </div>
           </>
         )}
       </div>
