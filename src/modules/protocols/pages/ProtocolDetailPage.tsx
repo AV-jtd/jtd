@@ -163,6 +163,14 @@ export default function ProtocolDetailPage() {
           </>
         )}
       </div>
+
+      {protocol && (
+        <ProtocolPreviewDialog
+          protocolId={protocol.id}
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+        />
+      )}
     </ModuleLayout>
   );
 }
