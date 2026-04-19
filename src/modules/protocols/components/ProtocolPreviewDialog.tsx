@@ -505,13 +505,15 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                     >
                       <colgroup>
                         <col style={{ width: 28 }} />
+                        <col style={{ width: 90 }} />
                         <col />
-                        <col style={{ width: 130 }} />
-                        <col style={{ width: 80 }} />
+                        <col style={{ width: 120 }} />
+                        <col style={{ width: 75 }} />
                       </colgroup>
                       <thead>
                         <tr className="bg-neutral-100 text-left text-neutral-700">
                           <th className="border border-neutral-300 px-2 py-1.5 text-center font-semibold">№</th>
+                          <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Тема</th>
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Решение / задача</th>
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Ответственный</th>
                           <th className="border border-neutral-300 px-2 py-1.5 font-semibold">Срок</th>
@@ -520,13 +522,23 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                       <tbody>
                         {tasks.map((t, i) => {
                           const resp = respLabel(t.assigned_to);
+                          const topic = getTaskTopic(t);
+                          const desc = (t.description ?? "").trim();
                           return (
                             <tr key={t.id} className={i % 2 === 1 ? "bg-neutral-50/60" : ""}>
                               <td className="border border-neutral-300 px-2 py-1.5 text-center text-neutral-500 align-top">
                                 {i + 1}
                               </td>
+                              <td className="border border-neutral-300 px-2 py-1.5 align-top break-words text-neutral-700">
+                                {topic ? topic.name : <span className="text-neutral-400">—</span>}
+                              </td>
                               <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
-                                {t.title}
+                                <div className="font-medium text-neutral-900">{t.title}</div>
+                                {desc && (
+                                  <div className="mt-0.5 text-[10px] leading-[1.45] text-neutral-600 whitespace-pre-wrap">
+                                    {desc}
+                                  </div>
+                                )}
                               </td>
                               <td className="border border-neutral-300 px-2 py-1.5 align-top break-words">
                                 {resp ?? <span className="text-neutral-400 italic">не назначен</span>}
