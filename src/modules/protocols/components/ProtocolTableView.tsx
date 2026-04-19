@@ -556,7 +556,7 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
-  expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
+  sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
@@ -566,6 +566,7 @@ function ProtocolRow({
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
   parsedPartner: string | null;
+  sortable: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
@@ -581,6 +582,16 @@ function ProtocolRow({
 
   const [editTitle, setEditTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(task.title);
+
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: task.id, disabled: !sortable });
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const taskTagIds = useMemo(
     () => new Set((task.task_tags ?? []).map((tt) => tt.tag_id)),
@@ -609,14 +620,31 @@ function ProtocolRow({
   return (
     <>
       <tr
+        ref={setNodeRef}
+        style={dragStyle}
         className={cn(
-          "border-b border-border/60 transition-colors hover:bg-muted/30",
+          "group/row border-b border-border/60 transition-colors hover:bg-muted/30",
           task.is_completed && "opacity-60",
           expanded && "bg-muted/40",
+          isDragging && "bg-muted/60",
         )}
       >
-        <td className="px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">
-          {index}
+        <td className="px-1 py-2 text-center text-xs tabular-nums text-muted-foreground">
+          <div className="flex items-center justify-center gap-0.5">
+            {sortable && (
+              <button
+                {...attributes}
+                {...listeners}
+                className="cursor-grab rounded p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-muted hover:text-foreground active:cursor-grabbing group-hover/row:opacity-100"
+                aria-label="Перетащить"
+                title="Перетащить для изменения порядка"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <span>{index}</span>
+          </div>
         </td>
         <td className="px-1 py-2">
           <button
@@ -682,14 +710,25 @@ function ProtocolRow({
             onChange={onChangeStatus}
           />
         </td>
-        <td className="px-2 py-2 text-center">
-          <Checkbox
-            checked={task.is_completed}
-            onCheckedChange={() => onToggleComplete()}
-            aria-label="Закрыто"
-          />
+        <td className="px-2 py-2">
+          <div className="flex items-center justify-center gap-1">
+            <Checkbox
+              checked={task.is_completed}
+              onCheckedChange={() => onToggleComplete()}
+              aria-label="Закрыто"
+            />
+            <button
+              onClick={onDelete}
+              className="rounded p-1 text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/row:opacity-100"
+              aria-label="Удалить строку"
+              title="Удалить строку протокола"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </td>
       </tr>
+
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
