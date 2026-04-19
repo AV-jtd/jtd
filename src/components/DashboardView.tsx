@@ -1814,6 +1814,48 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { addTask } = useTaskMutations();
   const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | "unassigned" | "no_deadline" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
+  const containerRef = useRef<HTMLElement>(null);
+  const [presentMode, setPresentMode] = useState<"off" | "browser" | "in-app">("off");
+
+  // Sync with browser fullscreen state (Esc key etc.)
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement && presentMode === "browser") {
+        setPresentMode("off");
+      }
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, [presentMode]);
+
+  // Esc to exit in-app mode
+  useEffect(() => {
+    if (presentMode !== "in-app") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPresentMode("off");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [presentMode]);
+
+  const enterBrowserFullscreen = async () => {
+    try {
+      await containerRef.current?.requestFullscreen();
+      setPresentMode("browser");
+    } catch {
+      // Fallback to in-app if denied
+      setPresentMode("in-app");
+    }
+  };
+
+  const enterInAppFullscreen = () => setPresentMode("in-app");
+
+  const exitFullscreen = async () => {
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch {}
+    }
+    setPresentMode("off");
+  };
 
   const { data: allParticipants = [] } = useQuery({
     queryKey: ["task_participants_all"],
