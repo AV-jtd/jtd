@@ -60,7 +60,7 @@ export function useCreateEventTopic() {
           .eq("system_key", "event_topic")
           .eq("user_id", user.id)
           .maybeSingle()
-      ).data as { id: string } | null;
+      ).data as unknown as { id: string } | null;
 
       if (!category) {
         const { data: createdCategory, error: categoryError } = await supabase
@@ -75,7 +75,7 @@ export function useCreateEventTopic() {
           .single();
 
         if (categoryError) throw categoryError;
-        category = createdCategory as { id: string } | null;
+        category = createdCategory as unknown as { id: string } | null;
       }
 
       const categoryId = category?.id;
