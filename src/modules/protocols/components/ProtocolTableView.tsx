@@ -9,8 +9,17 @@ import { ru } from "date-fns/locale";
 import {
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, FolderOpen, Loader2,
-  Building2, Circle,
+  Building2, Circle, GripVertical, Trash2,
 } from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -212,6 +221,30 @@ export default function ProtocolTableView({ protocolId }: Props) {
     return list;
   }, [tasks, users]);
 
+  // ---------- DnD reorder (only when sorted by index/position) ----------
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const reorderEnabled = sortKey === "index" || !sortDir;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex((t) => t.id === active.id);
+    const newIndex = sorted.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(sorted, oldIndex, newIndex);
+    // Persist new positions for all affected rows
+    next.forEach((t, idx) => {
+      const newPos = idx;
+      if (t.position !== newPos) {
+        updateTask.mutate({ id: t.id, position: newPos } as any);
+      }
+    });
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -337,56 +370,71 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 <Th className="w-12 text-center" />
               </tr>
             </thead>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sorted.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <tbody>
+                  {sorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                        {tasks.length === 0
+                          ? "Пока пусто. Добавьте первую строку протокола ниже."
+                          : "Под текущие фильтры строк нет."}
+                      </td>
+                    </tr>
+                  ) : (
+                    sorted.map((task, idx) => (
+                      <ProtocolRow
+                        key={task.id}
+                        task={task}
+                        index={idx + 1}
+                        users={users}
+                        statuses={statuses}
+                        allStatusTagIds={allStatusTagIds}
+                        externalAttendees={externalAttendees}
+                        linkedClient={linkedClient ?? null}
+                        parsedPartner={parsedSides?.partner ?? null}
+                        sortable={reorderEnabled}
+                        expanded={expandedId === task.id}
+                        onToggleExpand={() =>
+                          setExpandedId((e) => (e === task.id ? null : task.id))
+                        }
+                        onToggleComplete={() =>
+                          toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
+                        }
+                        onChangeStatus={(tag) => {
+                          setStatus.mutate({
+                            taskId: task.id,
+                            newTagId: tag?.id ?? null,
+                            newTagName: tag?.name ?? null,
+                            allStatusTagIds,
+                            currentStatusMeta: (task.status_meta as any) ?? null,
+                          });
+                          const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
+                          if (isFinal && !task.is_completed) {
+                            toggleTask.mutate({ id: task.id, is_completed: true });
+                          } else if (!isFinal && task.is_completed && tag) {
+                            toggleTask.mutate({ id: task.id, is_completed: false });
+                          }
+                        }}
+                        onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
+                        onDelete={() => {
+                          if (confirm("Удалить строку протокола?")) deleteTask.mutate(task.id);
+                        }}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </SortableContext>
+            </DndContext>
             <tbody>
-              {sorted.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                    {tasks.length === 0
-                      ? "Пока пусто. Добавьте первую строку протокола ниже."
-                      : "Под текущие фильтры строк нет."}
-                  </td>
-                </tr>
-              ) : (
-                sorted.map((task, idx) => (
-                  <ProtocolRow
-                    key={task.id}
-                    task={task}
-                    index={idx + 1}
-                    users={users}
-                    statuses={statuses}
-                    allStatusTagIds={allStatusTagIds}
-                    externalAttendees={externalAttendees}
-                    linkedClient={linkedClient ?? null}
-                    parsedPartner={parsedSides?.partner ?? null}
-                    expanded={expandedId === task.id}
-                    onToggleExpand={() =>
-                      setExpandedId((e) => (e === task.id ? null : task.id))
-                    }
-                    onToggleComplete={() =>
-                      toggleTask.mutate({ id: task.id, is_completed: !task.is_completed })
-                    }
-                    onChangeStatus={(tag) => {
-                      setStatus.mutate({
-                        taskId: task.id,
-                        newTagId: tag?.id ?? null,
-                        newTagName: tag?.name ?? null,
-                        allStatusTagIds,
-                        currentStatusMeta: (task.status_meta as any) ?? null,
-                      });
-                      const isFinal = tag?.name?.includes("Завершено") || tag?.name?.includes("Отменено");
-                      if (isFinal && !task.is_completed) {
-                        toggleTask.mutate({ id: task.id, is_completed: true });
-                      } else if (!isFinal && task.is_completed && tag) {
-                        toggleTask.mutate({ id: task.id, is_completed: false });
-                      }
-                    }}
-                    onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
-                    onDelete={() => deleteTask.mutate(task.id)}
-                  />
-                ))
-              )}
-
-              {/* Inline add row */}
+              {/* Inline add row (not sortable) */}
               <tr className="border-t border-border bg-muted/20">
                 <td className="px-2 py-2 text-center text-muted-foreground">
                   <Plus className="mx-auto h-3.5 w-3.5" />
@@ -508,7 +556,7 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
-  expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
+  sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
@@ -518,6 +566,7 @@ function ProtocolRow({
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
   parsedPartner: string | null;
+  sortable: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
@@ -533,6 +582,16 @@ function ProtocolRow({
 
   const [editTitle, setEditTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(task.title);
+
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: task.id, disabled: !sortable });
+
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const taskTagIds = useMemo(
     () => new Set((task.task_tags ?? []).map((tt) => tt.tag_id)),
@@ -561,14 +620,31 @@ function ProtocolRow({
   return (
     <>
       <tr
+        ref={setNodeRef}
+        style={dragStyle}
         className={cn(
-          "border-b border-border/60 transition-colors hover:bg-muted/30",
+          "group/row border-b border-border/60 transition-colors hover:bg-muted/30",
           task.is_completed && "opacity-60",
           expanded && "bg-muted/40",
+          isDragging && "bg-muted/60",
         )}
       >
-        <td className="px-2 py-2 text-center text-xs tabular-nums text-muted-foreground">
-          {index}
+        <td className="px-1 py-2 text-center text-xs tabular-nums text-muted-foreground">
+          <div className="flex items-center justify-center gap-0.5">
+            {sortable && (
+              <button
+                {...attributes}
+                {...listeners}
+                className="cursor-grab rounded p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-muted hover:text-foreground active:cursor-grabbing group-hover/row:opacity-100"
+                aria-label="Перетащить"
+                title="Перетащить для изменения порядка"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <span>{index}</span>
+          </div>
         </td>
         <td className="px-1 py-2">
           <button
@@ -634,14 +710,25 @@ function ProtocolRow({
             onChange={onChangeStatus}
           />
         </td>
-        <td className="px-2 py-2 text-center">
-          <Checkbox
-            checked={task.is_completed}
-            onCheckedChange={() => onToggleComplete()}
-            aria-label="Закрыто"
-          />
+        <td className="px-2 py-2">
+          <div className="flex items-center justify-center gap-1">
+            <Checkbox
+              checked={task.is_completed}
+              onCheckedChange={() => onToggleComplete()}
+              aria-label="Закрыто"
+            />
+            <button
+              onClick={onDelete}
+              className="rounded p-1 text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/row:opacity-100"
+              aria-label="Удалить строку"
+              title="Удалить строку протокола"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </td>
       </tr>
+
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
