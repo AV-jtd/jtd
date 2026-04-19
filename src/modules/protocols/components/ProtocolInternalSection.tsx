@@ -110,7 +110,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         </ul>
       )}
 
-      {/* Quick create */}
+      {/* Quick create — unified across modes */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/20 bg-card px-2 py-1.5">
         <Plus className="h-3.5 w-3.5 shrink-0 text-red-500/70" />
         <input
@@ -127,7 +127,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         />
         <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
         <DeadlineChip value={deadline} onChange={setDeadline} />
-        {!compact && <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />}
+        <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />
         <button
           onClick={handleCreate}
           disabled={!title.trim()}
