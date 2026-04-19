@@ -678,8 +678,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
       {/* Sides of the meeting (auto from title + CRM) */}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {/* Our side (Дороничи) */}
-        <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        {/* Our side (Дороничи) — name + own logo upload */}
+        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="relative shrink-0">
             {protocol.logo_url ? (
               <img
@@ -692,37 +692,36 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 {sides?.ours ? getInitials(sides.ours) : "?"}
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground disabled:opacity-50"
+              title="Загрузить логотип"
+            >
+              <ImageIcon className="h-2.5 w-2.5" />
+            </button>
+            {protocol.logo_url && (
+              <button
+                type="button"
+                onClick={() => update.mutate({ logo_url: null })}
+                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-destructive"
+                title="Удалить логотип"
+              >
+                <X className="h-2 w-2" />
+              </button>
+            )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Наша сторона
-            </div>
             <div className="truncate text-sm font-semibold text-foreground">
               {sides?.ours ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
             </div>
-            {internalAttendees.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {internalAttendees.slice(0, 4).map((p) => (
-                  <span
-                    key={p.id}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary ring-1 ring-background"
-                    title={p.display_name || p.email || undefined}
-                  >
-                    {getInitials(p.display_name || p.email || "?")}
-                  </span>
-                ))}
-                {internalAttendees.length > 4 && (
-                  <span className="inline-flex h-5 items-center rounded-full bg-muted px-1.5 text-[9px] font-semibold text-muted-foreground">
-                    +{internalAttendees.length - 4}
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="mt-0.5 text-[10px] text-muted-foreground">Наша сторона</div>
           </div>
         </div>
 
-        {/* Partner side (CRM client) */}
-        <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        {/* Partner side (CRM client + custom attendees) */}
+        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="relative shrink-0">
             {linkedClient?.logo_url ? (
               <img
@@ -775,19 +774,23 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Партнёр {linkedClient && <span className="ml-1 rounded bg-purple-500/15 px-1 py-px text-[9px] font-semibold uppercase text-purple-700 dark:text-purple-300">CRM</span>}
-            </div>
-            <div className="truncate text-sm font-semibold text-foreground">
-              {linkedClient?.name
-                ?? sides?.partner
-                ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-semibold text-foreground">
+                {linkedClient?.name
+                  ?? sides?.partner
+                  ?? <span className="text-muted-foreground/70">Укажите в названии встречи</span>}
+              </span>
+              {linkedClient && (
+                <span className="rounded bg-purple-500/15 px-1 py-px text-[9px] font-semibold uppercase text-purple-700 dark:text-purple-300">
+                  CRM
+                </span>
+              )}
             </div>
             {!linkedClient && sides?.partner && (
               <button
                 type="button"
                 onClick={() => openCreateDialog(sides.partner, true)}
-                className="mt-1 inline-flex items-center gap-1 rounded text-[10px] font-semibold text-primary hover:underline"
+                className="mt-0.5 inline-flex items-center gap-1 rounded text-[10px] font-semibold text-primary hover:underline"
               >
                 <Plus className="h-2.5 w-2.5" /> Добавить в CRM
               </button>
@@ -797,6 +800,58 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 {linkedClient.contact_name}
               </div>
             )}
+
+            {/* Custom attendees from partner side */}
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {externals.map((p, idx) => (
+                <span
+                  key={`${p.name}-${idx}`}
+                  className="group inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300"
+                  title={p.role || undefined}
+                >
+                  {p.name}
+                  <button
+                    type="button"
+                    onClick={() => removeExternal(idx)}
+                    className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                    title="Удалить"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ))}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    title="Добавить участника со стороны партнёра"
+                  >
+                    <Plus className="h-2.5 w-2.5" /> участник
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <Input
+                    autoFocus
+                    value={newExternalName}
+                    onChange={(e) => setNewExternalName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); addExternal(); }
+                    }}
+                    placeholder="Имя или должность"
+                    className="h-8 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={addExternal}
+                    disabled={!newExternalName.trim()}
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-50"
+                  >
+                    <Plus className="h-3 w-3" /> Добавить
+                  </button>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
       </div>
