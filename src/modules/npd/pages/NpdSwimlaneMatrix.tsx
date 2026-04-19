@@ -103,6 +103,8 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     queryFn: async () => {
       if (descendantGroupIds.length === 0) return [];
       const results: Task[] = [];
+      const seen = new Set<string>();
+      // 1. Native tasks (group_id ∈ project hierarchy)
       for (let i = 0; i < descendantGroupIds.length; i += 10) {
         const batch = descendantGroupIds.slice(i, i + 10);
         const { data, error } = await supabase
@@ -111,7 +113,27 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
           .in("group_id", batch)
           .order("position");
         if (error) throw error;
-        if (data) results.push(...(data as Task[]));
+        if (data) for (const t of data as Task[]) {
+          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
+        }
+      }
+      // 2. Linked tasks (status_meta.linked_project_id ∈ project hierarchy)
+      // Эти задачи физически живут в протоколе (group_id=protocolId),
+      // но через linked_project_id отображаются и здесь.
+      for (let i = 0; i < descendantGroupIds.length; i += 10) {
+        const batch = descendantGroupIds.slice(i, i + 10);
+        const orFilter = batch
+          .map((id) => `status_meta->>linked_project_id.eq.${id}`)
+          .join(",");
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .or(orFilter)
+          .order("position");
+        if (error) throw error;
+        if (data) for (const t of data as Task[]) {
+          if (!seen.has(t.id)) { seen.add(t.id); results.push(t); }
+        }
       }
       return results;
     },
