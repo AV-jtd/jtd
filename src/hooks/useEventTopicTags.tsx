@@ -1,25 +1,27 @@
 import { useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { useTags, useTagCategories } from "./useTasks";
+import { useTagCategories } from "./useTasks";
 
 /**
  * Тег категории `event_topic` = «Тема» в протоколе.
  * Важно: темы должны быть видны всем участникам протокола, а не только их создателю,
- * поэтому возвращаем все доступные event_topic-теги, которые пользователь может читать.
+ * поэтому читаем ВСЕ доступные пользователю event_topic-теги через RLS,
+ * а не только теги с user_id текущего пользователя.
  */
 export function useEventTopicTags() {
   const { user } = useAuth();
-  const { data: tags = [] } = useTags();
   const { data: categories = [] } = useTagCategories();
 
   const eventTopicCategoryIds = useMemo(
     () =>
-      new Set(
-        categories
-          .filter((c: any) => c.system_key === "event_topic")
-          .map((c: any) => c.id),
+      Array.from(
+        new Set(
+          categories
+            .filter((c: any) => c.system_key === "event_topic")
+            .map((c: any) => c.id),
+        ),
       ),
     [categories],
   );
@@ -32,10 +34,22 @@ export function useEventTopicTags() {
     [categories, user?.id],
   );
 
-  const topicTags = useMemo(
-    () => tags.filter((t) => !!t.category_id && eventTopicCategoryIds.has(t.category_id)),
-    [tags, eventTopicCategoryIds],
-  );
+  const { data: topicTags = [] } = useQuery({
+    queryKey: ["event_topic_tags", eventTopicCategoryIds],
+    queryFn: async () => {
+      if (eventTopicCategoryIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("tags")
+        .select("*")
+        .in("category_id", eventTopicCategoryIds)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: eventTopicCategoryIds.length > 0,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
+  });
 
   return { categoryId, topicTags };
 }
@@ -150,6 +164,7 @@ export function useCreateEventTopic() {
       qc.invalidateQueries({ queryKey: ["tag_categories"] });
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["event_topic_tags"] });
     },
   });
 }
