@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/initials";
 import { parseProtocolSides, namesEqual } from "@/lib/protocolSides";
+import ourLogoDefault from "@/assets/our-logo-default.jpg";
 
 type Format = "online" | "offline" | "hybrid";
 
