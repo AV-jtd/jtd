@@ -304,55 +304,94 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                   boxSizing: "border-box",
                 }}
               >
-                {/* === SECTION 1: Header + Title === */}
+                {/* === SECTION 1: Title + Sides cards (matches ProtocolHeader layout) === */}
                 <div data-pdf-section style={{ width: contentWidth }}>
-                  <div className="flex items-start justify-between gap-6 pb-4 border-b-2 border-neutral-900">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {/* Title row */}
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">
+                        Протокол встречи
+                      </div>
+                      <h1 className="text-[22px] font-semibold leading-tight text-neutral-900 break-words">
+                        {protocol.name}
+                      </h1>
+                    </div>
+                  </div>
+
+                  {/* Meta chips: date + format */}
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] mb-4">
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2 py-1 text-neutral-700">
+                      <span className="text-neutral-500">Дата:</span>
+                      <span className="font-medium text-neutral-900">{meetingDateLabel}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2 py-1 text-neutral-700">
+                      <span className="text-neutral-500">Формат:</span>
+                      <span className="font-medium text-neutral-900">{formatLabel}</span>
+                    </span>
+                  </div>
+
+                  {/* Sides cards — same grid as ProtocolHeader */}
+                  <div
+                    className="grid gap-3"
+                    style={{
+                      gridTemplateColumns: partnerName ? "1fr 1fr" : "1fr",
+                    }}
+                  >
+                    {/* Our side */}
+                    <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                       <img
                         src={ourLogo}
                         alt=""
-                        className="h-12 w-12 object-contain rounded shrink-0"
+                        className="h-12 w-12 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
                         crossOrigin="anonymous"
                       />
-                      <div className="min-w-0">
-                        <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Наша сторона</div>
-                        <div className="text-sm font-semibold truncate">{ourSideName}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-semibold">
+                          Наша сторона
+                        </div>
+                        <div className="text-sm font-semibold text-neutral-900 truncate">
+                          {ourSideName}
+                        </div>
+                        {internalAttendeeIds.length > 0 && (
+                          <div className="mt-1.5 text-[10px] text-neutral-500">
+                            {internalAttendeeIds.length}{" "}
+                            {internalAttendeeIds.length === 1 ? "участник" : "участников"}
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Partner side */}
                     {partnerName && (
-                      <div className="flex items-center gap-3 min-w-0 flex-1 justify-end">
-                        <div className="text-right min-w-0">
-                          <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500">Сторона партнёра</div>
-                          <div className="text-sm font-semibold truncate">{partnerName}</div>
-                        </div>
+                      <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                         {clientLogoUrl ? (
                           <img
                             src={clientLogoUrl}
                             alt=""
-                            className="h-12 w-12 object-contain rounded shrink-0"
+                            className="h-12 w-12 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
                             crossOrigin="anonymous"
                           />
                         ) : (
-                          <div className="h-12 w-12 rounded bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-500 text-base font-semibold shrink-0">
+                          <div className="h-12 w-12 rounded-lg bg-neutral-100 ring-1 ring-neutral-200 flex items-center justify-center text-neutral-500 text-base font-semibold shrink-0">
                             {partnerName.charAt(0)}
                           </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500 font-semibold">
+                            Сторона партнёра
+                          </div>
+                          <div className="text-sm font-semibold text-neutral-900 truncate">
+                            {partnerName}
+                          </div>
+                          {externals.length > 0 && (
+                            <div className="mt-1.5 text-[10px] text-neutral-500">
+                              {externals.length}{" "}
+                              {externals.length === 1 ? "участник" : "участников"}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
-
-                  <div className="mt-5">
-                    <div className="text-[9px] uppercase tracking-[0.12em] text-neutral-500 mb-1">Протокол встречи</div>
-                    <h1 className="text-[20px] font-bold leading-tight text-neutral-900">{protocol.name}</h1>
-                    <div className="mt-3 inline-flex items-center gap-3 rounded bg-neutral-50 border border-neutral-200 px-3 py-1.5 text-[11px] text-neutral-600">
-                      <span>
-                        Дата: <span className="font-semibold text-neutral-900">{meetingDateLabel}</span>
-                      </span>
-                      <span className="text-neutral-300">·</span>
-                      <span>
-                        Формат: <span className="font-semibold text-neutral-900">{formatLabel}</span>
-                      </span>
-                    </div>
                   </div>
                 </div>
 
