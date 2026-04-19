@@ -251,7 +251,9 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
 
   if (!protocol) return null;
 
-  const ourLogo = meta.our_logo_url || (protocol as any).logo_url || ourLogoDefault;
+  // Логотип нашей стороны = тот же, что в шапке приложения (meta.our_logo_url),
+  // protocol.logo_url — это иконка/обложка протокола, не подходит для бренда нашей стороны.
+  const ourLogo = meta.our_logo_url || ourLogoDefault;
   const contentWidth = A4_W - A4_PADDING * 2;
 
   return (
