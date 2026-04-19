@@ -393,7 +393,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
 type LinkedClient = { id: string; name: string; contact_name: string | null; email: string | null; phone: string | null } | null;
 
 function ProtocolRow({
-  task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient,
+  task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
   expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
@@ -403,6 +403,7 @@ function ProtocolRow({
   allStatusTagIds: string[];
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
+  parsedPartner: string | null;
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
