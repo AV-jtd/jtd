@@ -190,6 +190,7 @@ ${activeProjectInfo}
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
         const parsed = JSON.parse(toolCall.function.arguments);
+        applyQuickHintsToTask(parsed, quickHints);
         return new Response(JSON.stringify({ action: "create_task", task: parsed }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1538,6 +1539,7 @@ ${ganttContextBlock}
         try {
           const parsed = JSON.parse(tc.function.arguments);
           if (tc.function.name === "create_task") {
+            applyQuickHintsToTask(parsed, quickHints);
             return new Response(JSON.stringify({ action: "create_task", task: parsed }), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
