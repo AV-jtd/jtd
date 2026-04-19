@@ -766,19 +766,6 @@ function ProtocolRow({
         </td>
         <td className="px-3 py-2">
           <TopicCell task={task} compact />
-          {/* DEBUG: raw tag_ids vs known topic tag ids */}
-          {(() => {
-            const taskTags = (task.task_tags ?? []).map((tt) => tt.tag_id);
-            const known = new Set(topicTags.map((t) => t.id));
-            return (
-              <div className="mt-1 space-y-0.5 text-[9px] leading-tight font-mono text-muted-foreground/70">
-                <div>task_tags: {taskTags.length === 0 ? <span className="italic">пусто</span> : taskTags.map((id) => (
-                  <span key={id} className={cn("mr-1", known.has(id) ? "text-emerald-600" : "text-rose-600")}>{id.slice(0, 8)}</span>
-                ))}</div>
-                <div>topicTags loaded: {topicTags.length}</div>
-              </div>
-            );
-          })()}
         </td>
         <td className="px-3 py-2">
           {editTitle ? (
