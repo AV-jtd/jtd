@@ -702,37 +702,25 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
-            {/* Parsed sides chip */}
-            {sides && (
+            {/* Parsed sides chip — show only when partner is missing in CRM (action needed) */}
+            {sides && partnerNotInCrm && (
               <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]",
-                  partnerNotInCrm
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                    : "border-border bg-muted/40 text-muted-foreground",
-                )}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400"
                 title="Стороны определены из названия встречи"
               >
                 <Sparkles className="h-3 w-3 opacity-70" />
                 <span className="font-medium text-foreground">{sides.partner}</span>
                 <span className="opacity-60">×</span>
                 <span>{sides.ours}</span>
-                {partnerNotInCrm && (
-                  <button
-                    type="button"
-                    onClick={() => openCreateDialog(sides?.partner ?? "", true)}
-                    className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
-                  >
-                    + В CRM
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openCreateDialog(sides?.partner ?? "", true)}
+                  className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 hover:bg-amber-500/30 dark:text-amber-300"
+                >
+                  + В CRM
+                </button>
               </span>
             )}
-
-            <span className="text-muted-foreground/60">
-              <FmtIcon className="mr-1 inline h-3 w-3" />
-              {FORMAT_LABEL[fmt].label}
-            </span>
           </div>
         </div>
       </div>
