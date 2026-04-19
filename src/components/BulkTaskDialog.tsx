@@ -13,12 +13,14 @@ import { useTaskGroups, useTaskMutations, useTasks, useAvailableUsers } from "@/
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { addDays, format } from "date-fns";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 
 interface GeneratedTask {
   title: string;
   deadline_offset_days?: number;
   priority?: number;
   subtasks?: string[];
+  assignee_name?: string;
   selected?: boolean;
 }
 
@@ -182,13 +184,27 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 
         for (const task of group.tasks) {
           if (!task.selected) continue;
-          
+
+          // Fuzzy-match assignee_name → user_id
+          let assignee: string | null = null;
+          if (task.assignee_name) {
+            const name = task.assignee_name.toLowerCase().trim();
+            const u = users.find(u => {
+              const dn = (u.display_name || "").toLowerCase();
+              const em = (u.email || "").toLowerCase();
+              const tg = (u.telegram_username || "").toLowerCase();
+              return dn === name || tg === name || dn.split(/\s+/)[0] === name || dn.includes(name) || em.startsWith(name + "@");
+            });
+            assignee = u?.id || null;
+          }
+
           if (task.subtasks?.length && user) {
             // Create with subtasks via direct insert to get the task ID
             const { data: newTask } = await supabase.from("tasks").insert({
               title: task.title,
               group_id: targetGroupId,
               deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              assigned_to: assignee,
               task_type: "standard",
               user_id: user.id,
             }).select("id").single();
@@ -203,6 +219,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
               title: task.title,
               group_id: targetGroupId,
               deadline: task.deadline_offset_days ? addDays(new Date(), task.deadline_offset_days).toISOString() : null,
+              assigned_to: assignee,
               task_type: "standard",
             });
           }
@@ -307,6 +324,11 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
                         />
                         <div className="flex-1 min-w-0">
                           <span className="text-[11px] text-foreground leading-tight">{task.title}</span>
+                          {task.assignee_name && (
+                            <span className="text-[9px] text-primary ml-1.5">
+                              @{task.assignee_name}
+                            </span>
+                          )}
                           {task.deadline_offset_days && (
                             <span className="text-[9px] text-muted-foreground ml-1.5">
                               ({task.deadline_offset_days}д)
@@ -354,6 +376,7 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
 function TextTab({ projectId, projectName, onDone }: { projectId?: string | null; projectName?: string | null; onDone: () => void }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
+  const { data: users = [] } = useAvailableUsers();
   const { addTask } = useTaskMutations();
 
   const [text, setText] = useState("");
@@ -364,6 +387,14 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
 
   const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
+  // Превью с распознанными атрибутами
+  const previewLines = lines.map(line => {
+    const stripped = line.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "").trim();
+    const p = parseQuickTask(stripped, users);
+    return { raw: stripped, parsed: p };
+  });
+  const recognizedCount = previewLines.filter(l => l.parsed.tokens.length > 0).length;
+
   const handleCreate = async () => {
     if (!user || lines.length === 0) return;
     setCreating(true);
@@ -372,16 +403,18 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
       const targetGroupId = selectedGroupId !== "__none__" ? selectedGroupId : null;
       let created = 0;
 
-      for (const line of lines) {
-        // Strip leading markers like "- ", "* ", "1. ", "• "
-        const title = line.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "").trim();
+      for (const { raw, parsed } of previewLines) {
+        const title = parsed.cleanTitle || raw;
         if (!title) continue;
 
         await addTask.mutateAsync({
           title,
           group_id: targetGroupId,
+          deadline: parsed.deadline ? parsed.deadline.toISOString() : null,
+          assigned_to: parsed.assigneeId || null,
+          is_important: parsed.isImportant || undefined,
           task_type: "standard",
-        });
+        } as any);
         created++;
       }
 
@@ -414,13 +447,15 @@ function TextTab({ projectId, projectName, onDone }: { projectId?: string | null
         <Textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder={"Вставьте список задач (по одной на строку):\n\nПодготовить презентацию\nОтправить КП клиенту\nПровести встречу с командой\nСобрать обратную связь"}
-          className="text-xs min-h-[160px] max-h-[260px] resize-none font-mono"
+          placeholder={"Вставьте задачи (по одной на строку):\n\nПодготовить КП @Марк до 25.04 !\nОтправить договор @Ира +3д\nПровести встречу через 7 дн"}
+          className="text-xs min-h-[140px] max-h-[220px] resize-none font-mono"
         />
 
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground">
-            {lines.length > 0 ? `${lines.length} задач для создания` : "Введите задачи"}
+            {lines.length > 0
+              ? `${lines.length} задач${recognizedCount > 0 ? ` · ${recognizedCount} с авто-полями` : ""}`
+              : "Поддержка: @имя, до DD.MM, +Nд, !"}
           </span>
           <Button
             onClick={handleCreate}

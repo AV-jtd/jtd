@@ -1,7 +1,7 @@
-import { memo, type RefObject, type ReactNode, useCallback, useState } from "react";
+import { memo, type RefObject, type ReactNode, useCallback, useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Briefcase, CalendarIcon, Plus, UserRound } from "lucide-react";
+import { Briefcase, CalendarIcon, Plus, UserRound, Sparkles } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/hooks/useTasks";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 
 interface TaskCreateBarProps {
   inputRef: RefObject<HTMLInputElement>;
@@ -45,16 +46,26 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
     return (u.display_name || u.email || "").toLowerCase().includes(q);
   });
 
+  // Live-парсинг title: распознаём @имя, до DD.MM, +Nд, ! → показываем чипы
+  const parsed = useMemo(() => parseQuickTask(title, availableUsers), [title, availableUsers]);
+  const hasInlineMeta = parsed.tokens.length > 0;
+  // Эффективные значения с учётом inline-парсинга (inline имеет приоритет)
+  const effectiveAssignee = parsed.assigneeId || assignedTo;
+  const effectiveDeadline = parsed.deadline || deadline;
+
   const handleAddTask = useCallback(() => {
     if (!title.trim()) return;
+    const cleanTitle = parsed.cleanTitle || title.trim();
+    const finalDeadline = parsed.deadline || deadline;
+    const finalAssignee = parsed.assigneeId || assignedTo;
     const isCrmTask = taskType === "crm";
     if (isCrmTask && !clientName.trim()) return;
 
     onCreateTask({
-      title: title.trim(),
+      title: cleanTitle,
       group_id: activeView === "group" ? activeGroupId : null,
-      deadline: deadline ? format(deadline, "yyyy-MM-dd") : null,
-      assigned_to: assignedTo,
+      deadline: finalDeadline ? format(finalDeadline, "yyyy-MM-dd") : null,
+      assigned_to: finalAssignee,
       task_type: taskType,
       client_name: isCrmTask ? clientName.trim() : undefined,
     });
@@ -64,7 +75,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
     setTaskType("standard");
     setClientName("");
     setAssignedTo(null);
-  }, [activeGroupId, activeView, assignedTo, clientName, deadline, onCreateTask, taskType, title]);
+  }, [activeGroupId, activeView, assignedTo, clientName, deadline, onCreateTask, parsed, taskType, title]);
 
   const iconBtn = (active: boolean) =>
     cn(
@@ -121,19 +132,25 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button type="button" className={iconBtn(!!assignedTo)}>
-                    {selectedUser ? (
-                      <span className="text-[10px] font-bold leading-none">
-                        {(selectedUser.display_name || selectedUser.email || "?").slice(0, 2).toUpperCase()}
-                      </span>
-                    ) : (
-                      <UserRound className="h-3.5 w-3.5" />
-                    )}
+                  <button type="button" className={iconBtn(!!effectiveAssignee)}>
+                    {(() => {
+                      const u = availableUsers.find(x => x.id === effectiveAssignee);
+                      return u ? (
+                        <span className="text-[10px] font-bold leading-none">
+                          {(u.display_name || u.email || "?").slice(0, 2).toUpperCase()}
+                        </span>
+                      ) : (
+                        <UserRound className="h-3.5 w-3.5" />
+                      );
+                    })()}
                   </button>
                 </PopoverTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                {selectedUser ? (selectedUser.display_name || selectedUser.email) : "Ответственный"}
+                {(() => {
+                  const u = availableUsers.find(x => x.id === effectiveAssignee);
+                  return u ? (u.display_name || u.email) : "Ответственный";
+                })()}
               </TooltipContent>
             </Tooltip>
             <PopoverContent className="w-56 p-2" align="end">
@@ -179,10 +196,10 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button type="button" className={iconBtn(!!deadline)}>
-                    {deadline ? (
+                  <button type="button" className={iconBtn(!!effectiveDeadline)}>
+                    {effectiveDeadline ? (
                       <span className="text-[10px] font-bold leading-none">
-                        {format(deadline, "d", { locale: ru })}
+                        {format(effectiveDeadline, "d", { locale: ru })}
                       </span>
                     ) : (
                       <CalendarIcon className="h-3.5 w-3.5" />
@@ -191,7 +208,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
                 </PopoverTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                {deadline ? format(deadline, "d MMMM", { locale: ru }) : "Срок"}
+                {effectiveDeadline ? format(effectiveDeadline, "d MMMM", { locale: ru }) : "Срок"}
               </TooltipContent>
             </Tooltip>
             <PopoverContent className="w-64 p-0" align="end">
@@ -254,6 +271,27 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
           {bulkButton}
         </div>
       </div>
+
+      {/* Inline-парсинг chip-bar */}
+      {hasInlineMeta && (
+        <div className="px-3 pb-2.5 -mt-1 flex items-center gap-1.5 flex-wrap">
+          <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
+          {parsed.tokens.map((tok, i) => (
+            <span
+              key={i}
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                tok.kind === "assignee" && "bg-primary/10 text-primary",
+                tok.kind === "deadline" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                tok.kind === "important" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                tok.kind === "tag" && "bg-muted text-muted-foreground"
+              )}
+            >
+              {tok.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* CRM client name input */}
       {taskType === "crm" && (

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { addDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import UserPicker from "@/components/UserPicker";
 import type { Profile } from "@/hooks/useTasks";
-import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle, ListChecks } from "lucide-react";
+import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle, ListChecks, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseQuickTask } from "@/lib/quickTaskParse";
 
 export type QuickCreateType = "task" | "subproject";
 
@@ -113,15 +114,22 @@ export default function QuickCreateForm({
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
+  // Live-парсинг title (одиночный режим)
+  const parsed = useMemo(() => parseQuickTask(title, users), [title, users]);
+  const hasInlineMeta = parsed.tokens.length > 0;
+  const effectiveAssigneeId = parsed.assigneeId || assigneeId;
+  const effectiveDeadline = parsed.deadline || deadline;
+
   const handleSubmit = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
+      const cleanTitle = parsed.cleanTitle || title.trim();
       await onCreate({
         type: selectedType,
-        title: title.trim(),
-        deadline,
-        assigneeId,
+        title: cleanTitle,
+        deadline: effectiveDeadline,
+        assigneeId: effectiveAssigneeId,
         startFrom,
       });
       // Stay open for rapid creation — reset form
@@ -143,11 +151,13 @@ export default function QuickCreateForm({
     setSaving(true);
     try {
       for (const line of lines) {
+        // Парсим каждую строку отдельно — @имя/срок/! работают построчно
+        const lineParsed = parseQuickTask(line, users);
         await onCreate({
           type: selectedType,
-          title: line,
-          deadline,
-          assigneeId,
+          title: lineParsed.cleanTitle || line,
+          deadline: lineParsed.deadline || deadline,
+          assigneeId: lineParsed.assigneeId || assigneeId,
           startFrom,
         });
       }
@@ -262,18 +272,39 @@ export default function QuickCreateForm({
 
             {/* Single mode: title input */}
             {!batchMode && (
-              <Input
-                ref={inputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи..."}
-                className="h-8 text-xs"
-                disabled={saving}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmit();
-                  if (e.key === "Escape") handleOpen(false);
-                }}
-              />
+              <>
+                <Input
+                  ref={inputRef}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={selectedType === "subproject" ? "Название подпроекта..." : "Название задачи... (@имя, до 25.04, !)"}
+                  className="h-8 text-xs"
+                  disabled={saving}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                    if (e.key === "Escape") handleOpen(false);
+                  }}
+                />
+                {hasInlineMeta && selectedType === "task" && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Sparkles className="h-2.5 w-2.5 text-primary/60 shrink-0" />
+                    {parsed.tokens.map((tok, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium",
+                          tok.kind === "assignee" && "bg-primary/10 text-primary",
+                          tok.kind === "deadline" && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                          tok.kind === "important" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          tok.kind === "tag" && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {tok.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Batch mode: textarea */}
