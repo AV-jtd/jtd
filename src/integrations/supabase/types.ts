@@ -445,6 +445,7 @@ export type Database = {
           email: string | null
           id: string
           is_approved: boolean
+          organization: string | null
           telegram_chat_id: number | null
           telegram_username: string | null
           username: string | null
@@ -456,6 +457,7 @@ export type Database = {
           email?: string | null
           id: string
           is_approved?: boolean
+          organization?: string | null
           telegram_chat_id?: number | null
           telegram_username?: string | null
           username?: string | null
@@ -467,6 +469,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_approved?: boolean
+          organization?: string | null
           telegram_chat_id?: number | null
           telegram_username?: string | null
           username?: string | null

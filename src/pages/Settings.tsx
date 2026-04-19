@@ -27,6 +27,7 @@ export default function Settings() {
   const [displayName, setDisplayName] = useState("");
   
   const [workEmail, setWorkEmail] = useState("");
+  const [organization, setOrganization] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [customHue, setCustomHue] = useState(accentColor);
@@ -35,7 +36,7 @@ export default function Settings() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("display_name, telegram_username, work_email, username")
+      .select("display_name, telegram_username, work_email, username, organization")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
@@ -43,7 +44,7 @@ export default function Settings() {
           setDisplayName(data.display_name || "");
           setTelegramUsername((data as any).telegram_username || "");
           setWorkEmail((data as any).work_email || "");
-          
+          setOrganization((data as any).organization || "");
         }
         setLoadingProfile(false);
       });
@@ -69,7 +70,7 @@ export default function Settings() {
         display_name: displayName.trim() || null,
         telegram_username: cleanUsername || null,
         work_email: workEmail.trim() || null,
-        
+        organization: organization.trim() || null,
       } as any)
       .eq("id", user.id);
 
@@ -132,6 +133,19 @@ export default function Settings() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Добавьте рабочий email, чтобы создавать задачи с обоих адресов.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="organization">Организация</Label>
+                <Input
+                  id="organization"
+                  value={organization}
+                  onChange={(e) => setOrganization(e.target.value)}
+                  placeholder="Например: Дороничи"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Используется в протоколах встреч для определения вашей стороны.
                 </p>
               </div>
 

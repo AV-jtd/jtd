@@ -102,6 +102,50 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     return u?.display_name || u?.email || null;
   };
 
+  // ---------- Sides toggle: показывать имена или только сторону ----------
+  const [showSideOnly, setShowSideOnly] = useState(false);
+
+  // Подгружаем organization для всех пользователей, упомянутых в задачах
+  const [orgMap, setOrgMap] = useState<Record<string, string | null>>({});
+  useEffect(() => {
+    const ids = Array.from(new Set(tasks.map((t) => t.assigned_to).filter(Boolean) as string[]));
+    if (ids.length === 0) {
+      setOrgMap({});
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("id, organization")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map: Record<string, string | null> = {};
+        (data ?? []).forEach((p: any) => {
+          map[p.id] = (p.organization?.trim() || null);
+        });
+        setOrgMap(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tasks]);
+
+  // Какую сторону показать вместо имени:
+  // 1) явная organization из профиля
+  // 2) иначе — наша сторона (внутренний пользователь по умолчанию)
+  const sideForUser = (id: string | null | undefined): string => {
+    if (!id) return ourSideName;
+    return orgMap[id] || ourSideName;
+  };
+
+  // Метка ответственного с учётом тумблера
+  const respLabel = (id: string | null | undefined): string | null => {
+    if (!id) return null;
+    if (showSideOnly) return sideForUser(id);
+    return userName(id);
+  };
+
   const meetingDateLabel = meta.meeting_date
     ? format(parseISO(meta.meeting_date), "d MMMM yyyy", { locale: ru })
     : "—";
@@ -139,7 +183,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         const dl = t.deadline
           ? format(parseISO(t.deadline), "d MMM yyyy", { locale: ru })
           : "без срока";
-        const resp = userName(t.assigned_to) ?? "не назначен";
+        const resp = respLabel(t.assigned_to) ?? "не назначен";
         lines.push(`  ${i + 1}. ${t.title}`);
         lines.push(`      Ответственный: ${resp} · Срок: ${dl}`);
       });
@@ -148,7 +192,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     lines.push("—");
     lines.push("Сформировано в JustTODOit");
     return lines.join("\n");
-  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users]);
+  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap]);
 
   // ---------- Actions ----------
   const a4Ref = useRef<HTMLDivElement>(null);
@@ -279,6 +323,34 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
             </TabsList>
 
             <div className="flex items-center gap-2">
+              {/* Toggle: Имена / Стороны */}
+              <div className="flex items-center rounded-md border border-border bg-background p-0.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setShowSideOnly(false)}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    !showSideOnly
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Показывать имена ответственных"
+                >
+                  Имена
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSideOnly(true)}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    showSideOnly
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Показывать только сторону (Дороничи / Лента)"
+                >
+                  Стороны
+                </button>
+              </div>
+
               {tab === "document" ? (
                 <Button size="sm" onClick={handleDownloadPdf} disabled={busyPdf} className="gap-1.5">
                   {busyPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -427,7 +499,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                       </thead>
                       <tbody>
                         {tasks.map((t, i) => {
-                          const resp = userName(t.assigned_to);
+                          const resp = respLabel(t.assigned_to);
                           return (
                             <tr key={t.id} className={i % 2 === 1 ? "bg-neutral-50/60" : ""}>
                               <td className="border border-neutral-300 px-2 py-1.5 text-center text-neutral-500 align-top">
