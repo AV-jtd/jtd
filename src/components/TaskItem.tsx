@@ -1116,13 +1116,17 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             {task.source_protocol_id && task.source_protocol_id !== task.group_id && (() => {
               const protocolGroup = allGroups.find(g => g.id === task.source_protocol_id);
               if (!protocolGroup) return null;
+              const meetingDateStr = (protocolGroup as any).protocol_meta?.meeting_date as string | undefined;
+              const dateSource = meetingDateStr || protocolGroup.created_at;
+              const formattedDate = dateSource ? format(parseISO(dateSource), "d MMM", { locale: ru }) : "";
               return (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground cursor-pointer hover:bg-accent/80 transition-colors shrink-0"
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 cursor-pointer hover:bg-purple-500/20 transition-colors shrink-0"
                   onClick={(e) => { e.stopPropagation(); navigateTo(`/protocols/${protocolGroup.id}`); }}
                   title={`Из протокола: ${protocolGroup.name}`}
                 >
-                  📋 {protocolGroup.name}
+                  <FileText className="h-2.5 w-2.5" />
+                  из протокола{formattedDate && ` от ${formattedDate}`}
                 </span>
               );
             })()}
@@ -1489,6 +1493,47 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </div>
               );
             })()}
+
+          {/* Source protocol section — context of meeting */}
+          {task.source_protocol_id && task.source_protocol_id !== task.group_id && (() => {
+            const protocolGroup = allGroups.find(g => g.id === task.source_protocol_id);
+            if (!protocolGroup) return null;
+            const meta = (protocolGroup as any).protocol_meta ?? {};
+            const meetingDateStr = meta.meeting_date as string | undefined;
+            const dateSource = meetingDateStr || protocolGroup.created_at;
+            const formattedDate = dateSource ? format(parseISO(dateSource), "d MMMM yyyy", { locale: ru }) : "—";
+            const fmtLabel: Record<string, string> = { offline: "Офлайн", online: "Онлайн", hybrid: "Гибрид", call: "Звонок" };
+            const formatStr = meta.format ? fmtLabel[meta.format] || meta.format : null;
+            const location = meta.location as string | undefined;
+            return (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" /> Источник
+                </p>
+                <button
+                  onClick={() => navigateTo(`/protocols/${protocolGroup.id}`)}
+                  className="w-full text-left rounded-lg border border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-colors px-3 py-2 group/source"
+                >
+                  <div className="flex items-center gap-2 text-xs font-medium text-purple-700 dark:text-purple-300">
+                    <FileText className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Протокол от {formattedDate}</span>
+                    <ArrowRight className="h-3 w-3 ml-auto opacity-0 group-hover/source:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {protocolGroup.name}
+                  </div>
+                  {(formatStr || location) && (
+                    <div className="text-[10px] text-muted-foreground/80 mt-0.5 flex items-center gap-1.5">
+                      {formatStr && <span>{formatStr}</span>}
+                      {formatStr && location && <span className="opacity-40">•</span>}
+                      {location && <span className="truncate">{location}</span>}
+                    </div>
+                  )}
+                </button>
+              </div>
+            );
+          })()}
+
           {/* Description */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
