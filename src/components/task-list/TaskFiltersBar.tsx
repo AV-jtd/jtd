@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, Filter, LayoutList, Layers, Search, Star, User, X, CalendarDays, FolderOpen, ShieldCheck } from "lucide-react";
+import { Clock, Filter, LayoutList, Layers, Search, Star, User, X, CalendarDays, CalendarX, FolderOpen, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,8 +11,8 @@ export type GroupByOption = "none" | "project" | "deadline" | "assignee";
 interface TaskFiltersBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  priorityFilter: number | "important" | "overdue" | "pending_approval" | null;
-  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | "pending_approval" | null>>;
+  priorityFilter: number | "important" | "overdue" | "pending_approval" | "no_dates" | null;
+  onPriorityFilterChange: React.Dispatch<React.SetStateAction<number | "important" | "overdue" | "pending_approval" | "no_dates" | null>>;
   assigneeFilter: string | null;
   onAssigneeFilterChange: React.Dispatch<React.SetStateAction<string | null>>;
   projectFilter: string | null;
@@ -63,7 +63,7 @@ function TaskFiltersBar({
     return () => window.clearTimeout(timeoutId);
   }, [draftSearch, onSearchChange, searchValue]);
 
-  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || priorityFilter === "pending_approval";
+  const hasSecondaryFilters = assigneeFilter !== null || projectFilter !== null || priorityFilter === "pending_approval" || priorityFilter === "no_dates";
   const hasActiveFilters = priorityFilter !== null || assigneeFilter !== null || projectFilter !== null;
   const activeGroupByOption = groupByOptions.find(o => o.key === groupBy) || groupByOptions[0];
 
@@ -71,6 +71,7 @@ function TaskFiltersBar({
     assigneeFilter !== null,
     projectFilter !== null,
     priorityFilter === "pending_approval",
+    priorityFilter === "no_dates",
   ].filter(Boolean).length;
 
   return (
@@ -250,6 +251,23 @@ function TaskFiltersBar({
               />
             </div>
           )}
+
+          {/* Dates */}
+          <div className="p-2 border-b border-border">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Даты</p>
+            <button
+              onClick={() => onPriorityFilterChange((prev) => (prev === "no_dates" ? null : "no_dates"))}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
+                priorityFilter === "no_dates"
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-foreground hover:bg-muted"
+              )}
+            >
+              <CalendarX className="h-3.5 w-3.5" />
+              Без дат
+            </button>
+          </div>
 
           {/* Pending approval */}
           <div className="p-2">

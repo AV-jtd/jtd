@@ -107,7 +107,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const linkedTagIds = useLinkedTagIds();
   const mutations = useTaskMutations();
   const { addTask, reorderTasks, deleteTask, updateTask, addTaskTag } = mutations;
-  const [priorityFilter, setPriorityFilter] = useState<number | "important" | "overdue" | "pending_approval" | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<number | "important" | "overdue" | "pending_approval" | "no_dates" | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
@@ -279,6 +279,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         nextTasks = nextTasks.filter(t => t.deadline && !t.is_completed && new Date(t.deadline) < now);
       } else if (priorityFilter === "pending_approval") {
         nextTasks = nextTasks.filter(t => t.approval_status === "pending");
+      } else if (priorityFilter === "no_dates") {
+        nextTasks = nextTasks.filter(t => !t.deadline && !(t as any).start_at);
       } else {
         nextTasks = nextTasks.filter(t => (t as any).priority === priorityFilter);
       }
