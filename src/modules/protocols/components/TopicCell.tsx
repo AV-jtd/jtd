@@ -98,6 +98,7 @@ export default function TopicCell({ task, compact }: Props) {
       }
 
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["tags"] });
       setOpen(false);
       setSearch("");
     } finally {
