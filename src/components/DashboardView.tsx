@@ -10,8 +10,11 @@ import {
   BarChart3, Loader2, TrendingUp, CheckCircle2, Clock, AlertTriangle,
   ChevronDown, ChevronRight, CalendarClock, ArrowRightLeft, Filter, X,
   SlidersHorizontal, FolderOpen, User, Tag as TagIcon, BookOpen, Sparkles, Plus, RefreshCw,
-  Activity, Zap, FileText
+  Activity, Zap, FileText, Maximize2, Minimize2, Monitor, LayoutGrid
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem
+} from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
@@ -1811,6 +1814,48 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { addTask } = useTaskMutations();
   const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | "unassigned" | "no_deadline" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
+  const containerRef = useRef<HTMLElement>(null);
+  const [presentMode, setPresentMode] = useState<"off" | "browser" | "in-app">("off");
+
+  // Sync with browser fullscreen state (Esc key etc.)
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement && presentMode === "browser") {
+        setPresentMode("off");
+      }
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, [presentMode]);
+
+  // Esc to exit in-app mode
+  useEffect(() => {
+    if (presentMode !== "in-app") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPresentMode("off");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [presentMode]);
+
+  const enterBrowserFullscreen = async () => {
+    try {
+      await containerRef.current?.requestFullscreen();
+      setPresentMode("browser");
+    } catch {
+      // Fallback to in-app if denied
+      setPresentMode("in-app");
+    }
+  };
+
+  const enterInAppFullscreen = () => setPresentMode("in-app");
+
+  const exitFullscreen = async () => {
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch {}
+    }
+    setPresentMode("off");
+  };
 
   const { data: allParticipants = [] } = useQuery({
     queryKey: ["task_participants_all"],
@@ -1993,8 +2038,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   }
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin">
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5">
+    <main
+      ref={containerRef}
+      className={cn(
+        "flex-1 overflow-y-auto scrollbar-thin",
+        presentMode !== "off" && "bg-background dashboard-present-mode",
+        presentMode === "in-app" && "fixed inset-0 z-[100]"
+      )}
+    >
+      <div className={cn(
+        "mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2.5",
+        presentMode === "off" ? "max-w-5xl" : "max-w-7xl text-base"
+      )}>
 
         {/* Header bar */}
         <div className="bg-card rounded-lg border border-border px-3 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-2.5 flex-wrap">
@@ -2058,6 +2113,55 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
               </button>
             )}
           </div>
+
+          {/* Fullscreen split button */}
+          {presentMode === "off" ? (
+            <div className="inline-flex items-stretch rounded-md border border-border overflow-hidden shrink-0">
+              <button
+                onClick={enterBrowserFullscreen}
+                className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] sm:text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                title="Полноэкранный режим (как презентация)"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Весь экран</span>
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="inline-flex items-center px-1 border-l border-border hover:bg-muted transition-colors"
+                    title="Варианты"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={enterBrowserFullscreen}>
+                    <Monitor className="h-4 w-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Браузерный fullscreen</span>
+                      <span className="text-[10px] text-muted-foreground">Скрывает панели браузера и ОС</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={enterInAppFullscreen}>
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Только скрыть панели</span>
+                      <span className="text-[10px] text-muted-foreground">Без панелей JTD, браузер остаётся</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <button
+              onClick={exitFullscreen}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border text-[11px] sm:text-xs font-medium text-foreground hover:bg-muted transition-colors shrink-0"
+              title="Выйти (Esc)"
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Выйти</span>
+            </button>
+          )}
 
           <DashboardExportDialog
             projectStats={projectStats}
