@@ -32,8 +32,6 @@ type Props = { task: Task };
  * linked_* поля и расширенный список участников отфильтрованы.
  */
 export default function ExternalRowInternalLayer({ task }: Props) {
-  if (!task.group_id) return null;
-
   const { updateTask } = useTaskMutations();
   const { data: groups = [] } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
