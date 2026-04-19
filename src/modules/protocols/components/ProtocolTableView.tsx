@@ -309,24 +309,41 @@ export default function ProtocolTableView({ protocolId }: Props) {
         />
       </div>
 
-      {/* Active column filter chips */}
-      {(assigneeFilter.size > 0 || projectFilter.size > 0) && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Фильтры:</span>
-          {assigneeFilter.size > 0 && (
-            <FilterChip
-              label={`Ответственный: ${assigneeFilter.size}`}
-              onClear={() => setAssigneeFilter(new Set())}
-            />
+      {/* Active column filter chips + group toggle */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {(assigneeFilter.size > 0 || projectFilter.size > 0) && (
+          <>
+            <span className="text-muted-foreground">Фильтры:</span>
+            {assigneeFilter.size > 0 && (
+              <FilterChip
+                label={`Ответственный: ${assigneeFilter.size}`}
+                onClear={() => setAssigneeFilter(new Set())}
+              />
+            )}
+            {projectFilter.size > 0 && (
+              <FilterChip
+                label={`Проект: ${projectFilter.size}`}
+                onClear={() => setProjectFilter(new Set())}
+              />
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setGroupByTopic((v) => !v)}
+          className={cn(
+            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+            groupByTopic
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted",
           )}
-          {projectFilter.size > 0 && (
-            <FilterChip
-              label={`Проект: ${projectFilter.size}`}
-              onClear={() => setProjectFilter(new Set())}
-            />
-          )}
-        </div>
-      )}
+          title="Сгруппировать строки по теме обсуждения"
+        >
+          <FolderOpen className="h-3 w-3" />
+          {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
+        </button>
+      </div>
+
 
       {/* Desktop table */}
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
