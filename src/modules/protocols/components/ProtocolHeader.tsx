@@ -219,6 +219,23 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
   const removeOurLogo = () =>
     update.mutate({ protocol_meta: { ...meta, our_logo_url: null } });
 
+  // ---- our side name (override of parsed/default "Дороничи") ----
+  const ourSideName = meta.our_side_name?.trim() || sides?.ours || "Дороничи";
+  const [editingOurName, setEditingOurName] = useState(false);
+  const [ourNameVal, setOurNameVal] = useState(ourSideName);
+  useEffect(() => setOurNameVal(ourSideName), [ourSideName]);
+  const commitOurName = () => {
+    setEditingOurName(false);
+    const v = ourNameVal.trim();
+    const fallback = sides?.ours || "Дороничи";
+    const next = !v || v === fallback ? null : v;
+    if ((meta.our_side_name ?? null) !== next) {
+      update.mutate({ protocol_meta: { ...meta, our_side_name: next } });
+    } else {
+      setOurNameVal(ourSideName);
+    }
+  };
+
   // ---- external attendees (people from partner side, e.g. Лента) ----
   const externals = meta.external_attendees ?? [];
 
