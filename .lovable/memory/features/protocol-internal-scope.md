@@ -58,10 +58,17 @@ PostgreSQL-триггер на `tasks` (AFTER INSERT/UPDATE OF status_meta).
 
 ## Бизнес-правила
 - CRM-доска (`CrmBoard`) фильтрует `.neq("protocol_scope", "internal")` — самостоятельные внутренние не попадают в воронку клиента.
+- `ProtocolTableView` фильтрует `protocol_scope !== "internal"` — внутренние не появляются как «строки протокола».
+- **`addTask` мутация в `useTasks.tsx` обязана пробрасывать `protocol_scope`, `status_meta`, `source_protocol_id`** в insert И в `onMutate` (оптимистик), иначе internal-задачи утекают в external-список протокола.
 - Экспорт партнёру (когда появится) обязан:
   - исключать строки с `protocol_scope='internal'`
   - вырезать поля `status_meta.linked_*` у внешних строк
-- Внутренние самостоятельные задачи всё равно `group_id = protocolId` и попадают в обычные списки исполнителей.
+  - **Partner-visible поля внешней задачи**: `title`, `assigned_to`/`external_assignee`, `deadline`, `status`, `description`, `closure_result`. Всё остальное (теги, шаги, файлы, участники, internal-чипы) — скрыто.
+- Внутренние самостоятельные задачи всё равно `group_id = protocolId` и попадают в обычные списки исполнителей (Все задачи / Календарь) без бейджа — пользователь сознательно отказался от пометки, контекст определяется через колонку «Проект».
+
+## UI деталей внутренней задачи
+- В строке `InternalRow` (компонент `ProtocolInternalSection`) есть кнопка `Maximize2` → открывает `Sheet` с полным `<TaskItem initialOpen />`. Это даёт доступ ко всем стандартным фичам задачи: шаги, теги, описание, файлы, AI-подсказки, чат — без дублирования UI.
+- В шапке Sheet — красная пометка «Внутренняя задача · не уходит партнёру».
 
 ## Видимость linked-задач в NPD-матрице
 - `NpdSwimlaneMatrix` грузит две пачки задач: (1) `group_id ∈ descendants`, (2) `status_meta->>linked_project_id ∈ descendants`. Дедуп по id.
