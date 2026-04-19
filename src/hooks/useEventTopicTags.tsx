@@ -14,18 +14,6 @@ export function useEventTopicTags() {
   const { user } = useAuth();
   const { data: categories = [] } = useTagCategories();
 
-  const eventTopicCategoryIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          categories
-            .filter((c: any) => c.system_key === "event_topic")
-            .map((c: any) => c.id),
-        ),
-      ),
-    [categories],
-  );
-
   const categoryId = useMemo(
     () =>
       categories.find(
@@ -35,32 +23,22 @@ export function useEventTopicTags() {
   );
 
   const { data: topicTags = [] } = useQuery({
-    queryKey: ["event_topic_tags", eventTopicCategoryIds],
+    queryKey: ["event_topic_tags"],
     queryFn: async () => {
-      if (eventTopicCategoryIds.length === 0) return [];
       const { data, error } = await supabase
         .from("tags")
-        .select("*")
-        .in("category_id", eventTopicCategoryIds)
+        .select("id, name, color, category_id, tag_categories!inner(system_key)")
+        .eq("tag_categories.system_key", "event_topic")
         .order("name");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map(({ tag_categories, ...tag }: any) => tag);
     },
-    enabled: eventTopicCategoryIds.length > 0,
+    enabled: !!user,
     refetchOnMount: "always",
     refetchOnReconnect: "always",
   });
 
-  const normalizedTopicTags = useMemo(
-    () =>
-      topicTags.filter((tag: any) => {
-        if (tag.category_id && eventTopicCategoryIds.includes(tag.category_id)) return true;
-        return false;
-      }),
-    [topicTags, eventTopicCategoryIds],
-  );
-
-  return { categoryId, topicTags: normalizedTopicTags };
+  return { categoryId, topicTags };
 }
 
 /**
