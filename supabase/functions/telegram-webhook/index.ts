@@ -3005,3 +3005,99 @@ async function finalizeProtocolDraft(
     await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
   }
 }
+
+/**
+ * Склеивает буфер сырых сообщений (текст/forwarded/voice) в единый текст для AI-разбора,
+ * затем переиспользует логику осей и финализации, как в обычном wizard.
+ */
+async function flushProtocolBuffer(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  userId: string,
+  protoCtx: any,
+): Promise<void> {
+  const buf: any[] = Array.isArray(protoCtx.raw_messages) ? protoCtx.raw_messages : [];
+  if (buf.length === 0) {
+    await sendTelegramMessage(botToken, chatId, "⚠️ Буфер пуст — пришлите хотя бы одно сообщение.");
+    return;
+  }
+
+  const lines: string[] = [];
+  for (const m of buf) {
+    const dateShort = m.date ? String(m.date).replace("T", " ").slice(0, 16) : "";
+    const srcLabel = m.source === "voice" ? "[голос]" : (m.source === "forwarded" ? "[пересылка]" : "[текст]");
+    lines.push(`--- ${srcLabel} От: ${m.author || "?"} (${dateShort}) ---`);
+    lines.push(String(m.text || "").trim());
+    lines.push("");
+  }
+  const merged = lines.join("\n").trim();
+
+  if (merged.length < 20) {
+    await sendTelegramMessage(botToken, chatId,
+      "⚠️ Слишком мало текста в буфере. Пришлите развёрнутый материал."
+    );
+    return;
+  }
+
+  await sendTelegramMessage(botToken, chatId,
+    `🤖 Разбираю *${buf.length}* фрагмент${pluralizeRu(buf.length, ["", "а", "ов"])}, ${merged.length} симв… Это займёт 5–20 секунд.`,
+    "Markdown",
+  );
+
+  const parsed = await parseProtocolText(merged);
+  if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+    await sendTelegramMessage(botToken, chatId,
+      "❌ Не удалось извлечь задачи из материала. Попробуйте /protocol заново и пришлите более структурированный текст."
+    );
+    await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+    return;
+  }
+
+  const requiredAxes = REQUIRED_AXES_BY_TEMPLATE[protoCtx.template_key as string] || [];
+  const collected: Record<string, string> = {};
+  for (const axis of requiredAxes) {
+    const counts: Record<string, number> = {};
+    for (const r of parsed.rows) {
+      const v = r.axes?.[axis];
+      if (v && typeof v === "string" && v.trim()) {
+        counts[v.trim()] = (counts[v.trim()] || 0) + 1;
+      }
+    }
+    const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    if (best && best[1] >= Math.ceil(parsed.rows.length * 0.5)) {
+      collected[axis] = best[0];
+    }
+  }
+
+  await supabase.from("telegram_pending_context").update({
+    context_type: "protocol_axes",
+    parsed_payload: parsed,
+    collected_axes: collected,
+    awaiting_axis: null,
+    last_message_at: null,
+    created_at: new Date().toISOString(),
+  }).eq("chat_id", chatId);
+
+  const missingAxis = requiredAxes.find((a) => !collected[a]);
+  if (missingAxis) {
+    await supabase.from("telegram_pending_context").update({
+      awaiting_axis: missingAxis,
+    }).eq("chat_id", chatId);
+
+    await sendTelegramMessage(botToken, chatId,
+      `✅ ИИ извлёк *${parsed.rows.length}* задач${pluralizeRu(parsed.rows.length, ["у", "и", ""])}.\n\n` +
+      `Шаг 4/4. Уточните: *${AXIS_LABELS[missingAxis]}*?\n\n` +
+      `_Например: ${AXIS_EXAMPLES[missingAxis] || "название"}_\n\n` +
+      `Или пришлите «-» чтобы пропустить.`,
+      "Markdown"
+    );
+  } else {
+    const { data: freshCtx } = await supabase
+      .from("telegram_pending_context")
+      .select("*")
+      .eq("chat_id", chatId)
+      .maybeSingle();
+    await finalizeProtocolDraft(supabase, botToken, chatId, userId, freshCtx || protoCtx, parsed, collected);
+  }
+}
