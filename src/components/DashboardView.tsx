@@ -21,6 +21,7 @@ import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
+import ProjectIcon from "@/components/ProjectIcon";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
