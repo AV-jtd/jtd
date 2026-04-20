@@ -30,6 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
+import { detectViolations } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 
 type Scale = "day" | "week" | "month";
@@ -223,6 +224,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     originalCreatedAt?: string;
   } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
+
+  // Milestone drag state (timeline horizontal drag)
+  const [msDragState, setMsDragState] = useState<{
+    milestoneId: string;
+    startX: number;
+    originalDate: string;
+  } | null>(null);
+  const [msDragDelta, setMsDragDelta] = useState(0);
 
   // Dependency drag state
   const [depDrag, setDepDrag] = useState<{
@@ -421,6 +430,34 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
+
+  // Milestone drag handlers (timeline horizontal) — uses ref to avoid TDZ
+  const updateMilestoneDateRef = useRef<((ms: Milestone, newDateISO: string) => void) | null>(null);
+  useEffect(() => {
+    if (!msDragState) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setMsDragDelta(e.clientX - msDragState.startX);
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      const delta = e.clientX - msDragState.startX;
+      const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
+      if (daysDelta !== 0) {
+        const ms = allMilestones.find(m => m.id === msDragState.milestoneId);
+        if (ms && updateMilestoneDateRef.current) {
+          const newDate = addDays(parseISO(msDragState.originalDate), daysDelta).toISOString();
+          updateMilestoneDateRef.current(ms, newDate);
+        }
+      }
+      setMsDragState(null);
+      setMsDragDelta(0);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [msDragState, scale, allMilestones]);
 
   // Dependency drag handlers
   useEffect(() => {
@@ -835,6 +872,78 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     if (x > tlScrollLeft + visibleW) return 'right';
     return null;
   }, [getMilestoneX, tlScrollLeft]);
+
+  // Build entity map for cascade calculations (tasks + milestones + projects)
+  const buildEntityMap = useCallback(() => {
+    const m = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
+    allTasks.forEach(t => m.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
+    allMilestones.forEach(ms => m.set(ms.id, { id: ms.id, deadline: ms.planned_date, created_at: ms.created_at }));
+    return m;
+  }, [allTasks, allMilestones]);
+
+  // Apply cascade updates: dispatch to tasks or milestones
+  const applyCascade = useCallback((updates: Map<string, { deadline?: string; start_at?: string }>) => {
+    updates.forEach((upd, entityId) => {
+      if (allTasks.some(t => t.id === entityId)) {
+        const payload: any = { id: entityId };
+        if (upd.deadline) payload.deadline = upd.deadline;
+        if (upd.start_at) payload.start_at = upd.start_at;
+        updateTask.mutate(payload);
+      } else if (allMilestones.some(ms => ms.id === entityId)) {
+        if (upd.deadline) updateMilestone.mutate({ id: entityId, planned_date: upd.deadline });
+      }
+    });
+  }, [allTasks, allMilestones, updateTask, updateMilestone]);
+
+  // Cascade-aware milestone date change with undo
+  const updateMilestoneDate = useCallback((milestone: Milestone, newDateISO: string) => {
+    const oldDate = parseISO(milestone.planned_date);
+    const newDate = parseISO(newDateISO);
+    if (oldDate.getTime() === newDate.getTime()) return;
+
+    updateMilestone.mutate({ id: milestone.id, planned_date: newDateISO });
+
+    // Cascade to dependent entities
+    const entityMap = buildEntityMap();
+    entityMap.set(milestone.id, { id: milestone.id, deadline: newDateISO, created_at: milestone.created_at });
+    const cascade = computeCascadeUpdates(milestone.id, newDate, oldDate, allDependencies, entityMap);
+    applyCascade(cascade);
+
+    // Undo: snapshot affected entities and restore
+    const snapshots: { type: "task" | "milestone"; id: string; deadline?: string | null; start_at?: string | null }[] = [];
+    cascade.forEach((_, entityId) => {
+      const t = allTasks.find(x => x.id === entityId);
+      if (t) snapshots.push({ type: "task", id: t.id, deadline: t.deadline, start_at: t.start_at });
+      const ms = allMilestones.find(x => x.id === entityId);
+      if (ms) snapshots.push({ type: "milestone", id: ms.id, deadline: ms.planned_date });
+    });
+
+    pushUndo({
+      label: `веха «${milestone.name}»`,
+      undo: () => {
+        updateMilestone.mutate({ id: milestone.id, planned_date: milestone.planned_date });
+        snapshots.forEach(s => {
+          if (s.type === "task") updateTask.mutate({ id: s.id, deadline: s.deadline, start_at: s.start_at });
+          else updateMilestone.mutate({ id: s.id, planned_date: s.deadline! });
+        });
+      },
+      redo: () => {
+        updateMilestone.mutate({ id: milestone.id, planned_date: newDateISO });
+        applyCascade(cascade);
+      },
+    });
+  }, [updateMilestone, updateTask, buildEntityMap, applyCascade, allDependencies, allTasks, allMilestones, pushUndo]);
+
+  // Sync ref so the milestone-drag effect can call cascade-aware updater
+  useEffect(() => { updateMilestoneDateRef.current = updateMilestoneDate; }, [updateMilestoneDate]);
+
+  // Detect dependency violations (entity ids that violate at least one predecessor link)
+  const violationIds = useMemo(() => {
+    const m = new Map<string, { id: string; deadline?: string | null; start_at?: string | null }>();
+    allTasks.forEach(t => m.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at }));
+    allMilestones.forEach(ms => m.set(ms.id, { id: ms.id, deadline: ms.planned_date, start_at: ms.planned_date }));
+    return detectViolations(allDependencies, m);
+  }, [allTasks, allMilestones, allDependencies]);
 
   const todayOffset = useMemo(() => {
     const offset = differenceInCalendarDays(new Date(), timelineStart);
@@ -1610,10 +1719,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 isOverdue && "opacity-85",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
+                                violationIds.has(task.id) && !isCritical && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
                                 dimmed && "opacity-20"
                               )}
                               style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
-                              title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}`}
+                              title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}${violationIds.has(task.id) ? "  ⚠ Нарушение зависимости" : ""}`}
                               onMouseUp={() => handleBarMouseUp(task.id)}
                             >
                               {/* Progress fill inside bar */}
@@ -1791,19 +1901,45 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       );
                     })()}
 
-                    {/* Milestone row — red tinted bg + small diamond + dependency connector */}
+                    {/* Milestone row — red tinted bg + small diamond + dependency connector + drag */}
                     {row.type === "milestone" && row.milestone && (() => {
-                      const x = getMilestoneX(row.milestone!);
+                      const ms = row.milestone!;
+                      const baseX = getMilestoneX(ms);
+                      const isDragging = msDragState?.milestoneId === ms.id;
+                      const dragOffset = isDragging ? msDragDelta : 0;
+                      const x = baseX + dragOffset;
+                      const hasViolation = violationIds.has(ms.id);
                       return (
                         <div
                           className="absolute inset-0 group/ms"
                           style={{ backgroundColor: "rgba(239,68,68,0.03)" }}
-                          onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
+                          onMouseUp={() => handleBarMouseUp(ms.id, "milestone")}
                         >
                           <div
-                            className="absolute top-1/2 -translate-y-1/2 cursor-pointer"
+                            className={cn(
+                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
+                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm"
+                            )}
                             style={{ left: x - 5 }}
-                            onClick={() => { if (!depDrag && !wasDepDragRef.current) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
+                            title={hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name}
+                            onMouseDown={(e) => {
+                              if (e.button !== 0) return;
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setMsDragState({
+                                milestoneId: ms.id,
+                                startX: e.clientX,
+                                originalDate: ms.planned_date,
+                              });
+                              setMsDragDelta(0);
+                            }}
+                            onClick={(e) => {
+                              // Only treat as click if no drag happened
+                              if (!depDrag && !wasDepDragRef.current && !isDragging) {
+                                setEditingMilestone(ms);
+                                setMsDialogOpen(true);
+                              }
+                            }}
                           >
                             <Diamond className="h-2.5 w-2.5 fill-[#EF4444] text-[#EF4444]" />
                           </div>
@@ -1814,7 +1950,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
-                                fromId: row.milestone!.id,
+                                fromId: ms.id,
                                 fromEntityType: "milestone",
                                 startX: x + 6,
                                 startY: rowTops[i] + getRowHeight(i) / 2,
@@ -1845,19 +1981,25 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         onSave={(data) => {
           const { predecessor, ...msData } = data;
           if (editingMilestone) {
-            updateMilestone.mutate({ id: editingMilestone.id, ...msData });
+            // If date changed → use cascade-aware update
+            const dateChanged = msData.planned_date && msData.planned_date !== editingMilestone.planned_date;
+            if (dateChanged && msData.planned_date) {
+              const { planned_date, ...rest } = msData;
+              if (Object.keys(rest).length > 0) {
+                updateMilestone.mutate({ id: editingMilestone.id, ...rest });
+              }
+              updateMilestoneDate(editingMilestone, planned_date);
+            } else {
+              updateMilestone.mutate({ id: editingMilestone.id, ...msData });
+            }
           } else {
             addMilestone.mutate(msData);
           }
           // Handle predecessor dependency after save
           if (predecessor && predecessor.id) {
-            // We'll create the dependency; for new milestones this is tricky
-            // since we don't have the ID yet, but for edits it works
             if (editingMilestone) {
-              // Remove old deps where this milestone is successor
               const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
               oldDeps.forEach(d => deleteDependency.mutate(d.id));
-              // Add new
               setTimeout(() => {
                 addDependency.mutate({
                   predecessor_id: predecessor.id,
@@ -1868,7 +2010,6 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               }, 300);
             }
           } else if (editingMilestone && !predecessor) {
-            // Remove existing predecessor deps
             const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
             oldDeps.forEach(d => deleteDependency.mutate(d.id));
           }

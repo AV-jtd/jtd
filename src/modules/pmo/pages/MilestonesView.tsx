@@ -1,6 +1,9 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { useTaskGroups, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useMilestones, type Milestone, useMilestoneMutations } from "@/hooks/useMilestones";
+import { useDependencies } from "@/hooks/useDependencies";
+import { useUndo } from "@/hooks/useUndoStack";
+import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import { NPD_GATES } from "@/modules/npd/components/matrix/types";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
@@ -26,8 +29,12 @@ const AUTO_SCROLL_SPEED = 8;
 export default function MilestonesView() {
   const { data: groups = [] } = useTaskGroups();
   const { data: milestones = [] } = useMilestones();
+  const { data: allTasks = [] } = useTasks();
+  const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { updateMilestone, deleteMilestone } = useMilestoneMutations();
+  const { updateTask } = useTaskMutations();
+  const { pushUndo } = useUndo();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetGroup, setDropTargetGroup] = useState<string | null>(null);
@@ -354,8 +361,67 @@ export default function MilestonesView() {
         milestone={editingMs}
         projects={groups}
         onSave={(data) => {
-          if (editingMs) {
-            const { predecessor, ...msData } = data;
+          if (!editingMs) return;
+          const { predecessor, ...msData } = data;
+          const dateChanged = msData.planned_date && msData.planned_date !== editingMs.planned_date;
+
+          if (dateChanged && msData.planned_date) {
+            const oldDate = parseISO(editingMs.planned_date);
+            const newDate = parseISO(msData.planned_date);
+
+            // Save other fields
+            const { planned_date, ...rest } = msData;
+            if (Object.keys(rest).length > 0) {
+              updateMilestone.mutate({ id: editingMs.id, ...rest });
+            }
+            updateMilestone.mutate({ id: editingMs.id, planned_date });
+
+            // Cascade
+            const entityMap = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
+            allTasks.forEach(t => entityMap.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
+            milestones.forEach(m => entityMap.set(m.id, { id: m.id, deadline: m.planned_date, created_at: m.created_at }));
+            entityMap.set(editingMs.id, { id: editingMs.id, deadline: planned_date, created_at: editingMs.created_at });
+            const cascade = computeCascadeUpdates(editingMs.id, newDate, oldDate, allDependencies, entityMap);
+            const snapshots: { type: "task" | "milestone"; id: string; deadline?: string | null; start_at?: string | null }[] = [];
+            cascade.forEach((upd, entityId) => {
+              const t = allTasks.find(x => x.id === entityId);
+              if (t) {
+                snapshots.push({ type: "task", id: t.id, deadline: t.deadline, start_at: t.start_at });
+                const payload: any = { id: t.id };
+                if (upd.deadline) payload.deadline = upd.deadline;
+                if (upd.start_at) payload.start_at = upd.start_at;
+                updateTask.mutate(payload);
+              }
+              const m = milestones.find(x => x.id === entityId);
+              if (m && upd.deadline) {
+                snapshots.push({ type: "milestone", id: m.id, deadline: m.planned_date });
+                updateMilestone.mutate({ id: m.id, planned_date: upd.deadline });
+              }
+            });
+            pushUndo({
+              label: `веха «${editingMs.name}»`,
+              undo: () => {
+                updateMilestone.mutate({ id: editingMs.id, planned_date: editingMs.planned_date });
+                snapshots.forEach(s => {
+                  if (s.type === "task") updateTask.mutate({ id: s.id, deadline: s.deadline, start_at: s.start_at });
+                  else updateMilestone.mutate({ id: s.id, planned_date: s.deadline! });
+                });
+              },
+              redo: () => {
+                updateMilestone.mutate({ id: editingMs.id, planned_date });
+                cascade.forEach((upd, entityId) => {
+                  if (allTasks.some(t => t.id === entityId)) {
+                    const payload: any = { id: entityId };
+                    if (upd.deadline) payload.deadline = upd.deadline;
+                    if (upd.start_at) payload.start_at = upd.start_at;
+                    updateTask.mutate(payload);
+                  } else if (milestones.some(m => m.id === entityId) && upd.deadline) {
+                    updateMilestone.mutate({ id: entityId, planned_date: upd.deadline });
+                  }
+                });
+              },
+            });
+          } else {
             updateMilestone.mutate({ id: editingMs.id, ...msData });
           }
         }}

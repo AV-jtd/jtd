@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Trash2, Link2, X } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { Milestone } from "@/hooks/useMilestones";
@@ -245,6 +245,19 @@ export default function MilestoneDialog({
                           setPredecessorType(p.type);
                           setPredSearchOpen(false);
                           setPredSearch("");
+                          // Auto-set milestone date if empty: predecessor end + 1 day
+                          if (!date) {
+                            let predDate: Date | null = null;
+                            if (p.type === "task") {
+                              const t = (allTasks || []).find(x => x.id === p.id);
+                              if (t?.deadline) predDate = parseISO(t.deadline);
+                              else if (t?.start_at) predDate = parseISO(t.start_at);
+                            } else if (p.type === "milestone") {
+                              const m = (allMilestones || []).find(x => x.id === p.id);
+                              if (m?.planned_date) predDate = parseISO(m.planned_date);
+                            }
+                            if (predDate) setDate(addDays(predDate, 1));
+                          }
                         }}
                       >
                         {p.label}
