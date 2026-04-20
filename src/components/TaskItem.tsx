@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
+import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -1086,7 +1087,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                         style={{ color: parentGroup.color || '#3b82f6' }}
                         onClick={(e) => { e.stopPropagation(); onProjectClick?.(parentGroup.id); }}
                       >
-                        <span className="text-[11px]">{parentGroup.icon && parentGroup.icon !== 'list' ? parentGroup.icon : '📁'}</span>
+                        <ProjectIcon group={parentGroup} size="xs" fallbackEmoji="📁" />
                         {parentGroup.name}
                       </span>
                       <span className="text-muted-foreground">/</span>
@@ -1097,7 +1098,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                     style={{ color: group.color || '#3b82f6' }}
                     onClick={(e) => { e.stopPropagation(); onProjectClick?.(group.id); }}
                   >
-                    {!parentGroup && <span className="text-[11px]">{group.icon && group.icon !== 'list' ? group.icon : '📁'}</span>}
+                    {!parentGroup && <ProjectIcon group={group} size="xs" fallbackEmoji="📁" />}
                     {group.name}
                   </span>
                   {!group.parent_id && (
@@ -1333,7 +1334,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                           task.group_id === g.id && "bg-primary/10 text-primary"
                         )}
                       >
-                        <span className="text-[11px] shrink-0">{g.icon && g.icon !== 'list' ? g.icon : '📁'}</span>
+                        <ProjectIcon group={g} size="xs" fallbackEmoji="📁" />
                         <span className="truncate" style={{ color: g.color || undefined }}>{g.name}</span>
                       </button>
                       {subs.map(sub => (
@@ -1475,21 +1476,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   {parentGroup && (
                     <>
                       <span
-                        className="cursor-pointer hover:underline underline-offset-2"
+                        className="inline-flex items-center gap-1 cursor-pointer hover:underline underline-offset-2"
                         style={{ color: parentGroup.color || '#3b82f6' }}
                         onClick={() => onProjectClick?.(parentGroup.id)}
                       >
-                        {parentGroup.icon && parentGroup.icon !== 'list' ? parentGroup.icon + ' ' : ''}{parentGroup.name}
+                        <ProjectIcon group={parentGroup} size="xs" fallbackEmoji="📁" />
+                        {parentGroup.name}
                       </span>
                       <span className="text-muted-foreground/40">/</span>
                     </>
                   )}
                   <span
-                    className="font-medium cursor-pointer hover:underline underline-offset-2"
+                    className="inline-flex items-center gap-1 font-medium cursor-pointer hover:underline underline-offset-2"
                     style={{ color: group.color || '#3b82f6' }}
                     onClick={() => onProjectClick?.(group.id)}
                   >
-                    {group.icon && group.icon !== 'list' ? group.icon + ' ' : ''}{group.name}
+                    {!parentGroup && <ProjectIcon group={group} size="xs" fallbackEmoji="📁" />}
+                    {group.name}
                   </span>
                 </div>
               );
