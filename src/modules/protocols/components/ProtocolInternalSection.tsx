@@ -423,7 +423,7 @@ function ProjectChip({
                 g.id === value && "bg-primary/10 text-primary",
               )}
             >
-              {g.icon ? `${g.icon} ` : ""}{g.name}
+              {g.icon && g.icon !== "list" ? `${g.icon} ` : ""}{g.name}
             </button>
           ))}
           {filtered.length === 0 && (
