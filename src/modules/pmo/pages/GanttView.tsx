@@ -2021,6 +2021,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       const dragOffset = isDragging ? msDragDelta : 0;
                       const x = baseX + dragOffset;
                       const hasViolation = violationIds.has(ms.id);
+                      const isCascaded = cascadeHighlight.has(ms.id);
                       return (
                         <div
                           className="absolute inset-0 group/ms"
@@ -2029,11 +2030,12 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         >
                           <div
                             className={cn(
-                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
-                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm"
+                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing transition-all",
+                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm",
+                              isCascaded && "animate-pulse drop-shadow-[0_0_8px_hsl(var(--primary))]"
                             )}
                             style={{ left: x - 5 }}
-                            title={hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name}
+                            title={isCascaded ? "↻ Веха перенесена каскадом зависимостей" : (hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name)}
                             onMouseDown={(e) => {
                               if (e.button !== 0) return;
                               e.stopPropagation();
