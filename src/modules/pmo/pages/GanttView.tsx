@@ -1719,10 +1719,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 isOverdue && "opacity-85",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
+                                violationIds.has(task.id) && !isCritical && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
                                 dimmed && "opacity-20"
                               )}
                               style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
-                              title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}`}
+                              title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}${violationIds.has(task.id) ? "  ⚠ Нарушение зависимости" : ""}`}
                               onMouseUp={() => handleBarMouseUp(task.id)}
                             >
                               {/* Progress fill inside bar */}
