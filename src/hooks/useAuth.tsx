@@ -8,6 +8,9 @@ interface AuthContextType {
   loading: boolean;
   isApproved: boolean;
   isAdmin: boolean;
+  isRealAdmin: boolean;
+  adminModeDisabled: boolean;
+  setAdminModeDisabled: (disabled: boolean) => void;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -21,8 +24,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminModeDisabled, setAdminModeDisabledState] = useState<boolean>(() => {
+    try { return localStorage.getItem("admin_mode_disabled") === "1"; } catch { return false; }
+  });
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
+
+  // Sync across tabs
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "admin_mode_disabled") {
+        setAdminModeDisabledState(e.newValue === "1");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean, attempt = 0) => {
     const MAX_RETRIES = 3;
@@ -151,8 +168,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const setAdminModeDisabled = (disabled: boolean) => {
+    try {
+      if (disabled) localStorage.setItem("admin_mode_disabled", "1");
+      else localStorage.removeItem("admin_mode_disabled");
+    } catch {}
+    setAdminModeDisabledState(disabled);
+  };
+
+  const effectiveIsAdmin = isAdmin && !adminModeDisabled;
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, isApproved, isAdmin, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user, session, loading, isApproved,
+      isAdmin: effectiveIsAdmin,
+      isRealAdmin: isAdmin,
+      adminModeDisabled,
+      setAdminModeDisabled,
+      signUp, signIn, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

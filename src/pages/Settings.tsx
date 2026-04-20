@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import { toast } from "sonner";
@@ -19,7 +19,7 @@ import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
-  const { user, loading } = useAuth();
+  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const { prefs, updatePrefs } = useNotificationPreferences();
@@ -372,6 +372,39 @@ export default function Settings() {
             <div className="border-t border-border pt-6">
               <TeamSection />
             </div>
+
+            {/* Admin mode toggle (только для реальных админов) */}
+            {isRealAdmin && (
+              <div className="border-t border-border pt-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-destructive" />
+                  <h2 className="text-lg font-medium">Режим администратора</h2>
+                </div>
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      Супер-права админа
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Когда включены — видно всё (чужие задачи, проекты, теги, панель утверждения пользователей).
+                      Выключите, чтобы интерфейс выглядел как у обычного юзера.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Статус: <span className={cn("font-semibold", adminModeDisabled ? "text-muted-foreground" : "text-destructive")}>
+                        {adminModeDisabled ? "Выключен" : "Включен"}
+                      </span>
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!adminModeDisabled}
+                    onCheckedChange={(checked) => {
+                      setAdminModeDisabled(!checked);
+                      toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Admin approval */}
             <AdminApproval />
