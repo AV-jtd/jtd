@@ -108,22 +108,36 @@ export default function AppHeader({
 
       {/* Right actions */}
       <div className="flex items-center gap-0.5 md:gap-1">
-        {isAdmin && (
-          <span
-            className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold uppercase tracking-wide border border-destructive/30 mr-1"
-            title="Режим администратора: полный доступ ко всем данным"
+        {isRealAdmin && (
+          <button
+            onClick={() => setAdminModeDisabled(!adminModeDisabled)}
+            className={cn(
+              "hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border mr-1 transition-colors",
+              adminModeDisabled
+                ? "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                : "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20"
+            )}
+            title={adminModeDisabled
+              ? "Режим обычного пользователя. Нажмите, чтобы включить супер-права админа."
+              : "Режим администратора: полный доступ ко всем данным. Нажмите, чтобы переключиться в режим пользователя."}
           >
             <ShieldAlert className="h-3 w-3" />
-            Admin
-          </span>
+            {adminModeDisabled ? "User" : "Admin"}
+          </button>
         )}
-        {isAdmin && (
-          <span
-            className="md:hidden inline-flex items-center justify-center h-6 w-6 rounded-md bg-destructive/10 text-destructive border border-destructive/30 mr-1"
-            title="Режим администратора"
+        {isRealAdmin && (
+          <button
+            onClick={() => setAdminModeDisabled(!adminModeDisabled)}
+            className={cn(
+              "md:hidden inline-flex items-center justify-center h-6 w-6 rounded-md border mr-1 transition-colors",
+              adminModeDisabled
+                ? "bg-muted text-muted-foreground border-border"
+                : "bg-destructive/10 text-destructive border-destructive/30"
+            )}
+            title={adminModeDisabled ? "Режим пользователя (нажмите для админ-режима)" : "Режим администратора (нажмите для режима пользователя)"}
           >
             <ShieldAlert className="h-3.5 w-3.5" />
-          </span>
+          </button>
         )}
         {onSearchOpen && (
           <button
