@@ -1,6 +1,9 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { useTaskGroups, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type TaskGroup, type Profile } from "@/hooks/useTasks";
 import { useMilestones, type Milestone, useMilestoneMutations } from "@/hooks/useMilestones";
+import { useDependencies } from "@/hooks/useDependencies";
+import { useUndo } from "@/hooks/useUndoStack";
+import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import { NPD_GATES } from "@/modules/npd/components/matrix/types";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO, differenceInDays } from "date-fns";
@@ -26,8 +29,12 @@ const AUTO_SCROLL_SPEED = 8;
 export default function MilestonesView() {
   const { data: groups = [] } = useTaskGroups();
   const { data: milestones = [] } = useMilestones();
+  const { data: allTasks = [] } = useTasks();
+  const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
   const { updateMilestone, deleteMilestone } = useMilestoneMutations();
+  const { updateTask } = useTaskMutations();
+  const { pushUndo } = useUndo();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetGroup, setDropTargetGroup] = useState<string | null>(null);
