@@ -156,20 +156,54 @@ Deno.serve(async (req) => {
         }
 
         await supabaseCb.from("telegram_pending_context").update({
-          context_type: "protocol_text",
+          context_type: "protocol_buffer",
           template_key: templateKey,
+          awaiting_axis: "__buffer__",
+          raw_messages: [],
+          last_message_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
         }).eq("chat_id", cbChatId);
 
         const tplName = TEMPLATE_LABELS[templateKey] || templateKey;
         await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `✅ ${tplName}`);
-        await sendTelegramMessage(BOT_TOKEN, cbChatId,
+        await sendTelegramMessageWithKeyboard(BOT_TOKEN, cbChatId,
           `✅ Шаблон: *${escapeMarkdown(tplName)}*\n\n` +
-          `Шаг 3/4. Пришлите *одним сообщением* полный текст протокола встречи.\n\n` +
-          `_Можно скопировать из заметок, переслать сообщение или просто описать своими словами. ИИ извлечёт задачи, ответственных и сроки._\n\n` +
+          `Шаг 3/4. Пришлите материал встречи:\n\n` +
+          `• 📝 Текст одним или несколькими сообщениями\n` +
+          `• 📨 Перешлите переписку (несколько сообщений подряд)\n` +
+          `• 🎤 Голосовые — расшифруются и попадут в общий буфер\n\n` +
+          `Когда закончите — нажмите *«✅ Разобрать всё»* или просто подождите 60 сек тишины.\n\n` +
           `⏰ Контекст активен 15 минут. Отмена: /cancel`,
+          [
+            [{ text: "✅ Разобрать всё сейчас", callback_data: "proto_finish" }],
+            [{ text: "❌ Отмена", callback_data: "proto_cancel" }],
+          ],
           "Markdown"
         );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "proto_finish" — flush buffer and start parsing
+      if (cbData === "proto_finish") {
+        const { data: protoCtx } = await supabaseCb
+          .from("telegram_pending_context")
+          .select("*")
+          .eq("chat_id", cbChatId)
+          .maybeSingle();
+
+        if (!protoCtx || protoCtx.context_type !== "protocol_buffer") {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Нет активного сбора");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const buf = Array.isArray(protoCtx.raw_messages) ? protoCtx.raw_messages : [];
+        if (buf.length === 0) {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "⚠️ Буфер пуст — пришлите материал");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "🤖 Разбираю…");
+        await flushProtocolBuffer(supabaseCb, BOT_TOKEN, cbChatId, protoCtx.user_id, protoCtx);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
