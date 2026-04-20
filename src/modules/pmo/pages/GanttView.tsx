@@ -431,7 +431,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     };
   }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
 
-  // Milestone drag handlers (timeline horizontal)
+  // Milestone drag handlers (timeline horizontal) — uses ref to avoid TDZ
+  const updateMilestoneDateRef = useRef<((ms: Milestone, newDateISO: string) => void) | null>(null);
   useEffect(() => {
     if (!msDragState) return;
     const handleMouseMove = (e: MouseEvent) => {
@@ -442,9 +443,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
         const ms = allMilestones.find(m => m.id === msDragState.milestoneId);
-        if (ms) {
+        if (ms && updateMilestoneDateRef.current) {
           const newDate = addDays(parseISO(msDragState.originalDate), daysDelta).toISOString();
-          updateMilestoneDate(ms, newDate);
+          updateMilestoneDateRef.current(ms, newDate);
         }
       }
       setMsDragState(null);
@@ -456,7 +457,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [msDragState, scale, allMilestones, updateMilestoneDate]);
+  }, [msDragState, scale, allMilestones]);
 
   // Dependency drag handlers
   useEffect(() => {
