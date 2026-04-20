@@ -147,6 +147,12 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             next.add(newRow.id);
             return next;
           });
+          const oldD = new Date(oldDate);
+          const newD = new Date(newRow.planned_date);
+          const days = Math.round((newD.getTime() - oldD.getTime()) / 86400000);
+          if (days !== 0) {
+            toast.info(`🔻 Веха «${newRow.name}» сдвинута на ${days > 0 ? '+' : ''}${days} дн.`, { duration: 4000 });
+          }
           setTimeout(() => {
             setCascadeHighlight(prev => {
               const next = new Set(prev);
