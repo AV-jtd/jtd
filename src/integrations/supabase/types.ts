@@ -1892,6 +1892,7 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      resolve_dependency_violations: { Args: never; Returns: number }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
       seed_protocol_status_for_user: {
         Args: { _user_id: string }
