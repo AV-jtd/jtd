@@ -1834,7 +1834,9 @@ function ProjectCard({
   const upcomingTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
   const driftTasks = activeTasks
     .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }));
+    .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }))
+    // Защита от битых дат (например, original_deadline = 0002-05-14): отбрасываем дрейф > 5 лет
+    .filter(({ driftDays }) => Math.abs(driftDays) <= 1825);
 
   // Max overdue days (single worst task)
   const maxOverdueDays = overdueTasks.reduce((max, t) => {
