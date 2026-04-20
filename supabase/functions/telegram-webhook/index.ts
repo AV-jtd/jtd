@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
         { command: "projects", description: "📂 Список проектов" },
         { command: "project", description: "📁 Выбрать проект" },
         { command: "spisok", description: "📦 Пакетное создание задач" },
+        { command: "protocol", description: "📋 Создать протокол встречи" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
         { command: "ai", description: "✨ ИИ-ассистент" },
+        { command: "cancel", description: "❌ Отменить текущую операцию" },
       ];
       const groupCommands = [
         { command: "link", description: "🔗 Привязать чат к проекту" },
@@ -136,6 +138,46 @@ Deno.serve(async (req) => {
         await supabaseCb.from("tasks").update({ assigned_to: cbProfile.id }).eq("id", taskId);
         await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `👤 Назначено на вас`);
         await sendTelegramMessage(BOT_TOKEN, cbChatId, `👤 "${escapeMarkdown(task.title.substring(0, 60))}" → @${cbUsername}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "proto_tpl:<template_key>"
+      if (cbData.startsWith("proto_tpl:")) {
+        const templateKey = cbData.substring(10);
+        const { data: protoCtx } = await supabaseCb
+          .from("telegram_pending_context")
+          .select("*")
+          .eq("chat_id", cbChatId)
+          .maybeSingle();
+
+        if (!protoCtx || protoCtx.context_type !== "protocol_template") {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Контекст устарел, начните /protocol заново");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("telegram_pending_context").update({
+          context_type: "protocol_text",
+          template_key: templateKey,
+          created_at: new Date().toISOString(),
+        }).eq("chat_id", cbChatId);
+
+        const tplName = TEMPLATE_LABELS[templateKey] || templateKey;
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `✅ ${tplName}`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId,
+          `✅ Шаблон: *${escapeMarkdown(tplName)}*\n\n` +
+          `Шаг 3/4. Пришлите *одним сообщением* полный текст протокола встречи.\n\n` +
+          `_Можно скопировать из заметок, переслать сообщение или просто описать своими словами. ИИ извлечёт задачи, ответственных и сроки._\n\n` +
+          `⏰ Контекст активен 15 минут. Отмена: /cancel`,
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "proto_cancel"
+      if (cbData === "proto_cancel") {
+        await supabaseCb.from("telegram_pending_context").delete().eq("chat_id", cbChatId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Отменено");
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, "❌ Создание протокола отменено.");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -888,6 +930,7 @@ Deno.serve(async (req) => {
         "• `/project` — выбрать проект\n" +
         "• `/projects` — список проектов\n" +
         "• `/spisok` — пакетное создание задач\n" +
+        "• `/protocol` — создать протокол встречи\n" +
         "• `/chat Проект Сообщение` — чат проекта\n" +
         "• `/ai Вопрос` — ИИ-ассистент\n" +
         "• `/help` — справка",
@@ -1135,6 +1178,219 @@ Deno.serve(async (req) => {
 
       await handleAiChat(supabase, BOT_TOKEN, chatId, userId, aiQuestion, null, null);
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === /protocol in private chat (multi-step wizard) ===
+    if (message.text.startsWith("/protocol") || message.text === "/proto") {
+      const protoArgs = message.text.replace(/^\/(protocol|proto)\s*/, "").trim();
+
+      // If user typed "/protocol Название" — save name and ask for template
+      if (protoArgs) {
+        await supabase.from("telegram_pending_context").upsert({
+          chat_id: chatId,
+          user_id: userId,
+          context_type: "protocol_template",
+          protocol_name: protoArgs,
+          group_id: null,
+          group_name: null,
+          collected_axes: {},
+          parsed_payload: null,
+          template_key: null,
+          awaiting_axis: null,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "chat_id" });
+
+        await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId,
+          `📋 *Создание протокола*\n\n` +
+          `Название: *${escapeMarkdown(protoArgs)}*\n\n` +
+          `Выберите шаблон:`,
+          [
+            [{ text: "🔀 Кросс-функциональный", callback_data: "proto_tpl:cross_functional" }],
+            [{ text: "🤝 Переговоры с клиентом", callback_data: "proto_tpl:client_negotiation" }],
+            [{ text: "🎯 Гейт NPD", callback_data: "proto_tpl:npd_gate" }],
+            [{ text: "📋 Пустой", callback_data: "proto_tpl:blank" }],
+            [{ text: "❌ Отмена", callback_data: "proto_cancel" }],
+          ],
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // No args — ask for name first
+      await supabase.from("telegram_pending_context").upsert({
+        chat_id: chatId,
+        user_id: userId,
+        context_type: "protocol_name",
+        group_id: null,
+        group_name: null,
+        collected_axes: {},
+        parsed_payload: null,
+        template_key: null,
+        awaiting_axis: null,
+        protocol_name: null,
+        created_at: new Date().toISOString(),
+      }, { onConflict: "chat_id" });
+
+      await sendTelegramMessage(BOT_TOKEN, chatId,
+        "📋 *Создание протокола встречи*\n\n" +
+        "Шаг 1/4. Как назвать протокол?\n\n" +
+        "_Например: «Встреча по запуску линейки X», «Переговоры с Магнит 18.04»_\n\n" +
+        "⏰ Контекст активен 15 минут. Отмена: /cancel",
+        "Markdown"
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === /cancel — drop any pending context ===
+    if (message.text === "/cancel") {
+      const { data: existing } = await supabase
+        .from("telegram_pending_context")
+        .select("context_type")
+        .eq("chat_id", chatId)
+        .maybeSingle();
+      await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+      await sendTelegramMessage(BOT_TOKEN, chatId,
+        existing ? "❌ Текущая операция отменена." : "Нет активной операции."
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Handle pending protocol context (multi-step wizard) ===
+    {
+      const { data: protoCtx } = await supabase
+        .from("telegram_pending_context")
+        .select("*")
+        .eq("chat_id", chatId)
+        .maybeSingle();
+
+      if (protoCtx?.context_type?.startsWith("protocol_") &&
+          (Date.now() - new Date(protoCtx.created_at).getTime()) < 15 * 60 * 1000 &&
+          !message.text.startsWith("/")) {
+
+        // STEP: awaiting protocol name
+        if (protoCtx.context_type === "protocol_name") {
+          const name = message.text.trim().slice(0, 200);
+          await supabase.from("telegram_pending_context").update({
+            context_type: "protocol_template",
+            protocol_name: name,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId,
+            `✅ Название: *${escapeMarkdown(name)}*\n\n` +
+            `Шаг 2/4. Выберите шаблон протокола:`,
+            [
+              [{ text: "🔀 Кросс-функциональный", callback_data: "proto_tpl:cross_functional" }],
+              [{ text: "🤝 Переговоры с клиентом", callback_data: "proto_tpl:client_negotiation" }],
+              [{ text: "🎯 Гейт NPD", callback_data: "proto_tpl:npd_gate" }],
+              [{ text: "📋 Пустой", callback_data: "proto_tpl:blank" }],
+              [{ text: "❌ Отмена", callback_data: "proto_cancel" }],
+            ],
+            "Markdown"
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // STEP: awaiting full meeting text
+        if (protoCtx.context_type === "protocol_text") {
+          if (message.text.trim().length < 20) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              "⚠️ Слишком короткий текст. Пришлите развёрнутый протокол встречи (минимум 20 символов)."
+            );
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          await sendTelegramMessage(BOT_TOKEN, chatId, "🤖 Разбираю текст через ИИ… Это займёт 5-15 секунд.");
+
+          const parsed = await parseProtocolText(message.text);
+          if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              "❌ Не удалось извлечь задачи из текста. Попробуйте /protocol заново и пришлите более структурированный текст."
+            );
+            await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          // Determine which required axes are missing
+          const requiredAxes = REQUIRED_AXES_BY_TEMPLATE[protoCtx.template_key as string] || [];
+          const collected: Record<string, string> = {};
+
+          // Pre-fill from parsed.rows (most common axis value across rows)
+          for (const axis of requiredAxes) {
+            const counts: Record<string, number> = {};
+            for (const r of parsed.rows) {
+              const v = r.axes?.[axis];
+              if (v && typeof v === "string" && v.trim()) {
+                counts[v.trim()] = (counts[v.trim()] || 0) + 1;
+              }
+            }
+            const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            // Confident if same value appears in >=50% of rows
+            if (best && best[1] >= Math.ceil(parsed.rows.length * 0.5)) {
+              collected[axis] = best[0];
+            }
+          }
+
+          await supabase.from("telegram_pending_context").update({
+            context_type: "protocol_axes",
+            parsed_payload: parsed,
+            collected_axes: collected,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          // Ask for next missing axis or proceed to confirmation
+          const missingAxis = requiredAxes.find((a) => !collected[a]);
+          if (missingAxis) {
+            await supabase.from("telegram_pending_context").update({
+              awaiting_axis: missingAxis,
+            }).eq("chat_id", chatId);
+
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              `✅ ИИ извлёк *${parsed.rows.length}* задач${pluralizeRu(parsed.rows.length, ["у", "и", ""])}.\n\n` +
+              `Шаг 4/4. Уточните: *${AXIS_LABELS[missingAxis]}*?\n\n` +
+              `_Например: ${AXIS_EXAMPLES[missingAxis] || "название"}_\n\n` +
+              `Или пришлите «-» чтобы пропустить.`,
+              "Markdown"
+            );
+          } else {
+            await finalizeProtocolDraft(supabase, BOT_TOKEN, chatId, userId, protoCtx, parsed, collected);
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // STEP: collecting axis answers
+        if (protoCtx.context_type === "protocol_axes" && protoCtx.awaiting_axis) {
+          const axisValue = message.text.trim();
+          const collected = { ...(protoCtx.collected_axes || {}) };
+          if (axisValue !== "-" && axisValue !== "—") {
+            collected[protoCtx.awaiting_axis] = axisValue.slice(0, 200);
+          }
+
+          const requiredAxes = REQUIRED_AXES_BY_TEMPLATE[protoCtx.template_key as string] || [];
+          const nextMissing = requiredAxes.find((a) => !collected[a] && a !== protoCtx.awaiting_axis);
+
+          await supabase.from("telegram_pending_context").update({
+            collected_axes: collected,
+            awaiting_axis: nextMissing || null,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          if (nextMissing) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              `✅ Записал.\n\nЕщё уточните: *${AXIS_LABELS[nextMissing]}*?\n\n` +
+              `_Например: ${AXIS_EXAMPLES[nextMissing] || "название"}_\n\n` +
+              `Или «-» чтобы пропустить.`,
+              "Markdown"
+            );
+          } else {
+            await finalizeProtocolDraft(
+              supabase, BOT_TOKEN, chatId, userId, protoCtx,
+              protoCtx.parsed_payload, collected,
+            );
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
     }
 
     // === /spisok in private chat ===
@@ -2424,4 +2680,311 @@ function detectBulkMessage(text: string): boolean {
   if (commaItems.length >= 3) return true;
 
   return false;
+}
+
+// ==================== PROTOCOL WIZARD HELPERS ====================
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  cross_functional: "Кросс-функциональный",
+  client_negotiation: "Переговоры с клиентом",
+  npd_gate: "Гейт NPD",
+  blank: "Пустой",
+};
+
+const TEMPLATE_ICONS: Record<string, string> = {
+  cross_functional: "🔀",
+  client_negotiation: "🤝",
+  npd_gate: "🎯",
+  blank: "📋",
+};
+
+// Required axes per template (mirrors seed_protocol_templates SQL function)
+const REQUIRED_AXES_BY_TEMPLATE: Record<string, string[]> = {
+  cross_functional: ["site", "product_category"],
+  client_negotiation: ["clients", "territory"],
+  npd_gate: ["site", "product_category"],
+  blank: [],
+};
+
+const AXIS_LABELS: Record<string, string> = {
+  clients: "Клиент / контрагент",
+  territory: "Территория / регион",
+  site: "Площадка / БЕ / завод",
+  brand: "Бренд",
+  product_category: "Категория продукта",
+  department: "Отдел",
+  event_topic: "Тема встречи",
+  stm: "СТМ",
+  product_state: "Состояние продукта",
+};
+
+const AXIS_EXAMPLES: Record<string, string> = {
+  clients: "Магнит, X5, Лента",
+  territory: "ЦФО, Урал, СЗФО",
+  site: "Доронеево, Курск, Калининград",
+  brand: "ВкусВилл, Премьера",
+  product_category: "молочка, кондитерка, замороженные",
+  department: "продажи, маркетинг, R&D",
+  event_topic: "запуск линейки, ценовая политика",
+};
+
+function pluralizeRu(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
+interface ParsedProtocolRow {
+  title: string;
+  description?: string | null;
+  assignee_hint?: string | null;
+  deadline?: string | null;
+  axes?: Record<string, string | null>;
+}
+
+interface ParsedProtocol {
+  meeting_title?: string | null;
+  meeting_date?: string | null;
+  participants?: string[];
+  summary?: string | null;
+  rows: ParsedProtocolRow[];
+}
+
+async function parseProtocolText(text: string): Promise<ParsedProtocol | null> {
+  try {
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/parse-protocol-text`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+    if (!resp.ok) {
+      console.error("parse-protocol-text failed:", resp.status, await resp.text());
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.error("parseProtocolText error:", e);
+    return null;
+  }
+}
+
+/** Try to match a Russian name (e.g. "Иван Петров", "Иван") to a workspace user. */
+async function findUserByName(
+  supabase: any,
+  ownerId: string,
+  hint: string,
+): Promise<string | null> {
+  if (!hint || typeof hint !== "string") return null;
+  const cleaned = hint.replace(/[«»"'()]/g, "").trim();
+  if (!cleaned) return null;
+
+  // Build candidate users: owner + group members of any group owned by user
+  const { data: ownerProfile } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .eq("id", ownerId)
+    .maybeSingle();
+
+  const { data: ownedGroups } = await supabase
+    .from("task_groups")
+    .select("id")
+    .eq("user_id", ownerId);
+  const groupIds = (ownedGroups || []).map((g: any) => g.id);
+
+  let memberProfiles: any[] = [];
+  if (groupIds.length > 0) {
+    const { data: gm } = await supabase
+      .from("group_members")
+      .select("user_id, profiles!inner(id, display_name, telegram_username)")
+      .in("group_id", groupIds);
+    memberProfiles = (gm || []).map((m: any) => m.profiles).filter(Boolean);
+  }
+
+  const candidates: { id: string; name: string; tg: string | null }[] = [];
+  if (ownerProfile) {
+    candidates.push({
+      id: ownerProfile.id,
+      name: ownerProfile.display_name || "",
+      tg: ownerProfile.telegram_username,
+    });
+  }
+  for (const p of memberProfiles) {
+    if (!candidates.find((c) => c.id === p.id)) {
+      candidates.push({ id: p.id, name: p.display_name || "", tg: p.telegram_username });
+    }
+  }
+
+  const lower = cleaned.toLowerCase();
+  // Exact telegram match (with or without @)
+  const tgMatch = candidates.find(
+    (c) => c.tg && c.tg.toLowerCase() === lower.replace(/^@/, ""),
+  );
+  if (tgMatch) return tgMatch.id;
+
+  // Substring match on display_name (try both directions)
+  const nameMatch = candidates.find((c) => {
+    const n = c.name.toLowerCase();
+    if (!n) return false;
+    return n.includes(lower) || lower.includes(n);
+  });
+  if (nameMatch) return nameMatch.id;
+
+  // Token match: any token of cleaned matches any token of name
+  const hintTokens = lower.split(/\s+/).filter((t) => t.length >= 3);
+  for (const c of candidates) {
+    const nameTokens = c.name.toLowerCase().split(/\s+/).filter((t) => t.length >= 3);
+    if (hintTokens.some((ht) => nameTokens.some((nt) => nt === ht))) return c.id;
+  }
+  return null;
+}
+
+async function finalizeProtocolDraft(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  userId: string,
+  protoCtx: any,
+  parsed: ParsedProtocol,
+  collected: Record<string, string>,
+): Promise<void> {
+  try {
+    const templateKey = protoCtx.template_key as string;
+    const templateLabel = TEMPLATE_LABELS[templateKey] || "Протокол";
+    const templateIcon = TEMPLATE_ICONS[templateKey] || "📋";
+
+    const meetingDate =
+      parsed.meeting_date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.meeting_date)
+        ? parsed.meeting_date
+        : new Date().toISOString().slice(0, 10);
+
+    const protocolName =
+      protoCtx.protocol_name ||
+      parsed.meeting_title ||
+      `${templateLabel} — ${meetingDate}`;
+
+    const descriptionParts: string[] = [
+      `Шаблон: ${templateLabel}`,
+      `Дата встречи: ${meetingDate}`,
+      `Создано через Telegram-бот`,
+    ];
+    if (parsed.summary) descriptionParts.push("", parsed.summary);
+    if (parsed.participants?.length)
+      descriptionParts.push(`Участники: ${parsed.participants.join(", ")}`);
+    for (const [axis, val] of Object.entries(collected)) {
+      if (val) descriptionParts.push(`${AXIS_LABELS[axis] || axis}: ${val}`);
+    }
+
+    // 1) Create draft protocol group
+    const { data: group, error: gErr } = await supabase
+      .from("task_groups")
+      .insert({
+        name: protocolName.trim().slice(0, 200),
+        user_id: userId,
+        icon: templateIcon,
+        color: "#6366f1",
+        project_type: "protocol",
+        draft_status: "draft",
+        description: descriptionParts.join("\n"),
+        protocol_meta: {
+          meeting_date: meetingDate,
+          format: "offline",
+          template_key: templateKey,
+          axes: collected,
+          source: "telegram",
+        },
+      })
+      .select()
+      .single();
+
+    if (gErr || !group) {
+      console.error("create protocol group error:", gErr);
+      await sendTelegramMessage(botToken, chatId, "❌ Не удалось создать протокол: " + (gErr?.message || "unknown"));
+      await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+      return;
+    }
+
+    // 2) Create draft tasks (with assignee resolution)
+    const taskRows: any[] = [];
+    for (let i = 0; i < parsed.rows.length; i++) {
+      const r = parsed.rows[i];
+      let assignedTo: string | null = null;
+      if (r.assignee_hint) {
+        assignedTo = await findUserByName(supabase, userId, r.assignee_hint);
+      }
+      const descParts: string[] = [];
+      if (r.description) descParts.push(r.description);
+      if (r.assignee_hint && !assignedTo) {
+        descParts.push(`Ответственный (из текста): ${r.assignee_hint}`);
+      }
+      taskRows.push({
+        title: r.title.slice(0, 200),
+        description: descParts.join("\n\n") || null,
+        deadline: r.deadline && /^\d{4}-\d{2}-\d{2}$/.test(r.deadline) ? r.deadline : null,
+        assigned_to: assignedTo,
+        is_draft: true,
+        group_id: group.id,
+        user_id: userId,
+        position: i,
+      });
+    }
+
+    let createdCount = 0;
+    if (taskRows.length > 0) {
+      const { data: insertedTasks, error: tErr } = await supabase
+        .from("tasks")
+        .insert(taskRows)
+        .select("id");
+      if (tErr) {
+        console.error("create protocol tasks error:", tErr);
+      } else {
+        createdCount = insertedTasks?.length || 0;
+      }
+    }
+
+    await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+
+    // 3) Build summary message with link to web
+    const webBase = "https://justtodoit.ru";
+    const webUrl = `${webBase}/protocols/${group.id}`;
+
+    const previewLines = parsed.rows.slice(0, 5).map((r, i) => {
+      const dl = r.deadline ? ` 📅 ${r.deadline}` : "";
+      const ass = r.assignee_hint ? ` 👤 ${r.assignee_hint}` : "";
+      return `${i + 1}. ${escapeMarkdown(r.title.slice(0, 80))}${ass}${dl}`;
+    });
+    const moreHint =
+      parsed.rows.length > 5
+        ? `\n_…и ещё ${parsed.rows.length - 5} ${pluralizeRu(parsed.rows.length - 5, ["задача", "задачи", "задач"])}_`
+        : "";
+
+    const axesLine = Object.entries(collected)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${AXIS_LABELS[k] || k}: *${escapeMarkdown(v)}*`)
+      .join(" · ");
+
+    await sendTelegramMessageWithKeyboard(
+      botToken,
+      chatId,
+      `✅ *Черновик протокола создан*\n\n` +
+        `${templateIcon} *${escapeMarkdown(protocolName)}*\n` +
+        `📅 ${meetingDate}\n` +
+        (axesLine ? `${axesLine}\n` : "") +
+        `\n📝 Создано задач: *${createdCount}*\n\n` +
+        previewLines.join("\n") +
+        moreHint +
+        `\n\n_Откройте в вебе, чтобы доработать ответственных, теги и опубликовать._`,
+      [[{ text: "📋 Открыть протокол", url: webUrl }]],
+      "Markdown",
+    );
+  } catch (e) {
+    console.error("finalizeProtocolDraft error:", e);
+    await sendTelegramMessage(botToken, chatId, "❌ Ошибка при сохранении протокола.");
+    await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+  }
 }
