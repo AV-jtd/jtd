@@ -373,6 +373,39 @@ export default function Settings() {
               <TeamSection />
             </div>
 
+            {/* Admin mode toggle (только для реальных админов) */}
+            {isRealAdmin && (
+              <div className="border-t border-border pt-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-destructive" />
+                  <h2 className="text-lg font-medium">Режим администратора</h2>
+                </div>
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      Супер-права админа
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Когда включены — видно всё (чужие задачи, проекты, теги, панель утверждения пользователей).
+                      Выключите, чтобы интерфейс выглядел как у обычного юзера.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Статус: <span className={cn("font-semibold", adminModeDisabled ? "text-muted-foreground" : "text-destructive")}>
+                        {adminModeDisabled ? "Выключен" : "Включен"}
+                      </span>
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!adminModeDisabled}
+                    onCheckedChange={(checked) => {
+                      setAdminModeDisabled(!checked);
+                      toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Admin approval */}
             <AdminApproval />
           </div>
