@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_mode_state: {
+        Row: {
+          admin_disabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_disabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_disabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           context_id: string | null
