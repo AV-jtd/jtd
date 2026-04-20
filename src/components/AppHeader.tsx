@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Search, Sparkles, MessageCircle } from "lucide-react";
+import { Menu, Search, Sparkles, MessageCircle, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AppHeaderProps {
   onMenuClick?: () => void;
@@ -31,6 +32,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { isAdmin } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -106,6 +108,23 @@ export default function AppHeader({
 
       {/* Right actions */}
       <div className="flex items-center gap-0.5 md:gap-1">
+        {isAdmin && (
+          <span
+            className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold uppercase tracking-wide border border-destructive/30 mr-1"
+            title="Режим администратора: полный доступ ко всем данным"
+          >
+            <ShieldAlert className="h-3 w-3" />
+            Admin
+          </span>
+        )}
+        {isAdmin && (
+          <span
+            className="md:hidden inline-flex items-center justify-center h-6 w-6 rounded-md bg-destructive/10 text-destructive border border-destructive/30 mr-1"
+            title="Режим администратора"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+          </span>
+        )}
         {onSearchOpen && (
           <button
             onClick={onSearchOpen}
