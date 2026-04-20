@@ -48,10 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const RETRY_DELAY = 2500;
 
     try {
-      const [profileRes, roleRes, adminExistsRes] = await Promise.all([
+      const [profileRes, roleRes, adminExistsRes, modeRes] = await Promise.all([
         supabase.from("profiles").select("is_approved").eq("id", userId).single(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
         supabase.rpc("admin_exists"),
+        supabase.from("admin_mode_state" as any).select("admin_disabled").eq("user_id", userId).maybeSingle(),
       ]);
 
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
@@ -70,6 +71,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setIsApproved((profileRes.data as any)?.is_approved ?? false);
       setIsAdmin(!!roleRes.data);
+
+      // Sync admin_mode_disabled from server (source of truth)
+      const serverDisabled = !!(modeRes.data as any)?.admin_disabled;
+      setAdminModeDisabledState(serverDisabled);
+      try {
+        if (serverDisabled) localStorage.setItem("admin_mode_disabled", "1");
+        else localStorage.removeItem("admin_mode_disabled");
+      } catch {}
+
       setLoading(false);
     } catch (err) {
       console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
