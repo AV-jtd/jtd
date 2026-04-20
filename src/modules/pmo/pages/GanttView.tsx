@@ -1869,19 +1869,45 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       );
                     })()}
 
-                    {/* Milestone row — red tinted bg + small diamond + dependency connector */}
+                    {/* Milestone row — red tinted bg + small diamond + dependency connector + drag */}
                     {row.type === "milestone" && row.milestone && (() => {
-                      const x = getMilestoneX(row.milestone!);
+                      const ms = row.milestone!;
+                      const baseX = getMilestoneX(ms);
+                      const isDragging = msDragState?.milestoneId === ms.id;
+                      const dragOffset = isDragging ? msDragDelta : 0;
+                      const x = baseX + dragOffset;
+                      const hasViolation = violationIds.has(ms.id);
                       return (
                         <div
                           className="absolute inset-0 group/ms"
                           style={{ backgroundColor: "rgba(239,68,68,0.03)" }}
-                          onMouseUp={() => handleBarMouseUp(row.milestone!.id, "milestone")}
+                          onMouseUp={() => handleBarMouseUp(ms.id, "milestone")}
                         >
                           <div
-                            className="absolute top-1/2 -translate-y-1/2 cursor-pointer"
+                            className={cn(
+                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
+                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm"
+                            )}
                             style={{ left: x - 5 }}
-                            onClick={() => { if (!depDrag && !wasDepDragRef.current) { setEditingMilestone(row.milestone!); setMsDialogOpen(true); } }}
+                            title={hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name}
+                            onMouseDown={(e) => {
+                              if (e.button !== 0) return;
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setMsDragState({
+                                milestoneId: ms.id,
+                                startX: e.clientX,
+                                originalDate: ms.planned_date,
+                              });
+                              setMsDragDelta(0);
+                            }}
+                            onClick={(e) => {
+                              // Only treat as click if no drag happened
+                              if (!depDrag && !wasDepDragRef.current && !isDragging) {
+                                setEditingMilestone(ms);
+                                setMsDialogOpen(true);
+                              }
+                            }}
                           >
                             <Diamond className="h-2.5 w-2.5 fill-[#EF4444] text-[#EF4444]" />
                           </div>
@@ -1892,7 +1918,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
-                                fromId: row.milestone!.id,
+                                fromId: ms.id,
                                 fromEntityType: "milestone",
                                 startX: x + 6,
                                 startY: rowTops[i] + getRowHeight(i) / 2,
