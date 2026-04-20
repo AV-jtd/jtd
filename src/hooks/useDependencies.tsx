@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
+import { wouldCreateCycle } from "@/lib/dependencyGraph";
 
 export type TaskDependency = {
   id: string;
@@ -43,6 +44,11 @@ export function useDependencyMutations() {
       predecessor_entity_type?: string;
       successor_entity_type?: string;
     }) => {
+      // Cycle protection
+      const { data: existing } = await supabase.from("task_dependencies").select("*");
+      if (existing && wouldCreateCycle(dep.predecessor_id, dep.successor_id, existing as any)) {
+        throw new Error("Создание этой связи приведёт к циклу зависимостей");
+      }
       const { error } = await supabase.from("task_dependencies").insert({
         predecessor_id: dep.predecessor_id,
         successor_id: dep.successor_id,
