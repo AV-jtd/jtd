@@ -503,7 +503,10 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
   };
 
   // Get all task rows for predecessor picker
+  // Predecessor picker candidates: tasks + milestones from this Gantt
   const taskRows = rows.filter(r => r.type === "task" && r.task && r.rowNumber !== undefined);
+  const milestoneRows = rows.filter(r => r.type === "milestone" && r.milestone);
+  const candidateRows = [...milestoneRows, ...taskRows];
 
   return (
     <div
