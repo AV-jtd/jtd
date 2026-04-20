@@ -108,6 +108,23 @@ export default function AppHeader({
 
       {/* Right actions */}
       <div className="flex items-center gap-0.5 md:gap-1">
+        {isAdmin && (
+          <span
+            className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold uppercase tracking-wide border border-destructive/30 mr-1"
+            title="Режим администратора: полный доступ ко всем данным"
+          >
+            <ShieldAlert className="h-3 w-3" />
+            Admin
+          </span>
+        )}
+        {isAdmin && (
+          <span
+            className="md:hidden inline-flex items-center justify-center h-6 w-6 rounded-md bg-destructive/10 text-destructive border border-destructive/30 mr-1"
+            title="Режим администратора"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+          </span>
+        )}
         {onSearchOpen && (
           <button
             onClick={onSearchOpen}
