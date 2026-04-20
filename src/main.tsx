@@ -19,9 +19,8 @@ if (isPreviewHost || isInIframe) {
   import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({
       onNeedRefresh() {
-        // skipWaiting: true means SW activates immediately,
-        // just reload to pick up new assets
-        window.location.reload();
+        // skipWaiting: true → new SW activates; controllerchange handler in
+        // versionCheck.ts will perform the hard reload (clears caches + cache-buster).
       },
       onOfflineReady() {
         // Silent
