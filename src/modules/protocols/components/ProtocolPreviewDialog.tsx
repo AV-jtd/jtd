@@ -218,9 +218,6 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         lines.push(`      Ответственный: ${resp} · Срок: ${dl}`);
       });
     }
-    lines.push("");
-    lines.push("—");
-    lines.push("Сформировано в JustTODOit");
     return lines.join("\n");
   }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags]);
 
@@ -726,9 +723,6 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                     )}
                   </div>
 
-                  <div className="mt-6 pt-2 border-t border-neutral-200 text-[9px] text-neutral-400 text-center">
-                    Сформировано в JustTODOit · {format(new Date(), "d MMMM yyyy, HH:mm", { locale: ru })}
-                  </div>
                 </div>
               </div>
             </div>
