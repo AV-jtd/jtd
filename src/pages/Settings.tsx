@@ -19,7 +19,7 @@ import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
-  const { user, loading } = useAuth();
+  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const { prefs, updatePrefs } = useNotificationPreferences();
