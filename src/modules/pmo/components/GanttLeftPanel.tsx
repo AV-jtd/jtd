@@ -943,10 +943,21 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
               }
 
               if (col.key === "predecessor") {
+                const succType: "task" | "milestone" | null =
+                  row.type === "task" ? "task" : row.type === "milestone" ? "milestone" : null;
                 return (
                   <div key={col.key} style={{ width: col.width }} className="text-center shrink-0">
-                    {row.type === "task" && row.task && entityId && (
-                      <PredecessorPicker entityId={entityId} taskRows={taskRows} dependencies={dependencies} formatPredecessors={formatPredecessors} onCreateDependency={onCreateDependency} open={predPopover === entityId} onOpenChange={(v) => setPredPopover(v ? entityId! : null)} />
+                    {succType && entityId && (
+                      <PredecessorPicker
+                        entityId={entityId}
+                        entityType={succType}
+                        candidateRows={candidateRows}
+                        dependencies={dependencies}
+                        formatPredecessors={formatPredecessors}
+                        onCreateDependency={onCreateDependency}
+                        open={predPopover === entityId}
+                        onOpenChange={(v) => setPredPopover(v ? entityId! : null)}
+                      />
                     )}
                   </div>
                 );
