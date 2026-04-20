@@ -63,14 +63,10 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Эмуляция callback_query — webhook сам найдёт контекст и вызовет flushProtocolBuffer
+        // Call internal action on telegram-webhook to run the flush
         const fakeUpdate = {
-          callback_query: {
-            id: `auto-flush-${row.chat_id}-${Date.now()}`,
-            data: "proto_finish",
-            from: { username: "_auto_flush_" },
-            message: { chat: { id: row.chat_id } },
-          },
+          action: "internal_flush_protocol_buffer",
+          chat_id: row.chat_id,
         };
 
         const resp = await fetch(webhookUrl, {
