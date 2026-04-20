@@ -1426,8 +1426,10 @@ export type Database = {
           group_id: string | null
           group_name: string | null
           id: number
+          last_message_at: string | null
           parsed_payload: Json | null
           protocol_name: string | null
+          raw_messages: Json
           template_key: string | null
           user_id: string
         }
@@ -1440,8 +1442,10 @@ export type Database = {
           group_id?: string | null
           group_name?: string | null
           id?: number
+          last_message_at?: string | null
           parsed_payload?: Json | null
           protocol_name?: string | null
+          raw_messages?: Json
           template_key?: string | null
           user_id: string
         }
@@ -1454,8 +1458,10 @@ export type Database = {
           group_id?: string | null
           group_name?: string | null
           id?: number
+          last_message_at?: string | null
           parsed_payload?: Json | null
           protocol_name?: string | null
+          raw_messages?: Json
           template_key?: string | null
           user_id?: string
         }
