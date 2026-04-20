@@ -32,7 +32,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
