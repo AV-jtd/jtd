@@ -200,6 +200,51 @@ export type Database = {
           },
         ]
       }
+      contractors: {
+        Row: {
+          color: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          organization: string | null
+          phone: string | null
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dashboard_reports: {
         Row: {
           ai_summary: string | null
@@ -229,6 +274,45 @@ export type Database = {
           report_data?: Json
           title?: string
           token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          head_user_id: string | null
+          icon: string | null
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          head_user_id?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          head_user_id?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1157,10 +1241,12 @@ export type Database = {
           closure_attachments: Json | null
           closure_result: string | null
           completed_at: string | null
+          contractor_id: string | null
           created_at: string
           deadline: string | null
           deferred_until: string | null
           delegated_from: string | null
+          department_id: string | null
           description: string | null
           external_assignee: Json | null
           external_ref: string | null
@@ -1192,10 +1278,12 @@ export type Database = {
           closure_attachments?: Json | null
           closure_result?: string | null
           completed_at?: string | null
+          contractor_id?: string | null
           created_at?: string
           deadline?: string | null
           deferred_until?: string | null
           delegated_from?: string | null
+          department_id?: string | null
           description?: string | null
           external_assignee?: Json | null
           external_ref?: string | null
@@ -1227,10 +1315,12 @@ export type Database = {
           closure_attachments?: Json | null
           closure_result?: string | null
           completed_at?: string | null
+          contractor_id?: string | null
           created_at?: string
           deadline?: string | null
           deferred_until?: string | null
           delegated_from?: string | null
+          department_id?: string | null
           description?: string | null
           external_assignee?: Json | null
           external_ref?: string | null
@@ -1261,6 +1351,20 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {
