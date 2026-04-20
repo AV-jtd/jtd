@@ -21,8 +21,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminModeDisabled, setAdminModeDisabledState] = useState<boolean>(() => {
+    try { return localStorage.getItem("admin_mode_disabled") === "1"; } catch { return false; }
+  });
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
+
+  // Sync across tabs
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "admin_mode_disabled") {
+        setAdminModeDisabledState(e.newValue === "1");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean, attempt = 0) => {
     const MAX_RETRIES = 3;
