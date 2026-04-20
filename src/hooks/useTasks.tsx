@@ -915,6 +915,8 @@ export function useTaskMutations() {
         is_draft: task.is_draft ?? false,
         external_ref: null,
         external_assignee: null,
+        department_id: null,
+        contractor_id: null,
         status_meta: task.status_meta ?? {},
         protocol_scope: task.protocol_scope ?? 'external',
         subtasks: [],
