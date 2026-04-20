@@ -85,7 +85,7 @@ interface GanttLeftPanelProps {
   onMoveProject: (projectId: string, newParentId: string | null) => void;
   onReorderTask?: (taskId: string, newPosition: number, newGroupId: string) => void;
   onOpenTask?: (taskId: string) => void;
-  onCreateDependency?: (predecessorId: string, successorId: string) => void;
+  onCreateDependency?: (predecessorId: string, successorId: string, predecessorEntityType?: "task" | "milestone", successorEntityType?: "task" | "milestone") => void;
   collapsedProjects: Set<string>;
   onToggleCollapse: (projectId: string) => void;
   filterAssignee: string | null;
@@ -107,27 +107,32 @@ interface GanttLeftPanelProps {
 const AUTO_SCROLL_EDGE = 72;
 const AUTO_SCROLL_MAX_SPEED = 14;
 
-/** Predecessor picker with search and multi-select */
+/** Predecessor picker with search and multi-select. Supports tasks and milestones as predecessors. */
 function PredecessorPicker({
-  entityId, taskRows, dependencies, formatPredecessors, onCreateDependency, open, onOpenChange,
+  entityId, entityType, candidateRows, dependencies, formatPredecessors, onCreateDependency, open, onOpenChange,
 }: {
   entityId: string;
-  taskRows: GanttRow[];
+  entityType: "task" | "milestone";
+  candidateRows: GanttRow[]; // task + milestone rows from the same Gantt
   dependencies: Dependency[];
   formatPredecessors: (id: string) => string;
-  onCreateDependency?: (predId: string, succId: string) => void;
+  onCreateDependency?: (predId: string, succId: string, predType?: "task" | "milestone", succType?: "task" | "milestone") => void;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
   const [search, setSearch] = useState("");
   const displayText = formatPredecessors(entityId);
 
-  const filtered = taskRows
-    .filter(tr => tr.task!.id !== entityId)
+  const filtered = candidateRows
+    .filter(tr => {
+      const id = tr.task?.id || tr.milestone?.id;
+      return id && id !== entityId;
+    })
     .filter(tr => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
-      return tr.task!.title.toLowerCase().includes(q) || String(tr.rowNumber).includes(q);
+      const title = tr.task?.title || tr.milestone?.name || "";
+      return title.toLowerCase().includes(q) || String(tr.rowNumber ?? "").includes(q);
     });
 
   return (
@@ -138,13 +143,13 @@ function PredecessorPicker({
             "text-[10px] px-0.5 py-0.5 rounded transition-colors truncate max-w-full",
             displayText ? "text-primary hover:bg-primary/10" : "text-muted-foreground/30 hover:bg-muted hover:text-muted-foreground"
           )}
-          title={displayText || "Добавить предшественника"}
+          title={displayText || "Добавить предшественника (задача или веха)"}
         >
           {displayText || <Link2 className="h-2.5 w-2.5 mx-auto" />}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-1" side="left" align="start" sideOffset={4}>
-        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Выбрать предшественников</div>
+      <PopoverContent className="w-72 p-1" side="left" align="start" sideOffset={4}>
+        <div className="text-[10px] font-medium text-muted-foreground px-2 py-1">Выбрать предшественника (задача или веха)</div>
         <div className="px-1 pb-1">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -157,20 +162,24 @@ function PredecessorPicker({
             />
           </div>
         </div>
-        <div className="max-h-52 overflow-y-auto space-y-0.5">
+        <div className="max-h-60 overflow-y-auto space-y-0.5">
           {filtered.length === 0 && (
             <div className="text-xs text-muted-foreground px-2 py-2 text-center">Ничего не найдено</div>
           )}
           {filtered.map(tr => {
+            const isMs = tr.type === "milestone";
+            const candidateId = (tr.task?.id || tr.milestone?.id)!;
+            const candidateType: "task" | "milestone" = isMs ? "milestone" : "task";
+            const title = tr.task?.title || tr.milestone?.name || "";
             const isLinked = dependencies.some(
-              d => d.predecessor_id === tr.task!.id && d.successor_id === entityId
+              d => d.predecessor_id === candidateId && d.successor_id === entityId
             );
             return (
               <button
-                key={tr.task!.id}
+                key={candidateId}
                 onClick={() => {
                   if (!isLinked && onCreateDependency) {
-                    onCreateDependency(tr.task!.id, entityId);
+                    onCreateDependency(candidateId, entityId, candidateType, entityType);
                   }
                 }}
                 className={cn(
@@ -179,8 +188,12 @@ function PredecessorPicker({
                 )}
               >
                 {isLinked && <Check className="h-3 w-3 shrink-0 text-primary" />}
-                <span className="text-[10px] text-muted-foreground w-4 shrink-0 text-right">{tr.rowNumber}</span>
-                <span className="truncate">{tr.task!.title}</span>
+                {isMs ? (
+                  <Diamond className="h-3 w-3 shrink-0 text-[#EF4444] fill-[#EF4444]" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground w-4 shrink-0 text-right">{tr.rowNumber}</span>
+                )}
+                <span className={cn("truncate", isMs && "text-[#EF4444] font-medium")}>{title}</span>
               </button>
             );
           })}
