@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
+import DelegationPanel from "@/components/DelegationPanel";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
@@ -354,6 +355,17 @@ export default function Settings() {
                 Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
               </p>
               <TagManagementPanel />
+            </div>
+
+            {/* Departments & Contractors */}
+            <div className="border-t border-border pt-6">
+              <h2 className="text-lg font-semibold mb-1">
+                Делегирование
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Отделы и подрядчики — для назначения задач без создания учётных записей. Используются как метки, уведомления не отправляются.
+              </p>
+              <DelegationPanel />
             </div>
 
             {/* Import/Export */}
