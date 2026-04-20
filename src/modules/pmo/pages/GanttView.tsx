@@ -845,6 +845,75 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     return null;
   }, [getMilestoneX, tlScrollLeft]);
 
+  // Build entity map for cascade calculations (tasks + milestones + projects)
+  const buildEntityMap = useCallback(() => {
+    const m = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
+    allTasks.forEach(t => m.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
+    allMilestones.forEach(ms => m.set(ms.id, { id: ms.id, deadline: ms.planned_date, created_at: ms.created_at }));
+    return m;
+  }, [allTasks, allMilestones]);
+
+  // Apply cascade updates: dispatch to tasks or milestones
+  const applyCascade = useCallback((updates: Map<string, { deadline?: string; start_at?: string }>) => {
+    updates.forEach((upd, entityId) => {
+      if (allTasks.some(t => t.id === entityId)) {
+        const payload: any = { id: entityId };
+        if (upd.deadline) payload.deadline = upd.deadline;
+        if (upd.start_at) payload.start_at = upd.start_at;
+        updateTask.mutate(payload);
+      } else if (allMilestones.some(ms => ms.id === entityId)) {
+        if (upd.deadline) updateMilestone.mutate({ id: entityId, planned_date: upd.deadline });
+      }
+    });
+  }, [allTasks, allMilestones, updateTask, updateMilestone]);
+
+  // Cascade-aware milestone date change with undo
+  const updateMilestoneDate = useCallback((milestone: Milestone, newDateISO: string) => {
+    const oldDate = parseISO(milestone.planned_date);
+    const newDate = parseISO(newDateISO);
+    if (oldDate.getTime() === newDate.getTime()) return;
+
+    updateMilestone.mutate({ id: milestone.id, planned_date: newDateISO });
+
+    // Cascade to dependent entities
+    const entityMap = buildEntityMap();
+    entityMap.set(milestone.id, { id: milestone.id, deadline: newDateISO, created_at: milestone.created_at });
+    const cascade = computeCascadeUpdates(milestone.id, newDate, oldDate, allDependencies, entityMap);
+    applyCascade(cascade);
+
+    // Undo: snapshot affected entities and restore
+    const snapshots: { type: "task" | "milestone"; id: string; deadline?: string | null; start_at?: string | null }[] = [];
+    cascade.forEach((_, entityId) => {
+      const t = allTasks.find(x => x.id === entityId);
+      if (t) snapshots.push({ type: "task", id: t.id, deadline: t.deadline, start_at: t.start_at });
+      const ms = allMilestones.find(x => x.id === entityId);
+      if (ms) snapshots.push({ type: "milestone", id: ms.id, deadline: ms.planned_date });
+    });
+
+    pushUndo({
+      label: `веха «${milestone.name}»`,
+      undo: () => {
+        updateMilestone.mutate({ id: milestone.id, planned_date: milestone.planned_date });
+        snapshots.forEach(s => {
+          if (s.type === "task") updateTask.mutate({ id: s.id, deadline: s.deadline, start_at: s.start_at });
+          else updateMilestone.mutate({ id: s.id, planned_date: s.deadline! });
+        });
+      },
+      redo: () => {
+        updateMilestone.mutate({ id: milestone.id, planned_date: newDateISO });
+        applyCascade(cascade);
+      },
+    });
+  }, [updateMilestone, updateTask, buildEntityMap, applyCascade, allDependencies, allTasks, allMilestones, pushUndo]);
+
+  // Detect dependency violations (entity ids that violate at least one predecessor link)
+  const violationIds = useMemo(() => {
+    const m = new Map<string, { id: string; deadline?: string | null; start_at?: string | null }>();
+    allTasks.forEach(t => m.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at }));
+    allMilestones.forEach(ms => m.set(ms.id, { id: ms.id, deadline: ms.planned_date, start_at: ms.planned_date }));
+    return detectViolations(allDependencies, m);
+  }, [allTasks, allMilestones, allDependencies]);
+
   const todayOffset = useMemo(() => {
     const offset = differenceInCalendarDays(new Date(), timelineStart);
     return (offset / totalDays) * totalWidth;
