@@ -22,6 +22,28 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // Internal action: auto-flush stale protocol buffers (called by cron)
+    if (body.action === "internal_flush_protocol_buffer" && body.chat_id) {
+      const supabaseInt = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: ctx } = await supabaseInt
+        .from("telegram_pending_context")
+        .select("*")
+        .eq("chat_id", body.chat_id)
+        .maybeSingle();
+      if (!ctx) {
+        return new Response(JSON.stringify({ ok: false, reason: "no_context" }), { headers: corsHeaders });
+      }
+      await sendTelegramMessage(BOT_TOKEN, body.chat_id,
+        `⏰ 60 сек тишины — запускаю разбор автоматически.`,
+      );
+      await flushProtocolBuffer(supabaseInt, BOT_TOKEN, body.chat_id, ctx.user_id, ctx);
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+
     // Setup webhook command
     if (body.action === "setup_webhook") {
       const webhookUrl = `https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/telegram-webhook`;
