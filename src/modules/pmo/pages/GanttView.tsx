@@ -32,6 +32,7 @@ import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import { detectViolations, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
+import { toast } from "sonner";
 
 type Scale = "day" | "week" | "month";
 
@@ -115,6 +116,73 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  // Cascade highlight: ids of milestones/tasks recently shifted by dependency cascade
+  const [cascadeHighlight, setCascadeHighlight] = useState<Set<string>>(new Set());
+  const prevMilestoneDatesRef = useRef<Map<string, string>>(new Map());
+  const prevTaskDatesRef = useRef<Map<string, { start_at: string | null; deadline: string | null }>>(new Map());
+
+  // Track previous dates so realtime updates can detect cascade shifts
+  useEffect(() => {
+    const m = new Map<string, string>();
+    allMilestones.forEach((ms: any) => m.set(ms.id, ms.planned_date));
+    prevMilestoneDatesRef.current = m;
+  }, [allMilestones]);
+  useEffect(() => {
+    const m = new Map<string, { start_at: string | null; deadline: string | null }>();
+    allTasks.forEach((t: any) => m.set(t.id, { start_at: t.start_at, deadline: t.deadline }));
+    prevTaskDatesRef.current = m;
+  }, [allTasks]);
+
+  // Realtime: highlight cascaded shifts (milestones + tasks)
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`gantt-cascade-${user.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "project_milestones" }, (payload: any) => {
+        const newRow = payload.new;
+        const oldDate = prevMilestoneDatesRef.current.get(newRow.id);
+        if (oldDate && oldDate !== newRow.planned_date) {
+          setCascadeHighlight(prev => {
+            const next = new Set(prev);
+            next.add(newRow.id);
+            return next;
+          });
+          const oldD = new Date(oldDate);
+          const newD = new Date(newRow.planned_date);
+          const days = Math.round((newD.getTime() - oldD.getTime()) / 86400000);
+          if (days !== 0) {
+            toast.info(`🔻 Веха «${newRow.name}» сдвинута на ${days > 0 ? '+' : ''}${days} дн.`, { duration: 4000 });
+          }
+          setTimeout(() => {
+            setCascadeHighlight(prev => {
+              const next = new Set(prev);
+              next.delete(newRow.id);
+              return next;
+            });
+          }, 2500);
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, (payload: any) => {
+        const newRow = payload.new;
+        const prev = prevTaskDatesRef.current.get(newRow.id);
+        if (prev && (prev.deadline !== newRow.deadline || prev.start_at !== newRow.start_at)) {
+          setCascadeHighlight(p => {
+            const next = new Set(p);
+            next.add(newRow.id);
+            return next;
+          });
+          setTimeout(() => {
+            setCascadeHighlight(p => {
+              const next = new Set(p);
+              next.delete(newRow.id);
+              return next;
+            });
+          }, 2500);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   // ── Gate column: build taskId -> gateKey map from task_tags ──
   const NPD_GATE_TAG_NAMES = useMemo(() => [
@@ -1960,6 +2028,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       const dragOffset = isDragging ? msDragDelta : 0;
                       const x = baseX + dragOffset;
                       const hasViolation = violationIds.has(ms.id);
+                      const isCascaded = cascadeHighlight.has(ms.id);
                       return (
                         <div
                           className="absolute inset-0 group/ms"
@@ -1968,11 +2037,12 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         >
                           <div
                             className={cn(
-                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
-                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm"
+                              "absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing transition-all",
+                              hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm",
+                              isCascaded && "animate-pulse drop-shadow-[0_0_8px_hsl(var(--primary))]"
                             )}
                             style={{ left: x - 5 }}
-                            title={hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name}
+                            title={isCascaded ? "↻ Веха перенесена каскадом зависимостей" : (hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name)}
                             onMouseDown={(e) => {
                               if (e.button !== 0) return;
                               e.stopPropagation();
