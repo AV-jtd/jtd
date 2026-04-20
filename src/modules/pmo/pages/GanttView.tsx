@@ -32,6 +32,7 @@ import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import { detectViolations, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
+import { toast } from "sonner";
 
 type Scale = "day" | "week" | "month";
 
