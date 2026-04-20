@@ -934,6 +934,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     });
   }, [updateMilestone, updateTask, buildEntityMap, applyCascade, allDependencies, allTasks, allMilestones, pushUndo]);
 
+  // Sync ref so the milestone-drag effect can call cascade-aware updater
+  useEffect(() => { updateMilestoneDateRef.current = updateMilestoneDate; }, [updateMilestoneDate]);
+
   // Detect dependency violations (entity ids that violate at least one predecessor link)
   const violationIds = useMemo(() => {
     const m = new Map<string, { id: string; deadline?: string | null; start_at?: string | null }>();
