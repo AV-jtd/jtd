@@ -30,7 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
-import { detectViolations } from "@/lib/dependencyGraph";
+import { detectViolations, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 
 type Scale = "day" | "week" | "month";
@@ -881,9 +881,35 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     return m;
   }, [allTasks, allMilestones]);
 
-  // Apply cascade updates: dispatch to tasks or milestones
+  // Apply cascade updates: dispatch to tasks or milestones, then auto-resolve any
+  // remaining dependency violations across the whole graph (preserves duration).
   const applyCascade = useCallback((updates: Map<string, { deadline?: string; start_at?: string }>) => {
+    // Build a working entity snapshot reflecting both current state and the new updates
+    const work = new Map<string, GraphEntity>();
+    allTasks.forEach(t => work.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at }));
+    allMilestones.forEach(ms => work.set(ms.id, { id: ms.id, deadline: ms.planned_date }));
+
     updates.forEach((upd, entityId) => {
+      if (allTasks.some(t => t.id === entityId)) {
+        const payload: any = { id: entityId };
+        if (upd.deadline) payload.deadline = upd.deadline;
+        if (upd.start_at) payload.start_at = upd.start_at;
+        updateTask.mutate(payload);
+        const cur = work.get(entityId);
+        if (cur) work.set(entityId, { ...cur, deadline: upd.deadline ?? cur.deadline, start_at: upd.start_at ?? cur.start_at });
+      } else if (allMilestones.some(ms => ms.id === entityId)) {
+        if (upd.deadline) {
+          updateMilestone.mutate({ id: entityId, planned_date: upd.deadline });
+          work.set(entityId, { id: entityId, deadline: upd.deadline });
+        }
+      }
+    });
+
+    // Second pass: resolve any remaining violations (e.g. tasks not on the original
+    // cascade path that are now violated). Preserves duration.
+    const extra = resolveAllViolations(allDependencies, work);
+    extra.forEach((upd, entityId) => {
+      if (updates.has(entityId)) return; // already applied above
       if (allTasks.some(t => t.id === entityId)) {
         const payload: any = { id: entityId };
         if (upd.deadline) payload.deadline = upd.deadline;
@@ -893,7 +919,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         if (upd.deadline) updateMilestone.mutate({ id: entityId, planned_date: upd.deadline });
       }
     });
-  }, [allTasks, allMilestones, updateTask, updateMilestone]);
+  }, [allTasks, allMilestones, updateTask, updateMilestone, allDependencies]);
 
   // Cascade-aware milestone date change with undo
   const updateMilestoneDate = useCallback((milestone: Milestone, newDateISO: string) => {
