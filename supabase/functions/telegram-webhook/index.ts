@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
         { command: "projects", description: "📂 Список проектов" },
         { command: "project", description: "📁 Выбрать проект" },
         { command: "spisok", description: "📦 Пакетное создание задач" },
+        { command: "protocol", description: "📋 Создать протокол встречи" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
         { command: "ai", description: "✨ ИИ-ассистент" },
+        { command: "cancel", description: "❌ Отменить текущую операцию" },
       ];
       const groupCommands = [
         { command: "link", description: "🔗 Привязать чат к проекту" },
@@ -928,6 +930,7 @@ Deno.serve(async (req) => {
         "• `/project` — выбрать проект\n" +
         "• `/projects` — список проектов\n" +
         "• `/spisok` — пакетное создание задач\n" +
+        "• `/protocol` — создать протокол встречи\n" +
         "• `/chat Проект Сообщение` — чат проекта\n" +
         "• `/ai Вопрос` — ИИ-ассистент\n" +
         "• `/help` — справка",
