@@ -206,7 +206,7 @@ function ProtocolRow({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-lg"
           style={{ backgroundColor: `${group.color ?? "#3b82f6"}20`, color: group.color ?? "#3b82f6" }}
         >
-          {group.icon ?? "📋"}
+          {group.icon && group.icon !== "list" ? group.icon : "📋"}
         </div>
       )}
       <div className="min-w-0 flex-1">

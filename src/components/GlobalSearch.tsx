@@ -274,7 +274,7 @@ export default function GlobalSearch({
                         )}
                       >
                         <FolderOpen className="h-4 w-4 shrink-0" style={{ color: g.color || undefined }} />
-                        <span className="truncate">{g.icon ? `${g.icon} ` : ""}{g.name}</span>
+                        <span className="truncate">{g.icon && g.icon !== "list" ? `${g.icon} ` : ""}{g.name}</span>
                       </button>
                     );
                   })}
