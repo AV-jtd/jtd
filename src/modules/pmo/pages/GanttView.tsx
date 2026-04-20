@@ -1923,19 +1923,25 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
         onSave={(data) => {
           const { predecessor, ...msData } = data;
           if (editingMilestone) {
-            updateMilestone.mutate({ id: editingMilestone.id, ...msData });
+            // If date changed → use cascade-aware update
+            const dateChanged = msData.planned_date && msData.planned_date !== editingMilestone.planned_date;
+            if (dateChanged && msData.planned_date) {
+              const { planned_date, ...rest } = msData;
+              if (Object.keys(rest).length > 0) {
+                updateMilestone.mutate({ id: editingMilestone.id, ...rest });
+              }
+              updateMilestoneDate(editingMilestone, planned_date);
+            } else {
+              updateMilestone.mutate({ id: editingMilestone.id, ...msData });
+            }
           } else {
             addMilestone.mutate(msData);
           }
           // Handle predecessor dependency after save
           if (predecessor && predecessor.id) {
-            // We'll create the dependency; for new milestones this is tricky
-            // since we don't have the ID yet, but for edits it works
             if (editingMilestone) {
-              // Remove old deps where this milestone is successor
               const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
               oldDeps.forEach(d => deleteDependency.mutate(d.id));
-              // Add new
               setTimeout(() => {
                 addDependency.mutate({
                   predecessor_id: predecessor.id,
@@ -1946,7 +1952,6 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               }, 300);
             }
           } else if (editingMilestone && !predecessor) {
-            // Remove existing predecessor deps
             const oldDeps = (allDependencies || []).filter(d => d.successor_id === editingMilestone.id && d.successor_entity_type === "milestone");
             oldDeps.forEach(d => deleteDependency.mutate(d.id));
           }
