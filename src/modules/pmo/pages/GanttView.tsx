@@ -1553,14 +1553,16 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                 updateTask.mutate({ id: taskId, position: newPosition, group_id: newGroupId });
               }}
               onOpenTask={(taskId) => setSelectedTaskId(taskId)}
-              onCreateDependency={(predecessorId, successorId) => {
+              onCreateDependency={(predecessorId, successorId, predEntityType, succEntityType) => {
+                const predType = predEntityType || "task";
+                const succType = succEntityType || "task";
                 setDepDialogState({
                   predecessorId,
                   successorId,
-                  predecessorLabel: getEntityLabel(predecessorId, "task"),
-                  successorLabel: getEntityLabel(successorId, "task"),
-                  predecessorEntityType: "task",
-                  successorEntityType: "task",
+                  predecessorLabel: getEntityLabel(predecessorId, predType),
+                  successorLabel: getEntityLabel(successorId, succType),
+                  predecessorEntityType: predType,
+                  successorEntityType: succType,
                 });
               }}
               collapsedProjects={collapsedProjects}
