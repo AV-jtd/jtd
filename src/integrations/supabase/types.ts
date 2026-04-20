@@ -1418,30 +1418,45 @@ export type Database = {
       }
       telegram_pending_context: {
         Row: {
+          awaiting_axis: string | null
           chat_id: number
+          collected_axes: Json
           context_type: string
           created_at: string
           group_id: string | null
           group_name: string | null
           id: number
+          parsed_payload: Json | null
+          protocol_name: string | null
+          template_key: string | null
           user_id: string
         }
         Insert: {
+          awaiting_axis?: string | null
           chat_id: number
+          collected_axes?: Json
           context_type?: string
           created_at?: string
           group_id?: string | null
           group_name?: string | null
           id?: number
+          parsed_payload?: Json | null
+          protocol_name?: string | null
+          template_key?: string | null
           user_id: string
         }
         Update: {
+          awaiting_axis?: string | null
           chat_id?: number
+          collected_axes?: Json
           context_type?: string
           created_at?: string
           group_id?: string | null
           group_name?: string | null
           id?: number
+          parsed_payload?: Json | null
+          protocol_name?: string | null
+          template_key?: string | null
           user_id?: string
         }
         Relationships: [
