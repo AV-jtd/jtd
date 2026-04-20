@@ -186,6 +186,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else localStorage.removeItem("admin_mode_disabled");
     } catch {}
     setAdminModeDisabledState(disabled);
+
+    // Persist to server so RLS sees the change
+    if (user?.id) {
+      supabase
+        .from("admin_mode_state" as any)
+        .upsert({ user_id: user.id, admin_disabled: disabled, updated_at: new Date().toISOString() } as any, { onConflict: "user_id" })
+        .then(({ error }) => {
+          if (error) console.error("[Auth] Failed to persist admin mode:", error);
+          // Invalidate all cached queries so data is refetched under new RLS context
+          qc.invalidateQueries();
+        });
+    }
   };
 
   const effectiveIsAdmin = isAdmin && !adminModeDisabled;
