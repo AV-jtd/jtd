@@ -1447,7 +1447,13 @@ function TaskSummaryRow({ task, userName, onOpenTask, subtaskMap, variant, drift
           className="inline-flex items-center gap-1 shrink-0 max-w-[140px] px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-[9px] font-medium"
           title={parentGroup ? `${parentGroup.name} / ${projectGroup.name}` : projectGroup.name}
         >
-          {projectIcon ? (
+          {projectGroup.logo_url ? (
+            <img
+              src={projectGroup.logo_url}
+              alt={projectGroup.name}
+              className="h-3 w-3 rounded-sm object-cover ring-1 ring-border/60 shrink-0"
+            />
+          ) : projectIcon ? (
             <span className="text-[10px] leading-none">{projectIcon}</span>
           ) : (
             <span
