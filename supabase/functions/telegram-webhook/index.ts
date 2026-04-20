@@ -1137,6 +1137,219 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === /protocol in private chat (multi-step wizard) ===
+    if (message.text.startsWith("/protocol") || message.text === "/proto") {
+      const protoArgs = message.text.replace(/^\/(protocol|proto)\s*/, "").trim();
+
+      // If user typed "/protocol Название" — save name and ask for template
+      if (protoArgs) {
+        await supabase.from("telegram_pending_context").upsert({
+          chat_id: chatId,
+          user_id: userId,
+          context_type: "protocol_template",
+          protocol_name: protoArgs,
+          group_id: null,
+          group_name: null,
+          collected_axes: {},
+          parsed_payload: null,
+          template_key: null,
+          awaiting_axis: null,
+          created_at: new Date().toISOString(),
+        }, { onConflict: "chat_id" });
+
+        await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId,
+          `📋 *Создание протокола*\n\n` +
+          `Название: *${escapeMarkdown(protoArgs)}*\n\n` +
+          `Выберите шаблон:`,
+          [
+            [{ text: "🔀 Кросс-функциональный", callback_data: "proto_tpl:cross_functional" }],
+            [{ text: "🤝 Переговоры с клиентом", callback_data: "proto_tpl:client_negotiation" }],
+            [{ text: "🎯 Гейт NPD", callback_data: "proto_tpl:npd_gate" }],
+            [{ text: "📋 Пустой", callback_data: "proto_tpl:blank" }],
+            [{ text: "❌ Отмена", callback_data: "proto_cancel" }],
+          ],
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // No args — ask for name first
+      await supabase.from("telegram_pending_context").upsert({
+        chat_id: chatId,
+        user_id: userId,
+        context_type: "protocol_name",
+        group_id: null,
+        group_name: null,
+        collected_axes: {},
+        parsed_payload: null,
+        template_key: null,
+        awaiting_axis: null,
+        protocol_name: null,
+        created_at: new Date().toISOString(),
+      }, { onConflict: "chat_id" });
+
+      await sendTelegramMessage(BOT_TOKEN, chatId,
+        "📋 *Создание протокола встречи*\n\n" +
+        "Шаг 1/4. Как назвать протокол?\n\n" +
+        "_Например: «Встреча по запуску линейки X», «Переговоры с Магнит 18.04»_\n\n" +
+        "⏰ Контекст активен 15 минут. Отмена: /cancel",
+        "Markdown"
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === /cancel — drop any pending context ===
+    if (message.text === "/cancel") {
+      const { data: existing } = await supabase
+        .from("telegram_pending_context")
+        .select("context_type")
+        .eq("chat_id", chatId)
+        .maybeSingle();
+      await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+      await sendTelegramMessage(BOT_TOKEN, chatId,
+        existing ? "❌ Текущая операция отменена." : "Нет активной операции."
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Handle pending protocol context (multi-step wizard) ===
+    {
+      const { data: protoCtx } = await supabase
+        .from("telegram_pending_context")
+        .select("*")
+        .eq("chat_id", chatId)
+        .maybeSingle();
+
+      if (protoCtx?.context_type?.startsWith("protocol_") &&
+          (Date.now() - new Date(protoCtx.created_at).getTime()) < 15 * 60 * 1000 &&
+          !message.text.startsWith("/")) {
+
+        // STEP: awaiting protocol name
+        if (protoCtx.context_type === "protocol_name") {
+          const name = message.text.trim().slice(0, 200);
+          await supabase.from("telegram_pending_context").update({
+            context_type: "protocol_template",
+            protocol_name: name,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId,
+            `✅ Название: *${escapeMarkdown(name)}*\n\n` +
+            `Шаг 2/4. Выберите шаблон протокола:`,
+            [
+              [{ text: "🔀 Кросс-функциональный", callback_data: "proto_tpl:cross_functional" }],
+              [{ text: "🤝 Переговоры с клиентом", callback_data: "proto_tpl:client_negotiation" }],
+              [{ text: "🎯 Гейт NPD", callback_data: "proto_tpl:npd_gate" }],
+              [{ text: "📋 Пустой", callback_data: "proto_tpl:blank" }],
+              [{ text: "❌ Отмена", callback_data: "proto_cancel" }],
+            ],
+            "Markdown"
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // STEP: awaiting full meeting text
+        if (protoCtx.context_type === "protocol_text") {
+          if (message.text.trim().length < 20) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              "⚠️ Слишком короткий текст. Пришлите развёрнутый протокол встречи (минимум 20 символов)."
+            );
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          await sendTelegramMessage(BOT_TOKEN, chatId, "🤖 Разбираю текст через ИИ… Это займёт 5-15 секунд.");
+
+          const parsed = await parseProtocolText(message.text);
+          if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              "❌ Не удалось извлечь задачи из текста. Попробуйте /protocol заново и пришлите более структурированный текст."
+            );
+            await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          // Determine which required axes are missing
+          const requiredAxes = REQUIRED_AXES_BY_TEMPLATE[protoCtx.template_key as string] || [];
+          const collected: Record<string, string> = {};
+
+          // Pre-fill from parsed.rows (most common axis value across rows)
+          for (const axis of requiredAxes) {
+            const counts: Record<string, number> = {};
+            for (const r of parsed.rows) {
+              const v = r.axes?.[axis];
+              if (v && typeof v === "string" && v.trim()) {
+                counts[v.trim()] = (counts[v.trim()] || 0) + 1;
+              }
+            }
+            const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            // Confident if same value appears in >=50% of rows
+            if (best && best[1] >= Math.ceil(parsed.rows.length * 0.5)) {
+              collected[axis] = best[0];
+            }
+          }
+
+          await supabase.from("telegram_pending_context").update({
+            context_type: "protocol_axes",
+            parsed_payload: parsed,
+            collected_axes: collected,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          // Ask for next missing axis or proceed to confirmation
+          const missingAxis = requiredAxes.find((a) => !collected[a]);
+          if (missingAxis) {
+            await supabase.from("telegram_pending_context").update({
+              awaiting_axis: missingAxis,
+            }).eq("chat_id", chatId);
+
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              `✅ ИИ извлёк *${parsed.rows.length}* задач${pluralizeRu(parsed.rows.length, ["у", "и", ""])}.\n\n` +
+              `Шаг 4/4. Уточните: *${AXIS_LABELS[missingAxis]}*?\n\n` +
+              `_Например: ${AXIS_EXAMPLES[missingAxis] || "название"}_\n\n` +
+              `Или пришлите «-» чтобы пропустить.`,
+              "Markdown"
+            );
+          } else {
+            await finalizeProtocolDraft(supabase, BOT_TOKEN, chatId, userId, protoCtx, parsed, collected);
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // STEP: collecting axis answers
+        if (protoCtx.context_type === "protocol_axes" && protoCtx.awaiting_axis) {
+          const axisValue = message.text.trim();
+          const collected = { ...(protoCtx.collected_axes || {}) };
+          if (axisValue !== "-" && axisValue !== "—") {
+            collected[protoCtx.awaiting_axis] = axisValue.slice(0, 200);
+          }
+
+          const requiredAxes = REQUIRED_AXES_BY_TEMPLATE[protoCtx.template_key as string] || [];
+          const nextMissing = requiredAxes.find((a) => !collected[a] && a !== protoCtx.awaiting_axis);
+
+          await supabase.from("telegram_pending_context").update({
+            collected_axes: collected,
+            awaiting_axis: nextMissing || null,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+
+          if (nextMissing) {
+            await sendTelegramMessage(BOT_TOKEN, chatId,
+              `✅ Записал.\n\nЕщё уточните: *${AXIS_LABELS[nextMissing]}*?\n\n` +
+              `_Например: ${AXIS_EXAMPLES[nextMissing] || "название"}_\n\n` +
+              `Или «-» чтобы пропустить.`,
+              "Markdown"
+            );
+          } else {
+            await finalizeProtocolDraft(
+              supabase, BOT_TOKEN, chatId, userId, protoCtx,
+              protoCtx.parsed_payload, collected,
+            );
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
+    }
+
     // === /spisok in private chat ===
     if (message.text.startsWith("/spisok") || message.text === "/s" || message.text === "/t" || message.text === "/p" || message.text === "/d"
         || message.text.startsWith("/s ") || message.text.startsWith("/t ") || message.text.startsWith("/p ") || message.text.startsWith("/d ")) {
