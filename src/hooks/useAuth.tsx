@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
+  const qc = useQueryClient();
 
   // Sync across tabs
   useEffect(() => {
