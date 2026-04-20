@@ -431,6 +431,33 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     };
   }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
 
+  // Milestone drag handlers (timeline horizontal)
+  useEffect(() => {
+    if (!msDragState) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setMsDragDelta(e.clientX - msDragState.startX);
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      const delta = e.clientX - msDragState.startX;
+      const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
+      if (daysDelta !== 0) {
+        const ms = allMilestones.find(m => m.id === msDragState.milestoneId);
+        if (ms) {
+          const newDate = addDays(parseISO(msDragState.originalDate), daysDelta).toISOString();
+          updateMilestoneDate(ms, newDate);
+        }
+      }
+      setMsDragState(null);
+      setMsDragDelta(0);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [msDragState, scale, allMilestones, updateMilestoneDate]);
+
   // Dependency drag handlers
   useEffect(() => {
     if (!depDrag) return;
