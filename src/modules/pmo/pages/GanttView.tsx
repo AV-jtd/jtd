@@ -408,6 +408,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           entityMap.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), created_at: allTasks.find(t => t.id === dragState.taskId)?.created_at || new Date().toISOString() });
           
           const cascadeUpdates = computeCascadeUpdates(dragState.taskId, newDeadline, oldDeadline, allDependencies, entityMap);
+          // Apply primary cascade
           cascadeUpdates.forEach((update, entityId) => {
             if (allTasks.some(t => t.id === entityId)) {
               const mutPayload: any = { id: entityId };
@@ -416,6 +417,28 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               updateTask.mutate(mutPayload);
             } else if (allMilestones.some(m => m.id === entityId)) {
               if (update.deadline) updateMilestone.mutate({ id: entityId, planned_date: update.deadline });
+            }
+          });
+          // Second pass: resolve any remaining violations across the whole graph
+          const work = new Map<string, GraphEntity>();
+          allTasks.forEach(t => work.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at }));
+          allMilestones.forEach(m => work.set(m.id, { id: m.id, deadline: m.planned_date }));
+          // Reflect just-applied updates in the snapshot
+          work.set(dragState.taskId, { id: dragState.taskId, deadline: newDeadline.toISOString(), start_at: taskUpdates.start_at });
+          cascadeUpdates.forEach((u, eid) => {
+            const cur = work.get(eid);
+            if (cur) work.set(eid, { ...cur, deadline: u.deadline ?? cur.deadline, start_at: u.start_at ?? cur.start_at });
+          });
+          const extra = resolveAllViolations(allDependencies, work);
+          extra.forEach((u, eid) => {
+            if (cascadeUpdates.has(eid) || eid === dragState.taskId) return;
+            if (allTasks.some(t => t.id === eid)) {
+              const p: any = { id: eid };
+              if (u.deadline) p.deadline = u.deadline;
+              if (u.start_at) p.start_at = u.start_at;
+              updateTask.mutate(p);
+            } else if (allMilestones.some(m => m.id === eid)) {
+              if (u.deadline) updateMilestone.mutate({ id: eid, planned_date: u.deadline });
             }
           });
         }
