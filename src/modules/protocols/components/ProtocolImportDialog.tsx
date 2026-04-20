@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Download, FileText, Sparkles, ArrowLeft, ArrowRight,
-  CalendarIcon, User as UserIcon, Tag as TagIcon, Trash2,
+  CalendarIcon, User as UserIcon, Tag as TagIcon, Trash2, Star, Users,
+  ChevronDown, ChevronRight, Plus, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -18,12 +18,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
+import UserPicker from "@/components/UserPicker";
 import { toast } from "sonner";
 
-// pdfjs lazy import (избегаем тяжёлой загрузки)
+// pdfjs lazy import
 async function extractPdfText(file: File): Promise<string> {
   const pdfjsLib: any = await import("pdfjs-dist");
-  // Worker через CDN — без локальной настройки vite
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
   const buf = await file.arrayBuffer();
@@ -46,6 +46,9 @@ interface ParsedRow {
   // UI state
   selected: boolean;
   assignee_id?: string | null;
+  participant_ids?: string[];
+  is_important?: boolean;
+  expanded?: boolean;
 }
 
 interface ParsedProtocol {
@@ -146,7 +149,13 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       return (await resp.json()) as Omit<ParsedProtocol, "rows"> & { rows: Omit<ParsedRow, "selected">[] };
     },
     onSuccess: (data) => {
-      const rows: ParsedRow[] = (data.rows || []).map((r) => ({ ...r, selected: true }));
+      const rows: ParsedRow[] = (data.rows || []).map((r) => ({
+        ...r,
+        selected: true,
+        participant_ids: [],
+        is_important: false,
+        expanded: false,
+      }));
       setParsed({ ...data, rows });
       setStep("template");
       toast.success(`ИИ извлёк ${rows.length} строк`);
@@ -160,7 +169,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       const selectedRows = parsed.rows.filter((r) => r.selected);
       if (selectedRows.length === 0) throw new Error("Выберите хотя бы одну строку");
 
-      // 1. Создать проект-протокол
+      // 1. Создать проект-протокол (черновик)
       const { data: group, error: gErr } = await supabase
         .from("task_groups")
         .insert({
@@ -169,6 +178,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
           icon: selectedTemplate.icon || "📋",
           color: "#6366f1",
           project_type: "protocol",
+          draft_status: "draft",
           description: [
             `Шаблон: ${selectedTemplate.name}`,
             `Дата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`,
@@ -180,25 +190,44 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // 2. Создать задачи
+      // 2. Создать задачи (черновик)
       const taskRows = selectedRows.map((r, idx) => ({
         title: r.title,
         description: buildDescription(r),
         deadline: r.deadline || null,
         assigned_to: r.assignee_id || null,
+        is_important: !!r.is_important,
+        is_draft: true,
         group_id: group.id,
         user_id: user.id,
         position: idx,
       }));
-      const { error: tErr } = await supabase.from("tasks").insert(taskRows as any);
+      const { data: insertedTasks, error: tErr } = await supabase
+        .from("tasks")
+        .insert(taskRows as any)
+        .select("id");
       if (tErr) throw tErr;
+
+      // 3. Участники (опционально)
+      const participantInserts: { task_id: string; user_id: string; role: string }[] = [];
+      (insertedTasks || []).forEach((t: { id: string }, i: number) => {
+        const row = selectedRows[i];
+        (row.participant_ids || []).forEach((uid) => {
+          if (uid && uid !== row.assignee_id) {
+            participantInserts.push({ task_id: t.id, user_id: uid, role: "participant" });
+          }
+        });
+      });
+      if (participantInserts.length > 0) {
+        await supabase.from("task_participants").insert(participantInserts as any);
+      }
 
       return group as { id: string };
     },
     onSuccess: (group) => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
-      toast.success("Протокол создан и задачи добавлены");
+      toast.success("Протокол создан как черновик");
       onOpenChange(false);
       navigate(`/protocols/${group.id}`);
     },
@@ -215,10 +244,18 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
     setParsed((p) => p ? { ...p, rows: p.rows.filter((_, i) => i !== idx) } : p);
   };
 
+  const toggleAll = (v: boolean) => {
+    setParsed((p) => p ? { ...p, rows: p.rows.map((r) => ({ ...r, selected: v })) } : p);
+  };
+
+  const expandAll = (v: boolean) => {
+    setParsed((p) => p ? { ...p, rows: p.rows.map((r) => ({ ...r, expanded: v })) } : p);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="flex items-center gap-2">
             {step !== "input" && (
               <button
@@ -238,7 +275,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
         {/* STEP 1: INPUT */}
         {step === "input" && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 overflow-y-auto px-6 py-4">
             <div
               onClick={() => fileRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
@@ -307,59 +344,61 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
         {/* STEP 2: TEMPLATE & DETAILS */}
         {step === "template" && parsed && (
-          <div className="space-y-4">
-            {parsed.summary && (
-              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                <FileText className="mr-1 inline h-4 w-4" />
-                {parsed.summary}
-              </div>
-            )}
+          <div className="flex flex-col overflow-hidden">
+            <div className="flex flex-col gap-4 overflow-y-auto px-6 py-4">
+              {parsed.summary && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  <FileText className="mr-1 inline h-4 w-4" />
+                  {parsed.summary}
+                </div>
+              )}
 
-            <div>
-              <Label className="mb-2 block text-xs uppercase text-muted-foreground">Шаблон</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {templates.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTemplate(t)}
-                    className={cn(
-                      "flex items-start gap-2 rounded-md border p-3 text-left transition-all",
-                      selectedTemplate?.id === t.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/40",
-                    )}
-                  >
-                    <span className="text-xl">{t.icon || "📋"}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-foreground">{t.name}</div>
-                      {t.description && (
-                        <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{t.description}</div>
+              <div>
+                <Label className="mb-2 block text-xs uppercase text-muted-foreground">Шаблон</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplate(t)}
+                      className={cn(
+                        "flex items-start gap-2 rounded-md border p-3 text-left transition-all",
+                        selectedTemplate?.id === t.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40",
                       )}
-                    </div>
-                  </button>
-                ))}
+                    >
+                      <span className="text-xl">{t.icon || "📋"}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-foreground">{t.name}</div>
+                        {t.description && (
+                          <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{t.description}</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="imp-name">Название протокола *</Label>
+                  <Input id="imp-name" value={protocolName} onChange={(e) => setProtocolName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="imp-date">Дата встречи</Label>
+                  <Input id="imp-date" type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} />
+                </div>
+              </div>
+
+              {parsed.participants && parsed.participants.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  <UserIcon className="mr-1 inline h-3 w-3" />
+                  Участники: {parsed.participants.join(", ")}
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-              <div className="space-y-1.5">
-                <Label htmlFor="imp-name">Название протокола *</Label>
-                <Input id="imp-name" value={protocolName} onChange={(e) => setProtocolName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="imp-date">Дата встречи</Label>
-                <Input id="imp-date" type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} />
-              </div>
-            </div>
-
-            {parsed.participants && parsed.participants.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                <UserIcon className="mr-1 inline h-3 w-3" />
-                Участники: {parsed.participants.join(", ")}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+            <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/20 px-6 py-3">
               <Button variant="ghost" onClick={() => setStep("input")}>Назад</Button>
               <Button
                 onClick={() => setStep("review")}
@@ -374,8 +413,31 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
         {/* STEP 3: REVIEW ROWS */}
         {step === "review" && parsed && (
-          <div className="space-y-4">
-            <ScrollArea className="max-h-[55vh] pr-2">
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/20 px-6 py-2 text-xs">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleAll(selectedCount !== parsed.rows.length)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {selectedCount === parsed.rows.length ? "Снять все" : "Выбрать все"}
+                </button>
+                <span className="text-muted-foreground">·</span>
+                <button
+                  onClick={() => expandAll(!parsed.rows.every((r) => r.expanded))}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {parsed.rows.every((r) => r.expanded) ? "Свернуть все" : "Развернуть все"}
+                </button>
+              </div>
+              <div className="text-muted-foreground">
+                Кликните по карточке, чтобы добавить участников, тему, важность
+              </div>
+            </div>
+
+            {/* Scroll list — flex-1 min-h-0 forces proper scroll */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-3">
               <div className="space-y-2">
                 {parsed.rows.length === 0 && (
                   <div className="py-8 text-center text-sm text-muted-foreground">
@@ -385,6 +447,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                 {parsed.rows.map((row, idx) => (
                   <RowCard
                     key={idx}
+                    idx={idx}
                     row={row}
                     teamMembers={teamMembers as Profile[]}
                     onChange={(patch) => updateRow(idx, patch)}
@@ -392,11 +455,11 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                   />
                 ))}
               </div>
-            </ScrollArea>
+            </div>
 
-            <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="flex items-center justify-between border-t border-border bg-muted/20 px-6 py-3">
               <div className="text-xs text-muted-foreground">
-                {selectedCount} из {parsed.rows.length} строк будут добавлены
+                {selectedCount} из {parsed.rows.length} строк будут добавлены как черновик
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" onClick={() => setStep("template")}>Назад</Button>
@@ -405,7 +468,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                   disabled={selectedCount === 0 || createMutation.isPending}
                 >
                   {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Создать протокол с {selectedCount} задачами
+                  Создать черновик с {selectedCount} задачами
                 </Button>
               </div>
             </div>
@@ -418,13 +481,17 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
 // ============= Row Card =============
 function RowCard({
-  row, teamMembers, onChange, onRemove,
+  idx, row, teamMembers, onChange, onRemove,
 }: {
+  idx: number;
   row: ParsedRow;
   teamMembers: Profile[];
   onChange: (patch: Partial<ParsedRow>) => void;
   onRemove: () => void;
 }) {
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [participantOpen, setParticipantOpen] = useState(false);
+
   const axes = useMemo(() => {
     if (!row.axes) return [] as { k: string; v: string }[];
     return Object.entries(row.axes)
@@ -449,80 +516,291 @@ function RowCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedAssignee?.id]);
 
+  const assignee = teamMembers.find((m) => m.id === row.assignee_id);
+  const participants = (row.participant_ids || [])
+    .map((id) => teamMembers.find((m) => m.id === id))
+    .filter(Boolean) as Profile[];
+
+  const topicAxis = row.axes?.event_topic || "";
+  const setAxis = (key: string, value: string | null) => {
+    onChange({ axes: { ...(row.axes || {}), [key]: value } });
+  };
+
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-card p-3 transition-opacity",
-        !row.selected && "opacity-50",
+        "rounded-md border bg-card transition-all",
+        row.selected ? "border-border" : "border-border/40 opacity-60",
+        row.expanded && "ring-1 ring-primary/30",
       )}
     >
-      <div className="flex items-start gap-2">
+      {/* Collapsed header — always visible */}
+      <div className="flex items-start gap-2 p-2.5">
         <Checkbox
           checked={row.selected}
           onCheckedChange={(v) => onChange({ selected: !!v })}
           className="mt-1"
+          onClick={(e) => e.stopPropagation()}
         />
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Input
-            value={row.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-            className="h-8 border-0 px-1 text-sm font-medium shadow-none focus-visible:bg-muted/50"
-          />
-          {row.description && (
-            <Textarea
-              value={row.description}
-              onChange={(e) => onChange({ description: e.target.value })}
-              rows={2}
-              className="resize-none border-0 px-1 text-xs text-muted-foreground shadow-none focus-visible:bg-muted/50"
+        <button
+          onClick={() => onChange({ expanded: !row.expanded })}
+          className="mt-0.5 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label={row.expanded ? "Свернуть" : "Развернуть"}
+        >
+          {row.expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+        <div
+          className="min-w-0 flex-1 cursor-pointer space-y-1"
+          onClick={() => onChange({ expanded: !row.expanded })}
+        >
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 text-xs font-mono text-muted-foreground pt-0.5">{idx + 1}.</span>
+            <div className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground">
+              {row.title}
+            </div>
+            {row.is_important && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />}
+          </div>
+          {/* Compact meta row */}
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <MetaChip
+              icon={<UserIcon className="h-3 w-3" />}
+              label={assignee?.display_name || assignee?.email || row.assignee_hint || "Ответственный"}
+              empty={!assignee}
+              tone="muted"
             />
-          )}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {row.assignee_hint && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                <UserIcon className="h-3 w-3" />
-                <select
-                  value={row.assignee_id || ""}
-                  onChange={(e) => onChange({ assignee_id: e.target.value || null })}
-                  className="border-0 bg-transparent text-[11px] focus:outline-none"
-                  title="Назначить ответственного"
-                >
-                  <option value="">{row.assignee_hint}</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.display_name || m.email}
-                    </option>
-                  ))}
-                </select>
-              </span>
+            <MetaChip
+              icon={<CalendarIcon className="h-3 w-3" />}
+              label={row.deadline ? format(new Date(row.deadline), "dd.MM.yyyy") : "Без срока"}
+              empty={!row.deadline}
+              tone="muted"
+            />
+            {participants.length > 0 && (
+              <MetaChip
+                icon={<Users className="h-3 w-3" />}
+                label={`+${participants.length}`}
+                tone="muted"
+              />
             )}
-            {row.deadline && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                <CalendarIcon className="h-3 w-3" />
-                <input
-                  type="date"
-                  value={row.deadline}
-                  onChange={(e) => onChange({ deadline: e.target.value })}
-                  className="border-0 bg-transparent text-[11px] focus:outline-none"
-                />
-              </span>
+            {topicAxis && (
+              <MetaChip
+                icon={<TagIcon className="h-3 w-3" />}
+                label={String(topicAxis)}
+                tone="primary"
+              />
             )}
-            {axes.map(({ k, v }) => (
-              <span key={k} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-                <TagIcon className="h-3 w-3" />
-                {AXIS_LABEL[k] || k}: {v}
-              </span>
+            {axes.filter((a) => a.k !== "event_topic").slice(0, 2).map(({ k, v }) => (
+              <MetaChip
+                key={k}
+                icon={<TagIcon className="h-3 w-3" />}
+                label={`${AXIS_LABEL[k] || k}: ${v}`}
+                tone="primary"
+              />
             ))}
           </div>
         </div>
         <button
-          onClick={onRemove}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
           className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           title="Удалить строку"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {/* Expanded editor */}
+      {row.expanded && (
+        <div className="space-y-3 border-t border-border bg-muted/20 p-3">
+          {/* Title (editable) */}
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-muted-foreground">Название</Label>
+            <Input
+              value={row.title}
+              onChange={(e) => onChange({ title: e.target.value })}
+              className="h-8 text-sm font-medium"
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-muted-foreground">Описание</Label>
+            <Textarea
+              value={row.description || ""}
+              onChange={(e) => onChange({ description: e.target.value })}
+              rows={2}
+              placeholder="Добавьте контекст или решение"
+              className="resize-none text-xs"
+            />
+          </div>
+
+          {/* Grid: assignee + deadline + important */}
+          <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+            {/* Assignee picker */}
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Ответственный</Label>
+              <UserPicker
+                users={teamMembers}
+                open={assigneeOpen}
+                onOpenChange={setAssigneeOpen}
+                onSelect={(u) => onChange({ assignee_id: u.id })}
+                trigger={
+                  <button
+                    type="button"
+                    className="flex h-8 w-full items-center justify-between rounded-md border border-border bg-background px-2 text-xs hover:bg-muted/50"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <UserIcon className="h-3 w-3 text-muted-foreground" />
+                      <span className="truncate">
+                        {assignee?.display_name || assignee?.email || (
+                          <span className="text-muted-foreground">
+                            {row.assignee_hint || "Не назначен"}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    {assignee && (
+                      <span
+                        role="button"
+                        onClick={(e) => { e.stopPropagation(); onChange({ assignee_id: null }); }}
+                        className="rounded p-0.5 hover:bg-muted"
+                      >
+                        <X className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    )}
+                  </button>
+                }
+              />
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Срок</Label>
+              <Input
+                type="date"
+                value={row.deadline || ""}
+                onChange={(e) => onChange({ deadline: e.target.value || null })}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            {/* Important */}
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Важно</Label>
+              <button
+                type="button"
+                onClick={() => onChange({ is_important: !row.is_important })}
+                className={cn(
+                  "flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+                  row.is_important
+                    ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                <Star className={cn("h-3.5 w-3.5", row.is_important && "fill-amber-400")} />
+              </button>
+            </div>
+          </div>
+
+          {/* Participants */}
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-muted-foreground">Участники (информируются)</Label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {participants.map((p) => (
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px]"
+                >
+                  {p.display_name || p.email}
+                  <button
+                    onClick={() =>
+                      onChange({
+                        participant_ids: (row.participant_ids || []).filter((id) => id !== p.id),
+                      })
+                    }
+                    className="rounded-full hover:bg-background"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <UserPicker
+                users={teamMembers}
+                excludeIds={[
+                  ...(row.participant_ids || []),
+                  ...(row.assignee_id ? [row.assignee_id] : []),
+                ]}
+                open={participantOpen}
+                onOpenChange={setParticipantOpen}
+                onSelect={(u) =>
+                  onChange({ participant_ids: [...(row.participant_ids || []), u.id] })
+                }
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+                  >
+                    <Plus className="h-3 w-3" /> Добавить
+                  </button>
+                }
+              />
+            </div>
+          </div>
+
+          {/* Topic / event_topic */}
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-muted-foreground">Тема</Label>
+            <Input
+              value={topicAxis}
+              onChange={(e) => setAxis("event_topic", e.target.value || null)}
+              placeholder="Например: Шашлык-тур"
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Other axes (read-only chips with edit) */}
+          {axes.filter((a) => a.k !== "event_topic").length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Дополнительные параметры</Label>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {axes.filter((a) => a.k !== "event_topic").map(({ k, v }) => (
+                  <div key={k} className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground w-20 shrink-0">
+                      {AXIS_LABEL[k] || k}
+                    </span>
+                    <Input
+                      value={v}
+                      onChange={(e) => setAxis(k, e.target.value || null)}
+                      className="h-7 flex-1 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function MetaChip({
+  icon, label, empty, tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  empty?: boolean;
+  tone: "muted" | "primary";
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5",
+        tone === "primary" && "bg-primary/10 text-primary",
+        tone === "muted" && (empty ? "bg-muted/50 text-muted-foreground/60" : "bg-muted text-muted-foreground"),
+      )}
+    >
+      {icon}
+      <span className="truncate max-w-[180px]">{label}</span>
+    </span>
   );
 }
 
@@ -560,17 +838,14 @@ function guessTemplate(parsed: ParsedProtocol, templates: ProtocolTemplate[]): P
     ...parsed.rows.map((r) => r.title + " " + (r.description || "")),
   ].join(" ").toLowerCase();
 
-  // Эвристика: переговоры
   if (/переговор|клиент|контрагент|цена|поставк|магнит|пятерочк|дороничи/i.test(text)) {
     const t = templates.find((t) => t.system_key === "client_negotiation");
     if (t) return t;
   }
-  // NPD gate
   if (/гейт|gate|npd|разработк|новый продукт|рецептур/i.test(text)) {
     const t = templates.find((t) => t.system_key === "npd_gate");
     if (t) return t;
   }
-  // Кросс-функциональный по умолчанию
   return (
     templates.find((t) => t.system_key === "cross_functional") ||
     templates.find((t) => t.system_key === "blank") ||
