@@ -30,6 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
+import { detectViolations } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 
 type Scale = "day" | "week" | "month";
