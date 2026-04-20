@@ -168,8 +168,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const setAdminModeDisabled = (disabled: boolean) => {
+    try {
+      if (disabled) localStorage.setItem("admin_mode_disabled", "1");
+      else localStorage.removeItem("admin_mode_disabled");
+    } catch {}
+    setAdminModeDisabledState(disabled);
+  };
+
+  const effectiveIsAdmin = isAdmin && !adminModeDisabled;
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, isApproved, isAdmin, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user, session, loading, isApproved,
+      isAdmin: effectiveIsAdmin,
+      isRealAdmin: isAdmin,
+      adminModeDisabled,
+      setAdminModeDisabled,
+      signUp, signIn, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
