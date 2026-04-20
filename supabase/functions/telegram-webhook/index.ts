@@ -139,6 +139,46 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      // Handle "proto_tpl:<template_key>"
+      if (cbData.startsWith("proto_tpl:")) {
+        const templateKey = cbData.substring(10);
+        const { data: protoCtx } = await supabaseCb
+          .from("telegram_pending_context")
+          .select("*")
+          .eq("chat_id", cbChatId)
+          .maybeSingle();
+
+        if (!protoCtx || protoCtx.context_type !== "protocol_template") {
+          await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Контекст устарел, начните /protocol заново");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await supabaseCb.from("telegram_pending_context").update({
+          context_type: "protocol_text",
+          template_key: templateKey,
+          created_at: new Date().toISOString(),
+        }).eq("chat_id", cbChatId);
+
+        const tplName = TEMPLATE_LABELS[templateKey] || templateKey;
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, `✅ ${tplName}`);
+        await sendTelegramMessage(BOT_TOKEN, cbChatId,
+          `✅ Шаблон: *${escapeMarkdown(tplName)}*\n\n` +
+          `Шаг 3/4. Пришлите *одним сообщением* полный текст протокола встречи.\n\n` +
+          `_Можно скопировать из заметок, переслать сообщение или просто описать своими словами. ИИ извлечёт задачи, ответственных и сроки._\n\n` +
+          `⏰ Контекст активен 15 минут. Отмена: /cancel`,
+          "Markdown"
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Handle "proto_cancel"
+      if (cbData === "proto_cancel") {
+        await supabaseCb.from("telegram_pending_context").delete().eq("chat_id", cbChatId);
+        await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Отменено");
+        await sendTelegramMessage(BOT_TOKEN, cbChatId, "❌ Создание протокола отменено.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "🤷");
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
