@@ -225,6 +225,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
 
+  // Milestone drag state (timeline horizontal drag)
+  const [msDragState, setMsDragState] = useState<{
+    milestoneId: string;
+    startX: number;
+    originalDate: string;
+  } | null>(null);
+  const [msDragDelta, setMsDragDelta] = useState(0);
+
   // Dependency drag state
   const [depDrag, setDepDrag] = useState<{
     fromId: string;
