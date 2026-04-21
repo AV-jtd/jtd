@@ -100,8 +100,16 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return m;
   }, [users]);
 
-  const rootProjects = useMemo(() => groups.filter((g) => !g.parent_id && !(g as any).closed_at), [groups]);
-  const archivedProjects = useMemo(() => groups.filter((g) => !g.parent_id && (g as any).closed_at), [groups]);
+  // STM SKU live in their own /npd/stm matrix and must not pollute the PMO portfolio.
+  const isStm = useCallback((g: TaskGroup) => (g as any).project_subtype === "npd_stm", []);
+  const rootProjects = useMemo(
+    () => groups.filter((g) => !g.parent_id && !(g as any).closed_at && !isStm(g)),
+    [groups, isStm],
+  );
+  const archivedProjects = useMemo(
+    () => groups.filter((g) => !g.parent_id && (g as any).closed_at && !isStm(g)),
+    [groups, isStm],
+  );
   const [showArchived, setShowArchived] = useState(false);
 
   const projectStats = useMemo(() => {
