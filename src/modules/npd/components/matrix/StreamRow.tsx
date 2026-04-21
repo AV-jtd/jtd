@@ -6,6 +6,7 @@ import { DroppableGateCell, DraggableTaskRow } from "./DndWrappers";
 import MatrixTaskRow from "./MatrixTaskRow";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
+import type { AssigneeSelection } from "@/components/AssigneePicker";
 import { NPD_GATES, type Task, type Profile } from "./types";
 
 interface StreamRowProps {
@@ -24,7 +25,7 @@ interface StreamRowProps {
   getCreateGroupId: (stream: string, gateKey: string) => string | null;
   onToggleCollapse: () => void;
   onDeadlineChange: (task: Task, date: Date) => void;
-  onAssigneeChange: (taskId: string, userId: string | null) => void;
+  onAssigneeChange: (taskId: string, sel: AssigneeSelection) => void;
   onToggle: (taskId: string) => void;
   onAddDependency: (predId: string, succId: string) => void;
   onExpand: (taskId: string) => void;
