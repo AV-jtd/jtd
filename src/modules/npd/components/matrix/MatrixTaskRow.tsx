@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
-import UserPicker from "@/components/UserPicker";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 import {
   CheckCircle2, CalendarIcon, User, Link2, Expand, FileText,
 } from "lucide-react";
@@ -20,7 +21,7 @@ interface MatrixTaskRowProps {
   allTasks: Task[];
   projectGroupIds: Set<string>;
   onDeadlineChange: (task: Task, date: Date) => void;
-  onAssigneeChange: (taskId: string, userId: string | null) => void;
+  onAssigneeChange: (taskId: string, sel: AssigneeSelection) => void;
   onToggle: (taskId: string) => void;
   onAddDependency: (predId: string, succId: string) => void;
   onExpand?: (taskId: string) => void;
