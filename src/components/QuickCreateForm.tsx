@@ -6,7 +6,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import UserPicker from "@/components/UserPicker";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 import type { Profile } from "@/hooks/useTasks";
 import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle, ListChecks, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ export interface QuickCreateResult {
   title: string;
   deadline?: Date;
   assigneeId?: string;
+  departmentId?: string;
+  contractorId?: string;
   /** Suggested start date (template). User can override via dependencies later. */
   startFrom?: Date;
 }
@@ -76,6 +79,8 @@ export default function QuickCreateForm({
   const [deadline, setDeadline] = useState<Date | undefined>();
   const [daysInput, setDaysInput] = useState<number>(7);
   const [assigneeId, setAssigneeId] = useState<string | undefined>();
+  const [departmentId, setDepartmentId] = useState<string | undefined>();
+  const [contractorId, setContractorId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
   const [userPickerOpen, setUserPickerOpen] = useState(false);
@@ -93,6 +98,8 @@ export default function QuickCreateForm({
     setTitle("");
     setDeadline(undefined);
     setAssigneeId(undefined);
+    setDepartmentId(undefined);
+    setContractorId(undefined);
     setSaving(false);
     setBatchMode(false);
     setBatchText("");
@@ -130,12 +137,16 @@ export default function QuickCreateForm({
         title: cleanTitle,
         deadline: effectiveDeadline,
         assigneeId: effectiveAssigneeId,
+        departmentId,
+        contractorId,
         startFrom,
       });
       // Stay open for rapid creation — reset form
       setTitle("");
       setDeadline(undefined);
       setAssigneeId(undefined);
+      setDepartmentId(undefined);
+      setContractorId(undefined);
       setTimeout(() => inputRef.current?.focus(), 50);
     } finally {
       setSaving(false);
@@ -158,6 +169,8 @@ export default function QuickCreateForm({
           title: lineParsed.cleanTitle || line,
           deadline: lineParsed.deadline || deadline,
           assigneeId: lineParsed.assigneeId || assigneeId,
+          departmentId,
+          contractorId,
           startFrom,
         });
       }
@@ -396,19 +409,58 @@ export default function QuickCreateForm({
                 </PopoverContent>
               </Popover>
 
-              <UserPicker
+              <AssigneePicker
                 users={users}
-                onSelect={(u) => setAssigneeId(u.id)}
+                current={
+                  assigneeId
+                    ? { kind: "user", id: assigneeId }
+                    : departmentId
+                      ? { kind: "department", id: departmentId }
+                      : contractorId
+                        ? { kind: "contractor", id: contractorId }
+                        : undefined
+                }
+                onSelect={(sel: AssigneeSelection) => {
+                  if (sel.kind === "user") {
+                    setAssigneeId(sel.id || undefined);
+                    setDepartmentId(undefined);
+                    setContractorId(undefined);
+                  } else if (sel.kind === "department") {
+                    setDepartmentId(sel.id || undefined);
+                    setAssigneeId(undefined);
+                    setContractorId(undefined);
+                  } else if (sel.kind === "contractor") {
+                    setContractorId(sel.id || undefined);
+                    setAssigneeId(undefined);
+                    setDepartmentId(undefined);
+                  } else {
+                    setAssigneeId(undefined);
+                    setDepartmentId(undefined);
+                    setContractorId(undefined);
+                  }
+                }}
                 open={userPickerOpen}
                 onOpenChange={setUserPickerOpen}
-                title="Ответственный"
                 trigger={
                   <button className={cn(
                     "inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-colors",
-                    assigneeId ? "border-primary/30 text-foreground" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    (assigneeId || departmentId || contractorId)
+                      ? "border-primary/30 text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   )}>
-                    <User className="h-3 w-3" />
-                    {assignee ? (assignee.display_name || "").split(" ")[0] : "Кто"}
+                    {assignee ? (
+                      <>
+                        <User className="h-3 w-3" />
+                        {(assignee.display_name || "").split(" ")[0]}
+                      </>
+                    ) : (departmentId || contractorId) ? (
+                      <AssigneeBadge departmentId={departmentId} contractorId={contractorId} />
+                    ) : (
+                      <>
+                        <User className="h-3 w-3" />
+                        Кто
+                      </>
+                    )}
                   </button>
                 }
               />
