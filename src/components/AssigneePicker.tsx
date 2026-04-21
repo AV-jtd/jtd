@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, HardHat, User as UserIcon, X } from "lucide-react";
+import { Building2, HardHat, User as UserIcon, X, Search } from "lucide-react";
 import type { Profile } from "@/hooks/useTasks";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useContractors } from "@/hooks/useContractors";
@@ -72,7 +72,10 @@ export default function AssigneePicker({
   const filteredDepartments = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return departments;
-    return departments.filter(d => d.name.toLowerCase().includes(q));
+    return departments.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      (d.description ?? "").toLowerCase().includes(q)
+    );
   }, [departments, search]);
 
   const filteredContractors = useMemo(() => {
@@ -80,9 +83,56 @@ export default function AssigneePicker({
     if (!q) return contractors;
     return contractors.filter(c =>
       c.name.toLowerCase().includes(q) ||
-      (c.organization ?? "").toLowerCase().includes(q)
+      (c.organization ?? "").toLowerCase().includes(q) ||
+      (c.contact_name ?? "").toLowerCase().includes(q)
     );
   }, [contractors, search]);
+
+  // Счётчики совпадений по вкладкам — для бейджей и автопереключения
+  const counts = useMemo(() => ({
+    user: filteredUsers.length,
+    department: hideDepartment ? 0 : filteredDepartments.length,
+    contractor: hideContractor ? 0 : filteredContractors.length,
+  }), [filteredUsers.length, filteredDepartments.length, filteredContractors.length, hideDepartment, hideContractor]);
+
+  // Подсветка совпадения в строке
+  const highlight = (text: string) => {
+    const q = search.trim();
+    if (!q) return text;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="bg-primary/20 text-foreground rounded-sm px-0.5">{text.slice(idx, idx + q.length)}</mark>
+        {text.slice(idx + q.length)}
+      </>
+    );
+  };
+
+  // Автопереключение на вкладку, где есть результаты, если на текущей пусто
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (!value.trim()) return;
+    const q = value.toLowerCase();
+    const inUser = users.some(u => !excludeUserIds.includes(u.id) && (u.display_name ?? "").toLowerCase().includes(q));
+    const inDept = !hideDepartment && departments.some(d =>
+      d.name.toLowerCase().includes(q) || (d.description ?? "").toLowerCase().includes(q)
+    );
+    const inContr = !hideContractor && contractors.some(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.organization ?? "").toLowerCase().includes(q) ||
+      (c.contact_name ?? "").toLowerCase().includes(q)
+    );
+    const currentHas =
+      (tab === "user" && inUser) ||
+      (tab === "department" && inDept) ||
+      (tab === "contractor" && inContr);
+    if (currentHas) return;
+    if (inUser) setTab("user");
+    else if (inDept) setTab("department");
+    else if (inContr) setTab("contractor");
+  };
 
   const close = () => {
     onOpenChange(false);
@@ -100,27 +150,39 @@ export default function AssigneePicker({
             <TabsList className="grid w-full mb-2" style={{ gridTemplateColumns: `repeat(${tabsCount}, minmax(0, 1fr))` }}>
               <TabsTrigger value="user" className="text-xs gap-1">
                 <UserIcon className="h-3 w-3" />Сотрудник
+                {search.trim() && counts.user > 0 && (
+                  <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.user}</span>
+                )}
               </TabsTrigger>
               {!hideDepartment && (
                 <TabsTrigger value="department" className="text-xs gap-1">
                   <Building2 className="h-3 w-3" />Отдел
+                  {search.trim() && counts.department > 0 && (
+                    <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.department}</span>
+                  )}
                 </TabsTrigger>
               )}
               {!hideContractor && (
                 <TabsTrigger value="contractor" className="text-xs gap-1">
                   <HardHat className="h-3 w-3" />Подрядчик
+                  {search.trim() && counts.contractor > 0 && (
+                    <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.contractor}</span>
+                  )}
                 </TabsTrigger>
               )}
             </TabsList>
           )}
 
-          <Input
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск..."
-            className="h-7 text-xs mb-2"
-          />
+          <div className="relative mb-2">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <Input
+              autoFocus
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Поиск по всем категориям..."
+              className="h-7 text-xs pl-7"
+            />
+          </div>
 
           <TabsContent value="user" className="m-0">
             <div className="max-h-56 overflow-y-auto space-y-0.5">
@@ -134,7 +196,7 @@ export default function AssigneePicker({
                   className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors ${current?.kind === "user" && current.id === u.id ? "bg-muted" : ""}`}
                 >
                   <UserIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <span className="text-sm truncate">{u.display_name || "Без имени"}</span>
+                  <span className="text-sm truncate">{highlight(u.display_name || "Без имени")}</span>
                 </button>
               ))}
             </div>
@@ -152,10 +214,15 @@ export default function AssigneePicker({
                   <button
                     key={d.id}
                     onClick={() => { onSelect({ kind: "department", id: d.id }); close(); }}
-                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors ${current?.kind === "department" && current.id === d.id ? "bg-muted" : ""}`}
+                    className={`flex items-start gap-2 w-full px-2 py-1.5 rounded text-left hover:bg-muted transition-colors ${current?.kind === "department" && current.id === d.id ? "bg-muted" : ""}`}
                   >
-                    <Building2 className="h-3 w-3 shrink-0" style={{ color: d.color ?? undefined }} />
-                    <span className="text-sm truncate">{d.name}</span>
+                    <Building2 className="h-3 w-3 mt-0.5 shrink-0" style={{ color: d.color ?? undefined }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm truncate">{highlight(d.name)}</div>
+                      {d.description && (
+                        <div className="text-[10px] text-muted-foreground truncate">{highlight(d.description)}</div>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -178,9 +245,13 @@ export default function AssigneePicker({
                   >
                     <HardHat className="h-3 w-3 mt-0.5 shrink-0" style={{ color: c.color ?? undefined }} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm truncate">{c.name}</div>
-                      {c.organization && (
-                        <div className="text-[10px] text-muted-foreground truncate">{c.organization}</div>
+                      <div className="text-sm truncate">{highlight(c.name)}</div>
+                      {(c.organization || c.contact_name) && (
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {c.organization && highlight(c.organization)}
+                          {c.organization && c.contact_name && " · "}
+                          {c.contact_name && highlight(c.contact_name)}
+                        </div>
                       )}
                     </div>
                   </button>
