@@ -113,6 +113,7 @@ export function useCreateStmSku() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
       toast.success("SKU создан");
     },
     onError: (e: any) => toast.error(`Не удалось создать SKU: ${e.message}`),
@@ -136,6 +137,7 @@ export function useToggleStmStage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
     },
   });
 }
