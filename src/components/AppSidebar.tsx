@@ -2,8 +2,8 @@ import { useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useVisibleTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen,
+import { 
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen, FileText,
 } from "lucide-react";
 
 import SmartImportDialog from "@/components/SmartImportDialog";
@@ -110,6 +110,7 @@ export default function AppSidebar({
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
     { id: "dashboard", icon: BarChart3, label: "Дашборд" },
     { id: "wiki", icon: BookOpen, label: "База знаний" },
+    { id: "protocols", icon: FileText, label: "Протоколы", href: "/protocols" },
     
     { id: "archive", icon: Archive, label: "Архив" },
   ];
@@ -701,21 +702,39 @@ export default function AppSidebar({
 
       {/* Nav */}
       <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
-            className={cn(
-              "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-              activeView === item.id && !activeGroupId
-                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
-                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </button>
-        ))}
+        {menuItems.map((item) => {
+          const isActive = activeView === item.id && !activeGroupId;
+          const buttonClass = cn(
+            "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+            isActive
+              ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+              : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+          );
+          
+          if (item.href) {
+            return (
+              <Link
+                key={item.id}
+                to={item.href}
+                className={buttonClass}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          }
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={buttonClass}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          );
+        })}
 
 
 
