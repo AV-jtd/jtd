@@ -29,6 +29,7 @@ const Pmo = lazy(() => import("./pages/Pmo"));
 const Crm = lazy(() => import("./pages/Crm"));
 const Npd = lazy(() => import("./pages/Npd"));
 const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
+const StmMatrix = lazy(() => import("./pages/StmMatrix"));
 const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const WikiDemo = lazy(() => import("./pages/WikiDemo"));
 const PublicReport = lazy(() => import("./pages/PublicReport"));
@@ -91,6 +92,7 @@ function AppContent() {
               <Route path="/crm" element={<Crm />} />
               <Route path="/npd" element={<Npd />} />
               <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
+              <Route path="/npd/stm" element={<StmMatrix />} />
               <Route path="/protocols" element={<Protocols />} />
               <Route path="/protocols/:id" element={<ProtocolDetail />} />
               <Route path="/wiki-demo" element={<WikiDemo />} />
