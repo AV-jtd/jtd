@@ -1020,7 +1020,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               const allParticipants = syntheticAssignee
                 ? [syntheticAssignee, ...participants]
                 : participants;
-              if (allParticipants.length === 0) return null;
+              if (allParticipants.length === 0) {
+                // Если нет пользователей-исполнителей, но есть отдел/подрядчик — покажем чип
+                if (task.department_id || task.contractor_id) {
+                  return <AssigneeBadge departmentId={task.department_id} contractorId={task.contractor_id} />;
+                }
+                return null;
+              }
               const assignee = allParticipants.find(p => p.role === "assignee");
               const sorted = assignee
                 ? [assignee, ...allParticipants.filter(p => p.id !== assignee.id)]
@@ -1072,6 +1078,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                       )}
                     </>
                   )}
+                  <AssigneeBadge departmentId={task.department_id} contractorId={task.contractor_id} />
                 </span>
               );
             })()}
