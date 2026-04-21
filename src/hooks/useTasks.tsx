@@ -919,6 +919,8 @@ export function useTaskMutations() {
         contractor_id: null,
         status_meta: task.status_meta ?? {},
         protocol_scope: task.protocol_scope ?? 'external',
+        stage_key: null,
+        stm_flow: null,
         subtasks: [],
         task_tags: [],
       };

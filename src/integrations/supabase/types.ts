@@ -1067,8 +1067,10 @@ export type Database = {
           name: string
           parent_id: string | null
           position: number
+          project_subtype: string | null
           project_type: string
           protocol_meta: Json
+          stm_meta: Json
           user_id: string
         }
         Insert: {
@@ -1088,8 +1090,10 @@ export type Database = {
           name: string
           parent_id?: string | null
           position?: number
+          project_subtype?: string | null
           project_type?: string
           protocol_meta?: Json
+          stm_meta?: Json
           user_id: string
         }
         Update: {
@@ -1109,8 +1113,10 @@ export type Database = {
           name?: string
           parent_id?: string | null
           position?: number
+          project_subtype?: string | null
           project_type?: string
           protocol_meta?: Json
+          stm_meta?: Json
           user_id?: string
         }
         Relationships: [
@@ -1264,8 +1270,10 @@ export type Database = {
           recurrence_end_date: string | null
           requires_approval: boolean
           source_protocol_id: string | null
+          stage_key: string | null
           start_at: string | null
           status_meta: Json
+          stm_flow: string | null
           task_type: string
           title: string
           updated_at: string
@@ -1301,8 +1309,10 @@ export type Database = {
           recurrence_end_date?: string | null
           requires_approval?: boolean
           source_protocol_id?: string | null
+          stage_key?: string | null
           start_at?: string | null
           status_meta?: Json
+          stm_flow?: string | null
           task_type?: string
           title: string
           updated_at?: string
@@ -1338,8 +1348,10 @@ export type Database = {
           recurrence_end_date?: string | null
           requires_approval?: boolean
           source_protocol_id?: string | null
+          stage_key?: string | null
           start_at?: string | null
           status_meta?: Json
+          stm_flow?: string | null
           task_type?: string
           title?: string
           updated_at?: string
