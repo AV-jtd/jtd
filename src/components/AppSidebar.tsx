@@ -161,8 +161,12 @@ export default function AppSidebar({
     return map;
   }, [folderItems]);
 
+  // Протоколы не показываем в сайдбаре «Проекты» — у них есть отдельный модуль /protocols
   const npdRootGroups = rootGroups.filter(g => (g as any).project_type === 'npd');
-  const nonNpdRootGroups = rootGroups.filter(g => (g as any).project_type !== 'npd');
+  const nonNpdRootGroups = rootGroups.filter(g => {
+    const t = (g as any).project_type;
+    return t !== 'npd' && t !== 'protocol';
+  });
   const getGroupsInFolder = (folderId: string) => nonNpdRootGroups.filter(g => groupFolderMap.get(g.id) === folderId);
   const ungroupedProjects = nonNpdRootGroups.filter(g => !groupFolderMap.has(g.id));
 
