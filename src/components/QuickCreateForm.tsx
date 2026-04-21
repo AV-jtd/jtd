@@ -6,7 +6,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import UserPicker from "@/components/UserPicker";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 import type { Profile } from "@/hooks/useTasks";
 import { Plus, X, CalendarIcon, User, FolderPlus, ListPlus, Loader2, PlayCircle, ListChecks, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ export interface QuickCreateResult {
   title: string;
   deadline?: Date;
   assigneeId?: string;
+  departmentId?: string;
+  contractorId?: string;
   /** Suggested start date (template). User can override via dependencies later. */
   startFrom?: Date;
 }
@@ -76,6 +79,8 @@ export default function QuickCreateForm({
   const [deadline, setDeadline] = useState<Date | undefined>();
   const [daysInput, setDaysInput] = useState<number>(7);
   const [assigneeId, setAssigneeId] = useState<string | undefined>();
+  const [departmentId, setDepartmentId] = useState<string | undefined>();
+  const [contractorId, setContractorId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
   const [userPickerOpen, setUserPickerOpen] = useState(false);
@@ -93,6 +98,8 @@ export default function QuickCreateForm({
     setTitle("");
     setDeadline(undefined);
     setAssigneeId(undefined);
+    setDepartmentId(undefined);
+    setContractorId(undefined);
     setSaving(false);
     setBatchMode(false);
     setBatchText("");
