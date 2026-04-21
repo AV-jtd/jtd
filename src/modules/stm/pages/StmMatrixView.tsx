@@ -63,6 +63,24 @@ export default function StmMatrixView() {
 
   return (
     <div className="stm-matrix flex flex-col h-full bg-stm-bg text-stm-fg">
+      {/* NPD / STM workflow switcher */}
+      <div className="px-4 pt-2 shrink-0">
+        <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-stm-glass/60 border border-stm-border/40">
+          <button
+            onClick={() => navigate("/npd")}
+            className="text-xs font-medium px-3 py-1 rounded-md text-stm-fg/60 hover:text-stm-fg transition-colors"
+          >
+            NPD проекты
+          </button>
+          <button
+            className="text-xs font-medium px-3 py-1 rounded-md bg-stm-accent/20 text-stm-accent shadow-sm"
+            aria-pressed
+          >
+            СТМ Mission Control
+          </button>
+        </div>
+      </div>
+
       {/* Top control bar */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-stm-border/40 bg-stm-card/60 backdrop-blur-xl">
         <div className="flex items-center gap-2 min-w-0">
