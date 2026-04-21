@@ -13,6 +13,8 @@ import { useTaskComments } from "@/hooks/useComments";
 import TaskAiPopover from "@/components/TaskAiPopover";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2, ShieldCheck, BookOpen } from "lucide-react";
