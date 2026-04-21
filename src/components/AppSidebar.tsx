@@ -702,21 +702,39 @@ export default function AppSidebar({
 
       {/* Nav */}
       <nav className="ios-sidebar-scroll flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 space-y-0.5">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
-            className={cn(
-              "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-              activeView === item.id && !activeGroupId
-                ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
-                : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </button>
-        ))}
+        {menuItems.map((item) => {
+          const isActive = activeView === item.id && !activeGroupId;
+          const buttonClass = cn(
+            "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+            isActive
+              ? "bg-sidebar-active/10 text-sidebar-active border-l-2 border-sidebar-active pl-2.5"
+              : "text-sidebar-fg/70 hover:bg-sidebar-hover hover:text-sidebar-fg"
+          );
+          
+          if (item.href) {
+            return (
+              <Link
+                key={item.id}
+                to={item.href}
+                className={buttonClass}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          }
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => { onViewChange(item.id); onGroupChange(null); onClearTags(); }}
+              className={buttonClass}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          );
+        })}
 
 
 
