@@ -280,6 +280,7 @@ export default function StmExcelImportDialog({ open, onOpenChange, defaultFlow =
       }
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
       if (failCount === 0) {
         toast.success(`Импортировано ${okCount} SKU`);
       } else {
