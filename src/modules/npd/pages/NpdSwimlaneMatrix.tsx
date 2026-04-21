@@ -713,6 +713,8 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
       const insertData: any = { title: params.title, user_id: uid, group_id: targetGroupId };
       if (params.deadline) insertData.deadline = params.deadline.toISOString();
       if (params.assigneeId) insertData.assigned_to = params.assigneeId;
+      if (params.departmentId) insertData.department_id = params.departmentId;
+      if (params.contractorId) insertData.contractor_id = params.contractorId;
       if (params.startFrom) insertData.start_at = params.startFrom.toISOString();
       const { data, error } = await supabase.from("tasks").insert(insertData).select("id").single();
       if (error) { toast.error(error.message); return; }
