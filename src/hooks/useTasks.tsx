@@ -181,8 +181,12 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
       // владельцу/участникам — иначе протокол выглядит «пустым» до публикации.
       // Любой компонент внутри страницы протокола ДОЛЖЕН вызывать useTasks(protocolId),
       // а не useTasks() без аргументов.
+      //
+      // STM stage tasks (task_type='stm_stage') живут только в /npd/stm matrix.
+      // Из глобальных списков (Inbox/Today/All) они скрываются, чтобы не засорять GTD-фокус.
+      // На странице конкретного SKU (groupId задан) они остаются видны.
       if (!groupId) {
-        tasks = tasks.filter(t => !(t as any).is_draft);
+        tasks = tasks.filter(t => !(t as any).is_draft && (t as any).task_type !== "stm_stage");
       }
 
       if (filterTags && filterTags.length > 0) {

@@ -371,12 +371,17 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
 
   // ── Build NPD projects list ──
   const closedNpdProjects = useMemo(() =>
-    allGroups.filter((g) => g.project_type === "npd" && !g.parent_id && !!g.closed_at),
+    allGroups.filter(
+      (g) => g.project_type === "npd" && !g.parent_id && !!g.closed_at && (g as any).project_subtype !== "npd_stm",
+    ),
     [allGroups]
   );
 
   const npdProjects = useMemo(() => {
-    const npdGroups = allGroups.filter((g) => g.project_type === "npd" && !g.parent_id && !g.closed_at);
+    // STM SKUs live in their own /npd/stm matrix and must not appear on the NPD board.
+    const npdGroups = allGroups.filter(
+      (g) => g.project_type === "npd" && !g.parent_id && !g.closed_at && (g as any).project_subtype !== "npd_stm",
+    );
 
     return npdGroups.map((g): NpdProject => {
       const groupTagIds = allGroupTags.filter((gt) => gt.group_id === g.id).map((gt) => gt.tag_id);

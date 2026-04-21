@@ -2,9 +2,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useTaskGroups, useTasks, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { getStmStages, type StmFlow, type StmMeta } from "../lib/stages";
 import { toast } from "sonner";
+
+/**
+ * Fetch STM stage tasks directly. We can't reuse useTasks() because it hides
+ * task_type='stm_stage' from global lists (so they don't pollute Inbox/Today).
+ */
+function useStmStageTasks() {
+  const { user, loading } = useAuth();
+  return useQuery({
+    queryKey: ["stm-stage-tasks", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("task_type", "stm_stage")
+        .order("position");
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !loading && !!user,
+    staleTime: 30_000,
+  });
+}
 
 export interface StmProject {
   group: TaskGroup;
@@ -22,7 +44,7 @@ export interface StmProject {
  */
 export function useStmProjects() {
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
+  const { data: allTasks = [] } = useStmStageTasks();
 
   return useMemo<StmProject[]>(() => {
     const stmGroups = groups.filter(g => (g as any).project_subtype === "npd_stm" && !g.closed_at);
@@ -91,6 +113,7 @@ export function useCreateStmSku() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
       toast.success("SKU создан");
     },
     onError: (e: any) => toast.error(`Не удалось создать SKU: ${e.message}`),
@@ -114,6 +137,7 @@ export function useToggleStmStage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
     },
   });
 }
