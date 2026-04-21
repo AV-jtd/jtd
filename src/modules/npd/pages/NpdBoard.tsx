@@ -928,6 +928,24 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (<>
+          {/* NPD / STM workflow switcher */}
+          <div className="px-4 pt-2 shrink-0">
+            <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 border border-border/40">
+              <button
+                className="text-xs font-medium px-3 py-1 rounded-md bg-background text-foreground shadow-sm"
+                aria-pressed
+              >
+                NPD проекты
+              </button>
+              <button
+                onClick={() => navigate("/npd/stm")}
+                className="text-xs font-medium px-3 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              >
+                СТМ Mission Control
+              </button>
+            </div>
+          </div>
+
           {/* Unified compact bar */}
           <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
             <div className="flex items-center gap-3">
