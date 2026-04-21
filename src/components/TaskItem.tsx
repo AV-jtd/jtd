@@ -1192,18 +1192,41 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           />
 
-          <UserPicker
+          <AssigneePicker
             users={availableUsers}
-            excludeIds={[]}
-            title="🪄 Назначить ответственного"
-            placeholder="Кому поручить?"
+            current={
+              task.department_id
+                ? { kind: "department", id: task.department_id }
+                : task.contractor_id
+                ? { kind: "contractor", id: task.contractor_id }
+                : task.assigned_to
+                ? { kind: "user", id: task.assigned_to }
+                : { kind: null, id: null }
+            }
             open={userPickerOpen === "quick-assignee"}
             onOpenChange={(open) => setUserPickerOpen(open ? "quick-assignee" : null)}
-            onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}
+            onSelect={(sel) => {
+              const currentAssignee = participants.find(p => p.role === "assignee");
+              if (sel.kind === "user" && sel.id) {
+                if (task.department_id || task.contractor_id) {
+                  updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+                }
+                addParticipant.mutate({ task_id: task.id, user_id: sel.id, role: "assignee" });
+              } else if (sel.kind === "department" && sel.id) {
+                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                updateTask.mutate({ id: task.id, department_id: sel.id, contractor_id: null });
+              } else if (sel.kind === "contractor" && sel.id) {
+                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                updateTask.mutate({ id: task.id, contractor_id: sel.id, department_id: null });
+              } else {
+                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+              }
+            }}
             trigger={
               <button className={cn(
                 "p-1.5 rounded transition-colors",
-                task.assigned_to ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                (task.assigned_to || task.department_id || task.contractor_id) ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )} title="Ответственный">
                 <Wand2 className="h-3.5 w-3.5" />
               </button>
