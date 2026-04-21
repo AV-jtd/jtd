@@ -200,23 +200,34 @@ function MatrixTaskRowInner({
           </PopoverContent>
         </Popover>
 
-        <UserPicker
+        <AssigneePicker
           users={users}
-          onSelect={(u) => onAssigneeChange(task.id, u.id)}
+          current={
+            task.assigned_to
+              ? { kind: "user", id: task.assigned_to }
+              : task.department_id
+                ? { kind: "department", id: task.department_id }
+                : task.contractor_id
+                  ? { kind: "contractor", id: task.contractor_id }
+                  : undefined
+          }
+          onSelect={(sel) => onAssigneeChange(task.id, sel)}
           open={pickerOpen}
           onOpenChange={setPickerOpen}
-          title="Ответственный"
           trigger={
             <button className={cn(
-              "shrink-0 text-[10px] px-1 py-0 rounded transition-colors max-w-[70px] truncate",
-              assignee
+              "shrink-0 text-[10px] px-1 py-0 rounded transition-colors max-w-[110px] truncate inline-flex items-center gap-1",
+              (assignee || task.department_id || task.contractor_id)
                 ? "text-foreground font-medium"
                 : "text-muted-foreground/30 hover:text-muted-foreground opacity-0 group-hover:opacity-100"
             )}>
-              {assignee
-                ? (assignee.display_name || "").split(" ")[0] || "👤"
-                : <User className="h-3 w-3" />
-              }
+              {assignee ? (
+                <span className="truncate">{(assignee.display_name || "").split(" ")[0] || "👤"}</span>
+              ) : (task.department_id || task.contractor_id) ? (
+                <AssigneeBadge departmentId={task.department_id} contractorId={task.contractor_id} />
+              ) : (
+                <User className="h-3 w-3" />
+              )}
             </button>
           }
         />
