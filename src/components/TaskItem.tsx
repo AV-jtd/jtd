@@ -1578,6 +1578,61 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               const assignee = participants.find(p => p.role === "assignee");
               const canReassign = assignee && currentUser && assignee.user_id === currentUser.id;
               const delegatedFromName = task.delegated_from ? getProfileName(task.delegated_from) : null;
+              const hasDelegation = !!(task.department_id || task.contractor_id);
+              const currentSelection: AssigneeSelection = task.department_id
+                ? { kind: "department", id: task.department_id }
+                : task.contractor_id
+                ? { kind: "contractor", id: task.contractor_id }
+                : assignee
+                ? { kind: "user", id: assignee.user_id }
+                : { kind: null, id: null };
+              const handleAssigneeSelect = (sel: AssigneeSelection) => {
+                if (sel.kind === "user" && sel.id) {
+                  // очистить отдел/подрядчика и назначить пользователя
+                  updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+                  addParticipant.mutate({ task_id: task.id, user_id: sel.id, role: "assignee" });
+                } else if (sel.kind === "department" && sel.id) {
+                  // снять текущего ответственного, проставить отдел
+                  if (assignee) removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id });
+                  updateTask.mutate({ id: task.id, department_id: sel.id, contractor_id: null });
+                } else if (sel.kind === "contractor" && sel.id) {
+                  if (assignee) removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id });
+                  updateTask.mutate({ id: task.id, contractor_id: sel.id, department_id: null });
+                } else {
+                  // полностью снять
+                  if (assignee) removeParticipant.mutate({ task_id: task.id, user_id: assignee.user_id });
+                  updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+                }
+              };
+              if (hasDelegation && !assignee) {
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <AssigneeBadge departmentId={task.department_id} contractorId={task.contractor_id} size="sm" />
+                      <button
+                        onClick={() => updateTask.mutate({ id: task.id, department_id: null, contractor_id: null })}
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                        title="Снять делегирование"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <AssigneePicker
+                      users={availableUsers}
+                      current={currentSelection}
+                      open={userPickerOpen === "assignee"}
+                      onOpenChange={(open) => setUserPickerOpen(open ? "assignee" : null)}
+                      onSelect={handleAssigneeSelect}
+                      side="bottom"
+                      trigger={
+                        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                          <Forward className="h-2.5 w-2.5" /> Изменить
+                        </button>
+                      }
+                    />
+                  </div>
+                );
+              }
               return assignee ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -1617,12 +1672,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   )}
                 </div>
               ) : (
-                <UserPicker
+                <AssigneePicker
                   users={availableUsers}
-                  excludeIds={[]}
+                  current={currentSelection}
                   open={userPickerOpen === "assignee"}
                   onOpenChange={(open) => setUserPickerOpen(open ? "assignee" : null)}
-                  onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "assignee" })}
+                  onSelect={handleAssigneeSelect}
                   side="bottom"
                   trigger={
                     <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
