@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
+import StmExcelImportDialog from "../components/StmExcelImportDialog";
 
 /**
  * STM (Private Label) Mission Control matrix.
@@ -21,6 +22,7 @@ export default function StmMatrixView() {
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("none");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const stages = getStmStages(flow);
 
@@ -116,6 +118,14 @@ export default function StmMatrixView() {
             </select>
           </div>
 
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="h-8 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
+          </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)} className="bg-stm-accent text-stm-bg hover:bg-stm-accent/90 h-8">
             <Plus className="h-3.5 w-3.5 mr-1" /> SKU
           </Button>
@@ -172,6 +182,7 @@ export default function StmMatrixView() {
       </div>
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
+      <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
     </div>
   );
 }

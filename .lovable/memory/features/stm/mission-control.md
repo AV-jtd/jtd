@@ -13,6 +13,15 @@ type: feature
 - `task_groups.project_subtype = 'npd_stm'` — маркер SKU-проекта.
 - `task_groups.stm_meta` (JSONB): `{ flow: 'in'|'out', retailer, brand, contract_id, drop, weight_kg, package_type, barcode, sku_code_1c, plu, manager_id, target_price, shelf_life, purpose }`.
 - `tasks.stage_key` + `tasks.stm_flow` — этап конвейера. `task_type = 'stm_stage'`.
+
+## Импорт из Excel
+
+`StmExcelImportDialog` (`src/modules/stm/components/StmExcelImportDialog.tsx`) принимает `.xlsx` со множеством листов (каждый лист = одна сеть/кампания):
+- Авто-детект строки заголовков (≥4 непустых ячеек + ключевое слово «Наименование/№ п/п/Бренд/ТМ»).
+- Авто-выбор крупнейшего листа, авто-предзаполнение поля «Сеть» из имени листа, авто-flow по ключевым словам (Вывод/Закрытие → out).
+- AI-маппинг через `ai-assistant` action `map_stm_columns`: возвращает либо meta-поле, либо `stage_key` текущего flow.
+- Колонки-даты этапов → задачи `task_type='stm_stage'` с `is_completed=true`, `completed_at`+`deadline` = эта дата.
+- Кнопка «Импорт Excel» рядом с «+ SKU» в верхнем баре `StmMatrixView`.
 - Один SKU = один проект (`task_group`). Все этапы = задачи в этом проекте.
 
 ## Потоки (workflows)

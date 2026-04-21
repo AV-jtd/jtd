@@ -1081,6 +1081,122 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       });
     }
 
+    if (action === "map_stm_columns") {
+      const { headers: excelHeaders, sampleRows, stages, flow } = context;
+      const stagesList = (stages || []).map((s: any) => `- ${s.key}: ${s.title} (${s.description || ""})`).join("\n");
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты маппишь колонки Excel-файла со списком SKU (товаров СТМ) к полям проекта-SKU в системе.
+
+Поток: "${flow}" (${flow === "in" ? "ввод нового SKU" : "вывод SKU"}).
+
+Доступные ЭТАПЫ воркфлоу (значение даты в ячейке = дата завершения этапа):
+${stagesList}
+
+Доступные META-поля SKU:
+- title: название SKU (рабочее наименование, продукт). ОБЯЗАТЕЛЬНО.
+- sku_code_1c: код 1С / артикул
+- brand: торговая марка / ТМ
+- purpose: цель ввода (Новинка, Замена, etc)
+- weight_kg: вес в кг (число)
+- package_type: тип упаковки (Лоток П-1610...)
+- target_price: согласованная цена (число)
+- shelf_life: сроки годности
+- barcode: штрихкод (ШК)
+- plu: тарный/внутренний ШК сети
+- comment: комментарий
+- external_ref: № п/п
+- skip: колонка не нужна
+
+ПРАВИЛА:
+1. Колонки с ДАТАМИ (значения = даты или текст со словами «отправлены», «согласовано», «принято») → подбирай из списка stage_key выше.
+2. «Запрос на образцы» → sample_request, «Отправка образцов» → sample_send, «Дегустация» → tasting_1, «Калькуляторы» / «Калькуляц» / «цена» → calc_initial или calc_final, «Доработка» → rework, «Утверждение» / «Принято сетью» → approval, «Открытие ветки» / «1С» → branch_open, «Производство» / «Произв отработка» / «Пром отработка» → production_run, «Макет» / «Этикетка» / «ШК» / «Дизайн упаковки» / «Согласование макета» → label_design, «Релиз» / «Отгрузка» / «Приказ» → order_release.
+3. Для flow="out": «Уведомление» → notify, «Распродажа» / «Остатки» → sell_off, «Закрытие» → close.
+4. «Наименование», «Рабочее наименование», «Продукт» → title.
+5. «ТМ» → brand. «Цель ввода» → purpose. «Вес, кг» → weight_kg. «Тип упаковки» → package_type. «Цена...» (без слова дата) → target_price. «Сроки годности» → shelf_life. «ШК» → barcode (если первый), второй ШК (тарный/сети) → plu. «код 1С» → sku_code_1c. «№ п/п» → external_ref. «Комментарии» → comment.
+6. Если колонка не подходит — field="skip".
+7. confidence < 0.7 если не уверен.
+8. КАЖДОЙ колонке нужен ровно один маппинг.`,
+            },
+            {
+              role: "user",
+              content: `Заголовки колонок: ${JSON.stringify(excelHeaders)}
+Примеры данных (3 строки): ${JSON.stringify(sampleRows)}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "map_stm_columns",
+                description: "Маппинг Excel → SKU поля и этапы STM",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    mapping: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          excel_column: { type: "string" },
+                          field: { type: "string", description: "stage_key из списка ИЛИ meta-поле ИЛИ skip" },
+                          confidence: { type: "number" },
+                        },
+                        required: ["excel_column", "field", "confidence"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["mapping"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "map_stm_columns" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "payment_required" }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await response.text();
+        console.error("AI gateway map_stm_columns error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ action: "map_stm_columns", mapping: parsed.mapping }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "map_crm_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
