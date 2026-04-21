@@ -757,10 +757,17 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
     }
   }, [updateTask, allTasks, allDependencies]);
 
-  const handleAssigneeChange = useCallback((taskId: string, userId: string | null) => {
-    updateTask.mutate({ id: taskId, assigned_to: userId });
-    if (userId) {
-      supabase.from("task_participants").upsert({ task_id: taskId, user_id: userId, role: "assignee" }, { onConflict: "task_id,user_id" });
+  const handleAssigneeChange = useCallback((taskId: string, sel: { kind: "user" | "department" | "contractor" | null; id: string | null }) => {
+    if (sel.kind === "user" && sel.id) {
+      updateTask.mutate({ id: taskId, assigned_to: sel.id, department_id: null, contractor_id: null });
+      supabase.from("task_participants").upsert({ task_id: taskId, user_id: sel.id, role: "assignee" }, { onConflict: "task_id,user_id" });
+    } else if (sel.kind === "department" && sel.id) {
+      updateTask.mutate({ id: taskId, assigned_to: null, department_id: sel.id, contractor_id: null });
+    } else if (sel.kind === "contractor" && sel.id) {
+      updateTask.mutate({ id: taskId, assigned_to: null, department_id: null, contractor_id: sel.id });
+    } else {
+      // clear
+      updateTask.mutate({ id: taskId, assigned_to: null, department_id: null, contractor_id: null });
     }
   }, [updateTask]);
 
