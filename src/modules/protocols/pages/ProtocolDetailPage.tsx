@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye } from "lucid
 import ModuleLayout from "@/components/ModuleLayout";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
+import { useAuth } from "@/hooks/useAuth";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
 import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
@@ -25,6 +26,7 @@ import {
 export default function ProtocolDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: groups = [], isLoading } = useTaskGroups();
   // Pass protocol id so draft (is_draft) tasks are NOT filtered out — drafts must be visible inside the protocol page itself.
   const { data: tasks = [] } = useTasks(id);
@@ -39,6 +41,13 @@ export default function ProtocolDetailPage() {
   );
 
   const isDraft = (protocol as any)?.draft_status === "draft";
+  // Если пользователь не владелец, но числится в internal_attendees — показать чип
+  const isOwner = !!(protocol && user && (protocol as any).user_id === user.id);
+  const isInternalAttendee = useMemo(() => {
+    const attendees: string[] = ((protocol as any)?.protocol_meta?.internal_attendees) ?? [];
+    return !!user && Array.isArray(attendees) && attendees.includes(user.id);
+  }, [protocol, user]);
+  const showAttendeeChip = !isOwner && isInternalAttendee;
   const draftTaskCount = useMemo(
     () => tasks.filter((t) => t.group_id === id && (t as any).is_draft).length,
     [tasks, id],
