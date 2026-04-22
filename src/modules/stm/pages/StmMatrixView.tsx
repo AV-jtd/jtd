@@ -10,6 +10,7 @@ import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
+import { cn } from "@/lib/utils";
 
 /**
  * STM (Private Label) Mission Control matrix.
