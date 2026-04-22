@@ -188,22 +188,25 @@ export default function AdminApproval() {
                 Ожидают подтверждения ({pending.length})
               </p>
               {pending.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                    </p>
+                <div key={u.id} className="p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                      {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                      {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {renderDeptSelect(u)}
+                      <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
+                        <UserCheck className="h-3.5 w-3.5" />
+                        Одобрить
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    {renderDeptSelect(u)}
-                    <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
-                      <UserCheck className="h-3.5 w-3.5" />
-                      Одобрить
-                    </Button>
-                  </div>
+                  {renderExtraFields(u)}
                 </div>
               ))}
             </div>
@@ -214,23 +217,26 @@ export default function AdminApproval() {
               Активные пользователи ({approved.length})
             </p>
             {approved.map(u => (
-              <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                  {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                  {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                  </p>
+              <div key={u.id} className="p-3 rounded-lg border border-border">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {renderDeptSelect(u)}
+                    <Badge variant="secondary" className="text-xs">Активен</Badge>
+                    <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
+                      <UserX className="h-3.5 w-3.5" />
+                      Деактивировать
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {renderDeptSelect(u)}
-                  <Badge variant="secondary" className="text-xs">Активен</Badge>
-                  <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
-                    <UserX className="h-3.5 w-3.5" />
-                    Деактивировать
-                  </Button>
-                </div>
+                {renderExtraFields(u)}
               </div>
             ))}
           </div>
