@@ -20,6 +20,10 @@ type Props = {
   parentExternalTaskId?: string;
   /** Optional pre-filled project for new internal tasks (project_id from header) */
   defaultProjectId?: string | null;
+  /** Optional pre-filled stream key (NPD) inherited from parent context */
+  defaultStreamKey?: string | null;
+  /** Optional participant user_ids to copy from parent context onto each new subtask */
+  defaultParticipantIds?: string[];
   /** Optional subtitle shown under the header */
   subtitle?: string;
   /**
