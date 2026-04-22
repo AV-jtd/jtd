@@ -779,6 +779,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
 
       {/* Sides of the meeting (auto from title + CRM) */}
+      {!isCrossFunctional && (
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {/* Our side (Дороничи) — name + own logo upload (independent from header logo) */}
         <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
