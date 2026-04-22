@@ -33,7 +33,7 @@ export function useRealtimeSubscriptions() {
       ref.current = window.setTimeout(() => {
         keys.forEach((key) => qc.invalidateQueries({ queryKey: key }));
         ref.current = null;
-      }, 500);
+      }, 1500);
     };
 
     // Subtasks (was: every useTasks() instance opened this — and unfiltered)
