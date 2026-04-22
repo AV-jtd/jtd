@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/hooks/useTasks";
 import { parseQuickTask } from "@/lib/quickTaskParse";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 
 interface TaskCreateBarProps {
   inputRef: RefObject<HTMLInputElement>;
@@ -22,6 +24,8 @@ interface TaskCreateBarProps {
     group_id: string | null;
     deadline: string | null;
     assigned_to?: string | null;
+    department_id?: string | null;
+    contractor_id?: string | null;
     task_type: "standard" | "crm";
     client_name?: string;
   }) => void;
@@ -34,17 +38,12 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
   const [taskType, setTaskType] = useState<"standard" | "crm">("standard");
   const [clientName, setClientName] = useState("");
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
+  const [contractorId, setContractorId] = useState<string | null>(null);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [assigneeSearch, setAssigneeSearch] = useState("");
   const [daysInput, setDaysInput] = useState<number>(7);
 
   const selectedUser = availableUsers.find(u => u.id === assignedTo);
-
-  const filteredUsers = availableUsers.filter(u => {
-    if (!assigneeSearch) return true;
-    const q = assigneeSearch.toLowerCase();
-    return (u.display_name || u.email || "").toLowerCase().includes(q);
-  });
 
   // Live-парсинг title: распознаём @имя, до DD.MM, +Nд, ! → показываем чипы
   const parsed = useMemo(() => parseQuickTask(title, availableUsers), [title, availableUsers]);
@@ -66,6 +65,8 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
       group_id: activeView === "group" ? activeGroupId : null,
       deadline: finalDeadline ? format(finalDeadline, "yyyy-MM-dd") : null,
       assigned_to: finalAssignee,
+      department_id: finalAssignee ? null : departmentId,
+      contractor_id: finalAssignee ? null : contractorId,
       task_type: taskType,
       client_name: isCrmTask ? clientName.trim() : undefined,
     });
@@ -75,7 +76,9 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
     setTaskType("standard");
     setClientName("");
     setAssignedTo(null);
-  }, [activeGroupId, activeView, assignedTo, clientName, deadline, onCreateTask, parsed, taskType, title]);
+    setDepartmentId(null);
+    setContractorId(null);
+  }, [activeGroupId, activeView, assignedTo, departmentId, contractorId, clientName, deadline, onCreateTask, parsed, taskType, title]);
 
   const iconBtn = (active: boolean) =>
     cn(
