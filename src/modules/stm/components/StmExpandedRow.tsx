@@ -7,6 +7,7 @@ import TaskItem from "@/components/TaskItem";
 import type { Task } from "@/hooks/useTasks";
 import type { StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
+import { StmOpsTasks } from "./StmOpsTasks";
 
 interface Props {
   project: StmProject;
@@ -361,6 +362,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
           Выберите этап, чтобы открыть детали (шаги, дедлайн, ответственный)
         </div>
       )}
+
+      {/* Operational tasks + tasks coming from protocols */}
+      <StmOpsTasks groupId={group.id} />
     </div>
   );
 }
