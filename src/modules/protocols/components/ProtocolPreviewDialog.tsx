@@ -186,7 +186,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     lines.push(`Дата: ${meetingDateLabel}`);
     lines.push(`Формат: ${formatLabel}`);
     lines.push("");
-    lines.push(`Участники со стороны ${ourSideName}:`);
+    lines.push(isCrossFunctional ? "Участники:" : `Участники со стороны ${ourSideName}:`);
     if (internalAttendeeIds.length === 0) lines.push("  — не указаны");
     else internalAttendeeIds.forEach((id) => lines.push(`  • ${userName(id) ?? "—"}`));
     lines.push("");
