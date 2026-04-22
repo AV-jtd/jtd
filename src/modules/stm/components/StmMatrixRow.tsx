@@ -43,9 +43,25 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
         .update({ description: text || null })
         .eq("id", group.id);
       if (error) throw error;
+      return text;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
+    onMutate: async (text: string) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snapshots: Array<[readonly unknown[], unknown]> = [];
+      qc.getQueriesData<any[]>({ queryKey: ["task_groups"] }).forEach(([key, data]) => {
+        if (!Array.isArray(data)) return;
+        snapshots.push([key, data]);
+        qc.setQueryData(
+          key,
+          data.map((g: any) => (g.id === group.id ? { ...g, description: text || null } : g)),
+        );
+      });
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      ctx?.snapshots?.forEach(([key, data]: [readonly unknown[], unknown]) =>
+        qc.setQueryData(key, data),
+      );
     },
   });
   const commitComment = () => {
