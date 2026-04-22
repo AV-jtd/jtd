@@ -75,7 +75,7 @@ export class DuplicateNameError extends Error {
 const SUPABASE_PAGE_SIZE = 1000;
 
 async function fetchAllPages<T>(
-  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>,
+  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
   maxPages = 100,
 ) {
   const all: T[] = [];
