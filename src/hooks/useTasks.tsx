@@ -169,9 +169,7 @@ export function useTaskGroups() {
       return data;
     },
     enabled: !loading && !!user,
-    staleTime: 1000 * 30,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: 'always',
+    staleTime: 1000 * 60 * 5,
     refetchOnReconnect: "always",
   });
 }
@@ -254,7 +252,7 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
       return filteredTasks;
     },
     enabled: !loading && !!user,
-    refetchOnMount: "always",
+    staleTime: 1000 * 60 * 5,
     refetchOnReconnect: "always",
   });
 }
@@ -269,7 +267,7 @@ export function useTags() {
       return data as Tag[];
     },
     enabled: !loading && !!user,
-    refetchOnMount: "always",
+    staleTime: 1000 * 60 * 5,
     refetchOnReconnect: "always",
   });
 }
@@ -326,7 +324,7 @@ export function useTagCategories() {
       return (data || []) as unknown as TagCategory[];
     },
     enabled: !loading && !!user,
-    refetchOnMount: "always",
+    staleTime: 1000 * 60 * 5,
     refetchOnReconnect: "always",
   });
 }
