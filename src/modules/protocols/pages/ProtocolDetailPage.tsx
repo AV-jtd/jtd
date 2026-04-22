@@ -101,6 +101,14 @@ export default function ProtocolDetailPage() {
                     </span>
                     <span className="text-muted-foreground sm:hidden"> · {draftTaskCount}</span>
                   </p>
+                  {showAttendeeChip && (
+                    <span
+                      className="hidden shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary md:inline-flex"
+                      title="Вы — участник встречи. Можете править черновик до публикации."
+                    >
+                      Участник
+                    </span>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
