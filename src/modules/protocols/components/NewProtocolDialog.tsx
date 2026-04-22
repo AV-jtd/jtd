@@ -71,46 +71,58 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   }, [selected, meetingDate, name]);
 
   // For cross_functional — find the most recent previous protocol of same template (owned by user)
-  // and count its open (uncompleted) tasks. Used both for the checkbox label and the carry-over action.
-  const prevProtocolQuery = useQuery({
-    queryKey: ["prev-cross-functional", user?.id],
+  // and count its open (uncompleted) tasks per protocol. Used to let the user pick which past
+  // meeting(s) to carry open commitments from.
+  const prevProtocolsQuery = useQuery({
+    queryKey: ["prev-cross-functional-list", user?.id],
     enabled: !!user && isCrossFunctional && step === "details",
     staleTime: 60 * 1000,
     queryFn: async () => {
-      if (!user) return null;
-      // Find most recent published cross_functional protocol of this user
+      if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number }>;
+      // Find recent cross_functional protocols of this user
       const { data: groups, error: gErr } = await supabase
         .from("task_groups")
         .select("id, name, created_at, protocol_meta")
         .eq("user_id", user.id)
         .eq("project_type", "protocol")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
       if (gErr) throw gErr;
-      // Filter on client side: cross_functional templates use icon 🔀 + name marker.
-      // More robust: check protocol_meta for template_key if present, otherwise fall back to name prefix.
       const candidates = (groups || []).filter((g: any) => {
         const meta = g.protocol_meta || {};
         if (meta.template_system_key === "cross_functional") return true;
         return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
-      });
-      const prev = candidates[0];
-      if (!prev) return null;
+      }).slice(0, 10);
+      if (candidates.length === 0) return [];
+      const ids = candidates.map((g: any) => g.id);
       const { data: openTasks, error: tErr } = await supabase
         .from("tasks")
-        .select("id, title, assigned_to, deadline, description, priority, is_important")
-        .eq("group_id", prev.id)
+        .select("id, group_id")
+        .in("group_id", ids)
         .eq("is_completed", false);
       if (tErr) throw tErr;
-      return {
-        id: prev.id as string,
-        name: prev.name as string,
-        openTasks: openTasks || [],
-      };
+      const counts = new Map<string, number>();
+      (openTasks || []).forEach((t: any) => {
+        counts.set(t.group_id, (counts.get(t.group_id) || 0) + 1);
+      });
+      return candidates.map((g: any) => ({
+        id: g.id as string,
+        name: g.name as string,
+        created_at: g.created_at as string,
+        openCount: counts.get(g.id) || 0,
+      }));
     },
   });
 
-  const openCount = prevProtocolQuery.data?.openTasks.length ?? 0;
+  const prevProtocols = prevProtocolsQuery.data ?? [];
+  // Auto-select the most recent protocol that has open tasks (once data loads)
+  useEffect(() => {
+    if (!isCrossFunctional) return;
+    if (selectedPrevIds.length > 0) return;
+    const firstWithOpen = prevProtocols.find((p) => p.openCount > 0);
+    if (firstWithOpen) setSelectedPrevIds([firstWithOpen.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prevProtocolsQuery.data, isCrossFunctional]);
 
   const createProtocol = useMutation({
     mutationFn: async () => {
