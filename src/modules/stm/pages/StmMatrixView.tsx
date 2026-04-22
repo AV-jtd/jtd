@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
@@ -17,15 +17,33 @@ import StmExcelImportDialog from "../components/StmExcelImportDialog";
  */
 export default function StmMatrixView() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const projects = useStmProjects();
   const [flow, setFlow] = useState<StmFlow>("in");
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("none");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const expandedSku = searchParams.get("sku");
 
-  const toggleExpand = (id: string) => setExpandedSku(prev => (prev === id ? null : id));
+  const toggleExpand = (id: string) => {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (next.get("sku") === id) next.delete("sku");
+        else next.set("sku", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  // If the expanded SKU belongs to the other flow, switch tabs to keep it visible.
+  useEffect(() => {
+    if (!expandedSku) return;
+    const target = projects.find(p => p.group.id === expandedSku);
+    if (target && target.flow !== flow) setFlow(target.flow);
+  }, [expandedSku, projects, flow]);
 
   const stages = getStmStages(flow);
 
