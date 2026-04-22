@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { toast } from "sonner";
 
 const AXIS_LABELS: Record<string, string> = {
