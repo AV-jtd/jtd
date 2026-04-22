@@ -46,7 +46,26 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
   const [selectedPrevIds, setSelectedPrevIds] = useState<string[]>([]);
-  const [topicFilter, setTopicFilter] = useState<string>("all"); // "all" | tagId
+  // Persist last-used "Series" filter across dialog reopens and step switches.
+  // Users often run several CF meetings of the same series in a row — re-picking the topic each time is friction.
+  const TOPIC_FILTER_STORAGE_KEY = "protocols:newDialog:topicFilter";
+  const [topicFilter, setTopicFilter] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      return window.localStorage.getItem(TOPIC_FILTER_STORAGE_KEY) || "all";
+    } catch {
+      return "all";
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(TOPIC_FILTER_STORAGE_KEY, topicFilter);
+    } catch {
+      // best-effort
+    }
+  }, [topicFilter]);
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
   const { topicTags } = useEventTopicTags();
@@ -61,7 +80,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
         setSelectedPrevIds([]);
-      setTopicFilter("all");
+      // Intentionally DO NOT reset topicFilter — keep user's chosen series across reopens.
       }, 200);
     }
   }, [open]);
@@ -158,6 +177,16 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
     if (topicFilter === "all") return prevProtocols;
     return prevProtocols.filter((p) => p.topicTagIds.includes(topicFilter));
   }, [prevProtocols, topicFilter]);
+
+  // If the persisted topic is no longer present in the loaded candidates (e.g. data changed),
+  // silently fall back to "all" so the UI doesn't show an empty list with a stale active chip.
+  useEffect(() => {
+    if (!isCrossFunctional || step !== "details") return;
+    if (prevProtocolsQuery.isLoading) return;
+    if (topicFilter === "all") return;
+    const stillExists = prevProtocols.some((p) => p.topicTagIds.includes(topicFilter));
+    if (!stillExists) setTopicFilter("all");
+  }, [isCrossFunctional, step, prevProtocolsQuery.isLoading, prevProtocols, topicFilter]);
 
   // Topics that actually appear in the candidate protocols — only those make sense as filter chips.
   const availableTopics = useMemo(() => {
