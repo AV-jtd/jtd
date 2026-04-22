@@ -131,68 +131,71 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
           </Tooltip>
 
           {/* Assignee */}
-          <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <button type="button" className={iconBtn(!!effectiveAssignee)}>
+          <AssigneePicker
+            users={availableUsers}
+            current={
+              effectiveAssignee
+                ? { kind: "user", id: effectiveAssignee }
+                : departmentId
+                  ? { kind: "department", id: departmentId }
+                  : contractorId
+                    ? { kind: "contractor", id: contractorId }
+                    : undefined
+            }
+            onSelect={(sel: AssigneeSelection) => {
+              if (sel.kind === "user") {
+                setAssignedTo(sel.id);
+                setDepartmentId(null);
+                setContractorId(null);
+              } else if (sel.kind === "department") {
+                setDepartmentId(sel.id);
+                setAssignedTo(null);
+                setContractorId(null);
+              } else if (sel.kind === "contractor") {
+                setContractorId(sel.id);
+                setAssignedTo(null);
+                setDepartmentId(null);
+              } else {
+                setAssignedTo(null);
+                setDepartmentId(null);
+                setContractorId(null);
+              }
+            }}
+            open={assigneeOpen}
+            onOpenChange={setAssigneeOpen}
+            side="bottom"
+            trigger={
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className={iconBtn(!!effectiveAssignee || !!departmentId || !!contractorId)}>
                     {(() => {
                       const u = availableUsers.find(x => x.id === effectiveAssignee);
-                      return u ? (
-                        <span className="text-[10px] font-bold leading-none">
-                          {(u.display_name || u.email || "?").slice(0, 2).toUpperCase()}
-                        </span>
-                      ) : (
-                        <UserRound className="h-3.5 w-3.5" />
-                      );
+                      if (u) {
+                        return (
+                          <span className="text-[10px] font-bold leading-none">
+                            {(u.display_name || u.email || "?").slice(0, 2).toUpperCase()}
+                          </span>
+                        );
+                      }
+                      if (departmentId || contractorId) {
+                        return <AssigneeBadge departmentId={departmentId} contractorId={contractorId} />;
+                      }
+                      return <UserRound className="h-3.5 w-3.5" />;
                     })()}
                   </button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {(() => {
-                  const u = availableUsers.find(x => x.id === effectiveAssignee);
-                  return u ? (u.display_name || u.email) : "Ответственный";
-                })()}
-              </TooltipContent>
-            </Tooltip>
-            <PopoverContent className="w-56 p-2" align="end">
-              <Input
-                value={assigneeSearch}
-                onChange={e => setAssigneeSearch(e.target.value)}
-                placeholder="Поиск..."
-                className="h-7 text-xs mb-1.5"
-                autoFocus
-              />
-              <div className="max-h-40 overflow-y-auto space-y-0.5">
-                {assignedTo && (
-                  <button
-                    type="button"
-                    onClick={() => { setAssignedTo(null); setAssigneeOpen(false); setAssigneeSearch(""); }}
-                    className="w-full text-left px-2 py-1.5 text-xs rounded-md hover:bg-muted text-muted-foreground"
-                  >
-                    Без ответственного
-                  </button>
-                )}
-                {filteredUsers.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => { setAssignedTo(u.id); setAssigneeOpen(false); setAssigneeSearch(""); }}
-                    className={cn(
-                      "w-full text-left px-2 py-1.5 text-xs rounded-md hover:bg-muted transition-colors",
-                      u.id === assignedTo && "bg-primary/10 text-primary"
-                    )}
-                  >
-                    {u.display_name || u.email || u.id.slice(0, 8)}
-                  </button>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">Нет пользователей</p>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {(() => {
+                    const u = availableUsers.find(x => x.id === effectiveAssignee);
+                    if (u) return u.display_name || u.email;
+                    if (departmentId) return "Отдел";
+                    if (contractorId) return "Подрядчик";
+                    return "Ответственный";
+                  })()}
+                </TooltipContent>
+              </Tooltip>
+            }
+          />
 
           {/* Deadline */}
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
