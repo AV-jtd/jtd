@@ -490,13 +490,13 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 <FmtIcon className="h-3 w-3 text-neutral-500" />
                                 <span className="font-medium">{fmtTxt}</span>
                               </span>
-                              {linkedClientId && partnerName && (
+                              {linkedClientId && partnerName && !isCrossFunctional && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-purple-300 bg-purple-50 px-2 py-0.5 text-purple-700">
                                   <Link2 className="h-3 w-3" />
                                   <span className="font-medium">{partnerName}</span>
                                 </span>
                               )}
-                              {sides && (
+                              {sides && !isCrossFunctional && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-neutral-50 px-2 py-0.5 text-neutral-700">
                                   <Sparkles className="h-3 w-3 text-neutral-500" />
                                   <span className="font-medium text-neutral-900">{sides.partner}</span>
