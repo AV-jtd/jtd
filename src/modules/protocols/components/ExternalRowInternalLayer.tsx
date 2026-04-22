@@ -126,6 +126,8 @@ export default function ExternalRowInternalLayer({ task }: Props) {
         protocolId={task.group_id}
         parentExternalTaskId={task.id}
         defaultProjectId={linkedProjectId ?? null}
+        defaultStreamKey={linkedStreamKey ?? null}
+        defaultParticipantIds={participants.map((p) => p.user_id)}
         variant={isCrossFunctional ? "neutral" : "internal"}
         subtitle="Подзадачи — что нужно сделать команде по этому пункту. Автоматически наследуют выбранный выше контекст."
       />
