@@ -52,9 +52,10 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
+  const isCrossFunctional = meta?.template_system_key === "cross_functional";
 
   // CRM client (для логотипа и имени партнёра)
-  const linkedClientId: string | null = meta.client_id ?? null;
+  const linkedClientId: string | null = isCrossFunctional ? null : (meta.client_id ?? null);
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
   useEffect(() => {
@@ -84,6 +85,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const externals: Array<{ name: string; organization?: string; role?: string }> =
     meta.external_attendees ?? [];
   const partnerName =
+    isCrossFunctional ? null :
     sides?.partner ||
     clientName ||
     externals.find((e) => e.organization?.trim())?.organization?.trim() ||
@@ -184,11 +186,11 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     lines.push(`Дата: ${meetingDateLabel}`);
     lines.push(`Формат: ${formatLabel}`);
     lines.push("");
-    lines.push(`Участники со стороны ${ourSideName}:`);
+    lines.push(isCrossFunctional ? "Участники:" : `Участники со стороны ${ourSideName}:`);
     if (internalAttendeeIds.length === 0) lines.push("  — не указаны");
     else internalAttendeeIds.forEach((id) => lines.push(`  • ${userName(id) ?? "—"}`));
     lines.push("");
-    if (partnerName) {
+    if (partnerName && !isCrossFunctional) {
       lines.push(`Участники со стороны ${partnerName}:`);
       if (externals.length === 0) lines.push("  — не указаны");
       else
@@ -488,13 +490,13 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 <FmtIcon className="h-3 w-3 text-neutral-500" />
                                 <span className="font-medium">{fmtTxt}</span>
                               </span>
-                              {linkedClientId && partnerName && (
+                              {linkedClientId && partnerName && !isCrossFunctional && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-purple-300 bg-purple-50 px-2 py-0.5 text-purple-700">
                                   <Link2 className="h-3 w-3" />
                                   <span className="font-medium">{partnerName}</span>
                                 </span>
                               )}
-                              {sides && (
+                              {sides && !isCrossFunctional && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-neutral-50 px-2 py-0.5 text-neutral-700">
                                   <Sparkles className="h-3 w-3 text-neutral-500" />
                                   <span className="font-medium text-neutral-900">{sides.partner}</span>
@@ -515,7 +517,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                         </div>
 
                         {/* Two side cards: our side + partner side */}
-                        <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className={`mt-4 grid gap-3 ${isCrossFunctional ? "grid-cols-1" : "grid-cols-2"}`}>
                           {/* Our side */}
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             <img
@@ -526,7 +528,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-[12px] font-semibold text-neutral-900">
-                                {ourSideName}
+                                {isCrossFunctional ? "Участники встречи" : ourSideName}
                               </div>
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {internalAttendeeIds.length === 0 ? (
@@ -545,7 +547,8 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             </div>
                           </div>
 
-                          {/* Partner side */}
+                          {/* Partner side — hidden for cross-functional (internal meeting) */}
+                          {!isCrossFunctional && (
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             {clientLogoUrl ? (
                               <img
@@ -583,6 +586,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                               </div>
                             </div>
                           </div>
+                          )}
                         </div>
                       </>
                     );
@@ -707,23 +711,24 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 </div>
 
                 {/* === SECTION 4: Signatures + footer === */}
-                <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
-                  <div className="grid grid-cols-2 gap-10">
-                    <div>
-                      <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
-                        Подпись · {ourSideName}
-                      </div>
-                    </div>
-                    {partnerName && (
+                {!isCrossFunctional && (
+                  <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
+                    <div className="grid grid-cols-2 gap-10">
                       <div>
                         <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
-                          Подпись · {partnerName}
+                          Подпись · {ourSideName}
                         </div>
                       </div>
-                    )}
+                      {partnerName && (
+                        <div>
+                          <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
+                            Подпись · {partnerName}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                </div>
+                )}
               </div>
             </div>
           </TabsContent>
