@@ -543,6 +543,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          department_id: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -555,6 +556,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           display_name?: string | null
           email?: string | null
           id: string
@@ -567,6 +569,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -577,7 +580,15 @@ export type Database = {
           username?: string | null
           work_email?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_folder_items: {
         Row: {

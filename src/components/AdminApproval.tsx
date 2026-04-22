@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserCheck, UserX, ShieldCheck } from "lucide-react";
+import { Loader2, UserCheck, UserX, ShieldCheck, Building2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface PendingUser {
@@ -13,22 +14,27 @@ interface PendingUser {
   telegram_username: string | null;
   created_at: string;
   is_approved: boolean;
+  department_id: string | null;
 }
+
+interface Department { id: string; name: string; }
 
 export default function AdminApproval() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<PendingUser[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, display_name, email, telegram_username, created_at, is_approved")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setUsers(data as PendingUser[]);
-    }
+    const [{ data: profiles }, { data: depts }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id")
+        .order("created_at", { ascending: false }),
+      supabase.from("departments").select("id, name").order("position"),
+    ]);
+    if (profiles) setUsers(profiles as PendingUser[]);
+    if (depts) setDepartments(depts as Department[]);
     setLoading(false);
   };
 
@@ -49,6 +55,37 @@ export default function AdminApproval() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: approve } : u));
     }
   };
+
+  const handleDepartmentChange = async (userId: string, deptId: string | null) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ department_id: deptId } as any)
+      .eq("id", userId);
+    if (error) {
+      toast.error("Не удалось обновить отдел: " + error.message);
+      return;
+    }
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, department_id: deptId } : u));
+    toast.success(deptId ? "Отдел обновлён" : "Отдел снят");
+  };
+
+  const renderDeptSelect = (u: PendingUser) => (
+    <Select
+      value={u.department_id ?? "__none"}
+      onValueChange={(v) => handleDepartmentChange(u.id, v === "__none" ? null : v)}
+    >
+      <SelectTrigger className="h-7 w-[160px] text-xs">
+        <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
+        <SelectValue placeholder="Отдел" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none" className="text-xs text-muted-foreground">— Без отдела —</SelectItem>
+        {departments.map((d) => (
+          <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 
   if (!isAdmin) return null;
 
@@ -84,6 +121,7 @@ export default function AdminApproval() {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
+                    {renderDeptSelect(u)}
                     <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
                       <UserCheck className="h-3.5 w-3.5" />
                       Одобрить
@@ -109,6 +147,7 @@ export default function AdminApproval() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {renderDeptSelect(u)}
                   <Badge variant="secondary" className="text-xs">Активен</Badge>
                   <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
                     <UserX className="h-3.5 w-3.5" />
