@@ -730,7 +730,12 @@ export default function AppSidebar({
                 className={buttonClass}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1 truncate">{item.label}</span>
+                {(item as any).badge > 0 && (
+                  <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 tabular-nums dark:text-amber-300">
+                    {(item as any).badge}
+                  </span>
+                )}
               </Link>
             );
           }
