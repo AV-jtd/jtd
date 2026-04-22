@@ -3,7 +3,7 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
-  ChevronDown, ChevronRight, Maximize2,
+  ChevronDown, ChevronRight, Maximize2, ListChecks,
 } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
