@@ -46,6 +46,18 @@ export function useRealtimeSubscriptions() {
       )
       .subscribe();
 
+    // Tasks: changes from other users (or other tabs/devices). Optimistic updates
+    // already cover the local user's own actions, but realtime ensures changes
+    // made elsewhere become visible. Debounced (1s) to absorb burst replays.
+    const tasksChannel = supabase
+      .channel("global-tasks-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks" },
+        () => debouncedInvalidate(tasksTimer, [["tasks"]])
+      )
+      .subscribe();
+
     // Group members for THIS user (was: every useTaskGroups() instance opened this)
     const groupMembersChannel = supabase
       .channel("global-group-members")
@@ -92,6 +104,7 @@ export function useRealtimeSubscriptions() {
       if (groupsTimer.current) window.clearTimeout(groupsTimer.current);
       if (unreadTimer.current) window.clearTimeout(unreadTimer.current);
       supabase.removeChannel(subtasksChannel);
+      supabase.removeChannel(tasksChannel);
       supabase.removeChannel(groupMembersChannel);
       supabase.removeChannel(unreadChannel);
     };
