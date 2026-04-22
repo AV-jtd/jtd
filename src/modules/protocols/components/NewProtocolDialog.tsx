@@ -115,14 +115,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   });
 
   const prevProtocols = prevProtocolsQuery.data ?? [];
-  // Auto-select the most recent protocol that has open tasks (once data loads)
-  useEffect(() => {
-    if (!isCrossFunctional) return;
-    if (selectedPrevIds.length > 0) return;
-    const firstWithOpen = prevProtocols.find((p) => p.openCount > 0);
-    if (firstWithOpen) setSelectedPrevIds([firstWithOpen.id]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prevProtocolsQuery.data, isCrossFunctional]);
+  // No auto-selection: meetings often cover different unrelated topics,
+  // so the user must explicitly pick which previous protocols to carry over.
 
   const createProtocol = useMutation({
     mutationFn: async () => {
