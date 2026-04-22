@@ -5,9 +5,9 @@ import type { StmStage } from "../lib/stages";
 
 function StmMatrixHeaderInner({ stages }: { stages: StmStage[] }) {
   return (
-    <div className="flex border-b-2 border-stm-border/60 sticky top-0 z-10 bg-stm-card/95 backdrop-blur-md">
-      <div className="sticky left-0 z-[2] min-w-[320px] w-[320px] shrink-0 px-3 py-3 border-r border-stm-border/40 bg-stm-card/95 backdrop-blur-md">
-        <span className="text-[10px] font-bold text-stm-fg/60 uppercase tracking-[0.15em]">SKU / Проект</span>
+    <div className="flex border-b border-border sticky top-0 z-10 bg-card">
+      <div className="sticky left-0 z-[2] min-w-[320px] w-[320px] shrink-0 px-3 py-3 border-r border-border bg-card">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">SKU / Проект</span>
       </div>
       {stages.map((s, i) => {
         const isMs = !!s.milestoneKey;
@@ -15,28 +15,28 @@ function StmMatrixHeaderInner({ stages }: { stages: StmStage[] }) {
           <div
             key={s.key}
             className={cn(
-              "min-w-[80px] w-[80px] shrink-0 px-1 py-3 text-center border-r border-stm-border/20 relative",
-              isMs && "bg-stm-accent/5",
+              "min-w-[80px] w-[80px] shrink-0 px-1 py-3 text-center border-r border-border/50 relative",
+              isMs && "bg-primary/5",
             )}
             title={isMs ? `${s.description} · контрольная веха` : s.description}
           >
             {isMs && (
-              <Flag className="h-2.5 w-2.5 text-stm-accent absolute top-1 right-1" aria-label="Контрольная веха" />
+              <Flag className="h-2.5 w-2.5 text-primary absolute top-1 right-1" aria-label="Контрольная веха" />
             )}
-            <div className={cn("text-[9px] font-mono mb-0.5", isMs ? "text-stm-accent" : "text-stm-fg/40")}>
+            <div className={cn("text-[9px] font-mono mb-0.5", isMs ? "text-primary" : "text-muted-foreground/70")}>
               {String(i + 1).padStart(2, "0")}
             </div>
             <div className={cn(
               "text-[10px] font-semibold uppercase tracking-wider leading-tight",
-              isMs ? "text-stm-accent" : "text-stm-fg/80",
+              isMs ? "text-primary" : "text-foreground/80",
             )}>
               {s.short}
             </div>
           </div>
         );
       })}
-      <div className="min-w-[260px] w-[260px] shrink-0 px-3 py-3 border-l border-stm-border/40 bg-stm-card/95 backdrop-blur-md">
-        <span className="text-[10px] font-bold text-stm-fg/60 uppercase tracking-[0.15em]">Комментарий</span>
+      <div className="min-w-[260px] w-[260px] shrink-0 px-3 py-3 border-l border-border bg-card">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">Комментарий</span>
       </div>
     </div>
   );

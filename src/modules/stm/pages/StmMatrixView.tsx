@@ -163,18 +163,18 @@ export default function StmMatrixView() {
   );
 
   return (
-    <div className="stm-matrix flex flex-col h-full bg-stm-bg text-stm-fg">
+    <div className="stm-matrix flex flex-col h-full bg-background text-foreground">
       {/* NPD / STM workflow switcher */}
       <div className="px-4 pt-2 shrink-0">
-        <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-stm-glass/60 border border-stm-border/40">
+        <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 border border-border">
           <button
             onClick={() => navigate("/npd")}
-            className="text-xs font-medium px-3 py-1 rounded-md text-stm-fg/60 hover:text-stm-fg transition-colors"
+            className="text-xs font-medium px-3 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
           >
             NPD проекты
           </button>
           <button
-            className="text-xs font-medium px-3 py-1 rounded-md bg-stm-accent/20 text-stm-accent shadow-sm"
+            className="text-xs font-medium px-3 py-1 rounded-md bg-primary/15 text-primary shadow-sm"
             aria-pressed
           >
             СТМ Mission Control
@@ -183,32 +183,32 @@ export default function StmMatrixView() {
       </div>
 
       {/* Top control bar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-stm-border/40 bg-stm-card/60 backdrop-blur-xl">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-2 min-w-0">
-          <LayoutGrid className="h-5 w-5 text-stm-accent" />
-          <h1 className="text-lg font-semibold text-stm-fg whitespace-nowrap">STM Mission Control</h1>
-          <span className="text-xs text-stm-fg/50 ml-2">{visible.length} SKU · {totalProgress}% средний прогресс {overdueCount > 0 && (
-            <span className="text-stm-danger ml-1">· ⚠ {overdueCount} просрочено</span>
+          <LayoutGrid className="h-5 w-5 text-primary" />
+          <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">STM Mission Control</h1>
+          <span className="text-xs text-muted-foreground ml-2">{visible.length} SKU · {totalProgress}% средний прогресс {overdueCount > 0 && (
+            <span className="text-destructive ml-1">· ⚠ {overdueCount} просрочено</span>
           )}</span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
           <div className="relative">
-            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stm-fg/40" />
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Поиск SKU, сеть, бренд..."
-              className="h-8 pl-8 w-56 bg-stm-glass/40 border-stm-border/40 text-stm-fg placeholder:text-stm-fg/40"
+              className="h-8 pl-8 w-56"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-stm-fg/60">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Filter className="h-3.5 w-3.5" />
             <select
               value={groupBy}
               onChange={e => setGroupBy(e.target.value as any)}
-              className="bg-stm-glass/40 border border-stm-border/40 rounded h-8 px-2 text-xs text-stm-fg"
+              className="bg-background border border-border rounded h-8 px-2 text-xs text-foreground"
             >
               <option value="none">Без группировки</option>
               <option value="retailer">По сети</option>
@@ -223,7 +223,7 @@ export default function StmMatrixView() {
                 size="sm"
                 variant="outline"
                 onClick={() => setCollapsedGroups(new Set(grouped.map(g => g.key)))}
-                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                className="h-8 px-2"
                 title="Свернуть все группы"
               >
                 <ChevronsDownUp className="h-3.5 w-3.5 mr-1" /> Свернуть всё
@@ -232,7 +232,7 @@ export default function StmMatrixView() {
                 size="sm"
                 variant="outline"
                 onClick={() => setCollapsedGroups(new Set())}
-                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                className="h-8 px-2"
                 title="Развернуть все группы"
               >
                 <ChevronsUpDown className="h-3.5 w-3.5 mr-1" /> Развернуть всё
@@ -244,32 +244,32 @@ export default function StmMatrixView() {
             size="sm"
             variant="outline"
             onClick={() => setImportOpen(true)}
-            className="h-8 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+            className="h-8"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)} className="bg-stm-accent text-stm-bg hover:bg-stm-accent/90 h-8">
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="h-8">
             <Plus className="h-3.5 w-3.5 mr-1" /> SKU
           </Button>
         </div>
       </div>
 
       {/* Flow tabs */}
-      <div className="px-4 py-2 border-b border-stm-border/30 bg-stm-card/40">
+      <div className="px-4 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <Tabs value={flow} onValueChange={(v) => setFlow(v as StmFlow)}>
-            <TabsList className="bg-stm-glass/40 border border-stm-border/30">
-              <TabsTrigger value="in" className="data-[state=active]:bg-stm-accent/20 data-[state=active]:text-stm-accent">
+            <TabsList>
+              <TabsTrigger value="in">
                 Ввод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "in" && !p.archivedAt).length}</span>
               </TabsTrigger>
-              <TabsTrigger value="out" className="data-[state=active]:bg-stm-warn/20 data-[state=active]:text-stm-warn">
+              <TabsTrigger value="out">
                 Вывод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "out" && !p.archivedAt).length}</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
           {/* Status filter: active / archived / all */}
-          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-stm-glass/40 border border-stm-border/30">
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border">
             {[
               { key: "active", label: "Активные", count: statusCounts.active },
               { key: "archived", label: "Архив", count: statusCounts.archived },
@@ -282,8 +282,8 @@ export default function StmMatrixView() {
                 className={cn(
                   "text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors",
                   statusFilter === opt.key
-                    ? "bg-stm-accent/20 text-stm-accent shadow-sm"
-                    : "text-stm-fg/60 hover:text-stm-fg",
+                    ? "bg-primary/15 text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
                 aria-pressed={statusFilter === opt.key}
               >
@@ -298,10 +298,10 @@ export default function StmMatrixView() {
       {/* Matrix scroll area */}
       <div className="flex-1 overflow-auto">
         {visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-stm-fg/50 gap-3 py-16">
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 py-16">
             <LayoutGrid className="h-10 w-10 opacity-40" />
             <div className="text-sm">Нет SKU в потоке «{flow === "in" ? "Ввод" : "Вывод"}»</div>
-            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="border-stm-accent/40 text-stm-accent hover:bg-stm-accent/10">
+            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Создать первый SKU
             </Button>
           </div>
@@ -318,14 +318,14 @@ export default function StmMatrixView() {
                       next.has(g.key) ? next.delete(g.key) : next.add(g.key);
                       return next;
                     })}
-                    className="sticky left-0 z-[1] w-full flex items-center gap-1.5 px-4 py-1.5 bg-stm-glass/60 backdrop-blur-md border-b border-stm-border/30 hover:bg-stm-glass/80 transition-colors text-left"
+                    className="sticky left-0 z-[1] w-full flex items-center gap-1.5 px-4 py-1.5 bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
                     aria-expanded={!collapsedGroups.has(g.key)}
                   >
                     {collapsedGroups.has(g.key)
-                      ? <ChevronRight className="h-3 w-3 text-stm-fg/60" />
-                      : <ChevronDown className="h-3 w-3 text-stm-fg/60" />}
-                    <span className="text-[10px] uppercase tracking-[0.15em] text-stm-fg/60 font-semibold">{g.label}</span>
-                    <span className="ml-2 text-[10px] text-stm-fg/40">{g.items.length}</span>
+                      ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                    <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">{g.label}</span>
+                    <span className="ml-2 text-[10px] text-muted-foreground/70">{g.items.length}</span>
                   </button>
                 )}
                 {!collapsedGroups.has(g.key) && g.items.map(p => (
