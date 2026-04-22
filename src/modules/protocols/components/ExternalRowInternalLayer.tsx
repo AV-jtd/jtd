@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import ProtocolInternalSection from "./ProtocolInternalSection";
+import { filterRealProjects } from "@/lib/projectFilters";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
 const NPD_STREAM_NAMES = new Set<string>(NPD_STREAMS as readonly string[]);
