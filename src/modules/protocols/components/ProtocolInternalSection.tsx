@@ -313,11 +313,26 @@ function InternalRow({
           {task.title}
         </span>
 
-        <AssigneeChip
+        <AssigneePickerChip
           users={users}
-          value={task.assigned_to}
-          onChange={(uid) => onUpdate({ assigned_to: uid })}
-          compact
+          value={
+            task.assigned_to
+              ? { kind: "user", id: task.assigned_to }
+              : (task as any).department_id
+              ? { kind: "department", id: (task as any).department_id }
+              : (task as any).contractor_id
+              ? { kind: "contractor", id: (task as any).contractor_id }
+              : { kind: null, id: null }
+          }
+          onChange={(sel) => {
+            // Эксклюзивно: выбираем одно из трёх (или сбрасываем)
+            const patch: any = {
+              assigned_to: sel.kind === "user" ? sel.id : null,
+              department_id: sel.kind === "department" ? sel.id : null,
+              contractor_id: sel.kind === "contractor" ? sel.id : null,
+            };
+            onUpdate(patch);
+          }}
         />
         <DeadlineChip
           value={task.deadline}
@@ -418,62 +433,6 @@ function AssigneePickerChip({
         </button>
       }
     />
-  );
-}
-
-function AssigneeChip({
-  users, value, onChange, compact,
-}: { users: Profile[]; value: string | null; onChange: (uid: string | null) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const current = users.find((u) => u.id === value);
-  const filtered = users.filter((u) =>
-    !search.trim() || (u.display_name || "").toLowerCase().includes(search.toLowerCase()),
-  );
-  return (
-    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            "inline-flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-0.5 text-xs transition-colors hover:bg-muted",
-            current ? "text-foreground" : "text-muted-foreground",
-            compact && "px-1.5",
-          )}
-          title={current?.display_name || "Назначить"}
-        >
-          <User2 className="h-3 w-3" />
-          <span className="max-w-[8rem] truncate">{current?.display_name || (compact ? "—" : "Кому")}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="start">
-        <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск…" className="mb-2 h-7 text-xs" />
-        <div className="max-h-56 space-y-0.5 overflow-y-auto">
-          {value && (
-            <button
-              onClick={() => { onChange(null); setOpen(false); }}
-              className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
-            >
-              Снять ответственного
-            </button>
-          )}
-          {filtered.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => { onChange(u.id); setOpen(false); }}
-              className={cn(
-                "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted",
-                u.id === value && "bg-primary/10 text-primary",
-              )}
-            >
-              {u.display_name || "Без имени"}
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 
