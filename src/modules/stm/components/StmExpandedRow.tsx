@@ -54,6 +54,22 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
   const activeStageKey = controlledStageKey ?? currentStageKey;
   const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
 
+  // ---- Auto-advance: when the active stage gets completed, jump to the next open stage. ----
+  useEffect(() => {
+    if (!activeStageKey) return;
+    const active = stageTasks.find(t => (t as any).stage_key === activeStageKey);
+    if (!active?.is_completed) return;
+    const idx = stages.findIndex(s => s.key === activeStageKey);
+    for (let i = idx + 1; i < stages.length; i++) {
+      const next = stageTasks.find(t => (t as any).stage_key === stages[i].key);
+      if (next && !next.is_completed) {
+        // Defer to next tick to avoid setState-during-render warnings.
+        const id = window.setTimeout(() => onActiveStageChange?.(stages[i].key), 0);
+        return () => window.clearTimeout(id);
+      }
+    }
+  }, [activeStageKey, stageTasks, stages, onActiveStageChange]);
+
   // ---- Inline-editable SKU comment (stored in task_groups.description) ----
   const qc = useQueryClient();
   const [commentDraft, setCommentDraft] = useState<string>(group.description ?? "");
