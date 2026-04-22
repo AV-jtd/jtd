@@ -85,6 +85,8 @@ interface Props {
   };
   isDraft: boolean;
   internalAttendeeIds?: string[];
+  /** Cross-functional internal ritual: hide partner / format / axes blocks */
+  isCrossFunctional?: boolean;
 }
 
 const FORMAT_LABEL: Record<Format, { label: string; icon: typeof Wifi }> = {
@@ -93,7 +95,7 @@ const FORMAT_LABEL: Record<Format, { label: string; icon: typeof Wifi }> = {
   hybrid: { label: "Гибрид", icon: WifiOff },
 };
 
-export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds = [] }: Props) {
+export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds = [], isCrossFunctional = false }: Props) {
   const qc = useQueryClient();
   const { data: profiles = [] } = useAvailableUsers();
   const meta: ProtocolMeta = protocol.protocol_meta ?? {};
