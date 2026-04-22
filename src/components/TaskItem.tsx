@@ -36,6 +36,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInitials, getAvatarColors } from "@/lib/initials";
+import { filterRealProjects } from "@/lib/projectFilters";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 interface TaskItemProps {
@@ -1859,7 +1860,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </PopoverTrigger>
                 <PopoverContent className="w-48 p-2 z-[60]" side="bottom" onOpenAutoFocus={(e) => e.preventDefault()} onWheel={(e) => e.stopPropagation()}>
                   <PopoverSearchList
-                    items={allGroups.filter(g => g.id !== task.group_id)}
+                    items={filterRealProjects(allGroups as any[]).filter(g => g.id !== task.group_id)}
                     searchKey={(g) => g.name}
                     header={<p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>}
                     placeholder="Найти проект..."
