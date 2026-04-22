@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import ModuleLayout from "@/components/ModuleLayout";
-import AppHeader from "@/components/AppHeader";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useDepartmentTasks, useMyDepartmentId } from "@/hooks/useDepartmentTasks";
 import { useAvailableUsers, useTaskGroups, useTaskMutations } from "@/hooks/useTasks";
@@ -14,8 +13,6 @@ import { toast } from "sonner";
 import TaskItem from "@/components/TaskItem";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Link } from "react-router-dom";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import AssigneePicker from "@/components/AssigneePicker";
 import { filterRealProjects } from "@/lib/projectFilters";
 
 /**
