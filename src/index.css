@@ -112,6 +112,17 @@
     --sidebar-hover: 222 47% 11%;
     --sidebar-active: 217 91% 60%;
     --sidebar-muted: 215 20% 55%;
+
+    /* STM Mission Control — Dark theme (Architectural Glass cockpit) */
+    --stm-bg: 222 47% 6%;
+    --stm-card: 222 40% 10%;
+    --stm-glass: 222 30% 16%;
+    --stm-border: 222 30% 22%;
+    --stm-fg: 210 30% 92%;
+    --stm-accent: 195 95% 60%;
+    --stm-success: 158 70% 50%;
+    --stm-warn: 38 92% 55%;
+    --stm-danger: 0 80% 62%;
   }
 }
 
