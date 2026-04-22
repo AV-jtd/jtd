@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 import { StmMatrixCell } from "./StmMatrixCell";
 import type { StmProject } from "../hooks/useStmProjects";
 import type { StmStage } from "../lib/stages";
-import { ChevronRight, ChevronDown, GanttChart } from "lucide-react";
-import TaskItem from "@/components/TaskItem";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import { StmExpandedRow } from "./StmExpandedRow";
 
 interface Props {
   project: StmProject;
@@ -64,32 +64,8 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
 
       {/* Expanded panel: each stage = a task with steps/deadlines/assignees */}
       {expanded && (
-        <div className="sticky left-0 z-[1] bg-stm-bg/95 backdrop-blur-sm border-b border-stm-border/40 px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] uppercase tracking-[0.15em] text-stm-fg/50 font-semibold">
-              Этапы SKU · {stages.length} гейтов
-            </div>
-            <button
-              type="button"
-              onClick={() => onOpenGantt?.(group.id)}
-              className="inline-flex items-center gap-1 text-[11px] text-stm-fg/60 hover:text-stm-accent transition-colors"
-            >
-              <GanttChart className="h-3 w-3" /> Открыть Гантт
-            </button>
-          </div>
-          <div className="space-y-1 bg-background/60 rounded-lg p-2 border border-stm-border/30 max-w-5xl">
-            {stages.map(stage => {
-              const task = stageTasks.find(t => (t as any).stage_key === stage.key) ?? null;
-              if (!task) {
-                return (
-                  <div key={stage.key} className="px-2 py-1.5 text-xs text-stm-fg/40 italic">
-                    {stage.title} — задача ещё не создана
-                  </div>
-                );
-              }
-              return <TaskItem key={task.id} task={task} sortable={false} />;
-            })}
-          </div>
+        <div className="sticky left-0 z-[1]">
+          <StmExpandedRow project={project} stages={stages} onOpenGantt={onOpenGantt} />
         </div>
       )}
     </>
