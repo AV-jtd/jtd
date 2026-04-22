@@ -113,12 +113,12 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
           <div
             className={cn(
               "group h-full w-full flex flex-col items-center justify-center gap-0.5 rounded-md transition-all px-1 py-1 cursor-pointer",
-              "border border-stm-border/40 backdrop-blur-sm",
-              status === "done" && "bg-stm-success/15 border-stm-success/40 text-stm-success",
-              status === "overdue" && "bg-stm-danger/15 border-stm-danger/50 text-stm-danger animate-pulse",
-              status === "current" && "bg-stm-accent/20 border-stm-accent/60 text-stm-accent shadow-[0_0_12px_-2px_hsl(var(--stm-accent)/0.6)]",
-              status === "open" && "bg-stm-glass/40 hover:bg-stm-glass/70 text-stm-fg/40 hover:text-stm-fg/70",
-              isMilestone && "ring-1 ring-stm-accent/40",
+              "border",
+              status === "done" && "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+              status === "overdue" && "bg-destructive/10 border-destructive/30 text-destructive",
+              status === "current" && "bg-primary/10 border-primary/40 text-primary",
+              status === "open" && "bg-card border-border hover:bg-muted/50 text-muted-foreground",
+              isMilestone && "ring-1 ring-primary/30",
             )}
             aria-label={`${task.title}: ${tipLabel}`}
           >
@@ -132,7 +132,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               className="flex items-center gap-1 leading-none"
               aria-label={status === "done" ? "Снять отметку" : "Отметить как выполнено"}
             >
-              {isMilestone && <Flag className="h-2.5 w-2.5 text-stm-accent" />}
+              {isMilestone && <Flag className="h-2.5 w-2.5 text-primary" />}
               {status === "done" && <Check className="h-3.5 w-3.5" />}
               {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
               {status === "current" && <Clock className="h-3.5 w-3.5" />}
@@ -144,24 +144,24 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setShiftOpen(true); }}
                 className={cn(
-                  "text-[10px] tabular-nums font-mono leading-none px-1 py-0.5 rounded hover:ring-1 hover:ring-stm-accent/50",
-                  isMilestone && "text-stm-accent font-bold bg-stm-accent/10 ring-1 ring-stm-accent/30",
-                  !isMilestone && status === "done" && "text-stm-success font-semibold",
-                  !isMilestone && status === "overdue" && "text-stm-danger font-bold",
-                  !isMilestone && status === "current" && "text-stm-accent font-semibold",
-                  !isMilestone && status === "open" && "text-stm-fg/60 font-medium",
+                  "text-[10px] tabular-nums leading-none px-1 py-0.5 rounded hover:ring-1 hover:ring-primary/40",
+                  isMilestone && "text-primary font-semibold bg-primary/10",
+                  !isMilestone && status === "done" && "text-emerald-600 dark:text-emerald-400 font-medium",
+                  !isMilestone && status === "overdue" && "text-destructive font-semibold",
+                  !isMilestone && status === "current" && "text-primary font-medium",
+                  !isMilestone && status === "open" && "text-muted-foreground font-medium",
                 )}
               >
                 {dateLabel}
               </button>
             )}
             {driftDays > 0 && (
-              <div className="text-[8px] font-mono text-stm-warn leading-none border-b border-dashed border-stm-warn/60">
+              <div className="text-[8px] font-mono text-amber-600 dark:text-amber-500 leading-none border-b border-dashed border-amber-500/60">
                 ↗+{driftDays}д
               </div>
             )}
             {isMilestone && milestoneLabel && (
-              <div className="text-[8px] uppercase tracking-wider text-stm-accent/80 font-semibold leading-none">
+              <div className="text-[8px] uppercase tracking-wider text-primary/80 font-semibold leading-none">
                 {milestoneLabel}
               </div>
             )}
@@ -178,7 +178,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             Иконка — статус, дата — перенос (каскад)
           </div>
           {driftDays > 0 && (
-            <div className="text-stm-warn">Смещение: +{driftDays} дн от плана</div>
+            <div className="text-amber-600 dark:text-amber-500">Смещение: +{driftDays} дн от плана</div>
           )}
         </TooltipContent>
       </Tooltip>
