@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
