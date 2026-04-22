@@ -375,6 +375,52 @@ function InternalRow({
 
 /* -------------------------- Chips -------------------------- */
 
+function AssigneePickerChip({
+  users, value, onChange,
+}: {
+  users: Profile[];
+  value: AssigneeSelection;
+  onChange: (sel: AssigneeSelection) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: departments = [] } = useDepartments();
+  const { data: contractors = [] } = useContractors();
+
+  let label = "Кому";
+  let Icon = User2;
+  if (value.kind === "user" && value.id) {
+    label = users.find((u) => u.id === value.id)?.display_name || "?";
+  } else if (value.kind === "department" && value.id) {
+    label = departments.find((d) => d.id === value.id)?.name || "Отдел";
+    Icon = Building2;
+  } else if (value.kind === "contractor" && value.id) {
+    label = contractors.find((c) => c.id === value.id)?.name || "Подрядчик";
+    Icon = HardHat;
+  }
+
+  return (
+    <AssigneePicker
+      users={users}
+      current={value}
+      onSelect={onChange}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <button
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-0.5 text-xs transition-colors hover:bg-muted",
+            value.id ? "text-foreground" : "text-muted-foreground",
+          )}
+          title={label}
+        >
+          <Icon className="h-3 w-3" />
+          <span className="max-w-[10rem] truncate">{label}</span>
+        </button>
+      }
+    />
+  );
+}
+
 function AssigneeChip({
   users, value, onChange, compact,
 }: { users: Profile[]; value: string | null; onChange: (uid: string | null) => void; compact?: boolean }) {
