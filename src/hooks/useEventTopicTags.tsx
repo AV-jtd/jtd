@@ -34,7 +34,7 @@ export function useEventTopicTags() {
       return (data ?? []).map(({ tag_categories, ...tag }: any) => tag);
     },
     enabled: !!user,
-    refetchOnMount: "always",
+    staleTime: 1000 * 60 * 5,
     refetchOnReconnect: "always",
   });
 
