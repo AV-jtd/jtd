@@ -1016,6 +1016,55 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
         </div>
       </div>
+      )}
+
+      {/* Cross-functional: compact internal attendees row */}
+      {isCrossFunctional && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3">
+          <span className="mr-1 text-[11px] font-medium text-muted-foreground">Участники:</span>
+          {internalCombinedIds.length === 0 && (
+            <span className="text-[11px] text-muted-foreground/70">пока никого</span>
+          )}
+          {internalCombinedIds.map((uid) => {
+            const p = profiles.find((u) => u.id === uid);
+            const name = p?.display_name || p?.email || "Участник";
+            return (
+              <span
+                key={uid}
+                className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[11px] font-medium text-foreground/80"
+                title={name}
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => removeInternalAttendee(uid)}
+                  className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                  title="Убрать из участников встречи"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            );
+          })}
+          <UserPicker
+            users={profiles}
+            excludeIds={internalCombinedIds}
+            title="Добавить участника"
+            open={internalPickerOpen}
+            onOpenChange={setInternalPickerOpen}
+            onSelect={(u) => addInternalAttendee(u.id)}
+            trigger={
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                title="Добавить участника встречи"
+              >
+                <Plus className="h-2.5 w-2.5" /> участник
+              </button>
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
