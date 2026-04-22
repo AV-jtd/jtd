@@ -85,6 +85,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const externals: Array<{ name: string; organization?: string; role?: string }> =
     meta.external_attendees ?? [];
   const partnerName =
+    isCrossFunctional ? null :
     sides?.partner ||
     clientName ||
     externals.find((e) => e.organization?.trim())?.organization?.trim() ||
