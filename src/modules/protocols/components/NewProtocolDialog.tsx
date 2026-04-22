@@ -328,38 +328,83 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
               </div>
 
               {isCrossFunctional && (
-                <label
-                  htmlFor="carry-over"
-                  className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                    openCount > 0
-                      ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
-                      : "border-border bg-muted/20",
-                  )}
-                >
-                  <Checkbox
-                    id="carry-over"
-                    checked={carryOver && openCount > 0}
-                    disabled={openCount === 0}
-                    onCheckedChange={(v) => setCarryOver(!!v)}
-                    className="mt-0.5"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Repeat className="h-3.5 w-3.5 text-primary" />
-                      Подтянуть открытые поручения с прошлой встречи
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {prevProtocolQuery.isLoading
-                        ? "Ищем последний кросс-функциональный протокол…"
-                        : openCount > 0
-                          ? `Найдено ${openCount} ${
-                              openCount === 1 ? "незакрытая задача" : openCount < 5 ? "незакрытые задачи" : "незакрытых задач"
-                            } из «${prevProtocolQuery.data?.name}». Они будут добавлены как черновики.`
-                          : "Открытых поручений с прошлой встречи не найдено."}
-                    </div>
+                <div className="rounded-md border border-border bg-muted/20 p-3">
+                  <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Repeat className="h-3.5 w-3.5 text-primary" />
+                    Подтянуть открытые поручения с прошлых встреч
                   </div>
-                </label>
+                  {prevProtocolsQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Ищем кросс-функциональные протоколы…
+                    </div>
+                  ) : prevProtocols.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Прошлых кросс-функциональных протоколов не найдено.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>Выберите встречи, из которых перенести незакрытые задачи (как черновики)</span>
+                        {selectedPrevIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPrevIds([])}
+                            className="text-primary hover:underline"
+                          >
+                            Снять все
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                        {prevProtocols.map((p) => {
+                          const checked = selectedPrevIds.includes(p.id);
+                          const disabled = p.openCount === 0;
+                          return (
+                            <label
+                              key={p.id}
+                              htmlFor={`prev-${p.id}`}
+                              className={cn(
+                                "flex items-center gap-2 rounded border px-2 py-1.5 text-xs transition-colors",
+                                disabled
+                                  ? "cursor-not-allowed border-transparent text-muted-foreground/60"
+                                  : checked
+                                    ? "cursor-pointer border-primary/40 bg-primary/5"
+                                    : "cursor-pointer border-border hover:bg-muted/40",
+                              )}
+                            >
+                              <Checkbox
+                                id={`prev-${p.id}`}
+                                checked={checked}
+                                disabled={disabled}
+                                onCheckedChange={(v) => {
+                                  setSelectedPrevIds((prev) =>
+                                    v ? [...prev, p.id] : prev.filter((x) => x !== p.id),
+                                  );
+                                }}
+                              />
+                              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                                {p.name}
+                              </span>
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                {format(new Date(p.created_at), "dd.MM.yyyy")}
+                              </span>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                  p.openCount > 0
+                                    ? "bg-primary/15 text-primary"
+                                    : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {p.openCount} откр.
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
 
               {showAxes.length > 0 && (
