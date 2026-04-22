@@ -3,9 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserCheck, UserX, ShieldCheck, Building2 } from "lucide-react";
+import { Loader2, UserCheck, UserX, ShieldCheck, Building2, HardHat, Briefcase } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useContractors } from "@/hooks/useContractors";
+import { useQuery } from "@tanstack/react-query";
 
 interface PendingUser {
   id: string;
@@ -15,21 +18,39 @@ interface PendingUser {
   created_at: string;
   is_approved: boolean;
   department_id: string | null;
+  organization: string | null;
+  contractor_id: string | null;
+  client_id: string | null;
 }
 
 interface Department { id: string; name: string; }
+interface ClientLite { id: string; name: string; }
 
 export default function AdminApproval() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: contractors = [] } = useContractors();
+  const { data: clients = [] } = useQuery<ClientLite[]>({
+    queryKey: ["clients", "lite-for-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as ClientLite[];
+    },
+    enabled: !!isAdmin,
+    staleTime: 60_000,
+  });
 
   const fetchUsers = async () => {
     const [{ data: profiles }, { data: depts }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id")
+        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id")
         .order("created_at", { ascending: false }),
       supabase.from("departments").select("id, name").order("position"),
     ]);
@@ -69,6 +90,18 @@ export default function AdminApproval() {
     toast.success(deptId ? "Отдел обновлён" : "Отдел снят");
   };
 
+  const updateUserField = async (userId: string, patch: Partial<PendingUser>) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update(patch as any)
+      .eq("id", userId);
+    if (error) {
+      toast.error("Не удалось сохранить: " + error.message);
+      return;
+    }
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...patch } : u));
+  };
+
   const renderDeptSelect = (u: PendingUser) => (
     <Select
       value={u.department_id ?? "__none"}
@@ -85,6 +118,50 @@ export default function AdminApproval() {
         ))}
       </SelectContent>
     </Select>
+  );
+
+  const renderExtraFields = (u: PendingUser) => (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+      <Input
+        defaultValue={u.organization ?? ""}
+        placeholder="Организация"
+        className="h-7 w-[160px] text-xs"
+        onBlur={(e) => {
+          const v = e.target.value.trim() || null;
+          if (v !== (u.organization ?? null)) updateUserField(u.id, { organization: v });
+        }}
+      />
+      <Select
+        value={u.contractor_id ?? "__none"}
+        onValueChange={(v) => updateUserField(u.id, { contractor_id: v === "__none" ? null : v })}
+      >
+        <SelectTrigger className="h-7 w-[160px] text-xs">
+          <HardHat className="h-3 w-3 mr-1 text-muted-foreground" />
+          <SelectValue placeholder="Подрядчик" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
+          {contractors.map((c) => (
+            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={u.client_id ?? "__none"}
+        onValueChange={(v) => updateUserField(u.id, { client_id: v === "__none" ? null : v })}
+      >
+        <SelectTrigger className="h-7 w-[160px] text-xs">
+          <Briefcase className="h-3 w-3 mr-1 text-muted-foreground" />
+          <SelectValue placeholder="Клиент CRM" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 
   if (!isAdmin) return null;
@@ -111,22 +188,25 @@ export default function AdminApproval() {
                 Ожидают подтверждения ({pending.length})
               </p>
               {pending.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                    </p>
+                <div key={u.id} className="p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                      {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                      {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {renderDeptSelect(u)}
+                      <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
+                        <UserCheck className="h-3.5 w-3.5" />
+                        Одобрить
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    {renderDeptSelect(u)}
-                    <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
-                      <UserCheck className="h-3.5 w-3.5" />
-                      Одобрить
-                    </Button>
-                  </div>
+                  {renderExtraFields(u)}
                 </div>
               ))}
             </div>
@@ -137,23 +217,26 @@ export default function AdminApproval() {
               Активные пользователи ({approved.length})
             </p>
             {approved.map(u => (
-              <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                  {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                  {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                  </p>
+              <div key={u.id} className="p-3 rounded-lg border border-border">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
+                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {renderDeptSelect(u)}
+                    <Badge variant="secondary" className="text-xs">Активен</Badge>
+                    <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
+                      <UserX className="h-3.5 w-3.5" />
+                      Деактивировать
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {renderDeptSelect(u)}
-                  <Badge variant="secondary" className="text-xs">Активен</Badge>
-                  <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
-                    <UserX className="h-3.5 w-3.5" />
-                    Деактивировать
-                  </Button>
-                </div>
+                {renderExtraFields(u)}
               </div>
             ))}
           </div>

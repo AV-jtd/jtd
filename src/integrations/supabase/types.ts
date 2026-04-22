@@ -542,6 +542,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          client_id: string | null
+          contractor_id: string | null
           created_at: string
           department_id: string | null
           display_name: string | null
@@ -555,6 +557,8 @@ export type Database = {
           work_email: string | null
         }
         Insert: {
+          client_id?: string | null
+          contractor_id?: string | null
           created_at?: string
           department_id?: string | null
           display_name?: string | null
@@ -568,6 +572,8 @@ export type Database = {
           work_email?: string | null
         }
         Update: {
+          client_id?: string | null
+          contractor_id?: string | null
           created_at?: string
           department_id?: string | null
           display_name?: string | null
@@ -581,6 +587,20 @@ export type Database = {
           work_email?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_department_id_fkey"
             columns: ["department_id"]
