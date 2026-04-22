@@ -46,7 +46,7 @@ const MAX_LEFT_PANEL = 1200;
 export default function GanttView({ initialProjectId, onBack, embedded }: { initialProjectId?: string | null; onBack?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
+  const { data: allTasksGlobal = [] } = useTasks();
   const { data: allMilestones = [] } = useMilestones();
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
@@ -55,6 +55,33 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const { addDependency, updateDependency, deleteDependency } = useDependencyMutations();
   const { pushUndo } = useUndo();
   const queryClient = useQueryClient();
+
+  // STM stage tasks (task_type='stm_stage') скрыты из глобального useTasks(),
+  // т.к. они «живут» в матрице /npd/stm. Но в Гантте конкретного STM-проекта
+  // их обязательно нужно видеть, чтобы редактировать сроки и пересчитывать каскад.
+  const selectedProjectIdForStm = initialProjectId || null;
+  const { data: stmStageTasks = [] } = useQuery({
+    queryKey: ["gantt-stm-stage-tasks", selectedProjectIdForStm],
+    enabled: !!selectedProjectIdForStm,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*, task_tags(tag_id), subtasks(*)")
+        .eq("group_id", selectedProjectIdForStm!)
+        .eq("task_type", "stm_stage");
+      if (error) throw error;
+      return (data || []) as Task[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  // Объединяем глобальные задачи + STM stage-задачи выбранного проекта (без дублей).
+  const allTasks = useMemo(() => {
+    if (!stmStageTasks.length) return allTasksGlobal;
+    const seen = new Set(allTasksGlobal.map(t => t.id));
+    const extras = stmStageTasks.filter(t => !seen.has(t.id));
+    return [...allTasksGlobal, ...extras];
+  }, [allTasksGlobal, stmStageTasks]);
 
   // ── Undoable wrappers ──
   const undoableToggle = useCallback((task: Task) => {
