@@ -23,11 +23,19 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel }: Pr
 
   if (!task) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center gap-0.5 text-stm-fg/20">
-        {isMilestone && <Flag className="h-3 w-3 text-stm-accent/60" />}
-        <Minus className="h-3 w-3" />
+      <div className={cn(
+        "h-full w-full flex flex-col items-center justify-center gap-0.5",
+        isMilestone ? "text-stm-accent/70" : "text-stm-fg/20",
+      )}>
+        {isMilestone && <Flag className="h-3 w-3 text-stm-accent" />}
+        {!isMilestone && <Minus className="h-3 w-3" />}
+        {isMilestone && (
+          <div className="text-[9px] tabular-nums font-mono italic text-stm-accent/60 leading-none">
+            нет даты
+          </div>
+        )}
         {isMilestone && milestoneLabel && (
-          <div className="text-[9px] uppercase tracking-wider text-stm-accent/70 font-semibold leading-none">
+          <div className="text-[9px] uppercase tracking-wider text-stm-accent font-semibold leading-none">
             {milestoneLabel}
           </div>
         )}
@@ -79,10 +87,14 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel }: Pr
             {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
             {status === "current" && <Clock className="h-3.5 w-3.5" />}
           </div>
-          {(isMilestone || status === "current" || status === "overdue") && dateLabel && (
+          {dateLabel && (
             <div className={cn(
-              "text-[9px] tabular-nums font-mono leading-none",
-              isMilestone ? "text-stm-accent font-bold" : "opacity-80",
+              "text-[10px] tabular-nums font-mono leading-none px-1 py-0.5 rounded",
+              isMilestone && "text-stm-accent font-bold bg-stm-accent/10 ring-1 ring-stm-accent/30",
+              !isMilestone && status === "done" && "text-stm-success font-semibold",
+              !isMilestone && status === "overdue" && "text-stm-danger font-bold",
+              !isMilestone && status === "current" && "text-stm-accent font-semibold",
+              !isMilestone && status === "open" && "text-stm-fg/60 font-medium",
             )}>
               {dateLabel}
             </div>
