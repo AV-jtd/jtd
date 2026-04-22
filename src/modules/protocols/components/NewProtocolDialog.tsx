@@ -260,6 +260,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
             is_completed: false,
             position: idx,
             source_protocol_id: t.group_id,
+            // Cross-functional is an internal ritual — clone carry-overs as INTERNAL scope so they
+            // render inside the compact "Поручения" section (the only block CF shows).
+            protocol_scope: "internal",
           }));
           const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
           if (insErr) {
