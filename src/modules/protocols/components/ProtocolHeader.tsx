@@ -590,6 +590,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
+            {!isCrossFunctional && (
             <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
               {(Object.keys(FORMAT_LABEL) as Format[]).map((f) => {
                 const Icon = FORMAT_LABEL[f].icon;
@@ -612,8 +613,10 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 );
               })}
             </div>
+            )}
 
             {/* CRM client link */}
+            {!isCrossFunctional && (
             <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
               <PopoverTrigger asChild>
                 <button
