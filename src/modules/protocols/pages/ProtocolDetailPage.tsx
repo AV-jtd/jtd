@@ -1,8 +1,10 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye, AlertCircle } from "lucide-react";
+import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye, AlertCircle, Calendar as CalendarIcon, Users } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { ru } from "date-fns/locale";
 import ModuleLayout from "@/components/ModuleLayout";
-import { useTaskGroups, useTasks } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
 import { useAuth } from "@/hooks/useAuth";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
@@ -30,6 +32,7 @@ export default function ProtocolDetailPage() {
   const { data: groups = [], isLoading } = useTaskGroups();
   // Pass protocol id so draft (is_draft) tasks are NOT filtered out — drafts must be visible inside the protocol page itself.
   const { data: tasks = [] } = useTasks(id);
+  const { data: profiles = [] } = useAvailableUsers();
   const publishMut = usePublishProtocol();
   const discardMut = useDiscardProtocolDraft();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
