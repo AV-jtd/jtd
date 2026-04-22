@@ -46,8 +46,10 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
   const [selectedPrevIds, setSelectedPrevIds] = useState<string[]>([]);
+  const [topicFilter, setTopicFilter] = useState<string>("all"); // "all" | tagId
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
+  const { topicTags } = useEventTopicTags();
 
   // Reset on close
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
         setSelectedPrevIds([]);
+      setTopicFilter("all");
       }, 200);
     }
   }, [open]);
