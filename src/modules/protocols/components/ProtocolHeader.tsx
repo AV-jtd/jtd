@@ -706,9 +706,10 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 </div>
               </PopoverContent>
             </Popover>
+            )}
 
             {/* Parsed sides chip — show only when partner is missing in CRM (action needed) */}
-            {sides && partnerNotInCrm && (
+            {!isCrossFunctional && sides && partnerNotInCrm && (
               <span
                 className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400"
                 title="Стороны определены из названия встречи"
