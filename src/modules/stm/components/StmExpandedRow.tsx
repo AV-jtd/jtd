@@ -182,6 +182,45 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
         </div>
       </header>
 
+      {/* SKU COMMENT — inline editable description (ТЗ, нюансы, контекст запуска) */}
+      <div className="px-1">
+        {editingComment ? (
+          <div className="flex items-start gap-2">
+            <MessageSquare className="h-3.5 w-3.5 text-stm-accent shrink-0 mt-1.5" />
+            <textarea
+              autoFocus
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              onBlur={commitComment}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { setCommentDraft(group.description ?? ""); setEditingComment(false); }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commitComment();
+              }}
+              placeholder="Комментарий по SKU: ТЗ, нюансы запуска, договорённости… (Esc — отмена, ⌘/Ctrl+Enter — сохранить)"
+              rows={2}
+              className="flex-1 bg-stm-glass/30 border border-stm-accent/40 rounded-md px-2.5 py-1.5 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 resize-y min-h-[44px]"
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditingComment(true)}
+            className="w-full flex items-start gap-2 text-left px-2.5 py-1.5 rounded-md border border-stm-border/30 bg-stm-glass/20 hover:bg-stm-glass/40 hover:border-stm-accent/30 transition-colors group/cmt"
+          >
+            <MessageSquare className={cn(
+              "h-3.5 w-3.5 shrink-0 mt-0.5 transition-colors",
+              group.description ? "text-stm-accent" : "text-stm-fg/30 group-hover/cmt:text-stm-accent",
+            )} />
+            <span className={cn(
+              "text-xs flex-1 whitespace-pre-wrap break-words",
+              group.description ? "text-stm-fg/80" : "text-stm-fg/40 italic",
+            )}>
+              {group.description || "Добавить комментарий по SKU…"}
+            </span>
+          </button>
+        )}
+      </div>
+
       {/* MAIN PANEL — roadmap strip + 12 stage cards */}
       <div className="bg-stm-glass/30 backdrop-blur-md border border-stm-border/40 rounded-xl overflow-hidden shadow-2xl">
         {/* Roadmap progress strip (PMO Stripe style) */}
