@@ -30,7 +30,7 @@ type Props = {
    */
   variant?: "internal" | "neutral";
   /** Override the section title (defaults depend on variant). */
-  title?: string;
+  headerTitle?: string;
 };
 
 /**
@@ -46,7 +46,7 @@ export default function ProtocolInternalSection({
   defaultProjectId,
   subtitle,
   variant = "internal",
-  title,
+  headerTitle,
 }: Props) {
   const isNeutral = variant === "neutral";
   // Pass protocolId so draft (internal) tasks are visible inside the protocol page.
@@ -137,7 +137,7 @@ export default function ProtocolInternalSection({
           isNeutral ? "text-foreground" : "text-red-700 dark:text-red-300",
           compact ? "text-xs" : "text-sm",
         )}>
-          {title ?? (isNeutral ? "Подзадачи" : "Внутренние задачи")}
+          {headerTitle ?? (isNeutral ? "Подзадачи" : "Внутренние задачи")}
         </h3>
         {internalTasks.length > 0 && (
           <span className={cn(
