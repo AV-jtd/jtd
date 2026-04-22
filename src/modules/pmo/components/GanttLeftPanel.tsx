@@ -765,6 +765,14 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                           <button onClick={() => onToggleTask(row.task!.id, !row.task!.is_completed)} className={cn("h-3.5 w-3.5 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors mt-0.5", row.task.is_completed ? "bg-primary border-primary" : "border-muted-foreground/40")}>
                             {row.task.is_completed && <Check className="h-2 w-2 text-primary-foreground" />}
                           </button>
+                          {(row.task as any).source_protocol_id && (
+                            <span
+                              className="text-[10px] leading-none mt-0.5 shrink-0"
+                              title="Задача из протокола совещания"
+                            >
+                              📋
+                            </span>
+                          )}
                           <div className="flex-1 min-w-0">
                             <TooltipProvider delayDuration={300}>
                               <Tooltip>
