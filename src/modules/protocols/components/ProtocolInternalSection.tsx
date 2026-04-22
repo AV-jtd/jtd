@@ -319,6 +319,27 @@ function InternalRow({
           onChange={(uid) => onUpdate({ assigned_to: uid })}
           compact
         />
+        <AssigneePickerChip
+          users={users}
+          value={
+            task.assigned_to
+              ? { kind: "user", id: task.assigned_to }
+              : (task as any).department_id
+              ? { kind: "department", id: (task as any).department_id }
+              : (task as any).contractor_id
+              ? { kind: "contractor", id: (task as any).contractor_id }
+              : { kind: null, id: null }
+          }
+          onChange={(sel) => {
+            // Эксклюзивно: выбираем одно из трёх (или сбрасываем)
+            const patch: any = {
+              assigned_to: sel.kind === "user" ? sel.id : null,
+              department_id: sel.kind === "department" ? sel.id : null,
+              contractor_id: sel.kind === "contractor" ? sel.id : null,
+            };
+            onUpdate(patch);
+          }}
+        />
         <DeadlineChip
           value={task.deadline}
           overdue={!!overdue}
