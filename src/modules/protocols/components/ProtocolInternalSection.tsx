@@ -22,6 +22,11 @@ type Props = {
   defaultProjectId?: string | null;
   /** Optional subtitle shown under the header */
   subtitle?: string;
+  /**
+   * Visual variant. `cross_functional` neutralizes the "не уходит партнёру" framing —
+   * for an internal ritual that line is meaningless and confusing.
+   */
+  variant?: "default" | "cross_functional";
 };
 
 /**
@@ -31,13 +36,14 @@ type Props = {
  *  - на уровне протокола (под таблицей) — основной режим
  *  - внутри раскрытой внешней задачи (compact) — мини-триаж
  */
-export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle }: Props) {
+export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle, variant = "default" }: Props) {
   // Pass protocolId so draft (internal) tasks are visible inside the protocol page.
   const { data: allTasks = [] } = useTasks(protocolId);
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
   const isMobile = useIsMobile();
+  const isCF = variant === "cross_functional";
 
   const internalTasks = useMemo(() => {
     return allTasks.filter((t) => {
@@ -56,10 +62,11 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   const [deadline, setDeadline] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
-  const [listOpen, setListOpen] = useState(false);
+  // For CF the internal section IS the page — open the task list by default so users see carry-overs.
+  const [listOpen, setListOpen] = useState(isCF);
   // Whole section collapsed by default on mobile (or when nested in expanded external row)
   // to reduce visual noise on small screens.
-  const [sectionOpen, setSectionOpen] = useState(!isMobile || !!parentExternalTaskId);
+  const [sectionOpen, setSectionOpen] = useState(!isMobile || !!parentExternalTaskId || isCF);
 
   const handleCreate = () => {
     const t = title.trim();
