@@ -157,27 +157,36 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // 2. For cross_functional — optionally clone open tasks from last protocol as drafts
-      if (isCF && carryOver && prevProtocolQuery.data?.openTasks.length) {
-        const tasksToInsert = prevProtocolQuery.data.openTasks.map((t: any, idx: number) => ({
-          title: t.title,
-          description: t.description || null,
-          assigned_to: t.assigned_to || null,
-          deadline: t.deadline || null,
-          priority: t.priority ?? null,
-          is_important: !!t.is_important,
-          group_id: (group as any).id,
-          user_id: user.id,
-          is_draft: true,
-          is_completed: false,
-          position: idx,
-          source_protocol_id: prevProtocolQuery.data.id,
-        }));
-        const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
-        if (insErr) {
-          // Don't fail the whole creation — just warn
-          console.error("[NewProtocolDialog] carry-over insert failed", insErr);
-          toast.warning("Протокол создан, но не удалось перенести часть поручений");
+      // 2. For cross_functional — optionally clone open tasks from selected past protocols as drafts
+      if (isCF && selectedPrevIds.length > 0) {
+        const { data: openTasks, error: tErr } = await supabase
+          .from("tasks")
+          .select("id, title, description, assigned_to, deadline, priority, is_important, group_id")
+          .in("group_id", selectedPrevIds)
+          .eq("is_completed", false);
+        if (tErr) {
+          console.error("[NewProtocolDialog] failed to fetch open tasks", tErr);
+          toast.warning("Протокол создан, но не удалось перенести поручения");
+        } else if (openTasks && openTasks.length > 0) {
+          const tasksToInsert = openTasks.map((t: any, idx: number) => ({
+            title: t.title,
+            description: t.description || null,
+            assigned_to: t.assigned_to || null,
+            deadline: t.deadline || null,
+            priority: t.priority ?? null,
+            is_important: !!t.is_important,
+            group_id: (group as any).id,
+            user_id: user.id,
+            is_draft: true,
+            is_completed: false,
+            position: idx,
+            source_protocol_id: t.group_id,
+          }));
+          const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
+          if (insErr) {
+            console.error("[NewProtocolDialog] carry-over insert failed", insErr);
+            toast.warning("Протокол создан, но не удалось перенести часть поручений");
+          }
         }
       }
 
