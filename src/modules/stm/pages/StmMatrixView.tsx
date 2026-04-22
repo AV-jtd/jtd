@@ -23,6 +23,9 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [expandedSku, setExpandedSku] = useState<string | null>(null);
+
+  const toggleExpand = (id: string) => setExpandedSku(prev => (prev === id ? null : id));
 
   const stages = getStmStages(flow);
 
@@ -172,7 +175,9 @@ export default function StmMatrixView() {
                     key={p.group.id}
                     project={p}
                     stages={stages}
-                    onOpenSku={(id) => navigate(`/pmo/project/${id}`)}
+                    expanded={expandedSku === p.group.id}
+                    onToggleExpand={toggleExpand}
+                    onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
                   />
                 ))}
               </div>
