@@ -101,6 +101,7 @@ export default function ProtocolDetailPage() {
             <ProtocolHeader
               protocol={protocol as any}
               isDraft={isDraft}
+              isCrossFunctional={isCrossFunctional}
               internalAttendeeIds={Array.from(new Set(
                 tasks
                   .filter((t) => t.group_id === id && t.assigned_to)
