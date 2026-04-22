@@ -190,7 +190,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
     if (internalAttendeeIds.length === 0) lines.push("  — не указаны");
     else internalAttendeeIds.forEach((id) => lines.push(`  • ${userName(id) ?? "—"}`));
     lines.push("");
-    if (partnerName) {
+    if (partnerName && !isCrossFunctional) {
       lines.push(`Участники со стороны ${partnerName}:`);
       if (externals.length === 0) lines.push("  — не указаны");
       else
