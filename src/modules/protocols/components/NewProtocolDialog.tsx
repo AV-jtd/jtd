@@ -44,7 +44,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState("");
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
-  const [carryOver, setCarryOver] = useState(true);
+  const [selectedPrevIds, setSelectedPrevIds] = useState<string[]>([]);
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
 
@@ -57,7 +57,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
-        setCarryOver(true);
+        setSelectedPrevIds([]);
       }, 200);
     }
   }, [open]);
