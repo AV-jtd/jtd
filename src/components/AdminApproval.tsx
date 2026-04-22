@@ -90,6 +90,18 @@ export default function AdminApproval() {
     toast.success(deptId ? "Отдел обновлён" : "Отдел снят");
   };
 
+  const updateUserField = async (userId: string, patch: Partial<PendingUser>) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update(patch as any)
+      .eq("id", userId);
+    if (error) {
+      toast.error("Не удалось сохранить: " + error.message);
+      return;
+    }
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...patch } : u));
+  };
+
   const renderDeptSelect = (u: PendingUser) => (
     <Select
       value={u.department_id ?? "__none"}
@@ -106,6 +118,50 @@ export default function AdminApproval() {
         ))}
       </SelectContent>
     </Select>
+  );
+
+  const renderExtraFields = (u: PendingUser) => (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+      <Input
+        defaultValue={u.organization ?? ""}
+        placeholder="Организация"
+        className="h-7 w-[160px] text-xs"
+        onBlur={(e) => {
+          const v = e.target.value.trim() || null;
+          if (v !== (u.organization ?? null)) updateUserField(u.id, { organization: v });
+        }}
+      />
+      <Select
+        value={u.contractor_id ?? "__none"}
+        onValueChange={(v) => updateUserField(u.id, { contractor_id: v === "__none" ? null : v })}
+      >
+        <SelectTrigger className="h-7 w-[160px] text-xs">
+          <HardHat className="h-3 w-3 mr-1 text-muted-foreground" />
+          <SelectValue placeholder="Подрядчик" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
+          {contractors.map((c) => (
+            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={u.client_id ?? "__none"}
+        onValueChange={(v) => updateUserField(u.id, { client_id: v === "__none" ? null : v })}
+      >
+        <SelectTrigger className="h-7 w-[160px] text-xs">
+          <Briefcase className="h-3 w-3 mr-1 text-muted-foreground" />
+          <SelectValue placeholder="Клиент CRM" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 
   if (!isAdmin) return null;
