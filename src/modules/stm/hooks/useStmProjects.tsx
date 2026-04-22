@@ -250,16 +250,13 @@ export function useCreateStmSku() {
  */
 export function useToggleStmStage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: { taskId: string; isCompleted: boolean }) => {
-      // Look up the task to know its group + stage so we can compute next stage.
-      const { data: task, error: fetchErr } = await supabase
-        .from("tasks")
-        .select("id, group_id, stage_key, stm_flow")
-        .eq("id", input.taskId)
-        .maybeSingle();
-      if (fetchErr) throw fetchErr;
+      // Look up cached task first (avoids extra round-trip — cache is the source of truth here).
+      const cached = qc.getQueryData<Task[]>(["stm-stage-tasks", user?.id]) ?? [];
+      const task = cached.find(t => t.id === input.taskId) ?? null;
 
       const { error } = await supabase
         .from("tasks")
@@ -270,20 +267,17 @@ export function useToggleStmStage() {
         .eq("id", input.taskId);
       if (error) throw error;
 
-      // Compute next stage to focus on.
+      // Compute next stage to focus on — purely from cache, no extra fetch.
       let nextStageKey: string | null = null;
       if (input.isCompleted && task?.stage_key && task.group_id) {
         const flow = (task as any).stm_flow === "out" ? "out" : "in";
         const stages: StmStage[] = getStmStages(flow);
         const idx = stages.findIndex(s => s.key === task.stage_key);
-        // Find the next not-completed stage (pull fresh state in case of skipped stages).
-        const { data: groupTasks } = await supabase
-          .from("tasks")
-          .select("stage_key, is_completed")
-          .eq("group_id", task.group_id)
-          .eq("task_type", "stm_stage");
+        const groupTasks = cached.filter(t => t.group_id === task.group_id);
         const completedSet = new Set(
-          (groupTasks ?? []).filter((t: any) => t.is_completed).map((t: any) => t.stage_key),
+          groupTasks
+            .filter(t => (t.id === input.taskId ? input.isCompleted : t.is_completed))
+            .map(t => (t as any).stage_key as string),
         );
         // Next: first non-completed stage AFTER current index.
         for (let i = idx + 1; i < stages.length; i++) {
@@ -293,9 +287,33 @@ export function useToggleStmStage() {
 
       return { nextStageKey, groupId: task?.group_id ?? null };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
+    // Optimistic update: flip the cell instantly. Cache is the source of truth
+    // for the matrix, so we don't need to wait for a refetch to see the change.
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ["stm-stage-tasks", user?.id] });
+      const prev = qc.getQueryData<Task[]>(["stm-stage-tasks", user?.id]);
+      if (prev) {
+        qc.setQueryData<Task[]>(
+          ["stm-stage-tasks", user?.id],
+          prev.map(t =>
+            t.id === input.taskId
+              ? {
+                  ...t,
+                  is_completed: input.isCompleted,
+                  completed_at: input.isCompleted ? new Date().toISOString() : null,
+                }
+              : t,
+          ),
+        );
+      }
+      return { prev };
     },
+    onError: (_err, _input, ctx) => {
+      // Roll back on failure.
+      if (ctx?.prev) qc.setQueryData(["stm-stage-tasks", user?.id], ctx.prev);
+      toast.error("Не удалось обновить этап");
+    },
+    // No invalidate on success: optimistic state already matches the server.
+    // Other views (Gantt, project page) re-read on their own staleTime cycle.
   });
 }
