@@ -137,14 +137,14 @@ export default function MyDepartmentPage() {
   // === Edge cases ===
   if (deptIdLoading) {
     return (
-      <ModuleLayout header={<AppHeader />}>
+      <ModuleLayout moduleContext="tasks">
         <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       </ModuleLayout>
     );
   }
   if (!deptId) {
     return (
-      <ModuleLayout header={<AppHeader />}>
+      <ModuleLayout moduleContext="tasks">
         <div className="mx-auto max-w-md py-20 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <h2 className="text-lg font-semibold text-foreground">Вы пока не в отделе</h2>
@@ -157,7 +157,7 @@ export default function MyDepartmentPage() {
   }
 
   return (
-    <ModuleLayout header={<AppHeader />}>
+    <ModuleLayout moduleContext="tasks">
       <div className="mx-auto max-w-7xl space-y-3 p-3 sm:p-4">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-2">
