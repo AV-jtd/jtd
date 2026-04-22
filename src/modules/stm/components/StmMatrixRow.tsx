@@ -29,7 +29,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
         <button
           type="button"
           onClick={() => onToggleExpand?.(group.id)}
-          className="sticky left-0 z-[1] min-w-[260px] w-[260px] shrink-0 px-3 py-2.5 text-left bg-stm-card/95 backdrop-blur-md border-r border-stm-border/40 hover:bg-stm-card transition-colors"
+          className="sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 px-3 py-2.5 text-left bg-stm-card/95 backdrop-blur-md border-r border-stm-border/40 hover:bg-stm-card transition-colors"
           aria-expanded={!!expanded}
         >
           <div className="flex items-center gap-2">

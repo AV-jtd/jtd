@@ -5,7 +5,7 @@ import type { StmStage } from "../lib/stages";
 function StmMatrixHeaderInner({ stages }: { stages: StmStage[] }) {
   return (
     <div className="flex border-b-2 border-stm-border/60 sticky top-0 z-10 bg-stm-card/95 backdrop-blur-md">
-      <div className="sticky left-0 z-[2] min-w-[260px] w-[260px] shrink-0 px-3 py-3 border-r border-stm-border/40 bg-stm-card/95 backdrop-blur-md">
+      <div className="sticky left-0 z-[2] min-w-[320px] w-[320px] shrink-0 px-3 py-3 border-r border-stm-border/40 bg-stm-card/95 backdrop-blur-md">
         <span className="text-[10px] font-bold text-stm-fg/60 uppercase tracking-[0.15em]">SKU / Проект</span>
       </div>
       {stages.map((s, i) => (
