@@ -24,7 +24,41 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Persist collapsed groups per groupBy mode in localStorage so that the
+  // layout survives reloads and tab navigation.
+  const storageKey = `stm:collapsedGroups:${groupBy}`;
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(`stm:collapsedGroups:${groupBy}`);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? new Set(arr as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Reload persisted state when the grouping mode changes.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      const arr = raw ? JSON.parse(raw) : [];
+      setCollapsedGroups(Array.isArray(arr) ? new Set(arr as string[]) : new Set());
+    } catch {
+      setCollapsedGroups(new Set());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupBy]);
+
+  // Persist on every change.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(Array.from(collapsedGroups)));
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [collapsedGroups, storageKey]);
   const expandedSku = searchParams.get("sku");
   const activeStage = searchParams.get("stage");
 
