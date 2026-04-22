@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "@/hooks/useContractors";
 import { useAvailableUsers } from "@/hooks/useTasks";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function DelegationPanel() {
   return (
@@ -19,6 +21,18 @@ export default function DelegationPanel() {
 function DepartmentsSection() {
   const { data: departments = [] } = useDepartments();
   const { data: users = [] } = useAvailableUsers();
+  const { data: deptMemberships = [] } = useQuery<{ id: string; department_id: string | null }[]>({
+    queryKey: ["profiles", "department-membership"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, department_id")
+        .not("department_id", "is", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
   const create = useCreateDepartment();
   const update = useUpdateDepartment();
   const remove = useDeleteDepartment();
@@ -30,6 +44,13 @@ function DepartmentsSection() {
     if (!name.trim()) return;
     await create.mutateAsync({ name });
     setName("");
+  };
+
+  const usersInDept = (deptId: string) => {
+    const memberIds = new Set(
+      deptMemberships.filter((m) => m.department_id === deptId).map((m) => m.id),
+    );
+    return users.filter((u) => memberIds.has(u.id));
   };
 
   return (
@@ -90,6 +111,11 @@ function DepartmentsSection() {
                 <span className="flex-1 text-sm font-medium truncate">{d.name}</span>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  {(() => {
+                    const deptUsers = usersInDept(d.id);
+                    const list = deptUsers.length > 0 ? deptUsers : users;
+                    const empty = deptUsers.length === 0;
+                    return (
                   <Select
                     value={d.head_user_id ?? "__none"}
                     onValueChange={(v) =>
@@ -101,13 +127,20 @@ function DepartmentsSection() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
-                      {users.map(u => (
+                      {empty && (
+                        <div className="px-2 py-1.5 text-[11px] text-muted-foreground italic">
+                          В отделе пока никого — показаны все
+                        </div>
+                      )}
+                      {list.map(u => (
                         <SelectItem key={u.id} value={u.id} className="text-xs">
                           {u.display_name || u.email || u.id.slice(0, 8)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                    );
+                  })()}
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingId(d.id); setEditingName(d.name); }}>
                   <Pencil className="h-3.5 w-3.5" />
