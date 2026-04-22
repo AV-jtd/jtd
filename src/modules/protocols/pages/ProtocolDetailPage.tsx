@@ -200,10 +200,10 @@ export default function ProtocolDetailPage() {
 
             {softWarnings.length > 0 && (
               <div
-                className="mb-5 flex items-start gap-2 rounded-xl border border-blue-500/30 bg-blue-500/5 px-3 py-2 text-sm"
+                className="mb-5 flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
                 role="status"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1 text-foreground/90">
                   <span className="font-medium">Чтобы встреча прошла продуктивно:</span>{" "}
                   <span className="text-muted-foreground">{softWarnings.join("; ")}.</span>
