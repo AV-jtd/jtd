@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useMemo, useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { GanttChart, ChevronDown, ChevronRight } from "lucide-react";
+import { GanttChart, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
 import type { Task } from "@/hooks/useTasks";
 import type { StmStage } from "../lib/stages";
