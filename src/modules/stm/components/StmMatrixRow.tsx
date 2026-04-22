@@ -137,6 +137,10 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 isCurrent={stage.key === currentStageKey}
                 isMilestone={isMilestone}
                 milestoneLabel={milestoneLabel}
+                groupId={group.id}
+                stageKey={stage.key}
+                stageTitle={stage.title}
+                flow={(meta?.flow === "out" ? "out" : "in")}
               />
             </div>
           );

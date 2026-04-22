@@ -304,3 +304,193 @@ export function useToggleStmStage() {
     // Other views (Gantt, project page) re-read on their own staleTime cycle.
   });
 }
+
+/**
+ * Create a single stage task for an existing SKU (when user clicks an empty
+ * "не создано" cell). Wires the new task into the existing FS chain so
+ * cascading date shifts keep working.
+ */
+export function useCreateStmStage() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: {
+      groupId: string;
+      stageKey: string;
+      flow: StmFlow;
+      deadline: Date;
+    }) => {
+      if (!user) throw new Error("not authenticated");
+      const stages = getStmStages(input.flow);
+      const stage = stages.find(s => s.key === input.stageKey);
+      if (!stage) throw new Error("unknown stage_key");
+      const idx = stages.findIndex(s => s.key === input.stageKey);
+
+      const deadlineIso = input.deadline.toISOString();
+      const startAt = new Date(input.deadline);
+      startAt.setDate(startAt.getDate() - DEFAULT_STAGE_GAP_DAYS);
+
+      const { data: task, error: tErr } = await supabase
+        .from("tasks")
+        .insert({
+          title: stage.title,
+          user_id: user.id,
+          group_id: input.groupId,
+          stage_key: input.stageKey,
+          stm_flow: input.flow,
+          task_type: "stm_stage",
+          position: idx,
+          start_at: startAt.toISOString(),
+          deadline: deadlineIso,
+          original_deadline: deadlineIso,
+        } as any)
+        .select("id, stage_key, group_id, stm_flow, deadline, original_deadline, position, is_completed, completed_at, start_at, title")
+        .single();
+      if (tErr) throw tErr;
+
+      // Re-wire FS chain: connect to neighboring stage tasks (if they exist).
+      const groupTasks = (qc.getQueryData<Task[]>(["stm-stage-tasks", user.id]) ?? [])
+        .filter(t => t.group_id === input.groupId);
+      const taskByStage = new Map<string, string>();
+      groupTasks.forEach(t => {
+        const k = (t as any).stage_key as string | null;
+        if (k) taskByStage.set(k, t.id);
+      });
+      taskByStage.set(input.stageKey, task.id);
+
+      const deps: any[] = [];
+      // pred -> new
+      for (let i = idx - 1; i >= 0; i--) {
+        const predId = taskByStage.get(stages[i].key);
+        if (predId) {
+          deps.push({
+            predecessor_id: predId, successor_id: task.id,
+            dependency_type: "FS", lag_days: 0,
+            predecessor_entity_type: "task", successor_entity_type: "task",
+            created_by: user.id,
+          });
+          break;
+        }
+      }
+      // new -> succ
+      for (let i = idx + 1; i < stages.length; i++) {
+        const succId = taskByStage.get(stages[i].key);
+        if (succId) {
+          deps.push({
+            predecessor_id: task.id, successor_id: succId,
+            dependency_type: "FS", lag_days: 0,
+            predecessor_entity_type: "task", successor_entity_type: "task",
+            created_by: user.id,
+          });
+          break;
+        }
+      }
+      if (deps.length) {
+        const { error: dErr } = await supabase.from("task_dependencies").insert(deps);
+        if (dErr) console.warn("[STM] dep insert failed:", dErr);
+      }
+
+      return task as Task;
+    },
+    onSuccess: (task) => {
+      // Append to cache instantly so the matrix re-renders without a refetch.
+      const key = ["stm-stage-tasks", user?.id] as const;
+      const prev = qc.getQueryData<Task[]>(key) ?? [];
+      qc.setQueryData<Task[]>(key, [...prev, task]);
+      qc.invalidateQueries({ queryKey: ["task_dependencies"] });
+      toast.success("Этап создан");
+    },
+    onError: (e: any) => toast.error(`Не удалось создать этап: ${e.message}`),
+  });
+}
+
+/**
+ * Shift a stage's deadline. If `cascade` is true (default), all downstream
+ * stages of the same SKU are pushed by the same delta — matches Gantt
+ * cascade behavior so dates stay consistent across views.
+ */
+export function useShiftStmStageDate() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { taskId: string; newDeadline: Date; cascade?: boolean }) => {
+      const cached = qc.getQueryData<Task[]>(["stm-stage-tasks", user?.id]) ?? [];
+      const task = cached.find(t => t.id === input.taskId);
+      if (!task) throw new Error("task not found in cache");
+
+      const oldDeadline = task.deadline ? new Date(task.deadline) : null;
+      const deltaMs = oldDeadline ? input.newDeadline.getTime() - oldDeadline.getTime() : 0;
+
+      // Update the target task.
+      const { error } = await supabase
+        .from("tasks")
+        .update({ deadline: input.newDeadline.toISOString() })
+        .eq("id", input.taskId);
+      if (error) throw error;
+
+      // Cascade: shift all later stages of the same SKU by the same delta.
+      const cascade = input.cascade !== false && deltaMs !== 0;
+      const cascadeUpdates: { id: string; newDeadline: string }[] = [];
+      if (cascade && task.group_id && (task as any).stage_key) {
+        const flow: StmFlow = (task as any).stm_flow === "out" ? "out" : "in";
+        const stages = getStmStages(flow);
+        const idx = stages.findIndex(s => s.key === (task as any).stage_key);
+        const laterKeys = new Set(stages.slice(idx + 1).map(s => s.key));
+        const later = cached.filter(t =>
+          t.group_id === task.group_id &&
+          (t as any).stage_key &&
+          laterKeys.has((t as any).stage_key) &&
+          t.deadline,
+        );
+        for (const t of later) {
+          const newDl = new Date(new Date(t.deadline as string).getTime() + deltaMs).toISOString();
+          cascadeUpdates.push({ id: t.id, newDeadline: newDl });
+        }
+        // Run shifts in parallel — they're independent.
+        await Promise.all(cascadeUpdates.map(u =>
+          supabase.from("tasks").update({ deadline: u.newDeadline }).eq("id", u.id),
+        ));
+      }
+      return { taskId: input.taskId, newDeadline: input.newDeadline.toISOString(), cascadeUpdates };
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ["stm-stage-tasks", user?.id] });
+      const key = ["stm-stage-tasks", user?.id] as const;
+      const prev = qc.getQueryData<Task[]>(key);
+      if (!prev) return { prev };
+
+      const target = prev.find(t => t.id === input.taskId);
+      const oldDl = target?.deadline ? new Date(target.deadline) : null;
+      const deltaMs = oldDl ? input.newDeadline.getTime() - oldDl.getTime() : 0;
+      const flow: StmFlow = (target as any)?.stm_flow === "out" ? "out" : "in";
+      const stages = getStmStages(flow);
+      const idx = target ? stages.findIndex(s => s.key === (target as any).stage_key) : -1;
+      const laterKeys = new Set(idx >= 0 ? stages.slice(idx + 1).map(s => s.key) : []);
+
+      qc.setQueryData<Task[]>(key, prev.map(t => {
+        if (t.id === input.taskId) {
+          return { ...t, deadline: input.newDeadline.toISOString() };
+        }
+        if (
+          input.cascade !== false &&
+          deltaMs !== 0 &&
+          t.group_id === target?.group_id &&
+          (t as any).stage_key &&
+          laterKeys.has((t as any).stage_key) &&
+          t.deadline
+        ) {
+          return { ...t, deadline: new Date(new Date(t.deadline).getTime() + deltaMs).toISOString() };
+        }
+        return t;
+      }));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["stm-stage-tasks", user?.id], ctx.prev);
+      toast.error("Не удалось перенести дату");
+    },
+    onSuccess: () => toast.success("Дата перенесена"),
+  });
+}
