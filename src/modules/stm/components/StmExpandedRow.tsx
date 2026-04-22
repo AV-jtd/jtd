@@ -54,6 +54,30 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
   const activeStageKey = controlledStageKey ?? currentStageKey;
   const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
 
+  // ---- Inline-editable SKU comment (stored in task_groups.description) ----
+  const qc = useQueryClient();
+  const [commentDraft, setCommentDraft] = useState<string>(group.description ?? "");
+  const [editingComment, setEditingComment] = useState(false);
+  useEffect(() => { setCommentDraft(group.description ?? ""); }, [group.id, group.description]);
+  const saveComment = useMutation({
+    mutationFn: async (text: string) => {
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ description: text || null })
+        .eq("id", group.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+    },
+  });
+  const commitComment = () => {
+    setEditingComment(false);
+    if ((commentDraft || "") !== (group.description || "")) {
+      saveComment.mutate(commentDraft.trim());
+    }
+  };
+
   // ---- Profiles cache for assignee initials ----
   const assigneeIds = useMemo(() => {
     const set = new Set<string>();
