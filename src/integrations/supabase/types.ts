@@ -1051,6 +1051,7 @@ export type Database = {
       }
       task_groups: {
         Row: {
+          archive_comment: string | null
           baseline_approver_id: string | null
           baseline_auto_lock_hours: number
           baseline_locked_at: string | null
@@ -1074,6 +1075,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archive_comment?: string | null
           baseline_approver_id?: string | null
           baseline_auto_lock_hours?: number
           baseline_locked_at?: string | null
@@ -1097,6 +1099,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archive_comment?: string | null
           baseline_approver_id?: string | null
           baseline_auto_lock_hours?: number
           baseline_locked_at?: string | null
