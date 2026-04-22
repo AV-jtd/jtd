@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { getStmStages, type StmFlow, type StmMeta, type StmStage } from "../lib/stages";
+import { STM_KEYS, invalidateStmCaches, patchStageTaskInCache } from "../lib/stmCache";
 import { toast } from "sonner";
 
 /** Default cadence between stages (in days) when no real plan is set. */
@@ -22,7 +23,7 @@ const DEFAULT_STAGE_GAP_DAYS = 5;
 function useStmStageTasks() {
   const { user, loading } = useAuth();
   return useQuery({
-    queryKey: ["stm-stage-tasks", user?.id],
+    queryKey: STM_KEYS.stageTasks(user?.id),
     queryFn: async () => {
       const PAGE = 1000;
       const all: Task[] = [];
@@ -233,11 +234,8 @@ export function useCreateStmSku() {
       return group;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
-      qc.invalidateQueries({ queryKey: ["task_dependencies"] });
-      qc.invalidateQueries({ queryKey: ["milestones"] });
+      // Create touches groups + tasks + deps + milestones — invalidate them all.
+      invalidateStmCaches(qc);
       toast.success("SKU создан");
     },
     onError: (e: any) => toast.error(`Не удалось создать SKU: ${e.message}`),
@@ -255,7 +253,7 @@ export function useToggleStmStage() {
   return useMutation({
     mutationFn: async (input: { taskId: string; isCompleted: boolean }) => {
       // Look up cached task first (avoids extra round-trip — cache is the source of truth here).
-      const cached = qc.getQueryData<Task[]>(["stm-stage-tasks", user?.id]) ?? [];
+      const cached = qc.getQueryData<Task[]>(STM_KEYS.stageTasks(user?.id)) ?? [];
       const task = cached.find(t => t.id === input.taskId) ?? null;
 
       const { error } = await supabase
@@ -290,27 +288,16 @@ export function useToggleStmStage() {
     // Optimistic update: flip the cell instantly. Cache is the source of truth
     // for the matrix, so we don't need to wait for a refetch to see the change.
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: ["stm-stage-tasks", user?.id] });
-      const prev = qc.getQueryData<Task[]>(["stm-stage-tasks", user?.id]);
-      if (prev) {
-        qc.setQueryData<Task[]>(
-          ["stm-stage-tasks", user?.id],
-          prev.map(t =>
-            t.id === input.taskId
-              ? {
-                  ...t,
-                  is_completed: input.isCompleted,
-                  completed_at: input.isCompleted ? new Date().toISOString() : null,
-                }
-              : t,
-          ),
-        );
-      }
+      await qc.cancelQueries({ queryKey: STM_KEYS.stageTasks(user?.id) });
+      const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
+        is_completed: input.isCompleted,
+        completed_at: input.isCompleted ? new Date().toISOString() : null,
+      });
       return { prev };
     },
     onError: (_err, _input, ctx) => {
       // Roll back on failure.
-      if (ctx?.prev) qc.setQueryData(["stm-stage-tasks", user?.id], ctx.prev);
+      if (ctx?.prev) qc.setQueryData(STM_KEYS.stageTasks(user?.id), ctx.prev);
       toast.error("Не удалось обновить этап");
     },
     // No invalidate on success: optimistic state already matches the server.

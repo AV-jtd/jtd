@@ -8,6 +8,7 @@ import type { Task } from "@/hooks/useTasks";
 import type { StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
 import { StmOpsTasks } from "./StmOpsTasks";
+import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
 
 interface Props {
   project: StmProject;
@@ -84,8 +85,14 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
         .eq("id", group.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
+    // Invalidation is handled by the optimistic patch in StmMatrixRow already;
+    // expanded-row mirror just patches its own snapshot for consistency.
+    onMutate: async (text: string) => {
+      const snapshots = patchGroupInCache(qc, group.id, { description: text || null } as any);
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
     },
   });
   const commitComment = () => {

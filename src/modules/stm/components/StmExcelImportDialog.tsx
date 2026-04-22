@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getStmStages, type StmFlow, type StmMeta } from "../lib/stages";
+import { invalidateStmCaches } from "../lib/stmCache";
 
 interface Props {
   open: boolean;
@@ -278,9 +279,8 @@ export default function StmExcelImportDialog({ open, onOpenChange, defaultFlow =
           failCount++;
         }
       }
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
+      // Bulk import touches groups, tasks, deps, milestones — refresh in one place.
+      invalidateStmCaches(qc);
       if (failCount === 0) {
         toast.success(`Импортировано ${okCount} SKU`);
       } else {
