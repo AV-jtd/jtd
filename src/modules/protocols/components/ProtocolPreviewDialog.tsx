@@ -711,23 +711,24 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 </div>
 
                 {/* === SECTION 4: Signatures + footer === */}
-                <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
-                  <div className="grid grid-cols-2 gap-10">
-                    <div>
-                      <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
-                        Подпись · {ourSideName}
-                      </div>
-                    </div>
-                    {partnerName && (
+                {!isCrossFunctional && (
+                  <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
+                    <div className="grid grid-cols-2 gap-10">
                       <div>
                         <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
-                          Подпись · {partnerName}
+                          Подпись · {ourSideName}
                         </div>
                       </div>
-                    )}
+                      {partnerName && (
+                        <div>
+                          <div className="border-t border-neutral-400 pt-1.5 text-[10px] text-neutral-500">
+                            Подпись · {partnerName}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                </div>
+                )}
               </div>
             </div>
           </TabsContent>
