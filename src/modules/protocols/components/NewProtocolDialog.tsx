@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Calendar, Loader2, Sparkles, ArrowLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar, Loader2, Sparkles, ArrowLeft, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState("");
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
+  const [carryOver, setCarryOver] = useState(true);
+
+  const isCrossFunctional = selected?.system_key === "cross_functional";
 
   // Reset on close
   useEffect(() => {
@@ -53,6 +57,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
+        setCarryOver(true);
       }, 200);
     }
   }, [open]);
@@ -65,10 +70,58 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
     }
   }, [selected, meetingDate, name]);
 
+  // For cross_functional — find the most recent previous protocol of same template (owned by user)
+  // and count its open (uncompleted) tasks. Used both for the checkbox label and the carry-over action.
+  const prevProtocolQuery = useQuery({
+    queryKey: ["prev-cross-functional", user?.id],
+    enabled: !!user && isCrossFunctional && step === "details",
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      if (!user) return null;
+      // Find most recent published cross_functional protocol of this user
+      const { data: groups, error: gErr } = await supabase
+        .from("task_groups")
+        .select("id, name, created_at, protocol_meta")
+        .eq("user_id", user.id)
+        .eq("project_type", "protocol")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (gErr) throw gErr;
+      // Filter on client side: cross_functional templates use icon 🔀 + name marker.
+      // More robust: check protocol_meta for template_key if present, otherwise fall back to name prefix.
+      const candidates = (groups || []).filter((g: any) => {
+        const meta = g.protocol_meta || {};
+        if (meta.template_system_key === "cross_functional") return true;
+        return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
+      });
+      const prev = candidates[0];
+      if (!prev) return null;
+      const { data: openTasks, error: tErr } = await supabase
+        .from("tasks")
+        .select("id, title, assigned_to, deadline, description, priority, is_important")
+        .eq("group_id", prev.id)
+        .eq("is_completed", false);
+      if (tErr) throw tErr;
+      return {
+        id: prev.id as string,
+        name: prev.name as string,
+        openTasks: openTasks || [],
+      };
+    },
+  });
+
+  const openCount = prevProtocolQuery.data?.openTasks.length ?? 0;
+
   const createProtocol = useMutation({
     mutationFn: async () => {
       if (!user || !selected) throw new Error("Нет данных");
       if (!name.trim()) throw new Error("Введите название протокола");
+
+      const isCF = selected.system_key === "cross_functional";
+      // Build description: for cross_functional keep it clean (user-only), for others keep auto-hint
+      const finalDescription = isCF
+        ? description.trim() || null
+        : description.trim() || `Шаблон: ${selected.name}\nДата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`;
 
       // 1. Create the project (protocol) — always as DRAFT
       const { data: group, error: gErr } = await supabase
@@ -80,20 +133,47 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
           color: "#6366f1",
           project_type: "protocol",
           draft_status: "draft",
-          description: description.trim() || `Шаблон: ${selected.name}\nДата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`,
+          description: finalDescription,
           protocol_meta: {
             meeting_date: meetingDate,
             format: "offline",
             external_attendees: [],
+            template_system_key: selected.system_key || null,
           },
         } as any)
         .select()
         .single();
       if (gErr) throw gErr;
+
+      // 2. For cross_functional — optionally clone open tasks from last protocol as drafts
+      if (isCF && carryOver && prevProtocolQuery.data?.openTasks.length) {
+        const tasksToInsert = prevProtocolQuery.data.openTasks.map((t: any, idx: number) => ({
+          title: t.title,
+          description: t.description || null,
+          assigned_to: t.assigned_to || null,
+          deadline: t.deadline || null,
+          priority: t.priority ?? null,
+          is_important: !!t.is_important,
+          group_id: (group as any).id,
+          user_id: user.id,
+          is_draft: true,
+          is_completed: false,
+          position: idx,
+          source_protocol_id: prevProtocolQuery.data.id,
+        }));
+        const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
+        if (insErr) {
+          // Don't fail the whole creation — just warn
+          console.error("[NewProtocolDialog] carry-over insert failed", insErr);
+          toast.warning("Протокол создан, но не удалось перенести часть поручений");
+        }
+      }
+
       return group as { id: string };
     },
     onSuccess: (group) => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
       toast.success("Протокол создан");
       onOpenChange(false);
       navigate(`/protocols/${group.id}`);
@@ -104,7 +184,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   });
 
   const showAxes = useMemo(() => {
-    if (!selected) return [] as string[];
+    // Cross-functional is an internal ritual — partner-style axes are noise here.
+    if (!selected || selected.system_key === "cross_functional") return [] as string[];
     return [...selected.required_axes, ...selected.optional_axes];
   }, [selected]);
 
