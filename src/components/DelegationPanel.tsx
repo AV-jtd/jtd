@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Building2, HardHat, Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Building2, HardHat, Plus, Trash2, Pencil, Check, X, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "@/hooks/useContractors";
+import { useAvailableUsers } from "@/hooks/useTasks";
 
 export default function DelegationPanel() {
   return (
@@ -16,6 +18,7 @@ export default function DelegationPanel() {
 
 function DepartmentsSection() {
   const { data: departments = [] } = useDepartments();
+  const { data: users = [] } = useAvailableUsers();
   const create = useCreateDepartment();
   const update = useUpdateDepartment();
   const remove = useDeleteDepartment();
@@ -57,7 +60,7 @@ function DepartmentsSection() {
           <p className="text-sm text-muted-foreground text-center py-4">Пока нет отделов</p>
         )}
         {departments.map(d => (
-          <div key={d.id} className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+          <div key={d.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
             <Building2 className="h-4 w-4 shrink-0" style={{ color: d.color ?? undefined }} />
             {editingId === d.id ? (
               <>
@@ -85,6 +88,27 @@ function DepartmentsSection() {
             ) : (
               <>
                 <span className="flex-1 text-sm font-medium truncate">{d.name}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <Select
+                    value={d.head_user_id ?? "__none"}
+                    onValueChange={(v) =>
+                      update.mutate({ id: d.id, head_user_id: v === "__none" ? null : v })
+                    }
+                  >
+                    <SelectTrigger className="h-7 w-[180px] text-xs">
+                      <SelectValue placeholder="Руководитель…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
+                      {users.map(u => (
+                        <SelectItem key={u.id} value={u.id} className="text-xs">
+                          {u.display_name || u.email || u.id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingId(d.id); setEditingName(d.name); }}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
