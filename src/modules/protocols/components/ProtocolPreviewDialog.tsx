@@ -52,9 +52,10 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
+  const isCrossFunctional = meta?.template_system_key === "cross_functional";
 
   // CRM client (для логотипа и имени партнёра)
-  const linkedClientId: string | null = meta.client_id ?? null;
+  const linkedClientId: string | null = isCrossFunctional ? null : (meta.client_id ?? null);
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
   useEffect(() => {
