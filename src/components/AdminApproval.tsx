@@ -3,9 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserCheck, UserX, ShieldCheck, Building2 } from "lucide-react";
+import { Loader2, UserCheck, UserX, ShieldCheck, Building2, HardHat, Briefcase } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useContractors } from "@/hooks/useContractors";
+import { useQuery } from "@tanstack/react-query";
 
 interface PendingUser {
   id: string;
@@ -15,21 +18,39 @@ interface PendingUser {
   created_at: string;
   is_approved: boolean;
   department_id: string | null;
+  organization: string | null;
+  contractor_id: string | null;
+  client_id: string | null;
 }
 
 interface Department { id: string; name: string; }
+interface ClientLite { id: string; name: string; }
 
 export default function AdminApproval() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: contractors = [] } = useContractors();
+  const { data: clients = [] } = useQuery<ClientLite[]>({
+    queryKey: ["clients", "lite-for-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as ClientLite[];
+    },
+    enabled: !!isAdmin,
+    staleTime: 60_000,
+  });
 
   const fetchUsers = async () => {
     const [{ data: profiles }, { data: depts }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id")
+        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id")
         .order("created_at", { ascending: false }),
       supabase.from("departments").select("id, name").order("position"),
     ]);
