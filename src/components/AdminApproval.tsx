@@ -123,9 +123,16 @@ export default function AdminApproval() {
   const renderExtraFields = (u: PendingUser) => (
     <div className="flex flex-wrap items-center gap-1.5 mt-2">
       <Input
+        key={`org-${u.id}-${u.organization ?? ""}`}
         defaultValue={u.organization ?? ""}
         placeholder="Организация"
         className="h-7 w-[160px] text-xs"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
         onBlur={(e) => {
           const v = e.target.value.trim() || null;
           if (v !== (u.organization ?? null)) updateUserField(u.id, { organization: v });
