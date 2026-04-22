@@ -90,6 +90,7 @@ export default function ProtocolInternalSection({
     const meta: any = {};
     if (parentExternalTaskId) meta.parent_external_task_id = parentExternalTaskId;
     if (projectId) meta.linked_project_id = projectId;
+    if (defaultStreamKey) meta.linked_stream_key = defaultStreamKey;
 
     addTask.mutate({
       title: t,
@@ -99,7 +100,23 @@ export default function ProtocolInternalSection({
       protocol_scope: "internal",
       status_meta: meta,
       source_protocol_id: protocolId,
-    } as any);
+    } as any, {
+      onSuccess: async (created: any) => {
+        // Inherit participants from parent context (if any).
+        const ids = (defaultParticipantIds ?? []).filter(Boolean);
+        if (created?.id && ids.length > 0) {
+          try {
+            const { supabase } = await import("@/integrations/supabase/client");
+            await supabase.from("task_participants").upsert(
+              ids.map((uid) => ({ task_id: created.id, user_id: uid, role: "participant" })),
+              { onConflict: "task_id,user_id", ignoreDuplicates: true } as any,
+            );
+          } catch (e) {
+            console.warn("Failed to inherit participants:", e);
+          }
+        }
+      },
+    });
     setTitle("");
     setAssignee(null);
     setDeadline(null);
