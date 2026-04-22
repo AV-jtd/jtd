@@ -8,6 +8,8 @@ import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Input } from "@/components/ui/input";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import AssigneeBadge from "@/components/AssigneeBadge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -550,6 +552,8 @@ function TasksSection({ groupId }: { groupId: string }) {
   const [newTitle, setNewTitle] = useState("");
   const [newDeadline, setNewDeadline] = useState<Date | undefined>(undefined);
   const [newAssignee, setNewAssignee] = useState<string | null>(null);
+  const [newDepartmentId, setNewDepartmentId] = useState<string | null>(null);
+  const [newContractorId, setNewContractorId] = useState<string | null>(null);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -567,10 +571,14 @@ function TasksSection({ groupId }: { groupId: string }) {
       group_id: groupId,
       deadline: newDeadline ? newDeadline.toISOString() : null,
       assigned_to: newAssignee,
+      department_id: newDepartmentId,
+      contractor_id: newContractorId,
     });
     setNewTitle("");
     setNewDeadline(undefined);
     setNewAssignee(null);
+    setNewDepartmentId(null);
+    setNewContractorId(null);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -579,6 +587,8 @@ function TasksSection({ groupId }: { groupId: string }) {
     setNewTitle("");
     setNewDeadline(undefined);
     setNewAssignee(null);
+    setNewDepartmentId(null);
+    setNewContractorId(null);
   };
 
   const getAssigneeName = (id: string) => availableUsers.find(u => u.id === id)?.display_name || id.slice(0, 8);
@@ -643,38 +653,64 @@ function TasksSection({ groupId }: { groupId: string }) {
             )}
 
             {/* Assignee picker */}
-            <Popover open={assigneePickerOpen} onOpenChange={setAssigneePickerOpen}>
-              <PopoverTrigger asChild>
+            <AssigneePicker
+              users={assignableUsers}
+              current={
+                newAssignee
+                  ? { kind: "user", id: newAssignee }
+                  : newDepartmentId
+                    ? { kind: "department", id: newDepartmentId }
+                    : newContractorId
+                      ? { kind: "contractor", id: newContractorId }
+                      : undefined
+              }
+              onSelect={(sel: AssigneeSelection) => {
+                if (sel.kind === "user") {
+                  setNewAssignee(sel.id);
+                  setNewDepartmentId(null);
+                  setNewContractorId(null);
+                } else if (sel.kind === "department") {
+                  setNewDepartmentId(sel.id);
+                  setNewAssignee(null);
+                  setNewContractorId(null);
+                } else if (sel.kind === "contractor") {
+                  setNewContractorId(sel.id);
+                  setNewAssignee(null);
+                  setNewDepartmentId(null);
+                } else {
+                  setNewAssignee(null);
+                  setNewDepartmentId(null);
+                  setNewContractorId(null);
+                }
+              }}
+              open={assigneePickerOpen}
+              onOpenChange={setAssigneePickerOpen}
+              side="bottom"
+              trigger={
                 <button className={cn(
                   "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-colors",
-                  newAssignee
+                  (newAssignee || newDepartmentId || newContractorId)
                     ? "border-primary/30 bg-primary/10 text-primary"
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 )}>
-                  <User className="h-2.5 w-2.5" />
-                  {newAssignee ? getAssigneeName(newAssignee) : "Ответственный"}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-2" side="bottom" align="start">
-                <PopoverSearchList
-                  items={assignableUsers}
-                  searchKey={(u) => u.display_name || u.email || ""}
-                  placeholder="Найти..."
-                  emptyText="Нет участников"
-                  renderItem={(u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => { setNewAssignee(u.id); setAssigneePickerOpen(false); }}
-                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors text-left"
-                    >
-                      {u.display_name || "Без имени"}
-                    </button>
+                  {newAssignee ? (
+                    <>
+                      <User className="h-2.5 w-2.5" />
+                      {getAssigneeName(newAssignee)}
+                    </>
+                  ) : (newDepartmentId || newContractorId) ? (
+                    <AssigneeBadge departmentId={newDepartmentId} contractorId={newContractorId} />
+                  ) : (
+                    <>
+                      <User className="h-2.5 w-2.5" />
+                      Ответственный
+                    </>
                   )}
-                />
-              </PopoverContent>
-            </Popover>
-            {newAssignee && (
-              <button onClick={() => setNewAssignee(null)} className="text-muted-foreground hover:text-foreground">
+                </button>
+              }
+            />
+            {(newAssignee || newDepartmentId || newContractorId) && (
+              <button onClick={() => { setNewAssignee(null); setNewDepartmentId(null); setNewContractorId(null); }} className="text-muted-foreground hover:text-foreground">
                 <X className="h-2.5 w-2.5" />
               </button>
             )}

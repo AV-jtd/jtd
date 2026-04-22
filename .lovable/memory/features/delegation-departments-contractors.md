@@ -32,4 +32,8 @@ type: feature
 
 ## Где подключено
 - ✅ Settings → раздел «Делегирование»
-- ⏳ TaskItem, QuickCreateForm, NPD/PMO/CRM пикеры — точечно подключаются по требованию (см. таску c8e06175).
+- ✅ TaskItem, QuickCreateForm
+- ✅ TaskCreateBar (главная строка быстрого создания задач)
+- ✅ ProjectDetailPanel → быстрое добавление задачи в проект
+- ✅ NPD MatrixTaskRow
+- ⏳ CRM-специфичные пикеры — точечно по требованию.

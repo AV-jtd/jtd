@@ -716,6 +716,8 @@ export function useTaskMutations() {
       group_id?: string | null;
       deadline?: string | null;
       assigned_to?: string | null;
+      department_id?: string | null;
+      contractor_id?: string | null;
       task_type?: string;
       client_name?: string;
       is_draft?: boolean;
@@ -804,6 +806,8 @@ export function useTaskMutations() {
         user_id: user!.id,
         deadline: task.deadline || null,
         assigned_to: task.assigned_to || null,
+        department_id: task.department_id || null,
+        contractor_id: task.contractor_id || null,
         task_type: taskType,
         client_id: clientId,
         start_at: now,
@@ -919,8 +923,8 @@ export function useTaskMutations() {
         is_draft: task.is_draft ?? false,
         external_ref: null,
         external_assignee: null,
-        department_id: null,
-        contractor_id: null,
+        department_id: task.department_id || null,
+        contractor_id: task.contractor_id || null,
         status_meta: task.status_meta ?? {},
         protocol_scope: task.protocol_scope ?? 'external',
         stage_key: null,
