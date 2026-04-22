@@ -111,6 +111,11 @@ function DepartmentsSection() {
                 <span className="flex-1 text-sm font-medium truncate">{d.name}</span>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  {(() => {
+                    const deptUsers = usersInDept(d.id);
+                    const list = deptUsers.length > 0 ? deptUsers : users;
+                    const empty = deptUsers.length === 0;
+                    return (
                   <Select
                     value={d.head_user_id ?? "__none"}
                     onValueChange={(v) =>
@@ -122,13 +127,20 @@ function DepartmentsSection() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
-                      {users.map(u => (
+                      {empty && (
+                        <div className="px-2 py-1.5 text-[11px] text-muted-foreground italic">
+                          В отделе пока никого — показаны все
+                        </div>
+                      )}
+                      {list.map(u => (
                         <SelectItem key={u.id} value={u.id} className="text-xs">
                           {u.display_name || u.email || u.id.slice(0, 8)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                    );
+                  })()}
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingId(d.id); setEditingName(d.name); }}>
                   <Pencil className="h-3.5 w-3.5" />
