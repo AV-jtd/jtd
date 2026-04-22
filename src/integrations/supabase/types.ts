@@ -1852,6 +1852,11 @@ export type Database = {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean
       }
+      is_protocol_draft: { Args: { _group_id: string }; Returns: boolean }
+      is_protocol_internal_attendee: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_subgroup_of_member_group: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
@@ -1882,6 +1887,10 @@ export type Database = {
       }
       is_task_in_parent_owner_group: {
         Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_task_in_protocol_attendee_scope: {
+        Args: { _draft_only?: boolean; _task_id: string; _user_id: string }
         Returns: boolean
       }
       is_task_in_user_group: {
