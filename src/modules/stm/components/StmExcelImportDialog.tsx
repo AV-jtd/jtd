@@ -279,9 +279,8 @@ export default function StmExcelImportDialog({ open, onOpenChange, defaultFlow =
           failCount++;
         }
       }
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"] });
+      // Bulk import touches groups, tasks, deps, milestones — refresh in one place.
+      invalidateStmCaches(qc);
       if (failCount === 0) {
         toast.success(`Импортировано ${okCount} SKU`);
       } else {
