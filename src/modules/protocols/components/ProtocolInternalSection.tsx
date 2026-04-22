@@ -313,12 +313,6 @@ function InternalRow({
           {task.title}
         </span>
 
-        <AssigneeChip
-          users={users}
-          value={task.assigned_to}
-          onChange={(uid) => onUpdate({ assigned_to: uid })}
-          compact
-        />
         <AssigneePickerChip
           users={users}
           value={
