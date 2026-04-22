@@ -227,7 +227,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
             </PopoverTrigger>
             <PopoverContent className="w-48 p-2" side="bottom">
               <PopoverSearchList
-                items={allGroups.filter(g => g.id !== group.id && !g.parent_id)}
+                items={filterRealProjects(allGroups as any[]).filter(g => g.id !== group.id && !g.parent_id)}
                 searchKey={(g) => g.name}
                 header={<p className="text-xs font-medium text-muted-foreground px-2 py-1">Выберите проект</p>}
                 placeholder="Найти проект..."

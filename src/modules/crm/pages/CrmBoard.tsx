@@ -1868,7 +1868,11 @@ function InboxColumn({
   }, [clientTags, clientSearch]);
 
   const visibleProjects = useMemo(() => {
-    const list = showAllProjects ? allProjectGroups : crmProjectOptions;
+    // For "Все проекты" режим — отфильтруем служебные NPD-стрим-подпроекты,
+    // протоколы и архив, чтобы попап не захламлялся (см. lib/projectFilters).
+    const list = showAllProjects
+      ? filterRealProjects(allProjectGroups as any[]) as typeof allProjectGroups
+      : crmProjectOptions;
     if (!projectSearch.trim()) return list;
     const q = projectSearch.toLowerCase();
     return list.filter((g) => g.name.toLowerCase().includes(q));
