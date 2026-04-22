@@ -393,8 +393,64 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                     </div>
                   ) : (
                     <>
+                      {availableTopics.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                          <div className="text-[11px] font-medium text-muted-foreground">
+                            Серия встреч (фильтр по теме)
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setTopicFilter("all")}
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+                                topicFilter === "all"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/70",
+                              )}
+                            >
+                              Все темы · {prevProtocols.length}
+                            </button>
+                            {availableTopics.map((t) => {
+                              const active = topicFilter === t.id;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setTopicFilter(active ? "all" : t.id);
+                                    // Sweep selections that no longer match the new filter
+                                    if (!active) {
+                                      setSelectedPrevIds((prev) =>
+                                        prev.filter((id) => {
+                                          const p = prevProtocols.find((x) => x.id === id);
+                                          return p?.topicTagIds.includes(t.id);
+                                        }),
+                                      );
+                                    }
+                                  }}
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+                                    active
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-muted-foreground hover:bg-muted/70",
+                                  )}
+                                  title={`${t.meetingCount} встреч в серии`}
+                                >
+                                  📁 {t.name} · {t.meetingCount}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>Выберите встречи, из которых перенести незакрытые задачи (как черновики)</span>
+                        <span>
+                          {topicFilter === "all"
+                            ? "Выберите встречи, из которых перенести незакрытые задачи (как черновики)"
+                            : `История серии — ${filteredPrevProtocols.length} встреч`}
+                        </span>
                         {selectedPrevIds.length > 0 && (
                           <button
                             type="button"
@@ -406,7 +462,11 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                         )}
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
-                        {prevProtocols.map((p) => {
+                        {filteredPrevProtocols.length === 0 ? (
+                          <div className="rounded border border-dashed border-border px-2 py-3 text-center text-[11px] text-muted-foreground">
+                            В этой серии пока нет других встреч.
+                          </div>
+                        ) : filteredPrevProtocols.map((p) => {
                           const checked = selectedPrevIds.includes(p.id);
                           const disabled = p.openCount === 0;
                           return (
