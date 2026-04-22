@@ -21,6 +21,15 @@ export default function StmMatrixView() {
   const projects = useStmProjects();
   const [flow, setFlow] = useState<StmFlow>("in");
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  // Default = active only ("чтобы лишнего не показывать"). Persist to localStorage.
+  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">(() => {
+    if (typeof window === "undefined") return "active";
+    const v = window.localStorage.getItem("stm:statusFilter");
+    return v === "archived" || v === "all" ? v : "active";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:statusFilter", statusFilter); } catch { /* ignore */ }
+  }, [statusFilter]);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -105,6 +114,11 @@ export default function StmMatrixView() {
     return projects
       .filter(p => p.flow === flow)
       .filter(p => {
+        if (statusFilter === "active") return !p.archivedAt;
+        if (statusFilter === "archived") return !!p.archivedAt;
+        return true;
+      })
+      .filter(p => {
         if (!q) return true;
         const meta = p.meta;
         return (
@@ -114,7 +128,17 @@ export default function StmMatrixView() {
           (meta.drop || "").toLowerCase().includes(q)
         );
       });
-  }, [projects, flow, search]);
+  }, [projects, flow, search, statusFilter]);
+
+  // Counts per status for the tab labels (within current flow).
+  const statusCounts = useMemo(() => {
+    const inFlow = projects.filter(p => p.flow === flow);
+    return {
+      active: inFlow.filter(p => !p.archivedAt).length,
+      archived: inFlow.filter(p => !!p.archivedAt).length,
+      all: inFlow.length,
+    };
+  }, [projects, flow]);
 
   const grouped = useMemo(() => {
     if (groupBy === "none") return [{ key: "__all", label: "", items: visible }];
@@ -231,16 +255,43 @@ export default function StmMatrixView() {
 
       {/* Flow tabs */}
       <div className="px-4 py-2 border-b border-stm-border/30 bg-stm-card/40">
-        <Tabs value={flow} onValueChange={(v) => setFlow(v as StmFlow)}>
-          <TabsList className="bg-stm-glass/40 border border-stm-border/30">
-            <TabsTrigger value="in" className="data-[state=active]:bg-stm-accent/20 data-[state=active]:text-stm-accent">
-              Ввод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "in").length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="out" className="data-[state=active]:bg-stm-warn/20 data-[state=active]:text-stm-warn">
-              Вывод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "out").length}</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Tabs value={flow} onValueChange={(v) => setFlow(v as StmFlow)}>
+            <TabsList className="bg-stm-glass/40 border border-stm-border/30">
+              <TabsTrigger value="in" className="data-[state=active]:bg-stm-accent/20 data-[state=active]:text-stm-accent">
+                Ввод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "in" && !p.archivedAt).length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="out" className="data-[state=active]:bg-stm-warn/20 data-[state=active]:text-stm-warn">
+                Вывод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "out" && !p.archivedAt).length}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Status filter: active / archived / all */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-stm-glass/40 border border-stm-border/30">
+            {[
+              { key: "active", label: "Активные", count: statusCounts.active },
+              { key: "archived", label: "Архив", count: statusCounts.archived },
+              { key: "all", label: "Все", count: statusCounts.all },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setStatusFilter(opt.key as any)}
+                className={cn(
+                  "text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors",
+                  statusFilter === opt.key
+                    ? "bg-stm-accent/20 text-stm-accent shadow-sm"
+                    : "text-stm-fg/60 hover:text-stm-fg",
+                )}
+                aria-pressed={statusFilter === opt.key}
+              >
+                {opt.label}
+                <span className="ml-1 text-[10px] opacity-60">{opt.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Matrix scroll area */}
