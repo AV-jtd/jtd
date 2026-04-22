@@ -306,6 +306,41 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                 />
               </div>
 
+              {isCrossFunctional && (
+                <label
+                  htmlFor="carry-over"
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
+                    openCount > 0
+                      ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
+                      : "border-border bg-muted/20",
+                  )}
+                >
+                  <Checkbox
+                    id="carry-over"
+                    checked={carryOver && openCount > 0}
+                    disabled={openCount === 0}
+                    onCheckedChange={(v) => setCarryOver(!!v)}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Repeat className="h-3.5 w-3.5 text-primary" />
+                      Подтянуть открытые поручения с прошлой встречи
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {prevProtocolQuery.isLoading
+                        ? "Ищем последний кросс-функциональный протокол…"
+                        : openCount > 0
+                          ? `Найдено ${openCount} ${
+                              openCount === 1 ? "незакрытая задача" : openCount < 5 ? "незакрытые задачи" : "незакрытых задач"
+                            } из «${prevProtocolQuery.data?.name}». Они будут добавлены как черновики.`
+                          : "Открытых поручений с прошлой встречи не найдено."}
+                    </div>
+                  </div>
+                </label>
+              )}
+
               {showAxes.length > 0 && (
                 <div className="rounded-md border border-dashed border-border p-3">
                   <div className="text-xs font-medium text-muted-foreground">
