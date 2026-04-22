@@ -12,19 +12,37 @@ const DEFAULT_STAGE_GAP_DAYS = 5;
 /**
  * Fetch STM stage tasks directly. We can't reuse useTasks() because it hides
  * task_type='stm_stage' from global lists (so they don't pollute Inbox/Today).
+ *
+ * IMPORTANT: Supabase caps a single response at 1000 rows. With many SKUs
+ * we easily exceed that (12 stages × N SKUs), so we paginate via .range()
+ * until the page is short. Without this, tail SKUs silently lose their
+ * tasks → matrix shows "нет даты" while the Gantt (which reads
+ * project_milestones) still has the date.
  */
 function useStmStageTasks() {
   const { user, loading } = useAuth();
   return useQuery({
     queryKey: ["stm-stage-tasks", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("task_type", "stm_stage")
-        .order("position");
-      if (error) throw error;
-      return data as Task[];
+      const PAGE = 1000;
+      const all: Task[] = [];
+      let from = 0;
+      // Loop until we get a short page (< PAGE rows).
+      // Hard upper bound to avoid infinite loops in case of unexpected behavior.
+      for (let safety = 0; safety < 50; safety++) {
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("task_type", "stm_stage")
+          .order("position")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const chunk = (data ?? []) as Task[];
+        all.push(...chunk);
+        if (chunk.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
     },
     enabled: !loading && !!user,
     staleTime: 30_000,
