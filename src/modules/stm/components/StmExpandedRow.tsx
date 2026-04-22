@@ -8,6 +8,7 @@ import type { Task } from "@/hooks/useTasks";
 import type { StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
 import { StmOpsTasks } from "./StmOpsTasks";
+import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
 
 interface Props {
   project: StmProject;
