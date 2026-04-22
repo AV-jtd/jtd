@@ -114,7 +114,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             className={cn(
               "group h-full w-full flex flex-col items-center justify-center gap-0.5 rounded-md transition-all px-1 py-1 cursor-pointer",
               "border",
-              status === "done" && "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+              status === "done" && "bg-success/10 border-success/30 text-success",
               status === "overdue" && "bg-destructive/10 border-destructive/30 text-destructive",
               status === "current" && "bg-primary/10 border-primary/40 text-primary",
               status === "open" && "bg-card border-border hover:bg-muted/50 text-muted-foreground",
@@ -146,7 +146,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 className={cn(
                   "text-[10px] tabular-nums leading-none px-1 py-0.5 rounded hover:ring-1 hover:ring-primary/40",
                   isMilestone && "text-primary font-semibold bg-primary/10",
-                  !isMilestone && status === "done" && "text-emerald-600 dark:text-emerald-400 font-medium",
+                  !isMilestone && status === "done" && "text-success font-medium",
                   !isMilestone && status === "overdue" && "text-destructive font-semibold",
                   !isMilestone && status === "current" && "text-primary font-medium",
                   !isMilestone && status === "open" && "text-muted-foreground font-medium",
@@ -156,7 +156,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               </button>
             )}
             {driftDays > 0 && (
-              <div className="text-[8px] font-mono text-amber-600 dark:text-amber-500 leading-none border-b border-dashed border-amber-500/60">
+              <div className="text-[8px] font-mono text-warning leading-none border-b border-dashed border-warning/60">
                 ↗+{driftDays}д
               </div>
             )}
@@ -178,7 +178,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             Иконка — статус, дата — перенос (каскад)
           </div>
           {driftDays > 0 && (
-            <div className="text-amber-600 dark:text-amber-500">Смещение: +{driftDays} дн от плана</div>
+            <div className="text-warning">Смещение: +{driftDays} дн от плана</div>
           )}
         </TooltipContent>
       </Tooltip>
