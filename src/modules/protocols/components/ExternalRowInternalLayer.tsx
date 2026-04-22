@@ -145,7 +145,7 @@ function ProjectChip({
             "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
             current
               ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-              : "border-red-500/30 bg-background text-foreground hover:bg-muted",
+              : "border-border bg-background text-foreground hover:bg-muted",
           )}
         >
           <FolderOpen className="h-3 w-3" />
@@ -209,7 +209,7 @@ function StreamChip({
             "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
             value
               ? "border-purple-500/40 bg-purple-500/10 text-purple-700 hover:bg-purple-500/15 dark:text-purple-300"
-              : "border-red-500/30 bg-background text-foreground hover:bg-muted",
+              : "border-border bg-background text-foreground hover:bg-muted",
           )}
         >
           <Layers className="h-3 w-3" />
@@ -280,7 +280,7 @@ function ParticipantsChip({
             "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
             currentUsers.length > 0
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300"
-              : "border-red-500/30 bg-background text-foreground hover:bg-muted",
+              : "border-border bg-background text-foreground hover:bg-muted",
           )}
         >
           <Users className="h-3 w-3" />
