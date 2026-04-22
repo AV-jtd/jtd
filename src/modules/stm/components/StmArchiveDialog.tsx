@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { patchGroupInCache, restoreGroupSnapshots, STM_KEYS } from "../lib/stmCache";
 
 interface Props {
   open: boolean;
@@ -50,22 +51,15 @@ export default function StmArchiveDialog({ open, onOpenChange, groupId, groupNam
     },
     onMutate: async () => {
       // Optimistic patch: row updates instantly, no waiting for refetch.
-      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      await qc.cancelQueries({ queryKey: STM_KEYS.groups() });
       const patch = unarchive
         ? { closed_at: null, archive_comment: null }
         : { closed_at: new Date().toISOString(), archive_comment: comment.trim() };
-      const snapshots: Array<[readonly unknown[], unknown]> = [];
-      qc.getQueriesData<any[]>({ queryKey: ["task_groups"] }).forEach(([key, data]) => {
-        if (!Array.isArray(data)) return;
-        snapshots.push([key, data]);
-        qc.setQueryData(key, data.map((g: any) => (g.id === groupId ? { ...g, ...patch } : g)));
-      });
+      const snapshots = patchGroupInCache(qc, groupId, patch as any);
       return { snapshots };
     },
     onError: (e: any, _v, ctx: any) => {
-      ctx?.snapshots?.forEach(([key, data]: [readonly unknown[], unknown]) =>
-        qc.setQueryData(key, data),
-      );
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
       toast.error(e.message || "Не удалось сохранить");
     },
     onSuccess: () => {
