@@ -12,9 +12,11 @@ interface Props {
   expanded?: boolean;
   onToggleExpand?: (groupId: string) => void;
   onOpenGantt?: (groupId: string) => void;
+  activeStageKey?: string | null;
+  onActiveStageChange?: (stageKey: string | null) => void;
 }
 
-function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt }: Props) {
+function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange }: Props) {
   const { group, meta, currentStageKey, stageTasks, progress } = project;
 
   return (
@@ -65,7 +67,13 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
       {/* Expanded panel: each stage = a task with steps/deadlines/assignees */}
       {expanded && (
         <div className="sticky left-0 z-[1]">
-          <StmExpandedRow project={project} stages={stages} onOpenGantt={onOpenGantt} />
+          <StmExpandedRow
+            project={project}
+            stages={stages}
+            onOpenGantt={onOpenGantt}
+            activeStageKey={activeStageKey}
+            onActiveStageChange={onActiveStageChange}
+          />
         </div>
       )}
     </>
