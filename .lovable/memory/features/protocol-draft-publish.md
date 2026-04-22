@@ -21,6 +21,25 @@ type: feature
 
 **Правило для всех компонентов внутри `/protocols/:id`:** всегда вызывать `useTasks(protocolId)`, никогда `useTasks()` без аргумента. Это касается `ProtocolDetailPage`, `ProtocolTableView`, `ProtocolPreviewDialog`, `ProtocolInternalSection` и любых будущих секций (мобильная карточка, PDF-рендер, виджеты тем и т.п.). RLS уже разрешает участникам видеть `is_draft=true` — баг всегда клиентский.
 
+## 👥 Доступ внутренних участников встречи (`protocol_meta.internal_attendees`)
+
+Раньше пользователи, добавленные во вкладке «Участники встречи», могли быть **не owner**, **не group_member**, **не assignee** ни одной задачи — и потому **вообще не видели протокол**. Особенно болезненно для черновиков (когда задачи ещё не разданы).
+
+**Правило (закреплено в RLS):**
+- Если `auth.uid()` числится в `task_groups.protocol_meta.internal_attendees` (массив UUID-строк), пользователь:
+  - **Всегда видит** сам протокол (`task_groups`), его задачи (`tasks`, включая `is_draft=true`), шаги (`subtasks`), комментарии (`task_comments`).
+  - **Пока `draft_status='draft'`** — может INSERT/UPDATE/DELETE задач/шагов и UPDATE самого протокола (полноправный соавтор черновика).
+  - **После публикации** — продолжает видеть, но правит только свои задачи (как обычный assignee/participant).
+
+SQL-функции (SECURITY DEFINER, search_path=public):
+- `is_protocol_internal_attendee(_group_id, _user_id) → boolean` — основной чек.
+- `is_protocol_draft(_group_id) → boolean` — `project_type='protocol' AND draft_status='draft'`.
+- `is_task_in_protocol_attendee_scope(_task_id, _user_id, _draft_only) → boolean` — для дочерних таблиц (`subtasks`, `task_comments`).
+
+UI: на `ProtocolDetailPage` если юзер не владелец, но числится в `internal_attendees` — в баннере черновика рядом со словом «Черновик» появляется чип `Участник` (primary палитра).
+
+⚠️ При добавлении новых дочерних таблиц протокола (вложения, опросы, голосования) — НЕ забыть аналогичные RLS-политики на `is_task_in_protocol_attendee_scope` или `is_protocol_internal_attendee`.
+
 Ключевые файлы:
 - `src/lib/projectCsv.ts` — `importCsvToProject` принимает `{ asDraft, projectType }`.
 - `src/components/SmartImportDialog.tsx` — props `asDraft`, `projectType`.
