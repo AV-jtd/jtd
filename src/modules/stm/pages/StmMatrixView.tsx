@@ -40,7 +40,7 @@ export default function StmMatrixView() {
         }
         return next;
       },
-      { replace: true },
+      // push, чтобы expand/collapse попадал в history → back/forward работают
     );
   };
 
@@ -52,7 +52,7 @@ export default function StmMatrixView() {
         else next.set("stage", stageKey);
         return next;
       },
-      { replace: true },
+      // push: каждое переключение этапа = новая запись в history
     );
   };
 
