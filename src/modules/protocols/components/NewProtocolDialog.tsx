@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { toast } from "sonner";
 
 const AXIS_LABELS: Record<string, string> = {
@@ -45,8 +46,10 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
   const [selectedPrevIds, setSelectedPrevIds] = useState<string[]>([]);
+  const [topicFilter, setTopicFilter] = useState<string>("all"); // "all" | tagId
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
+  const { topicTags } = useEventTopicTags();
 
   // Reset on close
   useEffect(() => {
@@ -58,6 +61,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
         setSelectedPrevIds([]);
+      setTopicFilter("all");
       }, 200);
     }
   }, [open]);
@@ -78,7 +82,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
     enabled: !!user && isCrossFunctional && step === "details",
     staleTime: 60 * 1000,
     queryFn: async () => {
-      if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number }>;
+      if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number; topicTagIds: string[]; primaryTopicId: string | null }>;
       // Find recent cross_functional protocols of this user
       const { data: groups, error: gErr } = await supabase
         .from("task_groups")
@@ -86,35 +90,87 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .eq("user_id", user.id)
         .eq("project_type", "protocol")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (gErr) throw gErr;
       const candidates = (groups || []).filter((g: any) => {
         const meta = g.protocol_meta || {};
         if (meta.template_system_key === "cross_functional") return true;
         return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
-      }).slice(0, 10);
+      }).slice(0, 30);
       if (candidates.length === 0) return [];
       const ids = candidates.map((g: any) => g.id);
-      const { data: openTasks, error: tErr } = await supabase
+      // Fetch ALL tasks (including their tags) so we can both count open commitments
+      // AND derive each protocol's topic (event_topic tag) for series filtering.
+      const { data: allTasks, error: tErr } = await supabase
         .from("tasks")
-        .select("id, group_id")
-        .in("group_id", ids)
-        .eq("is_completed", false);
+        .select("id, group_id, is_completed, task_tags(tag_id)")
+        .in("group_id", ids);
       if (tErr) throw tErr;
-      const counts = new Map<string, number>();
-      (openTasks || []).forEach((t: any) => {
-        counts.set(t.group_id, (counts.get(t.group_id) || 0) + 1);
+
+      // Build set of valid event_topic tag ids
+      const topicIdSet = new Set(topicTags.map((t) => t.id));
+
+      const openCounts = new Map<string, number>();
+      // perGroup: tagId -> count, so we can pick the most-frequent topic per protocol.
+      const perGroupTopicHist = new Map<string, Map<string, number>>();
+
+      (allTasks || []).forEach((t: any) => {
+        if (!t.is_completed) {
+          openCounts.set(t.group_id, (openCounts.get(t.group_id) || 0) + 1);
+        }
+        const tagIds: string[] = (t.task_tags || []).map((tt: any) => tt.tag_id);
+        const topicTagsForTask = tagIds.filter((id) => topicIdSet.has(id));
+        if (topicTagsForTask.length === 0) return;
+        let hist = perGroupTopicHist.get(t.group_id);
+        if (!hist) {
+          hist = new Map();
+          perGroupTopicHist.set(t.group_id, hist);
+        }
+        topicTagsForTask.forEach((tid) => hist!.set(tid, (hist!.get(tid) || 0) + 1));
       });
-      return candidates.map((g: any) => ({
-        id: g.id as string,
-        name: g.name as string,
-        created_at: g.created_at as string,
-        openCount: counts.get(g.id) || 0,
-      }));
+
+      return candidates.map((g: any) => {
+        const hist = perGroupTopicHist.get(g.id);
+        let primaryTopicId: string | null = null;
+        let topicTagIds: string[] = [];
+        if (hist && hist.size > 0) {
+          topicTagIds = Array.from(hist.keys());
+          primaryTopicId = topicTagIds.reduce((best, cur) =>
+            (hist!.get(cur) || 0) > (hist!.get(best) || 0) ? cur : best,
+          topicTagIds[0]);
+        }
+        return {
+          id: g.id as string,
+          name: g.name as string,
+          created_at: g.created_at as string,
+          openCount: openCounts.get(g.id) || 0,
+          topicTagIds,
+          primaryTopicId,
+        };
+      });
     },
   });
 
   const prevProtocols = prevProtocolsQuery.data ?? [];
+
+  // Filter prev protocols by selected topic (series). "all" = show everything.
+  const filteredPrevProtocols = useMemo(() => {
+    if (topicFilter === "all") return prevProtocols;
+    return prevProtocols.filter((p) => p.topicTagIds.includes(topicFilter));
+  }, [prevProtocols, topicFilter]);
+
+  // Topics that actually appear in the candidate protocols — only those make sense as filter chips.
+  const availableTopics = useMemo(() => {
+    const seen = new Map<string, number>(); // tagId -> meeting count
+    prevProtocols.forEach((p) => {
+      p.topicTagIds.forEach((tid) => seen.set(tid, (seen.get(tid) || 0) + 1));
+    });
+    return topicTags
+      .filter((t) => seen.has(t.id))
+      .map((t) => ({ ...t, meetingCount: seen.get(t.id) || 0 }))
+      .sort((a, b) => b.meetingCount - a.meetingCount);
+  }, [prevProtocols, topicTags]);
+
   // No auto-selection: meetings often cover different unrelated topics,
   // so the user must explicitly pick which previous protocols to carry over.
 
@@ -337,8 +393,64 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                     </div>
                   ) : (
                     <>
+                      {availableTopics.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                          <div className="text-[11px] font-medium text-muted-foreground">
+                            Серия встреч (фильтр по теме)
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setTopicFilter("all")}
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+                                topicFilter === "all"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/70",
+                              )}
+                            >
+                              Все темы · {prevProtocols.length}
+                            </button>
+                            {availableTopics.map((t) => {
+                              const active = topicFilter === t.id;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setTopicFilter(active ? "all" : t.id);
+                                    // Sweep selections that no longer match the new filter
+                                    if (!active) {
+                                      setSelectedPrevIds((prev) =>
+                                        prev.filter((id) => {
+                                          const p = prevProtocols.find((x) => x.id === id);
+                                          return p?.topicTagIds.includes(t.id);
+                                        }),
+                                      );
+                                    }
+                                  }}
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+                                    active
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-muted-foreground hover:bg-muted/70",
+                                  )}
+                                  title={`${t.meetingCount} встреч в серии`}
+                                >
+                                  📁 {t.name} · {t.meetingCount}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>Выберите встречи, из которых перенести незакрытые задачи (как черновики)</span>
+                        <span>
+                          {topicFilter === "all"
+                            ? "Выберите встречи, из которых перенести незакрытые задачи (как черновики)"
+                            : `История серии — ${filteredPrevProtocols.length} встреч`}
+                        </span>
                         {selectedPrevIds.length > 0 && (
                           <button
                             type="button"
@@ -350,7 +462,11 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                         )}
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
-                        {prevProtocols.map((p) => {
+                        {filteredPrevProtocols.length === 0 ? (
+                          <div className="rounded border border-dashed border-border px-2 py-3 text-center text-[11px] text-muted-foreground">
+                            В этой серии пока нет других встреч.
+                          </div>
+                        ) : filteredPrevProtocols.map((p) => {
                           const checked = selectedPrevIds.includes(p.id);
                           const disabled = p.openCount === 0;
                           return (
