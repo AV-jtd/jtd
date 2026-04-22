@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Task } from "@/hooks/useTasks";
 import { useToggleStmStage } from "../hooks/useStmProjects";
@@ -8,19 +8,29 @@ import { useToggleStmStage } from "../hooks/useStmProjects";
 interface Props {
   task: Task | null;
   isCurrent: boolean;
+  isMilestone?: boolean;
+  milestoneLabel?: string;
 }
 
 /**
  * Single matrix cell for one SKU × one stage.
  * Architectural Glass aesthetic: faint glass tile, glowing accent on active stage.
+ * Milestone stages additionally render the deadline date and a drift indicator (↗+Nд)
+ * so the user can immediately see the shift of approval/order dates.
  */
-function StmMatrixCellInner({ task, isCurrent }: Props) {
+function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel }: Props) {
   const toggle = useToggleStmStage();
 
   if (!task) {
     return (
-      <div className="h-full w-full flex items-center justify-center text-stm-fg/20">
+      <div className="h-full w-full flex flex-col items-center justify-center gap-0.5 text-stm-fg/20">
+        {isMilestone && <Flag className="h-3 w-3 text-stm-accent/60" />}
         <Minus className="h-3 w-3" />
+        {isMilestone && milestoneLabel && (
+          <div className="text-[9px] uppercase tracking-wider text-stm-accent/70 font-semibold leading-none">
+            {milestoneLabel}
+          </div>
+        )}
       </div>
     );
   }
@@ -34,6 +44,18 @@ function StmMatrixCellInner({ task, isCurrent }: Props) {
     status === "overdue" ? "Просрочено" :
     status === "current" ? "В работе" : "Ожидает";
 
+  // Drift: positive shift in days from original_deadline
+  const driftDays = task.deadline && (task as any).original_deadline
+    ? Math.round(
+        (new Date(task.deadline).getTime() - new Date((task as any).original_deadline).getTime()) /
+          86400000,
+      )
+    : 0;
+
+  const dateLabel = task.deadline
+    ? new Date(task.deadline).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" })
+    : null;
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -41,23 +63,52 @@ function StmMatrixCellInner({ task, isCurrent }: Props) {
           type="button"
           onClick={() => toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed })}
           className={cn(
-            "group h-full w-full flex items-center justify-center rounded-md transition-all",
+            "group h-full w-full flex flex-col items-center justify-center gap-0.5 rounded-md transition-all px-1 py-1",
             "border border-stm-border/40 backdrop-blur-sm",
             status === "done" && "bg-stm-success/15 border-stm-success/40 text-stm-success",
             status === "overdue" && "bg-stm-danger/15 border-stm-danger/50 text-stm-danger animate-pulse",
             status === "current" && "bg-stm-accent/20 border-stm-accent/60 text-stm-accent shadow-[0_0_12px_-2px_hsl(var(--stm-accent)/0.6)]",
             status === "open" && "bg-stm-glass/40 hover:bg-stm-glass/70 text-stm-fg/40 hover:text-stm-fg/70",
+            isMilestone && "ring-1 ring-stm-accent/40",
           )}
           aria-label={`${task.title}: ${tipLabel}`}
         >
-          {status === "done" && <Check className="h-4 w-4" />}
-          {status === "overdue" && <AlertTriangle className="h-4 w-4" />}
-          {status === "current" && <Clock className="h-4 w-4" />}
+          <div className="flex items-center gap-1 leading-none">
+            {isMilestone && <Flag className="h-2.5 w-2.5 text-stm-accent" />}
+            {status === "done" && <Check className="h-3.5 w-3.5" />}
+            {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
+            {status === "current" && <Clock className="h-3.5 w-3.5" />}
+          </div>
+          {(isMilestone || status === "current" || status === "overdue") && dateLabel && (
+            <div className={cn(
+              "text-[9px] tabular-nums font-mono leading-none",
+              isMilestone ? "text-stm-accent font-bold" : "opacity-80",
+            )}>
+              {dateLabel}
+            </div>
+          )}
+          {driftDays > 0 && (
+            <div className="text-[8px] font-mono text-stm-warn leading-none border-b border-dashed border-stm-warn/60">
+              ↗+{driftDays}д
+            </div>
+          )}
+          {isMilestone && milestoneLabel && (
+            <div className="text-[8px] uppercase tracking-wider text-stm-accent/80 font-semibold leading-none">
+              {milestoneLabel}
+            </div>
+          )}
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="text-xs">
-        <div className="font-medium">{task.title}</div>
-        <div className="text-muted-foreground">{tipLabel}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}</div>
+        <div className="font-medium">
+          {isMilestone && "🚩 "}{task.title}
+        </div>
+        <div className="text-muted-foreground">
+          {tipLabel}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
+        </div>
+        {driftDays > 0 && (
+          <div className="text-stm-warn">Смещение: +{driftDays} дн от плана</div>
+        )}
       </TooltipContent>
     </Tooltip>
   );

@@ -51,16 +51,26 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
         {stages.map(stage => {
           const task = stageTasks.find(t => (t as any).stage_key === stage.key) ?? null;
           const isMilestone = !!stage.milestoneKey;
+          const milestoneLabel = stage.milestoneKey === "approved"
+            ? "Утв."
+            : stage.milestoneKey === "ordered"
+              ? "Заказ"
+              : undefined;
           return (
             <div
               key={stage.key}
               className={cn(
-                "min-w-[80px] w-[80px] shrink-0 p-1.5 border-r border-stm-border/20",
+                "min-w-[80px] w-[80px] shrink-0 p-1.5 border-r border-stm-border/20 min-h-[68px]",
                 stage.key === currentStageKey && "bg-stm-accent/5",
                 isMilestone && "bg-stm-accent/[0.04] border-r-stm-accent/30",
               )}
             >
-              <StmMatrixCell task={task} isCurrent={stage.key === currentStageKey} />
+              <StmMatrixCell
+                task={task}
+                isCurrent={stage.key === currentStageKey}
+                isMilestone={isMilestone}
+                milestoneLabel={milestoneLabel}
+              />
             </div>
           );
         })}
