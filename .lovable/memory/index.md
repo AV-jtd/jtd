@@ -1,0 +1,1 @@
+- [features/stm/ops-tasks-block](mem://features/stm/ops-tasks-block) — В раскрытой карточке SKU блок «Операционные задачи» (TaskCreateBar + 2 секции: Операционные / Из протоколов). В Гантте задачи из протоколов помечены 📋.
