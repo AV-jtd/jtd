@@ -150,6 +150,23 @@ function ProjectChip({
   const current = projects.find((g: any) => g.id === value);
   const label = current ? `${current.icon ? current.icon + " " : ""}${current.name}` : "Привязать к проекту";
 
+  // Recently selected project (per-user, persisted in localStorage)
+  const [recentId, setRecentId] = useState<string | null>(() => {
+    try { return localStorage.getItem("protocol:lastProjectId"); } catch { return null; }
+  });
+  const recent = recentId && recentId !== value
+    ? projects.find((g: any) => g.id === recentId)
+    : null;
+
+  const pick = (pid: string | null) => {
+    if (pid) {
+      try { localStorage.setItem("protocol:lastProjectId", pid); } catch { /* noop */ }
+      setRecentId(pid);
+    }
+    onChange(pid);
+    setOpen(false);
+  };
+
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>
@@ -182,10 +199,28 @@ function ProjectChip({
               Снять привязку
             </button>
           )}
+          {recent && !search.trim() && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                Недавнее
+              </div>
+              <button
+                onClick={() => pick(recent.id)}
+                className={cn(
+                  "flex w-full items-center gap-1.5 truncate rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                  recent.id === value && "bg-primary/10 text-primary",
+                )}
+              >
+                <span className="shrink-0">{recent.icon || "📁"}</span>
+                <span className="flex-1 truncate">{recent.name}</span>
+              </button>
+              <div className="my-1 border-t border-border/60" />
+            </>
+          )}
           {filtered.map((g: any) => (
             <button
               key={g.id}
-              onClick={() => { onChange(g.id); setOpen(false); }}
+              onClick={() => pick(g.id)}
               className={cn(
                 "flex w-full items-center gap-1.5 truncate rounded px-2 py-1 text-left text-xs hover:bg-muted",
                 g.id === value && "bg-primary/10 text-primary",
