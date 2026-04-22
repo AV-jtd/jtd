@@ -72,6 +72,29 @@ export class DuplicateNameError extends Error {
   }
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>,
+  maxPages = 100,
+) {
+  const all: T[] = [];
+
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * SUPABASE_PAGE_SIZE;
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    all.push(...chunk);
+
+    if (chunk.length < SUPABASE_PAGE_SIZE) break;
+  }
+
+  return all;
+}
+
 /**
  * Check if a name already exists across tags, projects, or tasks.
  * Throws DuplicateNameError if duplicate found.
@@ -136,12 +159,14 @@ export function useTaskGroups() {
   return useQuery({
     queryKey: ["task_groups", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("task_groups")
-        .select("*")
-        .order("position");
-      if (error) throw error;
-      return data as TaskGroup[];
+      const data = await fetchAllPages<TaskGroup>((from, to) =>
+        supabase
+          .from("task_groups")
+          .select("*")
+          .order("position")
+          .range(from, to)
+      );
+      return data;
     },
     enabled: !loading && !!user,
     staleTime: 1000 * 30,
@@ -159,21 +184,23 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
   return useQuery({
     queryKey: ["tasks", user?.id, groupId, filterTags],
     queryFn: async () => {
-      let query = supabase
-        .from("tasks")
-        .select("*, subtasks(*), task_tags(tag_id)")
-        .order("is_completed", { ascending: true })
-        .order("position")
-        .order("created_at", { ascending: false });
+      const tasks = await fetchAllPages<Task>((from, to) => {
+        let query = supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .order("is_completed", { ascending: true })
+          .order("position")
+          .order("created_at", { ascending: false })
+          .range(from, to);
 
-      if (groupId) {
-        query = query.eq("group_id", groupId);
-      }
+        if (groupId) {
+          query = query.eq("group_id", groupId);
+        }
 
-      const { data, error } = await query;
-      if (error) throw error;
+        return query;
+      });
 
-      let tasks = data as Task[];
+      let filteredTasks = tasks;
 
       // ⚠️ INVARIANT — Draft visibility rule (см. mem://features/protocol-draft-publish):
       // Черновики (is_draft=true) скрываются ТОЛЬКО из глобальных списков (groupId не задан).
@@ -186,7 +213,7 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
       // Из глобальных списков (Inbox/Today/All) они скрываются, чтобы не засорять GTD-фокус.
       // На странице конкретного SKU (groupId задан) они остаются видны.
       if (!groupId) {
-        tasks = tasks.filter(t => !(t as any).is_draft && (t as any).task_type !== "stm_stage");
+        filteredTasks = filteredTasks.filter(t => !(t as any).is_draft && (t as any).task_type !== "stm_stage");
       }
 
       if (filterTags && filterTags.length > 0) {
@@ -208,7 +235,7 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
         }
         const expandedGroupIds = new Set([...projectIds, ...subGroupIds]);
 
-        tasks = tasks.filter(t => {
+        filteredTasks = filteredTasks.filter(t => {
           // Task matches if it has ALL filter tags
           const hasAllTags = filterTags.every(tagId =>
             t.task_tags?.some(tt => tt.tag_id === tagId)
@@ -224,7 +251,7 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
         });
       }
 
-      return tasks;
+      return filteredTasks;
     },
     enabled: !loading && !!user,
     refetchOnMount: "always",
