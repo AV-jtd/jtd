@@ -22,6 +22,7 @@ import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { filterRealProjects } from "@/lib/projectFilters";
 
 interface ProjectDetailPanelProps {
   group: TaskGroup;
