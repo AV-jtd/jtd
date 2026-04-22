@@ -462,18 +462,8 @@ function ProjectChip({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  // Exclude protocol-typed groups; also hide auto-generated NPD stream subprojects
-  // (parent_id != null AND name is one of the canonical 8 streams) — they are service rows,
-  // not standalone projects, and they spam the picker (often dozens of "Реклама", "Закупки", …).
-  const NPD_STREAM_NAMES = new Set([
-    "Продакт","Реклама","RnD","СКК","Производство","Закупки","Продажи","Покупка оборудования",
-  ]);
-  const projects = (groups || []).filter((g: any) => {
-    if (g.project_type === "protocol") return false;
-    if (g.closed_at) return false;
-    if (g.project_type === "npd" && g.parent_id && NPD_STREAM_NAMES.has(g.name)) return false;
-    return true;
-  });
+  // Только реальные проекты: без протоколов, архива и служебных NPD-стрим-подпроектов.
+  const projects = filterRealProjects(groups as any[]);
   const filtered = projects.filter((g: any) =>
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase()),
   );

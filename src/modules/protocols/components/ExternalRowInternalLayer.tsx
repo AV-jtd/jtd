@@ -10,7 +10,6 @@ import ProtocolInternalSection from "./ProtocolInternalSection";
 import { filterRealProjects } from "@/lib/projectFilters";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
-const NPD_STREAM_NAMES = new Set<string>(NPD_STREAMS as readonly string[]);
 
 type Props = { task: Task };
 
@@ -144,13 +143,7 @@ function ProjectChip({
 }: { groups: any[]; value: string | null; onChange: (pid: string | null) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const projects = (groups || []).filter((g: any) => {
-    if (g.project_type === "protocol") return false;
-    if (g.closed_at) return false;
-    // Hide auto-generated NPD stream subprojects (Продакт, Реклама, …) — they're service rows.
-    if (g.project_type === "npd" && g.parent_id && NPD_STREAM_NAMES.has(g.name)) return false;
-    return true;
-  });
+  const projects = filterRealProjects(groups as any[]);
   const filtered = projects.filter((g: any) =>
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase()),
   );
