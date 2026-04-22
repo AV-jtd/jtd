@@ -113,7 +113,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
           <ChevronRight className={cn(isCF ? "text-muted-foreground" : "text-red-600/70 dark:text-red-400/70", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         )}
         {isCF ? (
-          <ListChecksIcon className={cn("text-primary", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+          <ListChecks className={cn("text-primary", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         ) : (
           <Lock className={cn("text-red-600 dark:text-red-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         )}
