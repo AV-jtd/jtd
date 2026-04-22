@@ -45,6 +45,15 @@ export default function ExternalRowInternalLayer({ task }: Props) {
   );
   const isNpd = linkedProject?.project_type === "npd";
 
+  // Cross-functional protocols don't have an "external partner" — render subtasks
+  // as neutral team todos instead of the red "internal / not visible to partner" zone.
+  const protocolGroup = useMemo(
+    () => (groups as any[]).find((g) => g.id === task.group_id) ?? null,
+    [groups, task.group_id],
+  );
+  const isCrossFunctional =
+    (protocolGroup?.protocol_meta as any)?.template_system_key === "cross_functional";
+
   const setLinkedProject = (pid: string | null) => {
     const next = { ...meta };
     if (pid) next.linked_project_id = pid;
@@ -117,6 +126,7 @@ export default function ExternalRowInternalLayer({ task }: Props) {
         protocolId={task.group_id}
         parentExternalTaskId={task.id}
         defaultProjectId={linkedProjectId ?? null}
+        variant={isCrossFunctional ? "neutral" : "internal"}
         subtitle="Подзадачи — что нужно сделать команде по этому пункту. Автоматически наследуют выбранный выше контекст."
       />
     </div>
