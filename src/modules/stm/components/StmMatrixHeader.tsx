@@ -35,6 +35,9 @@ function StmMatrixHeaderInner({ stages }: { stages: StmStage[] }) {
           </div>
         );
       })}
+      <div className="min-w-[260px] w-[260px] shrink-0 px-3 py-3 border-l border-stm-border/40 bg-stm-card/95 backdrop-blur-md">
+        <span className="text-[10px] font-bold text-stm-fg/60 uppercase tracking-[0.15em]">Комментарий</span>
+      </div>
     </div>
   );
 }
