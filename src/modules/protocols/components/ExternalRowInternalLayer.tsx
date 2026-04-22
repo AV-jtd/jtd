@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Lock, FolderOpen, Layers, Users, X, Check } from "lucide-react";
+import { FolderOpen, Layers, Users, X, Check } from "lucide-react";
 import { useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,19 +80,15 @@ export default function ExternalRowInternalLayer({ task }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* ---------- Внутренний контекст ---------- */}
-      <section className="rounded-lg border-l-4 border-red-500/60 bg-red-500/5 p-3 dark:bg-red-500/[0.07]">
+      {/* ---------- Контекст ---------- */}
+      <section className="rounded-lg border border-border/60 bg-muted/30 p-3">
         <div className="mb-2 flex items-center gap-2">
-          <Lock className="h-3 w-3 text-red-600 dark:text-red-400" />
-          <h3 className="text-xs font-semibold text-red-700 dark:text-red-300">
-            Внутренний контекст этой строки
+          <h3 className="text-xs font-semibold text-foreground">
+            Контекст
           </h3>
-          <span className="ml-auto rounded-full bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-red-700 dark:text-red-300">
-            не уходит партнёру
-          </span>
         </div>
-        <p className="mb-2 text-[11px] text-red-700/70 dark:text-red-300/70">
-          Привязать к внутреннему проекту: задача автоматически появится на доске NPD/CRM,
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Привязка к внутреннему проекту: задача появится на доске NPD/CRM,
           участники проекта получат к ней доступ.
         </p>
 
@@ -116,12 +112,12 @@ export default function ExternalRowInternalLayer({ task }: Props) {
         </div>
       </section>
 
-      {/* ---------- Привязанные подзадачи (как было) ---------- */}
+      {/* ---------- Подзадачи с автопривязкой к контексту ---------- */}
       <ProtocolInternalSection
         protocolId={task.group_id}
         parentExternalTaskId={task.id}
         defaultProjectId={linkedProjectId ?? null}
-        subtitle="Привязать задачу — то, что нужно сделать команде по итогам этого пункта. Партнёр этого не видит."
+        subtitle="Подзадачи — что нужно сделать команде по этому пункту. Автоматически наследуют выбранный выше контекст."
       />
     </div>
   );
