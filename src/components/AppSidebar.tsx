@@ -3,8 +3,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useVisibleTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
 import { 
-  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen, FileText,
+  List, Star, CalendarDays, Users, Tag, Plus, Trash2, LogOut, ChevronDown, ChevronRight, UserPlus, Share2, Settings, GripVertical, UsersRound, Archive, BarChart3, Expand, Globe, Send, Clock, FolderOpen, FolderPlus, Download, Inbox, BookOpen, FileText, Building2,
 } from "lucide-react";
+
+import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 
 import SmartImportDialog from "@/components/SmartImportDialog";
 import { toast } from "sonner";
@@ -59,6 +61,12 @@ export default function AppSidebar({
   const { data: folderItems = [] } = useProjectFolderItems();
   const { addGroup, renameGroup, deleteGroup, updateGroupAppearance, addTag, renameTag, deleteTag, addGroupMember, addGroupMemberByEmail, removeGroupMember, grantTagAccess, reorderGroups, addProjectFolder, renameProjectFolder, deleteProjectFolder, moveProjectToFolder, updateFolderColor, addTagCategory, renameTagCategory, deleteTagCategory, updateTagCategory } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
+  const { data: myDeptId } = useMyDepartmentId();
+  const { data: deptTasks = [] } = useDepartmentTasks(myDeptId);
+  const deptInboxCount = useMemo(
+    () => (deptTasks as any[]).filter((t) => !t.is_completed && !t.assigned_to).length,
+    [deptTasks],
+  );
   const [newGroupName, setNewGroupName] = useState("");
   const [newSubgroupParentId, setNewSubgroupParentId] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
@@ -104,6 +112,9 @@ export default function AppSidebar({
     { id: "inbox", icon: Inbox, label: "Входящие" },
     { id: "myday", icon: Star, label: "Мой день" },
     { id: "assigned", icon: Users, label: "Делегированные" },
+    ...(myDeptId
+      ? [{ id: "my-department", icon: Building2, label: "Мой отдел", href: "/my-department", badge: deptInboxCount } as any]
+      : []),
     { id: "deferred", icon: Clock, label: "Отложенные" },
     { id: "subordinates", icon: UsersRound, label: "Команда" },
     { id: "community", icon: Globe, label: "Сообщество" },
