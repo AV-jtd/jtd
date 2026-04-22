@@ -35,6 +35,7 @@ const WikiDemo = lazy(() => import("./pages/WikiDemo"));
 const PublicReport = lazy(() => import("./pages/PublicReport"));
 const Protocols = lazy(() => import("./pages/Protocols"));
 const ProtocolDetail = lazy(() => import("./pages/ProtocolDetail"));
+const MyDepartment = lazy(() => import("./pages/MyDepartment"));
 
 // Sync onlineManager with browser online/offline events
 onlineManager.setEventListener((setOnline) => {
@@ -95,6 +96,7 @@ function AppContent() {
               <Route path="/npd/stm" element={<StmMatrix />} />
               <Route path="/protocols" element={<Protocols />} />
               <Route path="/protocols/:id" element={<ProtocolDetail />} />
+              <Route path="/my-department" element={<MyDepartment />} />
               <Route path="/wiki-demo" element={<WikiDemo />} />
               <Route path="/report" element={<PublicReport />} />
               <Route path="*" element={<NotFound />} />

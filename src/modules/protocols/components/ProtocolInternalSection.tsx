@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
-  Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
+  Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart, Building2, HardHat,
   ChevronDown, ChevronRight, Maximize2,
 } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
@@ -14,6 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { filterRealProjects } from "@/lib/projectFilters";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useContractors } from "@/hooks/useContractors";
 
 type Props = {
   protocolId: string;
@@ -76,7 +79,7 @@ export default function ProtocolInternalSection({
   }, [allTasks, protocolId, parentExternalTaskId]);
 
   const [title, setTitle] = useState("");
-  const [assignee, setAssignee] = useState<string | null>(null);
+  const [assignee, setAssignee] = useState<AssigneeSelection>({ kind: null, id: null });
   const [deadline, setDeadline] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
@@ -96,7 +99,9 @@ export default function ProtocolInternalSection({
     addTask.mutate({
       title: t,
       group_id: protocolId,
-      assigned_to: assignee || undefined,
+      assigned_to: assignee.kind === "user" ? (assignee.id || undefined) : undefined,
+      department_id: assignee.kind === "department" ? assignee.id : null,
+      contractor_id: assignee.kind === "contractor" ? assignee.id : null,
       deadline: deadline || undefined,
       protocol_scope: "internal",
       status_meta: meta,
@@ -119,7 +124,7 @@ export default function ProtocolInternalSection({
       },
     });
     setTitle("");
-    setAssignee(null);
+    setAssignee({ kind: null, id: null });
     setDeadline(null);
     if (!parentExternalTaskId) setProjectId(defaultProjectId ?? null);
   };
@@ -218,7 +223,7 @@ export default function ProtocolInternalSection({
               placeholder="Привязать задачу (Enter)…"
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
             />
-            <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
+            <AssigneePickerChip users={users} value={assignee} onChange={setAssignee} />
             <DeadlineChip value={deadline} onChange={setDeadline} />
             <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />
             <button
@@ -369,6 +374,52 @@ function InternalRow({
 }
 
 /* -------------------------- Chips -------------------------- */
+
+function AssigneePickerChip({
+  users, value, onChange,
+}: {
+  users: Profile[];
+  value: AssigneeSelection;
+  onChange: (sel: AssigneeSelection) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: departments = [] } = useDepartments();
+  const { data: contractors = [] } = useContractors();
+
+  let label = "Кому";
+  let Icon = User2;
+  if (value.kind === "user" && value.id) {
+    label = users.find((u) => u.id === value.id)?.display_name || "?";
+  } else if (value.kind === "department" && value.id) {
+    label = departments.find((d) => d.id === value.id)?.name || "Отдел";
+    Icon = Building2;
+  } else if (value.kind === "contractor" && value.id) {
+    label = contractors.find((c) => c.id === value.id)?.name || "Подрядчик";
+    Icon = HardHat;
+  }
+
+  return (
+    <AssigneePicker
+      users={users}
+      current={value}
+      onSelect={onChange}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <button
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-0.5 text-xs transition-colors hover:bg-muted",
+            value.id ? "text-foreground" : "text-muted-foreground",
+          )}
+          title={label}
+        >
+          <Icon className="h-3 w-3" />
+          <span className="max-w-[10rem] truncate">{label}</span>
+        </button>
+      }
+    />
+  );
+}
 
 function AssigneeChip({
   users, value, onChange, compact,
