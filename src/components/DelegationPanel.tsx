@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Building2, HardHat, Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Building2, HardHat, Plus, Trash2, Pencil, Check, X, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "@/hooks/useContractors";
+import { useAvailableUsers } from "@/hooks/useTasks";
 
 export default function DelegationPanel() {
   return (
