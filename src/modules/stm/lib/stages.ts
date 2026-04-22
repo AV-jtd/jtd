@@ -11,6 +11,8 @@ export interface StmStage {
   short: string;
   title: string;
   description: string;
+  /** If set, completing this stage marks the corresponding milestone as done. */
+  milestoneKey?: "approved" | "ordered";
 }
 
 export const STM_IN_STAGES: StmStage[] = [
@@ -20,12 +22,12 @@ export const STM_IN_STAGES: StmStage[] = [
   { key: "tasting_1",      short: "Дегу №1",    title: "Дегустация",               description: "Дегустация / приёмка качества" },
   { key: "calc_initial",   short: "Расчёт",     title: "Расчёт цены",              description: "Первичная калькуляция и оффер" },
   { key: "rework",         short: "Доработка",  title: "Доработка по ОС",          description: "Доработка по обратной связи клиента" },
-  { key: "approval",       short: "Утвержд.",   title: "Утверждение",              description: "Финальное согласование с сетью" },
+  { key: "approval",       short: "Утвержд.",   title: "Утверждение",              description: "Финальное согласование с сетью", milestoneKey: "approved" },
   { key: "branch_open",    short: "Ветка",      title: "Открытие ветки 1С",        description: "Заведение SKU в учётной системе" },
   { key: "production_run", short: "Пр-во",      title: "Производство",             description: "Запуск производственной партии" },
   { key: "calc_final",     short: "Цена fin",   title: "Финальная цена",           description: "Финальная цена с учётом всех затрат" },
   { key: "label_design",   short: "Макет/ШК",   title: "Макет, ШК, этикетка",      description: "Дизайн упаковки и присвоение штрихкода" },
-  { key: "order_release",  short: "Заказ",      title: "Отгрузка / релиз",         description: "Первая отгрузка по заказу" },
+  { key: "order_release",  short: "Заказ",      title: "Отгрузка / релиз",         description: "Первая отгрузка по заказу", milestoneKey: "ordered" },
 ];
 
 export const STM_OUT_STAGES: StmStage[] = [
