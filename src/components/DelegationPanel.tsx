@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useContractors, useCreateContractor, useUpdateContractor, useDeleteContractor } from "@/hooks/useContractors";
 import { useAvailableUsers } from "@/hooks/useTasks";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function DelegationPanel() {
   return (
@@ -19,6 +21,18 @@ export default function DelegationPanel() {
 function DepartmentsSection() {
   const { data: departments = [] } = useDepartments();
   const { data: users = [] } = useAvailableUsers();
+  const { data: deptMemberships = [] } = useQuery<{ id: string; department_id: string | null }[]>({
+    queryKey: ["profiles", "department-membership"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, department_id")
+        .not("department_id", "is", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
   const create = useCreateDepartment();
   const update = useUpdateDepartment();
   const remove = useDeleteDepartment();
@@ -30,6 +44,13 @@ function DepartmentsSection() {
     if (!name.trim()) return;
     await create.mutateAsync({ name });
     setName("");
+  };
+
+  const usersInDept = (deptId: string) => {
+    const memberIds = new Set(
+      deptMemberships.filter((m) => m.department_id === deptId).map((m) => m.id),
+    );
+    return users.filter((u) => memberIds.has(u.id));
   };
 
   return (
