@@ -18,6 +18,7 @@ export default function ProtocolsList() {
   const navigate = useNavigate();
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: tasks = [] } = useTasks();
+  const { deleteGroup } = useTaskMutations();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [createOpen, setCreateOpen] = useState(false);
@@ -161,6 +162,12 @@ export default function ProtocolsList() {
               key={p.group.id}
               data={p}
               onOpen={() => navigate(`/protocols/${p.group.id}`)}
+              onDelete={() => {
+                deleteGroup.mutate(p.group.id, {
+                  onSuccess: () => toast.success(`Протокол «${p.group.name}» удалён`),
+                  onError: (e: any) => toast.error(e?.message ?? "Не удалось удалить протокол"),
+                });
+              }}
             />
           ))}
         </div>
@@ -172,6 +179,7 @@ export default function ProtocolsList() {
 function ProtocolRow({
   data,
   onOpen,
+  onDelete,
 }: {
   data: {
     group: ReturnType<typeof useTaskGroups>["data"] extends (infer T)[] | undefined ? T : never;
@@ -184,19 +192,20 @@ function ProtocolRow({
     draftCount: number;
   };
   onOpen: () => void;
+  onDelete: () => void;
 }) {
   const { group, total, completed, overdue, active, isArchived, isDraft, draftCount } = data;
   const created = format(parseISO(group.created_at), "d MMMM yyyy", { locale: ru });
 
   return (
-    <button
-      onClick={onOpen}
+    <div
       className={cn(
         "group flex w-full items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-primary/40 hover:shadow-sm",
         isDraft && "border-amber-400/50 bg-amber-50/30 dark:border-amber-500/40 dark:bg-amber-950/20",
         isArchived && "opacity-60",
       )}
     >
+     <button onClick={onOpen} className="flex flex-1 items-center gap-4 text-left min-w-0">
       {group.logo_url ? (
         <img
           src={group.logo_url}
@@ -238,7 +247,21 @@ function ProtocolRow({
         )}
         <span className="hidden text-muted-foreground md:inline">всего {total}</span>
       </div>
-    </button>
+     </button>
+      <ConfirmDelete
+        title={`Удалить протокол «${group.name}»?`}
+        description="Все задачи и связанные данные протокола будут удалены безвозвратно."
+        onConfirm={onDelete}
+      >
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+          title="Удалить протокол"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </ConfirmDelete>
+    </div>
   );
 }
 
