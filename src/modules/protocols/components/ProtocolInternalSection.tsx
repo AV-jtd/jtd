@@ -468,6 +468,24 @@ function ProjectChip({
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase()),
   );
   const current = currentLabel || projects.find((g: any) => g.id === value)?.name;
+
+  // Recently selected project (per-user, persisted in localStorage)
+  const [recentId, setRecentId] = useState<string | null>(() => {
+    try { return localStorage.getItem("protocol:lastProjectId"); } catch { return null; }
+  });
+  const recent = recentId && recentId !== value
+    ? projects.find((g: any) => g.id === recentId)
+    : null;
+
+  const pick = (pid: string | null) => {
+    if (pid) {
+      try { localStorage.setItem("protocol:lastProjectId", pid); } catch { /* noop */ }
+      setRecentId(pid);
+    }
+    onChange(pid);
+    setOpen(false);
+  };
+
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>
@@ -494,10 +512,27 @@ function ProjectChip({
               Без привязки
             </button>
           )}
+          {recent && !search.trim() && (
+            <>
+              <div className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                Недавнее
+              </div>
+              <button
+                onClick={() => pick(recent.id)}
+                className={cn(
+                  "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                  recent.id === value && "bg-primary/10 text-primary",
+                )}
+              >
+                {recent.icon && recent.icon !== "list" ? `${recent.icon} ` : ""}{recent.name}
+              </button>
+              <div className="my-1 border-t border-border/60" />
+            </>
+          )}
           {filtered.map((g: any) => (
             <button
               key={g.id}
-              onClick={() => { onChange(g.id); setOpen(false); }}
+              onClick={() => pick(g.id)}
               className={cn(
                 "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted",
                 g.id === value && "bg-primary/10 text-primary",
