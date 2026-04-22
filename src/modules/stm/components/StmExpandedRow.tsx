@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ interface Props {
   project: StmProject;
   stages: StmStage[];
   onOpenGantt?: (groupId: string) => void;
+  activeStageKey?: string | null;
+  onActiveStageChange?: (stageKey: string | null) => void;
 }
 
 const RU_DATE = (iso?: string | null) =>
@@ -46,9 +48,11 @@ function initialsFromName(name?: string | null): string {
  * - 12-column grid: each stage with index, status dot, title, assignee initials, due date
  * - clicking a stage cell expands its TaskItem inline (full edit: steps, comments, deadline, assignee)
  */
-function StmExpandedRowInner({ project, stages, onOpenGantt }: Props) {
+function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: controlledStageKey, onActiveStageChange }: Props) {
   const { group, meta, stageTasks, currentStageKey, progress } = project;
-  const [activeStageKey, setActiveStageKey] = useState<string | null>(currentStageKey);
+  // Active stage is controlled via URL (?stage=...). Fall back to current stage when nothing is set.
+  const activeStageKey = controlledStageKey ?? currentStageKey;
+  const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
 
   // ---- Profiles cache for assignee initials ----
   const assigneeIds = useMemo(() => {
@@ -197,7 +201,7 @@ function StmExpandedRowInner({ project, stages, onOpenGantt }: Props) {
               <button
                 key={stage.key}
                 type="button"
-                onClick={() => task && setActiveStageKey(prev => prev === stage.key ? null : stage.key)}
+                onClick={() => task && setActiveStageKey(activeStageKey === stage.key ? null : stage.key)}
                 disabled={!task}
                 className={cn(
                   "group relative p-3 text-left space-y-2.5 transition-all min-h-[112px]",

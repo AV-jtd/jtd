@@ -25,13 +25,31 @@ export default function StmMatrixView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const expandedSku = searchParams.get("sku");
+  const activeStage = searchParams.get("stage");
 
   const toggleExpand = (id: string) => {
     setSearchParams(
       prev => {
         const next = new URLSearchParams(prev);
-        if (next.get("sku") === id) next.delete("sku");
-        else next.set("sku", id);
+        if (next.get("sku") === id) {
+          next.delete("sku");
+          next.delete("stage");
+        } else {
+          next.set("sku", id);
+          next.delete("stage");
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const setActiveStage = (stageKey: string | null) => {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (!stageKey) next.delete("stage");
+        else next.set("stage", stageKey);
         return next;
       },
       { replace: true },
@@ -196,6 +214,8 @@ export default function StmMatrixView() {
                     expanded={expandedSku === p.group.id}
                     onToggleExpand={toggleExpand}
                     onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
+                    activeStageKey={expandedSku === p.group.id ? activeStage : null}
+                    onActiveStageChange={setActiveStage}
                   />
                 ))}
               </div>
