@@ -121,6 +121,7 @@ export default function AdminApproval() {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
+                    {renderDeptSelect(u)}
                     <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
                       <UserCheck className="h-3.5 w-3.5" />
                       Одобрить
@@ -146,6 +147,7 @@ export default function AdminApproval() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {renderDeptSelect(u)}
                   <Badge variant="secondary" className="text-xs">Активен</Badge>
                   <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
                     <UserX className="h-3.5 w-3.5" />
