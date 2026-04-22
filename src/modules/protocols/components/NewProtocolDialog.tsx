@@ -44,7 +44,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   const [name, setName] = useState("");
   const [meetingDate, setMeetingDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState("");
-  const [carryOver, setCarryOver] = useState(true);
+  const [selectedPrevIds, setSelectedPrevIds] = useState<string[]>([]);
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
 
@@ -57,7 +57,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         setName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
         setDescription("");
-        setCarryOver(true);
+        setSelectedPrevIds([]);
       }, 200);
     }
   }, [open]);
@@ -71,46 +71,58 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   }, [selected, meetingDate, name]);
 
   // For cross_functional — find the most recent previous protocol of same template (owned by user)
-  // and count its open (uncompleted) tasks. Used both for the checkbox label and the carry-over action.
-  const prevProtocolQuery = useQuery({
-    queryKey: ["prev-cross-functional", user?.id],
+  // and count its open (uncompleted) tasks per protocol. Used to let the user pick which past
+  // meeting(s) to carry open commitments from.
+  const prevProtocolsQuery = useQuery({
+    queryKey: ["prev-cross-functional-list", user?.id],
     enabled: !!user && isCrossFunctional && step === "details",
     staleTime: 60 * 1000,
     queryFn: async () => {
-      if (!user) return null;
-      // Find most recent published cross_functional protocol of this user
+      if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number }>;
+      // Find recent cross_functional protocols of this user
       const { data: groups, error: gErr } = await supabase
         .from("task_groups")
         .select("id, name, created_at, protocol_meta")
         .eq("user_id", user.id)
         .eq("project_type", "protocol")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
       if (gErr) throw gErr;
-      // Filter on client side: cross_functional templates use icon 🔀 + name marker.
-      // More robust: check protocol_meta for template_key if present, otherwise fall back to name prefix.
       const candidates = (groups || []).filter((g: any) => {
         const meta = g.protocol_meta || {};
         if (meta.template_system_key === "cross_functional") return true;
         return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
-      });
-      const prev = candidates[0];
-      if (!prev) return null;
+      }).slice(0, 10);
+      if (candidates.length === 0) return [];
+      const ids = candidates.map((g: any) => g.id);
       const { data: openTasks, error: tErr } = await supabase
         .from("tasks")
-        .select("id, title, assigned_to, deadline, description, priority, is_important")
-        .eq("group_id", prev.id)
+        .select("id, group_id")
+        .in("group_id", ids)
         .eq("is_completed", false);
       if (tErr) throw tErr;
-      return {
-        id: prev.id as string,
-        name: prev.name as string,
-        openTasks: openTasks || [],
-      };
+      const counts = new Map<string, number>();
+      (openTasks || []).forEach((t: any) => {
+        counts.set(t.group_id, (counts.get(t.group_id) || 0) + 1);
+      });
+      return candidates.map((g: any) => ({
+        id: g.id as string,
+        name: g.name as string,
+        created_at: g.created_at as string,
+        openCount: counts.get(g.id) || 0,
+      }));
     },
   });
 
-  const openCount = prevProtocolQuery.data?.openTasks.length ?? 0;
+  const prevProtocols = prevProtocolsQuery.data ?? [];
+  // Auto-select the most recent protocol that has open tasks (once data loads)
+  useEffect(() => {
+    if (!isCrossFunctional) return;
+    if (selectedPrevIds.length > 0) return;
+    const firstWithOpen = prevProtocols.find((p) => p.openCount > 0);
+    if (firstWithOpen) setSelectedPrevIds([firstWithOpen.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prevProtocolsQuery.data, isCrossFunctional]);
 
   const createProtocol = useMutation({
     mutationFn: async () => {
@@ -145,27 +157,36 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // 2. For cross_functional — optionally clone open tasks from last protocol as drafts
-      if (isCF && carryOver && prevProtocolQuery.data?.openTasks.length) {
-        const tasksToInsert = prevProtocolQuery.data.openTasks.map((t: any, idx: number) => ({
-          title: t.title,
-          description: t.description || null,
-          assigned_to: t.assigned_to || null,
-          deadline: t.deadline || null,
-          priority: t.priority ?? null,
-          is_important: !!t.is_important,
-          group_id: (group as any).id,
-          user_id: user.id,
-          is_draft: true,
-          is_completed: false,
-          position: idx,
-          source_protocol_id: prevProtocolQuery.data.id,
-        }));
-        const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
-        if (insErr) {
-          // Don't fail the whole creation — just warn
-          console.error("[NewProtocolDialog] carry-over insert failed", insErr);
-          toast.warning("Протокол создан, но не удалось перенести часть поручений");
+      // 2. For cross_functional — optionally clone open tasks from selected past protocols as drafts
+      if (isCF && selectedPrevIds.length > 0) {
+        const { data: openTasks, error: tErr } = await supabase
+          .from("tasks")
+          .select("id, title, description, assigned_to, deadline, priority, is_important, group_id")
+          .in("group_id", selectedPrevIds)
+          .eq("is_completed", false);
+        if (tErr) {
+          console.error("[NewProtocolDialog] failed to fetch open tasks", tErr);
+          toast.warning("Протокол создан, но не удалось перенести поручения");
+        } else if (openTasks && openTasks.length > 0) {
+          const tasksToInsert = openTasks.map((t: any, idx: number) => ({
+            title: t.title,
+            description: t.description || null,
+            assigned_to: t.assigned_to || null,
+            deadline: t.deadline || null,
+            priority: t.priority ?? null,
+            is_important: !!t.is_important,
+            group_id: (group as any).id,
+            user_id: user.id,
+            is_draft: true,
+            is_completed: false,
+            position: idx,
+            source_protocol_id: t.group_id,
+          }));
+          const { error: insErr } = await supabase.from("tasks").insert(tasksToInsert as any);
+          if (insErr) {
+            console.error("[NewProtocolDialog] carry-over insert failed", insErr);
+            toast.warning("Протокол создан, но не удалось перенести часть поручений");
+          }
         }
       }
 
@@ -307,38 +328,83 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
               </div>
 
               {isCrossFunctional && (
-                <label
-                  htmlFor="carry-over"
-                  className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
-                    openCount > 0
-                      ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
-                      : "border-border bg-muted/20",
-                  )}
-                >
-                  <Checkbox
-                    id="carry-over"
-                    checked={carryOver && openCount > 0}
-                    disabled={openCount === 0}
-                    onCheckedChange={(v) => setCarryOver(!!v)}
-                    className="mt-0.5"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Repeat className="h-3.5 w-3.5 text-primary" />
-                      Подтянуть открытые поручения с прошлой встречи
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {prevProtocolQuery.isLoading
-                        ? "Ищем последний кросс-функциональный протокол…"
-                        : openCount > 0
-                          ? `Найдено ${openCount} ${
-                              openCount === 1 ? "незакрытая задача" : openCount < 5 ? "незакрытые задачи" : "незакрытых задач"
-                            } из «${prevProtocolQuery.data?.name}». Они будут добавлены как черновики.`
-                          : "Открытых поручений с прошлой встречи не найдено."}
-                    </div>
+                <div className="rounded-md border border-border bg-muted/20 p-3">
+                  <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <Repeat className="h-3.5 w-3.5 text-primary" />
+                    Подтянуть открытые поручения с прошлых встреч
                   </div>
-                </label>
+                  {prevProtocolsQuery.isLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Ищем кросс-функциональные протоколы…
+                    </div>
+                  ) : prevProtocols.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Прошлых кросс-функциональных протоколов не найдено.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>Выберите встречи, из которых перенести незакрытые задачи (как черновики)</span>
+                        {selectedPrevIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPrevIds([])}
+                            className="text-primary hover:underline"
+                          >
+                            Снять все
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                        {prevProtocols.map((p) => {
+                          const checked = selectedPrevIds.includes(p.id);
+                          const disabled = p.openCount === 0;
+                          return (
+                            <label
+                              key={p.id}
+                              htmlFor={`prev-${p.id}`}
+                              className={cn(
+                                "flex items-center gap-2 rounded border px-2 py-1.5 text-xs transition-colors",
+                                disabled
+                                  ? "cursor-not-allowed border-transparent text-muted-foreground/60"
+                                  : checked
+                                    ? "cursor-pointer border-primary/40 bg-primary/5"
+                                    : "cursor-pointer border-border hover:bg-muted/40",
+                              )}
+                            >
+                              <Checkbox
+                                id={`prev-${p.id}`}
+                                checked={checked}
+                                disabled={disabled}
+                                onCheckedChange={(v) => {
+                                  setSelectedPrevIds((prev) =>
+                                    v ? [...prev, p.id] : prev.filter((x) => x !== p.id),
+                                  );
+                                }}
+                              />
+                              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                                {p.name}
+                              </span>
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                {format(new Date(p.created_at), "dd.MM.yyyy")}
+                              </span>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                  p.openCount > 0
+                                    ? "bg-primary/15 text-primary"
+                                    : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {p.openCount} откр.
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
 
               {showAxes.length > 0 && (
