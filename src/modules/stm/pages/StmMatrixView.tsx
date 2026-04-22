@@ -192,6 +192,29 @@ export default function StmMatrixView() {
             </select>
           </div>
 
+          {groupBy !== "none" && grouped.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCollapsedGroups(new Set(grouped.map(g => g.key)))}
+                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                title="Свернуть все группы"
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5 mr-1" /> Свернуть всё
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCollapsedGroups(new Set())}
+                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                title="Развернуть все группы"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5 mr-1" /> Развернуть всё
+              </Button>
+            </div>
+          )}
+
           <Button
             size="sm"
             variant="outline"
