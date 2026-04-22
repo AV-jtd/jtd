@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTaskGroups, useTasks } from "@/hooks/useTasks";
-import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, FileEdit } from "lucide-react";
+import { useTaskGroups, useTasks, useTaskMutations } from "@/hooks/useTasks";
+import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, FileEdit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import NewProtocolDialog from "@/modules/protocols/components/NewProtocolDialog";
 import UnifiedImportDialog from "@/modules/protocols/components/UnifiedImportDialog";
 import { Sparkles } from "lucide-react";
+import ConfirmDelete from "@/components/ConfirmDelete";
+import { toast } from "sonner";
 
 type StatusFilter = "all" | "active" | "archived";
 
