@@ -101,15 +101,28 @@ export default function ProtocolDetailPage() {
           </div>
         ) : (
           <>
-            <ProtocolHeader
-              protocol={protocol as any}
-              isDraft={isDraft}
-              internalAttendeeIds={Array.from(new Set(
-                tasks
-                  .filter((t) => t.group_id === id && t.assigned_to)
-                  .map((t) => t.assigned_to as string)
-              ))}
-            />
+            {isCrossFunctional ? (
+              <CrossFunctionalHeader
+                protocol={protocol as any}
+                isDraft={isDraft}
+                attendeeIds={Array.from(new Set(
+                  tasks
+                    .filter((t) => t.group_id === id && t.assigned_to)
+                    .map((t) => t.assigned_to as string)
+                ))}
+                profiles={profiles}
+              />
+            ) : (
+              <ProtocolHeader
+                protocol={protocol as any}
+                isDraft={isDraft}
+                internalAttendeeIds={Array.from(new Set(
+                  tasks
+                    .filter((t) => t.group_id === id && t.assigned_to)
+                    .map((t) => t.assigned_to as string)
+                ))}
+              />
+            )}
 
             {isDraft && (
               <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
@@ -172,16 +185,18 @@ export default function ProtocolDetailPage() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreviewOpen(true)}
-                    className="h-8 gap-1.5 px-2"
-                    aria-label="Превью"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Превью</span>
-                  </Button>
+                  {!isCrossFunctional && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewOpen(true)}
+                      className="h-8 gap-1.5 px-2"
+                      aria-label="Превью"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Превью</span>
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={() => publishMut.mutate(protocol.id)}
@@ -214,24 +229,36 @@ export default function ProtocolDetailPage() {
               </div>
             )}
 
-            <ProtocolSummary
-              protocolId={protocol.id}
-              protocolName={protocol.name}
-              protocolMeta={(protocol as any).protocol_meta}
-            />
+            {isCrossFunctional ? (
+              // Cross-functional is an internal ritual — strip partner-side machinery.
+              // Show ONLY the commitments list. No summary, no preview, no CRM report, no partner table.
+              <ProtocolInternalSection
+                protocolId={protocol.id}
+                variant="cross_functional"
+                subtitle="Поручения и переносы из прошлых встреч. Один владелец, один срок — всё, что нужно для регулярки."
+              />
+            ) : (
+              <>
+                <ProtocolSummary
+                  protocolId={protocol.id}
+                  protocolName={protocol.name}
+                  protocolMeta={(protocol as any).protocol_meta}
+                />
 
-            <ProtocolTableView protocolId={protocol.id} />
+                <ProtocolTableView protocolId={protocol.id} />
 
-            {/* 🔴 Internal section (own team) + CRM report placeholder */}
-            <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
-              <ProtocolInternalSection protocolId={protocol.id} />
-              <CrmReportPlaceholder />
-            </div>
+                {/* 🔴 Internal section (own team) + CRM report placeholder */}
+                <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+                  <ProtocolInternalSection protocolId={protocol.id} />
+                  <CrmReportPlaceholder />
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
 
-      {protocol && (
+      {protocol && !isCrossFunctional && (
         <ProtocolPreviewDialog
           protocolId={protocol.id}
           open={previewOpen}
@@ -239,5 +266,55 @@ export default function ProtocolDetailPage() {
         />
       )}
     </ModuleLayout>
+  );
+}
+
+/* ---------------- CrossFunctionalHeader ---------------- */
+
+interface CFHeaderProps {
+  protocol: { id: string; name: string; icon: string | null; color: string | null; protocol_meta?: any };
+  isDraft: boolean;
+  attendeeIds: string[];
+  profiles: Array<{ id: string; display_name: string | null; email: string | null }>;
+}
+
+function CrossFunctionalHeader({ protocol, isDraft, attendeeIds, profiles }: CFHeaderProps) {
+  const meta = protocol.protocol_meta ?? {};
+  const dateStr = meta.meeting_date
+    ? format(parseISO(meta.meeting_date), "d MMMM yyyy", { locale: ru })
+    : null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="min-w-0 break-words text-xl font-semibold leading-tight text-foreground sm:text-2xl">
+          {protocol.name}
+        </h1>
+        {isDraft && (
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            Черновик
+          </span>
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {dateStr && (
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarIcon className="h-3.5 w-3.5" />
+            {dateStr}
+          </span>
+        )}
+        {attendeeIds.length > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            {attendeeIds
+              .map((uid) => {
+                const p = profiles.find((u) => u.id === uid);
+                return p?.display_name || p?.email || "Участник";
+              })
+              .join(", ")}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
