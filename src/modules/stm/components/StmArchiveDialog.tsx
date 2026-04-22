@@ -48,12 +48,30 @@ export default function StmArchiveDialog({ open, onOpenChange, groupId, groupNam
         .eq("id", groupId);
       if (error) throw error;
     },
+    onMutate: async () => {
+      // Optimistic patch: row updates instantly, no waiting for refetch.
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const patch = unarchive
+        ? { closed_at: null, archive_comment: null }
+        : { closed_at: new Date().toISOString(), archive_comment: comment.trim() };
+      const snapshots: Array<[readonly unknown[], unknown]> = [];
+      qc.getQueriesData<any[]>({ queryKey: ["task_groups"] }).forEach(([key, data]) => {
+        if (!Array.isArray(data)) return;
+        snapshots.push([key, data]);
+        qc.setQueryData(key, data.map((g: any) => (g.id === groupId ? { ...g, ...patch } : g)));
+      });
+      return { snapshots };
+    },
+    onError: (e: any, _v, ctx: any) => {
+      ctx?.snapshots?.forEach(([key, data]: [readonly unknown[], unknown]) =>
+        qc.setQueryData(key, data),
+      );
+      toast.error(e.message || "Не удалось сохранить");
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
       toast.success(unarchive ? "SKU восстановлен" : "SKU отправлен в архив");
       onOpenChange(false);
     },
-    onError: (e: any) => toast.error(e.message || "Не удалось сохранить"),
   });
 
   const canSubmit = unarchive ? true : comment.trim().length > 0;
