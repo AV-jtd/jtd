@@ -517,7 +517,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                         </div>
 
                         {/* Two side cards: our side + partner side */}
-                        <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className={`mt-4 grid gap-3 ${isCrossFunctional ? "grid-cols-1" : "grid-cols-2"}`}>
                           {/* Our side */}
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             <img
@@ -528,7 +528,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-[12px] font-semibold text-neutral-900">
-                                {ourSideName}
+                                {isCrossFunctional ? "Участники встречи" : ourSideName}
                               </div>
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {internalAttendeeIds.length === 0 ? (
@@ -547,7 +547,8 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             </div>
                           </div>
 
-                          {/* Partner side */}
+                          {/* Partner side — hidden for cross-functional (internal meeting) */}
+                          {!isCrossFunctional && (
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             {clientLogoUrl ? (
                               <img
@@ -585,6 +586,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                               </div>
                             </div>
                           </div>
+                          )}
                         </div>
                       </>
                     );
