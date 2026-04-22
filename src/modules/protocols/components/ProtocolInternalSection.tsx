@@ -3,7 +3,7 @@ import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
-  ChevronDown, ChevronRight, Maximize2, ListChecks,
+  ChevronDown, ChevronRight, Maximize2,
 } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -22,11 +22,6 @@ type Props = {
   defaultProjectId?: string | null;
   /** Optional subtitle shown under the header */
   subtitle?: string;
-  /**
-   * Visual variant. `cross_functional` neutralizes the "не уходит партнёру" framing —
-   * for an internal ritual that line is meaningless and confusing.
-   */
-  variant?: "default" | "cross_functional";
 };
 
 /**
@@ -36,14 +31,13 @@ type Props = {
  *  - на уровне протокола (под таблицей) — основной режим
  *  - внутри раскрытой внешней задачи (compact) — мини-триаж
  */
-export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle, variant = "default" }: Props) {
+export default function ProtocolInternalSection({ protocolId, parentExternalTaskId, defaultProjectId, subtitle }: Props) {
   // Pass protocolId so draft (internal) tasks are visible inside the protocol page.
   const { data: allTasks = [] } = useTasks(protocolId);
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
   const { addTask, updateTask, toggleTask, deleteTask } = useTaskMutations();
   const isMobile = useIsMobile();
-  const isCF = variant === "cross_functional";
 
   const internalTasks = useMemo(() => {
     return allTasks.filter((t) => {
@@ -62,11 +56,10 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   const [deadline, setDeadline] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
-  // For CF the internal section IS the page — open the task list by default so users see carry-overs.
-  const [listOpen, setListOpen] = useState(isCF);
+  const [listOpen, setListOpen] = useState(false);
   // Whole section collapsed by default on mobile (or when nested in expanded external row)
   // to reduce visual noise on small screens.
-  const [sectionOpen, setSectionOpen] = useState(!isMobile || !!parentExternalTaskId || isCF);
+  const [sectionOpen, setSectionOpen] = useState(!isMobile || !!parentExternalTaskId);
 
   const handleCreate = () => {
     const t = title.trim();
@@ -95,9 +88,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
   return (
     <section
       className={cn(
-        isCF
-          ? "rounded-lg border border-border bg-card"
-          : "rounded-lg border-l-4 border-red-500/60 bg-red-500/5 dark:bg-red-500/[0.07]",
+        "rounded-lg border-l-4 border-red-500/60 bg-red-500/5 dark:bg-red-500/[0.07]",
         compact ? "p-3" : "p-4 sm:p-5",
       )}
     >
@@ -108,60 +99,43 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
         className="flex w-full items-center gap-2 text-left"
       >
         {sectionOpen ? (
-          <ChevronDown className={cn(isCF ? "text-muted-foreground" : "text-red-600/70 dark:text-red-400/70", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+          <ChevronDown className={cn("text-red-600/70 dark:text-red-400/70", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         ) : (
-          <ChevronRight className={cn(isCF ? "text-muted-foreground" : "text-red-600/70 dark:text-red-400/70", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+          <ChevronRight className={cn("text-red-600/70 dark:text-red-400/70", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
         )}
-        {isCF ? (
-          <ListChecks className={cn("text-primary", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-        ) : (
-          <Lock className={cn("text-red-600 dark:text-red-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-        )}
-        <h3 className={cn(
-          "font-semibold",
-          isCF ? "text-foreground" : "text-red-700 dark:text-red-300",
-          compact ? "text-xs" : "text-sm",
-        )}>
-          {isCF ? "Поручения по итогам встречи" : "Внутренние задачи"}
+        <Lock className={cn("text-red-600 dark:text-red-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+        <h3 className={cn("font-semibold text-red-700 dark:text-red-300", compact ? "text-xs" : "text-sm")}>
+          Внутренние задачи
         </h3>
         {internalTasks.length > 0 && (
           <span className={cn(
-            isCF
-              ? "rounded-full bg-primary/15 font-semibold tabular-nums text-primary"
-              : "rounded-full bg-red-500/15 font-semibold tabular-nums text-red-700 dark:text-red-300",
+            "rounded-full bg-red-500/15 font-semibold tabular-nums text-red-700 dark:text-red-300",
             compact ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-[11px]",
           )}>
             {internalTasks.length}
           </span>
         )}
-        {!isCF && (
-          <span className={cn(
-            "ml-auto rounded-full bg-red-500/10 font-medium uppercase tracking-wide text-red-700 dark:text-red-300",
-            compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]",
-          )}>
-            не уходит партнёру
-          </span>
-        )}
+        <span className={cn(
+          "ml-auto rounded-full bg-red-500/10 font-medium uppercase tracking-wide text-red-700 dark:text-red-300",
+          compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]",
+        )}>
+          не уходит партнёру
+        </span>
       </button>
 
       {sectionOpen && (
         <>
           {/* Subtitle */}
           <p className={cn(
-            isCF ? "mb-3 mt-1 text-muted-foreground" : "mb-3 mt-1 text-red-700/70 dark:text-red-300/70",
+            "mb-3 mt-1 text-red-700/70 dark:text-red-300/70",
             compact ? "text-[11px]" : "text-xs",
           )}>
-            {subtitle ?? (isCF
-              ? "Что команда обязалась сделать по итогам встречи. Один владелец, один срок."
-              : "Привязать задачу — то, что нужно сделать команде по итогам встречи. Партнёр этого не видит.")}
+            {subtitle ?? "Привязать задачу — то, что нужно сделать команде по итогам встречи. Партнёр этого не видит."}
           </p>
 
           {/* Quick create — unified across modes */}
-          <div className={cn(
-            "flex flex-wrap items-center gap-2 rounded-md bg-card px-2 py-1.5",
-            isCF ? "border border-border" : "border border-red-500/20",
-          )}>
-            <Plus className={cn("h-3.5 w-3.5 shrink-0", isCF ? "text-muted-foreground" : "text-red-500/70")} />
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-red-500/20 bg-card px-2 py-1.5">
+            <Plus className="h-3.5 w-3.5 shrink-0 text-red-500/70" />
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -171,7 +145,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
                   handleCreate();
                 }
               }}
-              placeholder={isCF ? "Новое поручение (Enter)…" : "Привязать задачу (Enter)…"}
+              placeholder="Привязать задачу (Enter)…"
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
             />
             <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
@@ -180,12 +154,7 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
             <button
               onClick={handleCreate}
               disabled={!title.trim()}
-              className={cn(
-                "rounded px-2 py-1 text-xs font-medium transition disabled:opacity-40",
-                isCF
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-red-500 text-white hover:bg-red-600",
-              )}
+              className="rounded bg-red-500 px-2 py-1 text-xs font-medium text-white transition hover:bg-red-600 disabled:opacity-40"
             >
               Добавить
             </button>
@@ -196,15 +165,10 @@ export default function ProtocolInternalSection({ protocolId, parentExternalTask
             <div className="mt-2">
               <button
                 onClick={() => setListOpen((v) => !v)}
-                className={cn(
-                  "flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] font-medium transition-colors",
-                  isCF
-                    ? "text-muted-foreground hover:bg-muted/50"
-                    : "text-red-700/80 hover:bg-red-500/5 dark:text-red-300/80",
-                )}
+                className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] font-medium text-red-700/80 transition-colors hover:bg-red-500/5 dark:text-red-300/80"
               >
                 {listOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {isCF ? "Поручения" : "Привязанные задачи"} · {internalTasks.length}
+                Привязанные задачи · {internalTasks.length}
               </button>
               {listOpen && (
                 <ul className="mt-1 space-y-1">
