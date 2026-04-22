@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getStmStages, type StmFlow, type StmMeta } from "../lib/stages";
+import { invalidateStmCaches } from "../lib/stmCache";
 
 interface Props {
   open: boolean;
