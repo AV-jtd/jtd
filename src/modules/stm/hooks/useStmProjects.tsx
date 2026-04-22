@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { getStmStages, type StmFlow, type StmMeta, type StmStage } from "../lib/stages";
+import { STM_KEYS, invalidateStmCaches, patchStageTaskInCache } from "../lib/stmCache";
 import { toast } from "sonner";
 
 /** Default cadence between stages (in days) when no real plan is set. */
@@ -22,7 +23,7 @@ const DEFAULT_STAGE_GAP_DAYS = 5;
 function useStmStageTasks() {
   const { user, loading } = useAuth();
   return useQuery({
-    queryKey: ["stm-stage-tasks", user?.id],
+    queryKey: STM_KEYS.stageTasks(user?.id),
     queryFn: async () => {
       const PAGE = 1000;
       const all: Task[] = [];
