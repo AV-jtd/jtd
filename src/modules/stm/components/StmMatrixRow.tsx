@@ -74,31 +74,31 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
   return (
     <>
       <div className={cn(
-        "flex border-b border-stm-border/30 transition-colors",
-        expanded ? "bg-stm-glass/30" : "hover:bg-stm-glass/20",
+        "flex border-b border-border transition-colors",
+        expanded ? "bg-muted/40" : "hover:bg-muted/30",
         isArchived && "opacity-60",
       )}>
         {/* Sticky SKU column */}
         <button
           type="button"
           onClick={() => onToggleExpand?.(group.id)}
-          className="sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 px-3 py-2.5 text-left bg-stm-card/95 backdrop-blur-md border-r border-stm-border/40 hover:bg-stm-card transition-colors"
+          className="sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 px-3 py-2.5 text-left bg-card border-r border-border hover:bg-muted/40 transition-colors"
           aria-expanded={!!expanded}
         >
           <div className="flex items-center gap-2">
             {expanded
-              ? <ChevronDown className="h-3.5 w-3.5 text-stm-fg/60 shrink-0" />
-              : <ChevronRight className="h-3.5 w-3.5 text-stm-fg/40 shrink-0" />}
+              ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />}
             <span className="text-base">{group.icon || "🏷️"}</span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 min-w-0">
                 <div className={cn(
-                  "text-sm font-medium text-stm-fg truncate",
-                  isArchived && "line-through decoration-stm-fg/40",
+                  "text-sm font-semibold text-foreground truncate",
+                  isArchived && "line-through decoration-muted-foreground",
                 )}>{group.name}</div>
                 {isArchived && (
                   <span
-                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-stm-warn/15 border border-stm-warn/40 text-[9px] font-semibold uppercase tracking-wider text-stm-warn"
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/15 border border-warning/40 text-[9px] font-semibold uppercase tracking-wider text-warning"
                     title={archiveComment || "Архив"}
                   >
                     <Archive className="h-2.5 w-2.5" />
@@ -106,11 +106,11 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-stm-fg/50 truncate">
+              <div className="text-[11px] text-muted-foreground truncate">
                 {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
               </div>
             </div>
-            <div className="text-[10px] tabular-nums text-stm-fg/60 font-mono">{progress}%</div>
+            <div className="text-[10px] tabular-nums text-muted-foreground font-mono">{progress}%</div>
           </div>
         </button>
 
@@ -127,9 +127,9 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
             <div
               key={stage.key}
               className={cn(
-                "min-w-[80px] w-[80px] shrink-0 p-1.5 border-r border-stm-border/20 min-h-[68px]",
-                stage.key === currentStageKey && "bg-stm-accent/5",
-                isMilestone && "bg-stm-accent/[0.04] border-r-stm-accent/30",
+                "min-w-[80px] w-[80px] shrink-0 p-1.5 border-r border-border/50 min-h-[68px]",
+                stage.key === currentStageKey && "bg-primary/[0.04]",
+                isMilestone && "bg-primary/[0.03] border-r-primary/20",
               )}
             >
               <StmMatrixCell
@@ -148,11 +148,11 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
 
         {/* Right-side comment column — duplicates the SKU comment in the expanded card */}
         <div
-          className="min-w-[260px] w-[260px] shrink-0 p-1.5 border-l border-stm-border/40 bg-stm-card/40 flex flex-col gap-1"
+          className="min-w-[260px] w-[260px] shrink-0 p-1.5 border-l border-border bg-card flex flex-col gap-1"
           onClick={(e) => e.stopPropagation()}
         >
           {isArchived && archiveComment && (
-            <div className="px-2 py-1 rounded bg-stm-warn/10 border border-stm-warn/30 text-[10px] text-stm-warn/90 leading-snug line-clamp-2" title={archiveComment}>
+            <div className="px-2 py-1 rounded bg-warning/10 border border-warning/30 text-[10px] text-warning leading-snug line-clamp-2" title={archiveComment}>
               <span className="font-semibold">Архив:</span> {archiveComment}
             </div>
           )}
@@ -171,23 +171,23 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
               }}
               placeholder="Комментарий по SKU…"
               rows={2}
-              className="w-full flex-1 min-h-[40px] bg-stm-glass/40 border border-stm-accent/40 rounded px-2 py-1 text-[11px] text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 resize-none"
+              className="w-full flex-1 min-h-[40px] bg-background border border-primary/40 rounded px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/60 resize-none"
             />
           ) : (
             <div className="flex items-stretch gap-1 flex-1 min-h-[40px]">
               <button
                 type="button"
                 onClick={() => setEditingComment(true)}
-                className="group/cmt flex-1 min-w-0 flex items-start gap-1.5 text-left px-2 py-1 rounded border border-stm-border/30 bg-stm-glass/20 hover:bg-stm-glass/40 hover:border-stm-accent/40 transition-colors"
+                className="group/cmt flex-1 min-w-0 flex items-start gap-1.5 text-left px-2 py-1 rounded border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors"
                 title={group.description || "Добавить комментарий по SKU"}
               >
                 <MessageSquare className={cn(
                   "h-3 w-3 shrink-0 mt-0.5 transition-colors",
-                  group.description ? "text-stm-accent" : "text-stm-fg/30 group-hover/cmt:text-stm-accent",
+                  group.description ? "text-primary" : "text-muted-foreground/50 group-hover/cmt:text-primary",
                 )} />
                 <span className={cn(
                   "text-[11px] flex-1 leading-snug line-clamp-3 break-words",
-                  group.description ? "text-stm-fg/80" : "text-stm-fg/40 italic",
+                  group.description ? "text-foreground/80" : "text-muted-foreground/60 italic",
                 )}>
                   {group.description || "Добавить комментарий…"}
                 </span>
@@ -196,7 +196,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 size="icon"
                 variant="ghost"
                 onClick={() => setArchiveOpen(true)}
-                className="h-auto w-7 shrink-0 text-stm-fg/40 hover:text-stm-warn hover:bg-stm-warn/10"
+                className="h-auto w-7 shrink-0 text-muted-foreground/60 hover:text-warning hover:bg-warning/10"
                 title={isArchived ? "Вернуть из архива" : "В архив"}
               >
                 {isArchived
