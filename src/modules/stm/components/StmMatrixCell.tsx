@@ -57,25 +57,25 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             disabled={!canCreate}
             className={cn(
               "group h-full w-full flex flex-col items-center justify-center gap-0.5 rounded-md transition-all px-1 py-1",
-              "border border-dashed border-stm-border/40 hover:border-stm-accent/60 hover:bg-stm-accent/5",
-              isMilestone ? "text-stm-accent/70" : "text-stm-fg/20 hover:text-stm-accent",
+              "border border-dashed border-border/60 hover:border-primary/50 hover:bg-primary/5",
+              isMilestone ? "text-primary/70" : "text-muted-foreground/40 hover:text-primary",
             )}
             aria-label="Создать этап"
           >
-            {isMilestone && <Flag className="h-3 w-3 text-stm-accent" />}
+            {isMilestone && <Flag className="h-3 w-3 text-primary" />}
             {!isMilestone && (
               <>
-                <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-stm-accent" />
+                <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
                 <Minus className="h-3 w-3 group-hover:hidden" />
               </>
             )}
             {isMilestone && (
-              <div className="text-[9px] tabular-nums font-mono italic text-stm-accent/60 leading-none">
+              <div className="text-[9px] tabular-nums font-mono italic text-primary/60 leading-none">
                 нет даты
               </div>
             )}
             {isMilestone && milestoneLabel && (
-              <div className="text-[9px] uppercase tracking-wider text-stm-accent font-semibold leading-none">
+              <div className="text-[9px] uppercase tracking-wider text-primary font-semibold leading-none">
                 {milestoneLabel}
               </div>
             )}
