@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye } from "lucide-react";
+import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye, AlertCircle } from "lucide-react";
 import ModuleLayout from "@/components/ModuleLayout";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
 import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishProtocol";
@@ -41,6 +41,11 @@ export default function ProtocolDetailPage() {
   );
 
   const isDraft = (protocol as any)?.draft_status === "draft";
+  const templateKey: string | undefined = (protocol as any)?.protocol_meta?.template_system_key;
+  const isCrossFunctional =
+    templateKey === "cross_functional" ||
+    (typeof (protocol as any)?.name === "string" &&
+      (protocol as any).name.startsWith("Кросс-функциональный"));
   // Если пользователь не владелец, но числится в internal_attendees — показать чип
   const isOwner = !!(protocol && user && (protocol as any).user_id === user.id);
   const isInternalAttendee = useMemo(() => {
@@ -52,6 +57,26 @@ export default function ProtocolDetailPage() {
     () => tasks.filter((t) => t.group_id === id && (t as any).is_draft).length,
     [tasks, id],
   );
+
+  // Soft discipline check for cross-functional drafts: warn (do not block) when
+  // key facilitation fields are empty. This mirrors the agreed "Soft" enforcement.
+  const softWarnings = useMemo<string[]>(() => {
+    if (!protocol || !isDraft || !isCrossFunctional) return [];
+    const w: string[] = [];
+    const desc: string | null = (protocol as any).description;
+    const meta: any = (protocol as any).protocol_meta || {};
+    const internalAttendees: string[] = meta.internal_attendees || [];
+    const taskAssignees = new Set(
+      tasks
+        .filter((t) => t.group_id === id && t.assigned_to)
+        .map((t) => t.assigned_to as string),
+    );
+    if (!desc || !desc.trim()) w.push("укажите цель встречи в описании");
+    if (internalAttendees.length === 0 && taskAssignees.size === 0) {
+      w.push("добавьте внутренних участников");
+    }
+    return w;
+  }, [protocol, isDraft, isCrossFunctional, tasks, id]);
 
   return (
     <ModuleLayout moduleContext="pmo">
@@ -169,6 +194,19 @@ export default function ProtocolDetailPage() {
                     <span className="hidden xs:inline sm:inline">Опубликовать</span>
                     <span className="xs:hidden sm:hidden">Публ.</span>
                   </Button>
+                </div>
+              </div>
+            )}
+
+            {softWarnings.length > 0 && (
+              <div
+                className="mb-5 flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+                role="status"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1 text-foreground/90">
+                  <span className="font-medium">Чтобы встреча прошла продуктивно:</span>{" "}
+                  <span className="text-muted-foreground">{softWarnings.join("; ")}.</span>
                 </div>
               </div>
             )}
