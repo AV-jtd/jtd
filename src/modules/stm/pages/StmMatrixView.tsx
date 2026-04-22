@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
@@ -20,10 +20,11 @@ export default function StmMatrixView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const projects = useStmProjects();
   const [flow, setFlow] = useState<StmFlow>("in");
-  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("none");
+  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const expandedSku = searchParams.get("sku");
   const activeStage = searchParams.get("stage");
 
@@ -201,12 +202,24 @@ export default function StmMatrixView() {
             {grouped.map(g => (
               <div key={g.key}>
                 {g.label && (
-                  <div className="sticky left-0 z-[1] px-4 py-1.5 bg-stm-glass/60 backdrop-blur-md border-b border-stm-border/30">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedGroups(prev => {
+                      const next = new Set(prev);
+                      next.has(g.key) ? next.delete(g.key) : next.add(g.key);
+                      return next;
+                    })}
+                    className="sticky left-0 z-[1] w-full flex items-center gap-1.5 px-4 py-1.5 bg-stm-glass/60 backdrop-blur-md border-b border-stm-border/30 hover:bg-stm-glass/80 transition-colors text-left"
+                    aria-expanded={!collapsedGroups.has(g.key)}
+                  >
+                    {collapsedGroups.has(g.key)
+                      ? <ChevronRight className="h-3 w-3 text-stm-fg/60" />
+                      : <ChevronDown className="h-3 w-3 text-stm-fg/60" />}
                     <span className="text-[10px] uppercase tracking-[0.15em] text-stm-fg/60 font-semibold">{g.label}</span>
                     <span className="ml-2 text-[10px] text-stm-fg/40">{g.items.length}</span>
-                  </div>
+                  </button>
                 )}
-                {g.items.map(p => (
+                {!collapsedGroups.has(g.key) && g.items.map(p => (
                   <StmMatrixRow
                     key={p.group.id}
                     project={p}
