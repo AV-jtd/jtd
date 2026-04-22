@@ -178,6 +178,16 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
     return prevProtocols.filter((p) => p.topicTagIds.includes(topicFilter));
   }, [prevProtocols, topicFilter]);
 
+  // If the persisted topic is no longer present in the loaded candidates (e.g. data changed),
+  // silently fall back to "all" so the UI doesn't show an empty list with a stale active chip.
+  useEffect(() => {
+    if (!isCrossFunctional || step !== "details") return;
+    if (prevProtocolsQuery.isLoading) return;
+    if (topicFilter === "all") return;
+    const stillExists = prevProtocols.some((p) => p.topicTagIds.includes(topicFilter));
+    if (!stillExists) setTopicFilter("all");
+  }, [isCrossFunctional, step, prevProtocolsQuery.isLoading, prevProtocols, topicFilter]);
+
   // Topics that actually appear in the candidate protocols — only those make sense as filter chips.
   const availableTopics = useMemo(() => {
     const seen = new Map<string, number>(); // tagId -> meeting count
