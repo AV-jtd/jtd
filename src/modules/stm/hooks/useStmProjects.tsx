@@ -57,10 +57,14 @@ export interface StmProject {
   progress: number;
   /** Currently active stage (first not completed). */
   currentStageKey: string | null;
+  /** Archive timestamp (task_groups.closed_at). null = active. */
+  archivedAt: string | null;
+  /** Mandatory comment captured at the moment of archiving. */
+  archiveComment: string | null;
 }
 
 /**
- * Returns all task_groups marked as STM SKU projects, joined with their stage tasks.
+ * Returns all task_groups marked as STM SKU projects (active + archived), joined with their stage tasks.
  * SKU = a task_group where project_subtype = 'npd_stm'. Each stage = a task with stage_key set.
  */
 export function useStmProjects() {
@@ -68,7 +72,8 @@ export function useStmProjects() {
   const { data: allTasks = [] } = useStmStageTasks();
 
   return useMemo<StmProject[]>(() => {
-    const stmGroups = groups.filter(g => (g as any).project_subtype === "npd_stm" && !g.closed_at);
+    // Include archived SKUs too — UI applies the active/archived filter on top.
+    const stmGroups = groups.filter(g => (g as any).project_subtype === "npd_stm");
     return stmGroups.map(g => {
       const meta = ((g as any).stm_meta || {}) as StmMeta;
       const flow: StmFlow = meta.flow === "out" ? "out" : "in";
@@ -86,6 +91,8 @@ export function useStmProjects() {
         stageTasks: filtered,
         progress: total ? Math.round((done / total) * 100) : 0,
         currentStageKey: currentStage?.key ?? null,
+        archivedAt: g.closed_at ?? null,
+        archiveComment: (g as any).archive_comment ?? null,
       };
     });
   }, [groups, allTasks]);

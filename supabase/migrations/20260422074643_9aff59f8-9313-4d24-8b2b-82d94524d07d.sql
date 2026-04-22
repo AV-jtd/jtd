@@ -1,0 +1,1 @@
+ALTER TABLE public.task_groups ADD COLUMN IF NOT EXISTS archive_comment TEXT;
