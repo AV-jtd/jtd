@@ -48,6 +48,8 @@ export default function ProtocolInternalSection({
   protocolId,
   parentExternalTaskId,
   defaultProjectId,
+  defaultStreamKey,
+  defaultParticipantIds,
   subtitle,
   variant = "internal",
   headerTitle,
