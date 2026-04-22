@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
-  Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart,
+  Lock, Plus, User2, Calendar, FolderOpen, AlertTriangle, Trash2, FileBarChart, Building2, HardHat,
   ChevronDown, ChevronRight, Maximize2,
 } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
@@ -14,6 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { filterRealProjects } from "@/lib/projectFilters";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useContractors } from "@/hooks/useContractors";
 
 type Props = {
   protocolId: string;
@@ -76,7 +79,7 @@ export default function ProtocolInternalSection({
   }, [allTasks, protocolId, parentExternalTaskId]);
 
   const [title, setTitle] = useState("");
-  const [assignee, setAssignee] = useState<string | null>(null);
+  const [assignee, setAssignee] = useState<AssigneeSelection>({ kind: null, id: null });
   const [deadline, setDeadline] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   // Collapsed state for the existing-tasks list (closed by default once any tasks exist)
@@ -96,7 +99,9 @@ export default function ProtocolInternalSection({
     addTask.mutate({
       title: t,
       group_id: protocolId,
-      assigned_to: assignee || undefined,
+      assigned_to: assignee.kind === "user" ? (assignee.id || undefined) : undefined,
+      department_id: assignee.kind === "department" ? assignee.id : null,
+      contractor_id: assignee.kind === "contractor" ? assignee.id : null,
       deadline: deadline || undefined,
       protocol_scope: "internal",
       status_meta: meta,
@@ -119,7 +124,7 @@ export default function ProtocolInternalSection({
       },
     });
     setTitle("");
-    setAssignee(null);
+    setAssignee({ kind: null, id: null });
     setDeadline(null);
     if (!parentExternalTaskId) setProjectId(defaultProjectId ?? null);
   };
