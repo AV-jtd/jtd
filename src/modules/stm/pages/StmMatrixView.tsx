@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
@@ -191,6 +191,29 @@ export default function StmMatrixView() {
               <option value="drop">По дропу</option>
             </select>
           </div>
+
+          {groupBy !== "none" && grouped.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCollapsedGroups(new Set(grouped.map(g => g.key)))}
+                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                title="Свернуть все группы"
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5 mr-1" /> Свернуть всё
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCollapsedGroups(new Set())}
+                className="h-8 px-2 border-stm-border/40 bg-stm-glass/40 text-stm-fg hover:bg-stm-glass/60"
+                title="Развернуть все группы"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5 mr-1" /> Развернуть всё
+              </Button>
+            </div>
+          )}
 
           <Button
             size="sm"
