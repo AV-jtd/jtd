@@ -223,7 +223,7 @@ export default function ProtocolInternalSection({
               placeholder="Привязать задачу (Enter)…"
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
             />
-            <AssigneeChip users={users} value={assignee} onChange={setAssignee} />
+            <AssigneePickerChip users={users} value={assignee} onChange={setAssignee} />
             <DeadlineChip value={deadline} onChange={setDeadline} />
             <ProjectChip groups={groups} value={projectId} onChange={setProjectId} />
             <button
