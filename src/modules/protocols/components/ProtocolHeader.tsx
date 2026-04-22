@@ -85,6 +85,8 @@ interface Props {
   };
   isDraft: boolean;
   internalAttendeeIds?: string[];
+  /** Cross-functional internal ritual: hide partner / format / axes blocks */
+  isCrossFunctional?: boolean;
 }
 
 const FORMAT_LABEL: Record<Format, { label: string; icon: typeof Wifi }> = {
@@ -93,7 +95,7 @@ const FORMAT_LABEL: Record<Format, { label: string; icon: typeof Wifi }> = {
   hybrid: { label: "Гибрид", icon: WifiOff },
 };
 
-export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds = [] }: Props) {
+export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds = [], isCrossFunctional = false }: Props) {
   const qc = useQueryClient();
   const { data: profiles = [] } = useAvailableUsers();
   const meta: ProtocolMeta = protocol.protocol_meta ?? {};
@@ -588,6 +590,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </PopoverContent>
             </Popover>
 
+            {!isCrossFunctional && (
             <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
               {(Object.keys(FORMAT_LABEL) as Format[]).map((f) => {
                 const Icon = FORMAT_LABEL[f].icon;
@@ -610,8 +613,10 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 );
               })}
             </div>
+            )}
 
             {/* CRM client link */}
+            {!isCrossFunctional && (
             <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -701,9 +706,10 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 </div>
               </PopoverContent>
             </Popover>
+            )}
 
             {/* Parsed sides chip — show only when partner is missing in CRM (action needed) */}
-            {sides && partnerNotInCrm && (
+            {!isCrossFunctional && sides && partnerNotInCrm && (
               <span
                 className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400"
                 title="Стороны определены из названия встречи"
@@ -773,6 +779,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
 
 
       {/* Sides of the meeting (auto from title + CRM) */}
+      {!isCrossFunctional && (
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {/* Our side (Дороничи) — name + own logo upload (independent from header logo) */}
         <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
@@ -1009,6 +1016,55 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
           </div>
         </div>
       </div>
+      )}
+
+      {/* Cross-functional: compact internal attendees row */}
+      {isCrossFunctional && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3">
+          <span className="mr-1 text-[11px] font-medium text-muted-foreground">Участники:</span>
+          {internalCombinedIds.length === 0 && (
+            <span className="text-[11px] text-muted-foreground/70">пока никого</span>
+          )}
+          {internalCombinedIds.map((uid) => {
+            const p = profiles.find((u) => u.id === uid);
+            const name = p?.display_name || p?.email || "Участник";
+            return (
+              <span
+                key={uid}
+                className="group inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[11px] font-medium text-foreground/80"
+                title={name}
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => removeInternalAttendee(uid)}
+                  className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                  title="Убрать из участников встречи"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            );
+          })}
+          <UserPicker
+            users={profiles}
+            excludeIds={internalCombinedIds}
+            title="Добавить участника"
+            open={internalPickerOpen}
+            onOpenChange={setInternalPickerOpen}
+            onSelect={(u) => addInternalAttendee(u.id)}
+            trigger={
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                title="Добавить участника встречи"
+              >
+                <Plus className="h-2.5 w-2.5" /> участник
+              </button>
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
