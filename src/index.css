@@ -66,16 +66,16 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217 91% 60%;
 
-    /* STM Mission Control — Architectural Glass (always dark, like a cockpit) */
-    --stm-bg: 222 47% 6%;
-    --stm-card: 222 40% 10%;
-    --stm-glass: 222 30% 16%;
-    --stm-border: 222 30% 22%;
-    --stm-fg: 210 30% 92%;
-    --stm-accent: 195 95% 60%;
-    --stm-success: 158 70% 50%;
-    --stm-warn: 38 92% 55%;
-    --stm-danger: 0 80% 62%;
+    /* STM Mission Control — Light theme (Architectural Glass, daylight) */
+    --stm-bg: 210 30% 97%;
+    --stm-card: 0 0% 100%;
+    --stm-glass: 210 25% 94%;
+    --stm-border: 215 20% 85%;
+    --stm-fg: 222 35% 18%;
+    --stm-accent: 200 90% 42%;
+    --stm-success: 158 65% 38%;
+    --stm-warn: 32 92% 48%;
+    --stm-danger: 0 75% 52%;
   }
 
   .dark {
