@@ -744,7 +744,13 @@ export default function NpdSwimlaneMatrix({ embedded }: { embedded?: boolean } =
   // ── Deadline cascade ──
   const handleDeadlineChange = useCallback(async (task: Task, newDeadline: Date) => {
     const oldDeadline = task.deadline ? parseISO(task.deadline) : new Date(task.created_at);
-    updateTask.mutate({ id: task.id, deadline: newDeadline.toISOString() });
+    // Preserve task duration: shift start_at by the same delta so the bar moves, not stretches
+    const deltaDays = differenceInCalendarDays(newDeadline, oldDeadline);
+    const taskUpdates: any = { id: task.id, deadline: newDeadline.toISOString() };
+    if (task.start_at && deltaDays !== 0) {
+      taskUpdates.start_at = addDays(parseISO(task.start_at), deltaDays).toISOString();
+    }
+    updateTask.mutate(taskUpdates);
     const entities = new Map<string, { id: string; deadline?: string | null; start_at?: string | null; created_at: string }>();
     allTasks.forEach(t => entities.set(t.id, { id: t.id, deadline: t.deadline, start_at: t.start_at, created_at: t.created_at }));
     const cascadeUpdates = computeCascadeUpdates(task.id, newDeadline, oldDeadline, allDependencies, entities);
