@@ -285,21 +285,30 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
                   </Label>
                 </>
               ) : (
-                <MigrateToNpdDialog
-                  groupId={group.id}
-                  trigger={
-                    <div className="flex items-center gap-2 cursor-pointer">
-                      <Switch
-                        id="npd-toggle"
-                        checked={false}
-                        className="pointer-events-none"
-                      />
-                      <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1 cursor-pointer">
-                        <Layers className="h-3 w-3" /> NPD
-                      </Label>
-                    </div>
-                  }
-                />
+                <Suspense fallback={
+                  <div className="flex items-center gap-2 opacity-60">
+                    <Switch id="npd-toggle" checked={false} className="pointer-events-none" />
+                    <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Layers className="h-3 w-3" /> NPD
+                    </Label>
+                  </div>
+                }>
+                  <MigrateToNpdDialog
+                    groupId={group.id}
+                    trigger={
+                      <div className="flex items-center gap-2 cursor-pointer">
+                        <Switch
+                          id="npd-toggle"
+                          checked={false}
+                          className="pointer-events-none"
+                        />
+                        <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1 cursor-pointer">
+                          <Layers className="h-3 w-3" /> NPD
+                        </Label>
+                      </div>
+                    }
+                  />
+                </Suspense>
               )}
             </div>
           )}
