@@ -258,6 +258,10 @@ export default function Index() {
                   setActiveView("all");
                   setActiveGroupId(null);
                   setHighlightTaskId(taskId);
+                  // On mobile the messenger is full-width and would hide the
+                  // task. Collapse it on small screens — re-opening it brings
+                  // the user back to the same thread (state is preserved).
+                  if (isMobile) setMessengerOpen(false);
                 }}
                 onOpenProjectDetail={(gId) => setMessengerDetailGroupId(gId)}
                 moduleContext={{
