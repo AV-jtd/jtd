@@ -346,6 +346,7 @@ function MessageBubble({
   onDelete,
   onCreateTask,
   isReply,
+  reactions,
 }: {
   msg: GroupMessage;
   isOwn: boolean;
@@ -353,6 +354,7 @@ function MessageBubble({
   onDelete?: () => void;
   onCreateTask?: () => void;
   isReply?: boolean;
+  reactions?: ReactionAgg;
 }) {
   const sourceIcon = msg.source === "telegram" ? "✈️" : null;
 
@@ -371,6 +373,11 @@ function MessageBubble({
       )}>
         {msg.content}
       </p>
+      <MessageReactions
+        messageType="group_message"
+        messageId={msg.id}
+        reactions={reactions}
+      />
       {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
       <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
