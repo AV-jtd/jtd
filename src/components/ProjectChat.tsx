@@ -297,14 +297,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         />
                       )}
                       {createdTasks[reply.id] && (
-                        <button
-                          type="button"
+                        <CreatedTaskCard
+                          info={createdTasks[reply.id]}
                           onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
-                          className="mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left"
-                        >
-                          <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-xs font-medium text-foreground truncate">{createdTasks[reply.id].title}</span>
-                        </button>
+                        />
                       )}
                     </div>
                   ))}
