@@ -19,6 +19,7 @@ import { TaskGroup, useProjectFolderItems, useProjectFolders, useTaskGroups, use
 import { DroppableFolder, DroppableUngrouped } from "@/components/sidebar/SidebarDroppables";
 import GroupItem from "@/components/sidebar/GroupItem";
 import FolderRow from "@/components/sidebar/FolderRow";
+import VirtualGroupList from "@/components/sidebar/VirtualGroupList";
 
 const SmartImportDialog = lazy(() => import("@/components/SmartImportDialog"));
 
@@ -301,7 +302,11 @@ export default function ProjectsTree({
                     <span className="text-[10px] text-sidebar-fg/40">{npdRootGroups.length}</span>
                   </div>
                   {expandedFolders.has("__npd__") && (
-                    <div className="space-y-0.5">{npdRootGroups.map(renderGroup)}</div>
+                    <VirtualGroupList
+                      className="space-y-0.5"
+                      items={npdRootGroups}
+                      renderItem={renderGroup}
+                    />
                   )}
                 </div>
               )}
@@ -321,7 +326,11 @@ export default function ProjectsTree({
                       onToggle={() => handleToggleFolder(folder.id)}
                     />
                     {isExpanded && (
-                      <div className="space-y-0.5">{folderProjects.map(renderGroup)}</div>
+                      <VirtualGroupList
+                        className="space-y-0.5"
+                        items={folderProjects}
+                        renderItem={renderGroup}
+                      />
                     )}
                   </DroppableFolder>
                 );
@@ -329,7 +338,10 @@ export default function ProjectsTree({
 
               {/* Ungrouped */}
               <DroppableUngrouped isOver={dragOverFolderId === "__ungrouped__"}>
-                {ungroupedProjects.map(renderGroup)}
+                <VirtualGroupList
+                  items={ungroupedProjects}
+                  renderItem={renderGroup}
+                />
               </DroppableUngrouped>
 
               {/* Archived */}
@@ -347,7 +359,11 @@ export default function ProjectsTree({
                     <span className="text-[10px] text-sidebar-fg/30">{archivedGroups.length}</span>
                   </div>
                   {showArchived && (
-                    <div className="space-y-0.5 opacity-50">{archivedGroups.map(renderGroup)}</div>
+                    <VirtualGroupList
+                      className="space-y-0.5 opacity-50"
+                      items={archivedGroups}
+                      renderItem={renderGroup}
+                    />
                   )}
                 </div>
               )}
