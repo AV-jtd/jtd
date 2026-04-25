@@ -41,6 +41,10 @@ export default function Index() {
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
+  // ID of the project shown as an overlay panel on top of the messenger.
+  // Lets users peek at project details without losing their place in the
+  // thread list. Cleared via the sheet's onOpenChange.
+  const [messengerDetailGroupId, setMessengerDetailGroupId] = useState<string | null>(null);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
   const [searchOpen, setSearchOpen] = useState(false);
