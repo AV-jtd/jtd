@@ -225,16 +225,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     isOwn={isOwn}
                     onReply={() => setReplyTo(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
-                    onCreateTask={() => setTaskFormFor(prev => prev === msg.id ? null : msg.id)}
+                    onCreateTask={() => openTaskForm(msg.id)}
                   />
 
                   {/* Inline task form */}
                   {taskFormFor === msg.id && (
                     <InlineTaskForm
+                      key={`${msg.id}-${taskFormNonce}`}
                       message={msg}
                       availableUsers={availableUsers}
                       defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
-                      onCancel={() => setTaskFormFor(null)}
+                      onCancel={closeTaskForm}
                       onSubmit={(payload) => handleCreateTask(msg, payload)}
                       isSubmitting={addTask.isPending}
                     />
@@ -281,15 +282,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         isOwn={reply.user_id === user?.id}
                         onReply={() => setReplyTo(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => setTaskFormFor(prev => prev === reply.id ? null : reply.id)}
+                        onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
+                          key={`${reply.id}-${taskFormNonce}`}
                           message={reply}
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
-                          onCancel={() => setTaskFormFor(null)}
+                          onCancel={closeTaskForm}
                           onSubmit={(payload) => handleCreateTask(reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
