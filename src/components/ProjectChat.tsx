@@ -351,32 +351,33 @@ function MessageBubble({
   const sourceIcon = msg.source === "telegram" ? "✈️" : null;
 
   return (
-    <div className={cn("group/msg flex flex-col", isReply ? "gap-0.5" : "gap-1")}>
-      <div className="flex items-center gap-1.5">
+    <div className={cn("group/msg relative flex flex-col", isReply ? "gap-0.5" : "gap-1")}>
+      <div className="flex items-center gap-1.5 pr-20">
         <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
           {getAuthorName(msg)}
         </span>
         {sourceIcon && <span className="text-xs">{sourceIcon}</span>}
         <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(msg.created_at)}</span>
       </div>
-      <div className="flex items-start gap-1">
-        <p className={cn(
-          "text-sm leading-relaxed break-words",
-          isOwn ? "text-foreground" : "text-foreground/90"
-        )}>
-          {msg.content}
-        </p>
-        <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0 ml-1 mt-0.5">
+      <p className={cn(
+        "text-sm leading-relaxed break-words pr-2",
+        isOwn ? "text-foreground" : "text-foreground/90"
+      )}>
+        {msg.content}
+      </p>
+      {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
+      <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
+        <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
           {onCreateTask && (
-            <button onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
+            <button type="button" onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
               <CheckSquare className="h-3 w-3" />
             </button>
           )}
-          <button onClick={onReply} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Ответить">
+          <button type="button" onClick={onReply} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Ответить">
             <Reply className="h-3 w-3" />
           </button>
           {onDelete && (
-            <button onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Удалить">
+            <button type="button" onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Удалить">
               <Trash2 className="h-3 w-3" />
             </button>
           )}
