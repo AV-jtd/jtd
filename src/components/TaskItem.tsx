@@ -541,6 +541,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   // until the user opens it for the first time. After that it stays mounted
   // so subsequent opens are instant.
   const [closureDialogOpenedOnce, setClosureDialogOpenedOnce] = useState(false);
+  const openClosureDialog = useCallback(() => {
+    setClosureDialogOpenedOnce(true);
+    setClosureDialogOpen(true);
+  }, []);
   const [savingToWiki, setSavingToWiki] = useState(false);
   const [stepsCollapsed, setStepsCollapsed] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
@@ -886,8 +890,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
-                setClosureDialogOpen(true);
+                if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
+                openClosureDialog();
               } else {
                 undoableToggleTask();
               }
