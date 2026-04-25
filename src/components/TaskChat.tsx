@@ -209,8 +209,9 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   onClick={() =>
                     setTaskFormForCommentId(prev => (prev === c.id ? null : c.id))
                   }
-                  className="ml-auto opacity-0 group-hover/msg:opacity-100 focus:opacity-100 p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-opacity shrink-0"
+                  className="ml-auto opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus:opacity-100 p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-opacity shrink-0"
                   title="Создать задачу из сообщения"
+                  aria-label="Создать задачу из сообщения"
                 >
                   <CheckSquare className="h-3 w-3" />
                 </button>
@@ -222,7 +223,7 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                 {isOwn && (
                   <button
                     onClick={() => deleteComment.mutate({ id: c.id, task_id: taskId })}
-                    className="opacity-0 group-hover/msg:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
+                    className="opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
                     title="Удалить"
                   >
                     <Trash2 className="h-3 w-3" />
