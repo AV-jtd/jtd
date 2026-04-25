@@ -154,6 +154,12 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     touch-action: pan-y;
+    /* Promote to its own composited layer so absolutely positioned
+       virtualised rows stay in sync with native momentum scroll on iOS. */
+    transform: translateZ(0);
+    will-change: scroll-position;
+    /* Prevent rubber-band momentum from leaking layout/paint into siblings. */
+    contain: layout paint;
   }
 
   .ios-sidebar-scroll button,
