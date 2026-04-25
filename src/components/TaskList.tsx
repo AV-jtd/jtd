@@ -5,6 +5,7 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
 const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
+const VirtualTaskList = lazy(() => import("./task-list/VirtualTaskList"));
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
@@ -120,6 +121,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const batchMode = selectedIds.size > 0;
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollParentRef = useRef<HTMLElement>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -530,7 +532,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations]);
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Breadcrumbs for subprojects */}
         {activeView === "group" && breadcrumbChain.length > 1 && (
@@ -1087,27 +1089,52 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </DndContext>
         ) : (
           <div className="space-y-1.5">
-            <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
-              <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                {activeTasks.map((task, i) => (
-                  <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
-                    <TaskItem
-                      task={task}
-                      {...sharedTaskItemProps}
-                      sortable={!batchMode}
-                      initialOpen={task.id === highlightTaskId}
-                      onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
-                      onTagClick={onTagClick}
-                      onProjectClick={onProjectClick}
-                      selectable={batchMode}
-                      selected={selectedIds.has(task.id)}
-                      onToggleSelect={() => toggleSelect(task.id)}
-                      onLongPress={() => toggleSelect(task.id)}
-                    />
-                  </div>
-                ))}
-              </SortableContext>
-            </DndContext>
+            {activeTasks.length >= 50 ? (
+              <Suspense fallback={
+                <div className="space-y-1.5">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                  ))}
+                </div>
+              }>
+                <VirtualTaskList
+                  tasks={activeTasks}
+                  scrollParentRef={scrollParentRef}
+                  sharedTaskItemProps={sharedTaskItemProps}
+                  highlightTaskId={highlightTaskId}
+                  onHighlightClear={onHighlightClear}
+                  onTagClick={onTagClick}
+                  onProjectClick={onProjectClick}
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  batchMode={batchMode}
+                  onReorder={(next) => reorderTasks.mutate(next)}
+                  groupDropContext={activeView === "group" ? "group" : "default"}
+                />
+              </Suspense>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
+                <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  {activeTasks.map((task, i) => (
+                    <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
+                      <TaskItem
+                        task={task}
+                        {...sharedTaskItemProps}
+                        sortable={!batchMode}
+                        initialOpen={task.id === highlightTaskId}
+                        onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                        onTagClick={onTagClick}
+                        onProjectClick={onProjectClick}
+                        selectable={batchMode}
+                        selected={selectedIds.has(task.id)}
+                        onToggleSelect={() => toggleSelect(task.id)}
+                        onLongPress={() => toggleSelect(task.id)}
+                      />
+                    </div>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
             {completedTasks.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
