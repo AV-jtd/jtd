@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true, name: targetName }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

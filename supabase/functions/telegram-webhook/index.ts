@@ -577,7 +577,7 @@ Deno.serve(async (req) => {
               // Apply assignee if not set manually
               if (!assignedTo && aiEnrichment.assigned_to_id) {
                 // Verify this ID is actually a member
-                const memberIds = members.map(m => m.id);
+                const memberIds = members.map((m: any) => m.id);
                 if (memberIds.includes(aiEnrichment.assigned_to_id)) {
                   assignedTo = aiEnrichment.assigned_to_id;
                   assigneeUsername = aiEnrichment.assigned_to_name || null;
@@ -1638,7 +1638,7 @@ Deno.serve(async (req) => {
 
     // 2. Extract tags (#tag)
     const tagMatches = text.match(/#(\S+)/g) || [];
-    const tagNames = tagMatches.map(t => t.substring(1).toLowerCase());
+    const tagNames = tagMatches.map((t: string) => t.substring(1).toLowerCase());
     text = text.replace(/#\S+/g, "").trim();
 
     // 3. Extract assignee (@username)
@@ -1865,7 +1865,7 @@ Deno.serve(async (req) => {
     const extras: string[] = [];
     if (isImportant) extras.push("⭐ важная");
     if (deadline.date) extras.push(`📅 ${formatDate(deadline.date)}`);
-    if (tagNames.length > 0) extras.push(`🏷 ${tagNames.map(t => "#" + t).join(" ")}`);
+    if (tagNames.length > 0) extras.push(`🏷 ${tagNames.map((t: string) => "#" + t).join(" ")}`);
     if (assigneeUsername) {
       if (assignedTo) {
         extras.push(`👤 @${assigneeUsername}`);
@@ -1880,7 +1880,7 @@ Deno.serve(async (req) => {
     await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
     return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Webhook error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,

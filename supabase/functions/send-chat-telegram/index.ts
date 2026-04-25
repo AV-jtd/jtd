@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ ok: true, sent }), { headers: corsHeaders });
-  } catch (err) {
+  } catch (err: any) {
     console.error("send-chat-telegram error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
