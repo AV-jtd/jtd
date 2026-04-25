@@ -32,14 +32,14 @@ function FolderRowImpl({ id, name, color, count, expanded, onToggle }: FolderRow
   };
 
   return (
-    <div className="group flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors">
-      <span onClick={onToggle} className="shrink-0 p-1 -m-1 md:p-0 md:m-0">
-        {expanded ? <ChevronDown className="h-4 w-4 md:h-3 md:w-3" /> : <ChevronRight className="h-4 w-4 md:h-3 md:w-3" />}
+    <div className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors">
+      <span onClick={onToggle} className="shrink-0">
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </span>
       <Popover>
         <PopoverTrigger asChild>
-          <span onClick={(e) => e.stopPropagation()} className="shrink-0 cursor-pointer hover:opacity-80 p-1 -m-1 md:p-0 md:m-0">
-            <FolderOpen className="h-4 w-4 md:h-3.5 md:w-3.5" style={{ color: color || "#6366f1" }} />
+          <span onClick={(e) => e.stopPropagation()} className="shrink-0 cursor-pointer hover:opacity-80">
+            <FolderOpen className="h-3.5 w-3.5" style={{ color: color || "#6366f1" }} />
           </span>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-3" side="right" onClick={(e) => e.stopPropagation()}>
@@ -77,10 +77,10 @@ function FolderRowImpl({ id, name, color, count, expanded, onToggle }: FolderRow
           {name}
         </span>
       )}
-      <span className="text-[11px] md:text-[10px] text-sidebar-fg/50 md:text-sidebar-fg/40 tabular-nums">{count}</span>
+      <span className="text-[10px] text-sidebar-fg/40">{count}</span>
       <ConfirmDelete title="Удалить папку?" description="Проекты останутся, но потеряют привязку к папке." onConfirm={() => deleteProjectFolder.mutate(id)}>
-        <span onClick={(e) => e.stopPropagation()} className="p-1.5 md:p-0.5 opacity-60 md:opacity-0 md:group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
-          <Trash2 className="h-4 w-4 md:h-3 md:w-3" />
+        <span onClick={(e) => e.stopPropagation()} className="p-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-pointer">
+          <Trash2 className="h-3 w-3" />
         </span>
       </ConfirmDelete>
     </div>

@@ -108,19 +108,19 @@ function GroupItemImpl(props: GroupItemProps) {
             <span
               {...attributes}
               {...listeners}
-              className="shrink-0 text-sidebar-fg/30 hover:text-sidebar-fg/60 cursor-grab active:cursor-grabbing touch-none p-1 -m-1 md:p-0 md:m-0"
+              className="shrink-0 text-sidebar-fg/30 hover:text-sidebar-fg/60 cursor-grab active:cursor-grabbing touch-none"
               onClick={(e) => e.stopPropagation()}
             >
-              <GripVertical className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <GripVertical className="h-3.5 w-3.5" />
             </span>
           )}
           {isRoot && (
             <span
               onClick={(e) => { e.stopPropagation(); onToggleExpand(group.id); }}
-              className={cn("shrink-0 text-sidebar-fg/50 hover:text-sidebar-fg/80 p-1 -m-1 md:p-0 md:m-0", hasChildren ? "cursor-pointer" : "invisible")}
+              className={cn("shrink-0 text-sidebar-fg/50 hover:text-sidebar-fg/80", hasChildren ? "cursor-pointer" : "invisible")}
               aria-hidden={!hasChildren}
             >
-              {isExpanded ? <ChevronDown className="h-4 w-4 md:h-3 md:w-3" /> : <ChevronRight className="h-4 w-4 md:h-3 md:w-3" />}
+              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </span>
           )}
 
@@ -208,15 +208,12 @@ function GroupItemImpl(props: GroupItemProps) {
             </span>
           )}
 
-          {/* Actions: на мобиле — только «Карточка», остальное в десктоп-hover-ряду */}
-          <div className={cn(
-            "items-center gap-0.5 shrink-0 hidden md:flex",
-            isActive ? "md:opacity-60" : "md:opacity-0 md:group-hover:opacity-100",
-          )}>
+          {/* Actions */}
+          <div className={cn("items-center gap-0.5 shrink-0", isActive ? "flex opacity-60" : "hidden group-hover:flex")}>
             {isRoot && (
               <span
                 onClick={(e) => { e.stopPropagation(); setShowNewSubgroup(true); }}
-                className="p-0.5 cursor-pointer hover:!opacity-100"
+                className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
                 title="Добавить подпроект"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -225,7 +222,7 @@ function GroupItemImpl(props: GroupItemProps) {
 
             <Popover open={memberOpen} onOpenChange={(o) => { setMemberOpen(o); if (!o) setMemberSearch(""); }}>
               <PopoverTrigger asChild>
-                <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100" title="Добавить участника">
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100" title="Добавить участника">
                   <UserPlus className="h-3.5 w-3.5" />
                 </span>
               </PopoverTrigger>
@@ -262,7 +259,7 @@ function GroupItemImpl(props: GroupItemProps) {
 
             <span
               onClick={(e) => { e.stopPropagation(); onOpenDetail(group.id); }}
-              className="p-0.5 cursor-pointer hover:!opacity-100"
+              className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
               title="Карточка проекта"
             >
               <Expand className="h-3.5 w-3.5" />
@@ -271,7 +268,7 @@ function GroupItemImpl(props: GroupItemProps) {
             {isRoot && folders.length > 0 && (
               <Popover open={folderOpen} onOpenChange={setFolderOpen}>
                 <PopoverTrigger asChild>
-                  <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100" title="Переместить в папку">
+                  <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100" title="Переместить в папку">
                     <FolderOpen className="h-3.5 w-3.5" />
                   </span>
                 </PopoverTrigger>
@@ -307,21 +304,11 @@ function GroupItemImpl(props: GroupItemProps) {
               description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."}
               onConfirm={() => deleteGroup.mutate(group.id)}
             >
-              <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100">
+              <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100">
                 <Trash2 className="h-3.5 w-3.5" />
               </span>
             </ConfirmDelete>
           </div>
-
-          {/* Mobile-only: одна крупная иконка «Карточка проекта» */}
-          <span
-            onClick={(e) => { e.stopPropagation(); onOpenDetail(group.id); }}
-            className="md:hidden shrink-0 p-1.5 -mr-1 cursor-pointer text-sidebar-fg/60 hover:text-sidebar-fg active:text-sidebar-fg"
-            title="Карточка проекта"
-            aria-label="Открыть карточку проекта"
-          >
-            <Expand className="h-4 w-4" />
-          </span>
         </button>
       </div>
 

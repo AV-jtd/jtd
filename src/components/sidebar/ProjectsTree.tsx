@@ -241,25 +241,25 @@ export default function ProjectsTree({
     <div className="pt-4">
       <button
         onClick={() => setShowGroups((v) => !v)}
-        className="flex items-center gap-2 w-full px-3 py-2 md:py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs uppercase tracking-wider text-sidebar-fg/60 hover:text-sidebar-fg/80"
       >
-        {showGroups ? <ChevronDown className="h-4 w-4 md:h-3 md:w-3" /> : <ChevronRight className="h-4 w-4 md:h-3 md:w-3" />}
+        {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         Проекты
-        <span className="ml-auto flex items-center gap-1.5 md:gap-1">
-          <Suspense fallback={<span className="text-sidebar-fg/40"><Download className="h-4 w-4 md:h-3.5 md:w-3.5" /></span>}>
+        <span className="ml-auto flex items-center gap-1">
+          <Suspense fallback={<span className="text-sidebar-fg/40"><Download className="h-3.5 w-3.5" /></span>}>
             <SmartImportDialog
               trigger={
-                <span onClick={(e) => e.stopPropagation()} className="hover:text-sidebar-fg p-1 -m-1 md:p-0 md:m-0" title="Умный импорт из Excel">
-                  <Download className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                <span onClick={(e) => e.stopPropagation()} className="hover:text-sidebar-fg" title="Умный импорт из Excel">
+                  <Download className="h-3.5 w-3.5" />
                 </span>
               }
             />
           </Suspense>
-          <span onClick={(e) => { e.stopPropagation(); setShowNewFolder(true); }} className="hover:text-sidebar-fg p-1 -m-1 md:p-0 md:m-0" title="Новая папка">
-            <FolderPlus className="h-4 w-4 md:h-3.5 md:w-3.5" />
+          <span onClick={(e) => { e.stopPropagation(); setShowNewFolder(true); }} className="hover:text-sidebar-fg" title="Новая папка">
+            <FolderPlus className="h-3.5 w-3.5" />
           </span>
-          <span onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); }} className="hover:text-sidebar-fg p-1 -m-1 md:p-0 md:m-0" title="Новый проект">
-            <Plus className="h-4 w-4 md:h-3.5 md:w-3.5" />
+          <span onClick={(e) => { e.stopPropagation(); setShowNewGroup(true); }} className="hover:text-sidebar-fg" title="Новый проект">
+            <Plus className="h-3.5 w-3.5" />
           </span>
         </span>
       </button>
@@ -290,15 +290,15 @@ export default function ProjectsTree({
               {npdRootGroups.length > 0 && (
                 <div>
                   <div
-                    className="group flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors"
+                    className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors"
                     onClick={() => handleToggleFolder("__npd__")}
                   >
                     <span className="shrink-0">
-                      {expandedFolders.has("__npd__") ? <ChevronDown className="h-4 w-4 md:h-3 md:w-3" /> : <ChevronRight className="h-4 w-4 md:h-3 md:w-3" />}
+                      {expandedFolders.has("__npd__") ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                     </span>
                     <span className="shrink-0">🧪</span>
                     <span className="truncate flex-1 text-left font-medium">NPD</span>
-                    <span className="text-[11px] md:text-[10px] text-sidebar-fg/50 md:text-sidebar-fg/40 tabular-nums">{npdRootGroups.length}</span>
+                    <span className="text-[10px] text-sidebar-fg/40">{npdRootGroups.length}</span>
                   </div>
                   {expandedFolders.has("__npd__") && (
                     <div className="space-y-0.5">{npdRootGroups.map(renderGroup)}</div>
@@ -337,14 +337,14 @@ export default function ProjectsTree({
                 <div>
                   <div
                     onClick={() => setShowArchived((v) => !v)}
-                    className="flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg text-sm text-sidebar-fg/50 md:text-sidebar-fg/40 hover:text-sidebar-fg/70 md:hover:text-sidebar-fg/60 cursor-pointer transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/40 hover:text-sidebar-fg/60 cursor-pointer transition-colors"
                   >
                     <span className="shrink-0">
-                      {showArchived ? <ChevronDown className="h-4 w-4 md:h-3 md:w-3" /> : <ChevronRight className="h-4 w-4 md:h-3 md:w-3" />}
+                      {showArchived ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                     </span>
-                    <Archive className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                    <Archive className="h-3.5 w-3.5" />
                     <span className="truncate flex-1 text-left font-medium">Архив</span>
-                    <span className="text-[11px] md:text-[10px] text-sidebar-fg/40 md:text-sidebar-fg/30 tabular-nums">{archivedGroups.length}</span>
+                    <span className="text-[10px] text-sidebar-fg/30">{archivedGroups.length}</span>
                   </div>
                   {showArchived && (
                     <div className="space-y-0.5 opacity-50">{archivedGroups.map(renderGroup)}</div>
