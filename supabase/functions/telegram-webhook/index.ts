@@ -2478,7 +2478,7 @@ async function aiBulkParse(
   if (!LOVABLE_API_KEY) return null;
 
   const userList = users.length > 0
-    ? users.map(u => `- "${u.name}"${u.telegram_username ? ` (@${u.telegram_username})` : ""}`).join("\n")
+    ? users.map(u => `- id="${u.id}" name="${u.name}"${u.telegram_username ? ` username="@${u.telegram_username}"` : ""}`).join("\n")
     : "нет участников";
 
   const today = new Date().toISOString().split("T")[0];
@@ -2504,19 +2504,25 @@ async function aiBulkParse(
 
 Для каждой задачи определи:
 - title: краткое название задачи (глагол + объект)
-- assigned_to_name: имя/@username ОТВЕТСТВЕННОГО (один человек, главный исполнитель), если упомянут
-- participant_names: массив имён/@username УЧАСТНИКОВ задачи (все остальные упомянутые люди, кроме ответственного). Например: "задача для Маши и Пети" → assigned_to_name: "Маша", participant_names: ["Петя"]
+- assigned_to_id: UUID ответственного из списка участников ниже. Сопоставляй ЛЮБОЕ упоминание человека (имя, фамилия, @username, уменьшительное) с записями списка. Например: "Шулакова" → ищи в name; "Витя", "Викуся" → "Виктория"; "Марк", "Гозман" → "Марк Гозман".
+- participant_ids: массив UUID участников задачи (все остальные люди, кроме ответственного), сопоставленных по тому же правилу.
+- assigned_to_name: запасное поле — имя/фамилия/@username, если не уверен в id (тёзки или нет совпадения).
+- participant_names: запасной массив имён, если не уверен в id.
 - deadline_days: срок в днях от сегодня (если указано "3д", "через 5 дней", "неделю" и т.п.)
 - deadline_date: конкретная дата YYYY-MM-DD (если указана дата)
 - subtasks: подзадачи, если задача комплексная (вложенные пункты)
 - priority: 1=высокий, 2=средний, 3=низкий
 
 ${projectName ? `Проект: "${projectName}"` : ""}
-Доступные участники:\n${userList}
+Доступные участники проекта (используй ИХ id для assigned_to_id):
+${userList}
 Текущая дата: ${today}
 
 ВАЖНО: 
-- Если упомянуто несколько людей для одной задачи — первый (или явно указанный как ответственный) → assigned_to_name, остальные → participant_names.
+- Имена могут быть встроены в текст без маркеров: "забрать матрицы Виктория Журавлёва" → "Виктория" = ответственный, "Журавлёва" = участник (если оба есть в списке) или контекст.
+- Сопоставляй по ЛЮБОМУ токену ФИО (имя ИЛИ фамилия), уменьшительным (Витя=Виктория, Маша=Мария, Саша=Александр), регистр игнорируй.
+- Если упомянуто несколько людей — первый или явно указанный как ответственный → assigned_to_id, остальные → participant_ids.
+- ВСЕГДА возвращай assigned_to_id, если в тексте есть упоминание человека из списка. Не пропускай!
 - Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
           },
           { role: "user", content: `Извлеки задачи из:\n\n${text}` },
@@ -2536,8 +2542,10 @@ ${projectName ? `Проект: "${projectName}"` : ""}
                       type: "object",
                       properties: {
                         title: { type: "string" },
-                        assigned_to_name: { type: "string", description: "Имя или @username ответственного (один человек)" },
-                        participant_names: { type: "array", items: { type: "string" }, description: "Имена/@username участников задачи (кроме ответственного)" },
+                        assigned_to_id: { type: "string", description: "UUID ответственного из списка участников" },
+                        participant_ids: { type: "array", items: { type: "string" }, description: "UUID участников задачи" },
+                        assigned_to_name: { type: "string", description: "Резервно: имя/@username, если не нашёл id" },
+                        participant_names: { type: "array", items: { type: "string" }, description: "Резервно: имена участников" },
                         deadline_days: { type: "number", description: "Срок в днях от сегодня" },
                         deadline_date: { type: "string", description: "Дата YYYY-MM-DD" },
                         subtasks: { type: "array", items: { type: "string" } },
