@@ -278,8 +278,9 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project selector — only for project_chat mode without fixed groupId */}
-      {!isGeneral && !groupId && (
+      {/* Project selector — only for project_chat mode without any fixed groupId
+          (either explicit prop or pulled from moduleContext.activeProjectId). */}
+      {!isGeneral && !effectiveGroupId && (
         <div className="px-4 py-2 border-b border-border shrink-0 flex gap-2">
           <select
             value={selectedGroupId || ""}
@@ -306,7 +307,7 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
       )}
 
       {/* Clear button for general mode or fixed project */}
-      {(isGeneral || groupId) && chatMessages.length > 0 && (
+      {(isGeneral || effectiveGroupId) && chatMessages.length > 0 && (
         <div className="px-4 py-2 border-b border-border shrink-0 flex justify-end">
           <button
             onClick={clearConversation}
