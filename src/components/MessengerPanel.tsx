@@ -79,6 +79,12 @@ export default function MessengerPanel({
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+  // Multi-select filters over the thread list. Empty array = no filter.
+  // - authorIds: filter by `lastMessageUserId` (last message author).
+  // - projectIds: filter by `groupId` (works for both project-chat threads
+  //   and task threads, since task threads also carry `groupId`).
+  const [authorIds, setAuthorIds] = useState<string[]>([]);
+  const [projectIds, setProjectIds] = useState<string[]>([]);
 
   // Restore the active thread when the parent provides a remembered id and
   // the matching thread is available in the loaded list. Runs once per
@@ -113,9 +119,45 @@ export default function MessengerPanel({
     onActiveThreadChange?.(null);
   };
 
-  const filtered = search.trim()
-    ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : threads;
+  // Build distinct author / project options from currently loaded threads.
+  // Memoized so re-opening filter popovers doesn't re-scan on every keystroke.
+  const authorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of threads) {
+      if (t.lastMessageUserId && t.lastMessageAuthor) {
+        map.set(t.lastMessageUserId, t.lastMessageAuthor);
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }, [threads]);
+
+  const projectOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of threads) {
+      // Project chat: groupId === thread.id. Task chat: groupId set if known.
+      const id = t.groupId;
+      const name = t.type === "group" ? t.name : t.groupName;
+      if (id && name) map.set(id, name);
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }, [threads]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return threads.filter(t => {
+      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (authorIds.length && (!t.lastMessageUserId || !authorIds.includes(t.lastMessageUserId))) return false;
+      if (projectIds.length && (!t.groupId || !projectIds.includes(t.groupId))) return false;
+      return true;
+    });
+  }, [threads, search, authorIds, projectIds]);
+
+  const activeFilterCount = authorIds.length + projectIds.length;
+  const clearAllFilters = () => { setAuthorIds([]); setProjectIds([]); };
+  const toggleId = (set: string[], setSet: (v: string[]) => void, id: string) =>
+    setSet(set.includes(id) ? set.filter(x => x !== id) : [...set, id]);
 
   // Human-readable subtitle for the AI entry, mirroring AiAssistant's labels.
   const moduleLabel = (() => {
