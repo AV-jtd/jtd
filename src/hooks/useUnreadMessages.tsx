@@ -1,173 +1,104 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-const STORAGE_KEY = "jtd_last_read";
-
-/** Migrate localStorage data to DB (one-time per device) */
-async function migrateLocalStorageToDB(userId: string) {
-  const migrationKey = "jtd_read_migrated";
-  if (localStorage.getItem(migrationKey)) return;
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) { localStorage.setItem(migrationKey, "1"); return; }
-
-    const data: Record<string, string> = JSON.parse(raw);
-    const rows = Object.entries(data).map(([thread_id, last_read_at]) => ({
-      user_id: userId,
-      thread_id,
-      last_read_at,
-    }));
-
-    if (rows.length > 0) {
-      // Upsert — keep the newer timestamp
-      for (const row of rows) {
-        await (supabase as any).from("chat_read_status").upsert(row, {
-          onConflict: "user_id,thread_id",
-        });
-      }
-    }
-
-    localStorage.setItem(migrationKey, "1");
-  } catch {
-    // Ignore migration errors
-  }
-}
-
 /**
- * Tracks unread messages across group chats and task comments.
- * Stores read timestamps in DB so they sync across devices.
+ * Server-side unread aggregation.
+ *
+ * Previously the client downloaded the last 200 group_messages + 200
+ * task_comments and the full chat_read_status table on every refresh, then
+ * intersected them in JS. That scaled poorly and required a 30s polling timer.
+ *
+ * Now the database does the work in `public.get_unread_threads()` (one round
+ * trip, returns only threads that actually have unread messages for the
+ * current user). The client just caches that result and reads from it.
  */
+
+type UnreadRow = {
+  thread_id: string;
+  last_message_at: string;
+  unread_count: number;
+};
+
+const UNREAD_QUERY_KEY = ["unread_threads"] as const;
+
 export function useUnreadMessages() {
   const { user } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const lastReadRef = useRef<Record<string, string>>({});
-  const migrated = useRef(false);
+  const queryClient = useQueryClient();
 
-  // Load read status from DB
-  const loadReadStatus = useCallback(async () => {
-    if (!user) return {};
-    const { data } = await (supabase as any)
-      .from("chat_read_status")
-      .select("thread_id, last_read_at")
-      .eq("user_id", user.id);
-
-    const map: Record<string, string> = {};
-    if (data) {
-      for (const row of data) {
-        map[row.thread_id] = row.last_read_at;
+  const { data: rows = [] } = useQuery<UnreadRow[]>({
+    queryKey: [...UNREAD_QUERY_KEY, user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await (supabase as any).rpc("get_unread_threads");
+      if (error) {
+        console.warn("get_unread_threads failed", error);
+        return [];
       }
-    }
-    lastReadRef.current = map;
-    return map;
-  }, [user]);
+      return (data as UnreadRow[]) ?? [];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30,
+  });
 
-  const computeUnread = useCallback(async () => {
-    if (!user) { setUnreadCount(0); return; }
+  // Build a Set<string> of unread thread ids for O(1) lookup in render.
+  const unreadSet = useMemo(() => new Set(rows.map((r) => r.thread_id)), [rows]);
 
-    const lastRead = await loadReadStatus();
-    let count = 0;
+  // Total badge: number of distinct threads with unread messages (matches the
+  // historical behaviour of the old per-thread loop).
+  const unreadCount = rows.length;
 
-    // Check group messages — get latest per group
-    const { data: groupMsgs } = await supabase
-      .from("group_messages")
-      .select("group_id, created_at, user_id")
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (groupMsgs) {
-      const seen = new Set<string>();
-      for (const m of groupMsgs) {
-        if (seen.has(m.group_id)) continue;
-        seen.add(m.group_id);
-        if (m.user_id === user.id) continue;
-        const threadId = `group-${m.group_id}`;
-        const lr = lastRead[threadId];
-        if (!lr || new Date(m.created_at) > new Date(lr)) {
-          count++;
-        }
-      }
-    }
-
-    // Check task comments — get latest per task
-    const { data: taskComments } = await supabase
-      .from("task_comments")
-      .select("task_id, created_at, user_id")
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (taskComments) {
-      const seen = new Set<string>();
-      for (const c of taskComments as any[]) {
-        if (seen.has(c.task_id)) continue;
-        seen.add(c.task_id);
-        if (c.user_id === user.id) continue;
-        const threadId = `task-${c.task_id}`;
-        const lr = lastRead[threadId];
-        if (!lr || new Date(c.created_at) > new Date(lr)) {
-          count++;
-        }
-      }
-    }
-
-    setUnreadCount(count);
-  }, [user, loadReadStatus]);
-
-  // Migration + initial compute
-  useEffect(() => {
-    if (!user || migrated.current) return;
-    migrated.current = true;
-    migrateLocalStorageToDB(user.id).then(() => computeUnread());
-  }, [user, computeUnread]);
-
-  // Periodic refresh
+  // Listen for the invalidation signal dispatched by the singleton realtime
+  // channel in `useRealtimeSubscriptions`. A new message arrived — refetch.
   useEffect(() => {
     if (!user) return;
-    computeUnread();
-    const interval = setInterval(computeUnread, 30000);
-    return () => clearInterval(interval);
-  }, [computeUnread, user]);
-
-  // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root).
-  // We listen for invalidation signal via QueryClient subscription instead.
-  useEffect(() => {
-    if (!user) return;
-    // Listen to query invalidations dispatched by the singleton channel
-    const handler = () => computeUnread();
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: [...UNREAD_QUERY_KEY, user.id] });
+    };
     window.addEventListener("jtd:unread-invalidate", handler);
     return () => window.removeEventListener("jtd:unread-invalidate", handler);
-  }, [user, computeUnread]);
+  }, [user, queryClient]);
 
-  const markThreadRead = useCallback(async (threadId: string) => {
-    if (!user) return;
-    const now = new Date().toISOString();
-    lastReadRef.current[threadId] = now;
+  const markThreadRead = useCallback(
+    async (threadId: string) => {
+      if (!user) return;
+      const now = new Date().toISOString();
 
-    // Also update localStorage as fallback
-    try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      data[threadId] = now;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {}
+      // Optimistic local update so the badge clears immediately.
+      queryClient.setQueryData<UnreadRow[]>(
+        [...UNREAD_QUERY_KEY, user.id],
+        (prev) => (prev ?? []).filter((r) => r.thread_id !== threadId),
+      );
 
-    // Upsert to DB
-    await (supabase as any).from("chat_read_status").upsert(
-      { user_id: user.id, thread_id: threadId, last_read_at: now },
-      { onConflict: "user_id,thread_id" }
-    );
+      const { error } = await (supabase as any).from("chat_read_status").upsert(
+        { user_id: user.id, thread_id: threadId, last_read_at: now },
+        { onConflict: "user_id,thread_id" },
+      );
 
-    // Recompute after marking
-    computeUnread();
-  }, [user, computeUnread]);
+      if (error) {
+        // Rollback on failure by refetching the source of truth.
+        queryClient.invalidateQueries({ queryKey: [...UNREAD_QUERY_KEY, user.id] });
+      }
+    },
+    [user, queryClient],
+  );
 
-  const isThreadUnread = useCallback((threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => {
-    if (!lastMessageAt) return false;
-    if (lastMessageUserId === user?.id) return false;
-    const lr = lastReadRef.current[threadId];
-    if (!lr) return true;
-    return new Date(lastMessageAt) > new Date(lr);
-  }, [user]);
+  /**
+   * Per-thread unread check used by the messenger row renderer.
+   *
+   * The legacy signature accepts `(threadId, lastMessageAt, lastMessageUserId)`
+   * for callers that don't have access to the unread set. We now answer purely
+   * from the server-aggregated set, but keep the signature so call sites
+   * (MessengerPanel) don't need to change.
+   */
+  const isThreadUnread = useCallback(
+    (threadId: string, _lastMessageAt: string | null, lastMessageUserId?: string | null) => {
+      if (lastMessageUserId === user?.id) return false;
+      return unreadSet.has(threadId);
+    },
+    [unreadSet, user],
+  );
 
   return { unreadCount, markThreadRead, isThreadUnread };
 }
