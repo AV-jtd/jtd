@@ -46,6 +46,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [showAi, setShowAi] = useState(false);
   /** message.id → form open */
   const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
+  /** уникальный nonce открытия формы — меняется при каждом открытии,
+   *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
+  const [taskFormNonce, setTaskFormNonce] = useState(0);
+  const openTaskForm = (id: string) => {
+    setTaskFormFor(prev => {
+      if (prev === id) return null;          // toggle close
+      setTaskFormNonce(n => n + 1);          // bump для нового монтирования
+      return id;
+    });
+  };
+  const closeTaskForm = () => setTaskFormFor(null);
   /** message.id → созданная задача (для системной карточки) */
   const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -106,9 +117,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           deadline: payload.deadline,
         },
       }));
-      // Закрываем форму только если она всё ещё открыта именно на этом сообщении —
-      // пользователь мог за время запроса открыть форму на другом сообщении.
+      // Гарантированно закрываем форму этого сообщения. Если пользователь
+      // успел открыть форму другого сообщения — её не трогаем.
       setTaskFormFor(prev => (prev === msg.id ? null : prev));
+      // Bump nonce, чтобы при следующем открытии любой формы InlineTaskForm
+      // смонтировалась заново с дефолтными значениями (title из текста, ассайни-автор, пустой дедлайн).
+      setTaskFormNonce(n => n + 1);
       toast.success("Задача создана");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось создать задачу");
@@ -211,16 +225,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     isOwn={isOwn}
                     onReply={() => setReplyTo(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
-                    onCreateTask={() => setTaskFormFor(prev => prev === msg.id ? null : msg.id)}
+                    onCreateTask={() => openTaskForm(msg.id)}
                   />
 
                   {/* Inline task form */}
                   {taskFormFor === msg.id && (
                     <InlineTaskForm
+                      key={`${msg.id}-${taskFormNonce}`}
                       message={msg}
                       availableUsers={availableUsers}
                       defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
-                      onCancel={() => setTaskFormFor(null)}
+                      onCancel={closeTaskForm}
                       onSubmit={(payload) => handleCreateTask(msg, payload)}
                       isSubmitting={addTask.isPending}
                     />
@@ -267,15 +282,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         isOwn={reply.user_id === user?.id}
                         onReply={() => setReplyTo(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => setTaskFormFor(prev => prev === reply.id ? null : reply.id)}
+                        onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
+                          key={`${reply.id}-${taskFormNonce}`}
                           message={reply}
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
-                          onCancel={() => setTaskFormFor(null)}
+                          onCancel={closeTaskForm}
                           onSubmit={(payload) => handleCreateTask(reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
