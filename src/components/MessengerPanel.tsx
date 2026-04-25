@@ -290,7 +290,14 @@ export default function MessengerPanel({
             groupName={activeThread.name}
             onClose={() => setActiveThread(null)}
             embedded
-            onNavigateToProject={(gId) => { onNavigateToProject?.(gId); onClose(); }}
+            onNavigateToProject={(gId) => {
+              if (onOpenProjectDetail) {
+                onOpenProjectDetail(gId);
+              } else {
+                onNavigateToProject?.(gId);
+                onClose();
+              }
+            }}
           />
         ) : activeThread.type === "task" && activeThread.taskId ? (
           <TaskChat
