@@ -232,6 +232,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     onReply={() => setReplyTo(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
                     onCreateTask={() => openTaskForm(msg.id)}
+                    reactions={reactionsByMsg[msg.id]}
                   />
 
                   {/* Inline task form */}
@@ -276,6 +277,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
                         onCreateTask={() => openTaskForm(reply.id)}
                         isReply
+                        reactions={reactionsByMsg[reply.id]}
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
