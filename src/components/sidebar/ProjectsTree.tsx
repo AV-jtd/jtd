@@ -594,6 +594,53 @@ export default function ProjectsTree({
                 </div>
               )}
 
+              {/* Virtual STM folder — SKU projects grouped by retailer, collapsed by default */}
+              {stmRootGroups.length > 0 && (
+                <div>
+                  <div
+                    ref={(el) => folderRowRefs.current.set("__stm__", el)}
+                    className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors"
+                    onClick={() => handleToggleFolder("__stm__")}
+                  >
+                    <span className="shrink-0">
+                      {expandedFolders.has("__stm__") ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </span>
+                    <span className="shrink-0">🏷️</span>
+                    <span className="truncate flex-1 text-left font-medium">СТМ продукты</span>
+                    <span className="text-[10px] text-sidebar-fg/40">{stmRootGroups.length}</span>
+                  </div>
+                  {expandedFolders.has("__stm__") && (
+                    <div className="space-y-0.5 pl-3">
+                      {stmByRetailer.map(([retailer, items]) => {
+                        const key = `__stm__:${retailer}`;
+                        const isOpen = expandedFolders.has(key);
+                        return (
+                          <div key={key}>
+                            <div
+                              className="group flex items-center gap-2 px-3 py-1 rounded-lg text-xs text-sidebar-fg/60 hover:bg-sidebar-hover cursor-pointer transition-colors"
+                              onClick={() => handleToggleFolder(key)}
+                            >
+                              <span className="shrink-0">
+                                {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                              </span>
+                              <span className="truncate flex-1 text-left">{retailer}</span>
+                              <span className="text-[10px] text-sidebar-fg/40">{items.length}</span>
+                            </div>
+                            {isOpen && (
+                              <VirtualGroupList
+                                className="space-y-0.5"
+                                items={items}
+                                renderItem={renderGroup}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Folders with projects */}
               {folders.map((folder) => {
                 const folderProjects = groupsInFolder(folder.id);
