@@ -46,6 +46,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [showAi, setShowAi] = useState(false);
   /** message.id → form open */
   const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
+  /** уникальный nonce открытия формы — меняется при каждом открытии,
+   *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
+  const [taskFormNonce, setTaskFormNonce] = useState(0);
+  const openTaskForm = (id: string) => {
+    setTaskFormFor(prev => {
+      if (prev === id) return null;          // toggle close
+      setTaskFormNonce(n => n + 1);          // bump для нового монтирования
+      return id;
+    });
+  };
+  const closeTaskForm = () => setTaskFormFor(null);
   /** message.id → созданная задача (для системной карточки) */
   const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
