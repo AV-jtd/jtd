@@ -3,9 +3,15 @@ import { useState, useRef, ReactNode, ReactElement, cloneElement } from "react";
 /**
  * Defers mounting of a heavy child until the user actually interacts with it.
  *
- * Used to avoid paying the mount cost of every popover/picker/dialog inside
- * every TaskItem row in long task lists. Until the user hovers, focuses, or
- * touches the trigger, only the lightweight trigger element is in the DOM.
+ * Two-stage promotion to make the first open feel instant:
+ *  - **Warm** (hover/focus/pointerenter): mount the heavy child so React/JS
+ *    work happens during pointer travel — but stay closed.
+ *  - **Open** (click/pointerdown/touchstart): toggle to open. Because the
+ *    component is already mounted, this is a single state update, not a
+ *    full mount + open.
+ *
+ * On mobile a hover never fires, but `pointerdown` fires ~50ms before `click`,
+ * so we use it as a fast-path open trigger.
  *
  * Usage:
  *   <LazyMount trigger={<button>Open</button>}>
@@ -42,7 +48,12 @@ export default function LazyMount({ trigger, children, forceMount }: LazyMountPr
   }
 
   if (!mounted) {
-    // Wrap trigger so any interaction promotes it to the real component.
+    // Two-stage promotion: warm on intent, open on commit.
+    const warm = () => {
+      if (mountedRef.current) return;
+      mountedRef.current = true;
+      setMounted(true);
+    };
     const promote = () => {
       mountedRef.current = true;
       setMounted(true);
@@ -54,16 +65,27 @@ export default function LazyMount({ trigger, children, forceMount }: LazyMountPr
         (existing.onClick as ((e: React.MouseEvent) => void) | undefined)?.(e);
         promote();
       },
+      onPointerDown: (e: React.PointerEvent) => {
+        (existing.onPointerDown as ((e: React.PointerEvent) => void) | undefined)?.(e);
+        // pointerdown fires ~50ms before click on mobile — open the picker now
+        // so it appears under the finger without waiting for the synthetic click.
+        promote();
+      },
       onFocus: (e: React.FocusEvent) => {
         (existing.onFocus as ((e: React.FocusEvent) => void) | undefined)?.(e);
-        promote();
+        warm();
       },
       onMouseEnter: (e: React.MouseEvent) => {
         (existing.onMouseEnter as ((e: React.MouseEvent) => void) | undefined)?.(e);
-        promote();
+        warm();
+      },
+      onPointerEnter: (e: React.PointerEvent) => {
+        (existing.onPointerEnter as ((e: React.PointerEvent) => void) | undefined)?.(e);
+        warm();
       },
       onTouchStart: (e: React.TouchEvent) => {
         (existing.onTouchStart as ((e: React.TouchEvent) => void) | undefined)?.(e);
+        // Fast-path for older mobile browsers that don't fire pointerdown.
         promote();
       },
     };
