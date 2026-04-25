@@ -5,7 +5,7 @@ import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2 } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessengerPanelProps {
   onClose: () => void;
+  /**
+   * Optional "minimize" handler. When provided, an extra button appears in
+   * the active-thread header that lets the user hide the messenger panel
+   * without clearing the active thread, so they can inspect a task and come
+   * back to the same conversation in one click.
+   */
+  onMinimize?: () => void;
   markThreadRead?: (threadId: string) => void;
   isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
   onNavigateToProject?: (groupId: string) => void;
@@ -51,6 +58,7 @@ function formatThreadDate(dateStr: string | null) {
 
 export default function MessengerPanel({
   onClose,
+  onMinimize,
   markThreadRead,
   isThreadUnread,
   onNavigateToProject,
@@ -278,6 +286,7 @@ export default function MessengerPanel({
         <button
           onClick={clearActiveThread}
           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="К списку чатов"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -311,6 +320,16 @@ export default function MessengerPanel({
             {activeThread.groupName ? ` · ${activeThread.groupName}` : ""}
           </p>
         </button>
+        {onMinimize && (
+          <button
+            onClick={onMinimize}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Свернуть чат (тред сохранится)"
+            aria-label="Свернуть чат"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </button>
+        )}
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
