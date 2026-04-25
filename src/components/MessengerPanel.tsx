@@ -10,7 +10,6 @@ import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getInitials, getAvatarColors } from "@/lib/initials";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -245,122 +244,14 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
             onNavigateToProject={(gId) => { onNavigateToProject?.(gId); onClose(); }}
           />
         ) : activeThread.type === "task" && activeThread.taskId ? (
-          <TaskChatFull
+          <TaskChat
             taskId={activeThread.taskId}
             taskTitle={activeThread.name}
             availableUsers={availableUsers}
+            variant="full"
           />
         ) : null}
       </div>
-    </div>
-  );
-}
-
-/** Full-height task chat for the messenger panel */
-import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
-import { useAuth } from "@/hooks/useAuth";
-import { Profile } from "@/hooks/useTasks";
-import { Send, Trash2 } from "lucide-react";
-import { useRef, useEffect } from "react";
-
-function formatMsgDate(dateStr: string) {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return `Вчера, ${format(d, "HH:mm")}`;
-  return format(d, "d MMM, HH:mm", { locale: ru });
-}
-
-function TaskChatFull({ taskId, taskTitle, availableUsers }: { taskId: string; taskTitle: string; availableUsers: Profile[] }) {
-  const { user } = useAuth();
-  const { data: comments = [], isLoading } = useTaskComments(taskId);
-  const { addComment, deleteComment } = useCommentMutations();
-  const [draft, setDraft] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [comments.length]);
-
-  const getProfileName = (userId: string) => {
-    const p = availableUsers.find(u => u.id === userId);
-    return p?.display_name || userId.slice(0, 8);
-  };
-
-  const handleSend = () => {
-    const text = draft.trim();
-    if (!text) return;
-    addComment.mutate({ task_id: taskId, content: text });
-    setDraft("");
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 px-4 py-3">
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Загрузка...</p>
-        ) : comments.length === 0 ? (
-          <div className="text-center py-12">
-            <MessageCircle className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Начните обсуждение</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {comments.map(c => {
-              const isOwn = c.user_id === user?.id;
-              return (
-                <div key={c.id} className="group/msg">
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-semibold shrink-0"
-                      style={getAvatarColors(getProfileName(c.user_id))}
-                    >
-                      {getInitials(getProfileName(c.user_id))}
-                    </div>
-                    <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
-                      {getProfileName(c.user_id)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(c.created_at)}</span>
-                  </div>
-                  <div className="flex items-start gap-1 pl-[22px]">
-                    <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90 flex-1">
-                      {c.content}
-                    </p>
-                    {isOwn && (
-                      <button
-                        onClick={() => deleteComment.mutate({ id: c.id, task_id: taskId })}
-                        className="opacity-0 group-hover/msg:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
-        )}
-      </ScrollArea>
-
-      <form
-        onSubmit={e => { e.preventDefault(); handleSend(); }}
-        className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0"
-      >
-        <Input
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          placeholder="Написать..."
-          className="flex-1 text-sm"
-          autoComplete="off"
-        />
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-all"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </form>
     </div>
   );
 }
