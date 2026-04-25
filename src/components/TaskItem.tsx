@@ -537,6 +537,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  // Defer mounting the heavy closure dialog (file uploads + AI summary)
+  // until the user opens it for the first time. After that it stays mounted
+  // so subsequent opens are instant.
+  const [closureDialogOpenedOnce, setClosureDialogOpenedOnce] = useState(false);
   const [savingToWiki, setSavingToWiki] = useState(false);
   const [stepsCollapsed, setStepsCollapsed] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
