@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
@@ -216,4 +217,56 @@ export function useThreads() {
     enabled: !!user,
     staleTime: 1000 * 15,
   });
+}
+
+/**
+ * Subscribes to realtime INSERTs on `group_messages` and `task_comments`
+ * and invalidates the `messenger_threads` query so the side panel stays
+ * fresh without waiting for `staleTime` to elapse.
+ *
+ * Implementation notes:
+ * - Uses a single dedicated channel (NOT routed through `channelManager`,
+ *   because that one is LRU-capped at 5 and is meant for per-thread chats —
+ *   this is a global panel-level subscription that must stay alive while the
+ *   panel is mounted).
+ * - Coalesces invalidations through a short debounce so a burst of messages
+ *   in an open chat doesn't trigger a refetch storm.
+ */
+export function useThreadsRealtime() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const scheduleInvalidate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["messenger_threads", user.id] });
+      }, 500);
+    };
+
+    const channel = supabase
+      .channel("messenger_threads_feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "group_messages" },
+        scheduleInvalidate,
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "task_comments" },
+        scheduleInvalidate,
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 }
