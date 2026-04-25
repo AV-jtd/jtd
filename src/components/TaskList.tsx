@@ -1089,27 +1089,52 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           </DndContext>
         ) : (
           <div className="space-y-1.5">
-            <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
-              <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                {activeTasks.map((task, i) => (
-                  <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
-                    <TaskItem
-                      task={task}
-                      {...sharedTaskItemProps}
-                      sortable={!batchMode}
-                      initialOpen={task.id === highlightTaskId}
-                      onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
-                      onTagClick={onTagClick}
-                      onProjectClick={onProjectClick}
-                      selectable={batchMode}
-                      selected={selectedIds.has(task.id)}
-                      onToggleSelect={() => toggleSelect(task.id)}
-                      onLongPress={() => toggleSelect(task.id)}
-                    />
-                  </div>
-                ))}
-              </SortableContext>
-            </DndContext>
+            {activeTasks.length >= 50 ? (
+              <Suspense fallback={
+                <div className="space-y-1.5">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                  ))}
+                </div>
+              }>
+                <VirtualTaskList
+                  tasks={activeTasks}
+                  scrollParentRef={scrollParentRef}
+                  sharedTaskItemProps={sharedTaskItemProps}
+                  highlightTaskId={highlightTaskId}
+                  onHighlightClear={onHighlightClear}
+                  onTagClick={onTagClick}
+                  onProjectClick={onProjectClick}
+                  selectedIds={selectedIds}
+                  toggleSelect={toggleSelect}
+                  batchMode={batchMode}
+                  onReorder={(next) => reorderTasks.mutate(next)}
+                  groupDropContext={activeView === "group" ? "group" : "default"}
+                />
+              </Suspense>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={activeView === "group" ? pointerWithin : closestCenter} onDragEnd={handleDragEnd} modifiers={activeView === "group" ? [] : [restrictToVerticalAxis]}>
+                <SortableContext items={activeTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  {activeTasks.map((task, i) => (
+                    <div key={task.id} data-task-id={task.id} style={i < 20 ? { animationDelay: `${i * 30}ms` } : undefined} className={i < 20 ? "animate-fade-in" : ""}>
+                      <TaskItem
+                        task={task}
+                        {...sharedTaskItemProps}
+                        sortable={!batchMode}
+                        initialOpen={task.id === highlightTaskId}
+                        onOpened={task.id === highlightTaskId ? onHighlightClear : undefined}
+                        onTagClick={onTagClick}
+                        onProjectClick={onProjectClick}
+                        selectable={batchMode}
+                        selected={selectedIds.has(task.id)}
+                        onToggleSelect={() => toggleSelect(task.id)}
+                        onLongPress={() => toggleSelect(task.id)}
+                      />
+                    </div>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
             {completedTasks.length > 0 && (
               <div className="pt-4">
                 <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider px-1 mb-2">
