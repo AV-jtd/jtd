@@ -91,6 +91,36 @@ const isTouchDevice = (): boolean => {
   );
 };
 
+/**
+ * Stable height measurer for `measureElement`.
+ *
+ * `ResizeObserver` fires for any subpixel layout change — focus rings on the
+ * active row, font hinting differences, hover transitions on a `<button>`,
+ * the rename `<input>` swapping in for a `<span>`. Each fire would normally
+ * push a new height into the virtualiser's offset cache and trigger a
+ * re-layout of every row below. That's what causes the visible "jumpiness"
+ * when expanding a project with children or editing a name.
+ *
+ * We mitigate that by:
+ *  1) Rounding to a whole pixel (`Math.round`) — eliminates subpixel jitter.
+ *  2) Returning the *previous* height via a per-element WeakMap when the
+ *     change is below `MEASURE_TOLERANCE_PX`. This swallows changes caused
+ *     by purely cosmetic state (focus, hover) while still letting a real
+ *     structural change (children expanded, multi-line title) propagate.
+ */
+const MEASURE_TOLERANCE_PX = 1;
+const lastMeasuredSize = new WeakMap<Element, number>();
+
+const stableMeasureElement = (el: Element): number => {
+  const next = Math.round(el.getBoundingClientRect().height);
+  const prev = lastMeasuredSize.get(el);
+  if (prev !== undefined && Math.abs(next - prev) <= MEASURE_TOLERANCE_PX) {
+    return prev;
+  }
+  lastMeasuredSize.set(el, next);
+  return next;
+};
+
 function VirtualGroupListInner(
   {
     items,
@@ -135,6 +165,9 @@ function VirtualGroupListInner(
     estimateSize: () => estimateSize,
     overscan: effectiveOverscan,
     getItemKey: (i) => items[i].id,
+    // See `stableMeasureElement` above — keeps re-layouts to actual
+    // structural changes instead of every focus/hover transition.
+    measureElement: stableMeasureElement,
   });
 
   // ---------- Imperative scroll API ----------
@@ -229,12 +262,15 @@ function VirtualGroupListInner(
               top: vRow.start,
               left: 0,
               right: 0,
-              // Skip layout/paint for off-screen rows. `contain-intrinsic-size`
-              // tells the browser the row's reserved size so removing it from
-              // layout doesn't cause a height jump.
+              // Skip layout/paint for off-screen rows. We avoid
+              // `content-visibility: auto` here on purpose: it causes the
+              // browser to report the *intrinsic* (i.e. estimated) size to
+              // ResizeObserver until the row scrolls into view, and that
+              // confuses our stable-measure cache the first time the row
+              // is actually painted. `contain: layout paint style` alone is
+              // already enough to keep off-screen rows out of layout flushes.
               contain: "layout paint style",
-              contentVisibility: "auto",
-              containIntrinsicSize: `${estimateSize}px`,
+              minHeight: estimateSize,
             }}
           >
             {renderItem(group)}
