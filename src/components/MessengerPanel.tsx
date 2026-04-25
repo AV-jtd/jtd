@@ -440,6 +440,12 @@ export default function MessengerPanel({
             taskTitle={activeThread.name}
             availableUsers={availableUsers}
             variant="full"
+            onNavigateToTask={(tId) => {
+              if (onNavigateToTask) {
+                onNavigateToTask(tId);
+                onClose();
+              }
+            }}
           />
         ) : null}
       </div>
