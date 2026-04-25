@@ -471,3 +471,36 @@ function InlineTaskForm({
     </div>
   );
 }
+
+type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
+
+function CreatedTaskCard({ info, onClick }: { info: CreatedTaskInfo; onClick: () => void }) {
+  const assignee = info.assigneeName?.trim();
+  let deadlineLabel = "";
+  if (info.deadline) {
+    const d = new Date(info.deadline);
+    if (!isNaN(d.getTime())) {
+      deadlineLabel = ` · до ${format(d, "d MMM", { locale: ru })}`;
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group/card"
+    >
+      <div className="h-7 w-7 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
+        <CheckSquare className="h-3.5 w-3.5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground truncate">{info.title || "Без названия"}</p>
+        <p className="text-[10px] text-muted-foreground truncate">
+          Задача создана
+          {assignee ? ` · ${assignee}` : ""}
+          {deadlineLabel}
+        </p>
+      </div>
+      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
+    </button>
+  );
+}
