@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => ({
   define: {
     "import.meta.env.VITE_BUILD_VERSION": JSON.stringify(buildVersion),
   },
+  // Expose build version to the custom service worker via a generated module.
+  // The custom-sw.js reads `self.__APP_VERSION__` to derive cache names.
   server: {
     host: "::",
     port: 8080,
@@ -44,6 +46,13 @@ export default defineConfig(({ mode }) => ({
       workbox: {
       skipWaiting: true,
       clientsClaim: true,
+        // Automatically delete precache entries from previous SW versions
+        // on activation. Combined with the orphan-cache cleanup in
+        // custom-sw.js, this prevents unbounded cache growth on mobile.
+        cleanupOutdatedCaches: true,
+        // Stamp the precache name with the build version so each deploy
+        // produces a fresh precache and the previous one is purged.
+        cacheId: `jtd-${buildVersion}`,
         // Keep only the critical app shell in precache.
         // Heavy/lazy chunks (xlsx, pdf, Protocol/NPD/Gantt/Dashboard, etc.) are
         // served via runtime caching on first use — this drops the initial PWA
@@ -71,14 +80,16 @@ export default defineConfig(({ mode }) => ({
           "assets/ProjectChat-*.js",
         ],
         navigateFallbackDenylist: [/^\/~oauth/],
-        importScripts: ["/custom-sw.js"],
+        importScripts: [`/custom-sw.js?v=${buildVersion}`],
         runtimeCaching: [
           {
             // Lazy-loaded JS/CSS chunks — cache on first use, serve instantly after.
             urlPattern: /\/assets\/.*\.(?:js|css)$/,
             handler: "StaleWhileRevalidate",
             options: {
-              cacheName: "app-chunks",
+              // Versioned name → previous deploy's runtime cache becomes
+              // orphaned and is removed by the activate handler in custom-sw.js.
+              cacheName: `app-chunks-${buildVersion}`,
               expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
@@ -87,7 +98,7 @@ export default defineConfig(({ mode }) => ({
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
             handler: "CacheFirst",
             options: {
-              cacheName: "app-images",
+              cacheName: `app-images-${buildVersion}`,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
