@@ -105,9 +105,11 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
 
   // Persist conversation per (mode + module + project) so e.g. PMO general chat
   // is separate from the Tasks general chat and from a specific project chat.
+  // For backward compatibility the default `tasks` module keeps the historical
+  // null contextId, so existing assistant histories aren't orphaned.
   const contextType = isGeneral ? "assistant" : "project_chat";
   const contextId = isGeneral
-    ? `assistant:${moduleKey}`
+    ? (moduleKey === "tasks" ? null : `module:${moduleKey}`)
     : selectedGroupId;
 
   const {
