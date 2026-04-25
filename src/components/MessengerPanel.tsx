@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useThreads, Thread } from "@/hooks/useMessenger";
+import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
@@ -43,6 +43,9 @@ export default function MessengerPanel({
   moduleContext,
 }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
+  // Live updates: refresh the thread list when new messages/comments arrive
+  // anywhere, without waiting for `staleTime`.
+  useThreadsRealtime();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
