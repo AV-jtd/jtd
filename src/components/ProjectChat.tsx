@@ -11,6 +11,8 @@ import AiChatThread from "./AiChatThread";
 import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
 import UserPicker from "./UserPicker";
 import { toast } from "sonner";
+import MessageReactions from "./MessageReactions";
+import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 
 interface ProjectChatProps {
   groupId: string;
