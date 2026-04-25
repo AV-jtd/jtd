@@ -208,25 +208,25 @@ function GroupItemImpl(props: GroupItemProps) {
             </span>
           )}
 
-          {/* Actions: always visible on mobile, hover-revealed on desktop */}
+          {/* Actions: на мобиле — только «Карточка», остальное в десктоп-hover-ряду */}
           <div className={cn(
-            "items-center gap-0.5 shrink-0 flex",
-            isActive ? "opacity-70 md:opacity-60" : "opacity-70 md:opacity-0 md:group-hover:opacity-100",
+            "items-center gap-0.5 shrink-0 hidden md:flex",
+            isActive ? "md:opacity-60" : "md:opacity-0 md:group-hover:opacity-100",
           )}>
             {isRoot && (
               <span
                 onClick={(e) => { e.stopPropagation(); setShowNewSubgroup(true); }}
-                className="p-1.5 md:p-0.5 cursor-pointer hover:!opacity-100"
+                className="p-0.5 cursor-pointer hover:!opacity-100"
                 title="Добавить подпроект"
               >
-                <Plus className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                <Plus className="h-3.5 w-3.5" />
               </span>
             )}
 
             <Popover open={memberOpen} onOpenChange={(o) => { setMemberOpen(o); if (!o) setMemberSearch(""); }}>
               <PopoverTrigger asChild>
-                <span onClick={(e) => e.stopPropagation()} className="p-1.5 md:p-0.5 cursor-pointer hover:!opacity-100" title="Добавить участника">
-                  <UserPlus className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100" title="Добавить участника">
+                  <UserPlus className="h-3.5 w-3.5" />
                 </span>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2" side="right" onClick={(e) => e.stopPropagation()}>
@@ -262,17 +262,17 @@ function GroupItemImpl(props: GroupItemProps) {
 
             <span
               onClick={(e) => { e.stopPropagation(); onOpenDetail(group.id); }}
-              className="p-1.5 md:p-0.5 cursor-pointer hover:!opacity-100"
+              className="p-0.5 cursor-pointer hover:!opacity-100"
               title="Карточка проекта"
             >
-              <Expand className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <Expand className="h-3.5 w-3.5" />
             </span>
 
             {isRoot && folders.length > 0 && (
               <Popover open={folderOpen} onOpenChange={setFolderOpen}>
                 <PopoverTrigger asChild>
-                  <span onClick={(e) => e.stopPropagation()} className="p-1.5 md:p-0.5 cursor-pointer hover:!opacity-100" title="Переместить в папку">
-                    <FolderOpen className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                  <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100" title="Переместить в папку">
+                    <FolderOpen className="h-3.5 w-3.5" />
                   </span>
                 </PopoverTrigger>
                 <PopoverContent className="w-44 p-1.5" side="right" onClick={(e) => e.stopPropagation()}>
@@ -307,11 +307,21 @@ function GroupItemImpl(props: GroupItemProps) {
               description={isRoot && hasChildren ? "Все подпроекты тоже будут удалены." : "Задачи потеряют привязку."}
               onConfirm={() => deleteGroup.mutate(group.id)}
             >
-              <span onClick={(e) => e.stopPropagation()} className="p-1.5 md:p-0.5 cursor-pointer hover:!opacity-100">
-                <Trash2 className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <span onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-pointer hover:!opacity-100">
+                <Trash2 className="h-3.5 w-3.5" />
               </span>
             </ConfirmDelete>
           </div>
+
+          {/* Mobile-only: одна крупная иконка «Карточка проекта» */}
+          <span
+            onClick={(e) => { e.stopPropagation(); onOpenDetail(group.id); }}
+            className="md:hidden shrink-0 p-1.5 -mr-1 cursor-pointer text-sidebar-fg/60 hover:text-sidebar-fg active:text-sidebar-fg"
+            title="Карточка проекта"
+            aria-label="Открыть карточку проекта"
+          >
+            <Expand className="h-4 w-4" />
+          </span>
         </button>
       </div>
 
