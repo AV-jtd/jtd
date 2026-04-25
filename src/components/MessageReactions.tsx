@@ -140,6 +140,7 @@ export function ReactionChips({
     <div className="inline-flex items-center flex-wrap gap-0.5">
       {entries.map(([emoji, users]) => {
         const mine = !!user && users.includes(user.id);
+        const count = users.length;
         return (
           <button
             key={emoji}
@@ -147,8 +148,14 @@ export function ReactionChips({
             onClick={() =>
               user && toggle.mutate({ messageType, messageId, emoji, hasMine: mine })
             }
+            aria-pressed={mine}
+            aria-label={
+              mine
+                ? `Убрать вашу реакцию ${emoji}, всего ${count}`
+                : `Поставить реакцию ${emoji}, всего ${count}`
+            }
             className={cn(
-              "inline-flex items-center gap-0.5 rounded-full border leading-none transition-colors",
+              "inline-flex items-center gap-0.5 rounded-full border leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               size === "xs"
                 ? "px-1 py-px text-[10px]"
                 : "px-1.5 py-px text-[11px]",
@@ -161,7 +168,9 @@ export function ReactionChips({
             <span className={size === "xs" ? "text-[12px] leading-none" : "text-sm leading-none"}>
               {emoji}
             </span>
-            <span className="font-medium">{users.length}</span>
+            <span className="font-medium" aria-hidden="true">
+              {count}
+            </span>
           </button>
         );
       })}
@@ -225,7 +234,8 @@ export function ReactionAddButton({
         side="top"
         align="end"
         className="w-72 p-2"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        role="dialog"
+        aria-label="Выбор эмодзи для реакции"
       >
         <ReactionPanel
           quick={quick}
@@ -259,7 +269,13 @@ function ReactionTrigger({ open, setOpen }: { open: boolean; setOpen: (v: boolea
 
 function ReactionPopoverContent(props: PanelProps) {
   return (
-    <PopoverContent side="top" align="end" className="w-72 p-2">
+    <PopoverContent
+      side="top"
+      align="end"
+      className="w-72 p-2"
+      role="dialog"
+      aria-label="Выбор эмодзи для реакции"
+    >
       <ReactionPanel {...props} />
     </PopoverContent>
   );
@@ -275,16 +291,28 @@ type PanelProps = {
 };
 
 function ReactionPanel({ quick, search, setSearch, filtered, onPick, mineFor }: PanelProps) {
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && filtered.length > 0) {
+      e.preventDefault();
+      onPick(filtered[0]);
+    }
+  }
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1 flex-wrap">
+      <div
+        className="flex items-center gap-1 flex-wrap"
+        role="group"
+        aria-label="Быстрые реакции"
+      >
         {quick.map((e) => (
           <button
             key={e}
             type="button"
             onClick={() => onPick(e)}
+            aria-label={mineFor(e) ? `Убрать реакцию ${e}` : `Поставить реакцию ${e}`}
+            aria-pressed={mineFor(e)}
             className={cn(
-              "h-8 w-8 inline-flex items-center justify-center rounded-md text-lg hover:bg-muted transition-colors",
+              "h-8 w-8 inline-flex items-center justify-center rounded-md text-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               mineFor(e) && "bg-primary/15 ring-1 ring-primary/40",
             )}
           >
@@ -293,23 +321,41 @@ function ReactionPanel({ quick, search, setSearch, filtered, onPick, mineFor }: 
         ))}
       </div>
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Search
+          className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground"
+          aria-hidden="true"
+        />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder="Поиск эмодзи…"
           className="h-8 pl-7 text-xs"
+          aria-label="Поиск эмодзи"
+          autoFocus
         />
       </div>
+      <div className="sr-only" role="status" aria-live="polite">
+        {filtered.length === 0
+          ? "Ничего не найдено"
+          : `Найдено ${filtered.length} эмодзи`}
+      </div>
       <ScrollArea className="h-48">
-        <div className="grid grid-cols-8 gap-0.5 pr-1">
+        <div
+          className="grid grid-cols-8 gap-0.5 pr-1"
+          role="listbox"
+          aria-label="Список эмодзи"
+        >
           {filtered.map((e) => (
             <button
               key={e}
               type="button"
               onClick={() => onPick(e)}
+              role="option"
+              aria-selected={mineFor(e)}
+              aria-label={mineFor(e) ? `Убрать реакцию ${e}` : `Поставить реакцию ${e}`}
               className={cn(
-                "h-7 w-7 inline-flex items-center justify-center rounded text-base hover:bg-muted transition-colors",
+                "h-7 w-7 inline-flex items-center justify-center rounded text-base hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 mineFor(e) && "bg-primary/15 ring-1 ring-primary/40",
               )}
             >
