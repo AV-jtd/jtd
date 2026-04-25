@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2 } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, User as UserIcon } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -76,6 +79,12 @@ export default function MessengerPanel({
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+  // Multi-select filters over the thread list. Empty array = no filter.
+  // - authorIds: filter by `lastMessageUserId` (last message author).
+  // - projectIds: filter by `groupId` (works for both project-chat threads
+  //   and task threads, since task threads also carry `groupId`).
+  const [authorIds, setAuthorIds] = useState<string[]>([]);
+  const [projectIds, setProjectIds] = useState<string[]>([]);
 
   // Restore the active thread when the parent provides a remembered id and
   // the matching thread is available in the loaded list. Runs once per
@@ -110,9 +119,45 @@ export default function MessengerPanel({
     onActiveThreadChange?.(null);
   };
 
-  const filtered = search.trim()
-    ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : threads;
+  // Build distinct author / project options from currently loaded threads.
+  // Memoized so re-opening filter popovers doesn't re-scan on every keystroke.
+  const authorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of threads) {
+      if (t.lastMessageUserId && t.lastMessageAuthor) {
+        map.set(t.lastMessageUserId, t.lastMessageAuthor);
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }, [threads]);
+
+  const projectOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of threads) {
+      // Project chat: groupId === thread.id. Task chat: groupId set if known.
+      const id = t.groupId;
+      const name = t.type === "group" ? t.name : t.groupName;
+      if (id && name) map.set(id, name);
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }, [threads]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return threads.filter(t => {
+      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (authorIds.length && (!t.lastMessageUserId || !authorIds.includes(t.lastMessageUserId))) return false;
+      if (projectIds.length && (!t.groupId || !projectIds.includes(t.groupId))) return false;
+      return true;
+    });
+  }, [threads, search, authorIds, projectIds]);
+
+  const activeFilterCount = authorIds.length + projectIds.length;
+  const clearAllFilters = () => { setAuthorIds([]); setProjectIds([]); };
+  const toggleId = (set: string[], setSet: (v: string[]) => void, id: string) =>
+    setSet(set.includes(id) ? set.filter(x => x !== id) : [...set, id]);
 
   // Human-readable subtitle for the AI entry, mirroring AiAssistant's labels.
   const moduleLabel = (() => {
@@ -187,6 +232,37 @@ export default function MessengerPanel({
               placeholder="Поиск..."
               className="h-8 text-sm pl-8"
             />
+          </div>
+          {/* Filter chips: by author / by project. Multi-select via popovers. */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <FilterChip
+              icon={<UserIcon className="h-3 w-3" />}
+              label="Автор"
+              count={authorIds.length}
+              options={authorOptions}
+              selected={authorIds}
+              onToggle={(id) => toggleId(authorIds, setAuthorIds, id)}
+              onClear={() => setAuthorIds([])}
+              emptyHint="Нет авторов"
+            />
+            <FilterChip
+              icon={<FolderOpen className="h-3 w-3" />}
+              label="Проект"
+              count={projectIds.length}
+              options={projectOptions}
+              selected={projectIds}
+              onToggle={(id) => toggleId(projectIds, setProjectIds, id)}
+              onClear={() => setProjectIds([])}
+              emptyHint="Нет проектов"
+            />
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
+              >
+                Сбросить
+              </button>
+            )}
           </div>
         </div>
 
@@ -368,5 +444,89 @@ export default function MessengerPanel({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Compact filter chip that opens a popover with multi-select checkboxes.
+ * Active state shows a count badge; clearing happens via the trash button.
+ */
+function FilterChip({
+  icon,
+  label,
+  count,
+  options,
+  selected,
+  onToggle,
+  onClear,
+  emptyHint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  options: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  onClear: () => void;
+  emptyHint: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors",
+            count > 0
+              ? "bg-primary/10 border-primary/30 text-primary"
+              : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+        >
+          {icon}
+          <span>{label}</span>
+          {count > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] px-1">
+              {count}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-0">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <span className="text-xs font-medium text-foreground">{label}</span>
+          {count > 0 && (
+            <button
+              onClick={onClear}
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              Очистить
+            </button>
+          )}
+        </div>
+        <ScrollArea className="max-h-64">
+          {options.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">{emptyHint}</p>
+          ) : (
+            <div className="py-1">
+              {options.map(opt => {
+                const checked = selected.includes(opt.id);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onToggle(opt.id)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <Checkbox checked={checked} className="pointer-events-none" />
+                    <span className="text-xs text-foreground truncate flex-1">{opt.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   );
 }
