@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
-import BulkTaskDialog from "./BulkTaskDialog";
+const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";

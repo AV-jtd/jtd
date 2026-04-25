@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, useVisibleTags, useTagCategories, useTaskMutations, TaskGroup, useAvailableUsers, useGroupMembers, useProjectFolders, useProjectFolderItems } from "@/hooks/useTasks";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import {
 
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 
-import SmartImportDialog from "@/components/SmartImportDialog";
+const SmartImportDialog = lazy(() => import("@/components/SmartImportDialog"));
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
