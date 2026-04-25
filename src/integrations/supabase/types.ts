@@ -1847,6 +1847,14 @@ export type Database = {
         Args: { _assignee: string; _protocol_id: string }
         Returns: undefined
       }
+      get_unread_threads: {
+        Args: never
+        Returns: {
+          last_message_at: string
+          thread_id: string
+          unread_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
