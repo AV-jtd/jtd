@@ -249,8 +249,13 @@ export default function MessengerPanel({
         <button
           onClick={() => {
             if (activeThread.type === "group" && activeThread.groupId && onNavigateToProject) {
-              onNavigateToProject(activeThread.groupId);
-              onClose();
+              if (onOpenProjectDetail) {
+                // Overlay mode: keep messenger open, just show the detail panel above it.
+                onOpenProjectDetail(activeThread.groupId);
+              } else {
+                onNavigateToProject(activeThread.groupId);
+                onClose();
+              }
             } else if (activeThread.type === "task" && activeThread.taskId && onNavigateToTask) {
               onNavigateToTask(activeThread.taskId);
               onClose();
