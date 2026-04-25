@@ -31,6 +31,14 @@ interface MessengerPanelProps {
    * AI Sheet (`AiAssistant`) opened from the header.
    */
   moduleContext?: ModuleContext;
+  /**
+   * Optional thread id to restore on mount. Lets the parent preserve the
+   * "active conversation" across messenger close/reopen cycles (e.g. when the
+   * user navigates to a task on mobile, which collapses the panel).
+   */
+  initialActiveThreadId?: string | null;
+  /** Notifies the parent whenever the active thread changes (or is cleared). */
+  onActiveThreadChange?: (threadId: string | null) => void;
 }
 
 function formatThreadDate(dateStr: string | null) {
@@ -49,6 +57,8 @@ export default function MessengerPanel({
   onNavigateToTask,
   onOpenProjectDetail,
   moduleContext,
+  initialActiveThreadId,
+  onActiveThreadChange,
 }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   // Live updates: refresh the thread list when new messages/comments arrive
@@ -59,11 +69,30 @@ export default function MessengerPanel({
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
 
+  // Restore the active thread when the parent provides a remembered id and
+  // the matching thread is available in the loaded list. Runs once per
+  // (id, threads) change so manual selection still wins.
+  const restoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialActiveThreadId) return;
+    if (restoredRef.current === initialActiveThreadId) return;
+    if (activeThread?.id === initialActiveThreadId) {
+      restoredRef.current = initialActiveThreadId;
+      return;
+    }
+    const match = threads.find(t => t.id === initialActiveThreadId);
+    if (match) {
+      setActiveThread(match);
+      restoredRef.current = initialActiveThreadId;
+    }
+  }, [initialActiveThreadId, threads, activeThread?.id]);
+
   const handleOpenThread = (thread: Thread) => {
     // Always switch to the freshly clicked thread, even if another one is
     // already active. Using a functional updater guarantees the new value is
     // applied even when several clicks land in the same React batch.
     setActiveThread(() => thread);
+    onActiveThreadChange?.(thread.id);
     markThreadRead?.(thread.id);
   };
 
