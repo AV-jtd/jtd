@@ -88,33 +88,3 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// ---------------------------------------------------------------------------
-// 3. Background SW refresh
-// ---------------------------------------------------------------------------
-// Asks the browser to re-evaluate this SW script. If a new version was
-// deployed, the new SW installs and (with skipWaiting: true) takes over,
-// triggering the page's `controllerchange` → hard reload flow.
-
-async function checkForSwUpdate() {
-  try {
-    await self.registration.update();
-  } catch {
-    // Network down or unsupported — ignore, next trigger will retry.
-  }
-}
-
-// Periodic Background Sync — fires on a browser-controlled schedule even
-// when no tab is open (Chrome Android, installed PWA, permission granted).
-self.addEventListener("periodicsync", (event) => {
-  if (event.tag === "sw-refresh") {
-    event.waitUntil(checkForSwUpdate());
-  }
-});
-
-// Allow pages to ping the SW to re-check on demand
-// (e.g. after `online` event or app foreground).
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "CHECK_SW_UPDATE") {
-    event.waitUntil(checkForSwUpdate());
-  }
-});
