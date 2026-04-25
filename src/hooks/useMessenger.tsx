@@ -20,6 +20,91 @@ export type Thread = {
   groupName?: string;
 };
 
+/**
+ * Cursor-paginated fetch of "last message per parent" for a chat-like table.
+ *
+ * Walks the table in `created_at DESC` pages of `pageSize`. The first row we
+ * see for a given `parentKey` (e.g. group_id, task_id) is the latest message
+ * for that thread because results are sorted descending. Subsequent rows just
+ * bump the message count.
+ *
+ * Stops when one of the following holds:
+ *  - the page is shorter than `pageSize` (we've drained the table), or
+ *  - we've walked `maxPages` pages (hard safety cap), or
+ *  - we've collected at least `desiredThreads` distinct threads AND the last
+ *    `gracePages` consecutive pages haven't introduced any new thread.
+ *
+ * Returns one entry per distinct parentKey with the latest message metadata
+ * and the (partial-but-monotonic) running count.
+ */
+async function fetchThreadAggregates<T extends string>(opts: {
+  table: "group_messages" | "task_comments";
+  parentKey: T;
+  pageSize?: number;
+  maxPages?: number;
+  desiredThreads?: number;
+  gracePages?: number;
+}): Promise<
+  Map<string, { content: string; created_at: string; user_id: string; count: number }>
+> {
+  const {
+    table,
+    parentKey,
+    pageSize = 500,
+    maxPages = 10,
+    desiredThreads = 50,
+    gracePages = 1,
+  } = opts;
+
+  const map = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
+  let cursor: string | null = null;
+  let pagesSinceNewThread = 0;
+
+  for (let page = 0; page < maxPages; page++) {
+    let q = supabase
+      .from(table as any)
+      .select(`${parentKey}, content, created_at, user_id`)
+      .order("created_at", { ascending: false })
+      .limit(pageSize);
+    if (cursor) q = q.lt("created_at", cursor);
+
+    const { data, error } = await q;
+    if (error || !data || data.length === 0) break;
+
+    let foundNewThread = false;
+    for (const row of data as any[]) {
+      const key = row[parentKey];
+      if (!key) continue;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          content: row.content,
+          created_at: row.created_at,
+          user_id: row.user_id,
+          count: 1,
+        });
+        foundNewThread = true;
+      } else {
+        existing.count += 1;
+      }
+    }
+
+    // Cursor = oldest row on this page; next page must be strictly older.
+    cursor = (data[data.length - 1] as any).created_at as string;
+
+    // Short page = drained.
+    if (data.length < pageSize) break;
+
+    // Soft stop: enough threads + a few quiet pages in a row.
+    if (map.size >= desiredThreads) {
+      pagesSinceNewThread = foundNewThread ? 0 : pagesSinceNewThread + 1;
+      if (pagesSinceNewThread >= gracePages) break;
+    }
+  }
+
+  return map;
+}
+
 export function useThreads() {
   const { user } = useAuth();
 
@@ -28,23 +113,14 @@ export function useThreads() {
     queryFn: async () => {
       const threads: Thread[] = [];
 
-      // 1. Group threads: groups with at least one message
-      const { data: groupMsgs } = await supabase
-        .from("group_messages" as any)
-        .select("group_id, content, created_at, user_id")
-        .order("created_at", { ascending: false })
-        .limit(500);
+      // 1. Group threads: groups with at least one message — paginated so threads
+      //    aren't lost after the first 500 messages.
+      const groupMap = await fetchThreadAggregates({
+        table: "group_messages",
+        parentKey: "group_id",
+      });
 
-      if (groupMsgs && groupMsgs.length > 0) {
-        const groupMap = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
-        (groupMsgs as any[]).forEach((m) => {
-          if (!groupMap.has(m.group_id)) {
-            groupMap.set(m.group_id, { content: m.content, created_at: m.created_at, user_id: m.user_id, count: 1 });
-          } else {
-            groupMap.get(m.group_id)!.count++;
-          }
-        });
-
+      if (groupMap.size > 0) {
         const groupIds = [...groupMap.keys()];
         const { data: groups } = await supabase
           .from("task_groups")
@@ -77,23 +153,14 @@ export function useThreads() {
         });
       }
 
-      // 2. Task threads: tasks with at least one comment
-      const { data: taskComments } = await supabase
-        .from("task_comments" as any)
-        .select("task_id, content, created_at, user_id")
-        .order("created_at", { ascending: false })
-        .limit(500);
+      // 2. Task threads: tasks with at least one comment — same pagination
+      //    strategy as group threads above.
+      const taskMap = await fetchThreadAggregates({
+        table: "task_comments",
+        parentKey: "task_id",
+      });
 
-      if (taskComments && taskComments.length > 0) {
-        const taskMap = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
-        (taskComments as any[]).forEach((c) => {
-          if (!taskMap.has(c.task_id)) {
-            taskMap.set(c.task_id, { content: c.content, created_at: c.created_at, user_id: c.user_id, count: 1 });
-          } else {
-            taskMap.get(c.task_id)!.count++;
-          }
-        });
-
+      if (taskMap.size > 0) {
         const taskIds = [...taskMap.keys()];
         const { data: tasks } = await supabase
           .from("tasks")
