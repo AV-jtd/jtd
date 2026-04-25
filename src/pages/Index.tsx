@@ -251,7 +251,14 @@ export default function Index() {
                 markThreadRead={markThreadRead}
                 isThreadUnread={isThreadUnread}
                 onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }}
-                onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }}
+                onNavigateToTask={(taskId) => {
+                  // Keep messenger open so the user can return to the
+                  // exact thread + message after viewing the task.
+                  // The active thread is preserved inside MessengerPanel state.
+                  setActiveView("all");
+                  setActiveGroupId(null);
+                  setHighlightTaskId(taskId);
+                }}
                 onOpenProjectDetail={(gId) => setMessengerDetailGroupId(gId)}
                 moduleContext={{
                   module: "tasks",
