@@ -13,7 +13,7 @@ import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/sortable";
 
 import { TaskGroup, useProjectFolderItems, useProjectFolders, useTaskGroups, useTaskMutations } from "@/hooks/useTasks";
 import { DroppableFolder, DroppableUngrouped } from "@/components/sidebar/SidebarDroppables";
@@ -190,15 +190,32 @@ export default function ProjectsTree({
 
     if (activeFolder !== overFolder) {
       moveProjectToFolder.mutate({ group_id: activeId, folder_id: overFolder });
-    } else if (!activeFolder) {
-      const oldIndex = ungroupedProjects.findIndex((g) => g.id === activeId);
-      const newIndex = ungroupedProjects.findIndex((g) => g.id === overId);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
-        reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
-      }
+      return;
     }
-  }, [groupFolderMap, moveProjectToFolder, rootGroups, ungroupedProjects, reorderGroups]);
+
+    // Same bucket — reorder within whichever virtualised list this is.
+    // We pick the list by membership so DnD inside NPD / a folder / archive
+    // / ungrouped all work, not just the ungrouped section.
+    const pickList = (id: string): TaskGroup[] | null => {
+      if (ungroupedProjects.some((g) => g.id === id)) return ungroupedProjects;
+      if (npdRootGroups.some((g) => g.id === id)) return npdRootGroups;
+      if (archivedGroups.some((g) => g.id === id)) return archivedGroups;
+      const folderId = groupFolderMap.get(id);
+      if (folderId) return groupsInFolder(folderId);
+      return null;
+    };
+
+    const list = pickList(activeId);
+    if (!list) return;
+    const oldIndex = list.findIndex((g) => g.id === activeId);
+    const newIndex = list.findIndex((g) => g.id === overId);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+    const reordered = arrayMove(list, oldIndex, newIndex);
+    reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
+  }, [
+    groupFolderMap, moveProjectToFolder, rootGroups, ungroupedProjects,
+    npdRootGroups, archivedGroups, groupsInFolder, reorderGroups,
+  ]);
 
   const handleAddFolder = (e: FormEvent) => {
     e.preventDefault();
@@ -267,8 +284,7 @@ export default function ProjectsTree({
 
       {showGroups && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
-          <SortableContext items={rootGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-0.5 mt-1">
+          <div className="space-y-0.5 mt-1">
               {showNewFolder && (
                 <form onSubmit={handleAddFolder} className="px-3 py-1 flex items-center gap-1.5">
                   <FolderOpen className="h-3.5 w-3.5 text-sidebar-fg/50 shrink-0" />
@@ -384,8 +400,7 @@ export default function ProjectsTree({
                   </button>
                 </form>
               )}
-            </div>
-          </SortableContext>
+          </div>
         </DndContext>
       )}
     </div>
