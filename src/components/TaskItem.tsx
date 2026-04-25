@@ -577,11 +577,27 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [initialOpen]);
 
   const subtasks = task.subtasks || [];
-  const completedSubs = subtasks.filter(s => s.is_completed).length;
-  const linkedTagId = task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id : null;
-  const taskTagIds = task.task_tags?.map(tt => tt.tag_id) || [];
-  const taskTags = allTags.filter(t => taskTagIds.includes(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id));
-  const availableTags = allTags.filter(t => !taskTagIds.includes(t.id) && !linkedTagIds.has(t.id));
+  const completedSubs = useMemo(
+    () => subtasks.filter(s => s.is_completed).length,
+    [subtasks],
+  );
+  const linkedTagId = useMemo(
+    () => (task.group_id ? allGroups.find(g => g.id === task.group_id)?.linked_tag_id ?? null : null),
+    [task.group_id, allGroups],
+  );
+  const taskTagIds = useMemo(
+    () => task.task_tags?.map(tt => tt.tag_id) || [],
+    [task.task_tags],
+  );
+  const taskTagIdSet = useMemo(() => new Set(taskTagIds), [taskTagIds]);
+  const taskTags = useMemo(
+    () => allTags.filter(t => taskTagIdSet.has(t.id) && t.id !== linkedTagId && !linkedTagIds.has(t.id)),
+    [allTags, taskTagIdSet, linkedTagId, linkedTagIds],
+  );
+  const availableTags = useMemo(
+    () => allTags.filter(t => !taskTagIdSet.has(t.id) && !linkedTagIds.has(t.id)),
+    [allTags, taskTagIdSet, linkedTagIds],
+  );
 
   // Build disambiguation: tags with duplicate names show category path
   const tagCategoryPath = useMemo(() => {
