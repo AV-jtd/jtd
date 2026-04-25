@@ -405,8 +405,16 @@ function InlineCreateTaskForm({
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* Ассайни */}
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger asChild>
+        <UserPicker
+          users={availableUsers}
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          onSelect={(u) => {
+            setAssigneeId(u.id);
+            setPickerOpen(false);
+          }}
+          side="bottom"
+          trigger={
             <button
               type="button"
               className={cn(
@@ -419,18 +427,8 @@ function InlineCreateTaskForm({
               <UserIcon className="h-3 w-3" />
               {assignee?.display_name || assignee?.email?.split("@")[0] || "Ответственный"}
             </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0 z-[60]" align="start">
-            <UserPicker
-              users={availableUsers}
-              currentId={assigneeId || undefined}
-              onSelect={(id) => {
-                setAssigneeId(id || null);
-                setPickerOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+          }
+        />
 
         {/* Дедлайн */}
         <Popover open={calOpen} onOpenChange={setCalOpen}>
