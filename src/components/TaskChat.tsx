@@ -2,13 +2,35 @@ import { useState, useRef, useEffect } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle } from "lucide-react";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getInitials, getAvatarColors } from "@/lib/initials";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import UserPicker from "./UserPicker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+
+/** Префикс системных сообщений в чате задач/комментариев. */
+const SYS_PREFIX = "__sys_task_created__:";
+
+/**
+ * Формат содержимого системного сообщения:
+ *   __sys_task_created__:<taskId>|<taskTitle>
+ * Распаковывается при рендере в строку-разделитель.
+ */
+function parseSystemMessage(content: string): { taskId: string; title: string } | null {
+  if (!content.startsWith(SYS_PREFIX)) return null;
+  const rest = content.slice(SYS_PREFIX.length);
+  const sep = rest.indexOf("|");
+  if (sep === -1) return null;
+  return { taskId: rest.slice(0, sep), title: rest.slice(sep + 1) };
+}
 
 interface TaskChatProps {
   taskId: string;
@@ -20,6 +42,8 @@ interface TaskChatProps {
    * `full` — на всю высоту контейнера, без рамки/заголовка, для шторки мессенджера.
    */
   variant?: "inline" | "full";
+  /** Открыть задачу по ID (если предоставлено — системные карточки кликабельны). */
+  onNavigateToTask?: (taskId: string) => void;
 }
 
 function formatMsgDate(dateStr: string) {
@@ -29,12 +53,17 @@ function formatMsgDate(dateStr: string) {
   return format(d, "d MMM, HH:mm", { locale: ru });
 }
 
-export default function TaskChat({ taskId, taskTitle, availableUsers, variant = "inline" }: TaskChatProps) {
+export default function TaskChat({ taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
   const { addComment, deleteComment } = useCommentMutations();
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
+
+  /** Сообщение, для которого открыта inline-форма создания задачи. */
+  const [taskFormForCommentId, setTaskFormForCommentId] = useState<string | null>(null);
+  const [creatingTask, setCreatingTask] = useState(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,6 +81,79 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     setDraft("");
   };
 
+  /**
+   * Создаёт задачу на основе комментария и оставляет «системные» отметки:
+   * 1) Комментарий-разделитель в чате текущей задачи (источник).
+   * 2) Первая строка в `description` новой задачи со ссылкой на источник.
+   * 3) Комментарий-разделитель в чате новой задачи с цитатой исходного сообщения.
+   */
+  const handleCreateTaskFromComment = async (
+    sourceComment: TaskComment,
+    payload: { title: string; assigneeId: string | null; deadline: Date | null },
+  ) => {
+    if (!user) return;
+    setCreatingTask(true);
+    try {
+      // 1) Получаем group_id исходной задачи
+      const { data: srcTask, error: srcErr } = await supabase
+        .from("tasks")
+        .select("group_id")
+        .eq("id", taskId)
+        .single();
+      if (srcErr) throw srcErr;
+
+      const quote = sourceComment.content.slice(0, 200);
+      const desc = `📌 Источник: задача «${taskTitle}» · из обсуждения от ${format(parseISO(sourceComment.created_at), "d MMM yyyy, HH:mm", { locale: ru })}\n\n> ${quote}`;
+
+      // 2) Создаём новую задачу (тот же проект, тот же владелец)
+      const { data: newTask, error: insErr } = await supabase
+        .from("tasks")
+        .insert({
+          title: payload.title.trim() || sourceComment.content.slice(0, 80),
+          description: desc,
+          group_id: srcTask?.group_id ?? null,
+          user_id: user.id,
+          assigned_to: payload.assigneeId,
+          deadline: payload.deadline ? payload.deadline.toISOString() : null,
+          start_at: new Date().toISOString(),
+        } as any)
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      // creator-participant (для RLS)
+      await supabase.from("task_participants").insert({
+        task_id: newTask.id,
+        user_id: user.id,
+        role: "creator",
+      });
+
+      // 3) Системное сообщение в чате источника
+      await supabase.from("task_comments").insert({
+        task_id: taskId,
+        user_id: user.id,
+        content: `${SYS_PREFIX}${newTask.id}|${newTask.title}`,
+      });
+
+      // 4) Системное сообщение-разделитель в чате новой задачи
+      await supabase.from("task_comments").insert({
+        task_id: newTask.id,
+        user_id: user.id,
+        content: `${SYS_PREFIX}${taskId}|из «${taskTitle}»`,
+      });
+
+      qc.invalidateQueries({ queryKey: ["task_comments", taskId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      toast.success("Задача создана");
+      setTaskFormForCommentId(null);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Не удалось создать задачу");
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
   const isFull = variant === "full";
 
   const messagesContent = (
@@ -67,6 +169,19 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     ) : (
       <div className="space-y-2.5">
         {comments.map(c => {
+          const sys = parseSystemMessage(c.content);
+
+          // Системное сообщение → тонкая строка-разделитель по центру
+          if (sys) {
+            return (
+              <SystemDivider
+                key={c.id}
+                title={sys.title}
+                onClick={onNavigateToTask ? () => onNavigateToTask(sys.taskId) : undefined}
+              />
+            );
+          }
+
           const isOwn = c.user_id === user?.id;
           const name = getProfileName(c.user_id);
           return (
@@ -88,6 +203,17 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   {name}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(c.created_at)}</span>
+                {/* Кнопка «Создать задачу из сообщения» */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTaskFormForCommentId(prev => (prev === c.id ? null : c.id))
+                  }
+                  className="ml-auto opacity-0 group-hover/msg:opacity-100 focus:opacity-100 p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-opacity shrink-0"
+                  title="Создать задачу из сообщения"
+                >
+                  <CheckSquare className="h-3 w-3" />
+                </button>
               </div>
               <div className={cn("flex items-start gap-1", isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
                 <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90 flex-1">
@@ -103,6 +229,19 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   </button>
                 )}
               </div>
+
+              {/* Inline-форма создания задачи из этого сообщения */}
+              {taskFormForCommentId === c.id && (
+                <InlineCreateTaskForm
+                  key={c.id}
+                  source={c}
+                  availableUsers={availableUsers}
+                  defaultAssigneeId={user?.id || null}
+                  onCancel={() => setTaskFormForCommentId(null)}
+                  onSubmit={(payload) => handleCreateTaskFromComment(c, payload)}
+                  isSubmitting={creatingTask}
+                />
+              )}
             </div>
           );
         })}
