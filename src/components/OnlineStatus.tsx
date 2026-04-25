@@ -1,10 +1,10 @@
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, forwardRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-export default function OnlineStatus() {
+const OnlineStatus = forwardRef<HTMLDivElement>((_, ref) => {
   const isOnline = useOnlineStatus();
   const [show, setShow] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
@@ -32,6 +32,7 @@ export default function OnlineStatus() {
 
   return (
     <div
+      ref={ref}
       className={cn(
         "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2",
         isOnline
@@ -43,4 +44,6 @@ export default function OnlineStatus() {
       {isOnline ? "Подключение восстановлено" : "Нет подключения к сети"}
     </div>
   );
-}
+});
+OnlineStatus.displayName = "OnlineStatus";
+export default OnlineStatus;

@@ -2,8 +2,9 @@ import { usePendingMutations } from "@/hooks/usePendingMutations";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { CloudOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { forwardRef } from "react";
 
-export default function PendingSync() {
+const PendingSync = forwardRef<HTMLDivElement>((_, ref) => {
   const count = usePendingMutations();
   const isOnline = useOnlineStatus();
 
@@ -11,6 +12,7 @@ export default function PendingSync() {
 
   return (
     <div
+      ref={ref}
       className={cn(
         "fixed bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2",
         isOnline
@@ -28,4 +30,6 @@ export default function PendingSync() {
         : `${count} ${count === 1 ? "изменение" : "изменений"} ожидает синхронизации`}
     </div>
   );
-}
+});
+PendingSync.displayName = "PendingSync";
+export default PendingSync;
