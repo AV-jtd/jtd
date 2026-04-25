@@ -71,6 +71,9 @@ export default function ProjectsTree({
   const archivedListRef = useRef<VirtualGroupListHandle | null>(null);
   const folderListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
   // Per-retailer STM list refs, keyed by retailer name (matches __stm__:<retailer>).
+  // Entries are removed via the ref-callback cleanup when a VirtualGroupList unmounts,
+  // and a sync effect below prunes any keys that no longer correspond to a retailer
+  // present in the data (covers retailer renames and HMR remounts).
   const stmRetailerListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
   // FolderRow header DOM nodes — used to scroll the header into view when
   // a folder gets expanded so the user can immediately see what's inside.
