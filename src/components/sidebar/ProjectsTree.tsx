@@ -95,7 +95,7 @@ export default function ProjectsTree({
     return map;
   }, [folderItems]);
 
-  const { rootGroups, archivedGroups, npdRootGroups, nonNpdRootGroups } = useMemo(() => {
+  const { rootGroups, archivedGroups, npdRootGroups, stmRootGroups, nonNpdRootGroups } = useMemo(() => {
     const root: TaskGroup[] = [];
     const archived: TaskGroup[] = [];
     for (const g of groups) {
@@ -103,14 +103,38 @@ export default function ProjectsTree({
       if ((g as { closed_at?: string | null }).closed_at) archived.push(g); else root.push(g);
     }
     const npd: TaskGroup[] = [];
+    const stm: TaskGroup[] = [];
     const nonNpd: TaskGroup[] = [];
     for (const g of root) {
       const t = (g as { project_type?: string }).project_type;
-      if (t === "npd") npd.push(g);
+      const sub = (g as { project_subtype?: string }).project_subtype;
+      if (t === "npd" && sub === "npd_stm") stm.push(g);
+      else if (t === "npd") npd.push(g);
       else if (t !== "protocol") nonNpd.push(g);
     }
-    return { rootGroups: root, archivedGroups: archived, npdRootGroups: npd, nonNpdRootGroups: nonNpd };
+    return { rootGroups: root, archivedGroups: archived, npdRootGroups: npd, stmRootGroups: stm, nonNpdRootGroups: nonNpd };
   }, [groups]);
+
+  /**
+   * STM SKU projects grouped by retailer (stm_meta.retailer).
+   * Projects without a retailer fall into a "Без клиента" bucket so nothing
+   * silently disappears.
+   */
+  const stmByRetailer = useMemo(() => {
+    const map = new Map<string, TaskGroup[]>();
+    for (const g of stmRootGroups) {
+      const meta = ((g as { stm_meta?: { retailer?: string } }).stm_meta) ?? {};
+      const retailer = (meta.retailer ?? "").trim() || "Без клиента";
+      const arr = map.get(retailer);
+      if (arr) arr.push(g); else map.set(retailer, [g]);
+    }
+    // Stable alphabetical order, "Без клиента" last.
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === "Без клиента") return 1;
+      if (b === "Без клиента") return -1;
+      return a.localeCompare(b, "ru");
+    });
+  }, [stmRootGroups]);
 
   const groupsInFolder = useCallback(
     (folderId: string) => nonNpdRootGroups.filter((g) => groupFolderMap.get(g.id) === folderId),
@@ -277,6 +301,15 @@ export default function ProjectsTree({
     if (npdRootGroups.some((g) => g.id === activeGroupId)) {
       if (!expandedFolders.has("__npd__")) needsFolderExpand = "__npd__";
       else listRef = npdListRef.current;
+    } else if (stmRootGroups.some((g) => g.id === activeGroupId)) {
+      // Open the STM root section AND the retailer subgroup containing this SKU.
+      if (!expandedFolders.has("__stm__")) {
+        needsFolderExpand = "__stm__";
+      } else {
+        const meta = ((stmRootGroups.find((g) => g.id === activeGroupId) as { stm_meta?: { retailer?: string } } | undefined)?.stm_meta) ?? {};
+        const retailerKey = `__stm__:${(meta.retailer ?? "").trim() || "Без клиента"}`;
+        if (!expandedFolders.has(retailerKey)) needsFolderExpand = retailerKey;
+      }
     } else if (ungroupedProjects.some((g) => g.id === activeGroupId)) {
       listRef = ungroupedListRef.current;
     } else if (archivedGroups.some((g) => g.id === activeGroupId)) {
@@ -317,7 +350,7 @@ export default function ProjectsTree({
     });
   }, [
     activeGroupId, showGroups, showArchived,
-    expandedFolders, npdRootGroups, ungroupedProjects, archivedGroups, groupFolderMap,
+    expandedFolders, npdRootGroups, stmRootGroups, ungroupedProjects, archivedGroups, groupFolderMap,
     requestScroll,
   ]);
 
