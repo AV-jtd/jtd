@@ -446,3 +446,87 @@ export default function MessengerPanel({
     </div>
   );
 }
+
+/**
+ * Compact filter chip that opens a popover with multi-select checkboxes.
+ * Active state shows a count badge; clearing happens via the trash button.
+ */
+function FilterChip({
+  icon,
+  label,
+  count,
+  options,
+  selected,
+  onToggle,
+  onClear,
+  emptyHint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  options: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  onClear: () => void;
+  emptyHint: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors",
+            count > 0
+              ? "bg-primary/10 border-primary/30 text-primary"
+              : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+        >
+          {icon}
+          <span>{label}</span>
+          {count > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] px-1">
+              {count}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-0">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <span className="text-xs font-medium text-foreground">{label}</span>
+          {count > 0 && (
+            <button
+              onClick={onClear}
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              Очистить
+            </button>
+          )}
+        </div>
+        <ScrollArea className="max-h-64">
+          {options.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">{emptyHint}</p>
+          ) : (
+            <div className="py-1">
+              {options.map(opt => {
+                const checked = selected.includes(opt.id);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onToggle(opt.id)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <Checkbox checked={checked} className="pointer-events-none" />
+                    <span className="text-xs text-foreground truncate flex-1">{opt.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
