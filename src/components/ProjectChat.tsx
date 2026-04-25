@@ -117,9 +117,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           deadline: payload.deadline,
         },
       }));
-      // Закрываем форму только если она всё ещё открыта именно на этом сообщении —
-      // пользователь мог за время запроса открыть форму на другом сообщении.
+      // Гарантированно закрываем форму этого сообщения. Если пользователь
+      // успел открыть форму другого сообщения — её не трогаем.
       setTaskFormFor(prev => (prev === msg.id ? null : prev));
+      // Bump nonce, чтобы при следующем открытии любой формы InlineTaskForm
+      // смонтировалась заново с дефолтными значениями (title из текста, ассайни-автор, пустой дедлайн).
+      setTaskFormNonce(n => n + 1);
       toast.success("Задача создана");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось создать задачу");
