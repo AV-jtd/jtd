@@ -298,6 +298,12 @@ export default function MessengerPanel({
                 onClose();
               }
             }}
+            onNavigateToTask={(tId) => {
+              if (onNavigateToTask) {
+                onNavigateToTask(tId);
+                onClose();
+              }
+            }}
           />
         ) : activeThread.type === "task" && activeThread.taskId ? (
           <TaskChat

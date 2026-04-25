@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import AiChatThread from "./AiChatThread";
+import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
+import UserPicker from "./UserPicker";
+import { toast } from "sonner";
 
 interface ProjectChatProps {
   groupId: string;
@@ -17,6 +20,8 @@ interface ProjectChatProps {
   embedded?: boolean;
   /** Navigate to the project detail view */
   onNavigateToProject?: (groupId: string) => void;
+  /** Open a task by id (from inline-created task card) */
+  onNavigateToTask?: (taskId: string) => void;
 }
 
 function formatMsgDate(dateStr: string) {
@@ -30,13 +35,19 @@ function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
+  const { addTask } = useTaskMutations();
+  const { data: availableUsers = [] } = useAvailableUsers();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
   const [showAi, setShowAi] = useState(false);
+  /** message.id → form open */
+  const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
+  /** message.id → созданная задача (для системной карточки) */
+  const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,6 +80,38 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const handleCreateTask = async (msg: GroupMessage, payload: { title: string; assignee: Profile | null; deadline: string | null }) => {
+    try {
+      const desc = `Из обсуждения проекта «${groupName}»\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}`;
+      const created = await addTask.mutateAsync({
+        title: payload.title.trim() || msg.content.slice(0, 80),
+        group_id: groupId,
+        assigned_to: payload.assignee?.id || null,
+        deadline: payload.deadline ? new Date(payload.deadline).toISOString() : null,
+      } as any);
+      const t = created as unknown as Task;
+      // Patch description (addTask doesn't accept description arg)
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        await supabase.from("tasks").update({ description: desc }).eq("id", t.id);
+      } catch (e) { /* non-fatal */ }
+
+      setCreatedTasks(prev => ({
+        ...prev,
+        [msg.id]: {
+          id: t.id,
+          title: t.title,
+          assigneeName: payload.assignee?.display_name || undefined,
+          deadline: payload.deadline,
+        },
+      }));
+      setTaskFormFor(null);
+      toast.success("Задача создана");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось создать задачу");
+    }
   };
 
   // AI chat view for this project
@@ -167,7 +210,42 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     isOwn={isOwn}
                     onReply={() => setReplyTo(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
+                    onCreateTask={() => setTaskFormFor(prev => prev === msg.id ? null : msg.id)}
                   />
+
+                  {/* Inline task form */}
+                  {taskFormFor === msg.id && (
+                    <InlineTaskForm
+                      message={msg}
+                      availableUsers={availableUsers}
+                      defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
+                      onCancel={() => setTaskFormFor(null)}
+                      onSubmit={(payload) => handleCreateTask(msg, payload)}
+                      isSubmitting={addTask.isPending}
+                    />
+                  )}
+
+                  {/* System card: task created from this message */}
+                  {createdTasks[msg.id] && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
+                      className="ml-0 mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group/card"
+                    >
+                      <div className="h-7 w-7 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
+                        <CheckSquare className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{createdTasks[msg.id].title}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          Задача создана
+                          {createdTasks[msg.id].assigneeName ? ` · ${createdTasks[msg.id].assigneeName}` : ""}
+                          {createdTasks[msg.id].deadline ? ` · до ${format(new Date(createdTasks[msg.id].deadline!), "d MMM", { locale: ru })}` : ""}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
+                    </button>
+                  )}
 
                   {/* Thread indicator */}
                   {replies.length > 0 && (
@@ -188,8 +266,29 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         isOwn={reply.user_id === user?.id}
                         onReply={() => setReplyTo(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
+                        onCreateTask={() => setTaskFormFor(prev => prev === reply.id ? null : reply.id)}
                         isReply
                       />
+                      {taskFormFor === reply.id && (
+                        <InlineTaskForm
+                          message={reply}
+                          availableUsers={availableUsers}
+                          defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
+                          onCancel={() => setTaskFormFor(null)}
+                          onSubmit={(payload) => handleCreateTask(reply, payload)}
+                          isSubmitting={addTask.isPending}
+                        />
+                      )}
+                      {createdTasks[reply.id] && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
+                          className="mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left"
+                        >
+                          <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="text-xs font-medium text-foreground truncate">{createdTasks[reply.id].title}</span>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -238,12 +337,14 @@ function MessageBubble({
   isOwn,
   onReply,
   onDelete,
+  onCreateTask,
   isReply,
 }: {
   msg: GroupMessage;
   isOwn: boolean;
   onReply: () => void;
   onDelete?: () => void;
+  onCreateTask?: () => void;
   isReply?: boolean;
 }) {
   const sourceIcon = msg.source === "telegram" ? "✈️" : null;
@@ -265,6 +366,11 @@ function MessageBubble({
           {msg.content}
         </p>
         <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0 ml-1 mt-0.5">
+          {onCreateTask && (
+            <button onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
+              <CheckSquare className="h-3 w-3" />
+            </button>
+          )}
           <button onClick={onReply} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Ответить">
             <Reply className="h-3 w-3" />
           </button>
@@ -273,6 +379,93 @@ function MessageBubble({
               <Trash2 className="h-3 w-3" />
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InlineTaskForm({
+  message,
+  availableUsers,
+  defaultAssignee,
+  onCancel,
+  onSubmit,
+  isSubmitting,
+}: {
+  message: GroupMessage;
+  availableUsers: Profile[];
+  defaultAssignee: Profile | null;
+  onCancel: () => void;
+  onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState(() => message.content.slice(0, 80));
+  const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
+  const [deadline, setDeadline] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  return (
+    <div className="mt-2 p-2.5 rounded-lg bg-muted/40 border border-border space-y-2">
+      <Input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название задачи"
+        className="h-8 text-sm"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (title.trim() && !isSubmitting) onSubmit({ title, assignee, deadline: deadline || null });
+          }
+          if (e.key === "Escape") onCancel();
+        }}
+      />
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <UserPicker
+          users={availableUsers}
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          title="Ответственный"
+          onSelect={(u) => setAssignee(u)}
+          side="bottom"
+          trigger={
+            <button
+              type="button"
+              className="flex items-center gap-1 h-7 px-2 rounded-md bg-card border border-border hover:bg-muted text-xs text-foreground"
+            >
+              <UserIcon className="h-3 w-3 text-muted-foreground" />
+              <span className="truncate max-w-[100px]">
+                {assignee?.display_name || "Кто"}
+              </span>
+            </button>
+          }
+        />
+        <label className="flex items-center gap-1 h-7 px-2 rounded-md bg-card border border-border hover:bg-muted text-xs text-foreground cursor-pointer">
+          <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="bg-transparent border-0 outline-none text-xs w-[110px]"
+          />
+        </label>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs px-2 py-1 rounded-md text-muted-foreground hover:bg-muted"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            disabled={!title.trim() || isSubmitting}
+            onClick={() => onSubmit({ title, assignee, deadline: deadline || null })}
+            className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+          >
+            {isSubmitting ? "..." : "Создать"}
+          </button>
         </div>
       </div>
     </div>
