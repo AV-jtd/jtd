@@ -241,7 +241,20 @@ export default function Index() {
         {messengerOpen && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
             <Suspense fallback={<ViewFallback />}>
-              <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }} onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }} />
+              <MessengerPanel
+                onClose={() => setMessengerOpen(false)}
+                markThreadRead={markThreadRead}
+                isThreadUnread={isThreadUnread}
+                onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }}
+                onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }}
+                moduleContext={{
+                  module: "tasks",
+                  activeProjectId: activeView === "group" ? activeGroupId : null,
+                  activeProjectName: activeView === "group" && activeGroupId
+                    ? groups.find(g => g.id === activeGroupId)?.name ?? null
+                    : null,
+                }}
+              />
             </Suspense>
           </div>
         )}
