@@ -39,6 +39,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { getInitials, getAvatarColors } from "@/lib/initials";
 import { filterRealProjects } from "@/lib/projectFilters";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { startMeasure } from "@/lib/perf/perfMetrics";
 
 interface TaskItemProps {
   task: Task;
@@ -938,7 +939,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {subtasks.length > 0 && (
-              <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => {
+                  const end = startMeasure("click", "TaskItem.expandSteps");
+                  setExpanded(!expanded);
+                  end();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
             )}
@@ -1202,7 +1210,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
         {/* Actions — always visible 3×2 grid */}
         <div className="grid grid-cols-3 gap-0.5 shrink-0" style={{ width: 'auto' }}>
           <button
-            onClick={() => setDetailsOpen(!detailsOpen)}
+            onClick={() => {
+              const next = !detailsOpen;
+              const end = next ? startMeasure("panel-open", "TaskItem.details") : null;
+              setDetailsOpen(next);
+              end?.();
+            }}
             className={cn(
               "p-1.5 rounded transition-colors",
               detailsOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
