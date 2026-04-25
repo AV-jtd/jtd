@@ -96,6 +96,12 @@ export default function MessengerPanel({
     markThreadRead?.(thread.id);
   };
 
+  const clearActiveThread = () => {
+    setActiveThread(null);
+    restoredRef.current = null;
+    onActiveThreadChange?.(null);
+  };
+
   const filtered = search.trim()
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : threads;
@@ -270,7 +276,7 @@ export default function MessengerPanel({
       {/* Back header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
         <button
-          onClick={() => setActiveThread(null)}
+          onClick={clearActiveThread}
           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -287,7 +293,6 @@ export default function MessengerPanel({
               }
             } else if (activeThread.type === "task" && activeThread.taskId && onNavigateToTask) {
               onNavigateToTask(activeThread.taskId);
-              onClose();
             }
           }}
           disabled={
@@ -317,7 +322,7 @@ export default function MessengerPanel({
           <ProjectChat
             groupId={activeThread.groupId}
             groupName={activeThread.name}
-            onClose={() => setActiveThread(null)}
+            onClose={clearActiveThread}
             embedded
             onNavigateToProject={(gId) => {
               if (onOpenProjectDetail) {
