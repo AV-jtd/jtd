@@ -31,8 +31,8 @@ interface Props {
 }
 
 /**
- * Bottom-right reaction bar: shows existing reaction chips + a trigger to add new one.
- * Trigger opens a popover with 6 quick reactions and a full picker with search.
+ * @deprecated Используйте `<ReactionChips>` (inline в шапке сообщения)
+ * + `<ReactionAddButton>` (в action-bar). Этот комбо-компонент оставлен для совместимости.
  */
 export default function MessageReactions({ messageType, messageId, reactions, compact }: Props) {
   const { user } = useAuth();
@@ -83,26 +83,7 @@ export default function MessageReactions({ messageType, messageId, reactions, co
 
   return (
     <div className="flex items-center justify-end flex-wrap gap-1 mt-0.5">
-      {entries.map(([emoji, users]) => {
-        const mine = !!user && users.includes(user.id);
-        return (
-          <button
-            key={emoji}
-            type="button"
-            onClick={() => handlePick(emoji)}
-            className={cn(
-              "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-px text-[11px] leading-none transition-colors",
-              mine
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border bg-muted/40 hover:bg-muted text-foreground/80",
-            )}
-            title={mine ? "Убрать вашу реакцию" : "Добавить такую же реакцию"}
-          >
-            <span className="text-sm leading-none">{emoji}</span>
-            <span className="font-medium">{users.length}</span>
-          </button>
-        );
-      })}
+      <ReactionChips messageType={messageType} messageId={messageId} reactions={reactions} />
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -132,6 +113,130 @@ export default function MessageReactions({ messageType, messageId, reactions, co
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+/**
+ * Только чипы существующих реакций (inline-вариант, ставится в одну строку
+ * с метаданными сообщения: автор · время · реакции).
+ */
+export function ReactionChips({
+  messageType,
+  messageId,
+  reactions,
+  size = "sm",
+}: {
+  messageType: MessageType;
+  messageId: string;
+  reactions?: ReactionAgg;
+  size?: "xs" | "sm";
+}) {
+  const { user } = useAuth();
+  const toggle = useToggleReaction();
+  const entries = Object.entries(reactions || {}).filter(([, users]) => users.length > 0);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="inline-flex items-center flex-wrap gap-0.5">
+      {entries.map(([emoji, users]) => {
+        const mine = !!user && users.includes(user.id);
+        return (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() =>
+              user && toggle.mutate({ messageType, messageId, emoji, hasMine: mine })
+            }
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-full border leading-none transition-colors",
+              size === "xs"
+                ? "px-1 py-px text-[10px]"
+                : "px-1.5 py-px text-[11px]",
+              mine
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-border bg-muted/40 hover:bg-muted text-foreground/80",
+            )}
+            title={mine ? "Убрать вашу реакцию" : "Добавить такую же реакцию"}
+          >
+            <span className={size === "xs" ? "text-[12px] leading-none" : "text-sm leading-none"}>
+              {emoji}
+            </span>
+            <span className="font-medium">{users.length}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Кнопка-смайлик для action-bar: открывает попап с быстрыми реакциями + полным пикером.
+ */
+export function ReactionAddButton({
+  messageType,
+  messageId,
+  reactions,
+  className,
+}: {
+  messageType: MessageType;
+  messageId: string;
+  reactions?: ReactionAgg;
+  className?: string;
+}) {
+  const { user } = useAuth();
+  const toggle = useToggleReaction();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const quick = useMemo(() => {
+    const recent = getRecentReactions();
+    return Array.from(new Set([...recent, ...DEFAULT_QUICK])).slice(0, 6);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ALL_EMOJI;
+    return ALL_EMOJI.filter((e) => e.includes(search.trim()));
+  }, [search]);
+
+  function handlePick(emoji: string) {
+    if (!user) return;
+    const hasMine = !!reactions?.[emoji]?.includes(user.id);
+    toggle.mutate({ messageType, messageId, emoji, hasMine });
+    if (!hasMine) pushRecentReaction(emoji);
+    setOpen(false);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors",
+            className,
+          )}
+          title="Добавить реакцию"
+          aria-label="Добавить реакцию"
+        >
+          <Smile className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        className="w-72 p-2"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <ReactionPanel
+          quick={quick}
+          search={search}
+          setSearch={setSearch}
+          filtered={filtered}
+          onPick={handlePick}
+          mineFor={(emoji) => !!user && !!reactions?.[emoji]?.includes(user.id)}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
