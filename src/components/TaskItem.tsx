@@ -16,6 +16,7 @@ import UserPicker from "@/components/UserPicker";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
+import LazyMount from "@/components/LazyMount";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2, ShieldCheck, BookOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -338,7 +339,7 @@ interface SortableSubtaskRowProps {
   getProfileName: (userId: string) => string;
 }
 
-function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
+function SortableSubtaskRowInner({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortableDnd({ id: sub.id });
   const style = { transform: DndCSS.Transform.toString(transform), transition };
   const isEditing = editingSubtaskId === sub.id;
@@ -496,6 +497,13 @@ function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, 
     </div>
   );
 }
+const SortableSubtaskRow = memo(SortableSubtaskRowInner, (prev, next) => (
+  prev.sub === next.sub &&
+  prev.task === next.task &&
+  prev.editingSubtaskId === next.editingSubtaskId &&
+  prev.editingSubtaskTitle === next.editingSubtaskTitle &&
+  prev.availableUsers === next.availableUsers
+));
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations }: TaskItemProps) {
   const isMobile = useIsMobile();
@@ -536,6 +544,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [aiSubtasks, setAiSubtasks] = useState<string[]>([]);
   const [loadingDecompose, setLoadingDecompose] = useState(false);
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  // Defer mounting the heavy closure dialog (file uploads + AI summary)
+  // until the user opens it for the first time. After that it stays mounted
+  // so subsequent opens are instant.
+  const [closureDialogOpenedOnce, setClosureDialogOpenedOnce] = useState(false);
+  const openClosureDialog = useCallback(() => {
+    setClosureDialogOpenedOnce(true);
+    setClosureDialogOpen(true);
+  }, []);
   const [savingToWiki, setSavingToWiki] = useState(false);
   const [stepsCollapsed, setStepsCollapsed] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
@@ -881,8 +897,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
-                setClosureDialogOpen(true);
+                if (!task.is_completed && task.requires_approval && task.approval_status !== "approved") {
+                openClosureDialog();
               } else {
                 undoableToggleTask();
               }
@@ -1180,50 +1196,32 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             <Expand className="h-3.5 w-3.5" />
           </button>
 
-          <UserPicker
-            users={availableUsers}
-            excludeIds={participantIds}
-            open={userPickerOpen === "quick-participant"}
-            onOpenChange={(open) => setUserPickerOpen(open ? "quick-participant" : null)}
-            onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+          <LazyMount
+            forceMount={userPickerOpen === "quick-participant"}
             trigger={
               <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
                 <UserPlus className="h-3.5 w-3.5" />
               </button>
             }
-          />
-
-          <AssigneePicker
-            users={availableUsers}
-            current={
-              task.department_id
-                ? { kind: "department", id: task.department_id }
-                : task.contractor_id
-                ? { kind: "contractor", id: task.contractor_id }
-                : task.assigned_to
-                ? { kind: "user", id: task.assigned_to }
-                : { kind: null, id: null }
-            }
-            open={userPickerOpen === "quick-assignee"}
-            onOpenChange={(open) => setUserPickerOpen(open ? "quick-assignee" : null)}
-            onSelect={(sel) => {
-              const currentAssignee = participants.find(p => p.role === "assignee");
-              if (sel.kind === "user" && sel.id) {
-                if (task.department_id || task.contractor_id) {
-                  updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+          >
+            {(open, setOpen) => (
+              <UserPicker
+                users={availableUsers}
+                excludeIds={participantIds}
+                open={open || userPickerOpen === "quick-participant"}
+                onOpenChange={(o) => { setOpen(o); setUserPickerOpen(o ? "quick-participant" : null); }}
+                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                trigger={
+                  <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </button>
                 }
-                addParticipant.mutate({ task_id: task.id, user_id: sel.id, role: "assignee" });
-              } else if (sel.kind === "department" && sel.id) {
-                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
-                updateTask.mutate({ id: task.id, department_id: sel.id, contractor_id: null });
-              } else if (sel.kind === "contractor" && sel.id) {
-                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
-                updateTask.mutate({ id: task.id, contractor_id: sel.id, department_id: null });
-              } else {
-                if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
-                updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
-              }
-            }}
+              />
+            )}
+          </LazyMount>
+
+          <LazyMount
+            forceMount={userPickerOpen === "quick-assignee"}
             trigger={
               <button className={cn(
                 "p-1.5 rounded transition-colors",
@@ -1232,7 +1230,50 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 <Wand2 className="h-3.5 w-3.5" />
               </button>
             }
-          />
+          >
+            {(open, setOpen) => (
+              <AssigneePicker
+                users={availableUsers}
+                current={
+                  task.department_id
+                    ? { kind: "department", id: task.department_id }
+                    : task.contractor_id
+                    ? { kind: "contractor", id: task.contractor_id }
+                    : task.assigned_to
+                    ? { kind: "user", id: task.assigned_to }
+                    : { kind: null, id: null }
+                }
+                open={open || userPickerOpen === "quick-assignee"}
+                onOpenChange={(o) => { setOpen(o); setUserPickerOpen(o ? "quick-assignee" : null); }}
+                onSelect={(sel) => {
+                  const currentAssignee = participants.find(p => p.role === "assignee");
+                  if (sel.kind === "user" && sel.id) {
+                    if (task.department_id || task.contractor_id) {
+                      updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+                    }
+                    addParticipant.mutate({ task_id: task.id, user_id: sel.id, role: "assignee" });
+                  } else if (sel.kind === "department" && sel.id) {
+                    if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                    updateTask.mutate({ id: task.id, department_id: sel.id, contractor_id: null });
+                  } else if (sel.kind === "contractor" && sel.id) {
+                    if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                    updateTask.mutate({ id: task.id, contractor_id: sel.id, department_id: null });
+                  } else {
+                    if (currentAssignee) removeParticipant.mutate({ task_id: task.id, user_id: currentAssignee.user_id });
+                    updateTask.mutate({ id: task.id, department_id: null, contractor_id: null });
+                  }
+                }}
+                trigger={
+                  <button className={cn(
+                    "p-1.5 rounded transition-colors",
+                    (task.assigned_to || task.department_id || task.contractor_id) ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )} title="Ответственный">
+                    <Wand2 className="h-3.5 w-3.5" />
+                  </button>
+                }
+              />
+            )}
+          </LazyMount>
 
           <DeadlineQuickPopover task={task} onUpdate={(id, updates) => undoableUpdateTask(id, updates)} />
 
@@ -1397,25 +1438,39 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </PopoverContent>
           </Popover>
 
-          <TaskAiPopover
-            taskTitle={task.title}
-            taskDescription={task.description}
-            subtasks={subtasks.map(s => s.title)}
-            deadline={task.deadline}
-            assignedToName={task.assigned_to ? getProfileName(task.assigned_to) : null}
-            participantNames={participants.map(p => getProfileName(p.user_id))}
-            groupMemberNames={availableUsers.map(u => u.display_name || u.id.slice(0, 8))}
-            memberMap={Object.fromEntries(availableUsers.map(u => [u.display_name || u.id.slice(0, 8), u.id]))}
-            onAssign={(userId) => updateTask.mutate({ id: task.id, assigned_to: userId })}
-            onSetDeadline={(date) => updateTask.mutate({ id: task.id, deadline: date })}
+          <LazyMount
+            trigger={
+              <button
+                className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
+                title="ИИ-помощник"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+              </button>
+            }
           >
-            <button
-              className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
-              title="ИИ-помощник"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-            </button>
-          </TaskAiPopover>
+            {() => (
+              <TaskAiPopover
+                defaultOpen
+                taskTitle={task.title}
+                taskDescription={task.description}
+                subtasks={subtasks.map(s => s.title)}
+                deadline={task.deadline}
+                assignedToName={task.assigned_to ? getProfileName(task.assigned_to) : null}
+                participantNames={participants.map(p => getProfileName(p.user_id))}
+                groupMemberNames={availableUsers.map(u => u.display_name || u.id.slice(0, 8))}
+                memberMap={Object.fromEntries(availableUsers.map(u => [u.display_name || u.id.slice(0, 8), u.id]))}
+                onAssign={(userId) => updateTask.mutate({ id: task.id, assigned_to: userId })}
+                onSetDeadline={(date) => updateTask.mutate({ id: task.id, deadline: date })}
+              >
+                <button
+                  className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
+                  title="ИИ-помощник"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </button>
+              </TaskAiPopover>
+            )}
+          </LazyMount>
         </div>
       </div>
 
@@ -1443,7 +1498,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 <button
                   onClick={() => {
                     if (task.requires_approval && task.approval_status !== "approved") {
-                      setClosureDialogOpen(true);
+                      openClosureDialog();
                     } else {
                       undoableToggleTask();
                     }
@@ -2260,17 +2315,20 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       />
     )}
 
-    <TaskClosureDialog
-      open={closureDialogOpen}
-      onOpenChange={setClosureDialogOpen}
-      taskTitle={task.title}
-      taskId={task.id}
-      onSubmit={(result, attachmentUrls, summary) => {
-        const fullResult = summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result;
-        submitForApproval.mutate({ id: task.id, closure_result: fullResult, attachmentUrls });
-        toast.success("Отправлено на утверждение");
-      }}
-    />
+    {/* Closure dialog: heavy (file uploads, AI summary) — defer mount until first open. */}
+    {closureDialogOpenedOnce && (
+      <TaskClosureDialog
+        open={closureDialogOpen}
+        onOpenChange={setClosureDialogOpen}
+        taskTitle={task.title}
+        taskId={task.id}
+        onSubmit={(result, attachmentUrls, summary) => {
+          const fullResult = summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result;
+          submitForApproval.mutate({ id: task.id, closure_result: fullResult, attachmentUrls });
+          toast.success("Отправлено на утверждение");
+        }}
+      />
+    )}
     </>
   );
 }
