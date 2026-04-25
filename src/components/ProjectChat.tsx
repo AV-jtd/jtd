@@ -11,7 +11,7 @@ import AiChatThread from "./AiChatThread";
 import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
 import UserPicker from "./UserPicker";
 import { toast } from "sonner";
-import MessageReactions from "./MessageReactions";
+import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 
 interface ProjectChatProps {
@@ -360,12 +360,18 @@ function MessageBubble({
 
   return (
     <div className={cn("group/msg relative flex flex-col", isReply ? "gap-0.5" : "gap-1")}>
-      <div className="flex items-center gap-1.5 pr-20">
+      <div className="flex items-center gap-1.5 pr-20 flex-wrap">
         <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
           {getAuthorName(msg)}
         </span>
         {sourceIcon && <span className="text-xs">{sourceIcon}</span>}
         <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(msg.created_at)}</span>
+        <ReactionChips
+          messageType="group_message"
+          messageId={msg.id}
+          reactions={reactions}
+          size="xs"
+        />
       </div>
       <p className={cn(
         "text-sm leading-relaxed break-words pr-2",
@@ -373,14 +379,14 @@ function MessageBubble({
       )}>
         {msg.content}
       </p>
-      <MessageReactions
-        messageType="group_message"
-        messageId={msg.id}
-        reactions={reactions}
-      />
       {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
       <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
+          <ReactionAddButton
+            messageType="group_message"
+            messageId={msg.id}
+            reactions={reactions}
+          />
           {onCreateTask && (
             <button type="button" onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
               <CheckSquare className="h-3 w-3" />
