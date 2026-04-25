@@ -632,6 +632,7 @@ export default function ProjectsTree({
                             </div>
                             {isOpen && (
                               <VirtualGroupList
+                                ref={(h) => stmRetailerListRefs.current.set(retailer, h)}
                                 className="space-y-0.5"
                                 items={items}
                                 renderItem={renderGroup}
