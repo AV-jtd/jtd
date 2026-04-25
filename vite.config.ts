@@ -74,9 +74,7 @@ export default defineConfig(({ mode }) => ({
         runtimeCaching: [
           {
             // Lazy-loaded JS/CSS chunks — cache on first use, serve instantly after.
-            urlPattern: ({ url }) =>
-              url.origin === self.location.origin &&
-              /\/assets\/.*\.(?:js|css)$/.test(url.pathname),
+            urlPattern: /\/assets\/.*\.(?:js|css)$/,
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "app-chunks",
@@ -85,8 +83,7 @@ export default defineConfig(({ mode }) => ({
           },
           {
             // Images served from same origin (icons, placeholders, uploads).
-            urlPattern: ({ url, request }) =>
-              url.origin === self.location.origin && request.destination === "image",
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
             handler: "CacheFirst",
             options: {
               cacheName: "app-images",
