@@ -1,5 +1,14 @@
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
+
+// Lazy-load ExcelJS only when actually needed (drops ~290KB from initial bundle)
+let _exceljsPromise: Promise<any> | null = null;
+const loadExcelJS = (): Promise<any> => {
+  if (!_exceljsPromise) {
+    _exceljsPromise = import("exceljs").then((m: any) => m.default ?? m);
+  }
+  return _exceljsPromise;
+};
 
 // ─── Types ───
 
@@ -44,9 +53,9 @@ const SUBTASK_STAGE_MAP: Record<string, string> = {
   "Старт отгрузок": "Старт отгрузок",
 };
 
-const FILL_HEADER: ExcelJS.FillPattern = {
+const FILL_HEADER = {
   type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" },
-};
+} as ExcelJS.FillPattern;
 const FONT_HEADER: Partial<ExcelJS.Font> = {
   bold: true, color: { argb: "FFFFFFFF" }, size: 11,
 };
@@ -131,8 +140,9 @@ export async function exportCrmToExcel(taskIds: string[]): Promise<Blob> {
     };
   });
 
-  // Create workbook
-  const wb = new ExcelJS.Workbook();
+  // Create workbook (load exceljs runtime on demand)
+  const ExcelJSModule = await loadExcelJS();
+  const wb = new ExcelJSModule.Workbook();
   wb.creator = "JustTODOit";
   const ws = wb.addWorksheet("CRM");
 
@@ -160,8 +170,9 @@ export async function exportCrmToExcel(taskIds: string[]): Promise<Blob> {
 
 // ─── Template ───
 
-export function downloadCrmTemplate() {
-  const wb = new ExcelJS.Workbook();
+export async function downloadCrmTemplate() {
+  const ExcelJSModule = await loadExcelJS();
+  const wb = new ExcelJSModule.Workbook();
   const ws = wb.addWorksheet("CRM Шаблон");
 
   const templateHeaders = ["Клиент", "Контактное лицо", "Телефон", "Email", "Город", "Территория", "Тип розницы", "Ранг", "Менеджер", "Проект", "Дедлайн", "Теги"];
