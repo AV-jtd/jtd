@@ -2461,6 +2461,8 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
 
 interface BulkParsedTask {
   title: string;
+  assigned_to_id?: string | null;
+  participant_ids?: string[] | null;
   assigned_to_name?: string | null;
   participant_names?: string[] | null;
   deadline_days?: number | null;
@@ -2478,7 +2480,7 @@ async function aiBulkParse(
   if (!LOVABLE_API_KEY) return null;
 
   const userList = users.length > 0
-    ? users.map(u => `- "${u.name}"${u.telegram_username ? ` (@${u.telegram_username})` : ""}`).join("\n")
+    ? users.map(u => `- id="${u.id}" name="${u.name}"${u.telegram_username ? ` username="@${u.telegram_username}"` : ""}`).join("\n")
     : "нет участников";
 
   const today = new Date().toISOString().split("T")[0];
@@ -2504,19 +2506,25 @@ async function aiBulkParse(
 
 Для каждой задачи определи:
 - title: краткое название задачи (глагол + объект)
-- assigned_to_name: имя/@username ОТВЕТСТВЕННОГО (один человек, главный исполнитель), если упомянут
-- participant_names: массив имён/@username УЧАСТНИКОВ задачи (все остальные упомянутые люди, кроме ответственного). Например: "задача для Маши и Пети" → assigned_to_name: "Маша", participant_names: ["Петя"]
+- assigned_to_id: UUID ответственного из списка участников ниже. Сопоставляй ЛЮБОЕ упоминание человека (имя, фамилия, @username, уменьшительное) с записями списка. Например: "Шулакова" → ищи в name; "Витя", "Викуся" → "Виктория"; "Марк", "Гозман" → "Марк Гозман".
+- participant_ids: массив UUID участников задачи (все остальные люди, кроме ответственного), сопоставленных по тому же правилу.
+- assigned_to_name: запасное поле — имя/фамилия/@username, если не уверен в id (тёзки или нет совпадения).
+- participant_names: запасной массив имён, если не уверен в id.
 - deadline_days: срок в днях от сегодня (если указано "3д", "через 5 дней", "неделю" и т.п.)
 - deadline_date: конкретная дата YYYY-MM-DD (если указана дата)
 - subtasks: подзадачи, если задача комплексная (вложенные пункты)
 - priority: 1=высокий, 2=средний, 3=низкий
 
 ${projectName ? `Проект: "${projectName}"` : ""}
-Доступные участники:\n${userList}
+Доступные участники проекта (используй ИХ id для assigned_to_id):
+${userList}
 Текущая дата: ${today}
 
 ВАЖНО: 
-- Если упомянуто несколько людей для одной задачи — первый (или явно указанный как ответственный) → assigned_to_name, остальные → participant_names.
+- Имена могут быть встроены в текст без маркеров: "забрать матрицы Виктория Журавлёва" → "Виктория" = ответственный, "Журавлёва" = участник (если оба есть в списке) или контекст.
+- Сопоставляй по ЛЮБОМУ токену ФИО (имя ИЛИ фамилия), уменьшительным (Витя=Виктория, Маша=Мария, Саша=Александр), регистр игнорируй.
+- Если упомянуто несколько людей — первый или явно указанный как ответственный → assigned_to_id, остальные → participant_ids.
+- ВСЕГДА возвращай assigned_to_id, если в тексте есть упоминание человека из списка. Не пропускай!
 - Если текст содержит одну задачу — верни массив из одного элемента. Минимум: title.`,
           },
           { role: "user", content: `Извлеки задачи из:\n\n${text}` },
@@ -2536,8 +2544,10 @@ ${projectName ? `Проект: "${projectName}"` : ""}
                       type: "object",
                       properties: {
                         title: { type: "string" },
-                        assigned_to_name: { type: "string", description: "Имя или @username ответственного (один человек)" },
-                        participant_names: { type: "array", items: { type: "string" }, description: "Имена/@username участников задачи (кроме ответственного)" },
+                        assigned_to_id: { type: "string", description: "UUID ответственного из списка участников" },
+                        participant_ids: { type: "array", items: { type: "string" }, description: "UUID участников задачи" },
+                        assigned_to_name: { type: "string", description: "Резервно: имя/@username, если не нашёл id" },
+                        participant_names: { type: "array", items: { type: "string" }, description: "Резервно: имена участников" },
                         deadline_days: { type: "number", description: "Срок в днях от сегодня" },
                         deadline_date: { type: "string", description: "Дата YYYY-MM-DD" },
                         subtasks: { type: "array", items: { type: "string" } },
@@ -2583,6 +2593,108 @@ interface BulkTaskResult {
   subtaskCount?: number;
 }
 
+// Уменьшительные / варианты имён для русских ФИО
+const NAME_ALIASES: Record<string, string[]> = {
+  "виктория": ["вика", "викуся", "витя"],
+  "александр": ["саша", "шура", "саня"],
+  "александра": ["саша", "шура", "сашуля"],
+  "мария": ["маша", "маня", "мара"],
+  "екатерина": ["катя", "катюша"],
+  "анастасия": ["настя", "ася"],
+  "наталья": ["наташа", "ната"],
+  "наталия": ["наташа", "ната"],
+  "ольга": ["оля", "оляша"],
+  "елена": ["лена", "ленуся"],
+  "татьяна": ["таня", "танюша"],
+  "ирина": ["ира", "иришка"],
+  "светлана": ["света", "светик"],
+  "юлия": ["юля", "юляша"],
+  "анна": ["аня", "анюта"],
+  "людмила": ["люда", "люся"],
+  "галина": ["галя", "галюся"],
+  "владимир": ["вова", "володя"],
+  "дмитрий": ["дима", "митя"],
+  "сергей": ["серёжа", "сережа", "серый"],
+  "андрей": ["андрюша", "дрюша"],
+  "алексей": ["лёша", "леша", "алёша"],
+  "михаил": ["миша", "мишаня"],
+  "николай": ["коля", "колян"],
+  "евгений": ["женя", "жека"],
+  "артём": ["тёма", "тема", "артемка"],
+  "артем": ["тёма", "тема", "артемка"],
+  "максим": ["макс", "максимка"],
+  "иван": ["ваня", "ванюша"],
+  "павел": ["паша", "пашка"],
+  "константин": ["костя", "костик"],
+  "роман": ["рома", "ромка"],
+  "пётр": ["петя", "петруша"],
+  "петр": ["петя", "петруша"],
+  "виктор": ["витя", "витёк"],
+  "марк": ["марик"],
+};
+
+function normalizeToken(s: string): string {
+  return s.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]/gi, "").trim();
+}
+
+function nameTokens(fullName: string): string[] {
+  return fullName.split(/\s+/).map(normalizeToken).filter(t => t.length >= 2);
+}
+
+function expandWithAliases(token: string): string[] {
+  const t = token.toLowerCase().replace(/ё/g, "е");
+  const result = new Set<string>([t]);
+  if (NAME_ALIASES[t]) NAME_ALIASES[t].forEach(a => result.add(a));
+  // обратное: если t — уменьшительное, найти полное
+  for (const [full, aliases] of Object.entries(NAME_ALIASES)) {
+    if (aliases.includes(t)) result.add(full);
+  }
+  return [...result];
+}
+
+/**
+ * Поиск участника по имени/фамилии/нику. Считает совпадение, если:
+ * - точное совпадение по telegram_username
+ * - нужный токен совпадает с любым токеном ФИО (или его уменьшительным/полным эквивалентом)
+ */
+function findMemberByName(
+  needle: string,
+  members: { id: string; name: string; telegram_username: string | null }[],
+): { id: string; name: string; telegram_username: string | null } | null {
+  if (!needle) return null;
+  const cleaned = needle.replace(/^@/, "").trim();
+  if (!cleaned) return null;
+  const needleNorm = normalizeToken(cleaned);
+
+  // 1. Точное совпадение по @username
+  const byUsername = members.find(m => m.telegram_username?.toLowerCase() === cleaned.toLowerCase());
+  if (byUsername) return byUsername;
+
+  // 2. Точное совпадение по полному имени
+  const byFullName = members.find(m => normalizeToken(m.name) === needleNorm);
+  if (byFullName) return byFullName;
+
+  // 3. Совпадение токена с алиасами
+  const needleVariants = new Set(expandWithAliases(needleNorm));
+  for (const m of members) {
+    const tokens = nameTokens(m.name);
+    for (const tok of tokens) {
+      const variants = expandWithAliases(tok);
+      if (variants.some(v => needleVariants.has(v))) return m;
+    }
+  }
+
+  // 4. Подстрока (на случай опечаток типа "Журавлев"/"Журавлева")
+  for (const m of members) {
+    const fullNorm = normalizeToken(m.name);
+    if (needleNorm.length >= 4 && (fullNorm.includes(needleNorm) || needleNorm.includes(fullNorm))) {
+      return m;
+    }
+  }
+
+  return null;
+}
+
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
@@ -2592,6 +2704,7 @@ async function createBulkTasks(
 ): Promise<BulkTaskResult[]> {
   const results: BulkTaskResult[] = [];
   const now = new Date();
+  const memberById = new Map(members.map(m => [m.id, m]));
 
   for (const task of tasks) {
     const taskData: Record<string, any> = {
@@ -2615,15 +2728,14 @@ async function createBulkTasks(
       deadlineStr = formatDate(d);
     }
 
-    // Resolve assignee
+    // Resolve assignee — приоритет: id от ИИ → имя/фамилия с алиасами
     let assigneeName: string | undefined;
-    if (task.assigned_to_name && members.length > 0) {
-      const needle = task.assigned_to_name.replace("@", "").toLowerCase();
-      const match = members.find(m =>
-        m.telegram_username?.toLowerCase() === needle ||
-        m.name.toLowerCase().includes(needle) ||
-        needle.includes(m.name.toLowerCase())
-      );
+    if (task.assigned_to_id && memberById.has(task.assigned_to_id)) {
+      const m = memberById.get(task.assigned_to_id)!;
+      taskData.assigned_to = m.id;
+      assigneeName = m.name;
+    } else if (task.assigned_to_name && members.length > 0) {
+      const match = findMemberByName(task.assigned_to_name, members);
       if (match) {
         taskData.assigned_to = match.id;
         assigneeName = match.name;
@@ -2650,23 +2762,35 @@ async function createBulkTasks(
       });
     }
 
-    // Resolve and add participants
+    // Resolve and add participants — сначала id от ИИ, потом имена с алиасами
     const resolvedParticipantNames: string[] = [];
+    const seenIds = new Set<string>();
+    if (taskData.assigned_to) seenIds.add(taskData.assigned_to);
+    if (task.participant_ids && task.participant_ids.length > 0) {
+      for (const pid of task.participant_ids) {
+        if (seenIds.has(pid) || pid === userId) continue;
+        const m = memberById.get(pid);
+        if (!m) continue;
+        await supabase.from("task_participants").insert({
+          task_id: newTask.id,
+          user_id: m.id,
+          role: "participant",
+        });
+        resolvedParticipantNames.push(m.name);
+        seenIds.add(m.id);
+      }
+    }
     if (task.participant_names && task.participant_names.length > 0 && members.length > 0) {
       for (const pName of task.participant_names) {
-        const needle = pName.replace("@", "").toLowerCase();
-        const match = members.find(m =>
-          m.telegram_username?.toLowerCase() === needle ||
-          m.name.toLowerCase().includes(needle) ||
-          needle.includes(m.name.toLowerCase())
-        );
-        if (match && match.id !== userId && match.id !== taskData.assigned_to) {
+        const match = findMemberByName(pName, members);
+        if (match && !seenIds.has(match.id) && match.id !== userId) {
           await supabase.from("task_participants").insert({
             task_id: newTask.id,
             user_id: match.id,
             role: "participant",
           });
           resolvedParticipantNames.push(match.name);
+          seenIds.add(match.id);
         }
       }
     }
