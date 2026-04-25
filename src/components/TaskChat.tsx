@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import UserPicker from "./UserPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import MessageReactions from "./MessageReactions";
+import { useMessageReactions } from "@/hooks/useMessageReactions";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
@@ -58,6 +60,13 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
   const { data: comments = [], isLoading } = useTaskComments(taskId);
   const { addComment, deleteComment } = useCommentMutations();
   const [draft, setDraft] = useState("");
+
+  // ID обычных (не системных) комментариев для подгрузки реакций.
+  const reactableIds = useMemo(
+    () => comments.filter((c) => !parseSystemMessage(c.content)).map((c) => c.id),
+    [comments],
+  );
+  const { data: reactionsByMsg = {} } = useMessageReactions("task_comment", reactableIds);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
