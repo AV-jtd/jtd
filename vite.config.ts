@@ -49,7 +49,8 @@ export default defineConfig(({ mode }) => ({
         // served via runtime caching on first use — this drops the initial PWA
         // download from ~5 MB to a small shell, dramatically improving cold
         // start on mobile networks.
-        maximumFileSizeToCacheInBytes: 600 * 1024, // 600 KB cap per precached file
+        // Allow the main app bundle (~2.2 MB) but exclude heavy lazy chunks via globIgnores.
+        maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024,
         globPatterns: ["**/*.{html,css,ico,svg,webmanifest}", "assets/index-*.js"],
         globIgnores: [
           "**/node_modules/**",
