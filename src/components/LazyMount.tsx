@@ -1,4 +1,5 @@
 import { useState, useRef, ReactNode, ReactElement, cloneElement } from "react";
+import { startMeasure } from "@/lib/perf/perfMetrics";
 
 /**
  * Defers mounting of a heavy child until the user actually interacts with it.
@@ -34,9 +35,11 @@ interface LazyMountProps {
   children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode;
   /** Force-mount immediately (e.g. when controlled open from outside). */
   forceMount?: boolean;
+  /** Optional label for perf metrics (defaults to "picker"). */
+  perfLabel?: string;
 }
 
-export default function LazyMount({ trigger, children, forceMount }: LazyMountProps) {
+export default function LazyMount({ trigger, children, forceMount, perfLabel = "picker" }: LazyMountProps) {
   const [mounted, setMounted] = useState(!!forceMount);
   const [open, setOpen] = useState(!!forceMount);
   const mountedRef = useRef(mounted);
@@ -55,9 +58,11 @@ export default function LazyMount({ trigger, children, forceMount }: LazyMountPr
       setMounted(true);
     };
     const promote = () => {
+      const end = startMeasure("picker-open", perfLabel);
       mountedRef.current = true;
       setMounted(true);
       setOpen(true);
+      end();
     };
     const existing = (trigger.props ?? {}) as Record<string, unknown>;
     const merged = {
