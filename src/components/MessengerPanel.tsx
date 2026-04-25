@@ -4,6 +4,7 @@ import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
+import type { ModuleContext } from "@/components/AiAssistant";
 import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -17,6 +18,12 @@ interface MessengerPanelProps {
   isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
   onNavigateToProject?: (groupId: string) => void;
   onNavigateToTask?: (taskId: string) => void;
+  /**
+   * Module context propagated to the pinned AI assistant entry, so opening it
+   * from the messenger lands in the same module/project scope as the global
+   * AI Sheet (`AiAssistant`) opened from the header.
+   */
+  moduleContext?: ModuleContext;
 }
 
 function formatThreadDate(dateStr: string | null) {
@@ -27,7 +34,14 @@ function formatThreadDate(dateStr: string | null) {
   return format(d, "d MMM", { locale: ru });
 }
 
-export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread, onNavigateToProject, onNavigateToTask }: MessengerPanelProps) {
+export default function MessengerPanel({
+  onClose,
+  markThreadRead,
+  isThreadUnread,
+  onNavigateToProject,
+  onNavigateToTask,
+  moduleContext,
+}: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
@@ -43,6 +57,22 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
     ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : threads;
 
+  // Human-readable subtitle for the AI entry, mirroring AiAssistant's labels.
+  const moduleLabel = (() => {
+    switch (moduleContext?.module) {
+      case "pmo": return "PMO";
+      case "npd": return "NPD";
+      case "crm": return "CRM";
+      default: return null;
+    }
+  })();
+  const aiTitle = moduleLabel ? `ИИ · ${moduleLabel}` : "ИИ-ассистент";
+  const aiSubtitle = moduleContext?.activeProjectName
+    ? `Контекст: ${moduleContext.activeProjectName}`
+    : moduleLabel
+      ? `${moduleLabel}-аналитика по портфелю`
+      : "Обзор проектов, приоритеты, аналитика";
+
   // AI Chat view
   if (showAiChat) {
     return (
@@ -55,18 +85,18 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              ИИ-ассистент
+            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5 truncate">
+              <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="truncate">{aiTitle}</span>
             </p>
-            <p className="text-[10px] text-muted-foreground">Кросс-проектная аналитика</p>
+            <p className="text-[10px] text-muted-foreground truncate">{aiSubtitle}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
-          <AiChatThread mode="assistant" />
+          <AiChatThread mode="assistant" moduleContext={moduleContext} />
         </div>
       </div>
     );
@@ -113,8 +143,8 @@ export default function MessengerPanel({ onClose, markThreadRead, isThreadUnread
               <Sparkles className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium text-foreground">ИИ-ассистент</span>
-              <p className="text-[10px] text-muted-foreground">Обзор проектов, приоритеты, аналитика</p>
+              <span className="text-sm font-medium text-foreground block truncate">{aiTitle}</span>
+              <p className="text-[10px] text-muted-foreground truncate">{aiSubtitle}</p>
             </div>
           </button>
         </div>
