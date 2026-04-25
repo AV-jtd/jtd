@@ -19,6 +19,13 @@ interface MessengerPanelProps {
   onNavigateToProject?: (groupId: string) => void;
   onNavigateToTask?: (taskId: string) => void;
   /**
+   * Open the project detail panel as an overlay on top of the messenger
+   * without closing it. When provided, the in-thread "open project" header
+   * button calls this instead of `onNavigateToProject` so the user keeps
+   * their place in the thread list.
+   */
+  onOpenProjectDetail?: (groupId: string) => void;
+  /**
    * Module context propagated to the pinned AI assistant entry, so opening it
    * from the messenger lands in the same module/project scope as the global
    * AI Sheet (`AiAssistant`) opened from the header.
@@ -40,6 +47,7 @@ export default function MessengerPanel({
   isThreadUnread,
   onNavigateToProject,
   onNavigateToTask,
+  onOpenProjectDetail,
   moduleContext,
 }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
@@ -52,7 +60,10 @@ export default function MessengerPanel({
   const [search, setSearch] = useState("");
 
   const handleOpenThread = (thread: Thread) => {
-    setActiveThread(thread);
+    // Always switch to the freshly clicked thread, even if another one is
+    // already active. Using a functional updater guarantees the new value is
+    // applied even when several clicks land in the same React batch.
+    setActiveThread(() => thread);
     markThreadRead?.(thread.id);
   };
 
@@ -238,8 +249,13 @@ export default function MessengerPanel({
         <button
           onClick={() => {
             if (activeThread.type === "group" && activeThread.groupId && onNavigateToProject) {
-              onNavigateToProject(activeThread.groupId);
-              onClose();
+              if (onOpenProjectDetail) {
+                // Overlay mode: keep messenger open, just show the detail panel above it.
+                onOpenProjectDetail(activeThread.groupId);
+              } else {
+                onNavigateToProject(activeThread.groupId);
+                onClose();
+              }
             } else if (activeThread.type === "task" && activeThread.taskId && onNavigateToTask) {
               onNavigateToTask(activeThread.taskId);
               onClose();
@@ -274,7 +290,14 @@ export default function MessengerPanel({
             groupName={activeThread.name}
             onClose={() => setActiveThread(null)}
             embedded
-            onNavigateToProject={(gId) => { onNavigateToProject?.(gId); onClose(); }}
+            onNavigateToProject={(gId) => {
+              if (onOpenProjectDetail) {
+                onOpenProjectDetail(gId);
+              } else {
+                onNavigateToProject?.(gId);
+                onClose();
+              }
+            }}
           />
         ) : activeThread.type === "task" && activeThread.taskId ? (
           <TaskChat

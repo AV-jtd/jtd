@@ -20,6 +20,7 @@ const CommunityView = lazy(() => import("@/components/CommunityView"));
 const WikiHubView = lazy(() => import("@/components/WikiHubView"));
 const ProjectChat = lazy(() => import("@/components/ProjectChat"));
 const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
+const ProjectDetailPanel = lazy(() => import("@/components/ProjectDetailPanel"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const AiAssistant = lazy(() => import("@/components/AiAssistant"));
 
@@ -40,6 +41,10 @@ export default function Index() {
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
+  // ID of the project shown as an overlay panel on top of the messenger.
+  // Lets users peek at project details without losing their place in the
+  // thread list. Cleared via the sheet's onOpenChange.
+  const [messengerDetailGroupId, setMessengerDetailGroupId] = useState<string | null>(null);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -247,6 +252,7 @@ export default function Index() {
                 isThreadUnread={isThreadUnread}
                 onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }}
                 onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }}
+                onOpenProjectDetail={(gId) => setMessengerDetailGroupId(gId)}
                 moduleContext={{
                   module: "tasks",
                   activeProjectId: activeView === "group" ? activeGroupId : null,
@@ -259,6 +265,43 @@ export default function Index() {
           </div>
         )}
       </div>
+
+      {/* Project detail overlay launched from the messenger.
+          Renders above the MessengerPanel without unmounting it, so users
+          keep their place in the thread list. Mobile: bottom sheet (90dvh).
+          Desktop: right-side sheet (w-[480px]). */}
+      {messengerDetailGroupId && (
+        <Sheet
+          open={!!messengerDetailGroupId}
+          onOpenChange={(open) => { if (!open) setMessengerDetailGroupId(null); }}
+        >
+          <SheetContent
+            side={isMobile ? "bottom" : "right"}
+            className={cn(
+              "p-0 border-border bg-background overflow-hidden flex flex-col",
+              isMobile ? "h-[90dvh] rounded-t-2xl" : "w-[480px] sm:max-w-[480px]"
+            )}
+          >
+            <Suspense fallback={<ViewFallback />}>
+              {(() => {
+                const g = groups.find(x => x.id === messengerDetailGroupId);
+                if (!g) {
+                  return (
+                    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                      Проект не найден
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex-1 overflow-y-auto">
+                    <ProjectDetailPanel group={g} />
+                  </div>
+                );
+              })()}
+            </Suspense>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {searchOpen && (
         <Suspense fallback={null}>
