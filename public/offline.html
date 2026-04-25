@@ -107,7 +107,7 @@
       <div class="card" id="card">
         <div class="icon" aria-hidden="true">📡</div>
         <h1>Нет подключения к сети</h1>
-        <p>Похоже, вы оффлайн. Как только сеть появится, мы автоматически загрузим страницу.</p>
+        <p>Похоже, вы оффлайн. Можно продолжать с сохранённой версией, а обновление запустить вручную.</p>
         <button id="retry" type="button">Попробовать снова</button>
         <div class="status" id="status"></div>
       </div>
@@ -121,9 +121,7 @@
         function updateOnline() {
           if (navigator.onLine) {
             card.classList.add("online");
-            status.textContent = "Сеть доступна — обновляем…";
-            // Small delay so the user sees the state change.
-            setTimeout(function () { location.reload(); }, 400);
+            status.textContent = "Сеть доступна — можно попробовать загрузить снова.";
           } else {
             card.classList.remove("online");
             status.textContent = "";
