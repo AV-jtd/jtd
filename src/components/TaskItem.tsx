@@ -2300,17 +2300,20 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       />
     )}
 
-    <TaskClosureDialog
-      open={closureDialogOpen}
-      onOpenChange={setClosureDialogOpen}
-      taskTitle={task.title}
-      taskId={task.id}
-      onSubmit={(result, attachmentUrls, summary) => {
-        const fullResult = summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result;
-        submitForApproval.mutate({ id: task.id, closure_result: fullResult, attachmentUrls });
-        toast.success("Отправлено на утверждение");
-      }}
-    />
+    {/* Closure dialog: heavy (file uploads, AI summary) — defer mount until first open. */}
+    {closureDialogOpenedOnce && (
+      <TaskClosureDialog
+        open={closureDialogOpen}
+        onOpenChange={setClosureDialogOpen}
+        taskTitle={task.title}
+        taskId={task.id}
+        onSubmit={(result, attachmentUrls, summary) => {
+          const fullResult = summary ? `${result}\n\n---\n**ИИ-саммари вложений:** ${summary}` : result;
+          submitForApproval.mutate({ id: task.id, closure_result: fullResult, attachmentUrls });
+          toast.success("Отправлено на утверждение");
+        }}
+      />
+    )}
     </>
   );
 }
