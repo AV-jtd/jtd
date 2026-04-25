@@ -1,7 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+
+/** Schedule work for the browser's idle period (with a fallback timeout). */
+function runWhenIdle(cb: () => void, timeout = 1500) {
+  const ric =
+    typeof window !== "undefined" &&
+    (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+  if (ric) ric(cb, { timeout });
+  else setTimeout(cb, 200);
+}
 
 /**
  * Prefetches all key data when user logs in so it's available offline.
@@ -10,12 +19,17 @@ import { useAuth } from "./useAuth";
 export function usePrefetchData() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  // Guard against re-runs (StrictMode double-mount, qc identity changes, etc.)
+  const prefetchedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    if (prefetchedFor.current === user.id) return;
+    prefetchedFor.current = user.id;
 
+    // Defer until the browser is idle so we don't compete with the first
+    // paint or block the main thread while the user is trying to interact.
     const prefetch = async () => {
-      // Prefetch in parallel — all critical data for offline access
       await Promise.allSettled([
         qc.prefetchQuery({
           queryKey: ["task_groups", user.id],
@@ -106,6 +120,6 @@ export function usePrefetchData() {
       ]);
     };
 
-    prefetch();
+    runWhenIdle(() => { void prefetch(); });
   }, [user?.id, qc]);
 }
