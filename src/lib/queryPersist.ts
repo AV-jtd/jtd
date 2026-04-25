@@ -2,7 +2,9 @@ import { get, set, del } from "idb-keyval";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
 
 // Bump this version whenever data shape changes to invalidate stale cache
-const CACHE_VERSION = 7;
+// v8: useUnreadMessages switched from per-thread Map cache to server-aggregated
+// `unread_threads` array — old persisted shape would crash useQuery on restore.
+const CACHE_VERSION = 8;
 const IDB_KEY = "REACT_QUERY_OFFLINE_CACHE";
 const VERSION_KEY = "REACT_QUERY_CACHE_VERSION";
 
