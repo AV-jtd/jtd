@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { streamChat, StreamChatError } from "@/lib/streamChat";
+import type { ModuleContext } from "@/components/AiAssistant";
 
 interface AiChatThreadProps {
   /** Fixed project context — locks to this project */
@@ -21,6 +22,12 @@ interface AiChatThreadProps {
   groupName?: string;
   /** "assistant" = general cross-project, "project_chat" = project-specific */
   mode?: "assistant" | "project_chat";
+  /**
+   * Active module context (same shape used by `AiAssistant` Sheet).
+   * In `assistant` mode it switches quick prompts to the module-specific set
+   * and locks the chat to `activeProjectId` if one is provided.
+   */
+  moduleContext?: ModuleContext;
 }
 
 const PROJECT_PROMPTS = [
@@ -37,9 +44,46 @@ const GENERAL_PROMPTS = [
   { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по улучшению продуктивности и управления проектами." },
 ];
 
-export default function AiChatThread({ groupId, groupName, mode = "project_chat" }: AiChatThreadProps) {
-  const isGeneral = mode === "assistant";
-  const QUICK_PROMPTS = isGeneral ? GENERAL_PROMPTS : PROJECT_PROMPTS;
+/**
+ * Module-specific quick prompts mirror the structure of `MODULE_CONFIG` inside
+ * `AiAssistant` — but trimmed to free-form prompts (no UI shortcuts like
+ * `__import_crm__`) since this thread always sends straight to the AI.
+ */
+const MODULE_GENERAL_PROMPTS: Record<NonNullable<ModuleContext["module"]>, typeof GENERAL_PROMPTS> = {
+  tasks: GENERAL_PROMPTS,
+  pmo: [
+    { icon: BarChart3, label: "Портфель", prompt: "Дай обзор портфеля проектов: прогресс, риски, ближайшие вехи." },
+    { icon: AlertCircle, label: "Риски PMO", prompt: "Проанализируй риски по всем проектам: блокеры, drift, просроченные вехи." },
+    { icon: CheckSquare, label: "Критический путь", prompt: "Найди критический путь и задачи, влияющие на сроки." },
+    { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по управлению портфелем и приоритезации." },
+  ],
+  npd: [
+    { icon: BarChart3, label: "Гейты", prompt: "Покажи статус NPD-проектов по гейтам G0–G5 и узкие места." },
+    { icon: AlertCircle, label: "Риски NPD", prompt: "Какие NPD-проекты в зоне риска? Где задержки между гейтами?" },
+    { icon: CheckSquare, label: "Готовность", prompt: "Оцени готовность проектов к переходу на следующий гейт." },
+    { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по NPD-портфелю и приоритезации стримов." },
+  ],
+  crm: [
+    { icon: BarChart3, label: "Воронка", prompt: "Дай обзор воронки продаж: распределение по этапам, конверсия." },
+    { icon: AlertCircle, label: "Риски CRM", prompt: "Где узкие места воронки? Какие сделки зависли или просрочены?" },
+    { icon: CheckSquare, label: "Приоритеты", prompt: "Какие клиенты и задачи требуют внимания в первую очередь?" },
+    { icon: HelpCircle, label: "Рекомендации", prompt: "Дай рекомендации по работе с воронкой и клиентами." },
+  ],
+};
+
+export default function AiChatThread({ groupId, groupName, mode = "project_chat", moduleContext }: AiChatThreadProps) {
+  // If the caller passes an `activeProjectId` via moduleContext, treat the chat
+  // as project-scoped even when mode === "assistant". This matches AiAssistant
+  // behaviour where a specific project locks the prompts to that project.
+  const moduleActiveProjectId = moduleContext?.activeProjectId ?? null;
+  const effectiveGroupId = groupId ?? moduleActiveProjectId ?? null;
+  const isGeneral = mode === "assistant" && !effectiveGroupId;
+
+  const moduleKey = moduleContext?.module ?? "tasks";
+  const QUICK_PROMPTS = isGeneral
+    ? (MODULE_GENERAL_PROMPTS[moduleKey] ?? GENERAL_PROMPTS)
+    : PROJECT_PROMPTS;
+
   const { user } = useAuth();
   const { data: allGroups = [] } = useTaskGroups();
   const { data: allUsers = [] } = useAvailableUsers();
@@ -47,11 +91,24 @@ export default function AiChatThread({ groupId, groupName, mode = "project_chat"
   const { data: allMilestones = [] } = useMilestones();
   const { data: allDependencies = [] } = useDependencies();
 
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(groupId || null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(effectiveGroupId);
+
+  // Keep selectedGroupId in sync if the active module project changes externally
+  useEffect(() => {
+    if (effectiveGroupId && effectiveGroupId !== selectedGroupId) {
+      setSelectedGroupId(effectiveGroupId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveGroupId]);
+
   const { data: groupMessages = [] } = useGroupMessages(selectedGroupId || "");
 
+  // Persist conversation per (mode + module + project) so e.g. PMO general chat
+  // is separate from the Tasks general chat and from a specific project chat.
   const contextType = isGeneral ? "assistant" : "project_chat";
-  const contextId = isGeneral ? null : selectedGroupId;
+  const contextId = isGeneral
+    ? `assistant:${moduleKey}`
+    : selectedGroupId;
 
   const {
     messages: chatMessages, addMessage, updateLastAssistant, clearConversation,
