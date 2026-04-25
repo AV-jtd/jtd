@@ -70,6 +70,8 @@ export default function ProjectsTree({
   const ungroupedListRef = useRef<VirtualGroupListHandle | null>(null);
   const archivedListRef = useRef<VirtualGroupListHandle | null>(null);
   const folderListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
+  // Per-retailer STM list refs, keyed by retailer name (matches __stm__:<retailer>).
+  const stmRetailerListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
   // FolderRow header DOM nodes — used to scroll the header into view when
   // a folder gets expanded so the user can immediately see what's inside.
   const folderRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -307,8 +309,10 @@ export default function ProjectsTree({
         needsFolderExpand = "__stm__";
       } else {
         const meta = ((stmRootGroups.find((g) => g.id === activeGroupId) as { stm_meta?: { retailer?: string } } | undefined)?.stm_meta) ?? {};
-        const retailerKey = `__stm__:${(meta.retailer ?? "").trim() || "Без клиента"}`;
+        const retailer = (meta.retailer ?? "").trim() || "Без клиента";
+        const retailerKey = `__stm__:${retailer}`;
         if (!expandedFolders.has(retailerKey)) needsFolderExpand = retailerKey;
+        else listRef = stmRetailerListRefs.current.get(retailer) ?? null;
       }
     } else if (ungroupedProjects.some((g) => g.id === activeGroupId)) {
       listRef = ungroupedListRef.current;
@@ -628,6 +632,7 @@ export default function ProjectsTree({
                             </div>
                             {isOpen && (
                               <VirtualGroupList
+                                ref={(h) => stmRetailerListRefs.current.set(retailer, h)}
                                 className="space-y-0.5"
                                 items={items}
                                 renderItem={renderGroup}
