@@ -1267,7 +1267,9 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    // Optimistic state is already correct; skip refetch (saves ~200-400ms
+    // network round-trip + a list re-render for every star tap).
+    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" }),
   });
 
   const reorderTasks = useMutation({
