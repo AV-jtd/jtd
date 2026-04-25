@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { TaskGroup } from "@/hooks/useTasks";
@@ -56,6 +65,20 @@ interface VirtualGroupListProps {
 }
 
 /**
+ * Imperative handle for parent components (ProjectsTree) that need to
+ * scroll a specific row into view — e.g. when the active project changes
+ * via deep link / navigation, or when a folder is expanded and the user
+ * needs to see what's inside.
+ *
+ * Returns `true` if the row exists in this list (so the parent can stop
+ * trying other lists), `false` otherwise.
+ */
+export interface VirtualGroupListHandle {
+  scrollToId: (id: string, opts?: { align?: "start" | "center" | "end" | "auto" }) => boolean;
+  hasItem: (id: string) => boolean;
+}
+
+/**
  * iOS Safari + Android Chrome on touch devices: rAF-driven measurement
  * lags behind native momentum scroll. Doubling overscan trades a small
  * amount of memory for not seeing blank rows mid-fling.
@@ -68,15 +91,18 @@ const isTouchDevice = (): boolean => {
   );
 };
 
-export default function VirtualGroupList({
-  items,
-  estimateSize = 32,
-  threshold = 30,
-  overscan = 8,
-  className,
-  renderItem,
-  sortable = true,
-}: VirtualGroupListProps) {
+function VirtualGroupListInner(
+  {
+    items,
+    estimateSize = 32,
+    threshold = 30,
+    overscan = 8,
+    className,
+    renderItem,
+    sortable = true,
+  }: VirtualGroupListProps,
+  ref: React.Ref<VirtualGroupListHandle>,
+) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
 
@@ -111,6 +137,42 @@ export default function VirtualGroupList({
     getItemKey: (i) => items[i].id,
   });
 
+  // ---------- Imperative scroll API ----------
+
+  const indexById = useMemo(() => {
+    const map = new Map<string, number>();
+    items.forEach((g, i) => map.set(g.id, i));
+    return map;
+  }, [items]);
+
+  const scrollToId = useCallback(
+    (id: string, opts?: { align?: "start" | "center" | "end" | "auto" }) => {
+      const idx = indexById.get(id);
+      if (idx === undefined) return false;
+      const align = opts?.align ?? "center";
+      if (shouldVirtualise) {
+        // Two passes: virtualizer estimates first, then re-measures actual
+        // height. A second call after rAF guarantees we land on the right row
+        // even when row heights vary (e.g. project with longer name).
+        virtualizer.scrollToIndex(idx, { align });
+        requestAnimationFrame(() => virtualizer.scrollToIndex(idx, { align }));
+      } else if (wrapperRef.current) {
+        const node = wrapperRef.current.querySelector<HTMLElement>(
+          `[data-group-id="${CSS.escape(id)}"]`,
+        );
+        node?.scrollIntoView({ block: align === "auto" ? "nearest" : align, behavior: "smooth" });
+      }
+      return true;
+    },
+    [indexById, shouldVirtualise, virtualizer],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({ scrollToId, hasItem: (id: string) => indexById.has(id) }),
+    [scrollToId, indexById],
+  );
+
   const sortableIds = items.map((g) => g.id);
 
   const wrap = (node: ReactNode) =>
@@ -125,7 +187,12 @@ export default function VirtualGroupList({
   if (!shouldVirtualise) {
     return wrap(
       <div ref={wrapperRef} className={className}>
-        {items.map(renderItem)}
+        {items.map((g) => (
+          // data-group-id used by scrollToId() in the non-virtual path.
+          <div key={g.id} data-group-id={g.id}>
+            {renderItem(g)}
+          </div>
+        ))}
       </div>,
     );
   }
@@ -153,6 +220,7 @@ export default function VirtualGroupList({
           <div
             key={vRow.key}
             data-index={vRow.index}
+            data-group-id={group.id}
             ref={virtualizer.measureElement}
             style={{
               position: "absolute",
@@ -176,3 +244,9 @@ export default function VirtualGroupList({
     </div>,
   );
 }
+
+const VirtualGroupList = forwardRef<VirtualGroupListHandle, VirtualGroupListProps>(
+  VirtualGroupListInner,
+);
+VirtualGroupList.displayName = "VirtualGroupList";
+export default VirtualGroupList;
