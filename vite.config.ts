@@ -44,10 +44,53 @@ export default defineConfig(({ mode }) => ({
       workbox: {
       skipWaiting: true,
       clientsClaim: true,
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Keep only the critical app shell in precache.
+        // Heavy/lazy chunks (xlsx, pdf, Protocol/NPD/Gantt/Dashboard, etc.) are
+        // served via runtime caching on first use — this drops the initial PWA
+        // download from ~5 MB to a small shell, dramatically improving cold
+        // start on mobile networks.
+        // Allow the main app bundle (~2.2 MB) but exclude heavy lazy chunks via globIgnores.
+        maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024,
+        globPatterns: ["**/*.{html,css,ico,svg,webmanifest}", "assets/index-*.js"],
+        globIgnores: [
+          "**/node_modules/**",
+          "assets/xlsx-*.js",
+          "assets/pdf-*.js",
+          "assets/purify*.js",
+          "assets/index.es-*.js",
+          "assets/ProtocolDetail-*.js",
+          "assets/Npd-*.js",
+          "assets/GanttView-*.js",
+          "assets/DashboardView-*.js",
+          "assets/Crm-*.js",
+          "assets/StmMatrix-*.js",
+          "assets/Pmo-*.js",
+          "assets/Settings-*.js",
+          "assets/Protocols-*.js",
+          "assets/NpdSwimlaneMatrix-*.js",
+          "assets/ProjectChat-*.js",
+        ],
         navigateFallbackDenylist: [/^\/~oauth/],
         importScripts: ["/custom-sw.js"],
         runtimeCaching: [
+          {
+            // Lazy-loaded JS/CSS chunks — cache on first use, serve instantly after.
+            urlPattern: /\/assets\/.*\.(?:js|css)$/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "app-chunks",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            // Images served from same origin (icons, placeholders, uploads).
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "app-images",
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "CacheFirst",
