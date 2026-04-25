@@ -243,24 +243,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
 
                   {/* System card: task created from this message */}
                   {createdTasks[msg.id] && (
-                    <button
-                      type="button"
+                    <CreatedTaskCard
+                      info={createdTasks[msg.id]}
                       onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
-                      className="ml-0 mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group/card"
-                    >
-                      <div className="h-7 w-7 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
-                        <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{createdTasks[msg.id].title}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          Задача создана
-                          {createdTasks[msg.id].assigneeName ? ` · ${createdTasks[msg.id].assigneeName}` : ""}
-                          {createdTasks[msg.id].deadline ? ` · до ${format(new Date(createdTasks[msg.id].deadline!), "d MMM", { locale: ru })}` : ""}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
-                    </button>
+                    />
                   )}
 
                   {/* Thread indicator */}
