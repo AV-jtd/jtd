@@ -215,7 +215,18 @@ export function useThreads() {
       return threads;
     },
     enabled: !!user,
-    staleTime: 1000 * 15,
+    // Cache for 60s. Safe to be aggressive because `useThreadsRealtime`
+    // invalidates this query the moment a new message lands in either
+    // `group_messages` or `task_comments` — so the only thing this stale
+    // window protects against is repeated open/close of the messenger panel
+    // (and route remounts) firing the cursor-paginated fetch every time.
+    staleTime: 1000 * 60,
+    // Keep the cached threads in memory for 5 minutes after the panel
+    // unmounts, so toggling it back on is instant instead of re-running
+    // pagination from scratch.
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 }
 
