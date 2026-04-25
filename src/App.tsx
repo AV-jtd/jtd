@@ -13,6 +13,7 @@ import { usePrefetchData } from "@/hooks/usePrefetch";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "./components/OnlineStatus";
+const PerfMetricsOverlay = lazy(() => import("@/components/PerfMetricsOverlay"));
 import PendingSync from "./components/PendingSync";
 import { Loader2 } from "lucide-react";
 
@@ -79,6 +80,11 @@ function AppContent() {
     <>
       <Toaster />
       <Sonner />
+      {import.meta.env.DEV && (
+        <Suspense fallback={null}>
+          <PerfMetricsOverlay />
+        </Suspense>
+      )}
       <BrowserRouter>
         <ErrorBoundary fallbackTitle="Ошибка приложения">
           <Suspense fallback={<LazyFallback />}>
