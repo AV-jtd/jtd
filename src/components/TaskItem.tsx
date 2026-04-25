@@ -497,6 +497,13 @@ function SortableSubtaskRowInner({ sub, task, editingSubtaskId, editingSubtaskTi
     </div>
   );
 }
+const SortableSubtaskRow = memo(SortableSubtaskRowInner, (prev, next) => (
+  prev.sub === next.sub &&
+  prev.task === next.task &&
+  prev.editingSubtaskId === next.editingSubtaskId &&
+  prev.editingSubtaskTitle === next.editingSubtaskTitle &&
+  prev.availableUsers === next.availableUsers
+));
 
 function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations }: TaskItemProps) {
   const isMobile = useIsMobile();
