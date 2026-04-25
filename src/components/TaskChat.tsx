@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import UserPicker from "./UserPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import MessageReactions from "./MessageReactions";
+import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
@@ -212,39 +212,47 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   {name}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(c.created_at)}</span>
-                {/* Кнопка «Создать задачу из сообщения» */}
-                <button
+                {/* Inline-чипы реакций: в одной строке с автором и временем */}
+                <ReactionChips
+                  messageType="task_comment"
+                  messageId={c.id}
+                  reactions={reactionsByMsg[c.id]}
+                  size="xs"
+                />
+                {/* Кнопки действий — в одну группу справа */}
+                <div className="ml-auto flex items-center gap-0.5 shrink-0 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <ReactionAddButton
+                    messageType="task_comment"
+                    messageId={c.id}
+                    reactions={reactionsByMsg[c.id]}
+                  />
+                  <button
                   type="button"
                   onClick={() =>
                     setTaskFormForCommentId(prev => (prev === c.id ? null : c.id))
                   }
-                  className="ml-auto opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus:opacity-100 p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-opacity shrink-0"
+                    className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
                   title="Создать задачу из сообщения"
                   aria-label="Создать задачу из сообщения"
                 >
                   <CheckSquare className="h-3 w-3" />
                 </button>
+                  {isOwn && (
+                    <button
+                      onClick={() => deleteComment.mutate({ id: c.id, task_id: taskId })}
+                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      title="Удалить"
+                      aria-label="Удалить"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className={cn("flex items-start gap-1", isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
                 <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90 flex-1">
                   {c.content}
                 </p>
-                {isOwn && (
-                  <button
-                    onClick={() => deleteComment.mutate({ id: c.id, task_id: taskId })}
-                    className="opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
-                    title="Удалить"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-              <div className={cn(isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
-                <MessageReactions
-                  messageType="task_comment"
-                  messageId={c.id}
-                  reactions={reactionsByMsg[c.id]}
-                />
               </div>
 
               {/* Inline-форма создания задачи из этого сообщения */}
