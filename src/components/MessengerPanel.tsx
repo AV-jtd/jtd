@@ -233,6 +233,37 @@ export default function MessengerPanel({
               className="h-8 text-sm pl-8"
             />
           </div>
+          {/* Filter chips: by author / by project. Multi-select via popovers. */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <FilterChip
+              icon={<UserIcon className="h-3 w-3" />}
+              label="Автор"
+              count={authorIds.length}
+              options={authorOptions}
+              selected={authorIds}
+              onToggle={(id) => toggleId(authorIds, setAuthorIds, id)}
+              onClear={() => setAuthorIds([])}
+              emptyHint="Нет авторов"
+            />
+            <FilterChip
+              icon={<FolderOpen className="h-3 w-3" />}
+              label="Проект"
+              count={projectIds.length}
+              options={projectOptions}
+              selected={projectIds}
+              onToggle={(id) => toggleId(projectIds, setProjectIds, id)}
+              onClear={() => setProjectIds([])}
+              emptyHint="Нет проектов"
+            />
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
+              >
+                Сбросить
+              </button>
+            )}
+          </div>
         </div>
 
         {/* AI Assistant entry */}
