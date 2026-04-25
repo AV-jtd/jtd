@@ -5,6 +5,7 @@ import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
 const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
+const VirtualTaskList = lazy(() => import("./task-list/VirtualTaskList"));
 import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
