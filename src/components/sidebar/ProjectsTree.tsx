@@ -141,6 +141,19 @@ export default function ProjectsTree({
     });
   }, [stmRootGroups]);
 
+  // Prune stale entries from the per-retailer ref map whenever the set of
+  // retailers changes (e.g. a SKU was renamed to a different retailer, the
+  // last SKU for a retailer was deleted, or HMR replaced child components
+  // without unmounting the tree). Without this the Map would grow unbounded
+  // and `stmRetailerListRefs.current.get(retailer)` could hand out a handle
+  // for a list that no longer exists.
+  useEffect(() => {
+    const valid = new Set(stmByRetailer.map(([retailer]) => retailer));
+    for (const key of stmRetailerListRefs.current.keys()) {
+      if (!valid.has(key)) stmRetailerListRefs.current.delete(key);
+    }
+  }, [stmByRetailer]);
+
   const groupsInFolder = useCallback(
     (folderId: string) => nonNpdRootGroups.filter((g) => groupFolderMap.get(g.id) === folderId),
     [nonNpdRootGroups, groupFolderMap],
