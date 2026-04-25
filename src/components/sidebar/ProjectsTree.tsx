@@ -71,6 +71,9 @@ export default function ProjectsTree({
   const archivedListRef = useRef<VirtualGroupListHandle | null>(null);
   const folderListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
   // Per-retailer STM list refs, keyed by retailer name (matches __stm__:<retailer>).
+  // Entries are removed via the ref-callback cleanup when a VirtualGroupList unmounts,
+  // and a sync effect below prunes any keys that no longer correspond to a retailer
+  // present in the data (covers retailer renames and HMR remounts).
   const stmRetailerListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
   // FolderRow header DOM nodes — used to scroll the header into view when
   // a folder gets expanded so the user can immediately see what's inside.
@@ -137,6 +140,19 @@ export default function ProjectsTree({
       return a.localeCompare(b, "ru");
     });
   }, [stmRootGroups]);
+
+  // Prune stale entries from the per-retailer ref map whenever the set of
+  // retailers changes (e.g. a SKU was renamed to a different retailer, the
+  // last SKU for a retailer was deleted, or HMR replaced child components
+  // without unmounting the tree). Without this the Map would grow unbounded
+  // and `stmRetailerListRefs.current.get(retailer)` could hand out a handle
+  // for a list that no longer exists.
+  useEffect(() => {
+    const valid = new Set(stmByRetailer.map(([retailer]) => retailer));
+    for (const key of stmRetailerListRefs.current.keys()) {
+      if (!valid.has(key)) stmRetailerListRefs.current.delete(key);
+    }
+  }, [stmByRetailer]);
 
   const groupsInFolder = useCallback(
     (folderId: string) => nonNpdRootGroups.filter((g) => groupFolderMap.get(g.id) === folderId),
@@ -632,7 +648,20 @@ export default function ProjectsTree({
                             </div>
                             {isOpen && (
                               <VirtualGroupList
-                                ref={(h) => stmRetailerListRefs.current.set(retailer, h)}
+                                ref={(h) => {
+                                  // Register handle on mount; unregister on unmount.
+                                  // Returning a cleanup works on React 19 ref-callbacks;
+                                  // the explicit null-check covers older React behaviour
+                                  // where the same callback is invoked with null.
+                                  if (h === null) {
+                                    stmRetailerListRefs.current.delete(retailer);
+                                    return;
+                                  }
+                                  stmRetailerListRefs.current.set(retailer, h);
+                                  return () => {
+                                    stmRetailerListRefs.current.delete(retailer);
+                                  };
+                                }}
                                 className="space-y-0.5"
                                 items={items}
                                 renderItem={renderGroup}
