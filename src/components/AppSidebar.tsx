@@ -764,17 +764,19 @@ export default function AppSidebar({
             {showGroups ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Проекты
             <span className="ml-auto flex items-center gap-1">
-              <SmartImportDialog
-                trigger={
-                  <span
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:text-sidebar-fg"
-                    title="Умный импорт из Excel"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </span>
-                }
-              />
+              <Suspense fallback={<span className="text-sidebar-fg/40"><Download className="h-3.5 w-3.5" /></span>}>
+                <SmartImportDialog
+                  trigger={
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-sidebar-fg"
+                      title="Умный импорт из Excel"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </span>
+                  }
+                />
+              </Suspense>
               <span
                 onClick={(e) => { e.stopPropagation(); setShowNewFolder(true); }}
                 className="hover:text-sidebar-fg"
