@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState, type FormEvent } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Archive,
   ChevronDown,
@@ -19,7 +19,7 @@ import { TaskGroup, useProjectFolderItems, useProjectFolders, useTaskGroups, use
 import { DroppableFolder, DroppableUngrouped } from "@/components/sidebar/SidebarDroppables";
 import GroupItem from "@/components/sidebar/GroupItem";
 import FolderRow from "@/components/sidebar/FolderRow";
-import VirtualGroupList from "@/components/sidebar/VirtualGroupList";
+import VirtualGroupList, { type VirtualGroupListHandle } from "@/components/sidebar/VirtualGroupList";
 
 const SmartImportDialog = lazy(() => import("@/components/SmartImportDialog"));
 
@@ -61,6 +61,21 @@ export default function ProjectsTree({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
+  // ---------- Refs for autoscroll into the virtualised lists ----------
+  // Each section that renders a VirtualGroupList registers its imperative
+  // handle here so we can find which section owns the active project and
+  // ask it to scroll the row into view.
+  const npdListRef = useRef<VirtualGroupListHandle | null>(null);
+  const ungroupedListRef = useRef<VirtualGroupListHandle | null>(null);
+  const archivedListRef = useRef<VirtualGroupListHandle | null>(null);
+  const folderListRefs = useRef<Map<string, VirtualGroupListHandle | null>>(new Map());
+  // FolderRow header DOM nodes — used to scroll the header into view when
+  // a folder gets expanded so the user can immediately see what's inside.
+  const folderRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  // Tracks which folders were already expanded between renders, so we only
+  // scroll on the *transition* closed→open (not on every re-render).
+  const prevExpandedFoldersRef = useRef<Set<string>>(new Set());
 
   // ---------- Derived data (memoised so GroupItem.memo bites) ----------
 
@@ -142,6 +157,87 @@ export default function ProjectsTree({
   const isChildExpanded = useCallback((id: string) => expandedGroups.has(id), [expandedGroups]);
   const getChildGroups = useCallback((id: string) => childrenByParent.get(id) ?? [], [childrenByParent]);
   const getGroupFolderId = useCallback((id: string) => groupFolderMap.get(id) ?? null, [groupFolderMap]);
+
+  // ---------- Autoscroll effects ----------
+
+  /**
+   * When a folder transitions from collapsed→expanded, scroll its header row
+   * to the top of the visible area so the user immediately sees what just
+   * opened. We diff against the previous Set so toggling other folders or
+   * unrelated re-renders don't trigger spurious scrolls.
+   */
+  useEffect(() => {
+    const prev = prevExpandedFoldersRef.current;
+    const justOpened: string[] = [];
+    for (const id of expandedFolders) if (!prev.has(id)) justOpened.push(id);
+    prevExpandedFoldersRef.current = new Set(expandedFolders);
+    if (justOpened.length === 0) return;
+    // Only scroll the most recent toggle — scrolling to multiple at once
+    // would just leave the last one visible anyway.
+    const target = justOpened[justOpened.length - 1];
+    // rAF: wait for the expanded list to mount and reserve its height
+    // before measuring scroll position.
+    requestAnimationFrame(() => {
+      const node = folderRowRefs.current.get(target);
+      node?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }, [expandedFolders]);
+
+  /**
+   * When `activeGroupId` changes (e.g. via deep link, navigation, or a click
+   * elsewhere in the app), find which list owns the project, auto-expand
+   * its parent folder if needed, then ask the virtualised list to scroll
+   * the row to the centre of the viewport.
+   */
+  useEffect(() => {
+    if (!activeGroupId || !showGroups) return;
+
+    // 1) Determine which list owns this id and whether a parent folder
+    //    needs to expand first.
+    let needsFolderExpand: string | null = null;
+    let listRef: VirtualGroupListHandle | null = null;
+
+    if (npdRootGroups.some((g) => g.id === activeGroupId)) {
+      if (!expandedFolders.has("__npd__")) needsFolderExpand = "__npd__";
+      else listRef = npdListRef.current;
+    } else if (ungroupedProjects.some((g) => g.id === activeGroupId)) {
+      listRef = ungroupedListRef.current;
+    } else if (archivedGroups.some((g) => g.id === activeGroupId)) {
+      if (!showArchived) {
+        // Archive section is collapsed — open it first; the next render
+        // will retrigger this effect and we'll scroll then.
+        setShowArchived(true);
+        return;
+      }
+      listRef = archivedListRef.current;
+    } else {
+      const folderId = groupFolderMap.get(activeGroupId);
+      if (folderId) {
+        if (!expandedFolders.has(folderId)) needsFolderExpand = folderId;
+        else listRef = folderListRefs.current.get(folderId) ?? null;
+      }
+    }
+
+    if (needsFolderExpand) {
+      setExpandedFolders((prev) => {
+        if (prev.has(needsFolderExpand!)) return prev;
+        const next = new Set(prev);
+        next.add(needsFolderExpand!);
+        return next;
+      });
+      return; // Effect will re-run after expansion.
+    }
+
+    if (!listRef) return;
+    // Two rAFs: first lets React commit the DOM, second lets the
+    // virtualizer measure the freshly mounted list before we scroll.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => listRef.scrollToId(activeGroupId, { align: "center" }));
+    });
+  }, [
+    activeGroupId, showGroups, showArchived,
+    expandedFolders, npdRootGroups, ungroupedProjects, archivedGroups, groupFolderMap,
+  ]);
 
   // ---------- DnD ----------
 
@@ -307,6 +403,7 @@ export default function ProjectsTree({
               {npdRootGroups.length > 0 && (
                 <div>
                   <div
+                    ref={(el) => folderRowRefs.current.set("__npd__", el)}
                     className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/70 hover:bg-sidebar-hover cursor-pointer transition-colors"
                     onClick={() => handleToggleFolder("__npd__")}
                   >
@@ -319,6 +416,7 @@ export default function ProjectsTree({
                   </div>
                   {expandedFolders.has("__npd__") && (
                     <VirtualGroupList
+                      ref={npdListRef}
                       className="space-y-0.5"
                       items={npdRootGroups}
                       renderItem={renderGroup}
@@ -333,16 +431,19 @@ export default function ProjectsTree({
                 const isExpanded = expandedFolders.has(folder.id);
                 return (
                   <DroppableFolder key={folder.id} id={folder.id} isOver={dragOverFolderId === folder.id}>
-                    <FolderRow
-                      id={folder.id}
-                      name={folder.name}
-                      color={folder.color ?? null}
-                      count={folderProjects.length}
-                      expanded={isExpanded}
-                      onToggle={() => handleToggleFolder(folder.id)}
-                    />
+                    <div ref={(el) => folderRowRefs.current.set(folder.id, el)}>
+                      <FolderRow
+                        id={folder.id}
+                        name={folder.name}
+                        color={folder.color ?? null}
+                        count={folderProjects.length}
+                        expanded={isExpanded}
+                        onToggle={() => handleToggleFolder(folder.id)}
+                      />
+                    </div>
                     {isExpanded && (
                       <VirtualGroupList
+                        ref={(h) => folderListRefs.current.set(folder.id, h)}
                         className="space-y-0.5"
                         items={folderProjects}
                         renderItem={renderGroup}
@@ -355,6 +456,7 @@ export default function ProjectsTree({
               {/* Ungrouped */}
               <DroppableUngrouped isOver={dragOverFolderId === "__ungrouped__"}>
                 <VirtualGroupList
+                  ref={ungroupedListRef}
                   items={ungroupedProjects}
                   renderItem={renderGroup}
                 />
@@ -364,6 +466,7 @@ export default function ProjectsTree({
               {archivedGroups.length > 0 && (
                 <div>
                   <div
+                    ref={(el) => folderRowRefs.current.set("__archived__", el)}
                     onClick={() => setShowArchived((v) => !v)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-sidebar-fg/40 hover:text-sidebar-fg/60 cursor-pointer transition-colors"
                   >
@@ -376,6 +479,7 @@ export default function ProjectsTree({
                   </div>
                   {showArchived && (
                     <VirtualGroupList
+                      ref={archivedListRef}
                       className="space-y-0.5 opacity-50"
                       items={archivedGroups}
                       renderItem={renderGroup}
