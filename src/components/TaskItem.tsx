@@ -1491,7 +1491,7 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 <button
                   onClick={() => {
                     if (task.requires_approval && task.approval_status !== "approved") {
-                      setClosureDialogOpen(true);
+                      openClosureDialog();
                     } else {
                       undoableToggleTask();
                     }
