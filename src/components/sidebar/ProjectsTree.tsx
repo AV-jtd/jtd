@@ -648,7 +648,20 @@ export default function ProjectsTree({
                             </div>
                             {isOpen && (
                               <VirtualGroupList
-                                ref={(h) => stmRetailerListRefs.current.set(retailer, h)}
+                                ref={(h) => {
+                                  // Register handle on mount; unregister on unmount.
+                                  // Returning a cleanup works on React 19 ref-callbacks;
+                                  // the explicit null-check covers older React behaviour
+                                  // where the same callback is invoked with null.
+                                  if (h === null) {
+                                    stmRetailerListRefs.current.delete(retailer);
+                                    return;
+                                  }
+                                  stmRetailerListRefs.current.set(retailer, h);
+                                  return () => {
+                                    stmRetailerListRefs.current.delete(retailer);
+                                  };
+                                }}
                                 className="space-y-0.5"
                                 items={items}
                                 renderItem={renderGroup}
