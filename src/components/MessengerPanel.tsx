@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2 } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, Filter, User as UserIcon } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 
 interface MessengerPanelProps {
   onClose: () => void;
