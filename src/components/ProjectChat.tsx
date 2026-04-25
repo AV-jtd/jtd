@@ -364,7 +364,7 @@ function MessageBubble({
         {msg.content}
       </p>
       {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
-      <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
+      <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
           {onCreateTask && (
             <button type="button" onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
