@@ -27,6 +27,8 @@ interface TaskAiPopoverProps {
   onSetDeadline?: (date: string) => void;
   /** Map of display_name -> user_id for applying suggestions */
   memberMap?: Record<string, string>;
+  /** Open the popover immediately on first mount (used by LazyMount). */
+  defaultOpen?: boolean;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
@@ -110,9 +112,9 @@ function getSmartSuggestions(props: {
 export default function TaskAiPopover({
   taskTitle, taskDescription, subtasks = [], deadline, assignedToName,
   participantNames = [], groupMemberNames = [], children,
-  onAssign, onSetDeadline, memberMap = {},
+  onAssign, onSetDeadline, memberMap = {}, defaultOpen = false,
 }: TaskAiPopoverProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
