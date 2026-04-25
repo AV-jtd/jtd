@@ -1,5 +1,14 @@
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
+
+// Lazy-load ExcelJS only when actually needed (drops ~290KB from initial bundle)
+let _exceljsPromise: Promise<any> | null = null;
+const loadExcelJS = (): Promise<any> => {
+  if (!_exceljsPromise) {
+    _exceljsPromise = import("exceljs").then((m: any) => m.default ?? m);
+  }
+  return _exceljsPromise;
+};
 
 // ─── Types ───
 
@@ -44,36 +53,36 @@ const HEADERS: { key: keyof ExportRow; label: string; width: number }[] = [
   { key: "recurrence", label: "Повтор", width: 14 },
 ];
 
-// ─── Color helpers ───
+// ─── Color helpers (plain literals, typed via ExcelJS types) ───
 
-const FILL_HEADER: ExcelJS.FillPattern = {
+const FILL_HEADER = {
   type: "pattern", pattern: "solid",
   fgColor: { argb: "FF1E293B" },
-};
+} as ExcelJS.FillPattern;
 const FONT_HEADER: Partial<ExcelJS.Font> = {
   bold: true, color: { argb: "FFFFFFFF" }, size: 11,
 };
-const FILL_PROJECT: ExcelJS.FillPattern = {
+const FILL_PROJECT = {
   type: "pattern", pattern: "solid",
   fgColor: { argb: "FFE2E8F0" },
-};
-const FILL_SUBPROJECT: ExcelJS.FillPattern = {
+} as ExcelJS.FillPattern;
+const FILL_SUBPROJECT = {
   type: "pattern", pattern: "solid",
   fgColor: { argb: "FFF1F5F9" },
-};
-const FILL_DONE: ExcelJS.FillPattern = {
+} as ExcelJS.FillPattern;
+const FILL_DONE = {
   type: "pattern", pattern: "solid",
   fgColor: { argb: "FFDCFCE7" },
-};
-const FILL_OVERDUE: ExcelJS.FillPattern = {
+} as ExcelJS.FillPattern;
+const FILL_OVERDUE = {
   type: "pattern", pattern: "solid",
   fgColor: { argb: "FFFEE2E2" },
-};
+} as ExcelJS.FillPattern;
 
 const priorityFill = (p: string): ExcelJS.FillPattern | undefined => {
-  if (p === "3") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
-  if (p === "2") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
-  if (p === "1") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
+  if (p === "3") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } } as ExcelJS.FillPattern;
+  if (p === "2") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } } as ExcelJS.FillPattern;
+  if (p === "1") return { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } } as ExcelJS.FillPattern;
   return undefined;
 };
 
@@ -171,8 +180,9 @@ export async function exportProjectToExcel(groupId: string, options?: ExportOpti
     ? HEADERS.filter(h => selectedColumns.includes(h.key))
     : HEADERS;
 
-  // Create workbook
-  const wb = new ExcelJS.Workbook();
+  // Create workbook (load exceljs runtime on demand)
+  const ExcelJSModule = await loadExcelJS();
+  const wb = new ExcelJSModule.Workbook();
   wb.creator = "Lovable";
   const ws = wb.addWorksheet(group.name.slice(0, 31));
 
@@ -273,7 +283,8 @@ export function downloadExcel(blob: Blob, filename: string) {
 // ─── Import ───
 
 export async function parseExcelForPreview(file: File): Promise<ImportPreview> {
-  const wb = new ExcelJS.Workbook();
+  const ExcelJSModule = await loadExcelJS();
+  const wb = new ExcelJSModule.Workbook();
   const buffer = await file.arrayBuffer();
   await wb.xlsx.load(buffer);
 

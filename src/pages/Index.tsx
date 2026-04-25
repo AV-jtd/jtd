@@ -1,26 +1,35 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
-import AppSidebar from "@/components/AppSidebar";
 import AppHeader from "@/components/AppHeader";
 import TaskList from "@/components/TaskList";
-import CalendarView from "@/components/CalendarView";
-import SubordinatesView from "@/components/SubordinatesView";
-import DashboardView from "@/components/DashboardView";
-import ArchiveView from "@/components/ArchiveView";
-import CommunityView from "@/components/CommunityView";
-import WikiHubView from "@/components/WikiHubView";
-
-import ProjectChat from "@/components/ProjectChat";
-import MessengerPanel from "@/components/MessengerPanel";
-import GlobalSearch from "@/components/GlobalSearch";
-import AiAssistant from "@/components/AiAssistant";
 import { useTaskGroups } from "@/hooks/useTasks";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+
+// Lazy-loaded — keep critical bundle small (especially on mobile)
+const AppSidebar = lazy(() => import("@/components/AppSidebar"));
+const CalendarView = lazy(() => import("@/components/CalendarView"));
+const SubordinatesView = lazy(() => import("@/components/SubordinatesView"));
+const DashboardView = lazy(() => import("@/components/DashboardView"));
+const ArchiveView = lazy(() => import("@/components/ArchiveView"));
+const CommunityView = lazy(() => import("@/components/CommunityView"));
+const WikiHubView = lazy(() => import("@/components/WikiHubView"));
+const ProjectChat = lazy(() => import("@/components/ProjectChat"));
+const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
+const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
+const AiAssistant = lazy(() => import("@/components/AiAssistant"));
+
+function ViewFallback() {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 export default function Index() {
   const { user, loading, isApproved } = useAuth();
@@ -127,11 +136,15 @@ export default function Index() {
         {isMobile ? (
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetContent side="left" className="p-0 w-72 bg-sidebar-bg border-border">
-              <AppSidebar {...sidebarProps} />
+              <Suspense fallback={<ViewFallback />}>
+                <AppSidebar {...sidebarProps} />
+              </Suspense>
             </SheetContent>
           </Sheet>
         ) : (
-          <AppSidebar {...sidebarProps} />
+          <Suspense fallback={<ViewFallback />}>
+            <AppSidebar {...sidebarProps} />
+          </Suspense>
         )}
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -170,12 +183,14 @@ export default function Index() {
             />
             {chatOpen && activeGroupId && activeView === "group" && (
               <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
-                <ProjectChat
-                  groupId={activeGroupId}
-                  groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
-                  onClose={() => setChatOpen(false)}
-                  onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
-                />
+                <Suspense fallback={<ViewFallback />}>
+                  <ProjectChat
+                    groupId={activeGroupId}
+                    groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
+                    onClose={() => setChatOpen(false)}
+                    onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
+                  />
+                </Suspense>
               </div>
             )}
           </div>
@@ -183,62 +198,84 @@ export default function Index() {
           {/* Calendar - lazy mounted on first visit, then kept alive */}
           {calendarMounted && (
             <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "calendar" && "hidden")}>
-              <CalendarView onNavigateToTask={(taskId) => {
-                setActiveView("all");
-                setActiveGroupId(null);
-                setHighlightTaskId(taskId);
-              }} />
+              <Suspense fallback={<ViewFallback />}>
+                <CalendarView onNavigateToTask={(taskId) => {
+                  setActiveView("all");
+                  setActiveGroupId(null);
+                  setHighlightTaskId(taskId);
+                }} />
+              </Suspense>
             </div>
           )}
 
           {/* Dashboard - lazy mounted on first visit, then kept alive */}
           {dashboardMounted && (
             <div className={cn("flex-1 flex flex-col min-w-0 overflow-hidden", activeView !== "dashboard" && "hidden")}>
-              <DashboardView onNavigateToTask={(taskId) => {
-                setActiveView("all");
-                setActiveGroupId(null);
-                setHighlightTaskId(taskId);
-              }} />
+              <Suspense fallback={<ViewFallback />}>
+                <DashboardView onNavigateToTask={(taskId) => {
+                  setActiveView("all");
+                  setActiveGroupId(null);
+                  setHighlightTaskId(taskId);
+                }} />
+              </Suspense>
             </div>
           )}
 
           {/* Lazy-mounted views */}
-          {activeView === "subordinates" && <SubordinatesView />}
-          {activeView === "community" && <CommunityView />}
-          {activeView === "archive" && <ArchiveView />}
-          {activeView === "wiki" && <WikiHubView />}
+          {activeView === "subordinates" && (
+            <Suspense fallback={<ViewFallback />}><SubordinatesView /></Suspense>
+          )}
+          {activeView === "community" && (
+            <Suspense fallback={<ViewFallback />}><CommunityView /></Suspense>
+          )}
+          {activeView === "archive" && (
+            <Suspense fallback={<ViewFallback />}><ArchiveView /></Suspense>
+          )}
+          {activeView === "wiki" && (
+            <Suspense fallback={<ViewFallback />}><WikiHubView /></Suspense>
+          )}
           
         </div>
 
         {/* Messenger panel */}
         {messengerOpen && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
-            <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }} onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }} />
+            <Suspense fallback={<ViewFallback />}>
+              <MessengerPanel onClose={() => setMessengerOpen(false)} markThreadRead={markThreadRead} isThreadUnread={isThreadUnread} onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }} onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }} />
+            </Suspense>
           </div>
         )}
       </div>
 
-      <GlobalSearch
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        onNavigateToTask={(taskId) => {
-          setActiveView("all");
-          setActiveGroupId(null);
-          setHighlightTaskId(taskId);
-        }}
-        onNavigateToProject={(groupId) => {
-          setActiveGroupId(groupId);
-          setActiveView("group");
-          setActiveTagFilters([]);
-        }}
-        onNavigateToTag={(tagId) => {
-          setActiveTagFilters([tagId]);
-          setActiveView("all");
-          setActiveGroupId(null);
-        }}
-      />
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <GlobalSearch
+            open={searchOpen}
+            onOpenChange={setSearchOpen}
+            onNavigateToTask={(taskId) => {
+              setActiveView("all");
+              setActiveGroupId(null);
+              setHighlightTaskId(taskId);
+            }}
+            onNavigateToProject={(groupId) => {
+              setActiveGroupId(groupId);
+              setActiveView("group");
+              setActiveTagFilters([]);
+            }}
+            onNavigateToTag={(tagId) => {
+              setActiveTagFilters([tagId]);
+              setActiveView("all");
+              setActiveGroupId(null);
+            }}
+          />
+        </Suspense>
+      )}
 
-      <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "tasks" }} />
+      {aiOpen && (
+        <Suspense fallback={null}>
+          <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "tasks" }} />
+        </Suspense>
+      )}
     </div>
   );
 }
