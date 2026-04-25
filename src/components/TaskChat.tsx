@@ -312,3 +312,165 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     </div>
   );
 }
+
+/**
+ * Системный разделитель в стиле Slack «New messages».
+ * Тонкая горизонтальная линия с центральной пилюлей-ссылкой.
+ */
+function SystemDivider({ title, onClick }: { title: string; onClick?: () => void }) {
+  const content = (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
+      <CheckSquare className="h-2.5 w-2.5" />
+      Создана задача: <span className="font-semibold truncate max-w-[180px]">{title}</span>
+    </span>
+  );
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex-1 h-px bg-primary/20" />
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="hover:opacity-80 transition-opacity"
+          title="Открыть задачу"
+        >
+          {content}
+        </button>
+      ) : (
+        content
+      )}
+      <div className="flex-1 h-px bg-primary/20" />
+    </div>
+  );
+}
+
+/**
+ * Inline-форма для создания задачи из конкретного сообщения чата.
+ * Заголовок предзаполняется первыми 80 символами сообщения,
+ * ответственный — текущий пользователь, дедлайн — опционально.
+ */
+function InlineCreateTaskForm({
+  source,
+  availableUsers,
+  defaultAssigneeId,
+  onCancel,
+  onSubmit,
+  isSubmitting,
+}: {
+  source: TaskComment;
+  availableUsers: Profile[];
+  defaultAssigneeId: string | null;
+  onCancel: () => void;
+  onSubmit: (payload: { title: string; assigneeId: string | null; deadline: Date | null }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState(() => source.content.slice(0, 80));
+  const [assigneeId, setAssigneeId] = useState<string | null>(defaultAssigneeId);
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [calOpen, setCalOpen] = useState(false);
+
+  const assignee = availableUsers.find(u => u.id === assigneeId) || null;
+
+  return (
+    <div className="mt-2 ml-[22px] p-2.5 rounded-lg bg-card border border-primary/30 space-y-2 shadow-sm">
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <CheckSquare className="h-3 w-3 text-primary" />
+        <span>Новая задача из сообщения</span>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="ml-auto p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          title="Отмена"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+
+      <Input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название задачи..."
+        className="h-8 text-xs"
+        disabled={isSubmitting}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && title.trim()) {
+            e.preventDefault();
+            onSubmit({ title, assigneeId, deadline });
+          }
+          if (e.key === "Escape") onCancel();
+        }}
+      />
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Ассайни */}
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-colors",
+                assignee
+                  ? "border-primary/30 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <UserIcon className="h-3 w-3" />
+              {assignee?.display_name || assignee?.email?.split("@")[0] || "Ответственный"}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-0 z-[60]" align="start">
+            <UserPicker
+              users={availableUsers}
+              currentId={assigneeId || undefined}
+              onSelect={(id) => {
+                setAssigneeId(id || null);
+                setPickerOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+
+        {/* Дедлайн */}
+        <Popover open={calOpen} onOpenChange={setCalOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-colors",
+                deadline
+                  ? "border-primary/30 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <CalendarIcon className="h-3 w-3" />
+              {deadline ? format(deadline, "d MMM", { locale: ru }) : "Срок"}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 z-[60]" align="start">
+            <Calendar
+              mode="single"
+              selected={deadline || undefined}
+              onSelect={(d) => {
+                setDeadline(d || null);
+                setCalOpen(false);
+              }}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+
+        <button
+          type="button"
+          onClick={() => onSubmit({ title, assigneeId, deadline })}
+          disabled={!title.trim() || isSubmitting}
+          className="ml-auto text-[10px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+        >
+          {isSubmitting ? "Создаю..." : "Создать"}
+        </button>
+      </div>
+    </div>
+  );
+}
