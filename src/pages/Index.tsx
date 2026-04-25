@@ -251,7 +251,17 @@ export default function Index() {
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
             <Suspense fallback={<ViewFallback />}>
               <MessengerPanel
-                onClose={() => setMessengerOpen(false)}
+                onClose={() => {
+                  // Full close: drop the remembered thread so reopening the
+                  // messenger lands on the thread list, as users expect.
+                  setMessengerOpen(false);
+                  setLastMessengerThreadId(null);
+                }}
+                onMinimize={() => {
+                  // Minimize: hide the panel but keep the active thread so
+                  // reopening jumps straight back to the same conversation.
+                  setMessengerOpen(false);
+                }}
                 markThreadRead={markThreadRead}
                 isThreadUnread={isThreadUnread}
                 initialActiveThreadId={lastMessengerThreadId}
