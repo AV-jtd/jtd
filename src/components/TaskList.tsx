@@ -532,7 +532,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations]);
 
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
       <div className="max-w-2xl mx-auto px-6 py-8">
         {/* Breadcrumbs for subprojects */}
         {activeView === "group" && breadcrumbChain.length > 1 && (
