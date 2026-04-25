@@ -339,7 +339,7 @@ interface SortableSubtaskRowProps {
   getProfileName: (userId: string) => string;
 }
 
-function SortableSubtaskRow({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
+function SortableSubtaskRowInner({ sub, task, editingSubtaskId, editingSubtaskTitle, onStartEdit, onChangeTitle, onSaveTitle, onCancelEdit, onToggle, onDelete, onUpdateDeadline, onUpdateAssignee, onPromote, onMoveToTask, availableUsers, getProfileName }: SortableSubtaskRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortableDnd({ id: sub.id });
   const style = { transform: DndCSS.Transform.toString(transform), transition };
   const isEditing = editingSubtaskId === sub.id;
