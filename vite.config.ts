@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["favicon.ico", "placeholder.svg", "pwa-maskable-192x192.png", "pwa-maskable-512x512.png"],
+      includeAssets: ["favicon.ico", "placeholder.svg", "pwa-maskable-192x192.png", "pwa-maskable-512x512.png", "offline.html"],
       workbox: {
       skipWaiting: true,
       clientsClaim: true,
@@ -53,6 +53,11 @@ export default defineConfig(({ mode }) => ({
         // Stamp the precache name with the build version so each deploy
         // produces a fresh precache and the previous one is purged.
         cacheId: `jtd-${buildVersion}`,
+        // Offline fallback: if a navigation request fails (no network and
+        // not in cache — e.g. first launch offline of a deep link), serve
+        // the precached /offline.html instead of a browser network error.
+        navigateFallback: "/offline.html",
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /\.[a-z0-9]+$/i],
         // Keep only the critical app shell in precache.
         // Heavy/lazy chunks (xlsx, pdf, Protocol/NPD/Gantt/Dashboard, etc.) are
         // served via runtime caching on first use — this drops the initial PWA
@@ -79,7 +84,6 @@ export default defineConfig(({ mode }) => ({
           "assets/NpdSwimlaneMatrix-*.js",
           "assets/ProjectChat-*.js",
         ],
-        navigateFallbackDenylist: [/^\/~oauth/],
         importScripts: [`/custom-sw.js?v=${buildVersion}`],
         runtimeCaching: [
           {
