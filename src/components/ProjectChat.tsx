@@ -39,7 +39,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
-  const { addTask } = useTaskMutations();
+  const { addTask, updateTask } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
@@ -92,10 +92,9 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
         deadline: payload.deadline ? new Date(payload.deadline).toISOString() : null,
       } as any);
       const t = created as unknown as Task;
-      // Patch description (addTask doesn't accept description arg)
+      // Patch description through the standard mutation (addTask doesn't accept description)
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        await supabase.from("tasks").update({ description: desc }).eq("id", t.id);
+        await updateTask.mutateAsync({ id: t.id, description: desc });
       } catch (e) { /* non-fatal */ }
 
       setCreatedTasks(prev => ({
