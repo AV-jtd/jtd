@@ -239,6 +239,13 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   </button>
                 )}
               </div>
+              <div className={cn(isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
+                <MessageReactions
+                  messageType="task_comment"
+                  messageId={c.id}
+                  reactions={reactionsByMsg[c.id]}
+                />
+              </div>
 
               {/* Inline-форма создания задачи из этого сообщения */}
               {taskFormForCommentId === c.id && (
