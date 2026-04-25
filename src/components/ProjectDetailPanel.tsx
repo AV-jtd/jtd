@@ -1,9 +1,9 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, lazy, Suspense } from "react";
 import { TaskGroup, useTaskMutations, useGroupMembers, useAvailableUsers, useTaskGroups, useVisibleTags, useGroupTags, useTasks, Profile, Task } from "@/hooks/useTasks";
 import { Slider } from "@/components/ui/slider";
 import TaskItem from "@/components/TaskItem";
 import { FileText, UserPlus, Users, Plus, X, FolderOpen, Download, Upload, Tag, Briefcase, ChevronDown, ChevronRight, ListChecks, CalendarIcon, User, AlertTriangle, ArrowRightLeft, CalendarClock, Layers, BookOpen, Archive, RotateCcw, Lock, Clock } from "lucide-react";
-import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
+const ProjectWikiTab = lazy(() => import("@/components/wiki/ProjectWikiTab"));
 import SubprojectCards from "@/components/SubprojectCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
@@ -14,9 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
-import SmartExportDialog from "@/components/SmartExportDialog";
-import SmartImportDialog from "@/components/SmartImportDialog";
-import MigrateToNpdDialog from "@/components/MigrateToNpdDialog";
+const SmartExportDialog = lazy(() => import("@/components/SmartExportDialog"));
+const SmartImportDialog = lazy(() => import("@/components/SmartImportDialog"));
+const MigrateToNpdDialog = lazy(() => import("@/components/MigrateToNpdDialog"));
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
@@ -285,21 +285,30 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
                   </Label>
                 </>
               ) : (
-                <MigrateToNpdDialog
-                  groupId={group.id}
-                  trigger={
-                    <div className="flex items-center gap-2 cursor-pointer">
-                      <Switch
-                        id="npd-toggle"
-                        checked={false}
-                        className="pointer-events-none"
-                      />
-                      <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1 cursor-pointer">
-                        <Layers className="h-3 w-3" /> NPD
-                      </Label>
-                    </div>
-                  }
-                />
+                <Suspense fallback={
+                  <div className="flex items-center gap-2 opacity-60">
+                    <Switch id="npd-toggle" checked={false} className="pointer-events-none" />
+                    <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Layers className="h-3 w-3" /> NPD
+                    </Label>
+                  </div>
+                }>
+                  <MigrateToNpdDialog
+                    groupId={group.id}
+                    trigger={
+                      <div className="flex items-center gap-2 cursor-pointer">
+                        <Switch
+                          id="npd-toggle"
+                          checked={false}
+                          className="pointer-events-none"
+                        />
+                        <Label htmlFor="npd-toggle" className="text-xs font-medium text-muted-foreground flex items-center gap-1 cursor-pointer">
+                          <Layers className="h-3 w-3" /> NPD
+                        </Label>
+                      </div>
+                    }
+                  />
+                </Suspense>
               )}
             </div>
           )}
@@ -510,15 +519,27 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           <Download className="h-3 w-3" /> Импорт / Экспорт
         </p>
         <div className="flex items-center gap-2">
-          <SmartExportDialog groupId={group.id} groupName={group.name} />
-          <SmartImportDialog
-            targetGroupId={group.id}
-            trigger={
-              <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
-                <Download className="h-3 w-3" /> Импорт Excel
-              </button>
-            }
-          />
+          <Suspense fallback={
+            <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground/50">
+              <Upload className="h-3 w-3" /> Экспорт
+            </button>
+          }>
+            <SmartExportDialog groupId={group.id} groupName={group.name} />
+          </Suspense>
+          <Suspense fallback={
+            <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground/50">
+              <Download className="h-3 w-3" /> Импорт Excel
+            </button>
+          }>
+            <SmartImportDialog
+              targetGroupId={group.id}
+              trigger={
+                <button className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                  <Download className="h-3 w-3" /> Импорт Excel
+                </button>
+              }
+            />
+          </Suspense>
       </div>
 
       {/* Wiki / Knowledge Base */}
@@ -526,7 +547,11 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <BookOpen className="h-3 w-3" /> База знаний
         </p>
-        <ProjectWikiTab groupId={group.id} groupName={group.name} groupDescription={group.description || undefined} compact />
+        <Suspense fallback={
+          <div className="text-xs text-muted-foreground/50 px-2 py-1.5">База знаний загружается...</div>
+        }>
+          <ProjectWikiTab groupId={group.id} groupName={group.name} groupDescription={group.description || undefined} compact />
+        </Suspense>
       </div>
       </div>
 
