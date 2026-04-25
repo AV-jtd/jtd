@@ -2,10 +2,10 @@ import type ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 
 // Lazy-load ExcelJS only when actually needed (drops ~290KB from initial bundle)
-let _exceljsPromise: Promise<typeof import("exceljs").default> | null = null;
-const loadExcelJS = () => {
+let _exceljsPromise: Promise<any> | null = null;
+const loadExcelJS = (): Promise<any> => {
   if (!_exceljsPromise) {
-    _exceljsPromise = import("exceljs").then((m) => (m as any).default ?? m);
+    _exceljsPromise = import("exceljs").then((m: any) => m.default ?? m);
   }
   return _exceljsPromise;
 };
