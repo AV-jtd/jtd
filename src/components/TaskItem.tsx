@@ -1181,18 +1181,29 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             <Expand className="h-3.5 w-3.5" />
           </button>
 
-          <UserPicker
-            users={availableUsers}
-            excludeIds={participantIds}
-            open={userPickerOpen === "quick-participant"}
-            onOpenChange={(open) => setUserPickerOpen(open ? "quick-participant" : null)}
-            onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+          <LazyMount
+            forceMount={userPickerOpen === "quick-participant"}
             trigger={
               <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
                 <UserPlus className="h-3.5 w-3.5" />
               </button>
             }
-          />
+          >
+            {(open, setOpen) => (
+              <UserPicker
+                users={availableUsers}
+                excludeIds={participantIds}
+                open={open || userPickerOpen === "quick-participant"}
+                onOpenChange={(o) => { setOpen(o); setUserPickerOpen(o ? "quick-participant" : null); }}
+                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                trigger={
+                  <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </button>
+                }
+              />
+            )}
+          </LazyMount>
 
           <AssigneePicker
             users={availableUsers}
