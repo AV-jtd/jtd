@@ -2593,6 +2593,108 @@ interface BulkTaskResult {
   subtaskCount?: number;
 }
 
+// Уменьшительные / варианты имён для русских ФИО
+const NAME_ALIASES: Record<string, string[]> = {
+  "виктория": ["вика", "викуся", "витя"],
+  "александр": ["саша", "шура", "саня"],
+  "александра": ["саша", "шура", "сашуля"],
+  "мария": ["маша", "маня", "мара"],
+  "екатерина": ["катя", "катюша"],
+  "анастасия": ["настя", "ася"],
+  "наталья": ["наташа", "ната"],
+  "наталия": ["наташа", "ната"],
+  "ольга": ["оля", "оляша"],
+  "елена": ["лена", "ленуся"],
+  "татьяна": ["таня", "танюша"],
+  "ирина": ["ира", "иришка"],
+  "светлана": ["света", "светик"],
+  "юлия": ["юля", "юляша"],
+  "анна": ["аня", "анюта"],
+  "людмила": ["люда", "люся"],
+  "галина": ["галя", "галюся"],
+  "владимир": ["вова", "володя"],
+  "дмитрий": ["дима", "митя"],
+  "сергей": ["серёжа", "сережа", "серый"],
+  "андрей": ["андрюша", "дрюша"],
+  "алексей": ["лёша", "леша", "алёша"],
+  "михаил": ["миша", "мишаня"],
+  "николай": ["коля", "колян"],
+  "евгений": ["женя", "жека"],
+  "артём": ["тёма", "тема", "артемка"],
+  "артем": ["тёма", "тема", "артемка"],
+  "максим": ["макс", "максимка"],
+  "иван": ["ваня", "ванюша"],
+  "павел": ["паша", "пашка"],
+  "константин": ["костя", "костик"],
+  "роман": ["рома", "ромка"],
+  "пётр": ["петя", "петруша"],
+  "петр": ["петя", "петруша"],
+  "виктор": ["витя", "витёк"],
+  "марк": ["марик"],
+};
+
+function normalizeToken(s: string): string {
+  return s.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]/gi, "").trim();
+}
+
+function nameTokens(fullName: string): string[] {
+  return fullName.split(/\s+/).map(normalizeToken).filter(t => t.length >= 2);
+}
+
+function expandWithAliases(token: string): string[] {
+  const t = token.toLowerCase().replace(/ё/g, "е");
+  const result = new Set<string>([t]);
+  if (NAME_ALIASES[t]) NAME_ALIASES[t].forEach(a => result.add(a));
+  // обратное: если t — уменьшительное, найти полное
+  for (const [full, aliases] of Object.entries(NAME_ALIASES)) {
+    if (aliases.includes(t)) result.add(full);
+  }
+  return [...result];
+}
+
+/**
+ * Поиск участника по имени/фамилии/нику. Считает совпадение, если:
+ * - точное совпадение по telegram_username
+ * - нужный токен совпадает с любым токеном ФИО (или его уменьшительным/полным эквивалентом)
+ */
+function findMemberByName(
+  needle: string,
+  members: { id: string; name: string; telegram_username: string | null }[],
+): { id: string; name: string; telegram_username: string | null } | null {
+  if (!needle) return null;
+  const cleaned = needle.replace(/^@/, "").trim();
+  if (!cleaned) return null;
+  const needleNorm = normalizeToken(cleaned);
+
+  // 1. Точное совпадение по @username
+  const byUsername = members.find(m => m.telegram_username?.toLowerCase() === cleaned.toLowerCase());
+  if (byUsername) return byUsername;
+
+  // 2. Точное совпадение по полному имени
+  const byFullName = members.find(m => normalizeToken(m.name) === needleNorm);
+  if (byFullName) return byFullName;
+
+  // 3. Совпадение токена с алиасами
+  const needleVariants = new Set(expandWithAliases(needleNorm));
+  for (const m of members) {
+    const tokens = nameTokens(m.name);
+    for (const tok of tokens) {
+      const variants = expandWithAliases(tok);
+      if (variants.some(v => needleVariants.has(v))) return m;
+    }
+  }
+
+  // 4. Подстрока (на случай опечаток типа "Журавлев"/"Журавлева")
+  for (const m of members) {
+    const fullNorm = normalizeToken(m.name);
+    if (needleNorm.length >= 4 && (fullNorm.includes(needleNorm) || needleNorm.includes(fullNorm))) {
+      return m;
+    }
+  }
+
+  return null;
+}
+
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
@@ -2602,6 +2704,7 @@ async function createBulkTasks(
 ): Promise<BulkTaskResult[]> {
   const results: BulkTaskResult[] = [];
   const now = new Date();
+  const memberById = new Map(members.map(m => [m.id, m]));
 
   for (const task of tasks) {
     const taskData: Record<string, any> = {
@@ -2625,15 +2728,14 @@ async function createBulkTasks(
       deadlineStr = formatDate(d);
     }
 
-    // Resolve assignee
+    // Resolve assignee — приоритет: id от ИИ → имя/фамилия с алиасами
     let assigneeName: string | undefined;
-    if (task.assigned_to_name && members.length > 0) {
-      const needle = task.assigned_to_name.replace("@", "").toLowerCase();
-      const match = members.find(m =>
-        m.telegram_username?.toLowerCase() === needle ||
-        m.name.toLowerCase().includes(needle) ||
-        needle.includes(m.name.toLowerCase())
-      );
+    if (task.assigned_to_id && memberById.has(task.assigned_to_id)) {
+      const m = memberById.get(task.assigned_to_id)!;
+      taskData.assigned_to = m.id;
+      assigneeName = m.name;
+    } else if (task.assigned_to_name && members.length > 0) {
+      const match = findMemberByName(task.assigned_to_name, members);
       if (match) {
         taskData.assigned_to = match.id;
         assigneeName = match.name;
@@ -2660,23 +2762,35 @@ async function createBulkTasks(
       });
     }
 
-    // Resolve and add participants
+    // Resolve and add participants — сначала id от ИИ, потом имена с алиасами
     const resolvedParticipantNames: string[] = [];
+    const seenIds = new Set<string>();
+    if (taskData.assigned_to) seenIds.add(taskData.assigned_to);
+    if (task.participant_ids && task.participant_ids.length > 0) {
+      for (const pid of task.participant_ids) {
+        if (seenIds.has(pid) || pid === userId) continue;
+        const m = memberById.get(pid);
+        if (!m) continue;
+        await supabase.from("task_participants").insert({
+          task_id: newTask.id,
+          user_id: m.id,
+          role: "participant",
+        });
+        resolvedParticipantNames.push(m.name);
+        seenIds.add(m.id);
+      }
+    }
     if (task.participant_names && task.participant_names.length > 0 && members.length > 0) {
       for (const pName of task.participant_names) {
-        const needle = pName.replace("@", "").toLowerCase();
-        const match = members.find(m =>
-          m.telegram_username?.toLowerCase() === needle ||
-          m.name.toLowerCase().includes(needle) ||
-          needle.includes(m.name.toLowerCase())
-        );
-        if (match && match.id !== userId && match.id !== taskData.assigned_to) {
+        const match = findMemberByName(pName, members);
+        if (match && !seenIds.has(match.id) && match.id !== userId) {
           await supabase.from("task_participants").insert({
             task_id: newTask.id,
             user_id: match.id,
             role: "participant",
           });
           resolvedParticipantNames.push(match.name);
+          seenIds.add(match.id);
         }
       }
     }
