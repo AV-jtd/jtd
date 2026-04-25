@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile } from "@/hooks/useTasks";
@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import UserPicker from "./UserPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import MessageReactions from "./MessageReactions";
+import { useMessageReactions } from "@/hooks/useMessageReactions";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
@@ -58,6 +60,13 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
   const { data: comments = [], isLoading } = useTaskComments(taskId);
   const { addComment, deleteComment } = useCommentMutations();
   const [draft, setDraft] = useState("");
+
+  // ID обычных (не системных) комментариев для подгрузки реакций.
+  const reactableIds = useMemo(
+    () => comments.filter((c) => !parseSystemMessage(c.content)).map((c) => c.id),
+    [comments],
+  );
+  const { data: reactionsByMsg = {} } = useMessageReactions("task_comment", reactableIds);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -229,6 +238,13 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
+              </div>
+              <div className={cn(isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
+                <MessageReactions
+                  messageType="task_comment"
+                  messageId={c.id}
+                  reactions={reactionsByMsg[c.id]}
+                />
               </div>
 
               {/* Inline-форма создания задачи из этого сообщения */}

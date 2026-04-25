@@ -11,6 +11,8 @@ import AiChatThread from "./AiChatThread";
 import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
 import UserPicker from "./UserPicker";
 import { toast } from "sonner";
+import MessageReactions from "./MessageReactions";
+import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 
 interface ProjectChatProps {
   groupId: string;
@@ -60,6 +62,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   /** message.id → созданная задача (для системной карточки) */
   const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Подгружаем реакции для всех видимых сообщений группы.
+  const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -226,6 +232,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     onReply={() => setReplyTo(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
                     onCreateTask={() => openTaskForm(msg.id)}
+                    reactions={reactionsByMsg[msg.id]}
                   />
 
                   {/* Inline task form */}
@@ -270,6 +277,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
                         onCreateTask={() => openTaskForm(reply.id)}
                         isReply
+                        reactions={reactionsByMsg[reply.id]}
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
@@ -338,6 +346,7 @@ function MessageBubble({
   onDelete,
   onCreateTask,
   isReply,
+  reactions,
 }: {
   msg: GroupMessage;
   isOwn: boolean;
@@ -345,6 +354,7 @@ function MessageBubble({
   onDelete?: () => void;
   onCreateTask?: () => void;
   isReply?: boolean;
+  reactions?: ReactionAgg;
 }) {
   const sourceIcon = msg.source === "telegram" ? "✈️" : null;
 
@@ -363,6 +373,11 @@ function MessageBubble({
       )}>
         {msg.content}
       </p>
+      <MessageReactions
+        messageType="group_message"
+        messageId={msg.id}
+        reactions={reactions}
+      />
       {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
       <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
