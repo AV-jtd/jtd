@@ -121,6 +121,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const batchMode = selectedIds.size > 0;
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollParentRef = useRef<HTMLElement>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
