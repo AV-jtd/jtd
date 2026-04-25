@@ -161,6 +161,87 @@ export default function ProjectsTree({
   // ---------- Autoscroll effects ----------
 
   /**
+   * Coalesced autoscroll queue.
+   *
+   * Two independent triggers can request a scroll at nearly the same time:
+   *   - a folder just expanded → scroll its header into view
+   *   - `activeGroupId` changed → scroll the active row to centre
+   *
+   * Without coordination, fast navigation (deep links, keyboard arrow
+   * through projects, multiple folders toggled in a burst) fires several
+   * `scrollIntoView({behavior:"smooth"})` / `virtualizer.scrollToIndex`
+   * calls per frame. Smooth scroll restarts on every call, so the user
+   * sees a jittery half-finished animation that lands on whichever call
+   * happened to be last — and intermediate calls waste layout work.
+   *
+   * We keep a per-slot "latest intent" and a single rAF handle. New
+   * requests overwrite the intent and reuse the pending frame, so at most
+   * one scroll per slot per frame ever runs. Two slots (folder vs active)
+   * stay independent because they target different rows; if both fire in
+   * the same frame, the active-row scroll runs after the folder header
+   * one (queued via the second rAF) so it wins visually — which matches
+   * user expectation: "show me where I just navigated to".
+   */
+  type ScrollIntent =
+    | { kind: "node"; node: HTMLElement; align: ScrollLogicalPosition }
+    | { kind: "list"; list: VirtualGroupListHandle; id: string; align: "start" | "center" | "end" | "auto" };
+
+  const scrollSlotsRef = useRef<{
+    folder: ScrollIntent | null;
+    active: ScrollIntent | null;
+    rafId: number | null;
+  }>({ folder: null, active: null, rafId: null });
+
+  const flushScrollQueue = useCallback(() => {
+    const slots = scrollSlotsRef.current;
+    slots.rafId = null;
+    const folder = slots.folder;
+    const active = slots.active;
+    slots.folder = null;
+    slots.active = null;
+    // Folder header first — it's just framing context for the active row.
+    if (folder) {
+      if (folder.kind === "node") {
+        folder.node.scrollIntoView({ block: folder.align, behavior: "smooth" });
+      }
+    }
+    // Active row last so it wins the final resting position.
+    if (active) {
+      if (active.kind === "list") active.list.scrollToId(active.id, { align: active.align });
+      else if (active.kind === "node") active.node.scrollIntoView({ block: active.align, behavior: "smooth" });
+    }
+  }, []);
+
+  const requestScroll = useCallback(
+    (slot: "folder" | "active", intent: ScrollIntent) => {
+      const slots = scrollSlotsRef.current;
+      // Latest intent wins — overwrites any pending request for this slot.
+      slots[slot] = intent;
+      if (slots.rafId !== null) return;
+      // Two rAFs: first lets React commit pending state (folder expand,
+      // virtualised list mount); second lets the virtualizer measure
+      // freshly mounted rows before we scroll to them.
+      slots.rafId = requestAnimationFrame(() => {
+        slots.rafId = requestAnimationFrame(flushScrollQueue);
+      });
+    },
+    [flushScrollQueue],
+  );
+
+  // Cancel any pending scroll on unmount to avoid touching a dead DOM.
+  useEffect(() => {
+    return () => {
+      const slots = scrollSlotsRef.current;
+      if (slots.rafId !== null) {
+        cancelAnimationFrame(slots.rafId);
+        slots.rafId = null;
+      }
+      slots.folder = null;
+      slots.active = null;
+    };
+  }, []);
+
+  /**
    * When a folder transitions from collapsed→expanded, scroll its header row
    * to the top of the visible area so the user immediately sees what just
    * opened. We diff against the previous Set so toggling other folders or
@@ -175,13 +256,9 @@ export default function ProjectsTree({
     // Only scroll the most recent toggle — scrolling to multiple at once
     // would just leave the last one visible anyway.
     const target = justOpened[justOpened.length - 1];
-    // rAF: wait for the expanded list to mount and reserve its height
-    // before measuring scroll position.
-    requestAnimationFrame(() => {
-      const node = folderRowRefs.current.get(target);
-      node?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    });
-  }, [expandedFolders]);
+    const node = folderRowRefs.current.get(target);
+    if (node) requestScroll("folder", { kind: "node", node, align: "nearest" });
+  }, [expandedFolders, requestScroll]);
 
   /**
    * When `activeGroupId` changes (e.g. via deep link, navigation, or a click
@@ -229,14 +306,19 @@ export default function ProjectsTree({
     }
 
     if (!listRef) return;
-    // Two rAFs: first lets React commit the DOM, second lets the
-    // virtualizer measure the freshly mounted list before we scroll.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => listRef.scrollToId(activeGroupId, { align: "center" }));
+    // Coalesced through the queue: rapid activeGroupId changes (keyboard
+    // navigation, deep-link bursts) collapse to a single scroll on the
+    // last id only.
+    requestScroll("active", {
+      kind: "list",
+      list: listRef,
+      id: activeGroupId,
+      align: "center",
     });
   }, [
     activeGroupId, showGroups, showArchived,
     expandedFolders, npdRootGroups, ungroupedProjects, archivedGroups, groupFolderMap,
+    requestScroll,
   ]);
 
   // ---------- DnD ----------
