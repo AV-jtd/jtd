@@ -20,6 +20,7 @@ const CommunityView = lazy(() => import("@/components/CommunityView"));
 const WikiHubView = lazy(() => import("@/components/WikiHubView"));
 const ProjectChat = lazy(() => import("@/components/ProjectChat"));
 const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
+const ProjectDetailPanel = lazy(() => import("@/components/ProjectDetailPanel"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const AiAssistant = lazy(() => import("@/components/AiAssistant"));
 
