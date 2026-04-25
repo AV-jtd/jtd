@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { TaskGroup } from "@/hooks/useTasks";
 
 /**
@@ -13,6 +14,14 @@ import type { TaskGroup } from "@/hooks/useTasks";
  * The sidebar scroll lives on the parent `<nav class="ios-sidebar-scroll">`,
  * so we reuse it via `closest()` instead of creating a nested scroll area —
  * keeps a single scroll context and avoids breaking iOS momentum scroll.
+ *
+ * DnD note: virtual rows are positioned with `top` (not `translateY`) so
+ * `useSortable` inside the row keeps full control over the CSS `transform`.
+ * Otherwise the virtualiser's transform would override the sortable lift
+ * animation and produce visible jumps / dropped frames during reorder.
+ * The list is also wrapped in its own SortableContext so reorder happens
+ * within this slice (NPD / folder / ungrouped / archive) rather than across
+ * the whole tree.
  */
 interface VirtualGroupListProps {
   items: TaskGroup[];
@@ -25,6 +34,11 @@ interface VirtualGroupListProps {
   /** Optional className applied to the list wrapper. */
   className?: string;
   renderItem: (group: TaskGroup) => ReactNode;
+  /**
+   * Whether to wrap items in a SortableContext. Defaults to true so DnD
+   * reordering works inside this list. Set false for read-only sections.
+   */
+  sortable?: boolean;
 }
 
 export default function VirtualGroupList({
@@ -34,6 +48,7 @@ export default function VirtualGroupList({
   overscan = 8,
   className,
   renderItem,
+  sortable = true,
 }: VirtualGroupListProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
@@ -55,18 +70,29 @@ export default function VirtualGroupList({
     getItemKey: (i) => items[i].id,
   });
 
+  const sortableIds = items.map((g) => g.id);
+
+  const wrap = (node: ReactNode) =>
+    sortable ? (
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        {node}
+      </SortableContext>
+    ) : (
+      node
+    );
+
   if (!shouldVirtualise) {
-    return (
+    return wrap(
       <div ref={wrapperRef} className={className}>
         {items.map(renderItem)}
-      </div>
+      </div>,
     );
   }
 
   const totalSize = virtualizer.getTotalSize();
   const virtualItems = virtualizer.getVirtualItems();
 
-  return (
+  return wrap(
     <div
       ref={wrapperRef}
       className={className}
@@ -81,16 +107,17 @@ export default function VirtualGroupList({
             ref={virtualizer.measureElement}
             style={{
               position: "absolute",
-              top: 0,
+              // Position via `top` instead of translateY: leaves the CSS
+              // transform property free for useSortable's lift animation.
+              top: vRow.start,
               left: 0,
               right: 0,
-              transform: `translateY(${vRow.start}px)`,
             }}
           >
             {renderItem(group)}
           </div>
         );
       })}
-    </div>
+    </div>,
   );
 }
