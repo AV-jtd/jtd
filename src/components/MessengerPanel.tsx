@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
@@ -31,6 +31,14 @@ interface MessengerPanelProps {
    * AI Sheet (`AiAssistant`) opened from the header.
    */
   moduleContext?: ModuleContext;
+  /**
+   * Optional thread id to restore on mount. Lets the parent preserve the
+   * "active conversation" across messenger close/reopen cycles (e.g. when the
+   * user navigates to a task on mobile, which collapses the panel).
+   */
+  initialActiveThreadId?: string | null;
+  /** Notifies the parent whenever the active thread changes (or is cleared). */
+  onActiveThreadChange?: (threadId: string | null) => void;
 }
 
 function formatThreadDate(dateStr: string | null) {
@@ -49,6 +57,8 @@ export default function MessengerPanel({
   onNavigateToTask,
   onOpenProjectDetail,
   moduleContext,
+  initialActiveThreadId,
+  onActiveThreadChange,
 }: MessengerPanelProps) {
   const { data: threads = [], isLoading } = useThreads();
   // Live updates: refresh the thread list when new messages/comments arrive
@@ -59,12 +69,37 @@ export default function MessengerPanel({
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
 
+  // Restore the active thread when the parent provides a remembered id and
+  // the matching thread is available in the loaded list. Runs once per
+  // (id, threads) change so manual selection still wins.
+  const restoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialActiveThreadId) return;
+    if (restoredRef.current === initialActiveThreadId) return;
+    if (activeThread?.id === initialActiveThreadId) {
+      restoredRef.current = initialActiveThreadId;
+      return;
+    }
+    const match = threads.find(t => t.id === initialActiveThreadId);
+    if (match) {
+      setActiveThread(match);
+      restoredRef.current = initialActiveThreadId;
+    }
+  }, [initialActiveThreadId, threads, activeThread?.id]);
+
   const handleOpenThread = (thread: Thread) => {
     // Always switch to the freshly clicked thread, even if another one is
     // already active. Using a functional updater guarantees the new value is
     // applied even when several clicks land in the same React batch.
     setActiveThread(() => thread);
+    onActiveThreadChange?.(thread.id);
     markThreadRead?.(thread.id);
+  };
+
+  const clearActiveThread = () => {
+    setActiveThread(null);
+    restoredRef.current = null;
+    onActiveThreadChange?.(null);
   };
 
   const filtered = search.trim()
@@ -241,7 +276,7 @@ export default function MessengerPanel({
       {/* Back header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
         <button
-          onClick={() => setActiveThread(null)}
+          onClick={clearActiveThread}
           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -258,7 +293,6 @@ export default function MessengerPanel({
               }
             } else if (activeThread.type === "task" && activeThread.taskId && onNavigateToTask) {
               onNavigateToTask(activeThread.taskId);
-              onClose();
             }
           }}
           disabled={
@@ -288,7 +322,7 @@ export default function MessengerPanel({
           <ProjectChat
             groupId={activeThread.groupId}
             groupName={activeThread.name}
-            onClose={() => setActiveThread(null)}
+            onClose={clearActiveThread}
             embedded
             onNavigateToProject={(gId) => {
               if (onOpenProjectDetail) {

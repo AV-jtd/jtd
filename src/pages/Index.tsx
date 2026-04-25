@@ -41,6 +41,10 @@ export default function Index() {
   const [projectDetailOpen, setProjectDetailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
+  // Remembered active thread id from the messenger. Survives close/reopen
+  // cycles (e.g. on mobile when navigating to a task collapses the panel)
+  // so reopening the messenger restores the same conversation.
+  const [lastMessengerThreadId, setLastMessengerThreadId] = useState<string | null>(null);
   // ID of the project shown as an overlay panel on top of the messenger.
   // Lets users peek at project details without losing their place in the
   // thread list. Cleared via the sheet's onOpenChange.
@@ -250,8 +254,21 @@ export default function Index() {
                 onClose={() => setMessengerOpen(false)}
                 markThreadRead={markThreadRead}
                 isThreadUnread={isThreadUnread}
+                initialActiveThreadId={lastMessengerThreadId}
+                onActiveThreadChange={setLastMessengerThreadId}
                 onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }}
-                onNavigateToTask={(taskId) => { setActiveView("all"); setActiveGroupId(null); setHighlightTaskId(taskId); setMessengerOpen(false); }}
+                onNavigateToTask={(taskId) => {
+                  // Keep messenger open so the user can return to the
+                  // exact thread + message after viewing the task.
+                  // The active thread is preserved inside MessengerPanel state.
+                  setActiveView("all");
+                  setActiveGroupId(null);
+                  setHighlightTaskId(taskId);
+                  // On mobile the messenger is full-width and would hide the
+                  // task. Collapse it on small screens — re-opening it brings
+                  // the user back to the same thread (state is preserved).
+                  if (isMobile) setMessengerOpen(false);
+                }}
                 onOpenProjectDetail={(gId) => setMessengerDetailGroupId(gId)}
                 moduleContext={{
                   module: "tasks",
