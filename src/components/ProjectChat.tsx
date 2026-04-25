@@ -63,6 +63,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Подгружаем реакции для всех видимых сообщений группы.
+  const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
