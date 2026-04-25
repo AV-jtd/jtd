@@ -114,94 +114,99 @@ export function useThreads() {
     queryFn: async () => {
       const threads: Thread[] = [];
 
-      // 1. Group threads: groups with at least one message — paginated so threads
-      //    aren't lost after the first 500 messages.
-      const groupMap = await fetchThreadAggregates({
-        table: "group_messages",
-        parentKey: "group_id",
-      });
+      // Step 1: collect both aggregate maps in parallel — these only hit
+      // group_messages / task_comments and don't depend on each other.
+      const [groupMap, taskMap] = await Promise.all([
+        fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
+        fetchThreadAggregates({ table: "task_comments", parentKey: "task_id" }),
+      ]);
 
-      if (groupMap.size > 0) {
-        const groupIds = [...groupMap.keys()];
-        const { data: groups } = await supabase
+      // Step 2: build the union of user_ids for the last-message authors across
+      // both thread kinds. Previously we ran TWO separate `profiles` queries
+      // (one per thread kind) and the same author often appeared in both —
+      // doubling work and roundtrips. Now we do exactly ONE batched profiles
+      // query for the unique union.
+      const authorIdSet = new Set<string>();
+      for (const v of groupMap.values()) authorIdSet.add(v.user_id);
+      for (const v of taskMap.values()) authorIdSet.add(v.user_id);
+      const authorIds = [...authorIdSet];
+
+      // Step 3: fan out independent lookups in parallel. None of them depend
+      // on each other's results, so there's no reason to await sequentially.
+      const groupIds = [...groupMap.keys()];
+      const taskIds = [...taskMap.keys()];
+
+      const [groupsRes, tasksRes, profilesRes] = await Promise.all([
+        groupIds.length > 0
+          ? supabase.from("task_groups").select("id, name, icon, color").in("id", groupIds)
+          : Promise.resolve({ data: [] as any[] }),
+        taskIds.length > 0
+          ? supabase.from("tasks").select("id, title, group_id").in("id", taskIds)
+          : Promise.resolve({ data: [] as any[] }),
+        authorIds.length > 0
+          ? supabase.from("profiles").select("id, display_name, email").in("id", authorIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const groups = (groupsRes.data as any[]) || [];
+      const tasks = (tasksRes.data as any[]) || [];
+      const profileMap = new Map(
+        ((profilesRes.data as any[]) || []).map((p) => [p.id, p.display_name || ""]),
+      );
+
+      // Step 4: for task threads we still need parent-group names for the
+      // subtitle. Fetch only the groups that aren't already in `groups`
+      // (they likely overlap — task often lives in a group that also has its
+      // own messages) so we don't refetch the same row twice.
+      const knownGroupNames = new Map<string, string>(groups.map((g) => [g.id, g.name]));
+      const missingTaskGroupIds = [
+        ...new Set(
+          tasks
+            .map((t) => t.group_id as string | null)
+            .filter((id): id is string => !!id && !knownGroupNames.has(id)),
+        ),
+      ];
+      if (missingTaskGroupIds.length > 0) {
+        const { data: extraGroups } = await supabase
           .from("task_groups")
-          .select("id, name, icon, color")
-          .in("id", groupIds);
+          .select("id, name")
+          .in("id", missingTaskGroupIds);
+        for (const g of (extraGroups as any[]) || []) {
+          knownGroupNames.set(g.id, g.name);
+        }
+      }
 
-        // Fetch profile names for last message authors
-        const authorIds = [...new Set([...groupMap.values()].map(v => v.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, display_name, email")
-          .in("id", authorIds);
-        const profileMap = new Map((profiles || []).map(p => [p.id, p.display_name || ""]));
-
-        (groups || []).forEach((g) => {
-          const info = groupMap.get(g.id);
-          if (info) {
-            threads.push({
-              id: `group-${g.id}`,
-              type: "group",
-              name: `${(g as any).icon && (g as any).icon !== "list" ? (g as any).icon + " " : ""}${g.name}`,
-              lastMessage: info.content,
-              lastMessageAt: info.created_at,
-              lastMessageAuthor: profileMap.get(info.user_id) || null,
-              lastMessageUserId: info.user_id,
-              messageCount: info.count,
-              groupId: g.id,
-            });
-          }
+      // Step 5: assemble threads.
+      for (const g of groups) {
+        const info = groupMap.get(g.id);
+        if (!info) continue;
+        threads.push({
+          id: `group-${g.id}`,
+          type: "group",
+          name: `${(g as any).icon && (g as any).icon !== "list" ? (g as any).icon + " " : ""}${g.name}`,
+          lastMessage: info.content,
+          lastMessageAt: info.created_at,
+          lastMessageAuthor: profileMap.get(info.user_id) || null,
+          lastMessageUserId: info.user_id,
+          messageCount: info.count,
+          groupId: g.id,
         });
       }
 
-      // 2. Task threads: tasks with at least one comment — same pagination
-      //    strategy as group threads above.
-      const taskMap = await fetchThreadAggregates({
-        table: "task_comments",
-        parentKey: "task_id",
-      });
-
-      if (taskMap.size > 0) {
-        const taskIds = [...taskMap.keys()];
-        const { data: tasks } = await supabase
-          .from("tasks")
-          .select("id, title, group_id")
-          .in("id", taskIds);
-
-        // Get group names for context
-        const taskGroupIds = [...new Set((tasks || []).filter(t => t.group_id).map(t => t.group_id!))];
-        let taskGroupMap = new Map<string, string>();
-        if (taskGroupIds.length > 0) {
-          const { data: tGroups } = await supabase
-            .from("task_groups")
-            .select("id, name")
-            .in("id", taskGroupIds);
-          taskGroupMap = new Map((tGroups || []).map(g => [g.id, g.name]));
-        }
-
-        const authorIds = [...new Set([...taskMap.values()].map(v => v.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, display_name, email")
-          .in("id", authorIds);
-        const profileMap = new Map((profiles || []).map(p => [p.id, p.display_name || ""]));
-
-        (tasks || []).forEach((t) => {
-          const info = taskMap.get(t.id);
-          if (info) {
-            threads.push({
-              id: `task-${t.id}`,
-              type: "task",
-              name: t.title,
-              lastMessage: info.content,
-              lastMessageAt: info.created_at,
-              lastMessageAuthor: profileMap.get(info.user_id) || null,
-              lastMessageUserId: info.user_id,
-              messageCount: info.count,
-              taskId: t.id,
-              groupName: t.group_id ? taskGroupMap.get(t.group_id) || undefined : undefined,
-            });
-          }
+      for (const t of tasks) {
+        const info = taskMap.get(t.id);
+        if (!info) continue;
+        threads.push({
+          id: `task-${t.id}`,
+          type: "task",
+          name: t.title,
+          lastMessage: info.content,
+          lastMessageAt: info.created_at,
+          lastMessageAuthor: profileMap.get(info.user_id) || null,
+          lastMessageUserId: info.user_id,
+          messageCount: info.count,
+          taskId: t.id,
+          groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
         });
       }
 
