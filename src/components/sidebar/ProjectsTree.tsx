@@ -265,22 +265,67 @@ export default function ProjectsTree({
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // Edge case: dropped on self → nothing to do (and avoid useless mutation).
+    if (activeId === overId) return;
+
+    // Edge case: active project disappeared mid-drag (realtime delete,
+    // moved by another tab). Bail out instead of writing stale positions.
+    const activeExists =
+      ungroupedProjects.some((g) => g.id === activeId) ||
+      npdRootGroups.some((g) => g.id === activeId) ||
+      archivedGroups.some((g) => g.id === activeId) ||
+      (groupFolderMap.has(activeId) &&
+        folders.some((f) => f.id === groupFolderMap.get(activeId)));
+    if (!activeExists) return;
+
+    // ----- Drops on folder/section headers (empty space, FolderRow) -----
+
     if (overId.startsWith("folder:")) {
       const folderId = overId.replace("folder:", "");
-      if (groupFolderMap.get(activeId) !== folderId) {
+      const inSameFolder = groupFolderMap.get(activeId) === folderId;
+      if (!inSameFolder) {
+        // Move into folder; backend assigns position at the end.
         moveProjectToFolder.mutate({ group_id: activeId, folder_id: folderId });
-      }
-      return;
-    }
-    if (overId === "ungrouped-drop") {
-      if (groupFolderMap.has(activeId)) {
-        moveProjectToFolder.mutate({ group_id: activeId, folder_id: null });
+      } else {
+        // Already in this folder — interpret drop on the header as
+        // "move to top of folder" so the gesture isn't a confusing no-op.
+        const list = groupsInFolder(folderId);
+        const oldIndex = list.findIndex((g) => g.id === activeId);
+        if (oldIndex > 0) {
+          const reordered = arrayMove(list, oldIndex, 0);
+          reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
+        }
       }
       return;
     }
 
+    if (overId === "ungrouped-drop") {
+      const inUngrouped = !groupFolderMap.has(activeId)
+        && !npdRootGroups.some((g) => g.id === activeId)
+        && !archivedGroups.some((g) => g.id === activeId);
+      if (!inUngrouped) {
+        // Coming from a folder / NPD / archive → move into ungrouped.
+        // (Archive entries shouldn't normally be drag targets, but guard.)
+        moveProjectToFolder.mutate({ group_id: activeId, folder_id: null });
+      } else {
+        // Already ungrouped — drop on empty space means "send to end".
+        const list = ungroupedProjects;
+        const oldIndex = list.findIndex((g) => g.id === activeId);
+        if (oldIndex !== -1 && oldIndex !== list.length - 1) {
+          const reordered = arrayMove(list, oldIndex, list.length - 1);
+          reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
+        }
+      }
+      return;
+    }
+
+    // ----- Drops on another project row -----
+
     const overProject = rootGroups.find((g) => g.id === overId);
+    // Unknown drop target: child-group row, ghost id, deleted node, etc.
+    // Silent bail — `closestCenter` can pick those during fast drags.
     if (!overProject) return;
+
     const activeFolder = groupFolderMap.get(activeId) ?? null;
     const overFolder = groupFolderMap.get(overId) ?? null;
 
@@ -289,28 +334,37 @@ export default function ProjectsTree({
       return;
     }
 
-    // Same bucket — reorder within whichever virtualised list this is.
-    // We pick the list by membership so DnD inside NPD / a folder / archive
-    // / ungrouped all work, not just the ungrouped section.
+    // Same folder — but folder=null splits into THREE distinct buckets
+    // (NPD, archived, ungrouped). pickList must agree for both ids,
+    // otherwise we'd silently no-op (or worse, write a wrong reorder).
     const pickList = (id: string): TaskGroup[] | null => {
-      if (ungroupedProjects.some((g) => g.id === id)) return ungroupedProjects;
       if (npdRootGroups.some((g) => g.id === id)) return npdRootGroups;
       if (archivedGroups.some((g) => g.id === id)) return archivedGroups;
-      const folderId = groupFolderMap.get(id);
-      if (folderId) return groupsInFolder(folderId);
+      if (ungroupedProjects.some((g) => g.id === id)) return ungroupedProjects;
+      const fid = groupFolderMap.get(id);
+      if (fid) return groupsInFolder(fid);
       return null;
     };
 
-    const list = pickList(activeId);
-    if (!list) return;
-    const oldIndex = list.findIndex((g) => g.id === activeId);
-    const newIndex = list.findIndex((g) => g.id === overId);
+    const activeList = pickList(activeId);
+    const overList = pickList(overId);
+
+    // Cross-segment reorder (e.g. drag NPD project onto an Ungrouped row):
+    // both have folder=null so the earlier `activeFolder !== overFolder`
+    // check passed, but they live in different visual lists. Project type
+    // change isn't supported by reorder, so refuse and let the user use the
+    // dedicated NPD migration / archive UI.
+    if (!activeList || !overList || activeList !== overList) return;
+
+    const oldIndex = activeList.findIndex((g) => g.id === activeId);
+    const newIndex = activeList.findIndex((g) => g.id === overId);
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-    const reordered = arrayMove(list, oldIndex, newIndex);
+
+    const reordered = arrayMove(activeList, oldIndex, newIndex);
     reorderGroups.mutate(reordered.map((g, i) => ({ id: g.id, position: i })));
   }, [
     groupFolderMap, moveProjectToFolder, rootGroups, ungroupedProjects,
-    npdRootGroups, archivedGroups, groupsInFolder, reorderGroups,
+    npdRootGroups, archivedGroups, folders, groupsInFolder, reorderGroups,
   ]);
 
   const handleAddFolder = (e: FormEvent) => {
