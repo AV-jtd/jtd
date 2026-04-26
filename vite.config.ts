@@ -19,6 +19,52 @@ function versionJsonPlugin(version: string): Plugin {
   };
 }
 
+/** Emergency production SW: kills any previously installed Workbox/PWA worker. */
+function emergencyServiceWorkerKillerPlugin(): Plugin {
+  const killerSw = `
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    } catch (_) {}
+
+    try {
+      await self.registration.unregister();
+    } catch (_) {}
+
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        const url = new URL(client.url);
+        url.searchParams.set('__sw_kill', Date.now().toString(36));
+        client.navigate(url.toString());
+      }
+    } catch (_) {}
+  })());
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request, { cache: 'reload' }));
+  }
+});
+`;
+
+  return {
+    name: "emergency-service-worker-killer",
+    writeBundle({ dir }) {
+      const outDir = dir || "dist";
+      fs.writeFileSync(path.resolve(outDir, "sw.js"), killerSw);
+      fs.writeFileSync(path.resolve(outDir, "workbox-kill-switch.txt"), String(Date.now()));
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 const buildVersion = Date.now().toString(36);
 
@@ -39,6 +85,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     mode === "production" && versionJsonPlugin(buildVersion),
+    mode === "production" && emergencyServiceWorkerKillerPlugin(),
     VitePWA({
       selfDestroying: true,
       injectRegister: "inline",
