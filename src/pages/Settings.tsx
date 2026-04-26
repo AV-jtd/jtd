@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
 
 export default function Settings() {
-  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
+  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled, simulatedRole, setSimulatedRole, isRealConsultant } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const { prefs, updatePrefs } = useNotificationPreferences();
@@ -425,6 +425,72 @@ export default function Settings() {
                       toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
                     }}
                   />
+                </div>
+
+                {/* Симуляция роли (только визуально). RLS на сервере не меняется. */}
+                <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <UserCog className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium text-foreground">Симуляция роли</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Переключает интерфейс в режим внешнего пользователя (consultant) или сотрудника —
+                        чтобы проверить, как выглядят все ограничения. Это <span className="font-medium">только визуальная</span>{" "}
+                        симуляция: серверные права (RLS, edge-функции) не меняются.
+                      </p>
+                      {isRealConsultant && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Учётка имеет реальную роль consultant — симуляция «сотрудник» не вернёт серверный доступ.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { value: null, label: "Без симуляции" },
+                      { value: "employee", label: "Сотрудник" },
+                      { value: "consultant", label: "Consultant" },
+                    ] as const).map((opt) => {
+                      const active = simulatedRole === opt.value;
+                      return (
+                        <button
+                          key={String(opt.value)}
+                          type="button"
+                          onClick={() => {
+                            setSimulatedRole(opt.value);
+                            toast.success(
+                              opt.value === null
+                                ? "Симуляция отключена"
+                                : `Симулируем: ${opt.label}`,
+                            );
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border hover:bg-accent",
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {simulatedRole && (
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        Активна симуляция «{simulatedRole === "consultant" ? "Consultant" : "Сотрудник"}». Все areas обновлены вживую.
+                      </p>
+                      <Link
+                        to="/dev/consultant-areas"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline whitespace-nowrap"
+                      >
+                        Открыть реестр <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
