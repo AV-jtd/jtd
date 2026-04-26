@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserCheck, UserX, ShieldCheck, Building2, HardHat, Briefcase } from "lucide-react";
+import { Loader2, UserCheck, UserX, ShieldCheck, Building2, HardHat, Briefcase, Search, Pencil, Check, X, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -31,6 +31,9 @@ export default function AdminApproval() {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
   const { data: contractors = [] } = useContractors();
   const { data: clients = [] } = useQuery<ClientLite[]>({
     queryKey: ["clients", "lite-for-admin"],
@@ -102,12 +105,24 @@ export default function AdminApproval() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...patch } : u));
   };
 
+  const startEditName = (u: PendingUser) => {
+    setEditingNameId(u.id);
+    setEditingNameValue(u.display_name ?? "");
+  };
+
+  const saveName = async (userId: string) => {
+    const v = editingNameValue.trim() || null;
+    await updateUserField(userId, { display_name: v });
+    setEditingNameId(null);
+    toast.success("Имя обновлено");
+  };
+
   const renderDeptSelect = (u: PendingUser) => (
     <Select
       value={u.department_id ?? "__none"}
       onValueChange={(v) => handleDepartmentChange(u.id, v === "__none" ? null : v)}
     >
-      <SelectTrigger className="h-7 w-[160px] text-xs">
+      <SelectTrigger className="h-8 w-[180px] text-xs">
         <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
         <SelectValue placeholder="Отдел" />
       </SelectTrigger>
@@ -121,12 +136,12 @@ export default function AdminApproval() {
   );
 
   const renderExtraFields = (u: PendingUser) => (
-    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/40">
       <Input
         key={`org-${u.id}-${u.organization ?? ""}`}
         defaultValue={u.organization ?? ""}
         placeholder="Организация"
-        className="h-7 w-[160px] text-xs"
+        className="h-8 w-[180px] text-xs"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -142,7 +157,7 @@ export default function AdminApproval() {
         value={u.contractor_id ?? "__none"}
         onValueChange={(v) => updateUserField(u.id, { contractor_id: v === "__none" ? null : v })}
       >
-        <SelectTrigger className="h-7 w-[160px] text-xs">
+        <SelectTrigger className="h-8 w-[180px] text-xs">
           <HardHat className="h-3 w-3 mr-1 text-muted-foreground" />
           <SelectValue placeholder="Подрядчик" />
         </SelectTrigger>
@@ -157,7 +172,7 @@ export default function AdminApproval() {
         value={u.client_id ?? "__none"}
         onValueChange={(v) => updateUserField(u.id, { client_id: v === "__none" ? null : v })}
       >
-        <SelectTrigger className="h-7 w-[160px] text-xs">
+        <SelectTrigger className="h-8 w-[180px] text-xs">
           <Briefcase className="h-3 w-3 mr-1 text-muted-foreground" />
           <SelectValue placeholder="Клиент CRM" />
         </SelectTrigger>
@@ -171,16 +186,87 @@ export default function AdminApproval() {
     </div>
   );
 
+  const renderNameBlock = (u: PendingUser) => {
+    if (editingNameId === u.id) {
+      return (
+        <div className="flex items-center gap-1">
+          <Input
+            autoFocus
+            value={editingNameValue}
+            onChange={(e) => setEditingNameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); saveName(u.id); }
+              if (e.key === "Escape") { e.preventDefault(); setEditingNameId(null); }
+            }}
+            className="h-7 text-sm font-medium w-[200px]"
+            placeholder="ФИО"
+          />
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => saveName(u.id)}>
+            <Check className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingNameId(null)}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5 group/name">
+        <p className="text-sm font-medium truncate">{u.display_name || <span className="text-muted-foreground italic">Без имени</span>}</p>
+        <button
+          onClick={() => startEditName(u)}
+          className="p-1 rounded hover:bg-muted opacity-0 group-hover/name:opacity-100 transition-opacity"
+          aria-label="Редактировать имя"
+        >
+          <Pencil className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </div>
+    );
+  };
+
+  const renderUserMeta = (u: PendingUser) => (
+    <div className="text-xs text-muted-foreground space-y-0.5 mt-0.5">
+      {u.email && (
+        <div className="flex items-center gap-1">
+          <Mail className="h-3 w-3 shrink-0" />
+          <span className="truncate">{u.email}</span>
+        </div>
+      )}
+      {u.telegram_username && <p>@{u.telegram_username}</p>}
+      <p>Зарегистрирован: {new Date(u.created_at).toLocaleDateString("ru-RU")}</p>
+    </div>
+  );
+
   if (!isAdmin) return null;
 
-  const pending = users.filter(u => !u.is_approved);
-  const approved = users.filter(u => u.is_approved);
+  const q = search.trim().toLowerCase();
+  const matches = (u: PendingUser) =>
+    !q ||
+    (u.display_name ?? "").toLowerCase().includes(q) ||
+    (u.email ?? "").toLowerCase().includes(q) ||
+    (u.telegram_username ?? "").toLowerCase().includes(q) ||
+    (u.organization ?? "").toLowerCase().includes(q);
+
+  const pending = users.filter(u => !u.is_approved && matches(u));
+  const approved = users.filter(u => u.is_approved && matches(u));
 
   return (
     <div className="border-t border-border pt-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-medium">Управление пользователями</h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-medium">Управление пользователями</h2>
+          <Badge variant="secondary" className="text-xs">{users.length}</Badge>
+        </div>
+        <div className="relative w-full sm:w-[260px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск: имя, email, @tg, организация"
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -196,16 +282,12 @@ export default function AdminApproval() {
               </p>
               {pending.map(u => (
                 <div key={u.id} className="p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                      {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                      {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {renderNameBlock(u)}
+                      {renderUserMeta(u)}
                     </div>
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {renderDeptSelect(u)}
                       <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
                         <UserCheck className="h-3.5 w-3.5" />
@@ -225,14 +307,10 @@ export default function AdminApproval() {
             </p>
             {approved.map(u => (
               <div key={u.id} className="p-3 rounded-lg border border-border">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{u.display_name || "Без имени"}</p>
-                    {u.email && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                    {u.telegram_username && <p className="text-xs text-muted-foreground">@{u.telegram_username}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                    </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {renderNameBlock(u)}
+                    {renderUserMeta(u)}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {renderDeptSelect(u)}
@@ -249,7 +327,9 @@ export default function AdminApproval() {
           </div>
 
           {pending.length === 0 && approved.length === 0 && (
-            <p className="text-sm text-muted-foreground">Нет пользователей</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              {q ? `Ничего не найдено по запросу «${search}»` : "Нет пользователей"}
+            </p>
           )}
         </div>
       )}
