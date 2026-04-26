@@ -773,9 +773,43 @@ export default function Settings() {
                 <AdminApproval />
               </SettingsSection>
             </ConsultantGuard>
+
+            {/* Empty state for search */}
+            {isSearching && (
+              <SearchEmptyState
+                anyVisible={
+                  matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`) ||
+                  matches("appearance", "Оформление", "тема цвет акцент") ||
+                  matches("notifications", "Уведомления", "push web telegram бот матрица отчёт") ||
+                  matches("calendar", "Подписка на календарь", "google outlook apple ics") ||
+                  matches("tags", "Тэги", "категории фильтры") ||
+                  matches("contractors", "Подрядчики", "внешние делегирование") ||
+                  matches("ie", "Импорт / Экспорт", "excel xlsx ai") ||
+                  matches("teams", "Команды", "приглашение invite") ||
+                  (isRealAdmin && matches("admin_mode", "Режим администратора", "права супер симуляция")) ||
+                  (isRealAdmin && matches("org", "Оргструктура", "дирекция отдел подотдел руководитель зам")) ||
+                  matches("users", "Управление пользователями", "утверждение роли отделы")
+                }
+                onReset={() => setSearch("")}
+              />
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SearchEmptyState({ anyVisible, onReset }: { anyVisible: boolean; onReset: () => void }) {
+  if (anyVisible) return null;
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-card/50 px-4 py-10 text-center">
+      <Search className="mx-auto h-5 w-5 text-muted-foreground mb-2" />
+      <p className="text-sm text-foreground">Ничего не найдено</p>
+      <p className="text-xs text-muted-foreground mt-1">Попробуйте другой запрос или сбросьте поиск.</p>
+      <Button variant="ghost" size="sm" className="mt-3" onClick={onReset}>
+        <X className="mr-1.5 h-3.5 w-3.5" /> Сбросить
+      </Button>
     </div>
   );
 }
