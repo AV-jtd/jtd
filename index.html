@@ -52,10 +52,11 @@
             sessionStorage.setItem(KEY, String(Date.now()));
           } catch (e) {}
           console.warn("[boot] White screen detected, clearing SW + caches and reloading…");
+          // Send the user to the dedicated reset page — it bypasses the SW
+          // navigateFallback and performs a full SW + cache + storage purge
+          // even if our main bundle / index.html is poisoned.
           var done = function () {
-            var url = new URL(window.location.href);
-            url.searchParams.set("_wsr", Date.now().toString(36));
-            window.location.replace(url.toString());
+            window.location.replace("/sw-reset.html?_wsr=" + Date.now().toString(36));
           };
           var tasks = [];
           try {
