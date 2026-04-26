@@ -10,3 +10,4 @@
 - [features/admin/soft-delete](mem://features/admin/soft-delete) — Soft-delete пользователей: admin_soft_delete_user (по умолчанию), admin_restore_user (создатель удаления или real-admin), admin_hard_delete_user (необратимо). Профиль помечается deleted_at + is_approved=false, данные сохраняются.
 - [constraints/external-users-default](mem://constraints/external-users-default) — Все внешние пользователи по умолчанию подчиняются правилам consultant. Применять при добавлении любой новой таблицы/модуля/функции.
 - [features/consultant-role](mem://features/consultant-role) — Роль consultant: автонастройка по contractor_id, RLS-ограничения, скрытие модулей в UI.
+- [tech/scalability-benchmarks](mem://tech/scalability-benchmarks) — Бенчмарки RLS после оптимизации апр 2026 (admin 7мс / director 5мс / power user 53мс) и план масштабирования до 1000+ пользователей.
