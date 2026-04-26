@@ -132,20 +132,22 @@ function AppContent() {
 }
 
 const App = () => (
-  <PersistQueryClientProvider
-    client={queryClient}
-    persistOptions={{ persister: idbPersister, maxAge: 1000 * 60 * 60 * 24 }}
-  >
-    <ThemeProvider>
-      <AuthProvider>
-        <UndoProvider>
-          <TooltipProvider>
-            <AppContent />
-          </TooltipProvider>
-        </UndoProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </PersistQueryClientProvider>
+  <ErrorBoundary fallbackTitle="Не удалось загрузить приложение">
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister: idbPersister, maxAge: 1000 * 60 * 60 * 24 }}
+    >
+      <ThemeProvider>
+        <AuthProvider>
+          <UndoProvider>
+            <TooltipProvider>
+              <AppContent />
+            </TooltipProvider>
+          </UndoProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </PersistQueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
