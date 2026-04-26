@@ -498,6 +498,19 @@ export default function Settings() {
 
             {/* Admin approval */}
             <ConsultantGuard area="admin">
+              {isRealAdmin && (
+                <div className="border-t border-border pt-6">
+                  <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    Оргструктура
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Дерево из 3 уровней: <b>Дирекция → Отдел → Подотдел</b>. Назначайте руководителей (head) и доп. кураторов,
+                    а также привязывайте сотрудников к нескольким отделам сразу. Эти данные питают вкладки «Моя команда» и «Моя Дирекция».
+                  </p>
+                  <OrgStructurePanel />
+                </div>
+              )}
               <AdminApproval />
             </ConsultantGuard>
           </div>
