@@ -11,7 +11,7 @@ export interface AdminUser {
   client_id: string | null;
 }
 
-export interface Department { id: string; name: string; }
+export interface Department { id: string; name: string; head_user_id: string | null; }
 export interface ContractorLite { id: string; name: string; }
 export interface ClientLite { id: string; name: string; }
 
