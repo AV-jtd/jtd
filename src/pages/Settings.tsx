@@ -264,23 +264,47 @@ export default function Settings() {
 
         {/* Sticky шапка с поиском и якорями */}
         <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 mb-3 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по настройкам…"
-              className="h-8 pl-8 pr-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Очистить поиск"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+          {/* Mobile: админ-пилюля над поиском */}
+          {isRealAdmin && (
+            <div className="sm:hidden mb-2">
+              <AdminModePill
+                adminModeDisabled={adminModeDisabled}
+                setAdminModeDisabled={setAdminModeDisabled}
+                simulatedRole={simulatedRole}
+                onJump={() => scrollToSection("admin_mode")}
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск по настройкам…"
+                className="h-8 pl-8 pr-8 text-xs"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Очистить поиск"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {/* Desktop: админ-пилюля справа от поиска */}
+            {isRealAdmin && (
+              <div className="hidden sm:block shrink-0">
+                <AdminModePill
+                  adminModeDisabled={adminModeDisabled}
+                  setAdminModeDisabled={setAdminModeDisabled}
+                  simulatedRole={simulatedRole}
+                  onJump={() => scrollToSection("admin_mode")}
+                />
+              </div>
             )}
           </div>
 
