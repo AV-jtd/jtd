@@ -122,6 +122,28 @@ const NOTIFICATION_EVENTS = [
   { push: "push_deadline_approaching", tg: "telegram_deadline_approaching", label: "Приближение дедлайна" },
 ] as const;
 
+/** Метаданные секций для поиска и навигации-якорей */
+type SectionMeta = {
+  id: string;
+  label: string;
+  /** Дополнительные ключевые слова для поиска */
+  keywords?: string;
+};
+
+const SECTION_META: Record<string, SectionMeta> = {
+  profile:        { id: "profile",        label: "Профиль",     keywords: "имя организация email telegram" },
+  appearance:     { id: "appearance",     label: "Оформление",  keywords: "тема цвет акцент темная светлая палитра" },
+  notifications:  { id: "notifications",  label: "Уведомления", keywords: "push web telegram бот матрица отчёт" },
+  calendar:       { id: "calendar",       label: "Календарь",   keywords: "google outlook apple ics подписка" },
+  tags:           { id: "tags",           label: "Тэги",        keywords: "категории фильтры" },
+  contractors:    { id: "contractors",    label: "Подрядчики",  keywords: "внешние делегирование" },
+  ie:             { id: "ie",             label: "Импорт/Экспорт", keywords: "excel xlsx ai импортировать выгрузка" },
+  teams:          { id: "teams",          label: "Команды",     keywords: "приглашение invite" },
+  admin_mode:     { id: "admin_mode",     label: "Админ-режим", keywords: "права супер админ симуляция" },
+  org:            { id: "org",            label: "Оргструктура",keywords: "дирекция отдел подотдел руководитель зам" },
+  users:          { id: "users",          label: "Пользователи",keywords: "утверждение роли отделы" },
+};
+
 export default function Settings() {
   const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled, simulatedRole, setSimulatedRole, isRealConsultant } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
@@ -135,6 +157,41 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [customHue, setCustomHue] = useState(accentColor);
+
+  // ===== Поиск по настройкам и якорная навигация =====
+  const [search, setSearch] = useState("");
+  const sectionRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) sectionRefs.current.set(id, el);
+    else sectionRefs.current.delete(id);
+  }, []);
+
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .trim();
+
+  const matches = useCallback(
+    (id: string, title: string, description?: string) => {
+      const q = norm(search);
+      if (!q) return true;
+      const meta = SECTION_META[id];
+      const haystack = norm(
+        [title, description ?? "", meta?.label ?? "", meta?.keywords ?? ""].join(" "),
+      );
+      return haystack.includes(q);
+    },
+    [search],
+  );
+
+  const isSearching = search.trim().length > 0;
+
+  const scrollToSection = (id: string) => {
+    const el = sectionRefs.current.get(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!user) return;
