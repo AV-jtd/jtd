@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2 } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -15,6 +15,7 @@ import { useTheme, ACCENT_PRESETS } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import TeamSection from "@/components/TeamSection";
 import AdminApproval from "@/components/AdminApproval";
+import OrgStructurePanel from "@/components/admin/OrgStructurePanel";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
@@ -497,6 +498,19 @@ export default function Settings() {
 
             {/* Admin approval */}
             <ConsultantGuard area="admin">
+              {isRealAdmin && (
+                <div className="border-t border-border pt-6">
+                  <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    Оргструктура
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Дерево из 3 уровней: <b>Дирекция → Отдел → Подотдел</b>. Назначайте руководителей (head) и доп. кураторов,
+                    а также привязывайте сотрудников к нескольким отделам сразу. Эти данные питают вкладки «Моя команда» и «Моя Дирекция».
+                  </p>
+                  <OrgStructurePanel />
+                </div>
+              )}
               <AdminApproval />
             </ConsultantGuard>
           </div>

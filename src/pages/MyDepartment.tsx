@@ -14,6 +14,8 @@ import TaskItem from "@/components/TaskItem";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Link } from "react-router-dom";
 import { filterRealProjects } from "@/lib/projectFilters";
+import { useIsDirector } from "@/hooks/useOrgStructure";
+import MyDirectorateView from "@/components/MyDirectorateView";
 
 /**
  * /my-department — экран «Мой отдел».
@@ -35,6 +37,8 @@ export default function MyDepartmentPage() {
   const { data: users = [] } = useAvailableUsers();
   const { data: groups = [] } = useTaskGroups();
   const { updateTask } = useTaskMutations();
+  const { data: isDirector = false } = useIsDirector();
+  const [activeTab, setActiveTab] = useState<"team" | "directorate">("team");
 
   const department = useMemo(
     () => departments.find((d) => d.id === deptId) ?? null,
@@ -179,8 +183,36 @@ export default function MyDepartmentPage() {
               </p>
             </div>
           </div>
+
+          {/* Tabs: видны только если пользователь — head/director */}
+          {isDirector && (
+            <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
+              <button
+                onClick={() => setActiveTab("team")}
+                className={cn(
+                  "px-3 py-1.5 transition-colors",
+                  activeTab === "team" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-accent",
+                )}
+              >
+                Моя команда
+              </button>
+              <button
+                onClick={() => setActiveTab("directorate")}
+                className={cn(
+                  "px-3 py-1.5 transition-colors",
+                  activeTab === "directorate" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-accent",
+                )}
+              >
+                Моя Дирекция
+              </button>
+            </div>
+          )}
         </div>
 
+        {activeTab === "directorate" ? (
+          <MyDirectorateView onOpenTask={(id) => setSelectedTaskId(id)} />
+        ) : (
+        <>
         {/* Hero */}
         {heroVisible && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-gradient-to-r from-destructive/10 to-amber-500/10 p-3">
@@ -439,6 +471,8 @@ export default function MyDepartmentPage() {
             </div>
           )}
         </section>
+        </>
+        )}
       </div>
 
       {/* Task details sheet */}
