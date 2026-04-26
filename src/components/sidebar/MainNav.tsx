@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { List, Star, Users, Inbox, Clock, UsersRound, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
+import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 import { useAuth } from "@/hooks/useAuth";
