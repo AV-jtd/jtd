@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, Plus, Trash2, Users, Crown, Shield, Loader2, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Plus, Trash2, Users, Crown, Shield, Loader2, X, MoveVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -116,6 +116,7 @@ export default function OrgStructurePanel() {
             dept={d as any}
             depth={0}
             byParent={byParent}
+            allDepartments={departments as any}
             users={users}
             usersByDept={usersByDept}
             directorsByDept={directorsByDept}
@@ -127,6 +128,7 @@ export default function OrgStructurePanel() {
             onRename={(deptId, name) => updateDept.mutateAsync({ id: deptId, name })}
             onAddDirector={(deptId, userId) => addDirector.mutateAsync({ departmentId: deptId, userId })}
             onRemoveDirector={(deptId, userId) => removeDirector.mutateAsync({ departmentId: deptId, userId })}
+            onMove={(deptId, parentId) => updateParent.mutateAsync({ id: deptId, parent_department_id: parentId })}
             onDelete={async (deptId) => {
               if (!confirm("Удалить отдел? Подотделы и привязки к пользователям тоже отвяжутся.")) return;
               await removeDept.mutateAsync(deptId);
@@ -154,6 +156,7 @@ interface DeptRowProps {
   dept: AnyDept;
   depth: number;
   byParent: Map<string | null, AnyDept[]>;
+  allDepartments: AnyDept[];
   users: AnyUser[];
   usersByDept: Map<string, { userId: string; isPrimary: boolean }[]>;
   directorsByDept: Map<string, string[]>;
@@ -162,6 +165,7 @@ interface DeptRowProps {
   onRename: (deptId: string, name: string) => Promise<unknown>;
   onAddDirector: (deptId: string, userId: string) => Promise<unknown>;
   onRemoveDirector: (deptId: string, userId: string) => Promise<unknown>;
+  onMove: (deptId: string, parentId: string | null) => Promise<unknown>;
   onDelete: (deptId: string) => Promise<void>;
 }
 
@@ -250,6 +254,13 @@ function DeptRow(p: DeptRowProps) {
             directorIds={dirIds}
             onAdd={(uid) => p.onAddDirector(dept.id, uid)}
             onRemove={(uid) => p.onRemoveDirector(dept.id, uid)}
+          />
+
+          <MoveParentPicker
+            dept={dept}
+            allDepartments={p.allDepartments}
+            byParent={byParent}
+            onMove={(parentId) => p.onMove(dept.id, parentId)}
           />
 
           {canAddChild && (
@@ -395,6 +406,84 @@ function DirectorsPicker({
             </button>
           ))}
           {filtered.length === 0 && <p className="text-xs text-muted-foreground p-2 text-center">Никого не нашлось</p>}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MoveParentPicker({
+  dept,
+  allDepartments,
+  byParent,
+  onMove,
+}: {
+  dept: AnyDept;
+  allDepartments: AnyDept[];
+  byParent: Map<string | null, AnyDept[]>;
+  onMove: (parentId: string | null) => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  // Собираем id потомков (включая сам отдел) — туда переносить нельзя.
+  const blocked = useMemo(() => {
+    const set = new Set<string>([dept.id]);
+    const walk = (id: string) => {
+      const ch = byParent.get(id) ?? [];
+      ch.forEach((c) => { set.add(c.id); walk(c.id); });
+    };
+    walk(dept.id);
+    return set;
+  }, [dept.id, byParent]);
+
+  const candidates = allDepartments
+    .filter((d) => !blocked.has(d.id))
+    .filter((d) => (d.name ?? "").toLowerCase().includes(q.toLowerCase()))
+    .slice(0, 50);
+
+  const currentParent = dept.parent_department_id
+    ? allDepartments.find((d) => d.id === dept.parent_department_id)
+    : null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary/50 hover:text-primary",
+          )}
+          title="Перенести в другую дирекцию/отдел"
+        >
+          <MoveVertical className="h-3 w-3" />
+          Перенести
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="end">
+        <div className="text-[11px] text-muted-foreground mb-1.5">
+          Текущий родитель: <b>{currentParent?.name ?? "— верхний уровень —"}</b>
+        </div>
+        <button
+          onClick={async () => { await onMove(null); setOpen(false); }}
+          className="w-full text-left px-2 py-1 rounded text-xs hover:bg-muted mb-1 border border-dashed border-border"
+        >
+          ⬆ Сделать дирекцией (верхний уровень)
+        </button>
+        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск родителя..." className="h-7 text-xs mb-2" />
+        <div className="max-h-64 overflow-auto">
+          {candidates.map((d) => (
+            <button
+              key={d.id}
+              onClick={async () => { await onMove(d.id); setOpen(false); }}
+              className="w-full text-left px-2 py-1 rounded text-xs hover:bg-muted truncate"
+            >
+              {d.name}
+            </button>
+          ))}
+          {candidates.length === 0 && <p className="text-xs text-muted-foreground p-2 text-center">Не найдено</p>}
         </div>
       </PopoverContent>
     </Popover>
