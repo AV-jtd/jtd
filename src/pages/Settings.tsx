@@ -820,6 +820,66 @@ function SearchEmptyState({ anyVisible, onReset }: { anyVisible: boolean; onRese
   );
 }
 
+/**
+ * Компактная пилюля «Админ-режим» для шапки настроек.
+ * Показывает текущий статус супер-прав и активную симуляцию роли.
+ * Тумблер мгновенно переключает права. Клик по статусу/иконке — скролл к секции с подробностями.
+ */
+function AdminModePill({
+  adminModeDisabled,
+  setAdminModeDisabled,
+  simulatedRole,
+  onJump,
+}: {
+  adminModeDisabled: boolean;
+  setAdminModeDisabled: (v: boolean) => void;
+  simulatedRole: "employee" | "consultant" | null;
+  onJump: () => void;
+}) {
+  const active = !adminModeDisabled;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-full border pl-2 pr-1 py-0.5 transition-colors",
+        active
+          ? "border-destructive/40 bg-destructive/10"
+          : "border-border bg-muted/40",
+      )}
+      title="Режим администратора"
+    >
+      <button
+        type="button"
+        onClick={onJump}
+        className="flex items-center gap-1.5 text-[11px] font-medium hover:opacity-80 transition-opacity"
+      >
+        <ShieldAlert
+          className={cn(
+            "h-3.5 w-3.5",
+            active ? "text-destructive" : "text-muted-foreground",
+          )}
+        />
+        <span className={cn(active ? "text-destructive" : "text-muted-foreground")}>
+          Админ
+        </span>
+        {simulatedRole && (
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal ml-0.5">
+            {simulatedRole === "consultant" ? "Consultant" : "Сотрудник"}
+          </Badge>
+        )}
+      </button>
+      <Switch
+        checked={active}
+        onCheckedChange={(checked) => {
+          setAdminModeDisabled(!checked);
+          toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
+        }}
+        className="scale-75 origin-right"
+        aria-label="Переключить супер-права админа"
+      />
+    </div>
+  );
+}
+
 function CalendarSubscription({ userId }: { userId: string }) {
   const [calUrl, setCalUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
