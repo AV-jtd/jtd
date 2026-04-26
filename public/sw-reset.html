@@ -73,13 +73,12 @@
     <main class="card" role="main">
       <div class="icon" aria-hidden="true">↻</div>
       <h1>Сброс кэша приложения</h1>
-      <p>Очищаем все локальные данные браузера, чтобы устранить «белый экран» после обновления.</p>
+      <p>Очищаем Service Worker и браузерный кэш, чтобы устранить «белый экран» после обновления.</p>
 
       <ul class="steps" id="steps">
         <li><span class="status pending" id="s-sw">·</span> Service Worker</li>
         <li><span class="status pending" id="s-cache">·</span> Cache Storage</li>
-        <li><span class="status pending" id="s-storage">·</span> localStorage / sessionStorage</li>
-        <li><span class="status pending" id="s-idb">·</span> IndexedDB</li>
+        <li><span class="status pending" id="s-storage">·</span> sessionStorage recovery flags</li>
       </ul>
 
       <p id="summary">Запускаем очистку…</p>
@@ -141,10 +140,9 @@
           });
         };
 
-        var clearStorage = function () {
+        var clearRecoveryFlags = function () {
           try {
-            localStorage.clear();
-            sessionStorage.clear();
+            sessionStorage.removeItem("jtd_white_screen_recovered");
             setStatus("s-storage", true);
             return Promise.resolve();
           } catch (e) {
@@ -153,42 +151,11 @@
           }
         };
 
-        var clearIndexedDB = function () {
-          if (!("indexedDB" in window)) {
-            setStatus("s-idb", true, "Не поддерживается");
-            return Promise.resolve(0);
-          }
-          var listDbs = indexedDB.databases ? indexedDB.databases() : Promise.resolve([
-            // Fallback for Safari/Firefox: known DBs used by the app.
-            { name: "tanstack-query" },
-            { name: "keyval-store" },
-            { name: "localforage" },
-          ]);
-          return listDbs.then(function (dbs) {
-            return Promise.all((dbs || []).map(function (db) {
-              if (!db || !db.name) return null;
-              return new Promise(function (resolve) {
-                try {
-                  var req = indexedDB.deleteDatabase(db.name);
-                  req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
-                } catch (e) { resolve(); }
-              });
-            })).then(function () {
-              setStatus("s-idb", true, "Удалено: " + (dbs || []).length);
-              return (dbs || []).length;
-            });
-          }).catch(function (e) {
-            setStatus("s-idb", false, String(e));
-            return 0;
-          });
-        };
-
-        Promise.all([unregisterSW(), clearCaches(), clearStorage(), clearIndexedDB()])
+        Promise.all([unregisterSW(), clearCaches(), clearRecoveryFlags()])
           .then(function (counts) {
             summary.textContent = "Готово. Можно открыть приложение.";
             meta.textContent =
-              "SW: " + counts[0] + " · caches: " + counts[1] +
-              " · idb: " + counts[3] + " · " + new Date().toLocaleTimeString();
+              "SW: " + counts[0] + " · caches: " + counts[1] + " · " + new Date().toLocaleTimeString();
             openBtn.removeAttribute("aria-disabled");
             openBtn.style.pointerEvents = "";
             openBtn.style.opacity = "";
