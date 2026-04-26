@@ -2,7 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Guard: unregister service workers in iframe/preview contexts to avoid stale caches
+// Guard: unregister service workers in iframe/preview contexts to avoid stale caches.
+// In production (custom domain / published URL), vite-plugin-pwa's auto-injected
+// registration script takes over and installs the real Workbox service worker.
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
@@ -13,12 +15,6 @@ const isPreviewHost =
 if (isPreviewHost || isInIframe) {
   navigator.serviceWorker?.getRegistrations().then((regs) => {
     regs.forEach((r) => r.unregister());
-  });
-} else {
-  // Emergency SW cleanup: production currently runs a self-destroying worker
-  // from vite-plugin-pwa, so do not register the app PWA worker from runtime.
-  navigator.serviceWorker?.getRegistrations().then((regs) => {
-    regs.forEach((r) => r.update().catch(() => {}));
   });
 }
 
