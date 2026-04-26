@@ -2286,11 +2286,16 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      user_extra_tasks_arr: { Args: { _user_id: string }; Returns: string[] }
       user_extra_visible_task_ids: {
         Args: { _user_id: string }
         Returns: {
           task_id: string
         }[]
+      }
+      user_protocol_groups_arr: {
+        Args: { _user_id: string }
+        Returns: string[]
       }
       user_subordinate_ids: {
         Args: { _user_id: string }
@@ -2298,18 +2303,21 @@ export type Database = {
           subordinate_id: string
         }[]
       }
+      user_subordinates_arr: { Args: { _user_id: string }; Returns: string[] }
       user_visible_department_ids: {
         Args: { _user_id: string }
         Returns: {
           department_id: string
         }[]
       }
+      user_visible_depts_arr: { Args: { _user_id: string }; Returns: string[] }
       user_visible_group_ids: {
         Args: { _user_id: string }
         Returns: {
           group_id: string
         }[]
       }
+      user_visible_groups_arr: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "user" | "consultant" | "director"
