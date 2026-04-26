@@ -87,7 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setIsApproved((profileRes.data as any)?.is_approved ?? false);
+      // Если профиль успешно прочитан — обновляем approval из БД.
+      // Если запрос упал (RLS/сеть/timeout), НЕ сбрасываем isApproved в false:
+      // иначе одобренного пользователя несправедливо выкинет на /pending.
+      if (profileRes.error) {
+        console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
+      } else {
+        setIsApproved((profileRes.data as any)?.is_approved ?? false);
+      }
       setIsAdmin(!!roleRes.data);
       setIsConsultant(!!consultantRes.data);
 
