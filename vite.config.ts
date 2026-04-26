@@ -147,4 +147,84 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Increase warning limit so we don't see noise for legitimately large
+    // page chunks (e.g. ProtocolDetail, exceljs, xlsx already split).
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        // Manual vendor chunking — splits the 1.16 MB main bundle into
+        // logical groups so the initial mobile load only fetches what's
+        // needed for the first paint. Heavier groups (charts, dnd, editor)
+        // are loaded lazily by the routes that actually use them.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+
+          // React core — needed on every page, keep together for cache hit.
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/") ||
+            id.includes("/react-router") ||
+            id.includes("/react-router-dom/")
+          ) {
+            return "vendor-react";
+          }
+
+          // Supabase client — used on every page, keep separate from react.
+          if (id.includes("@supabase/")) {
+            return "vendor-supabase";
+          }
+
+          // TanStack Query — used everywhere, but stable.
+          if (id.includes("@tanstack/")) {
+            return "vendor-query";
+          }
+
+          // Radix UI primitives — heavy, but used across many pages.
+          if (id.includes("@radix-ui/")) {
+            return "vendor-radix";
+          }
+
+          // Lucide icons — large set, used widely.
+          if (id.includes("lucide-react")) {
+            return "vendor-icons";
+          }
+
+          // Date utilities.
+          if (id.includes("date-fns")) {
+            return "vendor-date";
+          }
+
+          // Drag-and-drop — only sidebar/board pages.
+          if (id.includes("@dnd-kit/") || id.includes("react-beautiful-dnd")) {
+            return "vendor-dnd";
+          }
+
+          // Charts — only dashboard/PMO/reports.
+          if (id.includes("recharts") || id.includes("d3-")) {
+            return "vendor-charts";
+          }
+
+          // Rich-text editor — only Wiki.
+          if (id.includes("@tiptap/") || id.includes("prosemirror")) {
+            return "vendor-editor";
+          }
+
+          // Animation library — used in several places.
+          if (id.includes("framer-motion")) {
+            return "vendor-motion";
+          }
+
+          // Form handling.
+          if (id.includes("react-hook-form") || id.includes("@hookform/") || id.includes("zod")) {
+            return "vendor-forms";
+          }
+
+          // Everything else from node_modules → generic vendor bucket.
+          return "vendor-misc";
+        },
+      },
+    },
+  },
 }));
