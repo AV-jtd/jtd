@@ -1903,6 +1903,23 @@ export type Database = {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
       }
+      consultant_can_see_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      consultant_can_see_tag: {
+        Args: { _tag_id: string; _user_id: string }
+        Returns: boolean
+      }
+      consultant_can_see_task: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      consultant_can_see_user: {
+        Args: { _target: string; _viewer: string }
+        Returns: boolean
+      }
+      consultant_company: { Args: { _user_id: string }; Returns: string }
       debug_user_visible_groups: {
         Args: { _user_id: string }
         Returns: {
@@ -1934,6 +1951,7 @@ export type Database = {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
       }
+      is_consultant: { Args: { _user_id: string }; Returns: boolean }
       is_delegatee_in_group: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
