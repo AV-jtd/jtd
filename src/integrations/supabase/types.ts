@@ -107,6 +107,94 @@ export type Database = {
         }
         Relationships: []
       }
+      client_assignments: {
+        Row: {
+          client_id: string
+          created_at: string
+          group_id: string | null
+          id: string
+          manager_id: string | null
+          notes: string | null
+          rank_tag_id: string | null
+          retail_type_tag_id: string | null
+          tag_id: string | null
+          territory_tag_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          manager_id?: string | null
+          notes?: string | null
+          rank_tag_id?: string | null
+          retail_type_tag_id?: string | null
+          tag_id?: string | null
+          territory_tag_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          manager_id?: string | null
+          notes?: string | null
+          rank_tag_id?: string | null
+          retail_type_tag_id?: string | null
+          tag_id?: string | null
+          territory_tag_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_assignments_rank_tag_id_fkey"
+            columns: ["rank_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_assignments_retail_type_tag_id_fkey"
+            columns: ["retail_type_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_assignments_territory_tag_id_fkey"
+            columns: ["territory_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           city: string | null
@@ -2174,6 +2262,10 @@ export type Database = {
       task_has_tag_access: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
+      }
+      upsert_client_by_name: {
+        Args: { _name: string; _user_id: string }
+        Returns: string
       }
       user_belongs_to_department: {
         Args: { _department_id: string; _user_id: string }
