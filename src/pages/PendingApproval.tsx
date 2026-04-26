@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Clock, LogOut } from "lucide-react";
+import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 
 export default function PendingApproval() {
   const { user, loading, isApproved, signOut } = useAuth();
@@ -12,11 +12,15 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user || isApproved) return;
     const interval = setInterval(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("is_approved")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
+      if (error) {
+        console.warn("[Pending] poll failed:", error);
+        return;
+      }
       if (data?.is_approved) {
         window.location.href = "/";
       }
@@ -35,6 +39,20 @@ export default function PendingApproval() {
   if (!user) return <Navigate to="/auth" replace />;
   if (isApproved) return <Navigate to="/" replace />;
 
+  const handleRefresh = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("is_approved")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (data?.is_approved) {
+      window.location.href = "/";
+    } else {
+      // hard reload to drop any stale cache / service-worker state
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="max-w-sm w-full text-center space-y-6">
@@ -47,7 +65,11 @@ export default function PendingApproval() {
             Ваша заявка на регистрацию отправлена. Администратор рассмотрит её в ближайшее время.
           </p>
         </div>
-        <div className="pt-2">
+        <div className="pt-2 flex items-center justify-center gap-2">
+          <Button variant="default" onClick={handleRefresh} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Проверить статус
+          </Button>
           <Button variant="outline" onClick={signOut} className="gap-2">
             <LogOut className="h-4 w-4" />
             Выйти
