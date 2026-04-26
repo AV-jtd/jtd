@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown, Undo2, AlertTriangle } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
+import { UserExtraDeptsPicker } from "./UserExtraDeptsPicker";
 import type { AdminUser, Department, ContractorLite, ClientLite } from "./types";
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
   departments: Department[];
   contractors: ContractorLite[];
   clients: ClientLite[];
+  /** ID доп. (не-primary) отделов пользователя из user_departments. */
+  extraDeptIds: string[];
   editingNameId: string | null;
   editingNameValue: string;
   onStartEditName: (u: AdminUser) => void;
@@ -34,7 +37,7 @@ interface Props {
 
 export function UserCard({
   user: u, isProtectedAdmin, selected, onToggleSelect,
-  departments, contractors, clients,
+  departments, contractors, clients, extraDeptIds,
   editingNameId, editingNameValue, onStartEditName, onChangeNameValue, onSaveName, onCancelEditName,
   onApprove, onDepartmentChange, onToggleHead, onUpdateField, onDelete, onRestore, onHardDelete, onShowHistory,
 }: Props) {
