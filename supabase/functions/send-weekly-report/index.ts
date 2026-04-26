@@ -147,8 +147,16 @@ Deno.serve(async (req) => {
         return ` [✓${info.completed}/${info.total}]`;
       };
 
+      // Smart greeting based on Moscow time-of-day + first name
+      const firstName = (profile.display_name || "").trim().split(/\s+/)[0] || "Коллега";
+      const mskHour = moscowNow.getHours();
+      const greetingWord = mskHour < 5 ? "Доброй ночи" : mskHour < 12 ? "Доброе утро" : mskHour < 18 ? "Добрый день" : "Добрый вечер";
+      const greeting = pickGreeting(greetingWord, firstName, { pct, overdue: overdue.length, weekTasks: weekTasks.length });
+
       // Build message
       const lines: string[] = [
+        `${greeting}`,
+        ``,
         `📊 <b>Еженедельный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
@@ -239,10 +247,7 @@ Deno.serve(async (req) => {
         report_data: reportData,
       });
 
-      // Send Telegram message
-      let text = lines.join("\n");
-
-      // Append AI review block
+      // Generate AI review block (placed at the top, after greeting)
       const aiBlock = await generateAiBlock({
         userName: profile.display_name || "Коллега",
         completionRate: pct,
@@ -256,9 +261,13 @@ Deno.serve(async (req) => {
         noAssigneeCount: stepsNoAssignee.length,
         projectsCount: groups.length,
       });
+
+      // Compose: greeting → AI block → metrics
+      let text = lines[0]; // greeting
       if (aiBlock) {
-        text += `\n\n━━━━━━━━━━━━━━\n${aiBlock}`;
+        text += `\n\n${aiBlock}\n\n━━━━━━━━━━━━━━`;
       }
+      text += `\n` + lines.slice(1).join("\n");
 
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
@@ -339,4 +348,43 @@ async function generateAiBlock(d: {
     console.error("AI block error:", e);
     return null;
   }
+}
+
+function pickGreeting(timeWord: string, name: string, ctx: { pct: number; overdue: number; weekTasks: number }): string {
+  // Smart variants: pick by context, randomized within bucket for variety
+  const variants: string[] = [];
+
+  if (ctx.overdue === 0 && ctx.pct >= 80) {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Неделя прошла отлично — держим темп 🚀`,
+      `✨ ${timeWord}, <b>${name}</b>! Чисто закрыли неделю, поздравляю 🎯`,
+      `🏆 ${timeWord}, <b>${name}</b>! Образцовая неделя — так держать!`,
+    );
+  } else if (ctx.overdue === 0) {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Без просрочек — отличная дисциплина 👌`,
+      `🌿 ${timeWord}, <b>${name}</b>! Спокойная неделя без хвостов.`,
+      `☕ ${timeWord}, <b>${name}</b>! Подведём итоги — всё под контролем.`,
+    );
+  } else if (ctx.overdue >= 5) {
+    variants.push(
+      `⚡ ${timeWord}, <b>${name}</b>! Накопилось — давай разберём вместе.`,
+      `🎯 ${timeWord}, <b>${name}</b>! Время сфокусироваться на хвостах.`,
+      `🧭 ${timeWord}, <b>${name}</b>! Сверим курс — есть, что подтянуть.`,
+    );
+  } else if (ctx.weekTasks >= 5) {
+    variants.push(
+      `🚀 ${timeWord}, <b>${name}</b>! Впереди насыщенная неделя — соберёмся.`,
+      `📅 ${timeWord}, <b>${name}</b>! Много дедлайнов — расставим приоритеты.`,
+      `💼 ${timeWord}, <b>${name}</b>! План на неделю плотный, но выполнимый.`,
+    );
+  } else {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Подведём итоги недели.`,
+      `📊 ${timeWord}, <b>${name}</b>! Свежий обзор уже готов.`,
+      `🌱 ${timeWord}, <b>${name}</b>! Рабочая неделя — на пятничном чек-апе.`,
+    );
+  }
+
+  return variants[Math.floor(Math.random() * variants.length)];
 }
