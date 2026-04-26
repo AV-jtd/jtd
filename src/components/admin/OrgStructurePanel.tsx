@@ -179,7 +179,17 @@ function DeptRow(p: DeptRowProps) {
   const [editName, setEditName] = useState(dept.name);
 
   const headUser = dept.head_user_id ? users.find((u) => u.id === dept.head_user_id) : null;
-  const memberCount = (usersByDept.get(dept.id) ?? []).length;
+  const directCount = (usersByDept.get(dept.id) ?? []).length;
+  // Считаем общее число уникальных сотрудников включая все подотделы (рекурсивно)
+  const totalCount = useMemo(() => {
+    const set = new Set<string>();
+    const walk = (id: string) => {
+      (usersByDept.get(id) ?? []).forEach((m) => set.add(m.userId));
+      (byParent.get(id) ?? []).forEach((c) => walk(c.id));
+    };
+    walk(dept.id);
+    return set.size;
+  }, [dept.id, usersByDept, byParent]);
   const dirIds = directorsByDept.get(dept.id) ?? [];
 
   const canAddChild = depth < 2; // 3 уровня
@@ -242,7 +252,23 @@ function DeptRow(p: DeptRowProps) {
           {depth === 0 ? "Дирекция" : depth === 1 ? "Отдел" : "Подотдел"}
         </Badge>
 
-        <span className="text-[11px] text-muted-foreground shrink-0">{memberCount}</span>
+        <span
+          className="text-[11px] text-muted-foreground shrink-0"
+          title={
+            children.length > 0
+              ? `Сотрудников напрямую: ${directCount}\nВсего с подотделами: ${totalCount}`
+              : `Сотрудников: ${directCount}`
+          }
+        >
+          {children.length > 0 && totalCount !== directCount ? (
+            <>
+              {directCount}
+              <span className="opacity-60"> / {totalCount}</span>
+            </>
+          ) : (
+            directCount
+          )}
+        </span>
 
         {/* Head */}
         <div className="ml-auto flex items-center gap-1 shrink-0">
