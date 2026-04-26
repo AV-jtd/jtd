@@ -3,6 +3,7 @@ import { Menu, Search, Sparkles, MessageCircle, ShieldAlert } from "lucide-react
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AppHeaderProps {
   onMenuClick?: () => void;
@@ -32,7 +33,29 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { isAdmin, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
+  const { isAdmin, isRealAdmin, isConsultant, adminModeDisabled, setAdminModeDisabled } = useAuth();
+
+  // Faded-кнопка для консультантов: видна, но disabled, с tooltip-объяснением.
+  const ConsultantLockedButton = ({ icon: Icon, label }: { icon: typeof Search; label: string }) => (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="p-1.5 rounded-lg text-muted-foreground/40 cursor-not-allowed"
+            title={label}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+          {label} доступен только сотрудникам компании
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -140,43 +163,55 @@ export default function AppHeader({
           </button>
         )}
         {onSearchOpen && (
-          <button
-            onClick={onSearchOpen}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Поиск (⌘K)"
-          >
-            <Search className="h-4 w-4" />
-          </button>
+          isConsultant
+            ? <ConsultantLockedButton icon={Search} label="Поиск" />
+            : (
+              <button
+                onClick={onSearchOpen}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Поиск (⌘K)"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            )
         )}
 
         {onAiOpen && (
-          <button
-            onClick={onAiOpen}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="ИИ-ассистент"
-          >
-            <Sparkles className="h-4 w-4" />
-          </button>
+          isConsultant
+            ? <ConsultantLockedButton icon={Sparkles} label="ИИ-ассистент" />
+            : (
+              <button
+                onClick={onAiOpen}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="ИИ-ассистент"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+            )
         )}
 
         {onMessengerToggle && (
-          <button
-            onClick={onMessengerToggle}
-            className={cn(
-              "p-1.5 rounded-lg transition-colors relative",
-              messengerOpen
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-            title="Сообщения"
-          >
-            <MessageCircle className="h-4 w-4" />
-            {unreadCount > 0 && !messengerOpen && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none animate-in zoom-in-50">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
+          isConsultant
+            ? <ConsultantLockedButton icon={MessageCircle} label="Мессенджер" />
+            : (
+              <button
+                onClick={onMessengerToggle}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors relative",
+                  messengerOpen
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Сообщения"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {unreadCount > 0 && !messengerOpen && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none animate-in zoom-in-50">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            )
         )}
 
       </div>

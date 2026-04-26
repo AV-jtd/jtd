@@ -92,6 +92,7 @@ export default function Index() {
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
+    if (isConsultant) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -100,7 +101,7 @@ export default function Index() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [isConsultant]);
 
   if (loading) {
     return (
@@ -198,7 +199,7 @@ export default function Index() {
               onAiOpen={() => setAiOpen(true)}
               onViewChange={(v) => { setActiveView(v); setActiveGroupId(null); setActiveTagFilters([]); }}
             />
-            {chatOpen && activeGroupId && activeView === "group" && (
+            {chatOpen && activeGroupId && activeView === "group" && !isConsultant && (
               <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
                 <Suspense fallback={<ViewFallback />}>
                   <ProjectChat
@@ -255,7 +256,7 @@ export default function Index() {
         </div>
 
         {/* Messenger panel */}
-        {messengerOpen && (
+        {messengerOpen && !isConsultant && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
             <Suspense fallback={<ViewFallback />}>
               <MessengerPanel
@@ -339,6 +340,7 @@ export default function Index() {
       )}
 
       {searchOpen && (
+        !isConsultant &&
         <Suspense fallback={null}>
           <GlobalSearch
             open={searchOpen}
@@ -363,6 +365,7 @@ export default function Index() {
       )}
 
       {aiOpen && (
+        !isConsultant &&
         <Suspense fallback={null}>
           <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "tasks" }} />
         </Suspense>

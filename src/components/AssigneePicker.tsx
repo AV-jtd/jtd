@@ -6,6 +6,7 @@ import { Building2, HardHat, User as UserIcon, X, Search } from "lucide-react";
 import type { Profile } from "@/hooks/useTasks";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useContractors } from "@/hooks/useContractors";
+import { useAuth } from "@/hooks/useAuth";
 
 export type AssigneeKind = "user" | "department" | "contractor" | null;
 
@@ -50,6 +51,10 @@ export default function AssigneePicker({
   allowClear = true,
   excludeUserIds = [],
 }: Props) {
+  const { isConsultant } = useAuth();
+  // Консультанту запрещено делегировать в отделы и подрядчикам.
+  const effHideDepartment = hideDepartment || isConsultant;
+  const effHideContractor = hideContractor || isConsultant;
   const [tab, setTab] = useState<"user" | "department" | "contractor">(
     current?.kind === "department" ? "department" :
     current?.kind === "contractor" ? "contractor" :
@@ -91,9 +96,9 @@ export default function AssigneePicker({
   // Счётчики совпадений по вкладкам — для бейджей и автопереключения
   const counts = useMemo(() => ({
     user: filteredUsers.length,
-    department: hideDepartment ? 0 : filteredDepartments.length,
-    contractor: hideContractor ? 0 : filteredContractors.length,
-  }), [filteredUsers.length, filteredDepartments.length, filteredContractors.length, hideDepartment, hideContractor]);
+    department: effHideDepartment ? 0 : filteredDepartments.length,
+    contractor: effHideContractor ? 0 : filteredContractors.length,
+  }), [filteredUsers.length, filteredDepartments.length, filteredContractors.length, effHideDepartment, effHideContractor]);
 
   // Подсветка совпадения в строке
   const highlight = (text: string) => {
@@ -116,10 +121,10 @@ export default function AssigneePicker({
     if (!value.trim()) return;
     const q = value.toLowerCase();
     const inUser = users.some(u => !excludeUserIds.includes(u.id) && (u.display_name ?? "").toLowerCase().includes(q));
-    const inDept = !hideDepartment && departments.some(d =>
+    const inDept = !effHideDepartment && departments.some(d =>
       d.name.toLowerCase().includes(q) || (d.description ?? "").toLowerCase().includes(q)
     );
-    const inContr = !hideContractor && contractors.some(c =>
+    const inContr = !effHideContractor && contractors.some(c =>
       c.name.toLowerCase().includes(q) ||
       (c.organization ?? "").toLowerCase().includes(q) ||
       (c.contact_name ?? "").toLowerCase().includes(q)
@@ -139,7 +144,7 @@ export default function AssigneePicker({
     setSearch("");
   };
 
-  const tabsCount = (hideDepartment ? 0 : 1) + (hideContractor ? 0 : 1) + 1;
+  const tabsCount = (effHideDepartment ? 0 : 1) + (effHideContractor ? 0 : 1) + 1;
 
   return (
     <Popover open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(""); }}>
@@ -154,7 +159,7 @@ export default function AssigneePicker({
                   <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.user}</span>
                 )}
               </TabsTrigger>
-              {!hideDepartment && (
+              {!effHideDepartment && (
                 <TabsTrigger value="department" className="text-xs gap-1">
                   <Building2 className="h-3 w-3" />Отдел
                   {search.trim() && counts.department > 0 && (
@@ -162,7 +167,7 @@ export default function AssigneePicker({
                   )}
                 </TabsTrigger>
               )}
-              {!hideContractor && (
+              {!effHideContractor && (
                 <TabsTrigger value="contractor" className="text-xs gap-1">
                   <HardHat className="h-3 w-3" />Подрядчик
                   {search.trim() && counts.contractor > 0 && (
@@ -202,7 +207,7 @@ export default function AssigneePicker({
             </div>
           </TabsContent>
 
-          {!hideDepartment && (
+          {!effHideDepartment && (
             <TabsContent value="department" className="m-0">
               <div className="max-h-56 overflow-y-auto space-y-0.5">
                 {filteredDepartments.length === 0 && (
@@ -229,7 +234,7 @@ export default function AssigneePicker({
             </TabsContent>
           )}
 
-          {!hideContractor && (
+          {!effHideContractor && (
             <TabsContent value="contractor" className="m-0">
               <div className="max-h-56 overflow-y-auto space-y-0.5">
                 {filteredContractors.length === 0 && (

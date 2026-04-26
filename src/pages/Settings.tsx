@@ -20,7 +20,7 @@ import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
-  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
+  const { user, loading, isRealAdmin, isConsultant, adminModeDisabled, setAdminModeDisabled } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const { prefs, updatePrefs } = useNotificationPreferences();
@@ -343,9 +343,10 @@ export default function Settings() {
             </div>
 
             {/* Calendar Subscription */}
-            <CalendarSubscription userId={user.id} />
+            {!isConsultant && <CalendarSubscription userId={user.id} />}
 
             {/* Tags management */}
+            {!isConsultant && (
             <div className="border-t border-border pt-6">
               <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
                 <Tag className="h-5 w-5 text-primary" />
@@ -356,8 +357,10 @@ export default function Settings() {
               </p>
               <TagManagementPanel />
             </div>
+            )}
 
             {/* Departments & Contractors */}
+            {!isConsultant && (
             <div className="border-t border-border pt-6">
               <h2 className="text-lg font-semibold mb-1">
                 Делегирование
@@ -367,8 +370,10 @@ export default function Settings() {
               </p>
               <DelegationPanel />
             </div>
+            )}
 
             {/* Import/Export */}
+            {!isConsultant && (
             <div className="border-t border-border pt-6">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Download className="h-5 w-5 text-primary" />
@@ -379,11 +384,14 @@ export default function Settings() {
               </p>
               <SmartImportDialog />
             </div>
+            )}
 
             {/* Teams section */}
+            {!isConsultant && (
             <div className="border-t border-border pt-6">
               <TeamSection />
             </div>
+            )}
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
@@ -419,7 +427,7 @@ export default function Settings() {
             )}
 
             {/* Admin approval */}
-            <AdminApproval />
+            {!isConsultant && <AdminApproval />}
           </div>
         )}
       </div>
