@@ -91,7 +91,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-5xl p-6">
         <Link
           to="/"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
