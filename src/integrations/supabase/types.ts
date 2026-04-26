@@ -278,6 +278,35 @@ export type Database = {
         }
         Relationships: []
       }
+      department_directors: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department_id: string
+          director_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department_id: string
+          director_user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string
+          director_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_directors_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           color: string | null
@@ -287,6 +316,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          parent_department_id: string | null
           position: number
           updated_at: string
           user_id: string
@@ -299,6 +329,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          parent_department_id?: string | null
           position?: number
           updated_at?: string
           user_id: string
@@ -311,11 +342,20 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          parent_department_id?: string | null
           position?: number
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_parent_department_id_fkey"
+            columns: ["parent_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       group_members: {
         Row: {
@@ -1709,6 +1749,35 @@ export type Database = {
           },
         ]
       }
+      user_departments: {
+        Row: {
+          created_at: string
+          department_id: string
+          is_primary: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          is_primary?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          is_primary?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1946,9 +2015,16 @@ export type Database = {
           parent_id: string
         }[]
       }
+      department_depth: { Args: { _dept_id: string }; Returns: number }
       ensure_protocol_review_task: {
         Args: { _assignee: string; _protocol_id: string }
         Returns: undefined
+      }
+      get_department_descendants: {
+        Args: { _dept_id: string }
+        Returns: {
+          id: string
+        }[]
       }
       get_unread_threads: {
         Args: never
@@ -1956,6 +2032,19 @@ export type Database = {
           last_message_at: string
           thread_id: string
           unread_count: number
+        }[]
+      }
+      get_user_departments: {
+        Args: { _user_id: string }
+        Returns: {
+          department_id: string
+          is_primary: boolean
+        }[]
+      }
+      get_user_visible_departments: {
+        Args: { _user_id: string }
+        Returns: {
+          department_id: string
         }[]
       }
       has_role: {
@@ -1972,6 +2061,10 @@ export type Database = {
       is_consultant: { Args: { _user_id: string }; Returns: boolean }
       is_delegatee_in_group: {
         Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_director_of_department: {
+        Args: { _dept_id: string; _user_id: string }
         Returns: boolean
       }
       is_director_of_user: {
@@ -2088,7 +2181,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "consultant"
+      app_role: "admin" | "user" | "consultant" | "director"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2216,7 +2309,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "consultant"],
+      app_role: ["admin", "user", "consultant", "director"],
     },
   },
 } as const
