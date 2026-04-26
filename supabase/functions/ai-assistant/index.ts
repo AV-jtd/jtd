@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { blockConsultant } from "../_shared/consultant-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +71,9 @@ function applyQuickHintsToTask(task: any, hints: QuickHints | undefined) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const blocked = await blockConsultant(req, { corsHeaders });
+  if (blocked) return blocked;
 
   try {
     const { message, context, action, quickHints } = await req.json();
