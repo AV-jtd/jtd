@@ -677,29 +677,11 @@ export default function Settings() {
                 hidden={!matches("admin_mode", "Режим администратора", "права супер симуляция")}
               >
                 <div className="space-y-3">
-                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      Супер-права админа
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Когда включены — видно всё (чужие задачи, проекты, теги, панель утверждения пользователей).
-                      Выключите, чтобы интерфейс выглядел как у обычного юзера.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Статус: <span className={cn("font-semibold", adminModeDisabled ? "text-muted-foreground" : "text-destructive")}>
-                        {adminModeDisabled ? "Выключен" : "Включен"}
-                      </span>
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!adminModeDisabled}
-                    onCheckedChange={(checked) => {
-                      setAdminModeDisabled(!checked);
-                      toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
-                    }}
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Тумблер «Супер-права» вынесен в шапку страницы — переключайте оттуда. Когда права включены —
+                  видно всё (чужие задачи, проекты, теги, панель утверждения пользователей). Выключите, чтобы интерфейс
+                  выглядел как у обычного юзера.
+                </p>
 
                 {/* Симуляция роли (только визуально). RLS на сервере не меняется. */}
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
