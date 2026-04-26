@@ -58,7 +58,7 @@ export function UserCard({
                   if (e.key === "Enter") { e.preventDefault(); onSaveName(u.id); }
                   if (e.key === "Escape") { e.preventDefault(); onCancelEditName(); }
                 }}
-                className="h-7 text-sm font-medium w-[220px]"
+                className="h-7 text-sm font-medium w-full max-w-[280px]"
                 placeholder="ФИО"
               />
               <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => onSaveName(u.id)}>
@@ -69,18 +69,18 @@ export function UserCard({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 group/name">
-              <p className="text-sm font-medium truncate">
+            <div className="flex items-center gap-1.5 group/name min-w-0">
+              <p className="text-sm font-medium truncate min-w-0">
                 {u.display_name || <span className="text-muted-foreground italic">Без имени</span>}
               </p>
               {isProtectedAdmin && (
-                <Badge variant="outline" className="h-5 text-[10px] gap-0.5 border-primary/40 text-primary">
+                <Badge variant="outline" className="h-5 text-[10px] gap-0.5 border-primary/40 text-primary shrink-0">
                   <ShieldCheck className="h-2.5 w-2.5" /> admin
                 </Badge>
               )}
               <button
                 onClick={() => onStartEditName(u)}
-                className="p-1 rounded hover:bg-muted opacity-0 group-hover/name:opacity-100 transition-opacity"
+                className="p-1 rounded hover:bg-muted opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0"
                 aria-label="Редактировать имя"
               >
                 <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -101,12 +101,12 @@ export function UserCard({
         </div>
 
         {/* Action column */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Select
             value={u.department_id ?? "__none"}
             onValueChange={(v) => onDepartmentChange(u.id, v === "__none" ? null : v)}
           >
-            <SelectTrigger className="h-8 w-[180px] text-xs">
+            <SelectTrigger className="h-8 w-[150px] text-xs">
               <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
               <SelectValue placeholder="Отдел" />
             </SelectTrigger>
@@ -119,23 +119,18 @@ export function UserCard({
           </Select>
 
           {u.is_approved ? (
-            <Badge variant="secondary" className="text-xs">Активен</Badge>
-          ) : null}
-
-          {u.is_approved ? (
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
               onClick={() => onApprove(u.id, false)}
               disabled={isProtectedAdmin}
-              title={isProtectedAdmin ? "Нельзя деактивировать администратора" : ""}
-              className="gap-1"
+              title={isProtectedAdmin ? "Нельзя деактивировать администратора" : "Деактивировать"}
+              className="h-8 w-8"
             >
               <UserX className="h-3.5 w-3.5" />
-              Деактивировать
             </Button>
           ) : (
-            <Button size="sm" onClick={() => onApprove(u.id, true)} className="gap-1">
+            <Button size="sm" onClick={() => onApprove(u.id, true)} className="h-8 gap-1 text-xs">
               <UserCheck className="h-3.5 w-3.5" />
               Одобрить
             </Button>
