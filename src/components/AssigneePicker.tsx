@@ -8,6 +8,7 @@ import { useDepartments } from "@/hooks/useDepartments";
 import { useContractors } from "@/hooks/useContractors";
 import { useAuth } from "@/hooks/useAuth";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CONSULTANT_FADED_CLASS, consultantTooltip } from "@/lib/consultantRestrictions";
 
 export type AssigneeKind = "user" | "department" | "contractor" | null;
 
@@ -53,18 +54,19 @@ export default function AssigneePicker({
   excludeUserIds = [],
 }: Props) {
   const { isConsultant } = useAuth();
-  // Консультанту запрещено делегировать в отделы/подрядчикам — вкладки видны, но faded+disabled.
-  // Жёстко скрываем только если родитель явно попросил (hideDepartment/hideContractor).
+  // Консультанту вкладки видны, но faded+disabled (если родитель не скрыл явно).
   const effHideDepartment = hideDepartment;
   const effHideContractor = hideContractor;
+  const deptDisabled = isConsultant;
+  const contrDisabled = isConsultant;
   const [tab, setTab] = useState<"user" | "department" | "contractor">(
-    current?.kind === "department" && !isConsultant ? "department" :
-    current?.kind === "contractor" && !isConsultant ? "contractor" :
+    current?.kind === "department" && !deptDisabled ? "department" :
+    current?.kind === "contractor" && !contrDisabled ? "contractor" :
     "user"
   );
   const [search, setSearch] = useState("");
 
-  // Не дёргаем эндпоинты для consultant — RLS вернёт пустоту, но лишний запрос ни к чему.
+  // Не дёргаем эндпоинты для consultant — RLS вернёт пустоту, лишний запрос ни к чему.
   const departmentsQuery = useDepartments();
   const contractorsQuery = useContractors();
   const departments = isConsultant ? [] : (departmentsQuery.data ?? []);
@@ -126,10 +128,10 @@ export default function AssigneePicker({
     if (!value.trim()) return;
     const q = value.toLowerCase();
     const inUser = users.some(u => !excludeUserIds.includes(u.id) && (u.display_name ?? "").toLowerCase().includes(q));
-    const inDept = !effHideDepartment && !isConsultant && departments.some(d =>
+    const inDept = !effHideDepartment && departments.some(d =>
       d.name.toLowerCase().includes(q) || (d.description ?? "").toLowerCase().includes(q)
     );
-    const inContr = !effHideContractor && !isConsultant && contractors.some(c =>
+    const inContr = !effHideContractor && contractors.some(c =>
       c.name.toLowerCase().includes(q) ||
       (c.organization ?? "").toLowerCase().includes(q) ||
       (c.contact_name ?? "").toLowerCase().includes(q)
@@ -158,8 +160,8 @@ export default function AssigneePicker({
         <Tabs
           value={tab}
           onValueChange={(v: any) => {
-            // Блокируем переключение на закрытые для consultant вкладки.
-            if (isConsultant && (v === "department" || v === "contractor")) return;
+            if (deptDisabled && v === "department") return;
+            if (contrDisabled && v === "contractor") return;
             setTab(v);
           }}
         >
@@ -172,20 +174,20 @@ export default function AssigneePicker({
                 )}
               </TabsTrigger>
               {!effHideDepartment && (
-                isConsultant ? (
+                deptDisabled ? (
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <TabsTrigger
                           value="department"
                           disabled
-                          className="text-xs gap-1 opacity-40 cursor-not-allowed data-[state=active]:bg-transparent"
+                          className={`text-xs gap-1 ${CONSULTANT_FADED_CLASS} data-[state=active]:bg-transparent`}
                         >
                           <Building2 className="h-3 w-3" />Отдел
                         </TabsTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px] text-xs">
-                        Делегирование отделам доступно только сотрудникам компании
+                        {consultantTooltip("delegation")}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -199,20 +201,20 @@ export default function AssigneePicker({
                 )
               )}
               {!effHideContractor && (
-                isConsultant ? (
+                contrDisabled ? (
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <TabsTrigger
                           value="contractor"
                           disabled
-                          className="text-xs gap-1 opacity-40 cursor-not-allowed data-[state=active]:bg-transparent"
+                          className={`text-xs gap-1 ${CONSULTANT_FADED_CLASS} data-[state=active]:bg-transparent`}
                         >
                           <HardHat className="h-3 w-3" />Подрядчик
                         </TabsTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px] text-xs">
-                        Делегирование подрядчикам доступно только сотрудникам компании
+                        {consultantTooltip("delegation")}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

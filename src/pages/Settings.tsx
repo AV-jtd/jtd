@@ -18,9 +18,10 @@ import AdminApproval from "@/components/AdminApproval";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
+import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
 
 export default function Settings() {
-  const { user, loading, isRealAdmin, isConsultant, adminModeDisabled, setAdminModeDisabled } = useAuth();
+  const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const { prefs, updatePrefs } = useNotificationPreferences();
@@ -343,55 +344,57 @@ export default function Settings() {
             </div>
 
             {/* Calendar Subscription */}
-            {!isConsultant && <CalendarSubscription userId={user.id} />}
+            <ConsultantGuard area="calendar-sync">
+              <CalendarSubscription userId={user.id} />
+            </ConsultantGuard>
 
             {/* Tags management */}
-            {!isConsultant && (
-            <div className="border-t border-border pt-6">
-              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                <Tag className="h-5 w-5 text-primary" />
-                Тэги
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
-              </p>
-              <TagManagementPanel />
-            </div>
-            )}
+            <ConsultantGuard area="tags-management">
+              <div className="border-t border-border pt-6">
+                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Тэги
+                </h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
+                </p>
+                <TagManagementPanel />
+              </div>
+            </ConsultantGuard>
 
             {/* Departments & Contractors */}
-            {!isConsultant && (
-            <div className="border-t border-border pt-6">
-              <h2 className="text-lg font-semibold mb-1">
-                Делегирование
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Отделы и подрядчики — для назначения задач без создания учётных записей. Используются как метки, уведомления не отправляются.
-              </p>
-              <DelegationPanel />
-            </div>
-            )}
+            <ConsultantGuard area="delegation">
+              <div className="border-t border-border pt-6">
+                <h2 className="text-lg font-semibold mb-1">
+                  Делегирование
+                </h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Отделы и подрядчики — для назначения задач без создания учётных записей. Используются как метки, уведомления не отправляются.
+                </p>
+                <DelegationPanel />
+              </div>
+            </ConsultantGuard>
 
             {/* Import/Export */}
-            {!isConsultant && (
-            <div className="border-t border-border pt-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Download className="h-5 w-5 text-primary" />
-                Импорт / Экспорт
-              </h2>
-              <p className="text-sm text-muted-foreground mb-3">
-                Импортируйте проект из Excel-файла (.xlsx) — AI автоматически определит колонки. Экспорт с выбором колонок и фильтров доступен в панели проекта.
-              </p>
-              <SmartImportDialog />
-            </div>
-            )}
+            <ConsultantGuard area="import-export">
+              <div className="border-t border-border pt-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Download className="h-5 w-5 text-primary" />
+                  Импорт / Экспорт
+                </h2>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Импортируйте проект из Excel-файла (.xlsx) — AI автоматически определит колонки. Экспорт с выбором колонок и фильтров доступен в панели проекта.
+                </p>
+                <SmartImportDialog />
+              </div>
+            </ConsultantGuard>
 
             {/* Teams section */}
-            {!isConsultant && (
-            <div className="border-t border-border pt-6">
-              <TeamSection />
-            </div>
-            )}
+            <ConsultantGuard area="teams">
+              <div className="border-t border-border pt-6">
+                <TeamSection />
+              </div>
+            </ConsultantGuard>
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
@@ -427,7 +430,9 @@ export default function Settings() {
             )}
 
             {/* Admin approval */}
-            {!isConsultant && <AdminApproval />}
+            <ConsultantGuard area="admin">
+              <AdminApproval />
+            </ConsultantGuard>
           </div>
         )}
       </div>

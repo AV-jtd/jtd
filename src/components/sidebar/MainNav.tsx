@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemo } from "react";
+import { CONSULTANT_VISIBLE_NAV_IDS } from "@/lib/consultantRestrictions";
 
 /**
  * Top navigation block of the sidebar.
@@ -64,8 +65,7 @@ export default function MainNav({ activeView, activeGroupId, onViewChange, onGro
   // Для консультанта оставляем только базовые личные виды.
   const visibleItems = useMemo(() => {
     if (!isConsultant) return items;
-    const allowed = new Set(["all", "inbox", "myday", "assigned", "deferred", "calendar"]);
-    return items.filter((i) => allowed.has(i.id));
+    return items.filter((i) => CONSULTANT_VISIBLE_NAV_IDS.has(i.id));
   }, [items, isConsultant]);
 
   return (
