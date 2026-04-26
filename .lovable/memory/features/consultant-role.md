@@ -11,6 +11,13 @@ type: feature
 - Триггер `sync_consultant_role` на `profiles.contractor_id`: задал contractor_id → роль consultant; снял → роль удалена.
 - Назначение через селект «Подрядчик» в `UserCard` (Админка). Никакого отдельного UI.
 
+## Stage 2 — UI faded-buttons (текущий слой)
+- AppHeader: Search/AI/Messenger у консультанта рендерятся как `disabled` faded-кнопки (`text-muted-foreground/40`, `cursor-not-allowed`) с tooltip «… доступен только сотрудникам компании».
+- ModuleLayout + Index.tsx: Cmd+K shortcut и оверлеи (GlobalSearch, AiAssistant, MessengerPanel) полностью неактивны для consultant (early-return в useEffect, условный рендер).
+- Index.tsx: ProjectChat внутри проекта дополнительно скрыт.
+- AssigneePicker: вкладки «Отдел» и «Подрядчик» автоматически скрываются (`effHideDepartment`/`effHideContractor`) — консультант делегирует только конкретным людям.
+- Settings: разделы Делегирование, Тэги (управление), Импорт/Экспорт, Команды, AdminApproval, подписка на календарь — скрыты. Доступны: профиль, тема, уведомления.
+
 ## Хелперы (SQL, SECURITY DEFINER)
 - `is_consultant(uid)`
 - `consultant_company(uid)` → contractor_id
