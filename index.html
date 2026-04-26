@@ -23,6 +23,12 @@
   <meta property="og:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <meta name="twitter:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <link rel="icon" type="image/png" href="/pwa-192x192.png">
+  <script>
+    // Must live in <head>: production build injects the app bundle into <head>,
+    // so the boot callback must exist before React starts executing.
+    window.__JTD_APP_BOOTED__ = false;
+    window.__jtdAppBooted = function () { window.__JTD_APP_BOOTED__ = true; };
+  </script>
 </head>
 
   <body>
@@ -39,11 +45,8 @@
       (function () {
         var KEY = "jtd_white_screen_recovered";
         var TIMEOUT_MS = 8000;
-        var booted = false;
-        // The app sets this flag as soon as React mounts (see src/main.tsx).
-        window.__jtdAppBooted = function () { booted = true; };
         setTimeout(function () {
-          if (booted) return;
+          if (window.__JTD_APP_BOOTED__) return;
           var root = document.getElementById("root");
           if (root && root.childElementCount > 0) return;
           // Do NOT auto-redirect here: on slow Safari/old devices it can trap
@@ -63,7 +66,7 @@
         // unrelated white-screens can also self-heal.
         window.addEventListener("load", function () {
           setTimeout(function () {
-            if (booted) {
+            if (window.__JTD_APP_BOOTED__) {
               try { sessionStorage.removeItem(KEY); } catch (e) {}
             }
           }, 2000);
