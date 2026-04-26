@@ -315,6 +315,10 @@ export default function Settings() {
               title="Профиль"
               description={`${displayName || "Без имени"}${organization ? " · " + organization : ""}`}
               defaultOpen
+              sectionId="profile"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`)}
             >
               <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -384,6 +388,10 @@ export default function Settings() {
               title="Оформление"
               description={`${mode === "light" ? "Светлая" : mode === "dark" ? "Тёмная" : "Системная"} тема`}
               defaultOpen
+              sectionId="appearance"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("appearance", "Оформление", "тема цвет акцент")}
             >
               <div className="space-y-3">
               {/* Light/Dark/System */}
@@ -454,6 +462,10 @@ export default function Settings() {
               icon={Bell}
               title="Уведомления"
               description="Включайте каналы (Web Push / Telegram) для каждого события."
+              sectionId="notifications"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("notifications", "Уведомления", "push web telegram бот матрица отчёт")}
               badge={
                 prefs ? (
                   <Badge variant="secondary" className="font-normal">
@@ -559,6 +571,10 @@ export default function Settings() {
                 icon={CalendarSync}
                 title="Подписка на календарь"
                 description="Синхронизация дедлайнов с Google / Outlook / Apple Calendar."
+                sectionId="calendar"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("calendar", "Подписка на календарь", "google outlook apple ics")}
               >
                 <CalendarSubscription userId={user.id} />
               </SettingsSection>
@@ -570,6 +586,10 @@ export default function Settings() {
                 icon={Tag}
                 title="Тэги"
                 description="Категории и тэги. Фильтрация — через панель фильтров в списке задач."
+                sectionId="tags"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("tags", "Тэги", "категории фильтры")}
               >
                 <TagManagementPanel />
               </SettingsSection>
@@ -581,6 +601,10 @@ export default function Settings() {
                 icon={Users}
                 title="Подрядчики"
                 description="Внешние исполнители без учётной записи. Используются как метка на задаче."
+                sectionId="contractors"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("contractors", "Подрядчики", "внешние делегирование")}
               >
                 <DelegationPanel />
               </SettingsSection>
@@ -592,6 +616,10 @@ export default function Settings() {
                 icon={Download}
                 title="Импорт / Экспорт"
                 description="Импорт проектов из Excel (.xlsx) — AI определяет колонки автоматически."
+                sectionId="ie"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("ie", "Импорт / Экспорт", "excel xlsx ai")}
               >
                 <SmartImportDialog />
               </SettingsSection>
@@ -603,6 +631,10 @@ export default function Settings() {
                 icon={Users}
                 title="Команды"
                 description="Совместные пространства и приглашения по invite-коду."
+                sectionId="teams"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("teams", "Команды", "приглашение invite")}
               >
                 <TeamSection />
               </SettingsSection>
@@ -610,11 +642,17 @@ export default function Settings() {
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
-              <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-destructive" />
-                  <h2 className="text-sm font-semibold">Режим администратора</h2>
-                </div>
+              <SettingsSection
+                icon={ShieldAlert}
+                iconClassName="text-destructive"
+                title="Режим администратора"
+                description={`Супер-права: ${adminModeDisabled ? "выключены" : "включены"}${simulatedRole ? ` · симуляция: ${simulatedRole === "consultant" ? "Consultant" : "Сотрудник"}` : ""}`}
+                sectionId="admin_mode"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("admin_mode", "Режим администратора", "права супер симуляция")}
+              >
+                <div className="space-y-3">
                 <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
@@ -704,7 +742,8 @@ export default function Settings() {
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              </SettingsSection>
             )}
 
             {/* Admin: Org structure + User management */}
@@ -713,7 +752,11 @@ export default function Settings() {
                 <SettingsSection
                   icon={Building2}
                   title="Оргструктура"
-                  description="Дирекция → Отдел → Подотдел. Руководители (head) и замы."
+                  description="Дирекция → Отдел → Подотдел. Руководители и замы."
+                  sectionId="org"
+                  registerRef={registerRef}
+                  forceOpen={isSearching}
+                  hidden={!matches("org", "Оргструктура", "дирекция отдел подотдел руководитель зам")}
                 >
                   <OrgStructurePanel />
                 </SettingsSection>
@@ -722,6 +765,10 @@ export default function Settings() {
                 icon={UserCog}
                 title="Управление пользователями"
                 description="Утверждение, назначение отделов, доп. отделы и роли."
+                sectionId="users"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("users", "Управление пользователями", "утверждение роли отделы")}
               >
                 <AdminApproval />
               </SettingsSection>
