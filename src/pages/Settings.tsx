@@ -441,7 +441,7 @@ export default function Settings() {
                         симуляция: серверные права (RLS, edge-функции) не меняются.
                       </p>
                       {isRealConsultant && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        <p className="text-xs text-destructive mt-1">
                           Учётка имеет реальную роль consultant — симуляция «сотрудник» не вернёт серверный доступ.
                         </p>
                       )}
