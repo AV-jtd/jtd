@@ -18,6 +18,36 @@ type: feature
 - AssigneePicker: вкладки «Отдел» и «Подрядчик» автоматически скрываются (`effHideDepartment`/`effHideContractor`) — консультант делегирует только конкретным людям.
 - Settings: разделы Делегирование, Тэги (управление), Импорт/Экспорт, Команды, AdminApproval, подписка на календарь — скрыты. Доступны: профиль, тема, уведомления.
 
+## Stage 2.1 — Общая инфраструктура (ОБЯЗАТЕЛЬНО для всех новых UI)
+
+### Где живут правила
+- **`src/lib/consultantRestrictions.ts`** — единый конфиг:
+  - `CONSULTANT_LOCKED_MESSAGE` — стандартный текст tooltip
+  - `CONSULTANT_FADED_CLASS` — Tailwind-классы faded-состояния
+  - `ConsultantRestrictedArea` — типизированный список областей
+  - `AREA_LABELS` — человекочитаемые названия
+  - `CONSULTANT_BLOCKED_ROUTES` — список закрытых роутов (для App.tsx ConsultantBlocked)
+  - `CONSULTANT_VISIBLE_NAV_IDS` — белый список боковой навигации
+  - `consultantTooltip(area)` — формирует текст tooltip
+
+### Компонент
+- **`<ConsultantGuard area="..." mode="hide|faded">`** (`src/components/consultant/ConsultantGuard.tsx`):
+  - `mode="hide"` (по умолчанию) — скрывает children для consultant
+  - `mode="faded"` — оборачивает одиночный child в disabled+faded+tooltip
+  - `useConsultantBlocked()` — хук-хелпер для условной логики вне JSX
+
+### Правило для новых фичей
+1. Любая новая кнопка/раздел/секция, недоступная внешним пользователям → оборачивается в `<ConsultantGuard area="...">`. НЕ писать `{!isConsultant && (...)}` напрямую.
+2. Новая закрытая область → добавить ключ в `ConsultantRestrictedArea` и `AREA_LABELS`.
+3. Новый закрытый роут → добавить в `CONSULTANT_BLOCKED_ROUTES` и обернуть в `<ConsultantBlocked>` в App.tsx.
+4. Новый пункт боковой навигации, доступный consultant → добавить id в `CONSULTANT_VISIBLE_NAV_IDS`.
+
+### Текущие потребители (мигрированы)
+- `AppHeader` — Search/AI/Messenger через `<ConsultantGuard mode="faded">`
+- `Settings` — все приватные разделы через `<ConsultantGuard mode="hide">`
+- `AssigneePicker` — inline faded-tabs с `CONSULTANT_FADED_CLASS` + `consultantTooltip("delegation")`
+- `MainNav` — фильтр через `CONSULTANT_VISIBLE_NAV_IDS`
+
 ## Хелперы (SQL, SECURITY DEFINER)
 - `is_consultant(uid)`
 - `consultant_company(uid)` → contractor_id
