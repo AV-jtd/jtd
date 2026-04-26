@@ -147,8 +147,16 @@ Deno.serve(async (req) => {
         return ` [✓${info.completed}/${info.total}]`;
       };
 
+      // Smart greeting based on Moscow time-of-day + first name
+      const firstName = (profile.display_name || "").trim().split(/\s+/)[0] || "Коллега";
+      const mskHour = moscowNow.getHours();
+      const greetingWord = mskHour < 5 ? "Доброй ночи" : mskHour < 12 ? "Доброе утро" : mskHour < 18 ? "Добрый день" : "Добрый вечер";
+      const greeting = pickGreeting(greetingWord, firstName, { pct, overdue: overdue.length, weekTasks: weekTasks.length });
+
       // Build message
       const lines: string[] = [
+        `${greeting}`,
+        ``,
         `📊 <b>Еженедельный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
@@ -239,10 +247,7 @@ Deno.serve(async (req) => {
         report_data: reportData,
       });
 
-      // Send Telegram message
-      let text = lines.join("\n");
-
-      // Append AI review block
+      // Generate AI review block (placed at the top, after greeting)
       const aiBlock = await generateAiBlock({
         userName: profile.display_name || "Коллега",
         completionRate: pct,
@@ -256,9 +261,13 @@ Deno.serve(async (req) => {
         noAssigneeCount: stepsNoAssignee.length,
         projectsCount: groups.length,
       });
+
+      // Compose: greeting → AI block → metrics
+      let text = lines[0]; // greeting
       if (aiBlock) {
-        text += `\n\n━━━━━━━━━━━━━━\n${aiBlock}`;
+        text += `\n\n${aiBlock}\n\n━━━━━━━━━━━━━━`;
       }
+      text += `\n` + lines.slice(1).join("\n");
 
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
