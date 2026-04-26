@@ -33,7 +33,7 @@ function ViewFallback() {
 }
 
 export default function Index() {
-  const { user, loading, isApproved } = useAuth();
+  const { user, loading, isApproved, isConsultant } = useAuth();
   const [activeView, setActiveView] = useState("all");
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
@@ -56,6 +56,14 @@ export default function Index() {
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Consultants are limited to a small whitelist of personal views.
+  // If they (or a stale state) try to land on a restricted view — bounce to "all".
+  useEffect(() => {
+    if (!isConsultant) return;
+    const allowed = new Set(["all", "inbox", "myday", "assigned", "deferred", "calendar", "group"]);
+    if (!allowed.has(activeView)) setActiveView("all");
+  }, [isConsultant, activeView]);
 
   // Lazy-mount: only render heavy views after first visit, then keep alive
   const visitedRef = useRef<Set<string>>(new Set());
