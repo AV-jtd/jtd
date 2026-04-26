@@ -23,56 +23,10 @@
   <meta property="og:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <meta name="twitter:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <link rel="icon" type="image/png" href="/pwa-192x192.png">
-  <script>
-    // Must live in <head>: production build injects the app bundle into <head>,
-    // so the boot callback must exist before React starts executing.
-    window.__JTD_APP_BOOTED__ = false;
-    window.__jtdAppBooted = function () { window.__JTD_APP_BOOTED__ = true; };
-  </script>
 </head>
 
   <body>
     <div id="root"></div>
-    <!--
-      White-screen recovery (last-resort, runs before main bundle).
-      If the main app bundle fails to load within 8 seconds (e.g. stale
-      Service Worker cache pointing to a chunk that no longer exists on
-      the server after a deploy), this script unregisters all Service
-      Workers, clears all caches, and hard-reloads the page once. The
-      `jtd_white_screen_recovered` sessionStorage flag prevents reload loops.
-    -->
-    <script>
-      (function () {
-        var KEY = "jtd_white_screen_recovered";
-        var TIMEOUT_MS = 8000;
-        setTimeout(function () {
-          if (window.__JTD_APP_BOOTED__) return;
-          var root = document.getElementById("root");
-          if (root && root.childElementCount > 0) return;
-          // Do NOT auto-redirect here: on slow Safari/old devices it can trap
-          // users in /sw-reset.html. Show a manual recovery link instead.
-          try {
-            if (sessionStorage.getItem(KEY)) return;
-            sessionStorage.setItem(KEY, String(Date.now()));
-          } catch (e) {}
-          console.warn("[boot] App did not mount; showing manual SW reset link…");
-          var box = document.createElement("div");
-          box.style.cssText = "min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f5f2;color:#1a1a1a;text-align:center";
-          box.innerHTML = '<div style="max-width:420px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:18px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.06)"><h1 style="font-size:20px;margin:0 0 8px">Приложение загружается дольше обычного</h1><p style="font-size:14px;line-height:1.5;color:#666;margin:0 0 18px">Если экран не оживает, выполните ручной сброс кэша.</p><a href="/sw-reset.html" style="display:inline-block;background:#5c3d2e;color:white;text-decoration:none;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:500">Сбросить кэш</a></div>';
-          document.body.innerHTML = "";
-          document.body.appendChild(box);
-        }, TIMEOUT_MS);
-        // Clear the recovery flag once the app boots successfully so future
-        // unrelated white-screens can also self-heal.
-        window.addEventListener("load", function () {
-          setTimeout(function () {
-            if (window.__JTD_APP_BOOTED__) {
-              try { sessionStorage.removeItem(KEY); } catch (e) {}
-            }
-          }, 2000);
-        });
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

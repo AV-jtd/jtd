@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Clock, LogOut, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 
 export default function PendingApproval() {
   const { user, loading, isApproved, signOut } = useAuth();
@@ -53,26 +53,6 @@ export default function PendingApproval() {
     }
   };
 
-  const handleHardReset = async () => {
-    try {
-      // Clear all client caches that might hold stale auth/data (Safari edge case).
-      localStorage.clear();
-      sessionStorage.clear();
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-      if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-    } catch (e) {
-      console.warn("[Pending] hard reset failed:", e);
-    }
-    await supabase.auth.signOut();
-    window.location.href = "/auth";
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="max-w-sm w-full text-center space-y-6">
@@ -85,26 +65,15 @@ export default function PendingApproval() {
             Ваша заявка на регистрацию отправлена. Администратор рассмотрит её в ближайшее время.
           </p>
         </div>
-        <div className="pt-2 space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="default" onClick={handleRefresh} className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Проверить статус
-            </Button>
-            <Button variant="outline" onClick={signOut} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Выйти
-            </Button>
-          </div>
-          <div>
-            <Button variant="ghost" size="sm" onClick={handleHardReset} className="gap-2 text-muted-foreground">
-              <Trash2 className="h-3.5 w-3.5" />
-              Очистить кэш и перезайти
-            </Button>
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              Если уверены, что аккаунт уже одобрен (особенно для Safari).
-            </p>
-          </div>
+        <div className="pt-2 flex items-center justify-center gap-2">
+          <Button variant="default" onClick={handleRefresh} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Проверить статус
+          </Button>
+          <Button variant="outline" onClick={signOut} className="gap-2">
+            <LogOut className="h-4 w-4" />
+            Выйти
+          </Button>
         </div>
       </div>
     </div>

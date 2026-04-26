@@ -10,52 +10,6 @@ const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION as string | undefined;
 
 const RELOAD_FLAG = "jtd_version_reload";
 const POLL_INTERVAL_MS = 60_000; // check every 60s
-const SW_UPDATE_INTERVAL_MS = 5 * 60_000; // ask SW to recheck every 5 min
-
-// Tracks the most-recently-seen waiting registration so we can activate it
-// at a safe moment (tab hidden / long idle) instead of mid-session.
-let pendingRegistration: ServiceWorkerRegistration | null = null;
-let activationScheduled = false;
-
-function activateWaitingWorker(reg: ServiceWorkerRegistration | null) {
-  const waiting = reg?.waiting;
-  if (!waiting) return;
-  // Tell the new SW to take over. The page's `controllerchange` listener
-  // will then perform a clean hard-reload.
-  try {
-    waiting.postMessage({ type: "SKIP_WAITING" });
-  } catch {
-    // ignore — controllerchange path or next pollOnce will retry
-  }
-}
-
-function scheduleSafeActivation(reg: ServiceWorkerRegistration) {
-  pendingRegistration = reg;
-  if (activationScheduled) return;
-  activationScheduled = true;
-
-  // 1) Activate as soon as the tab goes into the background — the user
-  //    won't see a flash, and on return the fresh SW is already in control.
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      activateWaitingWorker(pendingRegistration);
-    }
-  });
-
-  // 2) Safety net: if the tab stays open for a long time, activate after
-  //    10 minutes so long-lived sessions don't drift far behind production.
-  const idleDeadline = Date.now() + 10 * 60_000;
-  const tick = window.setInterval(() => {
-    if (!pendingRegistration?.waiting) {
-      window.clearInterval(tick);
-      return;
-    }
-    if (Date.now() >= idleDeadline) {
-      window.clearInterval(tick);
-      activateWaitingWorker(pendingRegistration);
-    }
-  }, 60_000);
-}
 
 function isSkippableContext(): boolean {
   if (import.meta.env.DEV) return true;
@@ -131,33 +85,5 @@ export async function checkForUpdates() {
       refreshing = true;
       hardReload();
     });
-
-    // 5) Watch for new SW versions and schedule safe activation.
-    navigator.serviceWorker.getRegistration().then((reg) => {
-      if (!reg) return;
-
-      // SW already waiting from a previous session.
-      if (reg.waiting) scheduleSafeActivation(reg);
-
-      // New SW found via update() or browser auto-check.
-      reg.addEventListener("updatefound", () => {
-        const installing = reg.installing;
-        if (!installing) return;
-        installing.addEventListener("statechange", () => {
-          if (installing.state === "installed" && navigator.serviceWorker.controller) {
-            scheduleSafeActivation(reg);
-          }
-        });
-      });
-
-      // Periodic update poll — guarantees long-lived tabs pick up new builds
-      // within minutes (browsers also auto-check, but this is more reliable).
-      const pollUpdate = () => {
-        reg.update().catch(() => {});
-      };
-      setInterval(pollUpdate, SW_UPDATE_INTERVAL_MS);
-      window.addEventListener("focus", pollUpdate);
-      window.addEventListener("online", pollUpdate);
-    }).catch(() => {});
   }
 }
