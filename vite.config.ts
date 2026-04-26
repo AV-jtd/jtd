@@ -60,7 +60,7 @@ export default defineConfig(({ mode }) => ({
         // not in cache — e.g. first launch offline of a deep link), serve
         // the precached /offline.html instead of a browser network error.
         navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /\.[a-z0-9]+$/i],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/sw-reset\.html$/, /\.[a-z0-9]+$/i],
         // Keep only the critical app shell in precache.
         // Heavy/lazy chunks (xlsx, pdf, Protocol/NPD/Gantt/Dashboard, etc.) are
         // served via runtime caching on first use — this drops the initial PWA
