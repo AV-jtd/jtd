@@ -25,6 +25,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const APPROVED_CACHE_KEY = "auth_is_approved_cache";
+
+function readApprovedCache(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(APPROVED_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeApprovedCache(userId: string, value: boolean) {
+  try {
+    const cache = readApprovedCache();
+    cache[userId] = value;
+    localStorage.setItem(APPROVED_CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -92,8 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // иначе одобренного пользователя несправедливо выкинет на /pending.
       if (profileRes.error) {
         console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
+        // Fallback to cached value (Safari often fails first request after wake-up).
+        const cached = readApprovedCache()[userId];
+        if (cached === true) setIsApproved(true);
       } else {
-        setIsApproved((profileRes.data as any)?.is_approved ?? false);
+        const approved = (profileRes.data as any)?.is_approved ?? false;
+        setIsApproved(approved);
+        writeApprovedCache(userId, approved);
       }
       setIsAdmin(!!roleRes.data);
       setIsConsultant(!!consultantRes.data);
@@ -119,6 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, RETRY_DELAY);
       } else {
         console.error("[Auth] All retries exhausted, clearing loading state");
+        // Last-resort fallback: trust cache so approved users aren't kicked to /pending.
+        const cached = readApprovedCache()[userId];
+        if (cached === true) {
+          console.warn("[Auth] Using cached is_approved=true after all retries failed");
+          setIsApproved(true);
+        }
         setLoading(false);
       }
     }
@@ -141,6 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isInitialSession = event === "INITIAL_SESSION";
         const isUserChanged = previousUserId !== newSession.user.id;
         currentUserIdRef.current = newSession.user.id;
+
+        // Optimistically restore approval from cache so we don't flash /pending while profile loads.
+        const cached = readApprovedCache()[newSession.user.id];
+        if (cached === true) setIsApproved(true);
 
         // Only block the app on first load or real user switch, not on tab refocus/token refresh
         if (isInitialSession || isUserChanged) {
