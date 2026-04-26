@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import {
@@ -14,7 +13,6 @@ import {
   useUpdateDepartmentParent,
   useAddDepartmentDirector,
   useRemoveDepartmentDirector,
-  useSetUserDepartments,
 } from "@/hooks/useOrgStructure";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,7 +23,8 @@ import { toast } from "sonner";
  * UI ограничен 3 уровнями (Дирекция → Отдел → Подотдел), хотя БД допускает N.
  *  - дерево с inline-добавлением подразделения,
  *  - назначение head (один) и доп. кураторов (директоров) — кружки,
- *  - bulk-привязка пользователя к нескольким отделам с выделением primary.
+ *  - привязка пользователя к доп. отделам (M2M) живёт в карточке пользователя
+ *    в разделе «Управление пользователями» (кнопка «Доп. отделы»).
  */
 export default function OrgStructurePanel() {
   const { data: departments = [], isLoading } = useDepartments();
@@ -135,13 +134,6 @@ export default function OrgStructurePanel() {
             }}
           />
         ))}
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Users className="h-4 w-4 text-primary" /> Множественное членство пользователей
-        </h3>
-        <UserMembershipBulk users={users} departments={departments as any} userDeps={userDeps} />
       </div>
     </div>
   );
@@ -487,136 +479,5 @@ function MoveParentPicker({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-function UserMembershipBulk({
-  users, departments, userDeps,
-}: {
-  users: AnyUser[];
-  departments: AnyDept[];
-  userDeps: { user_id: string; department_id: string; is_primary: boolean }[];
-}) {
-  const [search, setSearch] = useState("");
-  const setUserDepts = useSetUserDepartments();
-  const filtered = users
-    .filter((u) => (u.display_name ?? u.email ?? "").toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 100);
-
-  const userMap = useMemo(() => {
-    const m = new Map<string, { primary: string | null; extras: string[] }>();
-    userDeps.forEach((ud) => {
-      const cur = m.get(ud.user_id) ?? { primary: null as string | null, extras: [] as string[] };
-      if (ud.is_primary) cur.primary = ud.department_id;
-      else cur.extras.push(ud.department_id);
-      m.set(ud.user_id, cur);
-    });
-    return m;
-  }, [userDeps]);
-
-  return (
-    <div>
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Найти пользователя..."
-        className="h-8 text-sm mb-2"
-      />
-      <div className="space-y-1 max-h-[420px] overflow-auto pr-1">
-        {filtered.map((u) => {
-          const cur = userMap.get(u.id) ?? { primary: null, extras: [] };
-          return (
-            <UserDeptRow
-              key={u.id}
-              user={u}
-              departments={departments}
-              primary={cur.primary}
-              extras={cur.extras}
-              onSave={async (primary, extras) => {
-                await setUserDepts.mutateAsync({ userId: u.id, primaryDeptId: primary, extraDeptIds: extras });
-              }}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function UserDeptRow({
-  user, departments, primary, extras, onSave,
-}: {
-  user: AnyUser;
-  departments: AnyDept[];
-  primary: string | null;
-  extras: string[];
-  onSave: (primary: string | null, extras: string[]) => Promise<void>;
-}) {
-  const primaryDept = primary ? departments.find((d) => d.id === primary) : null;
-  const [open, setOpen] = useState(false);
-  const [draftPrimary, setDraftPrimary] = useState<string | null>(primary);
-  const [draftExtras, setDraftExtras] = useState<string[]>(extras);
-  const [saving, setSaving] = useState(false);
-
-  const toggleExtra = (id: string) => {
-    setDraftExtras((arr) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try { await onSave(draftPrimary, draftExtras.filter((id) => id !== draftPrimary)); setOpen(false); }
-    catch (e: any) { toast.error(e?.message ?? "Не удалось сохранить"); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted/40">
-      <span className="text-xs flex-1 truncate">{user.display_name ?? user.email ?? user.id.slice(0, 8)}</span>
-      <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-        {primaryDept ? `★ ${primaryDept.name}` : "—"}
-        {extras.length > 0 && ` · +${extras.length}`}
-      </span>
-      <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setDraftPrimary(primary); setDraftExtras(extras); } }}>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="outline" className="h-7 text-xs">Изменить</Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-3" align="end">
-          <div className="text-[11px] text-muted-foreground mb-2">
-            ★ Основной отдел (для бейджа); ▢ — дополнительные.
-          </div>
-          <Select value={draftPrimary ?? "__none"} onValueChange={(v) => setDraftPrimary(v === "__none" ? null : v)}>
-            <SelectTrigger className="h-8 text-xs mb-2">
-              <SelectValue placeholder="Основной отдел" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none" className="text-xs text-muted-foreground">— Без отдела —</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="max-h-56 overflow-auto space-y-1 border-t border-border pt-2">
-            {departments.filter((d) => d.id !== draftPrimary).map((d) => (
-              <label key={d.id} className="flex items-center gap-2 text-xs cursor-pointer px-1 py-0.5 rounded hover:bg-muted">
-                <Checkbox
-                  checked={draftExtras.includes(d.id)}
-                  onCheckedChange={() => toggleExtra(d.id)}
-                />
-                <span className="truncate">{d.name}</span>
-              </label>
-            ))}
-          </div>
-          <div className="flex justify-end gap-1.5 mt-3">
-            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              Сохранить
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
   );
 }
