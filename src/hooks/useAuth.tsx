@@ -10,6 +10,7 @@ interface AuthContextType {
   isApproved: boolean;
   isAdmin: boolean;
   isRealAdmin: boolean;
+  isConsultant: boolean;
   adminModeDisabled: boolean;
   setAdminModeDisabled: (disabled: boolean) => void;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isConsultant, setIsConsultant] = useState(false);
   const [adminModeDisabled, setAdminModeDisabledState] = useState<boolean>(() => {
     try { return localStorage.getItem("admin_mode_disabled") === "1"; } catch { return false; }
   });
@@ -48,9 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const RETRY_DELAY = 2500;
 
     try {
-      const [profileRes, roleRes, adminExistsRes, modeRes] = await Promise.all([
+      const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
         supabase.from("profiles").select("is_approved").eq("id", userId).single(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
         supabase.rpc("admin_exists"),
         supabase.from("admin_mode_state" as any).select("admin_disabled").eq("user_id", userId).maybeSingle(),
       ]);
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setIsApproved((profileRes.data as any)?.is_approved ?? false);
       setIsAdmin(!!roleRes.data);
+      setIsConsultant(!!consultantRes.data);
 
       // Sync admin_mode_disabled from server (source of truth)
       const serverDisabled = !!(modeRes.data as any)?.admin_disabled;
@@ -129,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentUserIdRef.current = null;
         setIsApproved(false);
         setIsAdmin(false);
+        setIsConsultant(false);
         setLoading(false);
       }
 
@@ -207,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, session, loading, isApproved,
       isAdmin: effectiveIsAdmin,
       isRealAdmin: isAdmin,
+      isConsultant,
       adminModeDisabled,
       setAdminModeDisabled,
       signUp, signIn, signOut,

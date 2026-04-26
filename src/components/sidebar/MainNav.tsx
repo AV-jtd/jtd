@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { List, Star, Users, Inbox, Clock, UsersRound, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
+import { useAuth } from "@/hooks/useAuth";
 import { useMemo } from "react";
 
 /**
@@ -33,6 +34,7 @@ interface MainNavProps {
 }
 
 export default function MainNav({ activeView, activeGroupId, onViewChange, onGroupChange, onClearTags }: MainNavProps) {
+  const { isConsultant } = useAuth();
   const { data: myDeptId } = useMyDepartmentId();
   const { data: deptTasks = [] } = useDepartmentTasks(myDeptId);
   const deptInboxCount = useMemo(
@@ -59,9 +61,16 @@ export default function MainNav({ activeView, activeGroupId, onViewChange, onGro
     { id: "archive", icon: Archive, label: "Архив" },
   ], [myDeptId, deptInboxCount]);
 
+  // Для консультанта оставляем только базовые личные виды.
+  const visibleItems = useMemo(() => {
+    if (!isConsultant) return items;
+    const allowed = new Set(["all", "inbox", "myday", "assigned", "deferred", "calendar"]);
+    return items.filter((i) => allowed.has(i.id));
+  }, [items, isConsultant]);
+
   return (
     <>
-      {items.map((item) => {
+      {visibleItems.map((item) => {
         const isActive = activeView === item.id && !activeGroupId;
         const buttonClass = cn(
           "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
