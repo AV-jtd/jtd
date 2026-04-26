@@ -190,7 +190,7 @@ export function useAddDepartmentDirector() {
       qc.invalidateQueries({ queryKey: ["visible-departments"] });
     },
     onError: (e: any) => {
-      toast({ title: "Не удалось назначить куратора", description: e?.message, variant: "destructive" });
+      toast({ title: "Не удалось назначить со-руководителя", description: e?.message, variant: "destructive" });
     },
   });
 }

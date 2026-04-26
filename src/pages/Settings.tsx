@@ -367,10 +367,10 @@ export default function Settings() {
             <ConsultantGuard area="delegation">
               <div className="border-t border-border pt-6">
                 <h2 className="text-lg font-semibold mb-1">
-                  Делегирование
+                  Подрядчики
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Отделы и подрядчики — для назначения задач без создания учётных записей. Используются как метки, уведомления не отправляются.
+                  Внешние исполнители без учётной записи. Используются как метка на задаче, уведомления не отправляются. Отделы и иерархия — во вкладке «Оргструктура» выше.
                 </p>
                 <DelegationPanel />
               </div>
