@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, ShieldCheck, Search, ArrowUpDown, LayoutGrid, ChevronDown, Building2, Users, AlertCircle } from "lucide-react";
+import { Loader2, ShieldCheck, Search, ArrowUpDown, LayoutGrid, ChevronDown, Building2, Users, AlertCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useContractors } from "@/hooks/useContractors";
 import { useQuery } from "@tanstack/react-query";
@@ -58,7 +58,7 @@ export default function AdminApproval() {
     const [{ data: profiles }, { data: depts }, { data: roles }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id")
+        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
         .order("created_at", { ascending: false }),
       supabase.from("departments").select("id, name, head_user_id").order("position"),
       supabase.from("user_roles").select("user_id").eq("role", "admin"),
@@ -129,9 +129,31 @@ export default function AdminApproval() {
     const u = users.find(x => x.id === userId);
     if (u && isProtected(u)) { toast.error("Нельзя удалить администратора"); return; }
     if (userId === currentUser?.id) { toast.error("Нельзя удалить себя"); return; }
-    const { error } = await supabase.rpc("admin_delete_user" as any, { target_user_id: userId } as any);
+    const { error } = await supabase.rpc("admin_soft_delete_user" as any, { target_user_id: userId } as any);
     if (error) return toast.error("Не удалось удалить: " + error.message);
-    toast.success("Пользователь удалён");
+    toast.success("Пользователь помечен удалённым (можно восстановить)");
+    setUsers(prev => prev.map(x => x.id === userId
+      ? { ...x, deleted_at: new Date().toISOString(), deleted_by: currentUser?.id ?? null, is_approved: false }
+      : x));
+    setSelected(prev => { const n = new Set(prev); n.delete(userId); return n; });
+  };
+
+  const restoreUser = async (userId: string) => {
+    const { error } = await supabase.rpc("admin_restore_user" as any, { target_user_id: userId } as any);
+    if (error) return toast.error("Не удалось восстановить: " + error.message);
+    toast.success("Пользователь восстановлен");
+    setUsers(prev => prev.map(x => x.id === userId
+      ? { ...x, deleted_at: null, deleted_by: null, is_approved: true }
+      : x));
+  };
+
+  const hardDeleteUser = async (userId: string) => {
+    const u = users.find(x => x.id === userId);
+    if (u && isProtected(u)) { toast.error("Нельзя удалить администратора"); return; }
+    if (userId === currentUser?.id) { toast.error("Нельзя удалить себя"); return; }
+    const { error } = await supabase.rpc("admin_hard_delete_user" as any, { target_user_id: userId } as any);
+    if (error) return toast.error("Не удалось удалить навсегда: " + error.message);
+    toast.success("Пользователь удалён навсегда");
     setUsers(prev => prev.filter(u => u.id !== userId));
     setSelected(prev => { const n = new Set(prev); n.delete(userId); return n; });
   };
@@ -175,6 +197,8 @@ export default function AdminApproval() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = users.filter(u => {
+      // Удалённые рендерятся в отдельной секции — здесь их прячем
+      if (u.deleted_at) return false;
       if (showOnlyNoDept && u.department_id) return false;
       if (!q) return true;
       return (
@@ -200,6 +224,22 @@ export default function AdminApproval() {
 
   const pending = filtered.filter(u => !u.is_approved);
   const approved = filtered.filter(u => u.is_approved);
+
+  // Удалённые — отдельная коллекция, отфильтрованная только поиском
+  const deletedUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return users
+      .filter(u => !!u.deleted_at)
+      .filter(u => {
+        if (!q) return true;
+        return (
+          (u.display_name ?? "").toLowerCase().includes(q) ||
+          (u.email ?? "").toLowerCase().includes(q) ||
+          (u.telegram_username ?? "").toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => (b.deleted_at ?? "").localeCompare(a.deleted_at ?? ""));
+  }, [users, search]);
 
   const groupedApproved = useMemo(() => {
     if (groupMode !== "department") return null;
@@ -243,6 +283,8 @@ export default function AdminApproval() {
       onToggleHead={handleToggleHead}
       onUpdateField={updateUserField}
       onDelete={deleteUser}
+      onRestore={restoreUser}
+      onHardDelete={hardDeleteUser}
       onShowHistory={setHistoryUser}
     />
   );
@@ -380,6 +422,23 @@ export default function AdminApproval() {
             <p className="text-sm text-muted-foreground py-4 text-center">
               {search || showOnlyNoDept ? "Ничего не найдено по фильтрам" : "Нет пользователей"}
             </p>
+          )}
+
+          {deletedUsers.length > 0 && (
+            <Collapsible defaultOpen={false}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted/50 transition-colors mt-4 border-t border-border pt-4">
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:-rotate-90" />
+                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Удалённые пользователи</span>
+                <Badge variant="secondary" className="text-xs">{deletedUsers.length}</Badge>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  Можно восстановить или удалить навсегда
+                </span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-2">
+                {deletedUsers.map(renderCard)}
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </div>
       )}

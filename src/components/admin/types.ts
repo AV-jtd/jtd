@@ -9,6 +9,8 @@ export interface AdminUser {
   organization: string | null;
   contractor_id: string | null;
   client_id: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
 }
 
 export interface Department { id: string; name: string; head_user_id: string | null; }

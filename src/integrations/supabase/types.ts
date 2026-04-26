@@ -605,6 +605,8 @@ export type Database = {
           client_id: string | null
           contractor_id: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           department_id: string | null
           display_name: string | null
           email: string | null
@@ -620,6 +622,8 @@ export type Database = {
           client_id?: string | null
           contractor_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           department_id?: string | null
           display_name?: string | null
           email?: string | null
@@ -635,6 +639,8 @@ export type Database = {
           client_id?: string | null
           contractor_id?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           department_id?: string | null
           display_name?: string | null
           email?: string | null
@@ -1891,9 +1897,21 @@ export type Database = {
         Returns: undefined
       }
       admin_exists: { Args: never; Returns: boolean }
+      admin_hard_delete_user: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
+      admin_restore_user: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       admin_set_users_department: {
         Args: { dept_id: string; user_ids: string[] }
         Returns: number
+      }
+      admin_soft_delete_user: {
+        Args: { target_user_id: string }
+        Returns: undefined
       }
       can_access_dependency: {
         Args: { _dep_id: string; _user_id: string }
@@ -2041,6 +2059,7 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      is_user_active: { Args: { _user_id: string }; Returns: boolean }
       is_user_in_task_department: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
