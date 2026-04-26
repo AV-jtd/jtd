@@ -201,7 +201,7 @@ export default function AdminApproval() {
             className="h-7 text-sm font-medium w-[200px]"
             placeholder="ФИО"
           />
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => saveName(u.id)}>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => saveName(u.id)}>
             <Check className="h-3.5 w-3.5" />
           </Button>
           <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingNameId(null)}>
