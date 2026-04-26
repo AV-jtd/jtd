@@ -1,47 +1,51 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserCheck, UserX, ShieldCheck, Building2, HardHat, Briefcase, Search, Pencil, Check, X, Mail } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, ShieldCheck, Search, ArrowUpDown, LayoutGrid, ChevronDown, Building2, Users, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useContractors } from "@/hooks/useContractors";
 import { useQuery } from "@tanstack/react-query";
-
-interface PendingUser {
-  id: string;
-  display_name: string | null;
-  email: string | null;
-  telegram_username: string | null;
-  created_at: string;
-  is_approved: boolean;
-  department_id: string | null;
-  organization: string | null;
-  contractor_id: string | null;
-  client_id: string | null;
-}
-
-interface Department { id: string; name: string; }
-interface ClientLite { id: string; name: string; }
+import { UserCard } from "./admin/UserCard";
+import { AuditHistoryDialog } from "./admin/AuditHistoryDialog";
+import type { AdminUser, Department, ClientLite, SortMode, GroupMode } from "./admin/types";
 
 export default function AdminApproval() {
-  const { isAdmin } = useAuth();
-  const [users, setUsers] = useState<PendingUser[]>([]);
+  const { isAdmin, user: currentUser } = useAuth();
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+
+  // Filters / sort / group
   const [search, setSearch] = useState("");
+  const [showOnlyNoDept, setShowOnlyNoDept] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("date_desc");
+  const [groupMode, setGroupMode] = useState<GroupMode>("none");
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDept, setBulkDept] = useState<string>("__none");
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Inline name editing
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+
+  // Audit history dialog
+  const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
+
   const { data: contractors = [] } = useContractors();
   const { data: clients = [] } = useQuery<ClientLite[]>({
     queryKey: ["clients", "lite-for-admin"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("clients")
-        .select("id, name")
-        .order("name");
+        .from("clients").select("id, name").order("name");
       if (error) throw error;
       return (data ?? []) as ClientLite[];
     },
@@ -49,67 +53,65 @@ export default function AdminApproval() {
     staleTime: 60_000,
   });
 
-  const fetchUsers = async () => {
-    const [{ data: profiles }, { data: depts }] = await Promise.all([
+  const fetchAll = async () => {
+    setLoading(true);
+    const [{ data: profiles }, { data: depts }, { data: roles }] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id")
         .order("created_at", { ascending: false }),
       supabase.from("departments").select("id, name").order("position"),
+      supabase.from("user_roles").select("user_id").eq("role", "admin"),
     ]);
-    if (profiles) setUsers(profiles as PendingUser[]);
+    if (profiles) setUsers(profiles as AdminUser[]);
     if (depts) setDepartments(depts as Department[]);
+    if (roles) setAdminIds(new Set((roles as { user_id: string }[]).map(r => r.user_id)));
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (isAdmin) fetchUsers();
-  }, [isAdmin]);
+  useEffect(() => { if (isAdmin) fetchAll(); }, [isAdmin]);
 
+  const isProtected = (u: AdminUser) => adminIds.has(u.id);
+
+  // ---- mutations ----
   const handleToggleApproval = async (userId: string, approve: boolean) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_approved: approve } as any)
-      .eq("id", userId);
-
-    if (error) {
-      toast.error("Ошибка: " + error.message);
-    } else {
-      toast.success(approve ? "Пользователь активирован" : "Пользователь деактивирован");
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: approve } : u));
+    const u = users.find(x => x.id === userId);
+    if (!approve && u && isProtected(u)) {
+      toast.error("Нельзя деактивировать администратора");
+      return;
     }
+    const { error } = await supabase.from("profiles").update({ is_approved: approve } as any).eq("id", userId);
+    if (error) return toast.error("Ошибка: " + error.message);
+    toast.success(approve ? "Пользователь активирован" : "Пользователь деактивирован");
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_approved: approve } : u));
   };
 
   const handleDepartmentChange = async (userId: string, deptId: string | null) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ department_id: deptId } as any)
-      .eq("id", userId);
-    if (error) {
-      toast.error("Не удалось обновить отдел: " + error.message);
-      return;
-    }
+    const { error } = await supabase.from("profiles").update({ department_id: deptId } as any).eq("id", userId);
+    if (error) return toast.error("Не удалось обновить отдел: " + error.message);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, department_id: deptId } : u));
     toast.success(deptId ? "Отдел обновлён" : "Отдел снят");
   };
 
-  const updateUserField = async (userId: string, patch: Partial<PendingUser>) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update(patch as any)
-      .eq("id", userId);
-    if (error) {
-      toast.error("Не удалось сохранить: " + error.message);
-      return;
-    }
+  const updateUserField = async (userId: string, patch: Partial<AdminUser>) => {
+    const { error } = await supabase.from("profiles").update(patch as any).eq("id", userId);
+    if (error) return toast.error("Не удалось сохранить: " + error.message);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...patch } : u));
   };
 
-  const startEditName = (u: PendingUser) => {
-    setEditingNameId(u.id);
-    setEditingNameValue(u.display_name ?? "");
+  const deleteUser = async (userId: string) => {
+    const u = users.find(x => x.id === userId);
+    if (u && isProtected(u)) { toast.error("Нельзя удалить администратора"); return; }
+    if (userId === currentUser?.id) { toast.error("Нельзя удалить себя"); return; }
+    const { error } = await supabase.rpc("admin_delete_user" as any, { target_user_id: userId } as any);
+    if (error) return toast.error("Не удалось удалить: " + error.message);
+    toast.success("Пользователь удалён");
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    setSelected(prev => { const n = new Set(prev); n.delete(userId); return n; });
   };
 
+  // Inline name edit
+  const startEditName = (u: AdminUser) => { setEditingNameId(u.id); setEditingNameValue(u.display_name ?? ""); };
   const saveName = async (userId: string) => {
     const v = editingNameValue.trim() || null;
     await updateUserField(userId, { display_name: v });
@@ -117,148 +119,124 @@ export default function AdminApproval() {
     toast.success("Имя обновлено");
   };
 
-  const renderDeptSelect = (u: PendingUser) => (
-    <Select
-      value={u.department_id ?? "__none"}
-      onValueChange={(v) => handleDepartmentChange(u.id, v === "__none" ? null : v)}
-    >
-      <SelectTrigger className="h-8 w-[180px] text-xs">
-        <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
-        <SelectValue placeholder="Отдел" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__none" className="text-xs text-muted-foreground">— Без отдела —</SelectItem>
-        {departments.map((d) => (
-          <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
+  // Bulk
+  const toggleSelect = (id: string) => setSelected(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const clearSelection = () => setSelected(new Set());
+  const selectAll = (ids: string[]) => setSelected(prev => {
+    const n = new Set(prev);
+    ids.forEach(id => n.add(id));
+    return n;
+  });
 
-  const renderExtraFields = (u: PendingUser) => (
-    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/40">
-      <Input
-        key={`org-${u.id}-${u.organization ?? ""}`}
-        defaultValue={u.organization ?? ""}
-        placeholder="Организация"
-        className="h-8 w-[180px] text-xs"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        onBlur={(e) => {
-          const v = e.target.value.trim() || null;
-          if (v !== (u.organization ?? null)) updateUserField(u.id, { organization: v });
-        }}
-      />
-      <Select
-        value={u.contractor_id ?? "__none"}
-        onValueChange={(v) => updateUserField(u.id, { contractor_id: v === "__none" ? null : v })}
-      >
-        <SelectTrigger className="h-8 w-[180px] text-xs">
-          <HardHat className="h-3 w-3 mr-1 text-muted-foreground" />
-          <SelectValue placeholder="Подрядчик" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
-          {contractors.map((c) => (
-            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={u.client_id ?? "__none"}
-        onValueChange={(v) => updateUserField(u.id, { client_id: v === "__none" ? null : v })}
-      >
-        <SelectTrigger className="h-8 w-[180px] text-xs">
-          <Briefcase className="h-3 w-3 mr-1 text-muted-foreground" />
-          <SelectValue placeholder="Клиент CRM" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none" className="text-xs text-muted-foreground">— Не задан —</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
-  const renderNameBlock = (u: PendingUser) => {
-    if (editingNameId === u.id) {
-      return (
-        <div className="flex items-center gap-1">
-          <Input
-            autoFocus
-            value={editingNameValue}
-            onChange={(e) => setEditingNameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); saveName(u.id); }
-              if (e.key === "Escape") { e.preventDefault(); setEditingNameId(null); }
-            }}
-            className="h-7 text-sm font-medium w-[200px]"
-            placeholder="ФИО"
-          />
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => saveName(u.id)}>
-            <Check className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingNameId(null)}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-center gap-1.5 group/name">
-        <p className="text-sm font-medium truncate">{u.display_name || <span className="text-muted-foreground italic">Без имени</span>}</p>
-        <button
-          onClick={() => startEditName(u)}
-          className="p-1 rounded hover:bg-muted opacity-0 group-hover/name:opacity-100 transition-opacity"
-          aria-label="Редактировать имя"
-        >
-          <Pencil className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </div>
-    );
+  const applyBulkDept = async () => {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    const deptId = bulkDept === "__none" ? null : bulkDept;
+    const ids = Array.from(selected);
+    const { error } = await supabase.rpc("admin_set_users_department" as any, { user_ids: ids, dept_id: deptId } as any);
+    setBulkBusy(false);
+    if (error) return toast.error("Ошибка: " + error.message);
+    setUsers(prev => prev.map(u => ids.includes(u.id) ? { ...u, department_id: deptId } : u));
+    toast.success(`Обновлено: ${ids.length}`);
+    clearSelection();
   };
 
-  const renderUserMeta = (u: PendingUser) => (
-    <div className="text-xs text-muted-foreground space-y-0.5 mt-0.5">
-      {u.email && (
-        <div className="flex items-center gap-1">
-          <Mail className="h-3 w-3 shrink-0" />
-          <span className="truncate">{u.email}</span>
-        </div>
-      )}
-      {u.telegram_username && <p>@{u.telegram_username}</p>}
-      <p>Зарегистрирован: {new Date(u.created_at).toLocaleDateString("ru-RU")}</p>
-    </div>
-  );
+  // ---- filtering / sorting / grouping ----
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = users.filter(u => {
+      if (showOnlyNoDept && u.department_id) return false;
+      if (!q) return true;
+      return (
+        (u.display_name ?? "").toLowerCase().includes(q) ||
+        (u.email ?? "").toLowerCase().includes(q) ||
+        (u.telegram_username ?? "").toLowerCase().includes(q) ||
+        (u.organization ?? "").toLowerCase().includes(q)
+      );
+    });
+
+    const deptName = (id: string | null) => id ? departments.find(d => d.id === id)?.name ?? "" : "";
+
+    list = [...list].sort((a, b) => {
+      switch (sortMode) {
+        case "date_desc": return b.created_at.localeCompare(a.created_at);
+        case "date_asc": return a.created_at.localeCompare(b.created_at);
+        case "name_asc": return (a.display_name ?? a.email ?? "").localeCompare(b.display_name ?? b.email ?? "", "ru");
+        case "department": return deptName(a.department_id).localeCompare(deptName(b.department_id), "ru");
+      }
+    });
+    return list;
+  }, [users, search, showOnlyNoDept, sortMode, departments]);
+
+  const pending = filtered.filter(u => !u.is_approved);
+  const approved = filtered.filter(u => u.is_approved);
+
+  const groupedApproved = useMemo(() => {
+    if (groupMode !== "department") return null;
+    const groups = new Map<string, AdminUser[]>();
+    approved.forEach(u => {
+      const key = u.department_id ?? "__none";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(u);
+    });
+    const ordered: { id: string; name: string; users: AdminUser[] }[] = [];
+    departments.forEach(d => {
+      if (groups.has(d.id)) ordered.push({ id: d.id, name: d.name, users: groups.get(d.id)! });
+    });
+    if (groups.has("__none")) ordered.push({ id: "__none", name: "Без отдела", users: groups.get("__none")! });
+    return ordered;
+  }, [approved, departments, groupMode]);
+
+  // Stats for filters bar
+  const noDeptCount = users.filter(u => u.is_approved && !u.department_id).length;
 
   if (!isAdmin) return null;
 
-  const q = search.trim().toLowerCase();
-  const matches = (u: PendingUser) =>
-    !q ||
-    (u.display_name ?? "").toLowerCase().includes(q) ||
-    (u.email ?? "").toLowerCase().includes(q) ||
-    (u.telegram_username ?? "").toLowerCase().includes(q) ||
-    (u.organization ?? "").toLowerCase().includes(q);
-
-  const pending = users.filter(u => !u.is_approved && matches(u));
-  const approved = users.filter(u => u.is_approved && matches(u));
+  const renderCard = (u: AdminUser) => (
+    <UserCard
+      key={u.id}
+      user={u}
+      isProtectedAdmin={isProtected(u)}
+      selected={selected.has(u.id)}
+      onToggleSelect={toggleSelect}
+      departments={departments}
+      contractors={contractors}
+      clients={clients}
+      editingNameId={editingNameId}
+      editingNameValue={editingNameValue}
+      onStartEditName={startEditName}
+      onChangeNameValue={setEditingNameValue}
+      onSaveName={saveName}
+      onCancelEditName={() => setEditingNameId(null)}
+      onApprove={handleToggleApproval}
+      onDepartmentChange={handleDepartmentChange}
+      onUpdateField={updateUserField}
+      onDelete={deleteUser}
+      onShowHistory={setHistoryUser}
+    />
+  );
 
   return (
     <div className="border-t border-border pt-6 space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-medium">Управление пользователями</h2>
-          <Badge variant="secondary" className="text-xs">{users.length}</Badge>
-        </div>
-        <div className="relative w-full sm:w-[260px]">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-medium">Управление пользователями</h2>
+        <Badge variant="secondary" className="text-xs">{users.length}</Badge>
+        {noDeptCount > 0 && (
+          <Badge variant="outline" className="text-xs gap-1 border-amber-500/40 text-amber-600 dark:text-amber-400">
+            <AlertCircle className="h-3 w-3" /> {noDeptCount} без отдела
+          </Badge>
+        )}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-[320px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={search}
@@ -267,72 +245,119 @@ export default function AdminApproval() {
             className="h-8 pl-8 text-xs"
           />
         </div>
+
+        <Button
+          size="sm"
+          variant={showOnlyNoDept ? "default" : "outline"}
+          onClick={() => setShowOnlyNoDept(v => !v)}
+          className="h-8 gap-1 text-xs"
+        >
+          <Building2 className="h-3.5 w-3.5" /> Без отдела
+        </Button>
+
+        <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+          <SelectTrigger className="h-8 w-[180px] text-xs">
+            <ArrowUpDown className="h-3 w-3 mr-1 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc" className="text-xs">Сначала новые</SelectItem>
+            <SelectItem value="date_asc" className="text-xs">Сначала старые</SelectItem>
+            <SelectItem value="name_asc" className="text-xs">По алфавиту</SelectItem>
+            <SelectItem value="department" className="text-xs">По отделу</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={groupMode} onValueChange={(v) => setGroupMode(v as GroupMode)}>
+          <SelectTrigger className="h-8 w-[170px] text-xs">
+            <LayoutGrid className="h-3 w-3 mr-1 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none" className="text-xs">Без группировки</SelectItem>
+            <SelectItem value="department" className="text-xs">По отделам</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/30 bg-primary/5 flex-wrap">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Выбрано: {selected.size}</span>
+          <Select value={bulkDept} onValueChange={setBulkDept}>
+            <SelectTrigger className="h-8 w-[200px] text-xs">
+              <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Отдел для назначения" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none" className="text-xs text-muted-foreground">— Снять отдел —</SelectItem>
+              {departments.map(d => <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={applyBulkDept} disabled={bulkBusy} className="h-8 text-xs">
+            {bulkBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Применить
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection} className="h-8 text-xs">Отмена</Button>
+        </div>
+      )}
+
       {loading ? (
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <div className="space-y-4">
           {pending.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                Ожидают подтверждения ({pending.length})
-              </p>
-              {pending.map(u => (
-                <div key={u.id} className="p-3 rounded-lg border border-border bg-muted/30">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      {renderNameBlock(u)}
-                      {renderUserMeta(u)}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {renderDeptSelect(u)}
-                      <Button size="sm" onClick={() => handleToggleApproval(u.id, true)} className="gap-1">
-                        <UserCheck className="h-3.5 w-3.5" />
-                        Одобрить
-                      </Button>
-                    </div>
-                  </div>
-                  {renderExtraFields(u)}
-                </div>
-              ))}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Ожидают подтверждения ({pending.length})</p>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => selectAll(pending.map(u => u.id))}>
+                  Выбрать всех
+                </Button>
+              </div>
+              {pending.map(renderCard)}
             </div>
           )}
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              Активные пользователи ({approved.length})
-            </p>
-            {approved.map(u => (
-              <div key={u.id} className="p-3 rounded-lg border border-border">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    {renderNameBlock(u)}
-                    {renderUserMeta(u)}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {renderDeptSelect(u)}
-                    <Badge variant="secondary" className="text-xs">Активен</Badge>
-                    <Button size="sm" variant="outline" onClick={() => handleToggleApproval(u.id, false)} className="gap-1">
-                      <UserX className="h-3.5 w-3.5" />
-                      Деактивировать
-                    </Button>
-                  </div>
-                </div>
-                {renderExtraFields(u)}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">Активные пользователи ({approved.length})</p>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => selectAll(approved.map(u => u.id))}>
+                Выбрать всех
+              </Button>
+            </div>
+
+            {groupedApproved ? (
+              <div className="space-y-2">
+                {groupedApproved.map(g => (
+                  <Collapsible key={g.id} defaultOpen={g.id === "__none"}>
+                    <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted/50 transition-colors">
+                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:-rotate-90" />
+                      <span className="text-sm font-medium">{g.name}</span>
+                      <Badge variant="secondary" className="text-xs">{g.users.length}</Badge>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-2 pl-2">
+                      {g.users.map(renderCard)}
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
               </div>
-            ))}
+            ) : (
+              approved.map(renderCard)
+            )}
           </div>
 
           {pending.length === 0 && approved.length === 0 && (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              {q ? `Ничего не найдено по запросу «${search}»` : "Нет пользователей"}
+              {search || showOnlyNoDept ? "Ничего не найдено по фильтрам" : "Нет пользователей"}
             </p>
           )}
         </div>
       )}
+
+      <AuditHistoryDialog user={historyUser} onClose={() => setHistoryUser(null)} />
     </div>
   );
 }
