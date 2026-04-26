@@ -1,14 +1,11 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { TaskGroup } from "@/hooks/useTasks";
 
