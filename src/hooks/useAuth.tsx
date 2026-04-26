@@ -63,6 +63,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string, fetchId: number, isMounted: () => boolean, attempt = 0) => {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2500;
+    const HARD_TIMEOUT_MS = 8000;
+
+    // Hard cap: if anything in Promise.all hangs (network glitch, RLS deadlock,
+    // RPC stuck), we MUST clear the loading state so the UI is not stuck on a
+    // spinner forever. The user can still use the app even if some role flags
+    // are temporarily wrong; they'll be corrected on the next successful fetch.
+    const safetyTimer = setTimeout(() => {
+      if (fetchIdRef.current === fetchId && isMounted()) {
+        console.warn("[Auth] fetchProfile hard timeout — clearing loading state");
+        setLoading(false);
+      }
+    }, HARD_TIMEOUT_MS);
 
     try {
       const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
@@ -73,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("admin_mode_state" as any).select("admin_disabled").eq("user_id", userId).maybeSingle(),
       ]);
 
+      clearTimeout(safetyTimer);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
       const noAdminsExist = adminExistsRes.data === false;
@@ -108,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setLoading(false);
     } catch (err) {
+      clearTimeout(safetyTimer);
       console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
