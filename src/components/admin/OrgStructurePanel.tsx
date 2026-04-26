@@ -136,13 +136,6 @@ export default function OrgStructurePanel() {
           />
         ))}
       </div>
-
-      <div className="border-t border-border pt-4">
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Users className="h-4 w-4 text-primary" /> Множественное членство пользователей
-        </h3>
-        <UserMembershipBulk users={users} departments={departments as any} userDeps={userDeps} />
-      </div>
     </div>
   );
 }
