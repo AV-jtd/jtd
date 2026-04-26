@@ -481,12 +481,12 @@ export default function Settings() {
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
-              <div className="border-t border-border pt-6 space-y-3">
+              <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-3">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-5 w-5 text-destructive" />
-                  <h2 className="text-lg font-medium">Режим администратора</h2>
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  <h2 className="text-sm font-semibold">Режим администратора</h2>
                 </div>
-                <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
                       Супер-права админа
@@ -511,7 +511,7 @@ export default function Settings() {
                 </div>
 
                 {/* Симуляция роли (только визуально). RLS на сервере не меняется. */}
-                <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
