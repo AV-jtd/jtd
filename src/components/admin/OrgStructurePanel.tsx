@@ -103,7 +103,7 @@ export default function OrgStructurePanel() {
 
       <div className="text-xs text-muted-foreground">
         Глубина — 3 уровня: <b>Дирекция → Отдел → Подотдел</b>. <Crown className="inline h-3 w-3 text-amber-500" /> руководитель отдела;{" "}
-        <Shield className="inline h-3 w-3 text-violet-500" /> доп. кураторы (директоры).
+        <Shield className="inline h-3 w-3 text-violet-500" /> со-руководители (равные права видимости).
       </div>
 
       <div className="space-y-1.5">
@@ -375,10 +375,10 @@ function DirectorsPicker({
               ? "border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
               : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-violet-500/50",
           )}
-          title="Дополнительные кураторы (директоры)"
+          title="Со-руководители (равные права видимости с head'ом)"
         >
           <Shield className="h-3 w-3" />
-          {dirs.length > 0 ? `Кураторы: ${dirs.length}` : "Кураторы"}
+          {dirs.length > 0 ? `Со-рук.: ${dirs.length}` : "Со-руководитель"}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
@@ -394,7 +394,7 @@ function DirectorsPicker({
             ))}
           </div>
         )}
-        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Добавить куратора..." className="h-7 text-xs mb-2" />
+        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Добавить со-руководителя..." className="h-7 text-xs mb-2" />
         <div className="max-h-64 overflow-auto">
           {filtered.map((u) => (
             <button
