@@ -2074,6 +2074,10 @@ export type Database = {
         Args: { _dep_id: string; _user_id: string }
         Returns: boolean
       }
+      can_see_task: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_view_tag: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
