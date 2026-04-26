@@ -262,8 +262,6 @@ export default function AdminApproval() {
   // Stats for filters bar
   const noDeptCount = users.filter(u => u.is_approved && !u.department_id).length;
 
-  if (!isAdmin) return null;
-
   // Map: user_id -> доп. (не-primary) отделы
   const extrasByUser = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -275,6 +273,8 @@ export default function AdminApproval() {
     });
     return m;
   }, [userDeps]);
+
+  if (!isAdmin) return null;
 
   const renderCard = (u: AdminUser) => (
     <UserCard
