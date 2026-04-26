@@ -160,6 +160,24 @@ export default defineConfig(({ mode }) => ({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
 
+          // Heavy libraries that are ALREADY dynamically imported by feature
+          // code (xlsx, exceljs, pdf, dompurify, etc.) — let Rollup keep them
+          // in their own lazy chunks instead of pulling them into vendor-misc.
+          if (
+            id.includes("/xlsx/") ||
+            id.includes("/exceljs/") ||
+            id.includes("/jspdf/") ||
+            id.includes("/jspdf-autotable/") ||
+            id.includes("/pdfjs-") ||
+            id.includes("/html2canvas/") ||
+            id.includes("/dompurify/") ||
+            id.includes("/file-saver/") ||
+            id.includes("/pptxgenjs/") ||
+            id.includes("/mammoth/")
+          ) {
+            return undefined;
+          }
+
           // React core — needed on every page, keep together for cache hit.
           if (
             id.includes("/react/") ||
