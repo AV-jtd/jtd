@@ -85,10 +85,9 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     mode === "production" && versionJsonPlugin(buildVersion),
-    mode === "production" && emergencyServiceWorkerKillerPlugin(),
     VitePWA({
       selfDestroying: true,
-      injectRegister: "inline",
+      injectRegister: false,
       registerType: "autoUpdate",
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "placeholder.svg", "pwa-maskable-192x192.png", "pwa-maskable-512x512.png", "offline.html"],
@@ -190,6 +189,7 @@ export default defineConfig(({ mode }) => ({
         ],
       },
     }),
+    mode === "production" && emergencyServiceWorkerKillerPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
