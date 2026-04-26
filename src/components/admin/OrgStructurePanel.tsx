@@ -196,7 +196,7 @@ function DeptRow(p: DeptRowProps) {
     <div>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 hover:border-primary/40 transition-colors",
+          "flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 hover:border-primary/40 transition-colors min-w-0",
         )}
         style={{ marginLeft: depth * 20 }}
       >
@@ -231,20 +231,21 @@ function DeptRow(p: DeptRowProps) {
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="text-sm font-medium truncate hover:underline"
+            className="text-sm font-medium hover:underline text-left whitespace-nowrap"
+            title={dept.name}
           >
             {dept.name}
           </button>
         )}
 
-        <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
+        <Badge variant="outline" className="h-5 text-[10px] gap-0.5 shrink-0">
           {depth === 0 ? "Дирекция" : depth === 1 ? "Отдел" : "Подотдел"}
         </Badge>
 
-        <span className="text-[11px] text-muted-foreground">{memberCount} чел.</span>
+        <span className="text-[11px] text-muted-foreground shrink-0">{memberCount}</span>
 
         {/* Head */}
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1 shrink-0">
           <HeadPicker dept={dept} users={users} onSet={(uid) => p.onSetHead(dept.id, uid)} />
 
           {/* Directors (extra curators) */}
