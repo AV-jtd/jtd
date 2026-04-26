@@ -46,32 +46,18 @@
           if (booted) return;
           var root = document.getElementById("root");
           if (root && root.childElementCount > 0) return;
-          // Already attempted recovery in this tab — don't loop.
+          // Do NOT auto-redirect here: on slow Safari/old devices it can trap
+          // users in /sw-reset.html. Show a manual recovery link instead.
           try {
             if (sessionStorage.getItem(KEY)) return;
             sessionStorage.setItem(KEY, String(Date.now()));
           } catch (e) {}
-          console.warn("[boot] White screen detected, clearing SW + caches and reloading…");
-          // Send the user to the dedicated reset page — it bypasses the SW
-          // navigateFallback and performs a full SW + cache + storage purge
-          // even if our main bundle / index.html is poisoned.
-          var done = function () {
-            window.location.replace("/sw-reset.html?_wsr=" + Date.now().toString(36));
-          };
-          var tasks = [];
-          try {
-            if ("caches" in window) {
-              tasks.push(caches.keys().then(function (keys) {
-                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-              }));
-            }
-            if ("serviceWorker" in navigator) {
-              tasks.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
-                return Promise.all(regs.map(function (r) { return r.unregister(); }));
-              }));
-            }
-          } catch (e) {}
-          Promise.all(tasks).then(done, done);
+          console.warn("[boot] App did not mount; showing manual SW reset link…");
+          var box = document.createElement("div");
+          box.style.cssText = "min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f5f2;color:#1a1a1a;text-align:center";
+          box.innerHTML = '<div style="max-width:420px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:18px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.06)"><h1 style="font-size:20px;margin:0 0 8px">Приложение загружается дольше обычного</h1><p style="font-size:14px;line-height:1.5;color:#666;margin:0 0 18px">Если экран не оживает, выполните ручной сброс кэша.</p><a href="/sw-reset.html" style="display:inline-block;background:#5c3d2e;color:white;text-decoration:none;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:500">Сбросить кэш</a></div>';
+          document.body.innerHTML = "";
+          document.body.appendChild(box);
         }, TIMEOUT_MS);
         // Clear the recovery flag once the app boots successfully so future
         // unrelated white-screens can also self-heal.
