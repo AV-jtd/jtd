@@ -7,6 +7,8 @@ import type { Profile } from "@/hooks/useTasks";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useContractors } from "@/hooks/useContractors";
 import { useAuth } from "@/hooks/useAuth";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CONSULTANT_FADED_CLASS, consultantTooltip } from "@/lib/consultantRestrictions";
 
 export type AssigneeKind = "user" | "department" | "contractor" | null;
 
