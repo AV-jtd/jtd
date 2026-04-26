@@ -296,9 +296,10 @@ type PanelProps = {
   filtered: string[];
   onPick: (emoji: string) => void;
   mineFor: (emoji: string) => boolean;
+  autoFocusSearch?: boolean;
 };
 
-function ReactionPanel({ quick, search, setSearch, filtered, onPick, mineFor }: PanelProps) {
+function ReactionPanel({ quick, search, setSearch, filtered, onPick, mineFor, autoFocusSearch = true }: PanelProps) {
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && filtered.length > 0) {
       e.preventDefault();
@@ -340,7 +341,7 @@ function ReactionPanel({ quick, search, setSearch, filtered, onPick, mineFor }: 
           placeholder="Поиск эмодзи…"
           className="h-8 pl-7 text-xs"
           aria-label="Поиск эмодзи"
-          autoFocus
+          autoFocus={autoFocusSearch}
         />
       </div>
       <div className="sr-only" role="status" aria-live="polite">
