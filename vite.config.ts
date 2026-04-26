@@ -40,7 +40,9 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     mode === "production" && versionJsonPlugin(buildVersion),
     VitePWA({
-      registerType: "prompt",
+      selfDestroying: true,
+      injectRegister: "inline",
+      registerType: "autoUpdate",
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "placeholder.svg", "pwa-maskable-192x192.png", "pwa-maskable-512x512.png", "offline.html"],
       workbox: {
