@@ -2078,6 +2078,17 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      can_see_task_row: {
+        Args: {
+          _task_assigned_to: string
+          _task_department_id: string
+          _task_group_id: string
+          _task_id: string
+          _task_user_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_view_tag: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
