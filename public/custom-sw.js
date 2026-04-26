@@ -47,6 +47,22 @@ self.addEventListener("activate", (event) => {
 });
 
 // ---------------------------------------------------------------------------
+// 1b. Controlled SKIP_WAITING
+// ---------------------------------------------------------------------------
+// Workbox is configured with skipWaiting: false so a freshly-installed SW
+// stays in the "waiting" state and does NOT interrupt in-progress work
+// (uploads, edits) of users with the app already open. The page calls
+// `registration.waiting.postMessage({ type: "SKIP_WAITING" })` at a SAFE
+// moment (tab becomes hidden, network drops, or the app explicitly decides
+// to refresh). At that point the new SW takes over, and `controllerchange`
+// in the page triggers a clean hard-reload.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // 2. Web Push notifications
 // ---------------------------------------------------------------------------
 
