@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users, Search, X } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -32,6 +32,10 @@ function SettingsSection({
   badge,
   defaultOpen = false,
   iconClassName,
+  sectionId,
+  forceOpen,
+  hidden,
+  registerRef,
   children,
 }: {
   icon: React.ElementType;
@@ -40,9 +44,31 @@ function SettingsSection({
   badge?: React.ReactNode;
   defaultOpen?: boolean;
   iconClassName?: string;
+  sectionId?: string;
+  /** Принудительно раскрыть (например, при поиске или клике по якорю) */
+  forceOpen?: boolean;
+  /** Скрыть секцию (поиск не нашёл совпадений) */
+  hidden?: boolean;
+  registerRef?: (id: string, el: HTMLDivElement | null) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const localRef = useRef<HTMLDivElement | null>(null);
+
+  // Следим за forceOpen: при включении — раскрываем, при выключении — оставляем как есть
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
+
+  useEffect(() => {
+    if (sectionId && registerRef) {
+      registerRef(sectionId, localRef.current);
+      return () => registerRef(sectionId, null);
+    }
+  }, [sectionId, registerRef]);
+
+  if (hidden) return null;
+
   return (
     <Collapsible
       open={open}
@@ -52,6 +78,7 @@ function SettingsSection({
         open && "shadow-sm",
       )}
     >
+      <div ref={localRef} aria-hidden className="-mt-16 pt-16" />
       <CollapsibleTrigger asChild>
         <button
           type="button"
