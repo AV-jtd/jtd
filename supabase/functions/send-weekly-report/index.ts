@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const AI_GATEWAY = "https://ai-gateway.lovable.dev/v1/chat/completions";
 
 Deno.serve(async (req) => {
   if (!BOT_TOKEN) {
@@ -11,11 +13,14 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Check if today is a workday (Mon-Fri) in Moscow timezone
+  // Run only on Friday (Moscow timezone) — weekly report
   const moscowNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
-  const dayOfWeek = moscowNow.getDay(); // 0=Sun, 6=Sat
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "weekend" }));
+  const dayOfWeek = moscowNow.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  // Allow manual override via ?force=1 for testing
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "1";
+  if (!force && dayOfWeek !== 5) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "not friday" }));
   }
 
   // Get all users who have telegram_chat_id AND telegram_weekly_report enabled
@@ -35,11 +40,11 @@ Deno.serve(async (req) => {
   const { data: prefs } = await supabase
     .from("notification_preferences")
     .select("user_id, telegram_weekly_report")
-    .in("user_id", userIds)
-    .eq("telegram_weekly_report", true);
+    .in("user_id", userIds);
 
-  const enabledUserIds = new Set((prefs || []).map(p => p.user_id));
-  const eligibleProfiles = profiles.filter(p => enabledUserIds.has(p.id));
+  const prefsMap = new Map((prefs || []).map((p: any) => [p.user_id, p.telegram_weekly_report]));
+  // If pref row exists — respect it. If missing — default OFF (avoid spam).
+  const eligibleProfiles = profiles.filter(p => prefsMap.get(p.id) === true);
 
   if (eligibleProfiles.length === 0) {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no users opted in" }));
@@ -144,7 +149,7 @@ Deno.serve(async (req) => {
 
       // Build message
       const lines: string[] = [
-        `📊 <b>Ежедневный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
+        `📊 <b>Еженедельный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
         `📅 Дедлайнов на неделе: <b>${weekTasks.length}</b>`,
@@ -221,8 +226,8 @@ Deno.serve(async (req) => {
         }),
         driftTasks: [],
         upcomingTasks: [],
-        period: "auto_daily",
-        periodLabel: "Авто-отчёт",
+        period: "auto_weekly",
+        periodLabel: "Еженедельный отчёт",
         overdueStepsCount: overdueSteps.length,
         stepsNoDeadlineCount: stepsNoDeadline.length,
         stepsNoAssigneeCount: stepsNoAssignee.length,
@@ -235,7 +240,26 @@ Deno.serve(async (req) => {
       });
 
       // Send Telegram message
-      const text = lines.join("\n");
+      let text = lines.join("\n");
+
+      // Append AI review block
+      const aiBlock = await generateAiBlock({
+        userName: profile.display_name || "Коллега",
+        completionRate: pct,
+        completed,
+        total,
+        overdueCount: overdue.length,
+        overdueStepsCount: overdueSteps.length,
+        driftCount: driftTasks.length,
+        upcomingWeekCount: weekTasks.length,
+        noDeadlineCount: stepsNoDeadline.length,
+        noAssigneeCount: stepsNoAssignee.length,
+        projectsCount: groups.length,
+      });
+      if (aiBlock) {
+        text += `\n\n━━━━━━━━━━━━━━\n${aiBlock}`;
+      }
+
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -254,3 +278,65 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ ok: true, sent: sentCount }));
 });
+
+async function generateAiBlock(d: {
+  userName: string;
+  completionRate: number;
+  completed: number;
+  total: number;
+  overdueCount: number;
+  overdueStepsCount: number;
+  driftCount: number;
+  upcomingWeekCount: number;
+  noDeadlineCount: number;
+  noAssigneeCount: number;
+  projectsCount: number;
+}): Promise<string | null> {
+  if (!LOVABLE_API_KEY) return null;
+  try {
+    const prompt = `Ты — ИИ-менеджер проектов. Составь краткий ИИ-блок для еженедельного отчёта менеджера "${d.userName}".
+
+Метрики недели:
+- Проектов: ${d.projectsCount}
+- Задач: ${d.total}, выполнено: ${d.completed} (${d.completionRate}%)
+- Просрочено задач: ${d.overdueCount}, шагов: ${d.overdueStepsCount}
+- Drift (перенос сроков): ${d.driftCount}
+- Дедлайнов на след. неделе: ${d.upcomingWeekCount}
+- Без срока: ${d.noDeadlineCount}, без ответственного: ${d.noAssigneeCount}
+
+Формат — Telegram HTML. Структура (компактно, без повтора цифр выше):
+🤖 <b>ИИ-обзор</b>
+🏆 <b>Достижения:</b> 1-2 строки.
+⚠️ <b>Риски:</b> 1-2 строки.
+🎯 <b>Фокус недели:</b> 2-3 приоритета.
+💡 <b>Рекомендация:</b> 1 конкретный совет.
+
+Не больше 700 символов. Используй <b>, <i>.`;
+
+    const res = await fetch(AI_GATEWAY, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Ты — ИИ-ассистент по управлению проектами. Отвечай на русском, кратко." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 600,
+        temperature: 0.7,
+      }),
+    });
+    if (!res.ok) {
+      console.error("AI gateway error:", res.status);
+      return null;
+    }
+    const json = await res.json();
+    return json.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error("AI block error:", e);
+    return null;
+  }
+}

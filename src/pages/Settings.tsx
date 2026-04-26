@@ -566,21 +566,11 @@ export default function Settings() {
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <span className="text-sm">Еженедельный отчёт</span>
-                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
+                          <p className="text-xs text-muted-foreground">Пятница в 08:08 МСК — цифры, просрочки, планы + ИИ-обзор</p>
                         </div>
                         <Switch
                           checked={!!(prefs as any)?.telegram_weekly_report}
                           onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <div>
-                          <span className="text-sm">Еженедельный ИИ-обзор</span>
-                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
-                        </div>
-                        <Switch
-                          checked={!!(prefs as any)?.telegram_weekly_ai_review}
-                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
                         />
                       </div>
                     </div>
