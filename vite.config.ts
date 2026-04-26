@@ -61,10 +61,12 @@ self.addEventListener('fetch', (event) => {
     writeBundle({ dir }) {
       const outDir = dir || "dist";
       fs.writeFileSync(path.resolve(outDir, "sw.js"), killerSw);
+      fs.writeFileSync(path.resolve(outDir, "custom-sw.js"), killerSw);
       fs.writeFileSync(path.resolve(outDir, "workbox-kill-switch.txt"), String(Date.now()));
     },
     closeBundle() {
       fs.writeFileSync(path.resolve("dist", "sw.js"), killerSw);
+      fs.writeFileSync(path.resolve("dist", "custom-sw.js"), killerSw);
       fs.writeFileSync(path.resolve("dist", "workbox-kill-switch.txt"), String(Date.now()));
     },
   };
