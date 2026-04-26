@@ -233,3 +233,83 @@ export function useUpdateDepartmentParent() {
     },
   });
 }
+
+/** Добавить пользователя в отдел (как доп. отдел; не меняет primary, если у юзера уже есть основной). */
+export function useAddUserToDepartment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { userId: string; departmentId: string }) => {
+      const { userId, departmentId } = params;
+      // Есть ли уже primary?
+      const { data: existing, error: selErr } = await (supabase as any)
+        .from("user_departments")
+        .select("department_id,is_primary")
+        .eq("user_id", userId);
+      if (selErr) throw selErr;
+      const hasPrimary = (existing ?? []).some((r: any) => r.is_primary);
+      const already = (existing ?? []).some((r: any) => r.department_id === departmentId);
+      if (already) return;
+      const { error: insErr } = await (supabase as any)
+        .from("user_departments")
+        .insert({ user_id: userId, department_id: departmentId, is_primary: !hasPrimary });
+      if (insErr) throw insErr;
+      // Если это первый primary — синхронизируем профиль
+      if (!hasPrimary) {
+        await supabase.from("profiles").update({ department_id: departmentId }).eq("id", userId);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-departments"] });
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["visible-departments"] });
+      toast({ title: "Пользователь добавлен в отдел" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Не удалось добавить", description: e?.message, variant: "destructive" });
+    },
+  });
+}
+
+/** Убрать пользователя из отдела. Если убирали primary — primary получает любой оставшийся отдел. */
+export function useRemoveUserFromDepartment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { userId: string; departmentId: string }) => {
+      const { userId, departmentId } = params;
+      const { data: existing, error: selErr } = await (supabase as any)
+        .from("user_departments")
+        .select("department_id,is_primary")
+        .eq("user_id", userId);
+      if (selErr) throw selErr;
+      const wasPrimary = (existing ?? []).find((r: any) => r.department_id === departmentId)?.is_primary;
+      const { error: delErr } = await (supabase as any)
+        .from("user_departments")
+        .delete()
+        .eq("user_id", userId)
+        .eq("department_id", departmentId);
+      if (delErr) throw delErr;
+      if (wasPrimary) {
+        const remaining = (existing ?? []).filter((r: any) => r.department_id !== departmentId);
+        if (remaining.length > 0) {
+          const newPrimary = remaining[0].department_id;
+          await (supabase as any)
+            .from("user_departments")
+            .update({ is_primary: true })
+            .eq("user_id", userId)
+            .eq("department_id", newPrimary);
+          await supabase.from("profiles").update({ department_id: newPrimary }).eq("id", userId);
+        } else {
+          await supabase.from("profiles").update({ department_id: null }).eq("id", userId);
+        }
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-departments"] });
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["visible-departments"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Не удалось убрать", description: e?.message, variant: "destructive" });
+    },
+  });
+}
