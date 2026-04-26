@@ -349,3 +349,42 @@ async function generateAiBlock(d: {
     return null;
   }
 }
+
+function pickGreeting(timeWord: string, name: string, ctx: { pct: number; overdue: number; weekTasks: number }): string {
+  // Smart variants: pick by context, randomized within bucket for variety
+  const variants: string[] = [];
+
+  if (ctx.overdue === 0 && ctx.pct >= 80) {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Неделя прошла отлично — держим темп 🚀`,
+      `✨ ${timeWord}, <b>${name}</b>! Чисто закрыли неделю, поздравляю 🎯`,
+      `🏆 ${timeWord}, <b>${name}</b>! Образцовая неделя — так держать!`,
+    );
+  } else if (ctx.overdue === 0) {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Без просрочек — отличная дисциплина 👌`,
+      `🌿 ${timeWord}, <b>${name}</b>! Спокойная неделя без хвостов.`,
+      `☕ ${timeWord}, <b>${name}</b>! Подведём итоги — всё под контролем.`,
+    );
+  } else if (ctx.overdue >= 5) {
+    variants.push(
+      `⚡ ${timeWord}, <b>${name}</b>! Накопилось — давай разберём вместе.`,
+      `🎯 ${timeWord}, <b>${name}</b>! Время сфокусироваться на хвостах.`,
+      `🧭 ${timeWord}, <b>${name}</b>! Сверим курс — есть, что подтянуть.`,
+    );
+  } else if (ctx.weekTasks >= 5) {
+    variants.push(
+      `🚀 ${timeWord}, <b>${name}</b>! Впереди насыщенная неделя — соберёмся.`,
+      `📅 ${timeWord}, <b>${name}</b>! Много дедлайнов — расставим приоритеты.`,
+      `💼 ${timeWord}, <b>${name}</b>! План на неделю плотный, но выполнимый.`,
+    );
+  } else {
+    variants.push(
+      `👋 ${timeWord}, <b>${name}</b>! Подведём итоги недели.`,
+      `📊 ${timeWord}, <b>${name}</b>! Свежий обзор уже готов.`,
+      `🌱 ${timeWord}, <b>${name}</b>! Рабочая неделя — на пятничном чек-апе.`,
+    );
+  }
+
+  return variants[Math.floor(Math.random() * variants.length)];
+}
