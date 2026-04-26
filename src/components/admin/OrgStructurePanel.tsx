@@ -163,6 +163,8 @@ interface DeptRowProps {
   onRename: (deptId: string, name: string) => Promise<unknown>;
   onAddDirector: (deptId: string, userId: string) => Promise<unknown>;
   onRemoveDirector: (deptId: string, userId: string) => Promise<unknown>;
+  onAddMember: (deptId: string, userId: string) => Promise<unknown>;
+  onRemoveMember: (deptId: string, userId: string) => Promise<unknown>;
   onMove: (deptId: string, parentId: string | null) => Promise<unknown>;
   onDelete: (deptId: string) => Promise<void>;
 }
@@ -252,6 +254,15 @@ function DeptRow(p: DeptRowProps) {
             directorIds={dirIds}
             onAdd={(uid) => p.onAddDirector(dept.id, uid)}
             onRemove={(uid) => p.onRemoveDirector(dept.id, uid)}
+          />
+
+          {/* Members of this department */}
+          <MembersPicker
+            dept={dept}
+            users={users}
+            members={usersByDept.get(dept.id) ?? []}
+            onAdd={(uid) => p.onAddMember(dept.id, uid)}
+            onRemove={(uid) => p.onRemoveMember(dept.id, uid)}
           />
 
           <MoveParentPicker
