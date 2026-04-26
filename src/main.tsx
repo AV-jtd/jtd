@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { checkForUpdates } from "./lib/versionCheck";
 
 // ---------------------------------------------------------------------------
 // Safari/PWA white-screen guard: stale lazy chunks after deploy
@@ -55,19 +56,30 @@ if (isPreviewHost || isInIframe) {
     regs.forEach((r) => r.unregister());
   });
 } else {
-  // Register PWA quietly. Updates must not force a reload: offline-light access
-  // is more important than immediately switching every tab to the newest build.
+  // Register PWA. We use registerType: "prompt" + skipWaiting: false in
+  // vite.config.ts, so a freshly-installed SW stays "waiting" and never
+  // interrupts in-progress work. The actual activation is orchestrated by
+  // `checkForUpdates()` (src/lib/versionCheck.ts), which:
+  //   • polls /version.json every minute
+  //   • calls registration.update() every 5 min
+  //   • when a waiting SW appears, sends SKIP_WAITING the moment the tab
+  //     goes into the background (or after 10 min of foreground idle)
+  //   • on `controllerchange`, performs a clean hard-reload so the HTML
+  //     and JS chunks always come from the same build.
   import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({
       immediate: true,
       onNeedRefresh() {
-        // New version is available; it will be picked up on a normal reload.
+        // Handled by versionCheck → safe activation pipeline.
       },
       onOfflineReady() {
         // Silent
       },
     });
   }).catch(() => {});
+
+  // Start version polling + SW update orchestration.
+  checkForUpdates().catch(() => {});
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
