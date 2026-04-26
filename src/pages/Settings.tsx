@@ -24,7 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-/** Универсальная сворачиваемая секция админки/настроек */
+/** Универсальная сворачиваемая секция админки/настроек — компактная карточка */
 function SettingsSection({
   icon: Icon,
   title,
@@ -44,36 +44,43 @@ function SettingsSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-border pt-6">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-start justify-between gap-3 text-left group"
-          >
-            <div className="flex items-start gap-2 min-w-0">
-              <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", iconClassName ?? "text-primary")} />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-semibold">{title}</h2>
-                  {badge}
-                </div>
-                {description && (
-                  <p className="text-sm text-muted-foreground mt-1">{description}</p>
-                )}
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className={cn(
+        "rounded-lg border border-border bg-card transition-colors",
+        open && "shadow-sm",
+      )}
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 hover:bg-accent/40 rounded-lg transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <Icon className={cn("h-4 w-4 shrink-0", iconClassName ?? "text-primary")} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold">{title}</span>
+                {badge}
               </div>
-            </div>
-            <ChevronDown
-              className={cn(
-                "h-5 w-5 text-muted-foreground shrink-0 transition-transform mt-1",
-                open && "rotate-180",
+              {description && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
               )}
-            />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">{children}</CollapsibleContent>
-      </Collapsible>
-    </div>
+            </div>
+          </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-4 pb-4 pt-1 border-t border-border">
+        <div className="pt-4">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
