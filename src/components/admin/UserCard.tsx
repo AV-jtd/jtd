@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck } from "lucide-react";
+import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import type { AdminUser, Department, ContractorLite, ClientLite } from "./types";
 
@@ -24,6 +24,7 @@ interface Props {
   onCancelEditName: () => void;
   onApprove: (id: string, approve: boolean) => void;
   onDepartmentChange: (id: string, dept: string | null) => void;
+  onToggleHead: (id: string) => void;
   onUpdateField: (id: string, patch: Partial<AdminUser>) => void;
   onDelete: (id: string) => void;
   onShowHistory: (u: AdminUser) => void;
@@ -33,8 +34,11 @@ export function UserCard({
   user: u, isProtectedAdmin, selected, onToggleSelect,
   departments, contractors, clients,
   editingNameId, editingNameValue, onStartEditName, onChangeNameValue, onSaveName, onCancelEditName,
-  onApprove, onDepartmentChange, onUpdateField, onDelete, onShowHistory,
+  onApprove, onDepartmentChange, onToggleHead, onUpdateField, onDelete, onShowHistory,
 }: Props) {
+  const userDept = u.department_id ? departments.find(d => d.id === u.department_id) : null;
+  const isHead = !!(userDept && userDept.head_user_id === u.id);
+  const canBeHead = !!u.department_id;
   return (
     <div className={`p-3 rounded-lg border ${u.is_approved ? "border-border" : "border-border bg-muted/30"} ${selected ? "ring-2 ring-primary/40" : ""}`}>
       <div className="flex items-start gap-3">
@@ -117,6 +121,23 @@ export function UserCard({
               ))}
             </SelectContent>
           </Select>
+
+          <Button
+            size="icon"
+            variant={isHead ? "default" : "ghost"}
+            className={`h-8 w-8 ${isHead ? "bg-amber-500 hover:bg-amber-500/90 text-white" : "text-muted-foreground hover:text-amber-600"}`}
+            disabled={!canBeHead}
+            onClick={() => onToggleHead(u.id)}
+            title={
+              !canBeHead
+                ? "Сначала назначьте отдел"
+                : isHead
+                  ? `Снять с роли главы «${userDept?.name}»`
+                  : `Назначить главой отдела «${userDept?.name}»`
+            }
+          >
+            <Crown className="h-3.5 w-3.5" />
+          </Button>
 
           {u.is_approved ? (
             <Button
