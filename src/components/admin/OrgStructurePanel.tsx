@@ -423,6 +423,83 @@ function DirectorsPicker({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+function MembersPicker({
+  dept, users, members, onAdd, onRemove,
+}: {
+  dept: AnyDept;
+  users: AnyUser[];
+  members: { userId: string; isPrimary: boolean }[];
+  onAdd: (uid: string) => Promise<unknown>;
+  onRemove: (uid: string) => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const memberIds = new Set(members.map((m) => m.userId));
+  const memberUsers = members
+    .map((m) => ({ user: users.find((u) => u.id === m.userId), isPrimary: m.isPrimary }))
+    .filter((x) => !!x.user) as { user: AnyUser; isPrimary: boolean }[];
+  const filtered = users
+    .filter((u) => !memberIds.has(u.id))
+    .filter((u) => (u.display_name ?? u.email ?? "").toLowerCase().includes(q.toLowerCase()))
+    .slice(0, 30);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            members.length > 0
+              ? "border-sky-500/50 bg-sky-500/15 text-sky-700 dark:text-sky-300"
+              : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-sky-500/50",
+          )}
+          title="Сотрудники отдела"
+        >
+          <Users className="h-3 w-3" />
+          {members.length > 0 ? `Сотрудники: ${members.length}` : "Добавить сотрудника"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="end">
+        {memberUsers.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {memberUsers.map(({ user: u, isPrimary }) => (
+              <span
+                key={u.id}
+                className="inline-flex items-center gap-1 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] text-sky-700 dark:text-sky-300"
+                title={isPrimary ? "Основной отдел" : "Дополнительный отдел"}
+              >
+                {isPrimary && <Star className="h-2.5 w-2.5 fill-current" />}
+                {u.display_name ?? u.email}
+                <button onClick={() => onRemove(u.id)} className="hover:text-destructive" title="Убрать из отдела">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Найти и добавить..." className="h-7 text-xs mb-2" />
+        <div className="max-h-64 overflow-auto">
+          {filtered.map((u) => (
+            <button
+              key={u.id}
+              onClick={async () => { await onAdd(u.id); setQ(""); }}
+              className="w-full text-left px-2 py-1 rounded text-xs hover:bg-muted truncate flex items-center gap-1.5"
+            >
+              <UserPlus className="h-3 w-3 text-muted-foreground" />
+              {u.display_name ?? u.email}
+            </button>
+          ))}
+          {filtered.length === 0 && <p className="text-xs text-muted-foreground p-2 text-center">Никого не нашлось</p>}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2 px-1">
+          Первый отдел становится основным <Star className="inline h-2.5 w-2.5 fill-current" />. Остальные — дополнительные.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function MoveParentPicker({
   dept,
   allDepartments,
