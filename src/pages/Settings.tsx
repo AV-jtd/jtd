@@ -421,55 +421,57 @@ export default function Settings() {
 
             {/* Calendar Subscription */}
             <ConsultantGuard area="calendar-sync">
-              <CalendarSubscription userId={user.id} />
+              <SettingsSection
+                icon={CalendarSync}
+                title="Подписка на календарь"
+                description="Синхронизация дедлайнов с Google / Outlook / Apple Calendar."
+              >
+                <CalendarSubscription userId={user.id} />
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Tags management */}
             <ConsultantGuard area="tags-management">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                  <Tag className="h-5 w-5 text-primary" />
-                  Тэги
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
-                </p>
+              <SettingsSection
+                icon={Tag}
+                title="Тэги"
+                description="Категории и тэги. Фильтрация — через панель фильтров в списке задач."
+              >
                 <TagManagementPanel />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
-            {/* Departments & Contractors */}
+            {/* Contractors */}
             <ConsultantGuard area="delegation">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-1">
-                  Подрядчики
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Внешние исполнители без учётной записи. Используются как метка на задаче, уведомления не отправляются. Отделы и иерархия — во вкладке «Оргструктура» выше.
-                </p>
+              <SettingsSection
+                icon={Users}
+                title="Подрядчики"
+                description="Внешние исполнители без учётной записи. Используются как метка на задаче."
+              >
                 <DelegationPanel />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Import/Export */}
             <ConsultantGuard area="import-export">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Download className="h-5 w-5 text-primary" />
-                  Импорт / Экспорт
-                </h2>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Импортируйте проект из Excel-файла (.xlsx) — AI автоматически определит колонки. Экспорт с выбором колонок и фильтров доступен в панели проекта.
-                </p>
+              <SettingsSection
+                icon={Download}
+                title="Импорт / Экспорт"
+                description="Импорт проектов из Excel (.xlsx) — AI определяет колонки автоматически."
+              >
                 <SmartImportDialog />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Teams section */}
             <ConsultantGuard area="teams">
-              <div className="border-t border-border pt-6">
+              <SettingsSection
+                icon={Users}
+                title="Команды"
+                description="Совместные пространства и приглашения по invite-коду."
+              >
                 <TeamSection />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Admin mode toggle (только для реальных админов) */}
@@ -571,22 +573,24 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Admin approval */}
+            {/* Admin: Org structure + User management */}
             <ConsultantGuard area="admin">
               {isRealAdmin && (
-                <div className="border-t border-border pt-6">
-                  <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    Оргструктура
-                  </h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Дерево из 3 уровней: <b>Дирекция → Отдел → Подотдел</b>. Назначайте руководителей (head) и замов,
-                    а также привязывайте сотрудников к нескольким отделам сразу. Эти данные питают вкладки «Моя команда» и «Моя Дирекция».
-                  </p>
+                <SettingsSection
+                  icon={Building2}
+                  title="Оргструктура"
+                  description="Дирекция → Отдел → Подотдел. Руководители (head) и замы."
+                >
                   <OrgStructurePanel />
-                </div>
+                </SettingsSection>
               )}
-              <AdminApproval />
+              <SettingsSection
+                icon={UserCog}
+                title="Управление пользователями"
+                description="Утверждение, назначение отделов, доп. отделы и роли."
+              >
+                <AdminApproval />
+              </SettingsSection>
             </ConsultantGuard>
           </div>
         )}
