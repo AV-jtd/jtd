@@ -234,13 +234,24 @@ export default defineConfig(({ mode }) => ({
             return undefined;
           }
 
-          // React core — needed on every page, keep together for cache hit.
+          // React core + EVERYTHING that depends on the React runtime must
+          // live in the same chunk. Otherwise sibling vendor chunks that
+          // use React.createContext/useState load before this one and crash
+          // the whole bundle with "Cannot read properties of undefined
+          // (reading 'createContext')". Keep this list permissive — it is
+          // safer to over-include than to split React across chunks.
           if (
-            id.includes("/react/") ||
-            id.includes("/react-dom/") ||
-            id.includes("/scheduler/") ||
-            id.includes("/react-router") ||
-            id.includes("/react-router-dom/")
+            // Core React runtime
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/") ||
+            id.includes("/node_modules/react-is/") ||
+            id.includes("/node_modules/use-sync-external-store/") ||
+            id.includes("/node_modules/react-fast-compare/") ||
+            // Routing
+            id.includes("/node_modules/react-router") ||
+            id.includes("/node_modules/@remix-run/router/") ||
+            id.includes("/node_modules/history/")
           ) {
             return "vendor-react";
           }
@@ -295,8 +306,13 @@ export default defineConfig(({ mode }) => ({
             return "vendor-forms";
           }
 
-          // Everything else from node_modules → generic vendor bucket.
-          return "vendor-misc";
+          // Everything else from node_modules → leave un-chunked so Rollup
+          // can hoist it next to the dependent chunk. Forcing a single
+          // "vendor-misc" bucket previously pulled React-using libraries
+          // (e.g. react-helmet-async, react-day-picker) into a chunk that
+          // loaded before vendor-react and crashed the app with
+          // "createContext of undefined".
+          return undefined;
         },
       },
     },
