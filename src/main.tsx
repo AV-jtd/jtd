@@ -83,3 +83,7 @@ if (isPreviewHost || isInIframe) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Signal to the inline white-screen recovery script in index.html that
+// the React bundle has booted successfully (see <script> in index.html).
+try { (window as any).__jtdAppBooted?.(); } catch {}

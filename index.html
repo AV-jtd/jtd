@@ -27,6 +27,62 @@
 
   <body>
     <div id="root"></div>
+    <!--
+      White-screen recovery (last-resort, runs before main bundle).
+      If the main app bundle fails to load within 8 seconds (e.g. stale
+      Service Worker cache pointing to a chunk that no longer exists on
+      the server after a deploy), this script unregisters all Service
+      Workers, clears all caches, and hard-reloads the page once. The
+      `jtd_white_screen_recovered` sessionStorage flag prevents reload loops.
+    -->
+    <script>
+      (function () {
+        var KEY = "jtd_white_screen_recovered";
+        var TIMEOUT_MS = 8000;
+        var booted = false;
+        // The app sets this flag as soon as React mounts (see src/main.tsx).
+        window.__jtdAppBooted = function () { booted = true; };
+        setTimeout(function () {
+          if (booted) return;
+          var root = document.getElementById("root");
+          if (root && root.childElementCount > 0) return;
+          // Already attempted recovery in this tab — don't loop.
+          try {
+            if (sessionStorage.getItem(KEY)) return;
+            sessionStorage.setItem(KEY, String(Date.now()));
+          } catch (e) {}
+          console.warn("[boot] White screen detected, clearing SW + caches and reloading…");
+          var done = function () {
+            var url = new URL(window.location.href);
+            url.searchParams.set("_wsr", Date.now().toString(36));
+            window.location.replace(url.toString());
+          };
+          var tasks = [];
+          try {
+            if ("caches" in window) {
+              tasks.push(caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              }));
+            }
+            if ("serviceWorker" in navigator) {
+              tasks.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }));
+            }
+          } catch (e) {}
+          Promise.all(tasks).then(done, done);
+        }, TIMEOUT_MS);
+        // Clear the recovery flag once the app boots successfully so future
+        // unrelated white-screens can also self-heal.
+        window.addEventListener("load", function () {
+          setTimeout(function () {
+            if (booted) {
+              try { sessionStorage.removeItem(KEY); } catch (e) {}
+            }
+          }, 2000);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
