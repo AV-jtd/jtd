@@ -25,7 +25,7 @@ export default function ModuleLayout({
   children,
   extraOverlays,
 }: ModuleLayoutProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isConsultant } = useAuth();
   const navigate = useNavigate();
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
@@ -34,6 +34,7 @@ export default function ModuleLayout({
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
+    if (isConsultant) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -42,7 +43,7 @@ export default function ModuleLayout({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [isConsultant]);
 
   if (loading) {
     return (
@@ -68,7 +69,7 @@ export default function ModuleLayout({
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
-        {messengerOpen && (
+        {messengerOpen && !isConsultant && (
           <div className="w-full md:w-96 shrink-0 h-full animate-fade-in">
             <MessengerPanel
               onClose={() => setMessengerOpen(false)}
@@ -82,18 +83,22 @@ export default function ModuleLayout({
         )}
       </div>
 
-      <GlobalSearch
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        onNavigateToTask={() => {}}
-        onNavigateToProject={() => {}}
-        onNavigateToTag={() => {}}
-      />
-      <AiAssistant
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        moduleContext={{ module: moduleContext }}
-      />
+      {!isConsultant && (
+        <>
+          <GlobalSearch
+            open={searchOpen}
+            onOpenChange={setSearchOpen}
+            onNavigateToTask={() => {}}
+            onNavigateToProject={() => {}}
+            onNavigateToTag={() => {}}
+          />
+          <AiAssistant
+            open={aiOpen}
+            onOpenChange={setAiOpen}
+            moduleContext={{ module: moduleContext }}
+          />
+        </>
+      )}
       {extraOverlays?.({ aiOpen })}
     </div>
   );
