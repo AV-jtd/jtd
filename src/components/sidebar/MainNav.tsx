@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { List, Star, Users, Inbox, Clock, UsersRound, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
+import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,10 +50,9 @@ export default function MainNav({ activeView, activeGroupId, onViewChange, onGro
     { id: "myday", icon: Star, label: "Мой день" },
     { id: "assigned", icon: Users, label: "Делегированные" },
     ...(myDeptId
-      ? [{ id: "my-department", icon: Building2, label: "Мой отдел", href: "/my-department", badge: deptInboxCount }]
+      ? [{ id: "my-department", icon: Building2, label: "Моя команда", href: "/my-department", badge: deptInboxCount }]
       : []),
     { id: "deferred", icon: Clock, label: "Отложенные" },
-    { id: "subordinates", icon: UsersRound, label: "Команда" },
     { id: "community", icon: Globe, label: "Сообщество" },
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
     { id: "dashboard", icon: BarChart3, label: "Дашборд" },
