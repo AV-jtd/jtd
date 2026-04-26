@@ -315,16 +315,26 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Notifications */}
-            <div className="border-t border-border pt-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-medium">Уведомления</h2>
-              </div>
-
-              {/* Push subscribe toggle */}
-              {pushSupported && (
-                <div className="space-y-3">
+            {/* Notifications — matrix view, collapsed by default */}
+            <SettingsSection
+              icon={Bell}
+              title="Уведомления"
+              description="Включайте каналы (Web Push / Telegram) для каждого события."
+              badge={
+                prefs ? (
+                  <Badge variant="secondary" className="font-normal">
+                    {NOTIFICATION_EVENTS.reduce(
+                      (acc, e) =>
+                        acc + (prefs[e.push as keyof typeof prefs] ? 1 : 0) + (prefs[e.tg as keyof typeof prefs] ? 1 : 0),
+                      0,
+                    )}{" "}
+                    / {NOTIFICATION_EVENTS.length * 2} активно
+                  </Badge>
+                ) : null
+              }
+            >
+              <div className="space-y-4">
+                {pushSupported && (
                   <Button
                     variant={pushSubscribed ? "outline" : "default"}
                     onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
@@ -338,78 +348,76 @@ export default function Settings() {
                     ) : (
                       <Bell className="mr-2 h-4 w-4" />
                     )}
-                    {pushSubscribed ? "Отключить Web Push" : "Включить Web Push"}
+                    {pushSubscribed ? "Отключить Web Push в этом браузере" : "Включить Web Push в этом браузере"}
                   </Button>
-                </div>
-              )}
+                )}
 
-              {/* Event toggles */}
-              {prefs && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">События для Web Push</p>
-                  {([
-                    { key: "push_task_assigned", label: "Назначен ответственным" },
-                    { key: "push_task_delegated", label: "Делегирование задачи" },
-                    { key: "push_task_participant_added", label: "Добавлен участником в задачу" },
-                    { key: "push_task_completed", label: "Завершение задачи (где участник)" },
-                    { key: "push_task_commented", label: "Новый комментарий к задаче" },
-                    { key: "push_added_to_group", label: "Добавление в проект/подпроект" },
-                    { key: "push_new_task_in_group", label: "Новая задача в моём проекте" },
-                    { key: "push_deadline_approaching", label: "Приближение дедлайна" },
-                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
-                    <div key={item.key} className="flex items-center justify-between py-2">
-                      <span className="text-sm">{item.label}</span>
-                      <Switch
-                        checked={!!prefs[item.key]}
-                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
-                      />
+                {prefs && (
+                  <>
+                    {/* Матрица событий × каналов */}
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-2 bg-muted/40 text-xs font-medium text-muted-foreground">
+                        <div>Событие</div>
+                        <div className="flex items-center gap-1 justify-center w-16">
+                          <Bell className="h-3.5 w-3.5" /> Push
+                        </div>
+                        <div className="flex items-center gap-1 justify-center w-16">
+                          <MessageCircle className="h-3.5 w-3.5" /> TG
+                        </div>
+                      </div>
+                      {NOTIFICATION_EVENTS.map((e, idx) => (
+                        <div
+                          key={e.label}
+                          className={cn(
+                            "grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-2.5 items-center",
+                            idx !== NOTIFICATION_EVENTS.length - 1 && "border-b border-border",
+                          )}
+                        >
+                          <span className="text-sm">{e.label}</span>
+                          <div className="flex justify-center w-16">
+                            <Switch
+                              checked={!!prefs[e.push as keyof typeof prefs]}
+                              onCheckedChange={(v) => updatePrefs.mutate({ [e.push]: v })}
+                            />
+                          </div>
+                          <div className="flex justify-center w-16">
+                            <Switch
+                              checked={!!prefs[e.tg as keyof typeof prefs]}
+                              onCheckedChange={(v) => updatePrefs.mutate({ [e.tg]: v })}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
 
-                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">Автоотчёты</p>
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <span className="text-sm">Еженедельный отчёт в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
+                    {/* Автоотчёты */}
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Автоотчёты в Telegram</p>
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <span className="text-sm">Еженедельный отчёт</span>
+                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
+                        </div>
+                        <Switch
+                          checked={!!(prefs as any)?.telegram_weekly_report}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <span className="text-sm">Еженедельный ИИ-обзор</span>
+                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
+                        </div>
+                        <Switch
+                          checked={!!(prefs as any)?.telegram_weekly_ai_review}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
+                        />
+                      </div>
                     </div>
-                    <Switch
-                      checked={!!(prefs as any)?.telegram_weekly_report}
-                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <span className="text-sm">Еженедельный ИИ-обзор в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
-                    </div>
-                    <Switch
-                      checked={!!(prefs as any)?.telegram_weekly_ai_review}
-                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
-                    />
-                  </div>
-
-                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
-                  {([
-                    { key: "telegram_task_assigned", label: "Назначен ответственным" },
-                    { key: "telegram_task_delegated", label: "Делегирование задачи" },
-                    { key: "telegram_task_participant_added", label: "Добавлен участником в задачу" },
-                    { key: "telegram_task_completed", label: "Завершение задачи (где участник)" },
-                    { key: "telegram_task_commented", label: "Новый комментарий к задаче" },
-                    { key: "telegram_added_to_group", label: "Добавление в проект/подпроект" },
-                    { key: "telegram_new_task_in_group", label: "Новая задача в моём проекте" },
-                    { key: "telegram_deadline_approaching", label: "Приближение дедлайна" },
-                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
-                    <div key={item.key} className="flex items-center justify-between py-2">
-                      <span className="text-sm">{item.label}</span>
-                      <Switch
-                        checked={!!prefs[item.key]}
-                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            </SettingsSection>
 
             {/* Calendar Subscription */}
             <ConsultantGuard area="calendar-sync">
