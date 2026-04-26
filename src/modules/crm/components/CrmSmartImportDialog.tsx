@@ -265,21 +265,37 @@ export default function CrmSmartImportDialog({ trigger, open: controlledOpen, on
           rankTagId = await findOrCreateTag(rank, user.id, "#10b981");
         }
 
-        // Create client record
-        const { data: clientData } = await supabase.from("clients").insert({
-          name: clientName,
+        // Find or create client (общий справочник)
+        const { data: clientId, error: upsertErr } = await supabase
+          .rpc("upsert_client_by_name", { _name: clientName, _user_id: user.id });
+        if (upsertErr) {
+          console.error("Client upsert error:", upsertErr);
+          continue;
+        }
+
+        // Обновляем общие контактные данные клиента (без перетирания непустых полей)
+        const contactPatch: Record<string, any> = {};
+        const cn = get(row, "contact_name"); if (cn) contactPatch.contact_name = cn;
+        const ph = get(row, "phone"); if (ph) contactPatch.phone = ph;
+        const em = get(row, "email"); if (em) contactPatch.email = em;
+        const ci = get(row, "city"); if (ci) contactPatch.city = ci;
+        if (Object.keys(contactPatch).length > 0) {
+          await supabase.from("clients").update(contactPatch).eq("id", clientId as string);
+        }
+
+        // Персональное назначение (manager, project, теги)
+        await supabase.from("client_assignments").upsert({
           user_id: user.id,
+          client_id: clientId as string,
           group_id: groupId,
           tag_id: tagId,
-          contact_name: get(row, "contact_name") || null,
-          phone: get(row, "phone") || null,
-          email: get(row, "email") || null,
-          city: get(row, "city") || null,
           manager_id: assignedTo,
           territory_tag_id: territoryTagId,
           retail_type_tag_id: retailTypeTagId,
           rank_tag_id: rankTagId,
-        } as any).select().single();
+        } as any, { onConflict: "user_id,client_id" });
+
+        const clientData = { id: clientId as string };
         clientCount++;
 
         // Parse deadline
