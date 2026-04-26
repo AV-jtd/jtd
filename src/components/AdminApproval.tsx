@@ -78,6 +78,24 @@ export default function AdminApproval() {
 
   useEffect(() => { if (isAdmin) fetchAll(); }, [isAdmin]);
 
+  // Если в OrgStructurePanel поменяли head или создали/удалили отдел —
+  // перечитываем профили: триггер sync_department_head_membership мог
+  // переместить главу в этот отдел, а нам нужно показать актуальное.
+  const headSnapshot = useMemo(
+    () => departments.map(d => `${d.id}:${d.head_user_id ?? ""}`).join("|"),
+    [departments],
+  );
+  useEffect(() => {
+    if (!isAdmin || loading) return;
+    // Лёгкая перезагрузка только профилей
+    supabase
+      .from("profiles")
+      .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { if (data) setUsers(data as AdminUser[]); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headSnapshot, isAdmin]);
+
   const isProtected = (u: AdminUser) => adminIds.has(u.id);
 
   // ---- mutations ----
