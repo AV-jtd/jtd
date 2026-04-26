@@ -1,4 +1,6 @@
 // Generate AI draft summary for a protocol based on its tasks
+import { blockConsultant } from "../_shared/consultant-guard.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -17,6 +19,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const blocked = await blockConsultant(req, { corsHeaders });
+  if (blocked) return blocked;
 
   try {
     const { protocolName, tasks, scope } = (await req.json()) as {
