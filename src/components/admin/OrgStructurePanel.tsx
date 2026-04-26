@@ -14,7 +14,6 @@ import {
   useUpdateDepartmentParent,
   useAddDepartmentDirector,
   useRemoveDepartmentDirector,
-  useSetUserDepartments,
 } from "@/hooks/useOrgStructure";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,7 +24,8 @@ import { toast } from "sonner";
  * UI ограничен 3 уровнями (Дирекция → Отдел → Подотдел), хотя БД допускает N.
  *  - дерево с inline-добавлением подразделения,
  *  - назначение head (один) и доп. кураторов (директоров) — кружки,
- *  - bulk-привязка пользователя к нескольким отделам с выделением primary.
+ *  - привязка пользователя к доп. отделам (M2M) живёт в карточке пользователя
+ *    в разделе «Управление пользователями» (кнопка «Доп. отделы»).
  */
 export default function OrgStructurePanel() {
   const { data: departments = [], isLoading } = useDepartments();
