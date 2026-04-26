@@ -39,6 +39,7 @@ const PublicReport = lazy(() => import("./pages/PublicReport"));
 const Protocols = lazy(() => import("./pages/Protocols"));
 const ProtocolDetail = lazy(() => import("./pages/ProtocolDetail"));
 const MyDepartment = lazy(() => import("./pages/MyDepartment"));
+const ConsultantAreasDemo = lazy(() => import("./pages/dev/ConsultantAreasDemo"));
 
 /**
  * Redirects consultants away from modules they are not allowed to see.
@@ -118,6 +119,7 @@ function AppContent() {
               <Route path="/my-department" element={<ConsultantBlocked><MyDepartment /></ConsultantBlocked>} />
               <Route path="/wiki-demo" element={<ConsultantBlocked><WikiDemo /></ConsultantBlocked>} />
               <Route path="/report" element={<PublicReport />} />
+              <Route path="/dev/consultant-areas" element={<ConsultantAreasDemo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
