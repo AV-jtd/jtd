@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown } from "lucide-react";
+import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown, Undo2, AlertTriangle } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import type { AdminUser, Department, ContractorLite, ClientLite } from "./types";
 
@@ -27,6 +27,8 @@ interface Props {
   onToggleHead: (id: string) => void;
   onUpdateField: (id: string, patch: Partial<AdminUser>) => void;
   onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
+  onHardDelete: (id: string) => void;
   onShowHistory: (u: AdminUser) => void;
 }
 
@@ -34,20 +36,27 @@ export function UserCard({
   user: u, isProtectedAdmin, selected, onToggleSelect,
   departments, contractors, clients,
   editingNameId, editingNameValue, onStartEditName, onChangeNameValue, onSaveName, onCancelEditName,
-  onApprove, onDepartmentChange, onToggleHead, onUpdateField, onDelete, onShowHistory,
+  onApprove, onDepartmentChange, onToggleHead, onUpdateField, onDelete, onRestore, onHardDelete, onShowHistory,
 }: Props) {
   const userDept = u.department_id ? departments.find(d => d.id === u.department_id) : null;
   const isHead = !!(userDept && userDept.head_user_id === u.id);
   const canBeHead = !!u.department_id;
+  const isDeleted = !!u.deleted_at;
   return (
-    <div className={`p-3 rounded-lg border ${u.is_approved ? "border-border" : "border-border bg-muted/30"} ${selected ? "ring-2 ring-primary/40" : ""}`}>
+    <div className={`p-3 rounded-lg border ${
+      isDeleted
+        ? "border-destructive/30 bg-destructive/5 opacity-80"
+        : u.is_approved
+          ? "border-border"
+          : "border-border bg-muted/30"
+    } ${selected ? "ring-2 ring-primary/40" : ""}`}>
       <div className="flex items-start gap-3">
-        <Checkbox
+        {!isDeleted && <Checkbox
           checked={selected}
           onCheckedChange={() => onToggleSelect(u.id)}
           className="mt-1.5 shrink-0"
           aria-label="Выбрать"
-        />
+        />}
         <UserAvatar id={u.id} name={u.display_name} email={u.email} size={36} />
 
         <div className="min-w-0 flex-1">
@@ -101,10 +110,64 @@ export function UserCard({
             )}
             {u.telegram_username && <p>@{u.telegram_username}</p>}
             <p>Зарегистрирован: {new Date(u.created_at).toLocaleDateString("ru-RU")}</p>
+            {isDeleted && (
+              <p className="text-destructive font-medium flex items-center gap-1 mt-1">
+                <Trash2 className="h-3 w-3" />
+                Удалён: {new Date(u.deleted_at!).toLocaleString("ru-RU")}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Action column */}
+        {isDeleted ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onRestore(u.id)}
+              className="h-8 gap-1 text-xs"
+              title="Восстановить пользователя"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              Восстановить
+            </Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onShowHistory(u)} title="История изменений">
+              <History className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Удалить навсегда (необратимо)"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Удалить пользователя навсегда?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Аккаунт <strong>{u.display_name || u.email}</strong> и все его данные будут удалены{" "}
+                    <strong>необратимо</strong>. Восстановить будет невозможно. Это действие имеет смысл,
+                    только если пользователь точно не вернётся и его данные больше не нужны.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onHardDelete(u.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Удалить навсегда
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : (
         <div className="flex items-center gap-1.5 shrink-0">
           <Select
             value={u.department_id ?? "__none"}
@@ -177,7 +240,9 @@ export function UserCard({
               <AlertDialogHeader>
                 <AlertDialogTitle>Удалить пользователя?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Аккаунт <strong>{u.display_name || u.email}</strong> будет полностью удалён вместе со всеми связанными данными. Действие необратимо.
+                  Аккаунт <strong>{u.display_name || u.email}</strong> будет помечен удалённым.
+                  Он перестанет видеть приложение и не сможет войти, но все его данные сохранятся.
+                  Восстановить можно в разделе «Удалённые пользователи».
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -192,10 +257,11 @@ export function UserCard({
             </AlertDialogContent>
           </AlertDialog>
         </div>
+        )}
       </div>
 
       {/* Extra fields */}
-      <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/40 pl-[60px]">
+      {!isDeleted && <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/40 pl-[60px]">
         <Input
           key={`org-${u.id}-${u.organization ?? ""}`}
           defaultValue={u.organization ?? ""}
@@ -242,7 +308,7 @@ export function UserCard({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </div>}
     </div>
   );
 }
