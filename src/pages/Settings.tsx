@@ -20,6 +20,73 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+/** Универсальная сворачиваемая секция админки/настроек */
+function SettingsSection({
+  icon: Icon,
+  title,
+  description,
+  badge,
+  defaultOpen = false,
+  iconClassName,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description?: string;
+  badge?: React.ReactNode;
+  defaultOpen?: boolean;
+  iconClassName?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-border pt-6">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-start justify-between gap-3 text-left group"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", iconClassName ?? "text-primary")} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-semibold">{title}</h2>
+                  {badge}
+                </div>
+                {description && (
+                  <p className="text-sm text-muted-foreground mt-1">{description}</p>
+                )}
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 text-muted-foreground shrink-0 transition-transform mt-1",
+                open && "rotate-180",
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4">{children}</CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
+const NOTIFICATION_EVENTS = [
+  { push: "push_task_assigned", tg: "telegram_task_assigned", label: "Назначен ответственным" },
+  { push: "push_task_delegated", tg: "telegram_task_delegated", label: "Делегирование задачи" },
+  { push: "push_task_participant_added", tg: "telegram_task_participant_added", label: "Добавлен участником" },
+  { push: "push_task_completed", tg: "telegram_task_completed", label: "Завершение задачи" },
+  { push: "push_task_commented", tg: "telegram_task_commented", label: "Новый комментарий" },
+  { push: "push_added_to_group", tg: "telegram_added_to_group", label: "Добавление в проект" },
+  { push: "push_new_task_in_group", tg: "telegram_new_task_in_group", label: "Новая задача в проекте" },
+  { push: "push_deadline_approaching", tg: "telegram_deadline_approaching", label: "Приближение дедлайна" },
+] as const;
 
 export default function Settings() {
   const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled, simulatedRole, setSimulatedRole, isRealConsultant } = useAuth();
