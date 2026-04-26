@@ -260,7 +260,48 @@ export default function Settings() {
           Назад к задачам
         </Link>
 
-        <h1 className="text-xl font-semibold text-foreground mb-4">Настройки</h1>
+        <h1 className="text-xl font-semibold text-foreground mb-3">Настройки</h1>
+
+        {/* Sticky шапка с поиском и якорями */}
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 mb-3 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск по настройкам…"
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Очистить поиск"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Якоря — горизонтальный скролл на мобильном */}
+          {!isSearching && (
+            <div className="mt-2 -mx-1 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1 px-1">
+                {Object.values(SECTION_META).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => scrollToSection(m.id)}
+                    className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors whitespace-nowrap"
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {loadingProfile ? (
           <div className="flex justify-center py-12">
