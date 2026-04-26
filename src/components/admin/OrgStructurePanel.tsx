@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, Plus, Trash2, Users, Crown, Shield, Loader2, X, MoveVertical } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Plus, Trash2, Users, Crown, Shield, Loader2, X, MoveVertical, UserPlus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,8 @@ import {
   useUpdateDepartmentParent,
   useAddDepartmentDirector,
   useRemoveDepartmentDirector,
+  useAddUserToDepartment,
+  useRemoveUserFromDepartment,
 } from "@/hooks/useOrgStructure";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,6 +39,8 @@ export default function OrgStructurePanel() {
   const removeDept = useDeleteDepartment();
   const addDirector = useAddDepartmentDirector();
   const removeDirector = useRemoveDepartmentDirector();
+  const addMember = useAddUserToDepartment();
+  const removeMember = useRemoveUserFromDepartment();
 
   // Группируем по parent
   const byParent = useMemo(() => {
@@ -127,6 +131,8 @@ export default function OrgStructurePanel() {
             onRename={(deptId, name) => updateDept.mutateAsync({ id: deptId, name })}
             onAddDirector={(deptId, userId) => addDirector.mutateAsync({ departmentId: deptId, userId })}
             onRemoveDirector={(deptId, userId) => removeDirector.mutateAsync({ departmentId: deptId, userId })}
+          onAddMember={(deptId, userId) => addMember.mutateAsync({ departmentId: deptId, userId })}
+          onRemoveMember={(deptId, userId) => removeMember.mutateAsync({ departmentId: deptId, userId })}
             onMove={(deptId, parentId) => updateParent.mutateAsync({ id: deptId, parent_department_id: parentId })}
             onDelete={async (deptId) => {
               if (!confirm("Удалить отдел? Подотделы и привязки к пользователям тоже отвяжутся.")) return;
