@@ -10,7 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Loader2, ShieldCheck, Search, ArrowUpDown, LayoutGrid, ChevronDown, Building2, Users, AlertCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useContractors } from "@/hooks/useContractors";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDepartments } from "@/hooks/useDepartments";
 import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 import { UserCard } from "./admin/UserCard";
 import { AuditHistoryDialog } from "./admin/AuditHistoryDialog";
@@ -18,8 +19,8 @@ import type { AdminUser, Department, ClientLite, SortMode, GroupMode } from "./a
 
 export default function AdminApproval() {
   const { isAdmin, user: currentUser } = useAuth();
+  const qc = useQueryClient();
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +44,11 @@ export default function AdminApproval() {
 
   const { data: contractors = [] } = useContractors();
   const { data: userDeps = [] } = useAllUserDepartments();
+  // Единый кеш отделов — синхронизирован с OrgStructurePanel.
+  // Когда там создают/переименовывают отдел или меняют руководителя,
+  // карточки в этом списке тоже обновляются.
+  const { data: departmentsRaw = [] } = useDepartments();
+  const departments = departmentsRaw as unknown as Department[];
   const { data: clients = [] } = useQuery<ClientLite[]>({
     queryKey: ["clients", "lite-for-admin"],
     queryFn: async () => {
@@ -58,21 +64,37 @@ export default function AdminApproval() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [{ data: profiles }, { data: depts }, { data: roles }] = await Promise.all([
+    const [{ data: profiles }, { data: roles }] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
         .order("created_at", { ascending: false }),
-      supabase.from("departments").select("id, name, head_user_id").order("position"),
       supabase.from("user_roles").select("user_id").eq("role", "admin"),
     ]);
     if (profiles) setUsers(profiles as AdminUser[]);
-    if (depts) setDepartments(depts as Department[]);
     if (roles) setAdminIds(new Set((roles as { user_id: string }[]).map(r => r.user_id)));
     setLoading(false);
   };
 
   useEffect(() => { if (isAdmin) fetchAll(); }, [isAdmin]);
+
+  // Если в OrgStructurePanel поменяли head или создали/удалили отдел —
+  // перечитываем профили: триггер sync_department_head_membership мог
+  // переместить главу в этот отдел, а нам нужно показать актуальное.
+  const headSnapshot = useMemo(
+    () => departments.map(d => `${d.id}:${d.head_user_id ?? ""}`).join("|"),
+    [departments],
+  );
+  useEffect(() => {
+    if (!isAdmin || loading) return;
+    // Лёгкая перезагрузка только профилей
+    supabase
+      .from("profiles")
+      .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { if (data) setUsers(data as AdminUser[]); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headSnapshot, isAdmin]);
 
   const isProtected = (u: AdminUser) => adminIds.has(u.id);
 
@@ -112,7 +134,9 @@ export default function AdminApproval() {
       .update({ head_user_id: newHead } as any)
       .eq("id", dept.id);
     if (error) return toast.error("Не удалось обновить главу: " + error.message);
-    setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, head_user_id: newHead } : d));
+    // Инвалидируем общий кеш отделов — это синхронизирует и карточки,
+    // и панель «Оргструктура» наверху страницы.
+    qc.invalidateQueries({ queryKey: ["departments"] });
     // DB-триггер sync_department_head_membership гарантирует, что новый глава
     // привязан к этому отделу в profiles. Синхронизируем локальный стейт,
     // чтобы карточка/группировка/фильтр «без отдела» обновились мгновенно.
