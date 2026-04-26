@@ -167,30 +167,32 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-3xl px-3 py-4 sm:px-6 sm:py-6">
         <Link
           to="/"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Назад к задачам
         </Link>
 
-        <h1 className="text-2xl font-semibold text-foreground mb-5">Настройки</h1>
+        <h1 className="text-xl font-semibold text-foreground mb-4">Настройки</h1>
 
         {loadingProfile ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Profile — компактная карточка с 2-колоночной сеткой */}
-            <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-4">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <UserCog className="h-4 w-4 text-primary" />
-                Профиль
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2.5">
+            {/* Profile — сворачиваемая, открыта по умолчанию */}
+            <SettingsSection
+              icon={UserCog}
+              title="Профиль"
+              description={`${displayName || "Без имени"}${organization ? " · " + organization : ""}`}
+              defaultOpen
+            >
+              <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1.5">
                   <Label htmlFor="displayName" className="text-xs">Имя</Label>
                   <Input
@@ -198,6 +200,7 @@ export default function Settings() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Ваше имя"
+                    className="h-9"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -207,6 +210,7 @@ export default function Settings() {
                     value={organization}
                     onChange={(e) => setOrganization(e.target.value)}
                     placeholder="Например: Дороничи"
+                    className="h-9"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -220,6 +224,7 @@ export default function Settings() {
                     value={workEmail}
                     onChange={(e) => setWorkEmail(e.target.value)}
                     placeholder="work@company.com"
+                    className="h-9"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -232,29 +237,32 @@ export default function Settings() {
                     value={telegramUsername}
                     onChange={(e) => setTelegramUsername(e.target.value)}
                     placeholder="username (без @)"
+                    className="h-9"
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Рабочий email и Telegram нужны для создания задач из почты и бота. Организация используется в протоколах встреч.
-              </p>
-              <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving} size="sm">
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <p className="text-[11px] text-muted-foreground line-clamp-2 flex-1">
+                  Email и Telegram — для задач из почты и бота. Организация — для протоколов.
+                </p>
+                <Button onClick={handleSave} disabled={saving} size="sm" className="shrink-0">
+                  {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
                   Сохранить
                 </Button>
               </div>
-            </div>
-
-            {/* Theme section */}
-            <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <Palette className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold">Оформление</h2>
               </div>
+            </SettingsSection>
 
+            {/* Theme section — сворачиваемая, открыта по умолчанию */}
+            <SettingsSection
+              icon={Palette}
+              title="Оформление"
+              description={`${mode === "light" ? "Светлая" : mode === "dark" ? "Тёмная" : "Системная"} тема`}
+              defaultOpen
+            >
+              <div className="space-y-3">
               {/* Light/Dark/System */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-xs">Тема</Label>
                 <div className="flex rounded-lg border border-border overflow-hidden">
                   {themeModes.map(t => (
@@ -275,16 +283,16 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Accent color presets */}
-              <div className="space-y-2">
+              {/* Accent: пресеты + слайдер в одной строке (на десктопе) */}
+              <div className="space-y-1.5">
                 <Label className="text-xs">Цвет акцента</Label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {ACCENT_PRESETS.map(p => (
                     <button
                       key={p.hue}
                       onClick={() => { setAccentColor(p.hue); setCustomHue(p.hue); }}
                       className={cn(
-                        "h-7 w-7 rounded-full border-2 transition-all",
+                        "h-6 w-6 rounded-full border-2 transition-all",
                         accentColor === p.hue ? "border-foreground scale-110" : "border-transparent"
                       )}
                       style={{ backgroundColor: `hsl(${p.hue}, 91%, 60%)` }}
@@ -292,12 +300,7 @@ export default function Settings() {
                     />
                   ))}
                 </div>
-              </div>
-
-              {/* Custom hue slider */}
-              <div className="space-y-2">
-                <Label className="text-xs">Произвольный оттенок</Label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="range"
                     min="0"
@@ -307,18 +310,19 @@ export default function Settings() {
                       setCustomHue(e.target.value);
                       setAccentColor(e.target.value);
                     }}
-                    className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                    className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer"
                     style={{
                       background: "linear-gradient(to right, hsl(0,91%,60%), hsl(60,91%,60%), hsl(120,91%,60%), hsl(180,91%,60%), hsl(240,91%,60%), hsl(300,91%,60%), hsl(360,91%,60%))",
                     }}
                   />
                   <div
-                    className="h-7 w-7 rounded-full border border-border shrink-0"
+                    className="h-6 w-6 rounded-full border border-border shrink-0"
                     style={{ backgroundColor: `hsl(${customHue}, 91%, 60%)` }}
                   />
                 </div>
               </div>
-            </div>
+              </div>
+            </SettingsSection>
 
             {/* Notifications — matrix view, collapsed by default */}
             <SettingsSection
