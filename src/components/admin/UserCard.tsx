@@ -188,6 +188,13 @@ export function UserCard({
             </SelectContent>
           </Select>
 
+          <UserExtraDeptsPicker
+            userId={u.id}
+            departments={departments}
+            primaryDeptId={u.department_id ?? null}
+            extraDeptIds={extraDeptIds}
+          />
+
           <Button
             size="icon"
             variant={isHead ? "default" : "ghost"}
