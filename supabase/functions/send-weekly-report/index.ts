@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
 
       // Build message
       const lines: string[] = [
-        `📊 <b>Ежедневный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
+        `📊 <b>Еженедельный отчёт · ${now.toLocaleDateString("ru-RU")}</b>`,
         ``,
         `📈 Прогресс: <b>${pct}%</b> (${completed}/${total})`,
         `📅 Дедлайнов на неделе: <b>${weekTasks.length}</b>`,
@@ -226,8 +226,8 @@ Deno.serve(async (req) => {
         }),
         driftTasks: [],
         upcomingTasks: [],
-        period: "auto_daily",
-        periodLabel: "Авто-отчёт",
+        period: "auto_weekly",
+        periodLabel: "Еженедельный отчёт",
         overdueStepsCount: overdueSteps.length,
         stepsNoDeadlineCount: stepsNoDeadline.length,
         stepsNoAssigneeCount: stepsNoAssignee.length,
