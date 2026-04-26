@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -652,15 +652,7 @@ function CalendarSubscription({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="border-t border-border pt-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <CalendarSync className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-medium">Подписка на календарь</h2>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Добавьте ссылку в Google Calendar, Outlook или Apple Calendar — дедлайны задач будут автоматически синхронизироваться.
-      </p>
-
+    <div className="space-y-4">
       {calUrl ? (
         <div className="space-y-3">
           <div className="flex gap-2">
