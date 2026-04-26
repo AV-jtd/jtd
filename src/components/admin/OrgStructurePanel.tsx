@@ -324,13 +324,15 @@ function HeadPicker({ dept, users, onSet }: { dept: AnyDept; users: AnyUser[]; o
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            "flex items-center gap-1 rounded-full border px-1.5 h-6 text-[10px] font-medium whitespace-nowrap shrink-0",
             head ? "border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300" : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-amber-500/50",
           )}
           title="Руководитель отдела (head)"
         >
           <Crown className="h-3 w-3" />
-          {head ? (head.display_name ?? head.email ?? "?") : "Руководитель"}
+          <span className="max-w-[120px] truncate">
+            {head ? (head.display_name ?? head.email ?? "?") : "Руководитель"}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="end">
@@ -380,7 +382,7 @@ function DirectorsPicker({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            "flex items-center gap-1 rounded-full border px-1.5 h-6 text-[10px] font-medium whitespace-nowrap shrink-0",
             dirs.length > 0
               ? "border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
               : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-violet-500/50",
@@ -388,7 +390,7 @@ function DirectorsPicker({
           title="Замы (равные права видимости с head'ом)"
         >
           <Shield className="h-3 w-3" />
-          {dirs.length > 0 ? `Замы: ${dirs.length}` : "Зам"}
+          {dirs.length > 0 ? dirs.length : "Зам"}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
@@ -448,15 +450,15 @@ function MembersPicker({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            "flex items-center gap-1 rounded-full border px-1.5 h-6 text-[10px] font-medium whitespace-nowrap shrink-0",
             members.length > 0
               ? "border-sky-500/50 bg-sky-500/15 text-sky-700 dark:text-sky-300"
               : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-sky-500/50",
           )}
-          title="Сотрудники отдела"
+          title={members.length > 0 ? `Сотрудники: ${members.length}` : "Добавить сотрудника"}
         >
           <Users className="h-3 w-3" />
-          {members.length > 0 ? `Сотрудники: ${members.length}` : "Добавить сотрудника"}
+          {members.length > 0 ? members.length : <Plus className="h-3 w-3" />}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
@@ -540,13 +542,12 @@ function MoveParentPicker({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+            "flex items-center gap-1 rounded-full border px-1.5 h-6 text-[10px] font-medium whitespace-nowrap shrink-0",
             "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary/50 hover:text-primary",
           )}
           title="Перенести в другую дирекцию/отдел"
         >
           <MoveVertical className="h-3 w-3" />
-          Перенести
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
