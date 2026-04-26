@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   MessageType,
   ReactionAgg,
@@ -196,6 +197,7 @@ export function ReactionAddButton({
   const toggle = useToggleReaction();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const isMobile = useIsMobile();
 
   const quick = useMemo(() => {
     const recent = getRecentReactions();
@@ -221,13 +223,13 @@ export function ReactionAddButton({
         <button
           type="button"
           className={cn(
-            "p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors",
+            "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 bg-background/60 text-foreground/70 hover:bg-muted hover:text-foreground active:bg-muted transition-colors shrink-0",
             className,
           )}
           title="Добавить реакцию"
           aria-label="Добавить реакцию"
         >
-          <Smile className="h-3 w-3" />
+          <Smile className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -236,6 +238,11 @@ export function ReactionAddButton({
         className="w-72 p-2"
         role="dialog"
         aria-label="Выбор эмодзи для реакции"
+        onOpenAutoFocus={(e) => {
+          // На мобильном не фокусируем поиск — иначе всплывающая клавиатура
+          // закрывает попап.
+          if (isMobile) e.preventDefault();
+        }}
       >
         <ReactionPanel
           quick={quick}
@@ -244,6 +251,7 @@ export function ReactionAddButton({
           filtered={filtered}
           onPick={handlePick}
           mineFor={(emoji) => !!user && !!reactions?.[emoji]?.includes(user.id)}
+          autoFocusSearch={!isMobile}
         />
       </PopoverContent>
     </Popover>
