@@ -219,13 +219,15 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
                   reactions={reactionsByMsg[c.id]}
                   size="xs"
                 />
+                {/* Кнопка добавления реакции: inline, всегда видна (в т.ч. на мобиле). */}
+                <ReactionAddButton
+                  messageType="task_comment"
+                  messageId={c.id}
+                  reactions={reactionsByMsg[c.id]}
+                  className="ml-0.5"
+                />
                 {/* Кнопки действий — в одну группу справа */}
                 <div className="ml-auto flex items-center gap-0.5 shrink-0 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <ReactionAddButton
-                    messageType="task_comment"
-                    messageId={c.id}
-                    reactions={reactionsByMsg[c.id]}
-                  />
                   <button
                   type="button"
                   onClick={() =>
