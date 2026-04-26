@@ -72,7 +72,7 @@ export default function MyDirectorateView({ onOpenTask }: { onOpenTask: (id: str
         <Building2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
         <h2 className="text-lg font-semibold text-foreground">Вы не руководите ни одним отделом</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Эта вкладка появляется, когда вы назначены руководителем (head) или куратором отдела.
+          Эта вкладка появляется, когда вы назначены руководителем (head) или замом отдела.
           Попросите администратора в разделе «Оргструктура».
         </p>
       </div>
