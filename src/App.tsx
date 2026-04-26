@@ -5,7 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { UndoProvider } from "@/hooks/useUndoStack";
 import { idbPersister } from "@/lib/queryPersist";
@@ -37,6 +39,17 @@ const PublicReport = lazy(() => import("./pages/PublicReport"));
 const Protocols = lazy(() => import("./pages/Protocols"));
 const ProtocolDetail = lazy(() => import("./pages/ProtocolDetail"));
 const MyDepartment = lazy(() => import("./pages/MyDepartment"));
+
+/**
+ * Redirects consultants away from modules they are not allowed to see.
+ * Non-consultants pass through unchanged.
+ */
+function ConsultantBlocked({ children }: { children: React.ReactNode }) {
+  const { isConsultant, loading } = useAuth();
+  if (loading) return <LazyFallback />;
+  if (isConsultant) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 // Sync onlineManager with browser online/offline events
 onlineManager.setEventListener((setOnline) => {
@@ -94,16 +107,16 @@ function AppContent() {
               <Route path="/pending" element={<PendingApproval />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/pmo" element={<Pmo />} />
-              <Route path="/pmo/project/:id" element={<ProjectPage />} />
-              <Route path="/crm" element={<Crm />} />
-              <Route path="/npd" element={<Npd />} />
-              <Route path="/npd/matrix/:id" element={<NpdMatrix />} />
-              <Route path="/npd/stm" element={<StmMatrix />} />
-              <Route path="/protocols" element={<Protocols />} />
-              <Route path="/protocols/:id" element={<ProtocolDetail />} />
-              <Route path="/my-department" element={<MyDepartment />} />
-              <Route path="/wiki-demo" element={<WikiDemo />} />
+              <Route path="/pmo" element={<ConsultantBlocked><Pmo /></ConsultantBlocked>} />
+              <Route path="/pmo/project/:id" element={<ConsultantBlocked><ProjectPage /></ConsultantBlocked>} />
+              <Route path="/crm" element={<ConsultantBlocked><Crm /></ConsultantBlocked>} />
+              <Route path="/npd" element={<ConsultantBlocked><Npd /></ConsultantBlocked>} />
+              <Route path="/npd/matrix/:id" element={<ConsultantBlocked><NpdMatrix /></ConsultantBlocked>} />
+              <Route path="/npd/stm" element={<ConsultantBlocked><StmMatrix /></ConsultantBlocked>} />
+              <Route path="/protocols" element={<ConsultantBlocked><Protocols /></ConsultantBlocked>} />
+              <Route path="/protocols/:id" element={<ConsultantBlocked><ProtocolDetail /></ConsultantBlocked>} />
+              <Route path="/my-department" element={<ConsultantBlocked><MyDepartment /></ConsultantBlocked>} />
+              <Route path="/wiki-demo" element={<ConsultantBlocked><WikiDemo /></ConsultantBlocked>} />
               <Route path="/report" element={<PublicReport />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
