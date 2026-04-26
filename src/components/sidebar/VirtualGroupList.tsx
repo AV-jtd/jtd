@@ -134,41 +134,20 @@ function VirtualGroupListInner(
   ref: React.Ref<VirtualGroupListHandle>,
 ) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  // Touched preserved for API/back-compat; values are unused while
+  // virtualisation is disabled (see note below).
+  void estimateSize; void threshold; void overscan;
 
-  // Resolve the nearest scroll container (the sidebar <nav>) once mounted.
-  // Also promote it to its own layer so momentum scroll on iOS keeps in sync
-  // with our absolutely-positioned virtual rows. We only set styles that
-  // aren't already in CSS, and we don't clobber existing inline styles.
-  useEffect(() => {
-    if (!wrapperRef.current) return;
-    const parent = wrapperRef.current.closest(".ios-sidebar-scroll") as HTMLElement | null;
-    if (parent) {
-      // Idempotent: applying these multiple times across siblings is fine.
-      if (!parent.style.transform) parent.style.transform = "translateZ(0)";
-      if (!parent.style.willChange) parent.style.willChange = "scroll-position";
-    }
-    setScrollEl(parent);
-  }, []);
-
-  // Bigger overscan on touch — momentum scroll outruns rAF measurement.
-  const effectiveOverscan = useMemo(
-    () => (isTouchDevice() ? Math.max(overscan, 16) : overscan),
-    [overscan],
-  );
-
-  const shouldVirtualise = items.length >= threshold && !!scrollEl;
-
-  const virtualizer = useVirtualizer({
-    count: shouldVirtualise ? items.length : 0,
-    getScrollElement: () => scrollEl,
-    estimateSize: () => estimateSize,
-    overscan: effectiveOverscan,
-    getItemKey: (i) => items[i].id,
-    // See `stableMeasureElement` above — keeps re-layouts to actual
-    // structural changes instead of every focus/hover transition.
-    measureElement: stableMeasureElement,
-  });
+  // ⚠️ Virtualisation disabled.
+  // The previous implementation positioned absolute rows inside a wrapper
+  // while the scroll container lived on the parent <nav>. tanstack-virtual
+  // returns offsets in the scroll container's coordinate system, so rows
+  // were placed at the wrong `top` and visibly "ate" each other on
+  // scroll/expand. Fixing it correctly would require an internal scroll
+  // box per list, which breaks single-scroll iOS momentum behaviour.
+  // For typical sidebars (≤ a few hundred rows) plain rendering is fast
+  // enough and visually correct.
+  const shouldVirtualise = false;
 
   // ---------- Imperative scroll API ----------
 
@@ -183,13 +162,7 @@ function VirtualGroupListInner(
       const idx = indexById.get(id);
       if (idx === undefined) return false;
       const align = opts?.align ?? "center";
-      if (shouldVirtualise) {
-        // Two passes: virtualizer estimates first, then re-measures actual
-        // height. A second call after rAF guarantees we land on the right row
-        // even when row heights vary (e.g. project with longer name).
-        virtualizer.scrollToIndex(idx, { align });
-        requestAnimationFrame(() => virtualizer.scrollToIndex(idx, { align }));
-      } else if (wrapperRef.current) {
+      if (wrapperRef.current) {
         const node = wrapperRef.current.querySelector<HTMLElement>(
           `[data-group-id="${CSS.escape(id)}"]`,
         );
@@ -197,7 +170,7 @@ function VirtualGroupListInner(
       }
       return true;
     },
-    [indexById, shouldVirtualise, virtualizer],
+    [indexById],
   );
 
   useImperativeHandle(
@@ -217,66 +190,14 @@ function VirtualGroupListInner(
       node
     );
 
-  if (!shouldVirtualise) {
-    return wrap(
-      <div ref={wrapperRef} className={className}>
-        {items.map((g) => (
-          // data-group-id used by scrollToId() in the non-virtual path.
-          <div key={g.id} data-group-id={g.id}>
-            {renderItem(g)}
-          </div>
-        ))}
-      </div>,
-    );
-  }
-
-  const totalSize = virtualizer.getTotalSize();
-  const virtualItems = virtualizer.getVirtualItems();
-
   return wrap(
-    <div
-      ref={wrapperRef}
-      className={className}
-      style={{
-        height: totalSize,
-        position: "relative",
-        // Promote the inner wrapper to a composited layer so iOS Safari
-        // doesn't desync the absolutely-positioned children from the
-        // momentum scroll layer above.
-        transform: "translate3d(0,0,0)",
-        contain: "layout paint",
-      }}
-    >
-      {virtualItems.map((vRow) => {
-        const group = items[vRow.index];
-        return (
-          <div
-            key={vRow.key}
-            data-index={vRow.index}
-            data-group-id={group.id}
-            ref={virtualizer.measureElement}
-            style={{
-              position: "absolute",
-              // Position via `top` instead of translateY: leaves the CSS
-              // transform property free for useSortable's lift animation.
-              top: vRow.start,
-              left: 0,
-              right: 0,
-              // Skip layout/paint for off-screen rows. We avoid
-              // `content-visibility: auto` here on purpose: it causes the
-              // browser to report the *intrinsic* (i.e. estimated) size to
-              // ResizeObserver until the row scrolls into view, and that
-              // confuses our stable-measure cache the first time the row
-              // is actually painted. `contain: layout paint style` alone is
-              // already enough to keep off-screen rows out of layout flushes.
-              contain: "layout paint style",
-              minHeight: estimateSize,
-            }}
-          >
-            {renderItem(group)}
-          </div>
-        );
-      })}
+    <div ref={wrapperRef} className={className}>
+      {items.map((g) => (
+        // data-group-id used by scrollToId() to locate a row.
+        <div key={g.id} data-group-id={g.id}>
+          {renderItem(g)}
+        </div>
+      ))}
     </div>,
   );
 }
