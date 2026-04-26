@@ -110,6 +110,12 @@ export default function AdminApproval() {
       .eq("id", dept.id);
     if (error) return toast.error("Не удалось обновить главу: " + error.message);
     setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, head_user_id: newHead } : d));
+    // DB-триггер sync_department_head_membership гарантирует, что новый глава
+    // привязан к этому отделу в profiles. Синхронизируем локальный стейт,
+    // чтобы карточка/группировка/фильтр «без отдела» обновились мгновенно.
+    if (newHead) {
+      setUsers(prev => prev.map(x => x.id === userId ? { ...x, department_id: dept.id } : x));
+    }
     toast.success(isHead ? "Снят как глава отдела" : `Назначен главой: ${dept.name}`);
   };
 
