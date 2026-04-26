@@ -567,6 +567,39 @@ export type Database = {
           },
         ]
       }
+      profile_audit_log: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          profile_id: string
+        }
+        Insert: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          profile_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          profile_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           client_id: string | null
@@ -1853,7 +1886,15 @@ export type Database = {
       }
     }
     Functions: {
+      admin_delete_user: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       admin_exists: { Args: never; Returns: boolean }
+      admin_set_users_department: {
+        Args: { dept_id: string; user_ids: string[] }
+        Returns: number
+      }
       can_access_dependency: {
         Args: { _dep_id: string; _user_id: string }
         Returns: boolean
