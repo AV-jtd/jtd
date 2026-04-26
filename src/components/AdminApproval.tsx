@@ -60,7 +60,7 @@ export default function AdminApproval() {
         .from("profiles")
         .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id")
         .order("created_at", { ascending: false }),
-      supabase.from("departments").select("id, name").order("position"),
+      supabase.from("departments").select("id, name, head_user_id").order("position"),
       supabase.from("user_roles").select("user_id").eq("role", "admin"),
     ]);
     if (profiles) setUsers(profiles as AdminUser[]);
@@ -91,6 +91,26 @@ export default function AdminApproval() {
     if (error) return toast.error("Не удалось обновить отдел: " + error.message);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, department_id: deptId } : u));
     toast.success(deptId ? "Отдел обновлён" : "Отдел снят");
+  };
+
+  // Toggle "head of department" for the user's current department.
+  const handleToggleHead = async (userId: string) => {
+    const u = users.find(x => x.id === userId);
+    if (!u || !u.department_id) {
+      toast.error("Сначала назначьте пользователю отдел");
+      return;
+    }
+    const dept = departments.find(d => d.id === u.department_id);
+    if (!dept) return;
+    const isHead = dept.head_user_id === userId;
+    const newHead = isHead ? null : userId;
+    const { error } = await supabase
+      .from("departments")
+      .update({ head_user_id: newHead } as any)
+      .eq("id", dept.id);
+    if (error) return toast.error("Не удалось обновить главу: " + error.message);
+    setDepartments(prev => prev.map(d => d.id === dept.id ? { ...d, head_user_id: newHead } : d));
+    toast.success(isHead ? "Снят как глава отдела" : `Назначен главой: ${dept.name}`);
   };
 
   const updateUserField = async (userId: string, patch: Partial<AdminUser>) => {
@@ -214,6 +234,7 @@ export default function AdminApproval() {
       onCancelEditName={() => setEditingNameId(null)}
       onApprove={handleToggleApproval}
       onDepartmentChange={handleDepartmentChange}
+      onToggleHead={handleToggleHead}
       onUpdateField={updateUserField}
       onDelete={deleteUser}
       onShowHistory={setHistoryUser}
