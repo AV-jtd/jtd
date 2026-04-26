@@ -2074,6 +2074,21 @@ export type Database = {
         Args: { _dep_id: string; _user_id: string }
         Returns: boolean
       }
+      can_see_task: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_see_task_row: {
+        Args: {
+          _task_assigned_to: string
+          _task_department_id: string
+          _task_group_id: string
+          _task_id: string
+          _task_user_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_view_tag: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
@@ -2271,6 +2286,38 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      user_extra_tasks_arr: { Args: { _user_id: string }; Returns: string[] }
+      user_extra_visible_task_ids: {
+        Args: { _user_id: string }
+        Returns: {
+          task_id: string
+        }[]
+      }
+      user_protocol_groups_arr: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
+      user_subordinate_ids: {
+        Args: { _user_id: string }
+        Returns: {
+          subordinate_id: string
+        }[]
+      }
+      user_subordinates_arr: { Args: { _user_id: string }; Returns: string[] }
+      user_visible_department_ids: {
+        Args: { _user_id: string }
+        Returns: {
+          department_id: string
+        }[]
+      }
+      user_visible_depts_arr: { Args: { _user_id: string }; Returns: string[] }
+      user_visible_group_ids: {
+        Args: { _user_id: string }
+        Returns: {
+          group_id: string
+        }[]
+      }
+      user_visible_groups_arr: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "user" | "consultant" | "director"
