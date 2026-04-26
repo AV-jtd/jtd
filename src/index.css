@@ -244,4 +244,8 @@
   .dashboard-present-mode h3 {
     font-size: 1.5rem;
   }
+
+  /* Hide scrollbar utility (cross-browser) — used in compact horizontal pickers */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users, Search, X } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -32,6 +32,10 @@ function SettingsSection({
   badge,
   defaultOpen = false,
   iconClassName,
+  sectionId,
+  forceOpen,
+  hidden,
+  registerRef,
   children,
 }: {
   icon: React.ElementType;
@@ -40,9 +44,31 @@ function SettingsSection({
   badge?: React.ReactNode;
   defaultOpen?: boolean;
   iconClassName?: string;
+  sectionId?: string;
+  /** Принудительно раскрыть (например, при поиске или клике по якорю) */
+  forceOpen?: boolean;
+  /** Скрыть секцию (поиск не нашёл совпадений) */
+  hidden?: boolean;
+  registerRef?: (id: string, el: HTMLDivElement | null) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const localRef = useRef<HTMLDivElement | null>(null);
+
+  // Следим за forceOpen: при включении — раскрываем, при выключении — оставляем как есть
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
+
+  useEffect(() => {
+    if (sectionId && registerRef) {
+      registerRef(sectionId, localRef.current);
+      return () => registerRef(sectionId, null);
+    }
+  }, [sectionId, registerRef]);
+
+  if (hidden) return null;
+
   return (
     <Collapsible
       open={open}
@@ -52,6 +78,7 @@ function SettingsSection({
         open && "shadow-sm",
       )}
     >
+      <div ref={localRef} aria-hidden className="-mt-16 pt-16" />
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -95,6 +122,28 @@ const NOTIFICATION_EVENTS = [
   { push: "push_deadline_approaching", tg: "telegram_deadline_approaching", label: "Приближение дедлайна" },
 ] as const;
 
+/** Метаданные секций для поиска и навигации-якорей */
+type SectionMeta = {
+  id: string;
+  label: string;
+  /** Дополнительные ключевые слова для поиска */
+  keywords?: string;
+};
+
+const SECTION_META: Record<string, SectionMeta> = {
+  profile:        { id: "profile",        label: "Профиль",     keywords: "имя организация email telegram" },
+  appearance:     { id: "appearance",     label: "Оформление",  keywords: "тема цвет акцент темная светлая палитра" },
+  notifications:  { id: "notifications",  label: "Уведомления", keywords: "push web telegram бот матрица отчёт" },
+  calendar:       { id: "calendar",       label: "Календарь",   keywords: "google outlook apple ics подписка" },
+  tags:           { id: "tags",           label: "Тэги",        keywords: "категории фильтры" },
+  contractors:    { id: "contractors",    label: "Подрядчики",  keywords: "внешние делегирование" },
+  ie:             { id: "ie",             label: "Импорт/Экспорт", keywords: "excel xlsx ai импортировать выгрузка" },
+  teams:          { id: "teams",          label: "Команды",     keywords: "приглашение invite" },
+  admin_mode:     { id: "admin_mode",     label: "Админ-режим", keywords: "права супер админ симуляция" },
+  org:            { id: "org",            label: "Оргструктура",keywords: "дирекция отдел подотдел руководитель зам" },
+  users:          { id: "users",          label: "Пользователи",keywords: "утверждение роли отделы" },
+};
+
 export default function Settings() {
   const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled, simulatedRole, setSimulatedRole, isRealConsultant } = useAuth();
   const { mode, setMode, accentColor, setAccentColor } = useTheme();
@@ -108,6 +157,41 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [customHue, setCustomHue] = useState(accentColor);
+
+  // ===== Поиск по настройкам и якорная навигация =====
+  const [search, setSearch] = useState("");
+  const sectionRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) sectionRefs.current.set(id, el);
+    else sectionRefs.current.delete(id);
+  }, []);
+
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .trim();
+
+  const matches = useCallback(
+    (id: string, title: string, description?: string) => {
+      const q = norm(search);
+      if (!q) return true;
+      const meta = SECTION_META[id];
+      const haystack = norm(
+        [title, description ?? "", meta?.label ?? "", meta?.keywords ?? ""].join(" "),
+      );
+      return haystack.includes(q);
+    },
+    [search],
+  );
+
+  const isSearching = search.trim().length > 0;
+
+  const scrollToSection = (id: string) => {
+    const el = sectionRefs.current.get(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -176,7 +260,48 @@ export default function Settings() {
           Назад к задачам
         </Link>
 
-        <h1 className="text-xl font-semibold text-foreground mb-4">Настройки</h1>
+        <h1 className="text-xl font-semibold text-foreground mb-3">Настройки</h1>
+
+        {/* Sticky шапка с поиском и якорями */}
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 mb-3 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск по настройкам…"
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Очистить поиск"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Якоря — горизонтальный скролл на мобильном */}
+          {!isSearching && (
+            <div className="mt-2 -mx-1 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1 px-1">
+                {Object.values(SECTION_META).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => scrollToSection(m.id)}
+                    className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors whitespace-nowrap"
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {loadingProfile ? (
           <div className="flex justify-center py-12">
@@ -190,6 +315,10 @@ export default function Settings() {
               title="Профиль"
               description={`${displayName || "Без имени"}${organization ? " · " + organization : ""}`}
               defaultOpen
+              sectionId="profile"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`)}
             >
               <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -259,6 +388,10 @@ export default function Settings() {
               title="Оформление"
               description={`${mode === "light" ? "Светлая" : mode === "dark" ? "Тёмная" : "Системная"} тема`}
               defaultOpen
+              sectionId="appearance"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("appearance", "Оформление", "тема цвет акцент")}
             >
               <div className="space-y-3">
               {/* Light/Dark/System */}
@@ -329,6 +462,10 @@ export default function Settings() {
               icon={Bell}
               title="Уведомления"
               description="Включайте каналы (Web Push / Telegram) для каждого события."
+              sectionId="notifications"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("notifications", "Уведомления", "push web telegram бот матрица отчёт")}
               badge={
                 prefs ? (
                   <Badge variant="secondary" className="font-normal">
@@ -434,6 +571,10 @@ export default function Settings() {
                 icon={CalendarSync}
                 title="Подписка на календарь"
                 description="Синхронизация дедлайнов с Google / Outlook / Apple Calendar."
+                sectionId="calendar"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("calendar", "Подписка на календарь", "google outlook apple ics")}
               >
                 <CalendarSubscription userId={user.id} />
               </SettingsSection>
@@ -445,6 +586,10 @@ export default function Settings() {
                 icon={Tag}
                 title="Тэги"
                 description="Категории и тэги. Фильтрация — через панель фильтров в списке задач."
+                sectionId="tags"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("tags", "Тэги", "категории фильтры")}
               >
                 <TagManagementPanel />
               </SettingsSection>
@@ -456,6 +601,10 @@ export default function Settings() {
                 icon={Users}
                 title="Подрядчики"
                 description="Внешние исполнители без учётной записи. Используются как метка на задаче."
+                sectionId="contractors"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("contractors", "Подрядчики", "внешние делегирование")}
               >
                 <DelegationPanel />
               </SettingsSection>
@@ -467,6 +616,10 @@ export default function Settings() {
                 icon={Download}
                 title="Импорт / Экспорт"
                 description="Импорт проектов из Excel (.xlsx) — AI определяет колонки автоматически."
+                sectionId="ie"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("ie", "Импорт / Экспорт", "excel xlsx ai")}
               >
                 <SmartImportDialog />
               </SettingsSection>
@@ -478,6 +631,10 @@ export default function Settings() {
                 icon={Users}
                 title="Команды"
                 description="Совместные пространства и приглашения по invite-коду."
+                sectionId="teams"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("teams", "Команды", "приглашение invite")}
               >
                 <TeamSection />
               </SettingsSection>
@@ -485,11 +642,17 @@ export default function Settings() {
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
-              <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-destructive" />
-                  <h2 className="text-sm font-semibold">Режим администратора</h2>
-                </div>
+              <SettingsSection
+                icon={ShieldAlert}
+                iconClassName="text-destructive"
+                title="Режим администратора"
+                description={`Супер-права: ${adminModeDisabled ? "выключены" : "включены"}${simulatedRole ? ` · симуляция: ${simulatedRole === "consultant" ? "Consultant" : "Сотрудник"}` : ""}`}
+                sectionId="admin_mode"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("admin_mode", "Режим администратора", "права супер симуляция")}
+              >
+                <div className="space-y-3">
                 <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
@@ -579,7 +742,8 @@ export default function Settings() {
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              </SettingsSection>
             )}
 
             {/* Admin: Org structure + User management */}
@@ -588,7 +752,11 @@ export default function Settings() {
                 <SettingsSection
                   icon={Building2}
                   title="Оргструктура"
-                  description="Дирекция → Отдел → Подотдел. Руководители (head) и замы."
+                  description="Дирекция → Отдел → Подотдел. Руководители и замы."
+                  sectionId="org"
+                  registerRef={registerRef}
+                  forceOpen={isSearching}
+                  hidden={!matches("org", "Оргструктура", "дирекция отдел подотдел руководитель зам")}
                 >
                   <OrgStructurePanel />
                 </SettingsSection>
@@ -597,13 +765,51 @@ export default function Settings() {
                 icon={UserCog}
                 title="Управление пользователями"
                 description="Утверждение, назначение отделов, доп. отделы и роли."
+                sectionId="users"
+                registerRef={registerRef}
+                forceOpen={isSearching}
+                hidden={!matches("users", "Управление пользователями", "утверждение роли отделы")}
               >
                 <AdminApproval />
               </SettingsSection>
             </ConsultantGuard>
+
+            {/* Empty state for search */}
+            {isSearching && (
+              <SearchEmptyState
+                anyVisible={
+                  matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`) ||
+                  matches("appearance", "Оформление", "тема цвет акцент") ||
+                  matches("notifications", "Уведомления", "push web telegram бот матрица отчёт") ||
+                  matches("calendar", "Подписка на календарь", "google outlook apple ics") ||
+                  matches("tags", "Тэги", "категории фильтры") ||
+                  matches("contractors", "Подрядчики", "внешние делегирование") ||
+                  matches("ie", "Импорт / Экспорт", "excel xlsx ai") ||
+                  matches("teams", "Команды", "приглашение invite") ||
+                  (isRealAdmin && matches("admin_mode", "Режим администратора", "права супер симуляция")) ||
+                  (isRealAdmin && matches("org", "Оргструктура", "дирекция отдел подотдел руководитель зам")) ||
+                  matches("users", "Управление пользователями", "утверждение роли отделы")
+                }
+                onReset={() => setSearch("")}
+              />
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SearchEmptyState({ anyVisible, onReset }: { anyVisible: boolean; onReset: () => void }) {
+  if (anyVisible) return null;
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-card/50 px-4 py-10 text-center">
+      <Search className="mx-auto h-5 w-5 text-muted-foreground mb-2" />
+      <p className="text-sm text-foreground">Ничего не найдено</p>
+      <p className="text-xs text-muted-foreground mt-1">Попробуйте другой запрос или сбросьте поиск.</p>
+      <Button variant="ghost" size="sm" className="mt-3" onClick={onReset}>
+        <X className="mr-1.5 h-3.5 w-3.5" /> Сбросить
+      </Button>
     </div>
   );
 }
