@@ -43,14 +43,6 @@ self.addEventListener("activate", (event) => {
         }),
       );
       await self.clients.claim();
-      const windowClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      await Promise.all(
-        windowClients.map((client) => {
-          const url = new URL(client.url);
-          url.searchParams.set("_sw", Date.now().toString(36));
-          return client.navigate(url.toString()).catch(() => undefined);
-        }),
-      );
     })(),
   );
 });
