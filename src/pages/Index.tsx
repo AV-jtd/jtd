@@ -199,7 +199,7 @@ export default function Index() {
               onAiOpen={() => setAiOpen(true)}
               onViewChange={(v) => { setActiveView(v); setActiveGroupId(null); setActiveTagFilters([]); }}
             />
-            {chatOpen && activeGroupId && activeView === "group" && (
+            {chatOpen && activeGroupId && activeView === "group" && !isConsultant && (
               <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
                 <Suspense fallback={<ViewFallback />}>
                   <ProjectChat
