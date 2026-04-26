@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, Upload, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -20,6 +20,73 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+/** Универсальная сворачиваемая секция админки/настроек */
+function SettingsSection({
+  icon: Icon,
+  title,
+  description,
+  badge,
+  defaultOpen = false,
+  iconClassName,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description?: string;
+  badge?: React.ReactNode;
+  defaultOpen?: boolean;
+  iconClassName?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-border pt-6">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-start justify-between gap-3 text-left group"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", iconClassName ?? "text-primary")} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-semibold">{title}</h2>
+                  {badge}
+                </div>
+                {description && (
+                  <p className="text-sm text-muted-foreground mt-1">{description}</p>
+                )}
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 text-muted-foreground shrink-0 transition-transform mt-1",
+                open && "rotate-180",
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4">{children}</CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
+const NOTIFICATION_EVENTS = [
+  { push: "push_task_assigned", tg: "telegram_task_assigned", label: "Назначен ответственным" },
+  { push: "push_task_delegated", tg: "telegram_task_delegated", label: "Делегирование задачи" },
+  { push: "push_task_participant_added", tg: "telegram_task_participant_added", label: "Добавлен участником" },
+  { push: "push_task_completed", tg: "telegram_task_completed", label: "Завершение задачи" },
+  { push: "push_task_commented", tg: "telegram_task_commented", label: "Новый комментарий" },
+  { push: "push_added_to_group", tg: "telegram_added_to_group", label: "Добавление в проект" },
+  { push: "push_new_task_in_group", tg: "telegram_new_task_in_group", label: "Новая задача в проекте" },
+  { push: "push_deadline_approaching", tg: "telegram_deadline_approaching", label: "Приближение дедлайна" },
+] as const;
 
 export default function Settings() {
   const { user, loading, isRealAdmin, adminModeDisabled, setAdminModeDisabled, simulatedRole, setSimulatedRole, isRealConsultant } = useAuth();
@@ -248,16 +315,26 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Notifications */}
-            <div className="border-t border-border pt-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-medium">Уведомления</h2>
-              </div>
-
-              {/* Push subscribe toggle */}
-              {pushSupported && (
-                <div className="space-y-3">
+            {/* Notifications — matrix view, collapsed by default */}
+            <SettingsSection
+              icon={Bell}
+              title="Уведомления"
+              description="Включайте каналы (Web Push / Telegram) для каждого события."
+              badge={
+                prefs ? (
+                  <Badge variant="secondary" className="font-normal">
+                    {NOTIFICATION_EVENTS.reduce(
+                      (acc, e) =>
+                        acc + (prefs[e.push as keyof typeof prefs] ? 1 : 0) + (prefs[e.tg as keyof typeof prefs] ? 1 : 0),
+                      0,
+                    )}{" "}
+                    / {NOTIFICATION_EVENTS.length * 2} активно
+                  </Badge>
+                ) : null
+              }
+            >
+              <div className="space-y-4">
+                {pushSupported && (
                   <Button
                     variant={pushSubscribed ? "outline" : "default"}
                     onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
@@ -271,130 +348,130 @@ export default function Settings() {
                     ) : (
                       <Bell className="mr-2 h-4 w-4" />
                     )}
-                    {pushSubscribed ? "Отключить Web Push" : "Включить Web Push"}
+                    {pushSubscribed ? "Отключить Web Push в этом браузере" : "Включить Web Push в этом браузере"}
                   </Button>
-                </div>
-              )}
+                )}
 
-              {/* Event toggles */}
-              {prefs && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">События для Web Push</p>
-                  {([
-                    { key: "push_task_assigned", label: "Назначен ответственным" },
-                    { key: "push_task_delegated", label: "Делегирование задачи" },
-                    { key: "push_task_participant_added", label: "Добавлен участником в задачу" },
-                    { key: "push_task_completed", label: "Завершение задачи (где участник)" },
-                    { key: "push_task_commented", label: "Новый комментарий к задаче" },
-                    { key: "push_added_to_group", label: "Добавление в проект/подпроект" },
-                    { key: "push_new_task_in_group", label: "Новая задача в моём проекте" },
-                    { key: "push_deadline_approaching", label: "Приближение дедлайна" },
-                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
-                    <div key={item.key} className="flex items-center justify-between py-2">
-                      <span className="text-sm">{item.label}</span>
-                      <Switch
-                        checked={!!prefs[item.key]}
-                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
-                      />
+                {prefs && (
+                  <>
+                    {/* Матрица событий × каналов */}
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-2 bg-muted/40 text-xs font-medium text-muted-foreground">
+                        <div>Событие</div>
+                        <div className="flex items-center gap-1 justify-center w-16">
+                          <Bell className="h-3.5 w-3.5" /> Push
+                        </div>
+                        <div className="flex items-center gap-1 justify-center w-16">
+                          <MessageCircle className="h-3.5 w-3.5" /> TG
+                        </div>
+                      </div>
+                      {NOTIFICATION_EVENTS.map((e, idx) => (
+                        <div
+                          key={e.label}
+                          className={cn(
+                            "grid grid-cols-[1fr_auto_auto] gap-x-4 px-4 py-2.5 items-center",
+                            idx !== NOTIFICATION_EVENTS.length - 1 && "border-b border-border",
+                          )}
+                        >
+                          <span className="text-sm">{e.label}</span>
+                          <div className="flex justify-center w-16">
+                            <Switch
+                              checked={!!prefs[e.push as keyof typeof prefs]}
+                              onCheckedChange={(v) => updatePrefs.mutate({ [e.push]: v })}
+                            />
+                          </div>
+                          <div className="flex justify-center w-16">
+                            <Switch
+                              checked={!!prefs[e.tg as keyof typeof prefs]}
+                              onCheckedChange={(v) => updatePrefs.mutate({ [e.tg]: v })}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
 
-                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">Автоотчёты</p>
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <span className="text-sm">Еженедельный отчёт в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
+                    {/* Автоотчёты */}
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Автоотчёты в Telegram</p>
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <span className="text-sm">Еженедельный отчёт</span>
+                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — прогресс, просрочки, планы</p>
+                        </div>
+                        <Switch
+                          checked={!!(prefs as any)?.telegram_weekly_report}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <span className="text-sm">Еженедельный ИИ-обзор</span>
+                          <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
+                        </div>
+                        <Switch
+                          checked={!!(prefs as any)?.telegram_weekly_ai_review}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
+                        />
+                      </div>
                     </div>
-                    <Switch
-                      checked={!!(prefs as any)?.telegram_weekly_report}
-                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <span className="text-sm">Еженедельный ИИ-обзор в Telegram</span>
-                      <p className="text-xs text-muted-foreground">Пятница в 09:00 МСК — ИИ-анализ, достижения, фокус</p>
-                    </div>
-                    <Switch
-                      checked={!!(prefs as any)?.telegram_weekly_ai_review}
-                      onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_ai_review: v } as any)}
-                    />
-                  </div>
-
-                  <p className="text-xs font-medium text-muted-foreground mb-3 mt-5">События для Telegram</p>
-                  {([
-                    { key: "telegram_task_assigned", label: "Назначен ответственным" },
-                    { key: "telegram_task_delegated", label: "Делегирование задачи" },
-                    { key: "telegram_task_participant_added", label: "Добавлен участником в задачу" },
-                    { key: "telegram_task_completed", label: "Завершение задачи (где участник)" },
-                    { key: "telegram_task_commented", label: "Новый комментарий к задаче" },
-                    { key: "telegram_added_to_group", label: "Добавление в проект/подпроект" },
-                    { key: "telegram_new_task_in_group", label: "Новая задача в моём проекте" },
-                    { key: "telegram_deadline_approaching", label: "Приближение дедлайна" },
-                  ] as { key: keyof typeof prefs; label: string }[]).map(item => (
-                    <div key={item.key} className="flex items-center justify-between py-2">
-                      <span className="text-sm">{item.label}</span>
-                      <Switch
-                        checked={!!prefs[item.key]}
-                        onCheckedChange={(v) => updatePrefs.mutate({ [item.key]: v })}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            </SettingsSection>
 
             {/* Calendar Subscription */}
             <ConsultantGuard area="calendar-sync">
-              <CalendarSubscription userId={user.id} />
+              <SettingsSection
+                icon={CalendarSync}
+                title="Подписка на календарь"
+                description="Синхронизация дедлайнов с Google / Outlook / Apple Calendar."
+              >
+                <CalendarSubscription userId={user.id} />
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Tags management */}
             <ConsultantGuard area="tags-management">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                  <Tag className="h-5 w-5 text-primary" />
-                  Тэги
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Управление категориями и тэгами. Фильтрация по тэгам в списке задач остаётся доступной через панель фильтров.
-                </p>
+              <SettingsSection
+                icon={Tag}
+                title="Тэги"
+                description="Категории и тэги. Фильтрация — через панель фильтров в списке задач."
+              >
                 <TagManagementPanel />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
-            {/* Departments & Contractors */}
+            {/* Contractors */}
             <ConsultantGuard area="delegation">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-1">
-                  Подрядчики
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Внешние исполнители без учётной записи. Используются как метка на задаче, уведомления не отправляются. Отделы и иерархия — во вкладке «Оргструктура» выше.
-                </p>
+              <SettingsSection
+                icon={Users}
+                title="Подрядчики"
+                description="Внешние исполнители без учётной записи. Используются как метка на задаче."
+              >
                 <DelegationPanel />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Import/Export */}
             <ConsultantGuard area="import-export">
-              <div className="border-t border-border pt-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Download className="h-5 w-5 text-primary" />
-                  Импорт / Экспорт
-                </h2>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Импортируйте проект из Excel-файла (.xlsx) — AI автоматически определит колонки. Экспорт с выбором колонок и фильтров доступен в панели проекта.
-                </p>
+              <SettingsSection
+                icon={Download}
+                title="Импорт / Экспорт"
+                description="Импорт проектов из Excel (.xlsx) — AI определяет колонки автоматически."
+              >
                 <SmartImportDialog />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Teams section */}
             <ConsultantGuard area="teams">
-              <div className="border-t border-border pt-6">
+              <SettingsSection
+                icon={Users}
+                title="Команды"
+                description="Совместные пространства и приглашения по invite-коду."
+              >
                 <TeamSection />
-              </div>
+              </SettingsSection>
             </ConsultantGuard>
 
             {/* Admin mode toggle (только для реальных админов) */}
@@ -496,22 +573,24 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Admin approval */}
+            {/* Admin: Org structure + User management */}
             <ConsultantGuard area="admin">
               {isRealAdmin && (
-                <div className="border-t border-border pt-6">
-                  <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    Оргструктура
-                  </h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Дерево из 3 уровней: <b>Дирекция → Отдел → Подотдел</b>. Назначайте руководителей (head) и замов,
-                    а также привязывайте сотрудников к нескольким отделам сразу. Эти данные питают вкладки «Моя команда» и «Моя Дирекция».
-                  </p>
+                <SettingsSection
+                  icon={Building2}
+                  title="Оргструктура"
+                  description="Дирекция → Отдел → Подотдел. Руководители (head) и замы."
+                >
                   <OrgStructurePanel />
-                </div>
+                </SettingsSection>
               )}
-              <AdminApproval />
+              <SettingsSection
+                icon={UserCog}
+                title="Управление пользователями"
+                description="Утверждение, назначение отделов, доп. отделы и роли."
+              >
+                <AdminApproval />
+              </SettingsSection>
             </ConsultantGuard>
           </div>
         )}
@@ -573,15 +652,7 @@ function CalendarSubscription({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="border-t border-border pt-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <CalendarSync className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-medium">Подписка на календарь</h2>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Добавьте ссылку в Google Calendar, Outlook или Apple Calendar — дедлайны задач будут автоматически синхронизироваться.
-      </p>
-
+    <div className="space-y-4">
       {calUrl ? (
         <div className="space-y-3">
           <div className="flex gap-2">
