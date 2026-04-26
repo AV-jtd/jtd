@@ -156,6 +156,7 @@ interface DeptRowProps {
   dept: AnyDept;
   depth: number;
   byParent: Map<string | null, AnyDept[]>;
+  allDepartments: AnyDept[];
   users: AnyUser[];
   usersByDept: Map<string, { userId: string; isPrimary: boolean }[]>;
   directorsByDept: Map<string, string[]>;
@@ -164,6 +165,7 @@ interface DeptRowProps {
   onRename: (deptId: string, name: string) => Promise<unknown>;
   onAddDirector: (deptId: string, userId: string) => Promise<unknown>;
   onRemoveDirector: (deptId: string, userId: string) => Promise<unknown>;
+  onMove: (deptId: string, parentId: string | null) => Promise<unknown>;
   onDelete: (deptId: string) => Promise<void>;
 }
 
@@ -252,6 +254,13 @@ function DeptRow(p: DeptRowProps) {
             directorIds={dirIds}
             onAdd={(uid) => p.onAddDirector(dept.id, uid)}
             onRemove={(uid) => p.onRemoveDirector(dept.id, uid)}
+          />
+
+          <MoveParentPicker
+            dept={dept}
+            allDepartments={p.allDepartments}
+            byParent={byParent}
+            onMove={(parentId) => p.onMove(dept.id, parentId)}
           />
 
           {canAddChild && (
