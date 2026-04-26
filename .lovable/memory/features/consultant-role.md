@@ -73,8 +73,23 @@ RESTRICTIVE-политики `Consultant restriction on <table>` поверх с
 - `Index.tsx` — useEffect: если activeView не в whitelist → "all"
 
 ## Этап 2 (TODO)
-- Скрыть кнопки в `AppHeader`: GlobalSearch, AiAssistant, Messenger
-- `AssigneePicker`: для consultant убрать табы Отдел/Подрядчик
-- `TaskCreateBar` / `Settings`: скрыть DelegationPanel, TagManagementPanel, TeamSection, AdminApproval
-- Edge-функции: `telegram-webhook`, `calendar-feed`, `ai-assistant`, `ai-insights`, `dashboard-report` — добавить проверку роли (сейчас обходят RLS через service role)
-- ProjectChat / групповой мессенджер — скрыть
+## Stage 3 — Edge-функции (серверный слой)
+
+### Хелпер
+- **`supabase/functions/_shared/consultant-guard.ts`** → `blockConsultant(req, opts)`.
+- Достаёт `Authorization` header, валидирует JWT через anon-клиента, RPC `is_consultant(_user_id)`.
+- Возвращает `Response 403 { error: "forbidden", reason: "consultant_role_blocked" }` при попадании.
+- Без auth header → пропуск (нужно для cron / публичных вызовов по token).
+
+### Защищённые функции
+- AI: `ai-assistant`, `ai-insights`, `suggest-tags`, `generate-protocol-summary`, `parse-protocol-text`, `process-attachment`
+- Командная работа: `invite-member`, `join-team`
+- Telegram-исходящие: `send-chat-telegram`, `send-protocol-telegram`
+
+### Намеренно НЕ защищены
+- `dashboard-report`, `calendar-feed` — публичные по token (consultant не получит token: RLS блокирует `dashboard_reports` / `calendar_tokens`).
+- `telegram-webhook`, `telegram-2fa` — entry-points с валидацией через telegram_chat_id.
+- Cron / системные: `notify-event`, `notify-new-user`, `send-push`, `send-weekly-*`, `protocol-buffer-flush`, `auto-baseline-lock`, `vapid-keys`, `one-shot-ai-review-user` — вызываются service-role'ом, не от пользователя.
+
+### Правило
+Любая новая edge-функция, которую может дёрнуть пользователь из браузера → в начале handler'а вызвать `blockConsultant(req, { corsHeaders })`. См. `mem://constraints/external-users-default` пункт 5.
