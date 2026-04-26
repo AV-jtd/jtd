@@ -471,6 +471,8 @@ export default function MyDepartmentPage() {
             </div>
           )}
         </section>
+        </>
+        )}
       </div>
 
       {/* Task details sheet */}
