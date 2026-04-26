@@ -11,6 +11,11 @@ interface AuthContextType {
   isAdmin: boolean;
   isRealAdmin: boolean;
   isConsultant: boolean;
+  /** Реальная роль consultant из БД (без учёта симуляции). */
+  isRealConsultant: boolean;
+  /** Активная симулированная роль (только для admin, чисто визуально). */
+  simulatedRole: "consultant" | "employee" | null;
+  setSimulatedRole: (role: "consultant" | "employee" | null) => void;
   adminModeDisabled: boolean;
   setAdminModeDisabled: (disabled: boolean) => void;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
@@ -30,6 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [adminModeDisabled, setAdminModeDisabledState] = useState<boolean>(() => {
     try { return localStorage.getItem("admin_mode_disabled") === "1"; } catch { return false; }
   });
+  const [simulatedRole, setSimulatedRoleState] = useState<"consultant" | "employee" | null>(() => {
+    try {
+      const v = localStorage.getItem("simulated_role");
+      return v === "consultant" || v === "employee" ? v : null;
+    } catch { return null; }
+  });
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
   const qc = useQueryClient();
@@ -39,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onStorage = (e: StorageEvent) => {
       if (e.key === "admin_mode_disabled") {
         setAdminModeDisabledState(e.newValue === "1");
+      }
+      if (e.key === "simulated_role") {
+        const v = e.newValue;
+        setSimulatedRoleState(v === "consultant" || v === "employee" ? v : null);
       }
     };
     window.addEventListener("storage", onStorage);
@@ -207,12 +222,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const effectiveIsAdmin = isAdmin && !adminModeDisabled;
 
+  // Симуляция роли — только клиентская (визуальная) и доступна только реальным админам.
+  // RLS на сервере остаётся как есть; цель — проверять, как UI выглядит для consultant.
+  const canSimulate = isAdmin;
+  const activeSimulation = canSimulate ? simulatedRole : null;
+  const effectiveIsConsultant = activeSimulation
+    ? activeSimulation === "consultant"
+    : isConsultant;
+
+  const setSimulatedRole = (role: "consultant" | "employee" | null) => {
+    try {
+      if (role) localStorage.setItem("simulated_role", role);
+      else localStorage.removeItem("simulated_role");
+    } catch {}
+    setSimulatedRoleState(role);
+    // Перерисовать виды, зависящие от RLS-кэша (визуально), и обновить guard'ы.
+    qc.invalidateQueries();
+  };
+
   return (
     <AuthContext.Provider value={{
       user, session, loading, isApproved,
       isAdmin: effectiveIsAdmin,
       isRealAdmin: isAdmin,
-      isConsultant,
+      isConsultant: effectiveIsConsultant,
+      isRealConsultant: isConsultant,
+      simulatedRole: activeSimulation,
+      setSimulatedRole,
       adminModeDisabled,
       setAdminModeDisabled,
       signUp, signIn, signOut,
