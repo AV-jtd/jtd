@@ -11,6 +11,7 @@ import { Loader2, ShieldCheck, Search, ArrowUpDown, LayoutGrid, ChevronDown, Bui
 import { toast } from "sonner";
 import { useContractors } from "@/hooks/useContractors";
 import { useQuery } from "@tanstack/react-query";
+import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 import { UserCard } from "./admin/UserCard";
 import { AuditHistoryDialog } from "./admin/AuditHistoryDialog";
 import type { AdminUser, Department, ClientLite, SortMode, GroupMode } from "./admin/types";
@@ -41,6 +42,7 @@ export default function AdminApproval() {
   const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
 
   const { data: contractors = [] } = useContractors();
+  const { data: userDeps = [] } = useAllUserDepartments();
   const { data: clients = [] } = useQuery<ClientLite[]>({
     queryKey: ["clients", "lite-for-admin"],
     queryFn: async () => {
@@ -262,6 +264,18 @@ export default function AdminApproval() {
 
   if (!isAdmin) return null;
 
+  // Map: user_id -> доп. (не-primary) отделы
+  const extrasByUser = useMemo(() => {
+    const m = new Map<string, string[]>();
+    userDeps.forEach((ud) => {
+      if (ud.is_primary) return;
+      const arr = m.get(ud.user_id) ?? [];
+      arr.push(ud.department_id);
+      m.set(ud.user_id, arr);
+    });
+    return m;
+  }, [userDeps]);
+
   const renderCard = (u: AdminUser) => (
     <UserCard
       key={u.id}
@@ -272,6 +286,7 @@ export default function AdminApproval() {
       departments={departments}
       contractors={contractors}
       clients={clients}
+      extraDeptIds={extrasByUser.get(u.id) ?? []}
       editingNameId={editingNameId}
       editingNameValue={editingNameValue}
       onStartEditName={startEditName}
