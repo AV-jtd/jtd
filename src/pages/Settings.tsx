@@ -264,23 +264,47 @@ export default function Settings() {
 
         {/* Sticky шапка с поиском и якорями */}
         <div className="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 mb-3 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по настройкам…"
-              className="h-8 pl-8 pr-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Очистить поиск"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+          {/* Mobile: админ-пилюля над поиском */}
+          {isRealAdmin && (
+            <div className="sm:hidden mb-2">
+              <AdminModePill
+                adminModeDisabled={adminModeDisabled}
+                setAdminModeDisabled={setAdminModeDisabled}
+                simulatedRole={simulatedRole}
+                onJump={() => scrollToSection("admin_mode")}
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск по настройкам…"
+                className="h-8 pl-8 pr-8 text-xs"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Очистить поиск"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {/* Desktop: админ-пилюля справа от поиска */}
+            {isRealAdmin && (
+              <div className="hidden sm:block shrink-0">
+                <AdminModePill
+                  adminModeDisabled={adminModeDisabled}
+                  setAdminModeDisabled={setAdminModeDisabled}
+                  simulatedRole={simulatedRole}
+                  onJump={() => scrollToSection("admin_mode")}
+                />
+              </div>
             )}
           </div>
 
@@ -653,29 +677,11 @@ export default function Settings() {
                 hidden={!matches("admin_mode", "Режим администратора", "права супер симуляция")}
               >
                 <div className="space-y-3">
-                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      Супер-права админа
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Когда включены — видно всё (чужие задачи, проекты, теги, панель утверждения пользователей).
-                      Выключите, чтобы интерфейс выглядел как у обычного юзера.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Статус: <span className={cn("font-semibold", adminModeDisabled ? "text-muted-foreground" : "text-destructive")}>
-                        {adminModeDisabled ? "Выключен" : "Включен"}
-                      </span>
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!adminModeDisabled}
-                    onCheckedChange={(checked) => {
-                      setAdminModeDisabled(!checked);
-                      toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
-                    }}
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Тумблер «Супер-права» вынесен в шапку страницы — переключайте оттуда. Когда права включены —
+                  видно всё (чужие задачи, проекты, теги, панель утверждения пользователей). Выключите, чтобы интерфейс
+                  выглядел как у обычного юзера.
+                </p>
 
                 {/* Симуляция роли (только визуально). RLS на сервере не меняется. */}
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
@@ -810,6 +816,66 @@ function SearchEmptyState({ anyVisible, onReset }: { anyVisible: boolean; onRese
       <Button variant="ghost" size="sm" className="mt-3" onClick={onReset}>
         <X className="mr-1.5 h-3.5 w-3.5" /> Сбросить
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Компактная пилюля «Админ-режим» для шапки настроек.
+ * Показывает текущий статус супер-прав и активную симуляцию роли.
+ * Тумблер мгновенно переключает права. Клик по статусу/иконке — скролл к секции с подробностями.
+ */
+function AdminModePill({
+  adminModeDisabled,
+  setAdminModeDisabled,
+  simulatedRole,
+  onJump,
+}: {
+  adminModeDisabled: boolean;
+  setAdminModeDisabled: (v: boolean) => void;
+  simulatedRole: "employee" | "consultant" | null;
+  onJump: () => void;
+}) {
+  const active = !adminModeDisabled;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-full border pl-2 pr-1 py-0.5 transition-colors",
+        active
+          ? "border-destructive/40 bg-destructive/10"
+          : "border-border bg-muted/40",
+      )}
+      title="Режим администратора"
+    >
+      <button
+        type="button"
+        onClick={onJump}
+        className="flex items-center gap-1.5 text-[11px] font-medium hover:opacity-80 transition-opacity"
+      >
+        <ShieldAlert
+          className={cn(
+            "h-3.5 w-3.5",
+            active ? "text-destructive" : "text-muted-foreground",
+          )}
+        />
+        <span className={cn(active ? "text-destructive" : "text-muted-foreground")}>
+          Админ
+        </span>
+        {simulatedRole && (
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal ml-0.5">
+            {simulatedRole === "consultant" ? "Consultant" : "Сотрудник"}
+          </Badge>
+        )}
+      </button>
+      <Switch
+        checked={active}
+        onCheckedChange={(checked) => {
+          setAdminModeDisabled(!checked);
+          toast.success(checked ? "Админ-режим включён" : "Админ-режим выключен");
+        }}
+        className="scale-75 origin-right"
+        aria-label="Переключить супер-права админа"
+      />
     </div>
   );
 }
