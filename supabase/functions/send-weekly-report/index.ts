@@ -40,11 +40,11 @@ Deno.serve(async (req) => {
   const { data: prefs } = await supabase
     .from("notification_preferences")
     .select("user_id, telegram_weekly_report")
-    .in("user_id", userIds)
-    .eq("telegram_weekly_report", true);
+    .in("user_id", userIds);
 
-  const enabledUserIds = new Set((prefs || []).map(p => p.user_id));
-  const eligibleProfiles = profiles.filter(p => enabledUserIds.has(p.id));
+  const prefsMap = new Map((prefs || []).map((p: any) => [p.user_id, p.telegram_weekly_report]));
+  // If pref row exists — respect it. If missing — default OFF (avoid spam).
+  const eligibleProfiles = profiles.filter(p => prefsMap.get(p.id) === true);
 
   if (eligibleProfiles.length === 0) {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no users opted in" }));
