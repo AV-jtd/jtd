@@ -49,16 +49,8 @@ export default function AdminApproval() {
       const { data, error } = await supabase
         .from("clients").select("id, name").order("name");
       if (error) throw error;
-      // Дедуп по имени (case-insensitive): разные пользователи могут
-      // иметь свою копию одного и того же клиента (напр. «Магнит»).
-      // В админ-селекторе показываем по одной записи на имя.
-      const seen = new Map<string, ClientLite>();
-      for (const c of (data ?? []) as ClientLite[]) {
-        const key = (c.name ?? "").trim().toLowerCase();
-        if (!key) continue;
-        if (!seen.has(key)) seen.set(key, c);
-      }
-      return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name, "ru"));
+      // Дубли по имени уже невозможны: уникальный индекс clients_lower_name_uniq.
+      return (data ?? []) as ClientLite[];
     },
     enabled: !!isAdmin,
     staleTime: 60_000,
