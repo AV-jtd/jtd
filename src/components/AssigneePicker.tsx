@@ -7,6 +7,7 @@ import type { Profile } from "@/hooks/useTasks";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useContractors } from "@/hooks/useContractors";
 import { useAuth } from "@/hooks/useAuth";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type AssigneeKind = "user" | "department" | "contractor" | null;
 
@@ -52,18 +53,22 @@ export default function AssigneePicker({
   excludeUserIds = [],
 }: Props) {
   const { isConsultant } = useAuth();
-  // Консультанту запрещено делегировать в отделы и подрядчикам.
-  const effHideDepartment = hideDepartment || isConsultant;
-  const effHideContractor = hideContractor || isConsultant;
+  // Консультанту запрещено делегировать в отделы/подрядчикам — вкладки видны, но faded+disabled.
+  // Жёстко скрываем только если родитель явно попросил (hideDepartment/hideContractor).
+  const effHideDepartment = hideDepartment;
+  const effHideContractor = hideContractor;
   const [tab, setTab] = useState<"user" | "department" | "contractor">(
-    current?.kind === "department" ? "department" :
-    current?.kind === "contractor" ? "contractor" :
+    current?.kind === "department" && !isConsultant ? "department" :
+    current?.kind === "contractor" && !isConsultant ? "contractor" :
     "user"
   );
   const [search, setSearch] = useState("");
 
-  const { data: departments = [] } = useDepartments();
-  const { data: contractors = [] } = useContractors();
+  // Не дёргаем эндпоинты для consultant — RLS вернёт пустоту, но лишний запрос ни к чему.
+  const departmentsQuery = useDepartments();
+  const contractorsQuery = useContractors();
+  const departments = isConsultant ? [] : (departmentsQuery.data ?? []);
+  const contractors = isConsultant ? [] : (contractorsQuery.data ?? []);
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -121,10 +126,10 @@ export default function AssigneePicker({
     if (!value.trim()) return;
     const q = value.toLowerCase();
     const inUser = users.some(u => !excludeUserIds.includes(u.id) && (u.display_name ?? "").toLowerCase().includes(q));
-    const inDept = !effHideDepartment && departments.some(d =>
+    const inDept = !effHideDepartment && !isConsultant && departments.some(d =>
       d.name.toLowerCase().includes(q) || (d.description ?? "").toLowerCase().includes(q)
     );
-    const inContr = !effHideContractor && contractors.some(c =>
+    const inContr = !effHideContractor && !isConsultant && contractors.some(c =>
       c.name.toLowerCase().includes(q) ||
       (c.organization ?? "").toLowerCase().includes(q) ||
       (c.contact_name ?? "").toLowerCase().includes(q)
@@ -150,7 +155,14 @@ export default function AssigneePicker({
     <Popover open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(""); }}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-72 p-2" side={side} align="start">
-        <Tabs value={tab} onValueChange={(v: any) => setTab(v)}>
+        <Tabs
+          value={tab}
+          onValueChange={(v: any) => {
+            // Блокируем переключение на закрытые для consultant вкладки.
+            if (isConsultant && (v === "department" || v === "contractor")) return;
+            setTab(v);
+          }}
+        >
           {tabsCount > 1 && (
             <TabsList className="grid w-full mb-2" style={{ gridTemplateColumns: `repeat(${tabsCount}, minmax(0, 1fr))` }}>
               <TabsTrigger value="user" className="text-xs gap-1">
@@ -160,20 +172,58 @@ export default function AssigneePicker({
                 )}
               </TabsTrigger>
               {!effHideDepartment && (
-                <TabsTrigger value="department" className="text-xs gap-1">
-                  <Building2 className="h-3 w-3" />Отдел
-                  {search.trim() && counts.department > 0 && (
-                    <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.department}</span>
-                  )}
-                </TabsTrigger>
+                isConsultant ? (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <TabsTrigger
+                          value="department"
+                          disabled
+                          className="text-xs gap-1 opacity-40 cursor-not-allowed data-[state=active]:bg-transparent"
+                        >
+                          <Building2 className="h-3 w-3" />Отдел
+                        </TabsTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        Делегирование отделам доступно только сотрудникам компании
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <TabsTrigger value="department" className="text-xs gap-1">
+                    <Building2 className="h-3 w-3" />Отдел
+                    {search.trim() && counts.department > 0 && (
+                      <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.department}</span>
+                    )}
+                  </TabsTrigger>
+                )
               )}
               {!effHideContractor && (
-                <TabsTrigger value="contractor" className="text-xs gap-1">
-                  <HardHat className="h-3 w-3" />Подрядчик
-                  {search.trim() && counts.contractor > 0 && (
-                    <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.contractor}</span>
-                  )}
-                </TabsTrigger>
+                isConsultant ? (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <TabsTrigger
+                          value="contractor"
+                          disabled
+                          className="text-xs gap-1 opacity-40 cursor-not-allowed data-[state=active]:bg-transparent"
+                        >
+                          <HardHat className="h-3 w-3" />Подрядчик
+                        </TabsTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        Делегирование подрядчикам доступно только сотрудникам компании
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <TabsTrigger value="contractor" className="text-xs gap-1">
+                    <HardHat className="h-3 w-3" />Подрядчик
+                    {search.trim() && counts.contractor > 0 && (
+                      <span className="ml-0.5 text-[10px] bg-primary/15 text-primary rounded px-1">{counts.contractor}</span>
+                    )}
+                  </TabsTrigger>
+                )
               )}
             </TabsList>
           )}
