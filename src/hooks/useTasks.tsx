@@ -813,15 +813,21 @@ export function useTaskMutations() {
           }
         }
 
-        // Create client record
-        const { data: clientData } = await supabase.from("clients").insert({
-          name: clientNameTrimmed,
-          user_id: user!.id,
-          group_id: resolvedGroupId,
-          tag_id: tagId,
-        } as any).select().single();
+        // Find or create client (общий справочник, без дублей по lower(name))
+        const { data: upsertedId, error: upsertErr } = await supabase
+          .rpc("upsert_client_by_name", { _name: clientNameTrimmed, _user_id: user!.id });
+        if (upsertErr) throw upsertErr;
+        clientId = (upsertedId as string) || null;
 
-        clientId = (clientData as any)?.id || null;
+        // Создаём/обновляем персональное назначение (manager, project, tag)
+        if (clientId) {
+          await supabase.from("client_assignments").upsert({
+            user_id: user!.id,
+            client_id: clientId,
+            group_id: resolvedGroupId,
+            tag_id: tagId,
+          } as any, { onConflict: "user_id,client_id" });
+        }
       }
 
       const now = new Date().toISOString();
