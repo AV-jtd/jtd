@@ -19,7 +19,7 @@ type: constraint
 1. **Новая категория внешних пользователей** → добавляется в существующую модель `consultant` (через `contractor_id` или новое поле с триггером, аналогичным `sync_consultant_role`). НЕ создавать параллельную роль с собственными правилами.
 2. **Новая таблица с конфиденциальными данными** → сразу добавляется RESTRICTIVE-политика `Consultant block on <table>` или `Consultant restriction on <table>` через хелперы (`is_consultant`, `consultant_can_see_*`).
 3. **Новый модуль/раздел/роут** → по умолчанию закрывается для consultant через `<ConsultantBlocked>` в `App.tsx` и фильтр в `MainNav`.
-4. **Новый глобальный UI-элемент** (поиск, AI, мессенджер, дашборд и т.д.) → проверка `useAuth().isConsultant` и скрытие.
+4. **Новый глобальный UI-элемент** (поиск, AI, мессенджер, дашборд и т.д.) → оборачиваем в `<ConsultantGuard area="...">` (`mode="hide"` или `"faded"`). **Не использовать** прямые проверки `!isConsultant && (...)` или `isConsultant ? ... : ...` в JSX — это ловит линтер `bun run lint:consultant` (`scripts/check-consultant-guard.mjs`).
 5. **Новая edge-функция, обходящая RLS через service role** → обязательная проверка `is_consultant(user_id)` в начале и блок/фильтрация выдачи.
 
 ## Расширение модели
