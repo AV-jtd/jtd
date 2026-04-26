@@ -24,7 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-/** Универсальная сворачиваемая секция админки/настроек */
+/** Универсальная сворачиваемая секция админки/настроек — компактная карточка */
 function SettingsSection({
   icon: Icon,
   title,
@@ -44,36 +44,43 @@ function SettingsSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-border pt-6">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-start justify-between gap-3 text-left group"
-          >
-            <div className="flex items-start gap-2 min-w-0">
-              <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", iconClassName ?? "text-primary")} />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-semibold">{title}</h2>
-                  {badge}
-                </div>
-                {description && (
-                  <p className="text-sm text-muted-foreground mt-1">{description}</p>
-                )}
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className={cn(
+        "rounded-lg border border-border bg-card transition-colors",
+        open && "shadow-sm",
+      )}
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 hover:bg-accent/40 rounded-lg transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <Icon className={cn("h-4 w-4 shrink-0", iconClassName ?? "text-primary")} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold">{title}</span>
+                {badge}
               </div>
-            </div>
-            <ChevronDown
-              className={cn(
-                "h-5 w-5 text-muted-foreground shrink-0 transition-transform mt-1",
-                open && "rotate-180",
+              {description && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
               )}
-            />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">{children}</CollapsibleContent>
-      </Collapsible>
-    </div>
+            </div>
+          </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-4 pb-4 pt-1 border-t border-border">
+        <div className="pt-4">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -160,7 +167,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-5xl p-6">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <Link
           to="/"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -169,101 +176,99 @@ export default function Settings() {
           Назад к задачам
         </Link>
 
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Настройки профиля</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-5">Настройки</h1>
 
         {loadingProfile ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Profile */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Имя</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Ваше имя"
-                />
+          <div className="space-y-4">
+            {/* Profile — компактная карточка с 2-колоночной сеткой */}
+            <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <UserCog className="h-4 w-4 text-primary" />
+                Профиль
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="displayName" className="text-xs">Имя</Label>
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Ваше имя"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="organization" className="text-xs">Организация</Label>
+                  <Input
+                    id="organization"
+                    value={organization}
+                    onChange={(e) => setOrganization(e.target.value)}
+                    placeholder="Например: Дороничи"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="workEmail" className="text-xs flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" />
+                    Рабочий email
+                  </Label>
+                  <Input
+                    id="workEmail"
+                    type="email"
+                    value={workEmail}
+                    onChange={(e) => setWorkEmail(e.target.value)}
+                    placeholder="work@company.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="telegram" className="text-xs flex items-center gap-1.5">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Telegram
+                  </Label>
+                  <Input
+                    id="telegram"
+                    value={telegramUsername}
+                    onChange={(e) => setTelegramUsername(e.target.value)}
+                    placeholder="username (без @)"
+                  />
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="workEmail" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Рабочий email
-                </Label>
-                <Input
-                  id="workEmail"
-                  type="email"
-                  value={workEmail}
-                  onChange={(e) => setWorkEmail(e.target.value)}
-                  placeholder="work@company.com"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Добавьте рабочий email, чтобы создавать задачи с обоих адресов.
-                </p>
+              <p className="text-xs text-muted-foreground">
+                Рабочий email и Telegram нужны для создания задач из почты и бота. Организация используется в протоколах встреч.
+              </p>
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving} size="sm">
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Сохранить
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="organization">Организация</Label>
-                <Input
-                  id="organization"
-                  value={organization}
-                  onChange={(e) => setOrganization(e.target.value)}
-                  placeholder="Например: Дороничи"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Используется в протоколах встреч для определения вашей стороны.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="telegram" className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  Telegram username
-                </Label>
-                <Input
-                  id="telegram"
-                  value={telegramUsername}
-                  onChange={(e) => setTelegramUsername(e.target.value)}
-                  placeholder="username (без @)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Привяжите Telegram, чтобы создавать задачи прямо из бота.
-                </p>
-              </div>
-
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Сохранить
-              </Button>
             </div>
 
             {/* Theme section */}
-            <div className="border-t border-border pt-6 space-y-4">
+            <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-medium">Оформление</h2>
+                <Palette className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Оформление</h2>
               </div>
 
               {/* Light/Dark/System */}
               <div className="space-y-2">
-                <Label>Тема</Label>
+                <Label className="text-xs">Тема</Label>
                 <div className="flex rounded-lg border border-border overflow-hidden">
                   {themeModes.map(t => (
                     <button
                       key={t.id}
                       onClick={() => setMode(t.id)}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors",
+                        "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
                         mode === t.id
                           ? "bg-primary text-primary-foreground"
                           : "bg-card text-muted-foreground hover:bg-accent"
                       )}
                     >
-                      <t.icon className="h-4 w-4" />
+                      <t.icon className="h-3.5 w-3.5" />
                       {t.label}
                     </button>
                   ))}
@@ -272,14 +277,14 @@ export default function Settings() {
 
               {/* Accent color presets */}
               <div className="space-y-2">
-                <Label>Цвет акцента</Label>
+                <Label className="text-xs">Цвет акцента</Label>
                 <div className="flex flex-wrap gap-2">
                   {ACCENT_PRESETS.map(p => (
                     <button
                       key={p.hue}
                       onClick={() => { setAccentColor(p.hue); setCustomHue(p.hue); }}
                       className={cn(
-                        "h-9 w-9 rounded-full border-2 transition-all",
+                        "h-7 w-7 rounded-full border-2 transition-all",
                         accentColor === p.hue ? "border-foreground scale-110" : "border-transparent"
                       )}
                       style={{ backgroundColor: `hsl(${p.hue}, 91%, 60%)` }}
@@ -291,7 +296,7 @@ export default function Settings() {
 
               {/* Custom hue slider */}
               <div className="space-y-2">
-                <Label>Произвольный цвет (оттенок)</Label>
+                <Label className="text-xs">Произвольный оттенок</Label>
                 <div className="flex items-center gap-3">
                   <input
                     type="range"
@@ -308,7 +313,7 @@ export default function Settings() {
                     }}
                   />
                   <div
-                    className="h-8 w-8 rounded-full border border-border shrink-0"
+                    className="h-7 w-7 rounded-full border border-border shrink-0"
                     style={{ backgroundColor: `hsl(${customHue}, 91%, 60%)` }}
                   />
                 </div>
@@ -476,12 +481,12 @@ export default function Settings() {
 
             {/* Admin mode toggle (только для реальных админов) */}
             {isRealAdmin && (
-              <div className="border-t border-border pt-6 space-y-3">
+              <div className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-3">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-5 w-5 text-destructive" />
-                  <h2 className="text-lg font-medium">Режим администратора</h2>
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  <h2 className="text-sm font-semibold">Режим администратора</h2>
                 </div>
-                <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
                       Супер-права админа
@@ -506,7 +511,7 @@ export default function Settings() {
                 </div>
 
                 {/* Симуляция роли (только визуально). RLS на сервере не меняется. */}
-                <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
