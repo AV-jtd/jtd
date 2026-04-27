@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import { useTasksWithComments } from "@/hooks/useComments";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
@@ -531,6 +532,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const displayName = (name: string) => name.includes("/") ? name.split("/").pop()!.trim() : name;
 
   // Shared data props for TaskItem — avoids N duplicate hook subscriptions
+  const taskIds = useMemo(() => tasks.map(t => t.id), [tasks]);
+  const { data: tasksWithComments } = useTasksWithComments(taskIds);
   const sharedTaskItemProps = useMemo(() => ({
     sharedTags: allTags,
     sharedUsers: availableUsers,
@@ -538,7 +541,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     sharedTagCategories: tagCategories,
     sharedLinkedTagIds: linkedTagIds,
     sharedMutations: mutations,
-  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations]);
+    sharedTasksWithComments: tasksWithComments,
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, tasksWithComments]);
 
   return (
     <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
