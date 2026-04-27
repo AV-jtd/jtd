@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
+import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
@@ -41,6 +41,24 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const childIds = new Set(groups.filter(g => g.parent_id === projectId).map(g => g.id));
   const allIds = new Set([projectId, ...childIds]);
   const tasks = allTasks.filter(t => t.group_id && allIds.has(t.group_id));
+
+  // Задачи из протоколов, привязанные к этому проекту (или его подпроектам)
+  // через status_meta.linked_project_id. Физически живут в group_id=protocolId,
+  // поэтому не попадают в `tasks` выше.
+  const protocolGroupById = useMemo(() => {
+    const m = new Map<string, any>();
+    groups.forEach(g => { if (g.project_type === "protocol") m.set(g.id, g); });
+    return m;
+  }, [groups]);
+  const linkedProtocolTasks = useMemo(() => {
+    return allTasks.filter(t => {
+      const linked = (t as any).status_meta?.linked_project_id as string | undefined;
+      if (!linked || !allIds.has(linked)) return false;
+      // Должна жить в группе-протоколе, иначе это уже «своя» задача проекта.
+      return t.group_id ? protocolGroupById.has(t.group_id) : false;
+    });
+  }, [allTasks, allIds, protocolGroupById]);
+
   const total = tasks.length;
   const done = tasks.filter(t => t.is_completed).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -295,6 +313,47 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
 
         {/* Streams are shown in the Roadmap above */}
       </div>
+
+      {/* ━━ ИЗ ПРОТОКОЛОВ ━━ */}
+      {linkedProtocolTasks.length > 0 && (
+        <DashSection
+          title="Из протоколов"
+          count={linkedProtocolTasks.length}
+          accentClass="text-primary"
+        >
+          {linkedProtocolTasks.slice(0, 10).map(t => {
+            const proto = t.group_id ? protocolGroupById.get(t.group_id) : null;
+            const isOver = !t.is_completed && t.deadline && isPast(parseISO(t.deadline));
+            return (
+              <button
+                key={t.id}
+                onClick={() => proto && navigate(`/protocols/${proto.id}`)}
+                className="w-full flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-md hover:bg-secondary/50 transition-colors text-left"
+                title={proto ? `Открыть протокол: ${proto.name}` : undefined}
+              >
+                <FileText className="h-3 w-3 shrink-0 text-primary/60" />
+                <span className={cn("text-[13px] truncate flex-1", isOver ? "text-destructive" : t.is_completed ? "text-muted-foreground line-through" : "text-foreground")}>
+                  {t.title}
+                </span>
+                {proto && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[140px] shrink-0">{proto.name}</span>
+                )}
+                {initials(t.assigned_to) && (
+                  <div className="w-[18px] h-[18px] rounded-full bg-muted flex items-center justify-center shrink-0" title={userName(t.assigned_to) || ""}>
+                    <span className="text-[7px] font-medium text-muted-foreground leading-none">{initials(t.assigned_to)}</span>
+                  </div>
+                )}
+                {t.deadline && (
+                  <span className={cn("text-[10px] tabular-nums shrink-0", isOver ? "text-destructive" : "text-muted-foreground")}>
+                    {format(parseISO(t.deadline), "d MMM", { locale: ru })}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {linkedProtocolTasks.length > 10 && <MoreLabel count={linkedProtocolTasks.length - 10} />}
+        </DashSection>
+      )}
 
       {/* ━━ PROJECT CARD (collapsible) ━━ */}
       {project && (
