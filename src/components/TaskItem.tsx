@@ -59,6 +59,8 @@ interface TaskItemProps {
   sharedTagCategories?: TagCategory[];
   sharedLinkedTagIds?: Set<string>;
   sharedMutations?: ReturnType<typeof useTaskMutations>;
+  /** Bulk-fetched set of task IDs that have at least one comment (for chat icon highlight). */
+  sharedTasksWithComments?: Set<string>;
 }
 
 const PRIORITIES = [
