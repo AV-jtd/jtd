@@ -268,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         currentUserIdRef.current = null;
         setIsApproved(false);
+        setApprovalKnown(false);
         setIsAdmin(false);
         setIsConsultant(false);
         setLoading(false);
