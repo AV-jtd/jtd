@@ -1074,6 +1074,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
+            {/* Client chip — shown when task is linked to a CRM client */}
+            {linkedClient && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0 max-w-[160px]"
+                title={`Клиент: ${linkedClient.name}`}
+              >
+                <ClientAvatar client={linkedClient} size="xs" />
+                <span className="truncate">{linkedClient.name}</span>
+              </span>
+            )}
             {(() => {
               const MAX_CHIPS = 2;
               const MAX_EXPAND = 3;
