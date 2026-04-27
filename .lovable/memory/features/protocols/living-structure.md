@@ -52,5 +52,13 @@ type: feature
 - AI-маппер уже умеет распознавать колонку `topic` → создаёт теги темы → задачи группируются автоматически.
 - Выводы по теме для Excel вводятся вручную через `TopicNotesBlock` (Excel-файлы редко содержат «прозу» выводов).
 
-**Ещё не сделано** (отложено на следующий заход):
-- Печать living как Google Doc в ProtocolPreviewDialog
+**Создание с нуля** (`NewProtocolDialog` + `lib/livingSeed.ts`):
+- При создании living-протокола вызывается `seedLivingPlaceholder(userId, groupId)` (best-effort, не блокирует UX).
+- Helper создаёт системную категорию `event_topic` если её нет, тег-плейсхолдер «Общее» (case-insensitive) и записывает `protocol_meta.topic_notes[tagId] = ""`.
+- Это гарантирует, что в новом living-протоколе сразу есть одна тема и видимый блок выводов под неё, без ручной настройки.
+
+**Печатная версия** (`ProtocolPreviewDialog`):
+- Для `isLiving` (как и для CF) скрыты партнёрская карточка, правая колонка участников и блок подписей (`isInternalStyle = isCrossFunctional || isLiving`).
+- `groupByTopic` для living включён по умолчанию.
+- Под заголовком каждой темы рендерится «Основные выводы» — буллеты из `protocol_meta.topic_notes[tag_id]` (парсинг `- / * / •`).
+- PDF-экспорт работает без изменений, т.к. живая структура помечена теми же `data-pdf-section`.

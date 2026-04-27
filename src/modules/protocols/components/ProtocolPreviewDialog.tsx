@@ -53,6 +53,11 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
   const isCrossFunctional = meta?.template_system_key === "cross_functional";
+  const isLiving = meta?.template_system_key === "living";
+  // For internal-style protocols (cross-functional, living) we treat layout the same:
+  // single side, no partner card, no signatures.
+  const isInternalStyle = isCrossFunctional || isLiving;
+  const topicNotes: Record<string, string> = (meta?.topic_notes as Record<string, string>) ?? {};
 
   // CRM client (для логотипа и имени партнёра)
   const linkedClientId: string | null = isCrossFunctional ? null : (meta.client_id ?? null);
@@ -122,6 +127,8 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   // ---------- Sides toggle: показывать имена или только сторону ----------
   const [showSideOnly, setShowSideOnly] = useState(false);
   const [groupByTopic, setGroupByTopic] = useState(() => {
+    // Living protocols are organized by topic by default.
+    if (meta?.template_system_key === "living") return true;
     const topicIds = new Set<string>();
     for (const t of tasks) {
       const topic = getTaskTopic(t);
@@ -490,13 +497,13 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 <FmtIcon className="h-3 w-3 text-neutral-500" />
                                 <span className="font-medium">{fmtTxt}</span>
                               </span>
-                              {linkedClientId && partnerName && !isCrossFunctional && (
+                              {linkedClientId && partnerName && !isInternalStyle && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-purple-300 bg-purple-50 px-2 py-0.5 text-purple-700">
                                   <Link2 className="h-3 w-3" />
                                   <span className="font-medium">{partnerName}</span>
                                 </span>
                               )}
-                              {sides && !isCrossFunctional && (
+                              {sides && !isInternalStyle && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-neutral-50 px-2 py-0.5 text-neutral-700">
                                   <Sparkles className="h-3 w-3 text-neutral-500" />
                                   <span className="font-medium text-neutral-900">{sides.partner}</span>
@@ -517,7 +524,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                         </div>
 
                         {/* Two side cards: our side + partner side */}
-                        <div className={`mt-4 grid gap-3 ${isCrossFunctional ? "grid-cols-1" : "grid-cols-2"}`}>
+                        <div className={`mt-4 grid gap-3 ${isInternalStyle ? "grid-cols-1" : "grid-cols-2"}`}>
                           {/* Our side */}
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             <img
@@ -528,7 +535,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-[12px] font-semibold text-neutral-900">
-                                {isCrossFunctional ? "Участники встречи" : ourSideName}
+                                {isInternalStyle ? "Участники встречи" : ourSideName}
                               </div>
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {internalAttendeeIds.length === 0 ? (
@@ -548,7 +555,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                           </div>
 
                           {/* Partner side — hidden for cross-functional (internal meeting) */}
-                          {!isCrossFunctional && (
+                          {!isInternalStyle && (
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             {clientLogoUrl ? (
                               <img
@@ -697,6 +704,30 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 </td>
                               </tr>
                             );
+                            // Living protocols: render topic notes (markdown bullets) under the header.
+                            if (isLiving && topic) {
+                              const note = (topicNotes[topic.id] ?? "").trim();
+                              if (note) {
+                                const bullets = note
+                                  .split("\n")
+                                  .map((ln) => ln.replace(/^\s*[-*•]\s+/, "").trim())
+                                  .filter(Boolean);
+                                out.push(
+                                  <tr key={`notes-${key}`} className="bg-neutral-50">
+                                    <td colSpan={colCount} className="border border-neutral-300 px-3 py-2 text-[11px] text-neutral-700">
+                                      <div className="text-[9px] uppercase tracking-wide text-neutral-500 mb-1 font-medium">
+                                        Основные выводы
+                                      </div>
+                                      <ul className="list-disc pl-4 space-y-0.5">
+                                        {bullets.map((b, i) => (
+                                          <li key={i}>{b}</li>
+                                        ))}
+                                      </ul>
+                                    </td>
+                                  </tr>,
+                                );
+                              }
+                            }
                             for (const t of rows) {
                               runningIdx += 1;
                               out.push(renderRow(t, runningIdx, rowIdx));
@@ -711,7 +742,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 </div>
 
                 {/* === SECTION 4: Signatures + footer === */}
-                {!isCrossFunctional && (
+                {!isInternalStyle && (
                   <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
                     <div className="grid grid-cols-2 gap-10">
                       <div>
