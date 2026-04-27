@@ -497,13 +497,13 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 <FmtIcon className="h-3 w-3 text-neutral-500" />
                                 <span className="font-medium">{fmtTxt}</span>
                               </span>
-                              {linkedClientId && partnerName && !isCrossFunctional && (
+                              {linkedClientId && partnerName && !isInternalStyle && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-purple-300 bg-purple-50 px-2 py-0.5 text-purple-700">
                                   <Link2 className="h-3 w-3" />
                                   <span className="font-medium">{partnerName}</span>
                                 </span>
                               )}
-                              {sides && !isCrossFunctional && (
+                              {sides && !isInternalStyle && (
                                 <span className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-neutral-50 px-2 py-0.5 text-neutral-700">
                                   <Sparkles className="h-3 w-3 text-neutral-500" />
                                   <span className="font-medium text-neutral-900">{sides.partner}</span>
@@ -524,7 +524,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                         </div>
 
                         {/* Two side cards: our side + partner side */}
-                        <div className={`mt-4 grid gap-3 ${isCrossFunctional ? "grid-cols-1" : "grid-cols-2"}`}>
+                        <div className={`mt-4 grid gap-3 ${isInternalStyle ? "grid-cols-1" : "grid-cols-2"}`}>
                           {/* Our side */}
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             <img
@@ -535,7 +535,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-[12px] font-semibold text-neutral-900">
-                                {isCrossFunctional ? "Участники встречи" : ourSideName}
+                                {isInternalStyle ? "Участники встречи" : ourSideName}
                               </div>
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {internalAttendeeIds.length === 0 ? (
@@ -555,7 +555,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                           </div>
 
                           {/* Partner side — hidden for cross-functional (internal meeting) */}
-                          {!isCrossFunctional && (
+                          {!isInternalStyle && (
                           <div className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
                             {clientLogoUrl ? (
                               <img
@@ -718,7 +718,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 </div>
 
                 {/* === SECTION 4: Signatures + footer === */}
-                {!isCrossFunctional && (
+                {!isInternalStyle && (
                   <div data-pdf-section className="mt-8" style={{ width: contentWidth }}>
                     <div className="grid grid-cols-2 gap-10">
                       <div>
