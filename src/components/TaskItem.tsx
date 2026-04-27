@@ -1271,12 +1271,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           >
             {(open, setOpen) => (
-              <UserPicker
+              <MultiAssigneePicker
                 users={availableUsers}
                 excludeIds={participantIds}
                 open={open || userPickerOpen === "quick-participant"}
                 onOpenChange={(o) => { setOpen(o); setUserPickerOpen(o ? "quick-participant" : null); }}
-                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                onSelectUsers={(ids) => {
+                  ids.forEach((uid) =>
+                    addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" })
+                  );
+                }}
                 trigger={
                   <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
                     <UserPlus className="h-3.5 w-3.5" />
