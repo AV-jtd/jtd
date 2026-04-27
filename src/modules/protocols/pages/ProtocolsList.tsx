@@ -35,8 +35,11 @@ export default function ProtocolsList() {
     const s = searchParams.get("stat");
     return s === "overdue" || s === "unassigned" || s === "undated" ? s : "none";
   });
-  const [axisTagId, setAxisTagId] = useState<string | null>(() => searchParams.get("axis"));
-  const [axisProtocolIds, setAxisProtocolIds] = useState<string[]>([]);
+  const [axisTagIds, setAxisTagIds] = useState<string[]>(() => {
+    const raw = searchParams.get("axis");
+    if (!raw) return [];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  });
 
   const protocols = useMemo(
     () => groups.filter((g) => g.project_type === "protocol"),
@@ -82,20 +85,6 @@ export default function ProtocolsList() {
     });
   }, [enriched, search, statusFilter]);
 
-  // Затем — метрики и срез по осям применяются уже к этому подмножеству.
-  const filtered = useMemo(() => {
-    const axisSet = axisTagId ? new Set(axisProtocolIds) : null;
-    return visibleByStatus.filter((e) => {
-      if (axisSet && !axisSet.has(e.group.id)) return false;
-      switch (statFilter) {
-        case "overdue": return e.overdue > 0;
-        case "unassigned": return e.unassigned > 0;
-        case "undated": return e.undated > 0;
-        default: return true;
-      }
-    });
-  }, [visibleByStatus, axisTagId, axisProtocolIds, statFilter]);
-
   const visibleProtocolIds = useMemo(() => visibleByStatus.map((e) => e.group.id), [visibleByStatus]);
 
   const portfolioMetrics = useMemo(() => {
@@ -116,24 +105,36 @@ export default function ProtocolsList() {
   // Для AI Risk Radar: берём имена осей из useProtocolsAxes (общий запрос уже кэширован)
   const { data: axesForRadar = [] } = useProtocolsAxes({ protocolIds: visibleProtocolIds });
 
-  // Если axisTagId пришёл из URL — восстановить axisProtocolIds после загрузки осей.
-  useEffect(() => {
-    if (!axisTagId) {
-      if (axisProtocolIds.length) setAxisProtocolIds([]);
-      return;
-    }
+  // Группируем выбранные tagId по axis-категории; внутри группы — OR (объединение protocolIds),
+  // между группами — AND (пересечение, см. filtered).
+  const axisProtocolSetsByGroup = useMemo(() => {
+    if (!axisTagIds.length) return [] as Set<string>[];
+    const selected = new Set(axisTagIds);
+    const result: Set<string>[] = [];
     for (const g of axesForRadar) {
-      const chip = g.chips.find((c) => c.tagId === axisTagId);
-      if (chip) {
-        // shallow compare to avoid extra renders
-        const next = chip.protocolIds;
-        if (next.length !== axisProtocolIds.length || next.some((x, i) => x !== axisProtocolIds[i])) {
-          setAxisProtocolIds(next);
-        }
-        return;
-      }
+      const matches = g.chips.filter((c) => selected.has(c.tagId));
+      if (matches.length === 0) continue;
+      const union = new Set<string>();
+      for (const c of matches) for (const pid of c.protocolIds) union.add(pid);
+      result.push(union);
     }
-  }, [axisTagId, axesForRadar, axisProtocolIds]);
+    return result;
+  }, [axisTagIds, axesForRadar]);
+
+  // Применяем срез по осям (AND между категориями, OR внутри) и метрику-фильтр.
+  const filtered = useMemo(() => {
+    return visibleByStatus.filter((e) => {
+      for (const set of axisProtocolSetsByGroup) {
+        if (!set.has(e.group.id)) return false;
+      }
+      switch (statFilter) {
+        case "overdue": return e.overdue > 0;
+        case "unassigned": return e.unassigned > 0;
+        case "undated": return e.undated > 0;
+        default: return true;
+      }
+    });
+  }, [visibleByStatus, axisProtocolSetsByGroup, statFilter]);
 
   // Sync state → URL.
   useEffect(() => {
@@ -145,12 +146,12 @@ export default function ProtocolsList() {
     set("q", search.trim() || null);
     set("status", statusFilter, "active");
     set("stat", statFilter === "none" ? null : statFilter);
-    set("axis", axisTagId);
+    set("axis", axisTagIds.length ? axisTagIds.join(",") : null);
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter, statFilter, axisTagId]);
+  }, [search, statusFilter, statFilter, axisTagIds]);
 
   const axesByProtocol = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -273,11 +274,8 @@ export default function ProtocolsList() {
           metrics={portfolioMetrics}
           statFilter={statFilter}
           onStatFilterChange={setStatFilter}
-          axisTagId={axisTagId}
-          onAxisTagChange={(tagId, ids) => {
-            setAxisTagId(tagId);
-            setAxisProtocolIds(ids);
-          }}
+          axisTagIds={axisTagIds}
+          onAxisTagsChange={setAxisTagIds}
           riskRadarPayload={riskRadarPayload}
         />
       )}
