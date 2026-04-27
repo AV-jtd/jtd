@@ -17,6 +17,7 @@ import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocol
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { toast } from "sonner";
 import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
+import { seedLivingPlaceholder } from "../lib/livingSeed";
 
 const AXIS_LABELS: Record<string, string> = {
   clients: "Клиент",
@@ -283,7 +284,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
 
       // 3. Living: seed placeholder via helper (best-effort, non-blocking).
       if (isLivingTpl) {
-        seedLivingPlaceholderFn(user.id, (group as any).id).catch((e) =>
+        seedLivingPlaceholder(user.id, (group as any).id).catch((e) =>
           console.error("[NewProtocolDialog] living seed failed", e),
         );
       }
