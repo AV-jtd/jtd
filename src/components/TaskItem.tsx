@@ -528,6 +528,25 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const allGroups = sharedGroups || _ownGroups;
   const { data: _ownCategories = [] } = useTagCategories();
   const tagCategories = sharedTagCategories || _ownCategories;
+  // Reuse the same queryKey as TaskClientPicker so the cache is shared.
+  const { data: clientsList = [] } = useQuery({
+    queryKey: ["clients", "task-picker"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, logo_url")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!(task as any).client_id,
+  });
+  const linkedClient = useMemo(() => {
+    const cid = (task as any).client_id;
+    if (!cid) return null;
+    return (clientsList as any[]).find((c) => c.id === cid) ?? null;
+  }, [clientsList, (task as any).client_id]);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   // Lazy-load comments only when detail panel is open to avoid N queries
