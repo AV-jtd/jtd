@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FolderOpen, Layers, Users, X, Check } from "lucide-react";
+import { FolderOpen, Layers, Users, X, Check, Building2 } from "lucide-react";
 import { useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import ProtocolInternalSection from "./ProtocolInternalSection";
 import { filterRealProjects } from "@/lib/projectFilters";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
 
@@ -301,11 +303,35 @@ function ParticipantsChip({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const { data: departments = [] } = useDepartments();
+  const { data: allUserDepts = [] } = useAllUserDepartments();
   const currentIds = useMemo(() => new Set(current.map((p) => p.user_id)), [current]);
   const currentUsers = users.filter((u) => currentIds.has(u.id));
   const filtered = users.filter((u) =>
     !search.trim() || (u.display_name || "").toLowerCase().includes(search.toLowerCase()),
   );
+  const filteredDepts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return departments.filter((d) => !q || d.name.toLowerCase().includes(q));
+  }, [departments, search]);
+
+  /** user_ids принадлежащие отделу (head + явные привязки в user_departments) */
+  const deptMembers = (deptId: string): string[] => {
+    const ids = new Set<string>();
+    const dept = departments.find((d) => d.id === deptId);
+    if (dept?.head_user_id) ids.add(dept.head_user_id);
+    for (const r of allUserDepts) {
+      if (r.department_id === deptId) ids.add(r.user_id);
+    }
+    return Array.from(ids);
+  };
+
+  /** Считаем «отдел выбран», если ВСЕ его члены в участниках задачи */
+  const isDeptFullySelected = (deptId: string) => {
+    const members = deptMembers(deptId);
+    if (members.length === 0) return false;
+    return members.every((uid) => currentIds.has(uid));
+  };
 
   const toggle = async (uid: string) => {
     if (currentIds.has(uid)) {
@@ -317,6 +343,26 @@ function ParticipantsChip({
       });
     }
     // Invalidate query
+    window.dispatchEvent(new CustomEvent("task-participants-changed", { detail: { taskId } }));
+  };
+
+  const toggleDept = async (deptId: string) => {
+    const members = deptMembers(deptId);
+    if (members.length === 0) return;
+    const allSelected = isDeptFullySelected(deptId);
+    if (allSelected) {
+      // Снять всех членов отдела
+      await supabase.from("task_participants").delete()
+        .eq("task_id", taskId).in("user_id", members);
+    } else {
+      // Добавить недостающих
+      const toAdd = members
+        .filter((uid) => !currentIds.has(uid))
+        .map((uid) => ({ task_id: taskId, user_id: uid, role: "participant" }));
+      if (toAdd.length > 0) {
+        await supabase.from("task_participants").insert(toAdd);
+      }
+    }
     window.dispatchEvent(new CustomEvent("task-participants-changed", { detail: { taskId } }));
   };
 
@@ -362,7 +408,46 @@ function ParticipantsChip({
           placeholder="Поиск…"
           className="mb-2 h-7 text-xs"
         />
-        <div className="max-h-56 space-y-0.5 overflow-y-auto">
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {filteredDepts.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Отделы
+              </div>
+              {filteredDepts.map((d) => {
+                const members = deptMembers(d.id);
+                const allSelected = members.length > 0 && isDeptFullySelected(d.id);
+                const partialCount = members.filter((uid) => currentIds.has(uid)).length;
+                const partial = !allSelected && partialCount > 0;
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => toggleDept(d.id)}
+                    disabled={members.length === 0}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      members.length === 0 && "opacity-50 cursor-not-allowed",
+                      allSelected && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                      partial && "bg-emerald-500/5",
+                    )}
+                    title={members.length === 0 ? "В отделе нет сотрудников" : `${members.length} чел.`}
+                  >
+                    <Building2 className="h-3 w-3 shrink-0" style={{ color: d.color ?? undefined }} />
+                    <span className="flex-1 truncate">{d.name}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {partial ? `${partialCount}/${members.length}` : members.length}
+                    </span>
+                    {allSelected && <Check className="h-3 w-3" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div>
+            <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Сотрудники
+            </div>
           {filtered.map((u) => {
             const active = currentIds.has(u.id);
             return (
@@ -382,6 +467,7 @@ function ParticipantsChip({
           {filtered.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>

@@ -27,6 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseProtocolSides } from "@/lib/protocolSides";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useContractors } from "@/hooks/useContractors";
 import ExternalRowInternalLayer from "@/modules/protocols/components/ExternalRowInternalLayer";
 import ProtocolMobileRow from "@/modules/protocols/components/ProtocolMobileRow";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -837,9 +839,39 @@ function ProtocolRow({
             externalOptions={externalAttendees}
             linkedClient={linkedClient}
             parsedPartner={parsedPartner}
-            onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
+            departmentId={(task as any).department_id ?? null}
+            contractorId={(task as any).contractor_id ?? null}
+            onChange={(uid) =>
+              onUpdate({
+                assigned_to: uid,
+                external_assignee: null as any,
+                department_id: null as any,
+                contractor_id: null as any,
+              })
+            }
             onChangeExternal={(ext) =>
-              onUpdate({ assigned_to: null, external_assignee: (ext as any) })
+              onUpdate({
+                assigned_to: null,
+                external_assignee: ext as any,
+                department_id: null as any,
+                contractor_id: null as any,
+              })
+            }
+            onChangeDepartment={(did) =>
+              onUpdate({
+                assigned_to: null,
+                external_assignee: null as any,
+                department_id: did as any,
+                contractor_id: null as any,
+              })
+            }
+            onChangeContractor={(cid) =>
+              onUpdate({
+                assigned_to: null,
+                external_assignee: null as any,
+                department_id: null as any,
+                contractor_id: cid as any,
+              })
             }
           />
         </td>
@@ -938,7 +970,9 @@ function ProtocolRow({
 /* ----------------------- Cells ----------------------- */
 
 function AssigneePicker({
-  users, value, externalValue, externalOptions, linkedClient, parsedPartner, onChange, onChangeExternal,
+  users, value, externalValue, externalOptions, linkedClient, parsedPartner,
+  departmentId, contractorId,
+  onChange, onChangeExternal, onChangeDepartment, onChangeContractor,
 }: {
   users: Profile[];
   value: string | null;
@@ -946,11 +980,17 @@ function AssigneePicker({
   externalOptions?: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient?: LinkedClient;
   parsedPartner?: string | null;
+  departmentId?: string | null;
+  contractorId?: string | null;
   onChange: (uid: string | null) => void;
   onChangeExternal?: (ext: { name: string; organization?: string; role?: string } | null) => void;
+  onChangeDepartment?: (id: string | null) => void;
+  onChangeContractor?: (id: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const { data: departments = [] } = useDepartments();
+  const { data: contractors = [] } = useContractors();
   const current = users.find((u) => u.id === value);
   const filtered = users.filter((u) =>
     !search.trim() || u.display_name?.toLowerCase().includes(search.toLowerCase()),
@@ -959,6 +999,17 @@ function AssigneePicker({
     !search.trim() ||
     e.name.toLowerCase().includes(search.toLowerCase()) ||
     e.organization?.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const currentDept = departments.find((d) => d.id === departmentId) ?? null;
+  const currentContr = contractors.find((c) => c.id === contractorId) ?? null;
+  const filteredDepts = departments.filter((d) =>
+    !search.trim() || d.name.toLowerCase().includes(search.toLowerCase()),
+  );
+  const filteredContrs = contractors.filter((c) =>
+    !search.trim() ||
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.organization ?? "").toLowerCase().includes(search.toLowerCase()),
   );
 
   // Unique companies extracted from external attendees' organizations + linked CRM client + parsed partner from title
@@ -1020,6 +1071,10 @@ function AssigneePicker({
   // Format: "Имя" (наши) или "Организация" / "Организация · Имя" (партнёр)
   const triggerText = current
     ? (current.display_name || "Без имени")
+    : currentDept
+      ? `Отдел · ${currentDept.name}`
+      : currentContr
+        ? `Подрядчик · ${currentContr.name}`
     : externalValue?.name
       ? isCompanyAssignee
         ? externalValue.name
@@ -1029,6 +1084,7 @@ function AssigneePicker({
       : "Назначить";
 
   const isExternal = !current && !!externalValue?.name;
+  const isDelegated = !current && !externalValue?.name && (!!currentDept || !!currentContr);
 
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
@@ -1040,7 +1096,9 @@ function AssigneePicker({
               ? "text-foreground"
               : isExternal
                 ? "text-foreground"
-                : "text-muted-foreground italic",
+                : isDelegated
+                  ? "text-foreground"
+                  : "text-muted-foreground italic",
           )}
           title={triggerText}
         >
@@ -1056,11 +1114,13 @@ function AssigneePicker({
           className="mb-2 h-7 text-xs"
         />
         <div className="max-h-72 space-y-2 overflow-y-auto">
-          {(value || externalValue?.name) && (
+          {(value || externalValue?.name || departmentId || contractorId) && (
             <button
               onClick={() => {
                 onChange(null);
                 onChangeExternal?.(null);
+                onChangeDepartment?.(null);
+                onChangeContractor?.(null);
                 setOpen(false);
               }}
               className="block w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
@@ -1079,7 +1139,6 @@ function AssigneePicker({
                   key={u.id}
                   onClick={() => {
                     onChange(u.id);
-                    onChangeExternal?.(null);
                     setOpen(false);
                   }}
                   className={cn(
@@ -1090,6 +1149,67 @@ function AssigneePicker({
                   {u.display_name || "Без имени"}
                 </button>
               ))}
+            </div>
+          )}
+
+          {filteredDepts.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Отдел
+              </div>
+              {filteredDepts.map((d) => {
+                const active = d.id === departmentId;
+                return (
+                  <button
+                    key={`dept-${d.id}`}
+                    onClick={() => {
+                      onChangeDepartment?.(d.id);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      active && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 shrink-0 opacity-60" style={{ color: d.color ?? undefined }} />
+                      <span className="truncate">{d.name}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {filteredContrs.length > 0 && (
+            <div>
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Подрядчик
+              </div>
+              {filteredContrs.map((c) => {
+                const active = c.id === contractorId;
+                return (
+                  <button
+                    key={`contr-${c.id}`}
+                    onClick={() => {
+                      onChangeContractor?.(c.id);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded px-2 py-1 text-left text-xs hover:bg-muted",
+                      active && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 shrink-0 opacity-60" style={{ color: c.color ?? undefined }} />
+                      <span className="truncate">{c.name}</span>
+                      {c.organization && (
+                        <span className="ml-auto truncate text-[10px] text-muted-foreground">{c.organization}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -1182,7 +1302,7 @@ function AssigneePicker({
             </div>
           )}
 
-          {filtered.length === 0 && filteredAllContacts.length === 0 && filteredCompanies.length === 0 && (
+          {filtered.length === 0 && filteredAllContacts.length === 0 && filteredCompanies.length === 0 && filteredDepts.length === 0 && filteredContrs.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
         </div>
