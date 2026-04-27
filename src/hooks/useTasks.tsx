@@ -177,20 +177,27 @@ export function useTaskGroups() {
 /**
  * Options for useTasks.
  *
- * `includeCompleted` (default `false`): SQL-level filter `is_completed=false`.
- * Set to `true` when the calling view legitimately needs completed tasks —
- * Archive, dashboards, PMO/NPD progress metrics, Calendar (perfectly-rendered
- * strikethrough), Gantt, protocols, exports.
+ * `completedWindowDays` — SQL-level cap on how far back completed tasks
+ * are loaded. The default (`null`) loads ALL completed tasks (legacy
+ * behaviour). Pass a number (e.g. `30`) to cap to «recently completed».
+ * Pass `0` to load NO completed tasks at all.
  *
- * Why default `false`: on active users 70–90% of tasks are completed.
- * Filtering them out at SQL level cuts the wire payload, parsing time,
- * memory footprint and per-mutation cache work by a large factor.
+ * Why this matters: on long-lived accounts 70–90% of tasks are completed,
+ * most of them old. Capping the window cuts wire payload, parsing time,
+ * memory and per-mutation cache work by a large factor — without breaking
+ * any view that needs to *render* recently completed tasks (TaskList's
+ * «Выполнено» section, Calendar strikethrough, dashboards, PMO/NPD).
  *
  * Search (Cmd+K / GlobalSearch) does its own server-side `ilike` queries
- * and is NOT affected by this flag — completed tasks remain searchable.
+ * across the full table and is NOT affected by this option — old completed
+ * tasks remain fully searchable.
+ *
+ * Views that legitimately need full history (ArchiveView, weekly reports,
+ * PMO baseline analytics) should pass `completedWindowDays: null` (or omit).
  */
 export interface UseTasksOptions {
-  includeCompleted?: boolean;
+  /** `null` = unlimited (default), `0` = no completed, `N` = last N days. */
+  completedWindowDays?: number | null;
 }
 
 export function useTasks(
@@ -199,12 +206,12 @@ export function useTasks(
   options?: UseTasksOptions,
 ) {
   const { user, loading } = useAuth();
-  const includeCompleted = options?.includeCompleted ?? false;
+  const completedWindowDays = options?.completedWindowDays ?? null;
 
   // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
 
   return useQuery({
-    queryKey: ["tasks", user?.id, groupId, filterTags, includeCompleted],
+    queryKey: ["tasks", user?.id, groupId, filterTags, completedWindowDays],
     queryFn: async () => {
       const tasks = await fetchAllPages<Task>((from, to) => {
         let query = supabase
@@ -219,8 +226,13 @@ export function useTasks(
           query = query.eq("group_id", groupId);
         }
 
-        if (!includeCompleted) {
+        if (completedWindowDays === 0) {
+          // No completed at all.
           query = query.eq("is_completed", false);
+        } else if (typeof completedWindowDays === "number" && completedWindowDays > 0) {
+          // Active OR recently-completed.
+          const cutoff = new Date(Date.now() - completedWindowDays * 86400 * 1000).toISOString();
+          query = query.or(`is_completed.eq.false,completed_at.gte.${cutoff}`);
         }
 
         return query;
