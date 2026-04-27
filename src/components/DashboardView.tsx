@@ -15,14 +15,14 @@ import {
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import ProjectIcon from "@/components/ProjectIcon";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday, isPast } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -1826,6 +1826,80 @@ function MultiSelectFilter({ label, icon: Icon, items, selectedIds, onToggle, re
 
 // ===== MAIN COMPONENT =====
 
+// Глобальная секция «Из протоколов» — все linked-задачи (status_meta.linked_project_id),
+// физически живущие в группах protocol, но привязанные к одному из НЕ-протокольных
+// проектов, доступных пользователю. Кликабельны: открывают свой протокол.
+function GlobalLinkedProtocolBlock({ tasks, groups }: { tasks: Task[]; groups: TaskGroup[] }) {
+  const navigate = useNavigate();
+  const protocolGroupById = useMemo(() => {
+    const m = new Map<string, TaskGroup>();
+    groups.forEach(g => { if ((g as any).project_type === "protocol") m.set(g.id, g); });
+    return m;
+  }, [groups]);
+  const projectGroupById = useMemo(() => {
+    const m = new Map<string, TaskGroup>();
+    groups.forEach(g => { if ((g as any).project_type !== "protocol") m.set(g.id, g); });
+    return m;
+  }, [groups]);
+
+  const linked = useMemo(() => {
+    return tasks.filter(t => {
+      const lp = (t as any).status_meta?.linked_project_id as string | undefined;
+      if (!lp) return false;
+      if (!projectGroupById.has(lp)) return false;
+      return t.group_id ? protocolGroupById.has(t.group_id) : false;
+    });
+  }, [tasks, projectGroupById, protocolGroupById]);
+
+  if (linked.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+      <div className="flex items-center gap-2 mb-2">
+        <FileText className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">Из протоколов</span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{linked.length}</span>
+      </div>
+      <div className="space-y-px max-h-[260px] overflow-y-auto">
+        {linked.slice(0, 20).map(t => {
+          const proto = t.group_id ? protocolGroupById.get(t.group_id) : null;
+          const lp = (t as any).status_meta?.linked_project_id as string | undefined;
+          const proj = lp ? projectGroupById.get(lp) : null;
+          const isOver = !t.is_completed && t.deadline && isPast(parseISO(t.deadline));
+          return (
+            <button
+              key={t.id}
+              onClick={() => proto && navigate(`/protocols/${proto.id}`)}
+              className="w-full flex items-center gap-2 py-1 px-1.5 rounded hover:bg-secondary/50 transition-colors text-left"
+              title={proto ? `Открыть протокол: ${proto.name}` : undefined}
+            >
+              <span className={cn("text-[12px] truncate flex-1", isOver ? "text-destructive" : t.is_completed ? "text-muted-foreground line-through" : "text-foreground")}>
+                {t.title}
+              </span>
+              {proj && (
+                <span className="text-[9px] text-muted-foreground bg-secondary/60 px-1 py-0.5 rounded truncate max-w-[100px] shrink-0">
+                  → {proj.name}
+                </span>
+              )}
+              {proto && (
+                <span className="text-[9px] text-muted-foreground truncate max-w-[110px] shrink-0">{proto.name}</span>
+              )}
+              {t.deadline && (
+                <span className={cn("text-[10px] tabular-nums shrink-0", isOver ? "text-destructive" : "text-muted-foreground")}>
+                  {format(parseISO(t.deadline), "d MMM", { locale: ru })}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {linked.length > 20 && (
+          <div className="text-[10px] text-muted-foreground pt-1 px-1.5">ещё +{linked.length - 20}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }: { onNavigateToTask?: (taskId: string) => void }) {
   const { user } = useAuth();
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
@@ -2345,6 +2419,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             subtaskMap={subtaskMap}
           />
         </div>
+
+        {/* Из протоколов (глобально) */}
+        <GlobalLinkedProtocolBlock tasks={tasks} groups={groups} />
 
         {/* Two-column grid: Hot Projects + Team Workload */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
