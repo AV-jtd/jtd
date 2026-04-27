@@ -23,30 +23,6 @@
   <meta property="og:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <meta name="twitter:description" content="Управляйте задачами, проектами и тегами. Работает офлайн.">
   <link rel="icon" type="image/png" href="/pwa-192x192.png">
-  <script>
-    (function () {
-      if (!('serviceWorker' in navigator)) return;
-      var isPreview = location.hostname.indexOf('id-preview--') !== -1 || location.hostname.indexOf('lovableproject.com') !== -1;
-      var alreadyReloaded = sessionStorage.getItem('jtd_sw_kill_reload') === '1';
-      navigator.serviceWorker.getRegistrations().then(function (regs) {
-        if (!regs.length) return;
-        return Promise.all(regs.map(function (reg) { return reg.unregister(); })).then(function () {
-          if ('caches' in window) {
-            return caches.keys().then(function (keys) {
-              return Promise.all(keys.map(function (key) { return caches.delete(key); }));
-            });
-          }
-        }).then(function () {
-          if (!alreadyReloaded && !isPreview) {
-            sessionStorage.setItem('jtd_sw_kill_reload', '1');
-            var url = new URL(location.href);
-            url.searchParams.set('__sw_kill', Date.now().toString(36));
-            location.replace(url.toString());
-          }
-        });
-      }).catch(function () {});
-    })();
-  </script>
 </head>
 
   <body>
