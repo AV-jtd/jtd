@@ -536,6 +536,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                         externalAttendees={externalAttendees}
                         linkedClient={linkedClient ?? null}
                         parsedPartner={parsedSides?.partner ?? null}
+                        isLiving={isLiving}
                         sortable={reorderEnabled}
                         expanded={expandedId === task.id}
                         onToggleExpand={() =>
