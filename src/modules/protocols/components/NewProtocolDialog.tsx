@@ -229,6 +229,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
             meeting_date: meetingDate,
             format: "offline",
             external_attendees: [],
+            internal_attendees: [user.id],
             template_system_key: selected.system_key || null,
           },
         } as any)
