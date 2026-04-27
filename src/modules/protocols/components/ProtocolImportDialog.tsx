@@ -376,11 +376,11 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
               <Button
                 onClick={() => parseMutation.mutate()}
-                disabled={text.trim().length < 20 || parseMutation.isPending}
+                disabled={(!pdfFile && text.trim().length < 20) || parseMutation.isPending}
               >
                 {parseMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Sparkles className="mr-2 h-4 w-4" />
-                Разобрать через ИИ
+                {pdfFile ? "Разобрать PDF через ИИ" : "Разобрать через ИИ"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
