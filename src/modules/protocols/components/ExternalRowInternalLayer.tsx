@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FolderOpen, Layers, Users, X, Check } from "lucide-react";
+import { FolderOpen, Layers, Users, X, Check, Building2 } from "lucide-react";
 import { useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import ProtocolInternalSection from "./ProtocolInternalSection";
 import { filterRealProjects } from "@/lib/projectFilters";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
 
