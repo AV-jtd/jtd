@@ -281,14 +281,14 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         }
       }
 
-      // 3. Living: seed default theme placeholder.
+      // 3. Living: seed placeholder via helper (best-effort, non-blocking).
       if (isLivingTpl) {
-          if ((catRes.data as any)?.id) {
-            categoryId = (catRes.data as any).id;
-          } else {
-            const ins = await supabase
-              .from("tag_categories" as any)
-              .insert({ name: "Тема", system_key: "event_topic", is_system: true, user_id: user
+        seedLivingPlaceholder(user.id, (group as any).id).catch((e) =>
+          console.error("[NewProtocolDialog] living seed failed", e),
+        );
+      }
+
+      return group as { id: string };
     },
     onSuccess: (group) => {
       invalidateTaskGroups(qc);
