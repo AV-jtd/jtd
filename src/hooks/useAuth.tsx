@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, createContext, useContext, ReactNode } fro
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  readAuthMeta,
+  writeAuthMeta,
+  clearAuthMeta,
+  acquireFetchLock,
+  releaseFetchLock,
+  subscribeAuthMeta,
+} from "@/lib/authCache";
 
 interface AuthContextType {
   user: User | null;
@@ -45,6 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUserIdRef = useRef<string | null>(null);
   const qc = useQueryClient();
 
+  // Cross-tab broadcast: when another tab finishes loading auth meta for the
+  // current user, apply its snapshot here too — avoids redundant network calls.
+  useEffect(() => {
+    if (!user?.id) return;
+    const off = subscribeAuthMeta(user.id, (snap) => {
+      setIsApproved(snap.isApproved);
+      setIsAdmin(snap.isAdmin);
+      setIsConsultant(snap.isConsultant);
+      setAdminModeDisabledState(snap.adminModeDisabled);
+      setLoading(false);
+    });
+    return off;
+  }, [user?.id]);
+
   // Sync across tabs
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -64,6 +86,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2500;
     const HARD_TIMEOUT_MS = 8000;
+
+    // 1. Hot path: a sibling tab (or this tab on a previous mount) already
+    //    fetched auth meta within the TTL — apply it instantly so the UI
+    //    doesn't have to wait on the network at all.
+    const cached = readAuthMeta(userId);
+    if (cached && fetchIdRef.current === fetchId && isMounted()) {
+      setIsApproved(cached.isApproved);
+      setIsAdmin(cached.isAdmin);
+      setIsConsultant(cached.isConsultant);
+      setAdminModeDisabledState(cached.adminModeDisabled);
+      setLoading(false);
+      // Cache is fresh enough — skip the network round-trip entirely.
+      return;
+    }
+
+    // 2. Dedup: if another tab is already fetching, wait briefly for its
+    //    broadcast instead of duplicating the request. The subscription in
+    //    the effect above will fire setLoading(false) when the snapshot
+    //    arrives. If nothing comes within the grace period, fall through and
+    //    fetch ourselves (the lock will have expired by then).
+    const gotLock = acquireFetchLock(userId);
+    if (!gotLock) {
+      // Wait up to LOCK_TTL_MS for the sibling tab's broadcast.
+      await new Promise((r) => setTimeout(r, 1500));
+      const fresh = readAuthMeta(userId);
+      if (fresh && fetchIdRef.current === fetchId && isMounted()) {
+        setIsApproved(fresh.isApproved);
+        setIsAdmin(fresh.isAdmin);
+        setIsConsultant(fresh.isConsultant);
+        setAdminModeDisabledState(fresh.adminModeDisabled);
+        setLoading(false);
+        return;
+      }
+      // No broadcast — fall through and fetch ourselves.
+    }
 
     // Hard cap: if anything in Promise.all hangs (network glitch, RLS deadlock,
     // RPC stuck), we MUST clear the loading state so the UI is not stuck on a
@@ -88,10 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
+      let approvedNext = isApproved;
       if (profileRes.error) {
         console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
       } else {
-        setIsApproved((profileRes.data as any)?.is_approved ?? false);
+        approvedNext = (profileRes.data as any)?.is_approved ?? false;
+        setIsApproved(approvedNext);
       }
 
       const [roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
@@ -113,11 +172,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
         setIsApproved(true);
         setLoading(false);
+        writeAuthMeta(userId, {
+          isApproved: true,
+          isAdmin: true,
+          isConsultant: false,
+          adminModeDisabled: false,
+        });
+        releaseFetchLock(userId);
         return;
       }
 
-      setIsAdmin(!!roleRes.data);
-      setIsConsultant(!!consultantRes.data);
+      const adminNext = !!roleRes.data;
+      const consultantNext = !!consultantRes.data;
+      setIsAdmin(adminNext);
+      setIsConsultant(consultantNext);
 
       // Sync admin_mode_disabled from server (source of truth)
       const serverDisabled = !!(modeRes.data as any)?.admin_disabled;
@@ -128,8 +196,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {}
 
       setLoading(false);
+
+      // Persist + broadcast so sibling tabs don't re-fetch.
+      writeAuthMeta(userId, {
+        isApproved: approvedNext,
+        isAdmin: adminNext,
+        isConsultant: consultantNext,
+        adminModeDisabled: serverDisabled,
+      });
+      releaseFetchLock(userId);
     } catch (err) {
       clearTimeout(safetyTimer);
+      releaseFetchLock(userId);
       console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
@@ -226,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    try { clearAuthMeta(); } catch {}
     await supabase.auth.signOut();
   };
 
@@ -238,6 +317,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Persist to server so RLS sees the change
     if (user?.id) {
+      // Update cross-tab cache so other tabs pick up the change without a refetch.
+      writeAuthMeta(user.id, {
+        isApproved,
+        isAdmin,
+        isConsultant,
+        adminModeDisabled: disabled,
+      });
       supabase
         .from("admin_mode_state" as any)
         .upsert({ user_id: user.id, admin_disabled: disabled, updated_at: new Date().toISOString() } as any, { onConflict: "user_id" })
