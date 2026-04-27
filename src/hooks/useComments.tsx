@@ -127,7 +127,7 @@ export function useTasksWithComments(taskIds: string[]) {
         .in("task_id", sortedIds);
       if (error) throw error;
       const set = new Set<string>();
-      for (const row of (data || []) as { task_id: string }[]) set.add(row.task_id);
+      for (const row of (data || []) as unknown as { task_id: string }[]) set.add(row.task_id);
       return set;
     },
     enabled: !!user && sortedIds.length > 0,
