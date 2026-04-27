@@ -70,8 +70,29 @@ export function useCommentMutations() {
       });
       if (error) throw error;
     },
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["task_comments", vars.task_id] }),
-    onError: (e) => toast.error(e.message),
+    onMutate: async ({ task_id, content }) => {
+      await qc.cancelQueries({ queryKey: ["task_comments", task_id] });
+      const prev = qc.getQueryData<TaskComment[]>(["task_comments", task_id]);
+      const optimistic: TaskComment = {
+        id: `temp-${crypto.randomUUID()}`,
+        task_id,
+        user_id: user!.id,
+        content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      qc.setQueryData<TaskComment[]>(
+        ["task_comments", task_id],
+        (old) => [...(old || []), optimistic],
+      );
+      return { prev };
+    },
+    onError: (e, vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["task_comments", vars.task_id], ctx.prev);
+      toast.error(e.message);
+    },
+    onSettled: (_, __, vars) =>
+      qc.invalidateQueries({ queryKey: ["task_comments", vars.task_id] }),
   });
 
   const deleteComment = useMutation({
@@ -80,8 +101,21 @@ export function useCommentMutations() {
       if (error) throw error;
       return task_id;
     },
-    onSuccess: (task_id) => qc.invalidateQueries({ queryKey: ["task_comments", task_id] }),
-    onError: (e) => toast.error(e.message),
+    onMutate: async ({ id, task_id }) => {
+      await qc.cancelQueries({ queryKey: ["task_comments", task_id] });
+      const prev = qc.getQueryData<TaskComment[]>(["task_comments", task_id]);
+      qc.setQueryData<TaskComment[]>(
+        ["task_comments", task_id],
+        (old) => (old || []).filter((c) => c.id !== id),
+      );
+      return { prev };
+    },
+    onError: (e, vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["task_comments", vars.task_id], ctx.prev);
+      toast.error(e.message);
+    },
+    onSettled: (_, __, vars) =>
+      qc.invalidateQueries({ queryKey: ["task_comments", vars.task_id] }),
   });
 
   return { addComment, deleteComment };
