@@ -15,14 +15,14 @@ import {
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import ProjectIcon from "@/components/ProjectIcon";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday, isPast } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
