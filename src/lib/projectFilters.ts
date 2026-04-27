@@ -41,15 +41,21 @@ export type ProjectFilterOptions = {
   excludeClosed?: boolean;
   /** Скрыть служебные NPD-стрим-подпроекты. По умолчанию true. */
   excludeNpdStreamSubprojects?: boolean;
+  /**
+   * Скрыть СТМ-продукты (project_subtype='npd_stm'). По умолчанию true —
+   * рабочий процесс выбора СТМ ещё не определён, поэтому в общих пикерах
+   * проектов их не показываем.
+   */
+  excludeStmProducts?: boolean;
   /** Доп. фильтр (после стандартных правил). */
   extra?: (g: any) => boolean;
 };
 
 /**
  * Универсальный фильтр для попапов «Выбрать проект».
- * Скрывает протоколы, архив и служебные NPD-стрим-подпроекты.
+ * Скрывает протоколы, архив, служебные NPD-стрим-подпроекты и СТМ-продукты.
  */
-export function filterRealProjects<T extends { project_type?: string | null; parent_id?: string | null; closed_at?: string | null; name?: string | null }>(
+export function filterRealProjects<T extends { project_type?: string | null; project_subtype?: string | null; parent_id?: string | null; closed_at?: string | null; name?: string | null }>(
   groups: T[] | null | undefined,
   options: ProjectFilterOptions = {},
 ): T[] {
@@ -57,12 +63,14 @@ export function filterRealProjects<T extends { project_type?: string | null; par
     excludeProtocols = true,
     excludeClosed = true,
     excludeNpdStreamSubprojects = true,
+    excludeStmProducts = true,
     extra,
   } = options;
   return (groups || []).filter((g) => {
     if (excludeProtocols && g.project_type === "protocol") return false;
     if (excludeClosed && g.closed_at) return false;
     if (excludeNpdStreamSubprojects && isNpdStreamSubproject(g)) return false;
+    if (excludeStmProducts && g.project_subtype === "npd_stm") return false;
     if (extra && !extra(g)) return false;
     return true;
   });
