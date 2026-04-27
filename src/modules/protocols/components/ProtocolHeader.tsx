@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 
 import { Input } from "@/components/ui/input";
 import {
