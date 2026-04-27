@@ -46,6 +46,7 @@ export default function ProtocolDetailPage() {
     templateKey === "cross_functional" ||
     (typeof (protocol as any)?.name === "string" &&
       (protocol as any).name.startsWith("Кросс-функциональный"));
+  const isLiving = templateKey === "living";
   // Если пользователь не владелец, но числится в internal_attendees — показать чип
   const isOwner = !!(protocol && user && (protocol as any).user_id === user.id);
   const isInternalAttendee = useMemo(() => {
@@ -220,8 +221,8 @@ export default function ProtocolDetailPage() {
 
             <ProtocolTableView protocolId={protocol.id} />
 
-            {/* 🔴 Internal section (own team) + CRM report placeholder — hidden for cross-functional */}
-            {!isCrossFunctional && (
+            {/* 🔴 Internal section (own team) + CRM report placeholder — hidden for cross-functional and living */}
+            {!isCrossFunctional && !isLiving && (
               <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
                 <ProtocolInternalSection protocolId={protocol.id} />
                 <CrmReportPlaceholder />

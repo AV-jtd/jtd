@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, KeyboardEvent, lazy, Suspense } from "react";
+import { useMemo, useState, useRef, useEffect, KeyboardEvent, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
@@ -55,6 +55,8 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const isProtocolDraft = (protocol as any)?.draft_status === "draft";
   const protocolMeta = (protocol as any)?.protocol_meta ?? {};
+  const templateKey: string | undefined = protocolMeta.template_system_key;
+  const isLiving = templateKey === "living";
   const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
     (protocolMeta.external_attendees as any[]) ?? [];
   const linkedClientId: string | null = protocolMeta.client_id ?? null;
@@ -105,7 +107,11 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
 
   // ---------- Group by topic ----------
-  const [groupByTopic, setGroupByTopic] = useState(false);
+  // For "living" protocols, topic-grouping is always on — это часть UX-обещания шаблона.
+  const [groupByTopic, setGroupByTopic] = useState(isLiving);
+  useEffect(() => {
+    if (isLiving) setGroupByTopic(true);
+  }, [isLiving]);
   const { topicTags } = useEventTopicTags();
   const getTaskTopic = (t: Task) => {
     const ids = (t.task_tags ?? []).map((tt) => tt.tag_id);
@@ -343,20 +349,30 @@ export default function ProtocolTableView({ protocolId }: Props) {
             )}
           </>
         )}
-        <button
-          type="button"
-          onClick={() => setGroupByTopic((v) => !v)}
-          className={cn(
-            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
-            groupByTopic
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-border bg-background text-muted-foreground hover:bg-muted",
-          )}
-          title="Сгруппировать строки по теме обсуждения"
-        >
-          <FolderOpen className="h-3 w-3" />
-          {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
-        </button>
+        {isLiving ? (
+          <span
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-xs text-primary"
+            title="«Живой документ» автоматически группирует строки по темам"
+          >
+            <FolderOpen className="h-3 w-3" />
+            Живой документ — авто-группировка по теме
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setGroupByTopic((v) => !v)}
+            className={cn(
+              "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+              groupByTopic
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-background text-muted-foreground hover:bg-muted",
+            )}
+            title="Сгруппировать строки по теме обсуждения"
+          >
+            <FolderOpen className="h-3 w-3" />
+            {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
+          </button>
+        )}
       </div>
 
 
@@ -474,6 +490,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                               externalAttendees={externalAttendees}
                               linkedClient={linkedClient ?? null}
                               parsedPartner={parsedSides?.partner ?? null}
+                              isLiving={isLiving}
                               sortable={false}
                               expanded={expandedId === task.id}
                               onToggleExpand={() =>
@@ -519,6 +536,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                         externalAttendees={externalAttendees}
                         linkedClient={linkedClient ?? null}
                         parsedPartner={parsedSides?.partner ?? null}
+                        isLiving={isLiving}
                         sortable={reorderEnabled}
                         expanded={expandedId === task.id}
                         onToggleExpand={() =>
@@ -693,7 +711,7 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
-  sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
+  isLiving, sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
@@ -703,6 +721,7 @@ function ProtocolRow({
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
   parsedPartner: string | null;
+  isLiving?: boolean;
   sortable: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -914,6 +933,12 @@ function ProtocolRow({
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
           <td colSpan={8} className="px-6 py-4">
+            {isLiving ? (
+              <div className="rounded-lg border border-border/60 bg-background p-2">
+                <TaskItem task={task} initialOpen sortable={false} />
+              </div>
+            ) : (
+            <>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
@@ -960,6 +985,8 @@ function ProtocolRow({
             <div className="mt-4">
               <ExternalRowInternalLayer task={task} />
             </div>
+            </>
+            )}
           </td>
         </tr>
       )}
