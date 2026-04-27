@@ -109,6 +109,10 @@ async function pollOnce() {
     if (version !== BUILD_VERSION) {
       console.log(`[Version] Mismatch: built=${BUILD_VERSION}, server=${version}. Update postponed until tab is hidden.`);
       markUpdateAvailable();
+      if (document.visibilityState === "hidden") {
+        await hardReload();
+        return;
+      }
       const reg = await navigator.serviceWorker?.getRegistration();
       if (reg) {
         await reg.update();
