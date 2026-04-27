@@ -284,8 +284,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
       return group as { id: string };
     },
     onSuccess: (group) => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskGroups(qc);
+      invalidateTasksScoped(qc, group.id);
       toast.success("Протокол создан");
       onOpenChange(false);
       navigate(`/protocols/${group.id}`);
