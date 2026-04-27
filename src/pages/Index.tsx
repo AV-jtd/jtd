@@ -23,11 +23,12 @@ const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
 const ProjectDetailPanel = lazy(() => import("@/components/ProjectDetailPanel"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const AiAssistant = lazy(() => import("@/components/AiAssistant"));
+import { SkeletonRows } from "@/components/SkeletonRows";
 
 function ViewFallback() {
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <div className="flex-1 p-4">
+      <SkeletonRows count={6} />
     </div>
   );
 }
