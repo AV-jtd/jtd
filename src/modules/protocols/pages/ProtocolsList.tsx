@@ -12,6 +12,8 @@ import { Sparkles } from "lucide-react";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { toast } from "sonner";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
+import ProtocolsAnalyticsBlock, { ProtocolStatFilter } from "@/modules/protocols/components/ProtocolsAnalyticsBlock";
+import { useProtocolsAxes } from "@/modules/protocols/hooks/useProtocolsAnalytics";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -24,6 +26,9 @@ export default function ProtocolsList() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [statFilter, setStatFilter] = useState<ProtocolStatFilter>("none");
+  const [axisTagId, setAxisTagId] = useState<string | null>(null);
+  const [axisProtocolIds, setAxisProtocolIds] = useState<string[]>([]);
 
   const protocols = useMemo(
     () => groups.filter((g) => g.project_type === "protocol"),
@@ -48,15 +53,18 @@ export default function ProtocolsList() {
       const overdue = ts.filter(
         (t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline)),
       ).length;
+      const unassigned = ts.filter((t) => !t.is_completed && !t.assigned_to).length;
+      const undated = ts.filter((t) => !t.is_completed && !t.deadline).length;
       const active = total - completed;
       const isArchived = !!p.closed_at;
       const isDraft = (p as any).draft_status === "draft";
       const draftCount = ts.filter((t) => (t as any).is_draft).length;
-      return { group: p, total, completed, overdue, active, isArchived, isDraft, draftCount };
+      return { group: p, total, completed, overdue, unassigned, undated, active, isArchived, isDraft, draftCount };
     });
   }, [protocols, tasksByProtocol]);
 
-  const filtered = useMemo(() => {
+  // Применяем сначала status + search → "видимые в портфеле" протоколы (для аналитики).
+  const visibleByStatus = useMemo(() => {
     const q = search.trim().toLowerCase();
     return enriched.filter((e) => {
       if (statusFilter === "active" && e.isArchived) return false;
@@ -65,6 +73,68 @@ export default function ProtocolsList() {
       return true;
     });
   }, [enriched, search, statusFilter]);
+
+  // Затем — метрики и срез по осям применяются уже к этому подмножеству.
+  const filtered = useMemo(() => {
+    const axisSet = axisTagId ? new Set(axisProtocolIds) : null;
+    return visibleByStatus.filter((e) => {
+      if (axisSet && !axisSet.has(e.group.id)) return false;
+      switch (statFilter) {
+        case "overdue": return e.overdue > 0;
+        case "unassigned": return e.unassigned > 0;
+        case "undated": return e.undated > 0;
+        default: return true;
+      }
+    });
+  }, [visibleByStatus, axisTagId, axisProtocolIds, statFilter]);
+
+  const visibleProtocolIds = useMemo(() => visibleByStatus.map((e) => e.group.id), [visibleByStatus]);
+
+  const portfolioMetrics = useMemo(() => {
+    return visibleByStatus.reduce(
+      (acc, e) => {
+        acc.total += e.total;
+        acc.active += e.active;
+        acc.completed += e.completed;
+        acc.overdue += e.overdue;
+        acc.unassigned += e.unassigned;
+        acc.undated += e.undated;
+        return acc;
+      },
+      { total: 0, active: 0, completed: 0, overdue: 0, unassigned: 0, undated: 0 },
+    );
+  }, [visibleByStatus]);
+
+  // Для AI Risk Radar: берём имена осей из useProtocolsAxes (общий запрос уже кэширован)
+  const { data: axesForRadar = [] } = useProtocolsAxes({ protocolIds: visibleProtocolIds });
+  const axesByProtocol = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const g of axesForRadar) {
+      for (const c of g.chips) {
+        for (const pid of c.protocolIds) {
+          if (!map.has(pid)) map.set(pid, []);
+          map.get(pid)!.push(`${g.label}: ${c.tagName}`);
+        }
+      }
+    }
+    return map;
+  }, [axesForRadar]);
+
+  const riskRadarPayload = useMemo(
+    () =>
+      visibleByStatus.map((e) => ({
+        name: e.group.name,
+        is_draft: e.isDraft,
+        created_at: e.group.created_at,
+        total_tasks: e.total,
+        completed_tasks: e.completed,
+        overdue_tasks: e.overdue,
+        unassigned_tasks: e.unassigned,
+        undated_tasks: e.undated,
+        axes: axesByProtocol.get(e.group.id) ?? [],
+      })),
+    [visibleByStatus, axesByProtocol],
+  );
 
   const totals = useMemo(() => {
     const all = enriched.length;
@@ -150,6 +220,22 @@ export default function ProtocolsList() {
           className="pl-9"
         />
       </div>
+
+      {/* Аналитика портфеля */}
+      {visibleProtocolIds.length > 0 && (
+        <ProtocolsAnalyticsBlock
+          visibleProtocolIds={visibleProtocolIds}
+          metrics={portfolioMetrics}
+          statFilter={statFilter}
+          onStatFilterChange={setStatFilter}
+          axisTagId={axisTagId}
+          onAxisTagChange={(tagId, ids) => {
+            setAxisTagId(tagId);
+            setAxisProtocolIds(ids);
+          }}
+          riskRadarPayload={riskRadarPayload}
+        />
+      )}
 
       {/* List */}
       {groupsLoading ? (
