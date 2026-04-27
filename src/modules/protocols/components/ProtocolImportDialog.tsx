@@ -482,8 +482,10 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       return group as { id: string };
     },
     onSuccess: (group) => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      // Scoped: refresh task_groups list, global tasks (so new protocol appears
+      // in global lists), and tasks scoped to the freshly-created group.
+      invalidateTaskGroups(qc);
+      invalidateTasksScoped(qc, group.id);
       qc.invalidateQueries({ queryKey: ["tags"] });
       qc.invalidateQueries({ queryKey: ["event_topic_tags"] });
       toast.success("Протокол создан как черновик");
