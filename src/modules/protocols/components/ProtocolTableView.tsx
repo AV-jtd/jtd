@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, KeyboardEvent } from "react";
+import { useMemo, useState, useRef, KeyboardEvent, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
@@ -11,7 +11,7 @@ import { ru } from "date-fns/locale";
 import {
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, CalendarOff, FolderOpen, Loader2,
-  Building2, Circle, GripVertical, Trash2,
+  Building2, Circle, GripVertical, Trash2, Sparkles,
 } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
@@ -32,6 +32,7 @@ import ProtocolMobileRow from "@/modules/protocols/components/ProtocolMobileRow"
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
 
 type Props = { protocolId: string };
 
