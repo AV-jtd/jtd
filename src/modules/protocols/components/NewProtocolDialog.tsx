@@ -281,6 +281,13 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         }
       }
 
+      // 3. Living: seed placeholder via helper (best-effort, non-blocking).
+      if (isLivingTpl) {
+        seedLivingPlaceholderFn(user.id, (group as any).id).catch((e) =>
+          console.error("[NewProtocolDialog] living seed failed", e),
+        );
+      }
+
       return group as { id: string };
     },
     onSuccess: (group) => {
