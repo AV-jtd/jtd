@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 import { toast } from "sonner";
 import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
