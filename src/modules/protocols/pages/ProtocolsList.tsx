@@ -85,23 +85,6 @@ export default function ProtocolsList() {
     });
   }, [enriched, search, statusFilter]);
 
-  // Затем — метрики и срез по осям применяются уже к этому подмножеству.
-  const filtered = useMemo(() => {
-    const axisProtocolSets = axisProtocolSetsByGroup; // AND between groups
-    return visibleByStatus.filter((e) => {
-      for (const set of axisProtocolSets) {
-        if (!set.has(e.group.id)) return false;
-      }
-      switch (statFilter) {
-        case "overdue": return e.overdue > 0;
-        case "unassigned": return e.unassigned > 0;
-        case "undated": return e.undated > 0;
-        default: return true;
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleByStatus, statFilter, /* axisProtocolSetsByGroup ref handled below */]);
-
   const visibleProtocolIds = useMemo(() => visibleByStatus.map((e) => e.group.id), [visibleByStatus]);
 
   const portfolioMetrics = useMemo(() => {
@@ -137,6 +120,21 @@ export default function ProtocolsList() {
     }
     return result;
   }, [axisTagIds, axesForRadar]);
+
+  // Применяем срез по осям (AND между категориями, OR внутри) и метрику-фильтр.
+  const filtered = useMemo(() => {
+    return visibleByStatus.filter((e) => {
+      for (const set of axisProtocolSetsByGroup) {
+        if (!set.has(e.group.id)) return false;
+      }
+      switch (statFilter) {
+        case "overdue": return e.overdue > 0;
+        case "unassigned": return e.unassigned > 0;
+        case "undated": return e.undated > 0;
+        default: return true;
+      }
+    });
+  }, [visibleByStatus, axisProtocolSetsByGroup, statFilter]);
 
   // Sync state → URL.
   useEffect(() => {
