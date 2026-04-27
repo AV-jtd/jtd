@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, forwardRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +38,10 @@ interface BulkTaskDialogProps {
   children: React.ReactNode;
 }
 
-export default function BulkTaskDialog({ projectId, projectName, children }: BulkTaskDialogProps) {
+const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function BulkTaskDialog(
+  { projectId, projectName, children },
+  _ref,
+) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"ai" | "text">("ai");
 
@@ -73,7 +76,9 @@ export default function BulkTaskDialog({ projectId, projectName, children }: Bul
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+export default BulkTaskDialog;
 
 /* ============ AI TAB ============ */
 function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; projectName?: string | null; onDone: () => void }) {
