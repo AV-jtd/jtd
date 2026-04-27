@@ -6,6 +6,7 @@ import { useTasksWithComments } from "@/hooks/useComments";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
+import ProtocolsInsightCard from "@/modules/protocols/components/ProtocolsInsightCard";
 const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
 const VirtualTaskList = lazy(() => import("./task-list/VirtualTaskList"));
 import { useAiInsights } from "@/hooks/useAiInsights";
@@ -828,6 +829,13 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             compactLabel={activeView === "group" && activeGroup ? activeGroup.name : undefined}
             userName={user?.user_metadata?.display_name || undefined}
           />
+        )}
+
+        {/* Лента «Протоколы» — кросс-протокольный AI-инсайт за неделю (только на главной) */}
+        {!batchMode && activeView === "all" && (
+          <div className="mb-4">
+            <ProtocolsInsightCard />
+          </div>
         )}
 
         {batchMode && (
