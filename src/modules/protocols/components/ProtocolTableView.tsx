@@ -33,6 +33,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
+import TaskProjectPicker from "@/components/TaskProjectPicker";
 
 type Props = { protocolId: string };
 
