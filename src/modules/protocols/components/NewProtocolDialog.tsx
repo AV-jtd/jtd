@@ -68,6 +68,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   }, [topicFilter]);
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
+  const isLiving = selected?.system_key === "living";
+  // Шаблоны, которые поддерживают перенос открытых задач из прошлых встреч.
+  const supportsCarryOver = isCrossFunctional || isLiving;
   const { topicTags } = useEventTopicTags();
 
   // Reset on close
@@ -97,12 +100,12 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   // and count its open (uncompleted) tasks per protocol. Used to let the user pick which past
   // meeting(s) to carry open commitments from.
   const prevProtocolsQuery = useQuery({
-    queryKey: ["prev-cross-functional-list", user?.id],
-    enabled: !!user && isCrossFunctional && step === "details",
+    queryKey: ["prev-protocol-list", selected?.system_key, user?.id],
+    enabled: !!user && supportsCarryOver && step === "details",
     staleTime: 60 * 1000,
     queryFn: async () => {
       if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number; topicTagIds: string[]; primaryTopicId: string | null }>;
-      // Find recent cross_functional protocols of this user
+      // Find recent protocols of the same template for this user
       const { data: groups, error: gErr } = await supabase
         .from("task_groups")
         .select("id, name, created_at, protocol_meta")
@@ -111,10 +114,15 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .order("created_at", { ascending: false })
         .limit(100);
       if (gErr) throw gErr;
+      const targetKey = selected?.system_key;
       const candidates = (groups || []).filter((g: any) => {
         const meta = g.protocol_meta || {};
-        if (meta.template_system_key === "cross_functional") return true;
-        return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
+        if (meta.template_system_key === targetKey) return true;
+        // Legacy fallback for cross_functional protocols created before template_system_key existed
+        if (targetKey === "cross_functional") {
+          return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
+        }
+        return false;
       }).slice(0, 30);
       if (candidates.length === 0) return [];
       const ids = candidates.map((g: any) => g.id);
