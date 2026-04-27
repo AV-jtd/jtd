@@ -933,6 +933,12 @@ function ProtocolRow({
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
           <td colSpan={8} className="px-6 py-4">
+            {isLiving ? (
+              <div className="rounded-lg border border-border/60 bg-background p-2">
+                <TaskItem task={task} initialOpen sortable={false} />
+              </div>
+            ) : (
+            <>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
@@ -979,6 +985,8 @@ function ProtocolRow({
             <div className="mt-4">
               <ExternalRowInternalLayer task={task} />
             </div>
+            </>
+            )}
           </td>
         </tr>
       )}
