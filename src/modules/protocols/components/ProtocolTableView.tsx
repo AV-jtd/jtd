@@ -35,6 +35,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import { SkeletonRows } from "@/components/SkeletonRows";
+import TopicNotesBlock from "@/modules/protocols/components/TopicNotesBlock";
 const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
 
 type Props = { protocolId: string };
@@ -475,6 +476,20 @@ export default function ProtocolTableView({ protocolId }: Props) {
                             </td>
                           </tr>,
                         );
+                        // Living: «Выводы по теме» — markdown-блок над задачами
+                        if (isLiving) {
+                          sections.push(
+                            <tr key={`notes-${key}`} className="bg-background">
+                              <td colSpan={8} className="px-3 pb-2 pt-1">
+                                <TopicNotesBlock
+                                  protocolId={protocolId}
+                                  protocolMeta={protocolMeta}
+                                  topicKey={key}
+                                />
+                              </td>
+                            </tr>,
+                          );
+                        }
                         for (const task of rows) {
                           runningIndex += 1;
                           const idx = runningIndex;
