@@ -185,7 +185,9 @@ function ProjectChip({
     !search.trim() || g.name.toLowerCase().includes(search.toLowerCase()),
   );
   const current = projects.find((g: any) => g.id === value);
-  const label = current ? `${current.icon ? current.icon + " " : ""}${current.name}` : "Привязать к проекту";
+  const cleanIcon = (icon: string | null | undefined) =>
+    icon && icon !== "list" ? icon : "📁";
+  const label = current ? `${cleanIcon(current.icon)} ${current.name}` : "Привязать к проекту";
 
   // Recently selected project (per-user, persisted in localStorage)
   const [recentId, setRecentId] = useState<string | null>(() => {
@@ -248,7 +250,7 @@ function ProjectChip({
                   recent.id === value && "bg-primary/10 text-primary",
                 )}
               >
-                <span className="shrink-0">{recent.icon || "📁"}</span>
+                <span className="shrink-0">{cleanIcon(recent.icon)}</span>
                 <span className="flex-1 truncate">{recent.name}</span>
               </button>
               <div className="my-1 border-t border-border/60" />
@@ -263,7 +265,7 @@ function ProjectChip({
                 g.id === value && "bg-primary/10 text-primary",
               )}
             >
-              <span className="shrink-0">{g.icon || "📁"}</span>
+              <span className="shrink-0">{cleanIcon(g.icon)}</span>
               <span className="flex-1 truncate">{g.name}</span>
               {g.project_type === "npd" && (
                 <span className="rounded bg-purple-500/15 px-1 text-[9px] uppercase text-purple-700 dark:text-purple-300">NPD</span>
