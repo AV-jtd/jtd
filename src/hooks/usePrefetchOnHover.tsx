@@ -13,7 +13,8 @@ import { useAuth } from "./useAuth";
  * and the page renders instantly without a spinner.
  *
  * Key shape MUST match `useTasks(groupId)` exactly:
- *   ["tasks", user.id, groupId, undefined /* filterTags */, null /* completedWindowDays */]
+ *   ["tasks", user.id, groupId, undefined, null]
+ * (filterTags = undefined, completedWindowDays = null)
  *
  * Safety:
  *  - Deduplication happens at the React Query level — `prefetchQuery` is a
