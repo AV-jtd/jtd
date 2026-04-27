@@ -59,6 +59,8 @@ interface TaskItemProps {
   sharedTagCategories?: TagCategory[];
   sharedLinkedTagIds?: Set<string>;
   sharedMutations?: ReturnType<typeof useTaskMutations>;
+  /** Bulk-fetched set of task IDs that have at least one comment (for chat icon highlight). */
+  sharedTasksWithComments?: Set<string>;
 }
 
 const PRIORITIES = [
@@ -506,7 +508,7 @@ const SortableSubtaskRow = memo(SortableSubtaskRowInner, (prev, next) => (
   prev.availableUsers === next.availableUsers
 ));
 
-function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations }: TaskItemProps) {
+function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations, sharedTasksWithComments }: TaskItemProps) {
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
@@ -530,6 +532,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   // Lazy-load comments only when detail panel is open to avoid N queries
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
+  // Cheap presence flag from bulk query in parent — used to highlight chat icon
+  // when the detail panel is closed (we don't fetch full thread for every list row).
+  const hasComments = chatComments.length > 0 || (sharedTasksWithComments?.has(task.id) ?? false);
   const [highlighted, setHighlighted] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
@@ -1401,11 +1406,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }}
             className={cn(
               "p-1.5 rounded transition-colors",
-              chatComments.length > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              hasComments ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
             title="Чат"
           >
-            <MessageCircle className={cn("h-3.5 w-3.5", chatComments.length > 0 && "fill-primary/20")} />
+            <MessageCircle className={cn("h-3.5 w-3.5", hasComments && "fill-primary/20")} />
           </button>
 
           <Popover>
