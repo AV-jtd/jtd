@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { toast } from "sonner";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 const AXIS_LABELS: Record<string, string> = {
   clients: "Клиент",
