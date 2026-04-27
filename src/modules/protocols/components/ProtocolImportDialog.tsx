@@ -21,26 +21,25 @@ import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
 import { toast } from "sonner";
 
-// pdfjs lazy import
-async function extractPdfText(file: File): Promise<string> {
-  const pdfjsLib: any = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Конвертация File → base64 (для multimodal-передачи в Gemini)
+async function fileToBase64(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  let text = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it: any) => it.str).join(" ") + "\n\n";
+  // Безопасная конвертация для больших файлов: чанками, чтобы не упереться в лимит
+  // String.fromCharCode.apply при большом массиве.
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)) as any);
   }
-  return text.trim();
+  return btoa(binary);
 }
 
 interface ParsedRow {
   title: string;
   description?: string | null;
   assignee_hint?: string | null;
+  assignee_hints?: string[] | null;
   deadline?: string | null;
   axes?: Record<string, string | null>;
   // UI state
@@ -51,11 +50,19 @@ interface ParsedRow {
   expanded?: boolean;
 }
 
+interface ParsedSection {
+  topic: string;
+  icon?: string | null;
+  summary?: string | null;
+  task_indices: number[];
+}
+
 interface ParsedProtocol {
   meeting_title?: string | null;
   meeting_date?: string | null;
   participants?: string[];
   summary?: string | null;
+  sections?: ParsedSection[];
   rows: ParsedRow[];
 }
 
@@ -75,12 +82,13 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
   const [step, setStep] = useState<Step>("input");
   const [text, setText] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
-  const [extractingPdf, setExtractingPdf] = useState(false);
   const [parsed, setParsed] = useState<ParsedProtocol | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ProtocolTemplate | null>(null);
   const [protocolName, setProtocolName] = useState("");
   const [meetingDate, setMeetingDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [includeSectionsInDescription, setIncludeSectionsInDescription] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,10 +96,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       setTimeout(() => {
         setStep("input");
         setText("");
+        setPdfFile(null);
         setParsed(null);
         setSelectedTemplate(null);
         setProtocolName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
+        setIncludeSectionsInDescription(true);
       }, 200);
     }
   }, [open]);
@@ -109,23 +119,14 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
   const handleFile = async (file: File) => {
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      setExtractingPdf(true);
-      try {
-        const txt = await extractPdfText(file);
-        if (!txt || txt.length < 20) {
-          toast.error("Не удалось извлечь текст из PDF (возможно, скан без OCR)");
-          return;
-        }
-        setText(txt);
-        toast.success(`Извлечено ${txt.length.toLocaleString("ru")} символов`);
-      } catch (e: any) {
-        toast.error("Ошибка чтения PDF: " + (e?.message || ""));
-      } finally {
-        setExtractingPdf(false);
-      }
+      // PDF отправляем целиком в Gemini как multimodal — структура (таблицы, эмодзи, цвета) сохраняется.
+      setPdfFile(file);
+      setText("");
+      toast.success(`PDF готов к разбору (${(file.size / 1024).toFixed(0)} КБ)`);
     } else if (file.type.startsWith("text/") || /\.(txt|md)$/i.test(file.name)) {
       const txt = await file.text();
       setText(txt);
+      setPdfFile(null);
     } else {
       toast.error("Поддерживаются только PDF и текстовые файлы. Excel — через Smart Import.");
     }
@@ -134,13 +135,20 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const parseMutation = useMutation({
     mutationFn: async () => {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-protocol-text`;
+      let body: any;
+      if (pdfFile) {
+        const pdf_base64 = await fileToBase64(pdfFile);
+        body = { pdf_base64, pdf_mime: pdfFile.type || "application/pdf" };
+      } else {
+        body = { text };
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
@@ -158,7 +166,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       }));
       setParsed({ ...data, rows });
       setStep("template");
-      toast.success(`ИИ извлёк ${rows.length} строк`);
+      const secCount = data.sections?.length || 0;
+      toast.success(
+        secCount > 0
+          ? `ИИ извлёк ${rows.length} задач в ${secCount} секциях`
+          : `ИИ извлёк ${rows.length} строк`,
+      );
     },
     onError: (e: any) => toast.error(e?.message || "Ошибка разбора"),
   });
@@ -201,6 +214,20 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         .select()
         .single();
       if (gErr) throw gErr;
+
+      // Если есть секции и пользователь хочет — дополним описание группы выводами секций
+      if (parsed.sections && parsed.sections.length > 0 && includeSectionsInDescription) {
+        const sectionBlock = parsed.sections
+          .map((s) => {
+            const head = `${s.icon ? s.icon + " " : ""}${s.topic}`;
+            return s.summary ? `### ${head}\n${s.summary}` : `### ${head}`;
+          })
+          .join("\n\n");
+        const newDesc = (group as any).description
+          ? `${(group as any).description}\n\n---\n\n## Темы протокола\n\n${sectionBlock}`
+          : `## Темы протокола\n\n${sectionBlock}`;
+        await supabase.from("task_groups").update({ description: newDesc }).eq("id", (group as { id: string }).id);
+      }
 
       // 2. Создать задачи (черновик)
       const taskRows = selectedRows.map((r, idx) => ({
@@ -298,15 +325,21 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               }}
               className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 p-8 transition-colors hover:border-primary/50 hover:bg-muted/40"
             >
-              {extractingPdf ? (
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              {pdfFile ? (
+                <FileText className="h-8 w-8 text-primary" />
               ) : (
                 <Download className="h-8 w-8 text-muted-foreground" />
               )}
               <div className="text-sm font-medium text-foreground">
-                {extractingPdf ? "Извлекаем текст из PDF…" : "Перетащите PDF или текстовый файл сюда"}
+                {pdfFile
+                  ? `📎 ${pdfFile.name}`
+                  : "Перетащите PDF или текстовый файл сюда"}
               </div>
-              <div className="text-xs text-muted-foreground">или нажмите, чтобы выбрать файл</div>
+              <div className="text-xs text-muted-foreground">
+                {pdfFile
+                  ? "ИИ разберёт PDF целиком: таблицы, эмодзи, выделения цветом"
+                  : "или нажмите, чтобы выбрать файл"}
+              </div>
               <input
                 ref={fileRef}
                 type="file"
@@ -343,11 +376,11 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
               <Button
                 onClick={() => parseMutation.mutate()}
-                disabled={text.trim().length < 20 || parseMutation.isPending}
+                disabled={(!pdfFile && text.trim().length < 20) || parseMutation.isPending}
               >
                 {parseMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Sparkles className="mr-2 h-4 w-4" />
-                Разобрать через ИИ
+                {pdfFile ? "Разобрать PDF через ИИ" : "Разобрать через ИИ"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -362,6 +395,43 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                 <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
                   <FileText className="mr-1 inline h-4 w-4" />
                   {parsed.summary}
+                </div>
+              )}
+
+              {parsed.sections && parsed.sections.length > 0 && (
+                <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs uppercase text-muted-foreground">
+                      Найдено секций: {parsed.sections.length}
+                    </Label>
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                      <Checkbox
+                        checked={includeSectionsInDescription}
+                        onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
+                      />
+                      Сохранить выводы секций в описание протокола
+                    </label>
+                  </div>
+                  <div className="space-y-1.5">
+                    {parsed.sections.map((s, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded bg-background/60 px-2 py-1.5 text-xs">
+                        <span className="text-base leading-none">{s.icon || "📌"}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-foreground">{s.topic}</div>
+                          {s.summary && (
+                            <div className="mt-0.5 line-clamp-2 text-muted-foreground">{s.summary}</div>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {s.task_indices.length} зад.
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Каждая задача автоматически получит тег темы — и в таблице протокола они сразу
+                    сгруппируются по секциям.
+                  </p>
                 </div>
               )}
 
@@ -527,6 +597,26 @@ function RowCard({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedAssignee?.id]);
+
+  // Авто-сопоставление дополнительных ответственных (assignee_hints[1..]) → participant_ids.
+  // Срабатывает один раз: только если participant_ids пуст.
+  useEffect(() => {
+    const hints = row.assignee_hints;
+    if (!hints || hints.length <= 1) return;
+    if ((row.participant_ids || []).length > 0) return;
+    const matched: string[] = [];
+    for (const raw of hints) {
+      const h = (raw || "").toLowerCase();
+      if (!h) continue;
+      const m = teamMembers.find((x) => {
+        const name = (x.display_name || x.email || "").toLowerCase();
+        return h.split(/[\s,()]+/).some((p) => p.length > 2 && name.includes(p));
+      });
+      if (m && !matched.includes(m.id) && m.id !== row.assignee_id) matched.push(m.id);
+    }
+    if (matched.length > 0) onChange({ participant_ids: matched });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.assignee_hints, row.assignee_id, teamMembers]);
 
   const assignee = teamMembers.find((m) => m.id === row.assignee_id);
   const participants = (row.participant_ids || [])

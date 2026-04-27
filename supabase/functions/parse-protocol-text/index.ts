@@ -11,7 +11,11 @@ function buildSystemPrompt(today: string, weekday: string): string {
   return `Ты — ассистент для разбора протоколов совещаний на русском языке.
 Сегодня: ${today} (${weekday}). Используй это для расчёта относительных дат.
 
-Твоя задача: извлечь из текста структурированный список задач/поручений/договорённостей и максимально точно заполнить ВСЕ поля.
+Твоя задача: извлечь из протокола (текст ИЛИ PDF) структурированный список задач/поручений/договорённостей,
+СЕКЦИЙ протокола (если документ разбит на тематические блоки) и максимально точно заполнить ВСЕ поля.
+Если на вход подан PDF — анализируй его как документ: учитывай заголовки, эмодзи перед заголовками,
+таблицы (| Задача | Ответственные | Срок |), выделения <mark>цветом</mark> (обычно это бренды/клиенты),
+маркированные списки «Основные выводы».
 
 ═══════════════════════════════════════════════════════════
 ПРАВИЛА ОПРЕДЕЛЕНИЯ ОТВЕТСТВЕННЫХ (assignee_hint) — КРИТИЧНО
@@ -27,6 +31,9 @@ function buildSystemPrompt(today: string, weekday: string): string {
 8. Если задача звучит как "нужно сделать X" без явного исполнителя, но в обсуждении участвовала конкретная роль/человек — поставь его
 
 ФИО пиши как в тексте: "Иван Петров", "Петров И.И.", "Маша", "@username". НЕ выдумывай несуществующих людей.
+ВАЖНО: если ответственных НЕСКОЛЬКО (через запятую: "Александра Комарова, Юля, Саша" или с ролями
+"Маша (единое окно), Вика Журавлева (эксперт)"), верни МАССИВ assignee_hints со ВСЕМИ именами.
+Поле assignee_hint оставь равным ПЕРВОМУ имени для обратной совместимости.
 
 ═══════════════════════════════════════════════════════════
 ПРАВИЛА ПАРСИНГА ДЕДЛАЙНОВ (deadline) — КРИТИЧНО
@@ -76,6 +83,19 @@ function buildSystemPrompt(today: string, weekday: string): string {
   - event_topic: тема/блок вопроса (если протокол идёт блоками — "Запуск нового продукта", "Бюджет Q2")
 
 ═══════════════════════════════════════════════════════════
+СЕКЦИИ ПРОТОКОЛА (sections) — ВАЖНО
+═══════════════════════════════════════════════════════════
+Если документ структурирован по тематическим блокам (заголовки "## 1. ...", "### 3. ..." с эмодзи 📦🏭📊
+или явные нумерованные разделы), верни массив sections:
+- topic: название темы без номера и эмодзи (например "Коммуникация с сетью и отправка образцов")
+- icon: эмодзи из заголовка, если есть ("📦", "🏭"); иначе null
+- summary: 1-3 предложения сути блока (часто это "Основные выводы:" перед таблицей)
+- task_indices: массив индексов задач в массиве rows, относящихся к этой секции (нумерация с 0)
+
+Каждой задаче ОБЯЗАТЕЛЬНО проставь axes.event_topic = topic секции, к которой она относится.
+Если документ ПЛОСКИЙ (без секций) — верни sections: [].
+
+═══════════════════════════════════════════════════════════
 ОБЩАЯ ИНФОРМАЦИЯ О ВСТРЕЧЕ
 ═══════════════════════════════════════════════════════════
 - meeting_title: название протокола (если явно — бери; иначе сформулируй сам по теме обсуждения)
@@ -95,10 +115,17 @@ serve(async (req) => {
   if (blocked) return blocked;
 
   try {
-    const { text } = await req.json();
-    if (!text || typeof text !== "string" || text.trim().length < 20) {
+    const body = await req.json();
+    const text: string | undefined = body.text;
+    const pdfBase64: string | undefined = body.pdf_base64;
+    const pdfMime: string = body.pdf_mime || "application/pdf";
+
+    const hasText = text && typeof text === "string" && text.trim().length >= 20;
+    const hasPdf = pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 100;
+
+    if (!hasText && !hasPdf) {
       return new Response(
-        JSON.stringify({ error: "Слишком короткий текст для разбора" }),
+        JSON.stringify({ error: "Нужен либо text, либо pdf_base64" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -124,6 +151,20 @@ serve(async (req) => {
               meeting_date: { type: ["string", "null"], description: "ISO YYYY-MM-DD" },
               participants: { type: "array", items: { type: "string" } },
               summary: { type: ["string", "null"] },
+              sections: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    topic: { type: "string" },
+                    icon: { type: ["string", "null"] },
+                    summary: { type: ["string", "null"] },
+                    task_indices: { type: "array", items: { type: "number" } },
+                  },
+                  required: ["topic", "task_indices"],
+                  additionalProperties: false,
+                },
+              },
               rows: {
                 type: "array",
                 items: {
@@ -132,6 +173,7 @@ serve(async (req) => {
                     title: { type: "string" },
                     description: { type: ["string", "null"] },
                     assignee_hint: { type: ["string", "null"] },
+                    assignee_hints: { type: "array", items: { type: "string" } },
                     deadline: { type: ["string", "null"], description: "ISO YYYY-MM-DD" },
                     axes: {
                       type: "object",
@@ -159,6 +201,20 @@ serve(async (req) => {
       },
     ];
 
+    const userContent: any[] = hasPdf
+      ? [
+          {
+            type: "text",
+            text:
+              "Разбери этот PDF протокол совещания согласно правилам. Извлеки секции, задачи и метаданные.",
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${pdfMime};base64,${pdfBase64}` },
+          },
+        ]
+      : [{ type: "text", text: (text as string).slice(0, 60000) }];
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -169,7 +225,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: buildSystemPrompt(today, weekday) },
-          { role: "user", content: text.slice(0, 60000) },
+          { role: "user", content: userContent },
         ],
         tools,
         tool_choice: { type: "function", function: { name: "extract_protocol" } },
