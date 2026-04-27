@@ -17,3 +17,4 @@
 - [features/protocol-living-template](mem://features/protocol-living-template) — Системный шаблон `living` (📖 Живой документ). Inline-разворот строки в полноценный TaskItem (чат/шаги/теги). Авто-группировка по теме всегда вкл. Internal section и CRM-плейсхолдер скрыты.
 - [tech/performance/hover-prefetch](mem://tech/performance/hover-prefetch) — usePrefetchOnHover: debounce 120ms, греет кэш useTasks(groupId) при hover на проектах/протоколах в sidebar и ProtocolsList.
 - [tech/performance/streaming-pagination](mem://tech/performance/streaming-pagination) — useTasks стримит страницы (1000 строк) через setQueryData; первая страница рисуется ~в 2× быстрее. Отключено при filterTags.
+- [features/protocols/living-import-mode](mem://features/protocols/living-import-mode) — Living-импорт: body.mode в parse-protocol-text, отдельный промпт со смысловой группировкой, кнопка «Перепарсить» при смене шаблона.
