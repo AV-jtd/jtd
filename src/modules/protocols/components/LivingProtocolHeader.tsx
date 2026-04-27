@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers, useTaskGroups } from "@/hooks/useTasks";
-import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Plus, Users, FolderOpen, X, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -335,13 +335,12 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
           ))}
 
           {/* Add attendee */}
-          <UserPicker
+          <MultiAssigneePicker
             users={profiles}
             excludeIds={attendeeIds}
             open={attendeePickerOpen}
             onOpenChange={setAttendeePickerOpen}
-            onSelect={(u) => addAttendee(u.id)}
-            title="Добавить участника"
+            onSelectUsers={(ids) => ids.forEach((uid) => addAttendee(uid))}
             trigger={
               <button
                 type="button"

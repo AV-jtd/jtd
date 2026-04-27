@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -868,13 +869,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                   </span>
                 );
               })}
-              <UserPicker
+              <MultiAssigneePicker
                 users={profiles}
                 excludeIds={internalCombinedIds}
-                title="Добавить участника"
                 open={internalPickerOpen}
                 onOpenChange={setInternalPickerOpen}
-                onSelect={(u) => addInternalAttendee(u.id)}
+                onSelectUsers={(ids) => ids.forEach((uid) => addInternalAttendee(uid))}
                 trigger={
                   <button
                     type="button"
@@ -1046,13 +1046,12 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               </span>
             );
           })}
-          <UserPicker
+          <MultiAssigneePicker
             users={profiles}
             excludeIds={internalCombinedIds}
-            title="Добавить участника"
             open={internalPickerOpen}
             onOpenChange={setInternalPickerOpen}
-            onSelect={(u) => addInternalAttendee(u.id)}
+            onSelectUsers={(ids) => ids.forEach((uid) => addInternalAttendee(uid))}
             trigger={
               <button
                 type="button"

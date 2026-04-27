@@ -13,6 +13,7 @@ import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 import TaskClientPicker from "@/components/TaskClientPicker";
 import ClientAvatar from "@/components/ClientAvatar";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
@@ -1270,12 +1271,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }
           >
             {(open, setOpen) => (
-              <UserPicker
+              <MultiAssigneePicker
                 users={availableUsers}
                 excludeIds={participantIds}
                 open={open || userPickerOpen === "quick-participant"}
                 onOpenChange={(o) => { setOpen(o); setUserPickerOpen(o ? "quick-participant" : null); }}
-                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                onSelectUsers={(ids) => {
+                  ids.forEach((uid) =>
+                    addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" })
+                  );
+                }}
                 trigger={
                   <button className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Участник">
                     <UserPlus className="h-3.5 w-3.5" />
@@ -1830,12 +1835,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   </button>
                 </div>
               ))}
-              <UserPicker
+              <MultiAssigneePicker
                 users={availableUsers}
                 excludeIds={participantIds}
                 open={userPickerOpen === "participant"}
                 onOpenChange={(open) => setUserPickerOpen(open ? "participant" : null)}
-                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                onSelectUsers={(ids) => {
+                  ids.forEach((uid) =>
+                    addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" })
+                  );
+                }}
                 side="bottom"
                 trigger={
                   <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
