@@ -2110,6 +2110,10 @@ export type Database = {
         Returns: boolean
       }
       consultant_company: { Args: { _user_id: string }; Returns: string }
+      copy_protocol_system_tags_to_task: {
+        Args: { _protocol_id: string; _task_id: string }
+        Returns: undefined
+      }
       debug_user_visible_groups: {
         Args: { _user_id: string }
         Returns: {
@@ -2274,6 +2278,11 @@ export type Database = {
       is_user_in_task_department: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
+      }
+      protocol_copyable_system_keys: { Args: never; Returns: string[] }
+      remove_protocol_system_tags_from_task: {
+        Args: { _protocol_id: string; _task_id: string }
+        Returns: undefined
       }
       resolve_dependency_violations: { Args: never; Returns: number }
       seed_onboarding_data: { Args: { _user_id: string }; Returns: undefined }
