@@ -91,6 +91,8 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const [includeSectionsInDescription, setIncludeSectionsInDescription] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const isLivingTpl = (selectedTemplate as any)?.system_key === "living";
+
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
@@ -255,8 +257,15 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // Если есть секции и пользователь хочет — дополним описание группы выводами секций
-      if (parsed.sections && parsed.sections.length > 0 && includeSectionsInDescription) {
+      // Для НЕ-living: выводы секций уходят в общее описание (как раньше).
+      // Для living: выводы пойдут блочно в protocol_meta.topic_notes[tag_id] ниже.
+      const isLiving = selectedTemplate.system_key === "living";
+      if (
+        parsed.sections &&
+        parsed.sections.length > 0 &&
+        includeSectionsInDescription &&
+        !isLiving
+      ) {
         const sectionBlock = parsed.sections
           .map((s) => {
             const head = `${s.icon ? s.icon + " " : ""}${s.topic}`;
@@ -398,6 +407,55 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               await supabase
                 .from("task_tags")
                 .upsert(tagInserts as any, { onConflict: "task_id,tag_id", ignoreDuplicates: true });
+            }
+
+            // 3.7 Living: переносим summary секций → protocol_meta.topic_notes[tag_id].
+            //     Для не-living шаблонов выводы уже ушли в общее описание выше.
+            if (
+              isLiving &&
+              parsed.sections &&
+              parsed.sections.length > 0 &&
+              includeSectionsInDescription
+            ) {
+              const topicNotes: Record<string, string> = {};
+              for (const sec of parsed.sections) {
+                const key = (sec.topic || "").trim().toLowerCase();
+                const tag = tagByLowerName.get(key);
+                if (!tag || !sec.summary) continue;
+                // Нормализуем summary в markdown-буллеты:
+                // если уже есть строки с "-" / "*" / "•" — оставляем как есть;
+                // иначе разбиваем по переносам/точкам и делаем буллеты, чтобы
+                // TopicNotesBlock сразу отрисовал список.
+                const raw = sec.summary.trim();
+                const hasBullets = /^\s*[-*•]\s+/m.test(raw);
+                const md = hasBullets
+                  ? raw
+                  : raw
+                      .split(/\n+|(?<=[.!?])\s+(?=[А-ЯA-Z])/)
+                      .map((s) => s.trim())
+                      .filter((s) => s.length > 0)
+                      .map((s) => `- ${s}`)
+                      .join("\n");
+                if (md) topicNotes[tag.id] = md;
+              }
+              if (Object.keys(topicNotes).length > 0) {
+                // Перечитываем актуальный protocol_meta, чтобы не затереть
+                // поля, которые мог обновить триггер/конкурентный апдейт.
+                const { data: fresh } = await supabase
+                  .from("task_groups")
+                  .select("protocol_meta")
+                  .eq("id", (group as { id: string }).id)
+                  .single();
+                const baseMeta = (fresh as any)?.protocol_meta ?? {};
+                const mergedMeta = {
+                  ...baseMeta,
+                  topic_notes: { ...(baseMeta.topic_notes ?? {}), ...topicNotes },
+                };
+                await supabase
+                  .from("task_groups")
+                  .update({ protocol_meta: mergedMeta as any })
+                  .eq("id", (group as { id: string }).id);
+              }
             }
           }
         }
@@ -570,7 +628,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                         checked={includeSectionsInDescription}
                         onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
                       />
-                      Сохранить выводы секций в описание протокола
+                      {isLivingTpl
+                        ? "Сохранить выводы блочно (над таблицей задач каждой темы)"
+                        : "Сохранить выводы секций в описание протокола"}
                     </label>
                   </div>
                   <div className="space-y-1.5">
@@ -590,8 +650,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Каждая задача автоматически получит тег темы — и в таблице протокола они сразу
-                    сгруппируются по секциям.
+                    {isLivingTpl
+                      ? "Темы станут тегами и сгруппируют задачи. Выводы появятся как блок над таблицей внутри каждой темы — потом редактируются inline."
+                      : "Каждая задача автоматически получит тег темы — и в таблице протокола они сразу сгруппируются по секциям."}
                   </p>
                 </div>
               )}
