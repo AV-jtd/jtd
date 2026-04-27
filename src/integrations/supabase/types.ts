@@ -2129,6 +2129,21 @@ export type Database = {
           id: string
         }[]
       }
+      get_group_task_stats: {
+        Args: { _group_ids: string[] }
+        Returns: {
+          active: number
+          completed: number
+          drift: number
+          earliest_start: string
+          group_id: string
+          last_completed_at: string
+          max_drift_days: number
+          overdue: number
+          total: number
+          upcoming_7d: number
+        }[]
+      }
       get_unread_threads: {
         Args: never
         Returns: {

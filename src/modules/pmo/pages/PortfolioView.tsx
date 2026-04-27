@@ -1,4 +1,5 @@
 import { useTaskGroups, useTasks, useAvailableUsers, type TaskGroup, type Task, type Profile } from "@/hooks/useTasks";
+import { useGroupTaskStats } from "@/hooks/useGroupTaskStats";
 import { useMilestones } from "@/hooks/useMilestones";
 import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,7 @@ import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import PmoRiskRadar from "@/modules/pmo/components/PmoRiskRadar";
 import PmoPortfolioSummary from "@/modules/pmo/components/PmoPortfolioSummary";
-import { isPast, parseISO, differenceInDays, format } from "date-fns";
+import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,7 +30,14 @@ type GroupBy = "none" | "manager" | "folder" | "progress";
 
 export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
+  // Performance: PMO portfolio used to load EVERY task (including the entire
+  // history of completed tasks across all projects) just to compute card
+  // metrics. The metrics now come from `useGroupTaskStats` (server-side
+  // aggregate), so we only need actual task ROWS for the expanded "details"
+  // dashboards (overdue/upcoming/drifted lists) and subproject mini-cards —
+  // both of which only ever render ACTIVE tasks. A 7-day completed window
+  // covers the brief "just-completed" line-through state.
+  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 7 });
   const { data: users = [] } = useAvailableUsers();
   const { data: milestones = [] } = useMilestones();
   const { user } = useAuth();
@@ -112,36 +120,27 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   );
   const [showArchived, setShowArchived] = useState(false);
 
+  // Server-side aggregates per project: replaces the old O(N tasks × M groups)
+  // in-memory loop and removes the need to ship completed task history.
+  const allGroupIds = useMemo(() => groups.map((g) => g.id), [groups]);
+  const { byId: statsById } = useGroupTaskStats(allGroupIds);
+
   const projectStats = useMemo(() => {
     const statsMap: Record<string, { total: number; completed: number; overdue: number; upcoming: number; driftCount: number; earliestStart: string | null; maxDriftDays: number }> = {};
     for (const project of groups) {
-      const tasks = allTasks.filter((t) => t.group_id === project.id);
-      const total = tasks.length;
-      const completed = tasks.filter((t) => t.is_completed).length;
-      const overdue = tasks.filter((t) => !t.is_completed && t.deadline && isPast(parseISO(t.deadline))).length;
-      const driftCount = tasks.filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
-      const weekFromNow = new Date(); weekFromNow.setDate(weekFromNow.getDate() + 7);
-      const upcoming = tasks.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline) <= weekFromNow && !isPast(parseISO(t.deadline))).length;
-
-      // Earliest planned start
-      const startDates = tasks.map((t) => t.start_at).filter(Boolean) as string[];
-      const deadlineDates = tasks.map((t) => t.deadline).filter(Boolean) as string[];
-      const allDates = [...startDates, ...deadlineDates].sort();
-      const earliestStart = allDates.length > 0 ? allDates[0] : null;
-
-      // Max drift days (largest single task deviation — shows real project delay)
-      let maxDriftDays = 0;
-      for (const t of tasks) {
-        if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) {
-          const drift = differenceInDays(parseISO(t.deadline), parseISO(t.original_deadline));
-          if (Math.abs(drift) > Math.abs(maxDriftDays)) maxDriftDays = drift;
-        }
-      }
-
-      statsMap[project.id] = { total, completed, overdue, driftCount, upcoming, earliestStart, maxDriftDays };
+      const s = statsById[project.id];
+      statsMap[project.id] = {
+        total: s?.total ?? 0,
+        completed: s?.completed ?? 0,
+        overdue: s?.overdue ?? 0,
+        driftCount: s?.drift ?? 0,
+        upcoming: s?.upcoming_7d ?? 0,
+        earliestStart: s?.earliest_start ?? null,
+        maxDriftDays: s?.max_drift_days ?? 0,
+      };
     }
     return statsMap;
-  }, [groups, allTasks]);
+  }, [groups, statsById]);
 
   const getAggregatedStats = useCallback((projectId: string) => {
     const childIds = groups.filter((g) => g.parent_id === projectId).map((g) => g.id);

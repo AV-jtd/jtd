@@ -100,7 +100,13 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: allGroups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
+  // Performance: NPD board renders the swimlane matrix and subproject lists,
+  // both of which only ever surface ACTIVE tasks (completed are at most a
+  // brief line-through after a checkbox tap). Capping the completed window
+  // to 7 days drops the bulk of the wire payload on heavy accounts.
+  // Card-level "X/Y" metrics still need the full count → those come from
+  // the server-side `useGroupTaskStats` aggregate (see `npdStatsById` below).
+  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 7 });
   const { data: availableUsers = [] } = useAvailableUsers();
 
   // Fetch all tags for filtering
