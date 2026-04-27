@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, KeyboardEvent } from "react";
+import { useMemo, useState, useRef, KeyboardEvent, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
@@ -11,7 +11,7 @@ import { ru } from "date-fns/locale";
 import {
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, CalendarOff, FolderOpen, Loader2,
-  Building2, Circle, GripVertical, Trash2,
+  Building2, Circle, GripVertical, Trash2, Sparkles,
 } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
@@ -32,6 +32,7 @@ import ProtocolMobileRow from "@/modules/protocols/components/ProtocolMobileRow"
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
 
 type Props = { protocolId: string };
 
@@ -557,21 +558,38 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 </td>
                 <td />
                 <td className="px-3 py-2" colSpan={6}>
-                  <input
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleCreate();
-                      }
-                    }}
-                    onBlur={() => {
-                      if (newTitle.trim()) handleCreate();
-                    }}
-                    placeholder="Добавить строку протокола (Enter)…"
-                    className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCreate();
+                        }
+                      }}
+                      onBlur={() => {
+                        if (newTitle.trim()) handleCreate();
+                      }}
+                      placeholder="Добавить строку протокола (Enter)…"
+                      className="w-full flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    />
+                    <Suspense fallback={null}>
+                      <BulkTaskDialog
+                        projectId={protocolId}
+                        projectName={protocol?.name || "Протокол"}
+                      >
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/10"
+                          title="Добавить несколько строк сразу — с подсказками ИИ или из текста"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Несколько с ИИ
+                        </button>
+                      </BulkTaskDialog>
+                    </Suspense>
+                  </div>
                 </td>
               </tr>
             </tbody>
