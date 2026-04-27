@@ -10,9 +10,9 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
-import TaskAiPopover from "@/components/TaskAiPopover";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
+import TaskClientPicker from "@/components/TaskClientPicker";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
@@ -1472,39 +1472,12 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             </PopoverContent>
           </Popover>
 
-          <LazyMount
-            trigger={
-              <button
-                className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
-                title="ИИ-помощник"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-              </button>
+          <TaskClientPicker
+            clientId={(task as any).client_id ?? null}
+            onChange={(clientId) =>
+              updateTask.mutate({ id: task.id, client_id: clientId } as any)
             }
-          >
-            {() => (
-              <TaskAiPopover
-                defaultOpen
-                taskTitle={task.title}
-                taskDescription={task.description}
-                subtasks={subtasks.map(s => s.title)}
-                deadline={task.deadline}
-                assignedToName={task.assigned_to ? getProfileName(task.assigned_to) : null}
-                participantNames={participants.map(p => getProfileName(p.user_id))}
-                groupMemberNames={availableUsers.map(u => u.display_name || u.id.slice(0, 8))}
-                memberMap={Object.fromEntries(availableUsers.map(u => [u.display_name || u.id.slice(0, 8), u.id]))}
-                onAssign={(userId) => updateTask.mutate({ id: task.id, assigned_to: userId })}
-                onSetDeadline={(date) => updateTask.mutate({ id: task.id, deadline: date })}
-              >
-                <button
-                  className="p-1.5 rounded text-muted-foreground hover:text-primary transition-colors"
-                  title="ИИ-помощник"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                </button>
-              </TaskAiPopover>
-            )}
-          </LazyMount>
+          />
         </div>
       </div>
 
