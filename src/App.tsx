@@ -71,6 +71,10 @@ const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 60 * 24, // 24 hours
       staleTime: 1000 * 60 * 5, // 5 minutes
       networkMode: "offlineFirst",
+      // Gmail-style: при смене параметров запроса (фильтры, id, страницы)
+      // мгновенно показываем предыдущие данные, новые подгружаются в фоне.
+      // Это убирает «спиннер на пустом месте» по всему приложению.
+      placeholderData: (prev: unknown) => prev,
     },
     mutations: {
       networkMode: "offlineFirst",

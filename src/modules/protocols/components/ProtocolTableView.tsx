@@ -34,6 +34,7 @@ import ProtocolMobileRow from "@/modules/protocols/components/ProtocolMobileRow"
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
+import { SkeletonRows } from "@/components/SkeletonRows";
 const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
 
 type Props = { protocolId: string };
@@ -270,9 +271,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Загрузка строк протокола…
-      </div>
+      <SkeletonRows count={8} className="py-2" />
     );
   }
 
