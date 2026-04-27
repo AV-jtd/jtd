@@ -115,9 +115,17 @@ export default function ProtocolImportDialog({ open, onOpenChange, forcedTemplat
     }
   }, [open]);
 
+  // forcedTemplateKey: зафиксировать шаблон сразу при открытии
+  useEffect(() => {
+    if (forcedTemplateKey && templates.length > 0 && !selectedTemplate) {
+      const t = templates.find((t) => t.system_key === forcedTemplateKey);
+      if (t) setSelectedTemplate(t);
+    }
+  }, [forcedTemplateKey, templates, selectedTemplate]);
+
   // Авто-выбор шаблона по эвристике
   useEffect(() => {
-    if (parsed && !selectedTemplate && templates.length > 0) {
+    if (parsed && !selectedTemplate && templates.length > 0 && !forcedTemplateKey) {
       const t = guessTemplate(parsed, templates);
       setSelectedTemplate(t);
       if (parsed.meeting_title) setProtocolName(parsed.meeting_title);
