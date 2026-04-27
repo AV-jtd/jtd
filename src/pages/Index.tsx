@@ -113,7 +113,10 @@ export default function Index() {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
-  if (!isApproved) return <Navigate to="/pending" replace />;
+  // Only redirect to /pending when we have a CONFIRMED unapproved status.
+  // If the approval status is unknown (e.g. profiles fetch timed out), let the
+  // user into the app — RLS still protects data, and the auth hook will retry.
+  if (approvalKnown && !isApproved) return <Navigate to="/pending" replace />;
 
   const isTaskView = !["calendar", "dashboard", "subordinates", "community", "archive", "wiki"].includes(activeView);
 
