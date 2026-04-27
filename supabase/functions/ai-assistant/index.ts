@@ -813,6 +813,104 @@ ${activeProjectInfo}
       });
     }
 
+    // === Protocols Risk Radar ===
+    if (action === "protocols_risk_radar") {
+      const { protocols } = context;
+
+      const protocolsInfo = (protocols || []).map((p: any) =>
+        `Протокол: "${p.name}"${p.is_draft ? " (черновик)" : ""}
+  Создан: ${p.created_at ?? "?"}
+  Вопросов: ${p.total_tasks}, Закрыто: ${p.completed_tasks}, Просрочено: ${p.overdue_tasks}, Без ответственного: ${p.unassigned_tasks}, Без срока: ${p.undated_tasks}
+  Контекст: ${(p.axes || []).join(", ") || "—"}`
+      ).join("\n\n");
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: `Ты — эксперт по протоколам совещаний и управлению поручениями.
+Проанализируй портфель протоколов и выяви горячие точки.
+
+Правила:
+- Просроченные вопросы = высокий риск
+- Много вопросов без ответственного или без срока = высокий риск (поручения «зависнут»)
+- Старые черновики протоколов (>3 дней без публикации) = средний риск
+- Низкая доля закрытых вопросов в старых протоколах = средний риск
+- Кросс-протокольный паттерн (один и тот же контекст «висит» в нескольких встречах) = высокий риск
+- Будь конкретным: указывай протокол и проблему
+- Максимум 8 рисков, сортируй по severity
+- summary = одно предложение (до 80 символов)
+- Отвечай только через tool call`,
+            },
+            {
+              role: "user",
+              content: `Протоколы:\n\n${protocolsInfo}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "report_risks",
+                description: "Отчёт о рисках по протоколам",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    summary: { type: "string", description: "Краткое резюме (до 80 символов)" },
+                    risks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          project_name: { type: "string", description: "Название протокола" },
+                          severity: { type: "string", enum: ["high", "medium", "low"] },
+                          issue: { type: "string", description: "Проблема (1-2 предложения)" },
+                          recommendation: { type: "string", description: "Рекомендация (1 предложение)" },
+                        },
+                        required: ["project_name", "severity", "issue", "recommendation"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["summary", "risks"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "report_risks" } },
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: "payment_required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify({ summary: parsed.summary, risks: parsed.risks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "no_result" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === PMO Portfolio Summary ===
     if (action === "pmo_portfolio_summary") {
       const { projects } = context;
