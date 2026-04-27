@@ -349,20 +349,30 @@ export default function ProtocolTableView({ protocolId }: Props) {
             )}
           </>
         )}
-        <button
-          type="button"
-          onClick={() => setGroupByTopic((v) => !v)}
-          className={cn(
-            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
-            groupByTopic
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-border bg-background text-muted-foreground hover:bg-muted",
-          )}
-          title="Сгруппировать строки по теме обсуждения"
-        >
-          <FolderOpen className="h-3 w-3" />
-          {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
-        </button>
+        {isLiving ? (
+          <span
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-xs text-primary"
+            title="«Живой документ» автоматически группирует строки по темам"
+          >
+            <FolderOpen className="h-3 w-3" />
+            Живой документ — авто-группировка по теме
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setGroupByTopic((v) => !v)}
+            className={cn(
+              "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+              groupByTopic
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-background text-muted-foreground hover:bg-muted",
+            )}
+            title="Сгруппировать строки по теме обсуждения"
+          >
+            <FolderOpen className="h-3 w-3" />
+            {groupByTopic ? "Группировка по теме включена" : "Группировать по теме"}
+          </button>
+        )}
       </div>
 
 
