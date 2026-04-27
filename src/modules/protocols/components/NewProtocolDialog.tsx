@@ -281,6 +281,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         }
       }
 
+      // 3. Living: создаём плейсхолдер-тему «Общее», чтобы пользователь сразу видел
+      //    структуру «тема → выводы → задачи». Без не
       return group as { id: string };
     },
     onSuccess: (group) => {
