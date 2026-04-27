@@ -96,6 +96,50 @@ async function fetchAllPages<T>(
 }
 
 /**
+ * Streaming variant of fetchAllPages.
+ *
+ * Calls `onPage(accumulated)` after EACH page lands so the caller can push
+ * intermediate results into React Query's cache via `setQueryData`. The
+ * UI re-renders as soon as the first page (1000 rows) arrives — the rest
+ * stream in over the next 1-3 seconds without blocking the first paint.
+ *
+ * Why this matters: on accounts with 1500-2000 globally-visible tasks, the
+ * old `fetchAllPages` blocked the first paint until ALL 2-3 pages landed
+ * (~5-8MB JSON over 4-6 seconds on slow networks). With streaming the user
+ * sees the list in ~half the time, and the late pages just append silently.
+ *
+ * The returned promise still resolves with the FULL accumulated array so
+ * post-processing (filtering, tag expansion) sees complete data.
+ */
+async function fetchAllPagesStreaming<T>(
+  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
+  onPage: (accumulated: T[], isFinal: boolean) => void,
+  maxPages = 100,
+) {
+  const all: T[] = [];
+
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * SUPABASE_PAGE_SIZE;
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+
+    const chunk = data || [];
+    all.push(...chunk);
+
+    const isFinal = chunk.length < SUPABASE_PAGE_SIZE;
+    // Hand the running total to the caller. The caller decides whether to
+    // publish it (e.g. only for global lists, not per-group queries where
+    // the first page is almost always the only page).
+    onPage(all, isFinal);
+
+    if (isFinal) break;
+  }
+
+  return all;
+}
+
+/**
  * Check if a name already exists across tags, projects, or tasks.
  * Throws DuplicateNameError if duplicate found.
  * @param name - Name to check
