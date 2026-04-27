@@ -338,9 +338,9 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
                 {proto && (
                   <span className="text-[10px] text-muted-foreground truncate max-w-[140px] shrink-0">{proto.name}</span>
                 )}
-                {init(t.assigned_to) && (
+                {initials(t.assigned_to) && (
                   <div className="w-[18px] h-[18px] rounded-full bg-muted flex items-center justify-center shrink-0" title={userName(t.assigned_to) || ""}>
-                    <span className="text-[7px] font-medium text-muted-foreground leading-none">{init(t.assigned_to)}</span>
+                    <span className="text-[7px] font-medium text-muted-foreground leading-none">{initials(t.assigned_to)}</span>
                   </div>
                 )}
                 {t.deadline && (
