@@ -317,6 +317,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Persist to server so RLS sees the change
     if (user?.id) {
+      // Update cross-tab cache so other tabs pick up the change without a refetch.
+      writeAuthMeta(user.id, {
+        isApproved,
+        isAdmin,
+        isConsultant,
+        adminModeDisabled: disabled,
+      });
       supabase
         .from("admin_mode_state" as any)
         .upsert({ user_id: user.id, admin_disabled: disabled, updated_at: new Date().toISOString() } as any, { onConflict: "user_id" })
