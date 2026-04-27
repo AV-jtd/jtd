@@ -628,7 +628,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                         checked={includeSectionsInDescription}
                         onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
                       />
-                      Сохранить выводы секций в описание протокола
+                      {isLivingTpl
+                        ? "Сохранить выводы блочно (над таблицей задач каждой темы)"
+                        : "Сохранить выводы секций в описание протокола"}
                     </label>
                   </div>
                   <div className="space-y-1.5">
@@ -648,8 +650,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Каждая задача автоматически получит тег темы — и в таблице протокола они сразу
-                    сгруппируются по секциям.
+                    {isLivingTpl
+                      ? "Темы станут тегами и сгруппируют задачи. Выводы появятся как блок над таблицей внутри каждой темы — потом редактируются inline."
+                      : "Каждая задача автоматически получит тег темы — и в таблице протокола они сразу сгруппируются по секциям."}
                   </p>
                 </div>
               )}
