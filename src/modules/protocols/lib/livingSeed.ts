@@ -6,8 +6,40 @@ import { supabase } from "@/integrations/supabase/client";
  * `protocol_meta.topic_notes[tagId]` so the editor renders the topic block
  * immediately. Best-effort — caller should not block UX on failure.
  */
-export async function seedLivingPlaceholder(userId: string, groupId: string): Promise<void> {
+/**
+ * Living-protocol seed.
+ *
+ * If `existingTagId` is provided (e.g. user picked a "Серия / Тема" filter when
+ * creating the protocol), reuse that tag and link it to the protocol — so the
+ * topic carries over from the chosen series. Otherwise create / reuse the
+ * default "Общее" placeholder.
+ */
+export async function seedLivingPlaceholder(
+  userId: string,
+  groupId: string,
+  existingTagId?: string | null,
+): Promise<void> {
   const placeholderName = "Общее";
+
+  // Fast-path: caller already knows which topic tag to attach.
+  if (existingTagId) {
+    // Link the tag to the protocol's "first task" placeholder via protocol_meta only —
+    // there are no task rows yet at creation time. The topic chip in the UI is rendered
+    // from `protocol_meta.topic_notes` keys, so registering the tag there is enough.
+    const { data: group } = await supabase
+      .from("task_groups")
+      .select("protocol_meta")
+      .eq("id", groupId)
+      .maybeSingle();
+    const meta: any = (group as any)?.protocol_meta ?? {};
+    const notes = { ...(meta.topic_notes ?? {}) };
+    if (!notes[existingTagId]) notes[existingTagId] = "";
+    await supabase
+      .from("task_groups")
+      .update({ protocol_meta: { ...meta, topic_notes: notes } } as any)
+      .eq("id", groupId);
+    return;
+  }
 
   // 1. Find or create user's `event_topic` category.
   let category = (
