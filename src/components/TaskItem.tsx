@@ -14,6 +14,7 @@ import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
 import TaskClientPicker from "@/components/TaskClientPicker";
+import ClientAvatar from "@/components/ClientAvatar";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
