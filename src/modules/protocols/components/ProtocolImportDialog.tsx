@@ -20,6 +20,7 @@ import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocol
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
 import { toast } from "sonner";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 // Конвертация File → base64 (для multimodal-передачи в Gemini)
 async function fileToBase64(file: File): Promise<string> {
@@ -481,8 +482,10 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       return group as { id: string };
     },
     onSuccess: (group) => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      // Scoped: refresh task_groups list, global tasks (so new protocol appears
+      // in global lists), and tasks scoped to the freshly-created group.
+      invalidateTaskGroups(qc);
+      invalidateTasksScoped(qc, group.id);
       qc.invalidateQueries({ queryKey: ["tags"] });
       qc.invalidateQueries({ queryKey: ["event_topic_tags"] });
       toast.success("Протокол создан как черновик");

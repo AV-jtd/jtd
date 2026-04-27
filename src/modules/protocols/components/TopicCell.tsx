@@ -8,6 +8,7 @@ import { Plus, Tag as TagIcon, X, Search, Loader2, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import type { Task } from "@/hooks/useTasks";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 type Props = {
   task: Task;
@@ -97,7 +98,8 @@ export default function TopicCell({ task, compact }: Props) {
         if (error) throw error;
       }
 
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      // Tag change touches a single protocol row → only refresh global + this group.
+      invalidateTasksScoped(qc, task.group_id);
       qc.invalidateQueries({ queryKey: ["tags"] });
       setOpen(false);
       setSearch("");
@@ -121,7 +123,7 @@ export default function TopicCell({ task, compact }: Props) {
             title: "Тема привязана к проекту",
             description: `«${created.name}» — это существующий проект, контекст подхватится автоматически.`,
           });
-          qc.invalidateQueries({ queryKey: ["task_groups"] });
+          invalidateTaskGroups(qc);
         } else {
           toast({
             title: "Тема создана",

@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocolTemplates";
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 import { toast } from "sonner";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 const AXIS_LABELS: Record<string, string> = {
   clients: "Клиент",
@@ -283,8 +284,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
       return group as { id: string };
     },
     onSuccess: (group) => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskGroups(qc);
+      invalidateTasksScoped(qc, group.id);
       toast.success("Протокол создан");
       onOpenChange(false);
       navigate(`/protocols/${group.id}`);

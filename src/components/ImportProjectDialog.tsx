@@ -6,6 +6,7 @@ import { parseExcelForPreview, importRowsToProject, ImportPreview } from "@/lib/
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 interface ImportProjectDialogProps {
   trigger?: React.ReactNode;
@@ -38,8 +39,8 @@ export default function ImportProjectDialog({ trigger, targetGroupId, onSuccess 
       const result = await importRowsToProject(user.id, preview.rows, targetGroupId);
       setDone(true);
       toast.success(`Импортировано ${result.taskCount} задач`);
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      invalidateTasksScoped(qc, result.groupId);
+      invalidateTaskGroups(qc);
       qc.invalidateQueries({ queryKey: ["tags"] });
       setTimeout(() => {
         setOpen(false);

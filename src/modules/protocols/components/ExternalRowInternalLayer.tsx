@@ -12,6 +12,7 @@ import { filterRealProjects } from "@/lib/projectFilters";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
+import { invalidateTasksScoped } from "@/lib/queryInvalidation";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
 
@@ -96,7 +97,7 @@ export default function ExternalRowInternalLayer({ task }: Props) {
               { task_id: task.id, tag_id: tagId },
               { onConflict: "task_id,tag_id", ignoreDuplicates: true },
             );
-          qc.invalidateQueries({ queryKey: ["tasks"] });
+          invalidateTasksScoped(qc, task.group_id);
         }
       }
     }
