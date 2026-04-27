@@ -86,6 +86,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedProtocol | null>(null);
+  // Каким режимом был выполнен последний парсинг — нужно, чтобы предложить
+  // перепарсить документ, если пользователь сменил шаблон на/с «📖 Живой».
+  const [parsedMode, setParsedMode] = useState<"formal" | "living" | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ProtocolTemplate | null>(null);
   const [protocolName, setProtocolName] = useState("");
   const [meetingDate, setMeetingDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -101,6 +104,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         setText("");
         setPdfFile(null);
         setParsed(null);
+        setParsedMode(null);
         setSelectedTemplate(null);
         setProtocolName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
@@ -145,12 +149,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       } else {
         body = { text };
       }
-      // Если пользователь УЖЕ выбрал шаблон до парсинга (например, через быструю
-      // точку входа «Импортировать как живой документ») — передаём mode серверу,
-      // чтобы он использовал отдельный living-промпт. По умолчанию — formal.
-      if ((selectedTemplate as any)?.system_key === "living") {
-        body.mode = "living";
-      }
+      // Режим парсера: living-промпт даёт смысловую группировку по темам с тезисами,
+      // formal-промпт ищет нумерованные блоки и таблицы поручений. Если шаблон уже
+      // выбран — берём из него, иначе formal по умолчанию.
+      const mode: "living" | "formal" =
+        (selectedTemplate as any)?.system_key === "living" ? "living" : "formal";
+      body.mode = mode;
       const resp = await fetch(url, {
         method: "POST",
         headers: {
@@ -174,6 +178,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         expanded: false,
       }));
       setParsed({ ...data, rows });
+      setParsedMode(
+        (selectedTemplate as any)?.system_key === "living" ? "living" : "formal",
+      );
       setStep("template");
       const secCount = data.sections?.length || 0;
       toast.success(
