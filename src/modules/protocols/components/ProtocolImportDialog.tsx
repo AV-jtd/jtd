@@ -185,6 +185,18 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
             parsed.summary && `\n${parsed.summary}`,
             parsed.participants?.length && `\nУчастники: ${parsed.participants.join(", ")}`,
           ].filter(Boolean).join("\n"),
+          // Сохраняем системный ключ выбранного шаблона, иначе ProtocolDetailPage
+          // не может отличить cross_functional от client_negotiation и открывает
+          // импортированный протокол как переговоры.
+          protocol_meta: {
+            meeting_date: parsed.meeting_date || meetingDate,
+            format: "offline",
+            external_attendees: [],
+            // Создатель импорта автоматически — внутренний участник, чтобы
+            // он мог продолжать редактировать задачи после публикации.
+            internal_attendees: [user.id],
+            template_system_key: selectedTemplate.system_key || null,
+          },
         } as any)
         .select()
         .single();
