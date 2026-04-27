@@ -270,7 +270,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               .eq("system_key", "event_topic")
               .eq("user_id", user.id)
               .maybeSingle();
-            if (existingCat?.id) {
+            if ((existingCat as any)?.id) {
               categoryId = (existingCat as any).id;
             } else {
               const { data: createdCat } = await supabase
