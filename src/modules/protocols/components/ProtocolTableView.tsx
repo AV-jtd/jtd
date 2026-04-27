@@ -395,6 +395,9 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     />
                   </div>
                 </Th>
+                <Th className="w-40">
+                  <span className="text-muted-foreground">Проект</span>
+                </Th>
                 <Th className="w-36">
                   <SortHeader
                     label="Срок"
