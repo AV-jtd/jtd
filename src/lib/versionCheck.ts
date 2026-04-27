@@ -133,18 +133,28 @@ export async function checkForUpdates() {
 
   // 3) Re-check when tab becomes visible again (catches long-idle tabs)
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") pollOnce();
+    if (document.visibilityState === "hidden" && sessionStorage.getItem("jtd_update_available")) {
+      void hardReload();
+      return;
+    }
+    if (document.visibilityState === "visible" && Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
   });
-  window.addEventListener("focus", pollOnce);
-  window.addEventListener("online", pollOnce);
+  window.addEventListener("focus", () => {
+    if (Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
+  });
+  window.addEventListener("online", () => {
+    if (Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
+  });
 
-  // 4) When a new SW takes control, force a hard reload so HTML/JS match SW cache
+  // 4) When a new SW takes control, reload only once the tab is backgrounded.
+  // Reloading immediately on controllerchange was causing full app resets while
+  // users were actively working, especially with several tabs open.
   if ("serviceWorker" in navigator) {
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (refreshing) return;
       refreshing = true;
-      hardReload();
+      void hardReloadOnlyWhenHidden();
     });
   }
 }
