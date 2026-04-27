@@ -212,7 +212,11 @@ function GroupItemImpl(props: GroupItemProps) {
           <div className={cn("items-center gap-0.5 shrink-0", isActive ? "flex opacity-60" : "hidden group-hover:flex")}>
             {isRoot && (
               <span
-                onClick={(e) => { e.stopPropagation(); setShowNewSubgroup(true); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNewSubgroup(true);
+                  if (!isExpanded) onToggleExpand(group.id);
+                }}
                 className="p-0.5 cursor-pointer opacity-60 hover:!opacity-100"
                 title="Добавить подпроект"
               >
