@@ -3,8 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PopoverSearchList } from "@/components/ui/popover-search";
-import { Building2, Plus, Loader2 } from "lucide-react";
+import { Building2, Plus, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -63,6 +62,16 @@ export default function TaskClientPicker({ clientId, onChange, buttonClassName, 
   );
   const showCreate = trimmedSearch.length >= 2 && !exactMatch;
 
+  const filtered = useMemo(() => {
+    if (!trimmedSearch) return clients.slice(0, 50);
+    const q = trimmedSearch.toLowerCase();
+    return clients
+      .filter((c) =>
+        `${c.name} ${c.contact_name ?? ""} ${c.city ?? ""}`.toLowerCase().includes(q),
+      )
+      .slice(0, 50);
+  }, [clients, trimmedSearch]);
+
   const createClient = async () => {
     if (!user || !trimmedSearch || creating) return;
     setCreating(true);
@@ -108,13 +117,21 @@ export default function TaskClientPicker({ clientId, onChange, buttonClassName, 
             )}
           </div>
         )}
-        <PopoverSearchList
-          items={clients}
-          searchKey={(c) => `${c.name} ${c.contact_name ?? ""} ${c.city ?? ""}`}
-          placeholder="Найти клиента..."
-          emptyText="Не найдено"
-          onSearchChange={setSearch}
-          renderItem={(c) => (
+        <div className="relative mb-1.5">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Найти или создать клиента..."
+            className="w-full pl-7 pr-2 py-1.5 text-xs bg-muted/50 border border-border rounded outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+          />
+        </div>
+        <div className="max-h-48 overflow-y-auto space-y-0.5 overscroll-contain">
+          {filtered.length === 0 && !showCreate && (
+            <p className="text-xs text-muted-foreground px-2 py-1">Не найдено</p>
+          )}
+          {filtered.map((c) => (
             <button
               key={c.id}
               onClick={() => {
@@ -133,8 +150,8 @@ export default function TaskClientPicker({ clientId, onChange, buttonClassName, 
                 </span>
               )}
             </button>
-          )}
-        />
+          ))}
+        </div>
         {showCreate && (
           <button
             onClick={createClient}
