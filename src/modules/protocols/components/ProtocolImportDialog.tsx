@@ -86,6 +86,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedProtocol | null>(null);
+  // Каким режимом был выполнен последний парсинг — нужно, чтобы предложить
+  // перепарсить документ, если пользователь сменил шаблон на/с «📖 Живой».
+  const [parsedMode, setParsedMode] = useState<"formal" | "living" | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ProtocolTemplate | null>(null);
   const [protocolName, setProtocolName] = useState("");
   const [meetingDate, setMeetingDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -101,6 +104,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         setText("");
         setPdfFile(null);
         setParsed(null);
+        setParsedMode(null);
         setSelectedTemplate(null);
         setProtocolName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
@@ -145,6 +149,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       } else {
         body = { text };
       }
+      // Режим парсера: living-промпт даёт смысловую группировку по темам с тезисами,
+      // formal-промпт ищет нумерованные блоки и таблицы поручений. Если шаблон уже
+      // выбран — берём из него, иначе formal по умолчанию.
+      const mode: "living" | "formal" =
+        (selectedTemplate as any)?.system_key === "living" ? "living" : "formal";
+      body.mode = mode;
       const resp = await fetch(url, {
         method: "POST",
         headers: {
@@ -168,6 +178,9 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         expanded: false,
       }));
       setParsed({ ...data, rows });
+      setParsedMode(
+        (selectedTemplate as any)?.system_key === "living" ? "living" : "formal",
+      );
       setStep("template");
       const secCount = data.sections?.length || 0;
       toast.success(
@@ -301,6 +314,43 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       //    Каждая задача с axes.event_topic получает соответствующий тег;
       //    задачи в таблице протокола сразу группируются по теме.
       try {
+        // 3.0 LIVING: гарантируем, что у каждой задачи есть event_topic.
+        //     Если AI не проставил axes.event_topic для конкретной задачи —
+        //     ищем секцию, в task_indices которой есть её индекс. Это страхует
+        //     от ситуации, когда модель забыла продублировать topic в axes.
+        if (isLiving && parsed.sections && parsed.sections.length > 0) {
+          // Карта: индекс строки в исходном parsed.rows → topic секции
+          const idxToTopic = new Map<number, string>();
+          parsed.sections.forEach((s) => {
+            const t = (s.topic || "").trim();
+            if (!t) return;
+            (s.task_indices || []).forEach((i) => {
+              if (!idxToTopic.has(i)) idxToTopic.set(i, t);
+            });
+          });
+          // Применяем к выбранным строкам (resolvedRows ↔ selectedRows ↔ parsed.rows
+          // через индекс в parsed.rows). selectedRows.filter сохраняет порядок,
+          // но индексы сместились. Восстановим оригинальные индексы:
+          let cursor = 0;
+          const origIdxByResolved: number[] = [];
+          parsed.rows.forEach((r, origIdx) => {
+            if (r.selected) {
+              origIdxByResolved[cursor] = origIdx;
+              cursor++;
+            }
+          });
+          resolvedRows.forEach((r, i) => {
+            const orig = origIdxByResolved[i];
+            const fromAxis = (r.axes?.event_topic || "").trim();
+            if (!fromAxis) {
+              const fromSection = idxToTopic.get(orig);
+              if (fromSection) {
+                r.axes = { ...(r.axes ?? {}), event_topic: fromSection };
+              }
+            }
+          });
+        }
+
         // 3.1 Уникальные имена тем
         const topicNames = Array.from(
           new Set(
@@ -415,8 +465,8 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
             if (
               isLiving &&
               parsed.sections &&
-              parsed.sections.length > 0 &&
-              includeSectionsInDescription
+              parsed.sections.length > 0
+              // Для living чекбокс не показывается — выводы блочно ВСЕГДА.
             ) {
               const topicNotes: Record<string, string> = {};
               for (const sec of parsed.sections) {
@@ -626,15 +676,17 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                     <Label className="text-xs uppercase text-muted-foreground">
                       Найдено секций: {parsed.sections.length}
                     </Label>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
-                      <Checkbox
-                        checked={includeSectionsInDescription}
-                        onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
-                      />
-                      {isLivingTpl
-                        ? "Сохранить выводы блочно (над таблицей задач каждой темы)"
-                        : "Сохранить выводы секций в описание протокола"}
-                    </label>
+                    {/* Для living чекбокс не нужен — выводы блочно ВСЕГДА (живой формат
+                        без них теряет смысл). Для остальных — оставляем выбор. */}
+                    {!isLivingTpl && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                        <Checkbox
+                          checked={includeSectionsInDescription}
+                          onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
+                        />
+                        Сохранить выводы секций в описание протокола
+                      </label>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     {parsed.sections.map((s, i) => (
@@ -657,6 +709,39 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                       ? "Темы станут тегами и сгруппируют задачи. Выводы появятся как блок над таблицей внутри каждой темы — потом редактируются inline."
                       : "Каждая задача автоматически получит тег темы — и в таблице протокола они сразу сгруппируются по секциям."}
                   </p>
+                </div>
+              )}
+
+              {/* Подсказка о mismatch режима парсинга и выбранного шаблона.
+                  Living-промпт даёт смысловую группировку с тезисами, formal-промпт —
+                  ищет нумерованные блоки. Если расходятся — предлагаем перепарсить. */}
+              {parsedMode && (
+                (isLivingTpl && parsedMode === "formal") ||
+                (!isLivingTpl && parsedMode === "living")
+              ) && (
+                <div className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="flex-1">
+                    <div className="font-medium text-foreground">
+                      {isLivingTpl
+                        ? "Документ был разобран как формальный протокол"
+                        : "Документ был разобран как живые заметки"}
+                    </div>
+                    <div className="mt-0.5 text-muted-foreground">
+                      {isLivingTpl
+                        ? "Для шаблона «📖 Живой документ» лучше перепарсить — ИИ заново сгруппирует заметки по смысловым темам с тезисами-выводами."
+                        : "Для формальных шаблонов лучше перепарсить — ИИ найдёт нумерованные разделы и таблицы поручений."}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => parseMutation.mutate()}
+                    disabled={parseMutation.isPending}
+                  >
+                    {parseMutation.isPending && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                    Перепарсить
+                  </Button>
                 </div>
               )}
 
@@ -1180,6 +1265,17 @@ function guessTemplate(parsed: ParsedProtocol, templates: ProtocolTemplate[]): P
   }
   if (/гейт|gate|npd|разработк|новый продукт|рецептур/i.test(text)) {
     const t = templates.find((t) => t.system_key === "npd_gate");
+    if (t) return t;
+  }
+  // Эвристика «живого документа»: формальной структуры нет (мало секций, нет таблиц
+  // | ... | ... |, нет нумерованных заголовков типа "## 1." / "### 2."), но задачи
+  // есть. Это типичные свободные заметки встречи — для них живой формат удобнее.
+  const looksFormal =
+    /\|\s*[^|]+\s*\|\s*[^|]+\s*\|/.test(text) || // таблица
+    /\b#{1,4}\s*\d+[.)]/.test(text) || // нумерованный заголовок
+    (parsed.sections?.length ?? 0) >= 3; // 3+ секций = явно структурированный документ
+  if (!looksFormal && parsed.rows.length > 0) {
+    const t = templates.find((t) => t.system_key === "living");
     if (t) return t;
   }
   return (
