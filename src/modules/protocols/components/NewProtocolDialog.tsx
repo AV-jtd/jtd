@@ -296,7 +296,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
           } else {
             const ins = await supabase
               .from("tag_categories" as any)
-              .
+              .insert({ name: "Тема", system_key: "event_topic", is_system: true, user_id: user
     },
     onSuccess: (group) => {
       invalidateTaskGroups(qc);
