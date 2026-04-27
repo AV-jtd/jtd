@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
+import { useLinkedProtocolTasks } from "@/hooks/useLinkedProtocolTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasksWithComments } from "@/hooks/useComments";
 import TaskItem from "./TaskItem";
@@ -125,6 +126,10 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const [delegationTab, setDelegationTab] = useState<"by_me" | "to_me">("by_me");
   const [groupBy, setGroupBy] = useState<GroupByOption>("none");
   const [mydayTab, setMydayTab] = useState<"all" | "important" | "today" | "overdue">("all");
+  // Toggle: подмес задач из протоколов (status_meta.linked_project_id → текущий проект,
+  // либо все linked-задачи если активного проекта нет).
+  const [showProtocolTasks, setShowProtocolTasks] = useState(false);
+  const { data: linkedProtocolTasks = [] } = useLinkedProtocolTasks(showProtocolTasks);
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -249,12 +254,36 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
 
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    let nextTasks = tasks;
+    let nextTasks: typeof tasks = tasks;
+
+    // Подмешиваем задачи из протоколов (если включён тогл).
+    // В режиме проекта — только те, чей linked_project_id указывает
+    // на этот проект или его подпроекты. Иначе — все linked.
+    if (showProtocolTasks && linkedProtocolTasks.length > 0) {
+      const protocolGroupIds = new Set(
+        groups.filter(g => (g as any).project_type === "protocol").map(g => g.id)
+      );
+      let allowedProjectIds: Set<string> | null = null;
+      if (isGroupView && activeGroupId) {
+        const childIds = groups.filter(g => g.parent_id === activeGroupId).map(g => g.id);
+        allowedProjectIds = new Set([activeGroupId, ...childIds]);
+      }
+      const existingIds = new Set(nextTasks.map(t => t.id));
+      const extras = (linkedProtocolTasks as any[]).filter(t => {
+        if (existingIds.has(t.id)) return false;
+        if (!t.group_id || !protocolGroupIds.has(t.group_id)) return false;
+        const lp = t.status_meta?.linked_project_id as string | undefined;
+        if (!lp) return false;
+        if (allowedProjectIds && !allowedProjectIds.has(lp)) return false;
+        return true;
+      });
+      nextTasks = [...nextTasks, ...(extras as any)];
+    }
 
     if (activeView === "inbox") {
-      nextTasks = tasks.filter(t => !t.group_id);
+      nextTasks = nextTasks.filter(t => !t.group_id);
     } else if (activeView === "myday") {
-      const mydayAll = tasks.filter(t =>
+      const mydayAll = nextTasks.filter(t =>
         t.is_important ||
         (t.deadline && isToday(parseISO(t.deadline))) ||
         (t.deadline && !t.is_completed && isBefore(parseISO(t.deadline), startOfDay(now)))
@@ -269,19 +298,19 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         nextTasks = mydayAll;
       }
     } else if (activeView === "important") {
-      nextTasks = tasks.filter(t => t.is_important);
+      nextTasks = nextTasks.filter(t => t.is_important);
     } else if (activeView === "today") {
-      nextTasks = tasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
+      nextTasks = nextTasks.filter(t => t.deadline && isToday(parseISO(t.deadline)));
     } else if (activeView === "assigned") {
       if (delegationTab === "by_me") {
-        nextTasks = tasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id);
+        nextTasks = nextTasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id);
       } else {
-        nextTasks = tasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id);
+        nextTasks = nextTasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id);
       }
     } else if (activeView === "deferred") {
-      nextTasks = tasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
+      nextTasks = nextTasks.filter(t => t.deferred_until && new Date(t.deferred_until) > now);
     } else {
-      nextTasks = tasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
+      nextTasks = nextTasks.filter(t => !t.deferred_until || new Date(t.deferred_until) <= now);
     }
 
     if (priorityFilter !== null) {
@@ -347,7 +376,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     }
 
     return nextTasks;
-  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab, activeStatFilter]);
+  }, [tasks, activeView, priorityFilter, assigneeFilter, projectFilter, searchFilter, user?.id, delegationTab, activeStatFilter, mydayTab, showProtocolTasks, linkedProtocolTasks, groups, isGroupView, activeGroupId]);
 
   const activeTasks = useMemo(() => filteredTasks.filter(t => !t.is_completed), [filteredTasks]);
   const completedTasks = useMemo(() => filteredTasks.filter(t => t.is_completed), [filteredTasks]);
@@ -936,6 +965,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             activeView={activeView}
             groupBy={groupBy}
             onGroupByChange={setGroupBy}
+            showProtocolTasks={showProtocolTasks}
+            onToggleProtocolTasks={() => setShowProtocolTasks(v => !v)}
           />
         )}
 

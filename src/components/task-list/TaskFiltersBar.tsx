@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Clock, Filter, LayoutList, Layers, Search, Star, User, X, CalendarDays, CalendarX, FolderOpen, ShieldCheck } from "lucide-react";
+import { Clock, Filter, LayoutList, Layers, Search, Star, User, X, CalendarDays, CalendarX, FolderOpen, ShieldCheck, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -23,6 +23,8 @@ interface TaskFiltersBarProps {
   activeView: string;
   groupBy: GroupByOption;
   onGroupByChange: (value: GroupByOption) => void;
+  showProtocolTasks?: boolean;
+  onToggleProtocolTasks?: () => void;
 }
 
 const groupByOptions: { key: GroupByOption; label: string; icon: React.ElementType }[] = [
@@ -47,6 +49,8 @@ function TaskFiltersBar({
   activeView,
   groupBy,
   onGroupByChange,
+  showProtocolTasks,
+  onToggleProtocolTasks,
 }: TaskFiltersBarProps) {
   const [draftSearch, setDraftSearch] = useState(searchValue);
 
@@ -132,6 +136,25 @@ function TaskFiltersBar({
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">Важные</TooltipContent>
         </Tooltip>
+
+        {onToggleProtocolTasks && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleProtocolTasks}
+                className={cn(
+                  "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                  showProtocolTasks
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <FileText className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Из протоколов</TooltipContent>
+          </Tooltip>
+        )}
 
         <Popover>
           <Tooltip>
