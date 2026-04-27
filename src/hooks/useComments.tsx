@@ -86,3 +86,51 @@ export function useCommentMutations() {
 
   return { addComment, deleteComment };
 }
+
+/**
+ * Bulk-fetch which task IDs have at least one comment.
+ * Used by TaskList to highlight the chat icon without doing N per-task queries.
+ */
+export function useTasksWithComments(taskIds: string[]) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  const sortedIds = [...taskIds].sort();
+  const key = sortedIds.join(",");
+
+  // Invalidate this aggregated query whenever ANY comment changes for the current user.
+  useEffect(() => {
+    if (!user || sortedIds.length === 0) return;
+    const chKey = `task-comments-presence-${user.id}`;
+    return channelManager.subscribe(
+      chKey,
+      () =>
+        supabase
+          .channel(chKey)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "task_comments" },
+            () => channelManager.notify(chKey)
+          )
+          .subscribe(),
+      () => qc.invalidateQueries({ queryKey: ["task_comments_presence"] })
+    );
+  }, [user, sortedIds.length, qc]);
+
+  return useQuery({
+    queryKey: ["task_comments_presence", key],
+    queryFn: async () => {
+      if (sortedIds.length === 0) return new Set<string>();
+      const { data, error } = await supabase
+        .from("task_comments" as any)
+        .select("task_id")
+        .in("task_id", sortedIds);
+      if (error) throw error;
+      const set = new Set<string>();
+      for (const row of (data || []) as { task_id: string }[]) set.add(row.task_id);
+      return set;
+    },
+    enabled: !!user && sortedIds.length > 0,
+    staleTime: 30_000,
+  });
+}
