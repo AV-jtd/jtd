@@ -992,6 +992,7 @@ export function useTaskMutations() {
         closure_attachments: [],
         source_protocol_id: task.source_protocol_id ?? null,
         is_draft: task.is_draft ?? false,
+        attributed_group_id: (task as any).attributed_group_id ?? null,
         external_ref: null,
         external_assignee: null,
         department_id: task.department_id || null,
