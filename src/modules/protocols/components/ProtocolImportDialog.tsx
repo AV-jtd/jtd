@@ -771,25 +771,25 @@ function RowCard({
             <Label className="text-[10px] uppercase text-muted-foreground">Тема</Label>
             <Input
               value={topicAxis}
-              onChange={(e) => setAxis("event_topic", e.target.value || null)}
+              onChange={(e) => setAxis("event_topic", e.target.value)}
               placeholder="Например: Шашлык-тур"
               className="h-8 text-xs"
             />
           </div>
 
           {/* Other axes (read-only chips with edit) */}
-          {axes.filter((a) => a.k !== "event_topic").length > 0 && (
+          {axisKeys.length > 0 && (
             <div className="space-y-1">
               <Label className="text-[10px] uppercase text-muted-foreground">Дополнительные параметры</Label>
               <div className="grid gap-1.5 sm:grid-cols-2">
-                {axes.filter((a) => a.k !== "event_topic").map(({ k, v }) => (
+                {axisKeys.map((k) => (
                   <div key={k} className="flex items-center gap-1.5">
                     <span className="text-[11px] text-muted-foreground w-20 shrink-0">
                       {AXIS_LABEL[k] || k}
                     </span>
                     <Input
-                      value={v}
-                      onChange={(e) => setAxis(k, e.target.value || null)}
+                      value={String(row.axes?.[k] ?? "")}
+                      onChange={(e) => setAxis(k, e.target.value)}
                       className="h-7 flex-1 text-xs"
                     />
                   </div>
