@@ -55,6 +55,8 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const protocol = useMemo(() => groups.find((g) => g.id === protocolId), [groups, protocolId]);
   const isProtocolDraft = (protocol as any)?.draft_status === "draft";
   const protocolMeta = (protocol as any)?.protocol_meta ?? {};
+  const templateKey: string | undefined = protocolMeta.template_system_key;
+  const isLiving = templateKey === "living";
   const externalAttendees: Array<{ name: string; organization?: string; role?: string }> =
     (protocolMeta.external_attendees as any[]) ?? [];
   const linkedClientId: string | null = protocolMeta.client_id ?? null;
@@ -105,7 +107,11 @@ export default function ProtocolTableView({ protocolId }: Props) {
   const [projectFilter, setProjectFilter] = useState<Set<string>>(new Set());
 
   // ---------- Group by topic ----------
-  const [groupByTopic, setGroupByTopic] = useState(false);
+  // For "living" protocols, topic-grouping is always on — это часть UX-обещания шаблона.
+  const [groupByTopic, setGroupByTopic] = useState(isLiving);
+  useEffect(() => {
+    if (isLiving) setGroupByTopic(true);
+  }, [isLiving]);
   const { topicTags } = useEventTopicTags();
   const getTaskTopic = (t: Task) => {
     const ids = (t.task_tags ?? []).map((tt) => tt.tag_id);
