@@ -13,6 +13,7 @@ import TaskChat from "@/components/TaskChat";
 import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
+import MultiAssigneePicker from "@/components/MultiAssigneePicker";
 import TaskClientPicker from "@/components/TaskClientPicker";
 import ClientAvatar from "@/components/ClientAvatar";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
