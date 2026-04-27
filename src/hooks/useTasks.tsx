@@ -250,6 +250,7 @@ export function useTasks(
   options?: UseTasksOptions,
 ) {
   const { user, loading } = useAuth();
+  const qc = useQueryClient();
   const completedWindowDays = options?.completedWindowDays ?? null;
 
   // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
@@ -257,7 +258,27 @@ export function useTasks(
   return useQuery({
     queryKey: ["tasks", user?.id, groupId, filterTags, completedWindowDays],
     queryFn: async () => {
-      const tasks = await fetchAllPages<Task>((from, to) => {
+      // Apply the same client-side filter that's used at the end so streamed
+      // intermediate results are visually consistent with the final array.
+      const filterChunk = (chunk: Task[]): Task[] => {
+        if (groupId) return chunk;
+        return chunk.filter(
+          (t) => !(t as any).is_draft && (t as any).task_type !== "stm_stage",
+        );
+      };
+
+      const queryKey = ["tasks", user?.id, groupId, filterTags, completedWindowDays] as const;
+
+      // Streaming pagination: publish each page to React Query cache as it
+      // arrives so the UI updates progressively. Skipped when filterTags is
+      // active because the post-pass needs the full array to do the
+      // project-hierarchy expansion (publishing partial pre-tag-filter data
+      // would briefly show wrong rows). For per-group queries (groupId set)
+      // the streaming has no measurable effect because pages are tiny — but
+      // it's still safe to leave on.
+      const canStream = !filterTags || filterTags.length === 0;
+
+      const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
           .select("*, subtasks(*), task_tags(tag_id)")
@@ -286,6 +307,11 @@ export function useTasks(
         }
 
         return query;
+      }, (accumulated, isFinal) => {
+        if (!canStream || isFinal) return; // final page is published by useQuery itself
+        // Push intermediate result so the list paints early. The final
+        // resolution will overwrite this with the post-processed array.
+        qc.setQueryData<Task[]>(queryKey, filterChunk(accumulated));
       });
 
       let filteredTasks = tasks;
