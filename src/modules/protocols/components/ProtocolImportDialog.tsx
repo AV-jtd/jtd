@@ -145,6 +145,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       } else {
         body = { text };
       }
+      // Если пользователь УЖЕ выбрал шаблон до парсинга (например, через быструю
+      // точку входа «Импортировать как живой документ») — передаём mode серверу,
+      // чтобы он использовал отдельный living-промпт. По умолчанию — formal.
+      if ((selectedTemplate as any)?.system_key === "living") {
+        body.mode = "living";
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers: {
@@ -301,6 +307,43 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       //    Каждая задача с axes.event_topic получает соответствующий тег;
       //    задачи в таблице протокола сразу группируются по теме.
       try {
+        // 3.0 LIVING: гарантируем, что у каждой задачи есть event_topic.
+        //     Если AI не проставил axes.event_topic для конкретной задачи —
+        //     ищем секцию, в task_indices которой есть её индекс. Это страхует
+        //     от ситуации, когда модель забыла продублировать topic в axes.
+        if (isLiving && parsed.sections && parsed.sections.length > 0) {
+          // Карта: индекс строки в исходном parsed.rows → topic секции
+          const idxToTopic = new Map<number, string>();
+          parsed.sections.forEach((s) => {
+            const t = (s.topic || "").trim();
+            if (!t) return;
+            (s.task_indices || []).forEach((i) => {
+              if (!idxToTopic.has(i)) idxToTopic.set(i, t);
+            });
+          });
+          // Применяем к выбранным строкам (resolvedRows ↔ selectedRows ↔ parsed.rows
+          // через индекс в parsed.rows). selectedRows.filter сохраняет порядок,
+          // но индексы сместились. Восстановим оригинальные индексы:
+          let cursor = 0;
+          const origIdxByResolved: number[] = [];
+          parsed.rows.forEach((r, origIdx) => {
+            if (r.selected) {
+              origIdxByResolved[cursor] = origIdx;
+              cursor++;
+            }
+          });
+          resolvedRows.forEach((r, i) => {
+            const orig = origIdxByResolved[i];
+            const fromAxis = (r.axes?.event_topic || "").trim();
+            if (!fromAxis) {
+              const fromSection = idxToTopic.get(orig);
+              if (fromSection) {
+                r.axes = { ...(r.axes ?? {}), event_topic: fromSection };
+              }
+            }
+          });
+        }
+
         // 3.1 Уникальные имена тем
         const topicNames = Array.from(
           new Set(
@@ -415,8 +458,8 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
             if (
               isLiving &&
               parsed.sections &&
-              parsed.sections.length > 0 &&
-              includeSectionsInDescription
+              parsed.sections.length > 0
+              // Для living чекбокс не показывается — выводы блочно ВСЕГДА.
             ) {
               const topicNotes: Record<string, string> = {};
               for (const sec of parsed.sections) {
