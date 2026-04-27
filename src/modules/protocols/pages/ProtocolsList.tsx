@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTaskGroups, useTasks, useTaskMutations } from "@/hooks/useTasks";
 import { Plus, Search, FileText, CheckCircle2, AlertTriangle, Clock, Archive, FileEdit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,15 +19,23 @@ type StatusFilter = "all" | "active" | "archived";
 
 export default function ProtocolsList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: groups = [], isLoading: groupsLoading } = useTaskGroups();
   const { data: tasks = [] } = useTasks();
   const { deleteGroup } = useTaskMutations();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  // Initialize state from URL (so a shared link restores filters).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get("status");
+    return s === "all" || s === "archived" || s === "active" ? s : "active";
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [statFilter, setStatFilter] = useState<ProtocolStatFilter>("none");
-  const [axisTagId, setAxisTagId] = useState<string | null>(null);
+  const [statFilter, setStatFilter] = useState<ProtocolStatFilter>(() => {
+    const s = searchParams.get("stat");
+    return s === "overdue" || s === "unassigned" || s === "undated" ? s : "none";
+  });
+  const [axisTagId, setAxisTagId] = useState<string | null>(() => searchParams.get("axis"));
   const [axisProtocolIds, setAxisProtocolIds] = useState<string[]>([]);
 
   const protocols = useMemo(
@@ -107,6 +115,43 @@ export default function ProtocolsList() {
 
   // Для AI Risk Radar: берём имена осей из useProtocolsAxes (общий запрос уже кэширован)
   const { data: axesForRadar = [] } = useProtocolsAxes({ protocolIds: visibleProtocolIds });
+
+  // Если axisTagId пришёл из URL — восстановить axisProtocolIds после загрузки осей.
+  useEffect(() => {
+    if (!axisTagId) {
+      if (axisProtocolIds.length) setAxisProtocolIds([]);
+      return;
+    }
+    for (const g of axesForRadar) {
+      const chip = g.chips.find((c) => c.tagId === axisTagId);
+      if (chip) {
+        // shallow compare to avoid extra renders
+        const next = chip.protocolIds;
+        if (next.length !== axisProtocolIds.length || next.some((x, i) => x !== axisProtocolIds[i])) {
+          setAxisProtocolIds(next);
+        }
+        return;
+      }
+    }
+  }, [axisTagId, axesForRadar, axisProtocolIds]);
+
+  // Sync state → URL.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    const set = (k: string, v: string | null, def?: string) => {
+      if (!v || v === def) next.delete(k);
+      else next.set(k, v);
+    };
+    set("q", search.trim() || null);
+    set("status", statusFilter, "active");
+    set("stat", statFilter === "none" ? null : statFilter);
+    set("axis", axisTagId);
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter, statFilter, axisTagId]);
+
   const axesByProtocol = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const g of axesForRadar) {
