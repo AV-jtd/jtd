@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileSpreadsheet, FileText, Type, Sparkles } from "lucide-react";
+import { FileSpreadsheet, FileText, Type, Sparkles, BookOpen } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import ProtocolImportDialog from "./ProtocolImportDialog";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
-type Source = "excel" | "pdf-text" | null;
+type Source = "excel" | "pdf-text" | "living" | null;
 
 export default function UnifiedImportDialog({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
@@ -56,6 +56,17 @@ export default function UnifiedImportDialog({ open, onOpenChange }: Props) {
     );
   }
 
+  // Living flow — тот же диалог, но с фиксированным шаблоном
+  if (open && source === "living") {
+    return (
+      <ProtocolImportDialog
+        open={true}
+        onOpenChange={handleSourceClose}
+        forcedTemplateKey="living"
+      />
+    );
+  }
+
   // Главный экран — выбор источника
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -71,7 +82,7 @@ export default function UnifiedImportDialog({ open, onOpenChange }: Props) {
           Выберите источник — ИИ автоматически распознает структуру, ответственных и сроки.
         </p>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <SourceCard
             icon={<FileSpreadsheet className="h-7 w-7" />}
             title="Excel"
@@ -82,19 +93,27 @@ export default function UnifiedImportDialog({ open, onOpenChange }: Props) {
           />
           <SourceCard
             icon={<FileText className="h-7 w-7" />}
-            title="PDF"
-            description="Документ протокола"
-            badge=".pdf"
+            title="PDF / Текст"
+            description="Формальный протокол с блоками и таблицами"
+            badge=".pdf / paste"
             tone="rose"
             onClick={() => setSource("pdf-text")}
           />
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+          <div className="relative flex justify-center"><span className="bg-background px-2 text-[10px] uppercase text-muted-foreground">или</span></div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
           <SourceCard
-            icon={<Type className="h-7 w-7" />}
-            title="Текст"
-            description="Скопированный из Word, чата, письма"
-            badge="paste"
+            icon={<BookOpen className="h-7 w-7" />}
+            title="📖 Живой документ"
+            description="Свободные заметки встречи — ИИ сгруппирует по темам с тезисами-выводами"
+            badge="living"
             tone="indigo"
-            onClick={() => setSource("pdf-text")}
+            onClick={() => setSource("living")}
           />
         </div>
 
