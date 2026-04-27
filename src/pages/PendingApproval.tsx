@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 
 export default function PendingApproval() {
   const { user, loading, isApproved, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const checkApproval = async (uid: string) => {
     const { data, error } = await supabase
@@ -21,7 +22,7 @@ export default function PendingApproval() {
     if (data?.is_approved) {
       // Force refresh of JWT/session so any cached client state picks up new role/approval
       try { await supabase.auth.refreshSession(); } catch {}
-      window.location.replace("/");
+      navigate("/", { replace: true });
       return true;
     }
     return false;
@@ -51,10 +52,6 @@ export default function PendingApproval() {
 
   const handleRefresh = async () => {
     const ok = await checkApproval(user.id);
-    if (!ok) {
-      // hard reload to drop any stale cache / service-worker state
-      window.location.reload();
-    }
   };
 
   return (
