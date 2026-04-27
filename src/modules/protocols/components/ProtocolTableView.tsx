@@ -33,7 +33,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
-import TaskProjectPicker from "@/components/TaskProjectPicker";
 
 type Props = { protocolId: string };
 
@@ -395,9 +394,6 @@ export default function ProtocolTableView({ protocolId }: Props) {
                     />
                   </div>
                 </Th>
-                <Th className="w-40">
-                  <span className="text-muted-foreground">Проект</span>
-                </Th>
                 <Th className="w-36">
                   <SortHeader
                     label="Срок"
@@ -429,7 +425,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                 <tbody>
                   {sorted.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
                         {tasks.length === 0
                           ? "Пока пусто. Добавьте первую строку протокола ниже."
                           : "Под текущие фильтры строк нет."}
@@ -450,7 +446,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                       for (const [key, { topic, rows }] of buckets) {
                         sections.push(
                           <tr key={`hdr-${key}`} className="bg-muted/30">
-                            <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <td colSpan={8} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               <span className="inline-flex items-center gap-2">
                                 <span
                                   className="inline-block h-2 w-2 rounded-full"
@@ -561,7 +557,7 @@ export default function ProtocolTableView({ protocolId }: Props) {
                   <Plus className="mx-auto h-3.5 w-3.5" />
                 </td>
                 <td />
-                <td className="px-3 py-2" colSpan={7}>
+                <td className="px-3 py-2" colSpan={6}>
                   <div className="flex items-center gap-2">
                     <input
                       value={newTitle}
@@ -848,12 +844,6 @@ function ProtocolRow({
           />
         </td>
         <td className="px-3 py-2">
-          <TaskProjectPicker
-            attributedGroupId={(task as any).attributed_group_id ?? null}
-            onChange={(gid) => onUpdate({ attributed_group_id: gid } as any)}
-          />
-        </td>
-        <td className="px-3 py-2">
           <DeadlineCell
             value={task.deadline}
             overdue={!!overdue}
@@ -891,7 +881,7 @@ function ProtocolRow({
 
       {expanded && (
         <tr className="border-b border-border bg-muted/20">
-          <td colSpan={9} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">
