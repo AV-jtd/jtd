@@ -11,3 +11,4 @@
 - [constraints/external-users-default](mem://constraints/external-users-default) — Все внешние пользователи по умолчанию подчиняются правилам consultant. Применять при добавлении любой новой таблицы/модуля/функции.
 - [features/consultant-role](mem://features/consultant-role) — Роль consultant: автонастройка по contractor_id, RLS-ограничения, скрытие модулей в UI.
 - [tech/scalability-benchmarks](mem://tech/scalability-benchmarks) — Бенчмарки RLS после оптимизации апр 2026 (admin 7мс / director 5мс / power user 53мс) и план масштабирования до 1000+ пользователей.
+- [tech/cross-tab-auth-cache](mem://tech/cross-tab-auth-cache) — Межвкладочный кэш auth-метаданных: localStorage (TTL 60с) + BroadcastChannel + lock дедупликации запросов в `useAuth.fetchProfile`. Открытие новых вкладок не дублирует запросы профиля/ролей.
