@@ -295,8 +295,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   });
 
   const showAxes = useMemo(() => {
-    // Cross-functional is an internal ritual — partner-style axes are noise here.
-    if (!selected || selected.system_key === "cross_functional") return [] as string[];
+    // Cross-functional and living are internal rituals — partner-style axes are noise here.
+    if (!selected) return [] as string[];
+    if (selected.system_key === "cross_functional" || selected.system_key === "living") return [] as string[];
     return [...selected.required_axes, ...selected.optional_axes];
   }, [selected]);
 
