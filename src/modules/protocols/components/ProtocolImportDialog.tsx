@@ -70,17 +70,13 @@ interface ParsedProtocol {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /**
-   * Принудительно фиксирует шаблон по system_key (например, "living"). Если задан —
-   * пользователь не выбирает шаблон вручную, парсер сразу вызывается в правильном
-   * режиме (mode: "living"), а на шаге Template карточки шаблонов скрыты.
-   */
-  forcedTem
+  /** Force-lock template by system_key (e.g. 'living'). */
+  forcedTemplateKey?: string | null;
 }
 
 type Step = "input" | "template" | "review";
 
-export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
+export default function ProtocolImportDialog({ open, onOpenChange, forcedTemplateKey }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
