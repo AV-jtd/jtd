@@ -289,7 +289,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               .select("id, name, category_id, tag_categories!inner(system_key)")
               .eq("tag_categories.system_key", "event_topic");
             const tagByLowerName = new Map<string, { id: string; name: string }>();
-            for (const t of (existingTags ?? []) as any[]) {
+            for (const t of ((existingTags ?? []) as unknown as any[])) {
               tagByLowerName.set(String(t.name).trim().toLowerCase(), { id: t.id, name: t.name });
             }
 
