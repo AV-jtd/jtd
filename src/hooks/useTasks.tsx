@@ -189,6 +189,12 @@ async function checkDuplicateName(
     if (entity === "tag") {
       throw new DuplicateNameError(`Тэг «${dupTag.name}» уже существует`);
     }
+    // For "project" entity we INTENTIONALLY do not throw: a user creating a
+    // project that matches an existing free-standing tag usually wants to
+    // promote that tag into a project (collect tagged tasks under one umbrella).
+    // The addGroup mutation reuses the existing tag as linked_tag_id, so the
+    // task-hierarchy filter automatically pulls everything tagged with it.
+    if (entity === "project") return;
     throw new DuplicateNameError(`Название «${name.trim()}» уже используется тэгом «${dupTag.name}»`);
   }
 }
@@ -558,17 +564,44 @@ export function useTaskMutations() {
     mutationFn: async ({ name, parent_id }: { name: string; parent_id?: string | null }) => {
       await checkDuplicateName(name, "project", user!.id);
 
-      const { data: tagData, error: tagError } = await supabase
+      // Reuse an existing free-standing tag with the same name (case-insensitive)
+      // so the new project becomes the umbrella for tasks already tagged with it.
+      // Only consider the user's OWN tags here — RLS already scopes the query, but we
+      // double-check user_id for safety. Skip tags already linked to another project.
+      const normalized = name.trim().toLowerCase();
+      const { data: existingTags } = await supabase
         .from("tags")
-        .insert({ name, user_id: user!.id, color: "#3b82f6" })
-        .select()
-        .single();
-      if (tagError) throw tagError;
+        .select("id, name, user_id")
+        .eq("user_id", user!.id);
+      const { data: linkedRows } = await supabase
+        .from("task_groups")
+        .select("linked_tag_id")
+        .eq("user_id", user!.id);
+      const linkedTagIds = new Set(
+        (linkedRows || []).map((g: any) => g.linked_tag_id).filter(Boolean),
+      );
+      const reusable = (existingTags || []).find(
+        (t: any) =>
+          t.name?.trim().toLowerCase() === normalized && !linkedTagIds.has(t.id),
+      );
+
+      let tagId: string;
+      if (reusable) {
+        tagId = reusable.id;
+      } else {
+        const { data: tagData, error: tagError } = await supabase
+          .from("tags")
+          .insert({ name, user_id: user!.id, color: "#3b82f6" })
+          .select()
+          .single();
+        if (tagError) throw tagError;
+        tagId = tagData.id;
+      }
 
       const { data: groupData, error } = await supabase.from("task_groups").insert({
         name,
         user_id: user!.id,
-        linked_tag_id: tagData.id,
+        linked_tag_id: tagId,
         parent_id: parent_id || null,
       } as any).select().single();
       if (error) throw error;
