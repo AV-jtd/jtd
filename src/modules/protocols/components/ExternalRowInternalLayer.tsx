@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { FolderOpen, Layers, Users, X, Check, Building2 } from "lucide-react";
 import { useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +11,7 @@ import ProtocolInternalSection from "./ProtocolInternalSection";
 import { filterRealProjects } from "@/lib/projectFilters";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAllUserDepartments } from "@/hooks/useOrgStructure";
+import { useEventTopicTags } from "@/hooks/useEventTopicTags";
 
 const NPD_STREAMS = ["Продакт", "Реклама", "RnD", "СКК", "Производство", "Закупки", "Продажи", "Покупка оборудования"] as const;
 
@@ -38,6 +40,8 @@ export default function ExternalRowInternalLayer({ task }: Props) {
   const { updateTask } = useTaskMutations();
   const { data: groups = [] } = useTaskGroups();
   const { data: users = [] } = useAvailableUsers();
+  const { topicTags } = useEventTopicTags();
+  const qc = useQueryClient();
 
   const meta = (task.status_meta as any) ?? {};
   const linkedProjectId: string | undefined = meta.linked_project_id;
@@ -57,7 +61,7 @@ export default function ExternalRowInternalLayer({ task }: Props) {
   const isCrossFunctional =
     (protocolGroup?.protocol_meta as any)?.template_system_key === "cross_functional";
 
-  const setLinkedProject = (pid: string | null) => {
+  const setLinkedProject = async (pid: string | null) => {
     const next = { ...meta };
     if (pid) next.linked_project_id = pid;
     else {
@@ -65,6 +69,37 @@ export default function ExternalRowInternalLayer({ task }: Props) {
       delete next.linked_stream_key;
     }
     updateTask.mutate({ id: task.id, status_meta: next as any });
+
+    // Авто-проставление темы: если у выбранного проекта есть linked_tag_id,
+    // и этот тег — event_topic, добавляем его в задачу (если ещё нет).
+    if (pid) {
+      const project = (groups as any[]).find((g) => g.id === pid);
+      const tagId: string | undefined = project?.linked_tag_id;
+      if (tagId && topicTags.some((t) => t.id === tagId)) {
+        const already = (task.task_tags ?? []).some((tt: any) => tt.tag_id === tagId);
+        if (!already) {
+          // Снимаем другие event_topic теги (одна тема на задачу), затем ставим новый.
+          const topicIds = new Set(topicTags.map((t) => t.id));
+          const toRemove = (task.task_tags ?? [])
+            .map((tt: any) => tt.tag_id)
+            .filter((id: string) => topicIds.has(id) && id !== tagId);
+          if (toRemove.length > 0) {
+            await supabase
+              .from("task_tags")
+              .delete()
+              .eq("task_id", task.id)
+              .in("tag_id", toRemove);
+          }
+          await supabase
+            .from("task_tags")
+            .upsert(
+              { task_id: task.id, tag_id: tagId },
+              { onConflict: "task_id,tag_id", ignoreDuplicates: true },
+            );
+          qc.invalidateQueries({ queryKey: ["tasks"] });
+        }
+      }
+    }
   };
 
   const setLinkedStream = (key: string | null) => {
