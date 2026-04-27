@@ -9,7 +9,7 @@ import TaskItem from "@/components/TaskItem";
 import ProjectDetailPanel from "@/components/ProjectDetailPanel";
 import PmoRiskRadar from "@/modules/pmo/components/PmoRiskRadar";
 import PmoPortfolioSummary from "@/modules/pmo/components/PmoPortfolioSummary";
-import { isPast, parseISO, differenceInDays, format } from "date-fns";
+import { isPast, parseISO, format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
