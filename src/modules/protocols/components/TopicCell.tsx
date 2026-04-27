@@ -97,7 +97,12 @@ export default function TopicCell({ task, compact }: Props) {
         if (error) throw error;
       }
 
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({
+        predicate: (q) => {
+          const k = q.queryKey as unknown[];
+          return k[0] === "tasks" && (k[2] === task.group_id || k[2] === undefined || k[2] === null);
+        },
+      });
       qc.invalidateQueries({ queryKey: ["tags"] });
       setOpen(false);
       setSearch("");
