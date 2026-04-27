@@ -1835,12 +1835,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   </button>
                 </div>
               ))}
-              <UserPicker
+              <MultiAssigneePicker
                 users={availableUsers}
                 excludeIds={participantIds}
                 open={userPickerOpen === "participant"}
                 onOpenChange={(open) => setUserPickerOpen(open ? "participant" : null)}
-                onSelect={(u) => addParticipant.mutate({ task_id: task.id, user_id: u.id, role: "participant" })}
+                onSelectUsers={(ids) => {
+                  ids.forEach((uid) =>
+                    addParticipant.mutate({ task_id: task.id, user_id: uid, role: "participant" })
+                  );
+                }}
                 side="bottom"
                 trigger={
                   <button className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
