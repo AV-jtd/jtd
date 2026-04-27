@@ -106,8 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     //    the effect above will fire setLoading(false) when the snapshot
     //    arrives. If nothing comes within the grace period, fall through and
     //    fetch ourselves (the lock will have expired by then).
-    const gotLock = acquireFetchLock(userId);
-    if (!gotLock) {
+    let ownsLock = acquireFetchLock(userId);
+    if (!ownsLock) {
       // Wait up to LOCK_TTL_MS for the sibling tab's broadcast.
       await new Promise((r) => setTimeout(r, 1500));
       const fresh = readAuthMeta(userId);
@@ -119,7 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      // No broadcast — fall through and fetch ourselves.
+      // No broadcast — try to become the owner; if the old lock is still
+      // present, fetch anyway but don't release another tab's lock in finally.
+      ownsLock = acquireFetchLock(userId);
     }
 
     // Hard cap: if anything in Promise.all hangs (network glitch, RLS deadlock,
@@ -178,7 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isConsultant: false,
           adminModeDisabled: false,
         });
-        releaseFetchLock(userId);
         return;
       }
 
@@ -204,10 +205,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isConsultant: consultantNext,
         adminModeDisabled: serverDisabled,
       });
-      releaseFetchLock(userId);
     } catch (err) {
       clearTimeout(safetyTimer);
-      releaseFetchLock(userId);
       console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
@@ -221,6 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[Auth] All retries exhausted, clearing loading state");
         setLoading(false);
       }
+    } finally {
+      clearTimeout(safetyTimer);
+      if (ownsLock) releaseFetchLock(userId);
     }
   };
 

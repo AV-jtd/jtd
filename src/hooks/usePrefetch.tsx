@@ -12,6 +12,35 @@ function runWhenIdle(cb: () => void, timeout = 1500) {
   else setTimeout(cb, 200);
 }
 
+const PREFETCH_LOCK_PREFIX = "jtd_prefetch_lock:";
+const PREFETCH_DONE_PREFIX = "jtd_prefetch_done:";
+const PREFETCH_LOCK_TTL_MS = 2 * 60 * 1000;
+const PREFETCH_DONE_TTL_MS = 10 * 60 * 1000;
+
+function shouldRunPrefetch(userId: string) {
+  try {
+    const now = Date.now();
+    const doneAt = Number(localStorage.getItem(PREFETCH_DONE_PREFIX + userId) || 0);
+    if (doneAt && now - doneAt < PREFETCH_DONE_TTL_MS) return false;
+
+    const lockKey = PREFETCH_LOCK_PREFIX + userId;
+    const lockedAt = Number(localStorage.getItem(lockKey) || 0);
+    if (lockedAt && now - lockedAt < PREFETCH_LOCK_TTL_MS) return false;
+
+    localStorage.setItem(lockKey, String(now));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function finishPrefetch(userId: string) {
+  try {
+    localStorage.setItem(PREFETCH_DONE_PREFIX + userId, String(Date.now()));
+    localStorage.removeItem(PREFETCH_LOCK_PREFIX + userId);
+  } catch {}
+}
+
 /**
  * Prefetches all key data when user logs in so it's available offline.
  * Runs once per session and populates React Query cache → IndexedDB.
@@ -30,6 +59,8 @@ export function usePrefetchData() {
     // Defer until the browser is idle so we don't compete with the first
     // paint or block the main thread while the user is trying to interact.
     const prefetch = async () => {
+      if (document.visibilityState === "hidden" || !shouldRunPrefetch(user.id)) return;
+
       await Promise.allSettled([
         qc.prefetchQuery({
           queryKey: ["task_groups", user.id],
@@ -118,6 +149,7 @@ export function usePrefetchData() {
           staleTime: 1000 * 60 * 5,
         }),
       ]);
+      finishPrefetch(user.id);
     };
 
     runWhenIdle(() => { void prefetch(); });

@@ -2,15 +2,16 @@
  * Build-time version check.
  * On app load, fetches /version.json from the server.
  * If the server version differs from the embedded build version,
- * clears all caches and forces a hard reload.
+ * marks an update and applies it only after the tab is backgrounded.
  */
 
 // Injected at build time by Vite (see vite.config.ts define)
 const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION as string | undefined;
 
 const RELOAD_FLAG = "jtd_version_reload";
-const POLL_INTERVAL_MS = 60_000; // check every 60s
+const POLL_INTERVAL_MS = 5 * 60_000; // check every 5 min; avoid noisy foreground polling
 const SW_UPDATE_INTERVAL_MS = 5 * 60_000;
+let lastPollAt = 0;
 
 function isSkippableContext(): boolean {
   if (import.meta.env.DEV) return true;
@@ -51,6 +52,20 @@ async function hardReload() {
   window.location.replace(url.toString());
 }
 
+function markUpdateAvailable() {
+  try { sessionStorage.setItem("jtd_update_available", String(Date.now())); } catch {}
+}
+
+function clearUpdateAvailable() {
+  try { sessionStorage.removeItem("jtd_update_available"); } catch {}
+}
+
+async function hardReloadOnlyWhenHidden() {
+  markUpdateAvailable();
+  if (document.visibilityState !== "hidden") return;
+  await hardReload();
+}
+
 function requestWaitingWorkerActivation(reg: ServiceWorkerRegistration) {
   if (!reg.waiting) return;
   reg.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -64,12 +79,9 @@ function scheduleSafeActivation(reg: ServiceWorkerRegistration) {
     return;
   }
 
-  const activateOnHide = () => requestWaitingWorkerActivation(reg);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") activateOnHide();
+    if (document.visibilityState === "hidden") requestWaitingWorkerActivation(reg);
   }, { once: true });
-
-  window.setTimeout(() => requestWaitingWorkerActivation(reg), 10 * 60_000);
 }
 
 async function registerServiceWorker() {
@@ -92,14 +104,26 @@ async function registerServiceWorker() {
 }
 
 async function pollOnce() {
+  lastPollAt = Date.now();
   try {
     const res = await fetch("/version.json?t=" + Date.now(), { cache: "no-store" });
     if (!res.ok) return;
     const { version } = await res.json();
     if (!version || !BUILD_VERSION) return;
     if (version !== BUILD_VERSION) {
-      console.log(`[Version] Mismatch: built=${BUILD_VERSION}, server=${version}. Hard reload…`);
-      await hardReload();
+      console.log(`[Version] Mismatch: built=${BUILD_VERSION}, server=${version}. Update postponed until tab is hidden.`);
+      markUpdateAvailable();
+      if (document.visibilityState === "hidden") {
+        await hardReload();
+        return;
+      }
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) {
+        await reg.update();
+        if (reg.waiting) scheduleSafeActivation(reg);
+      }
+    } else {
+      clearUpdateAvailable();
     }
   } catch {
     // Network error — ignore, will retry on next interval
@@ -109,7 +133,11 @@ async function pollOnce() {
 export async function checkForUpdates() {
   if (isSkippableContext()) return;
 
-  await registerServiceWorker();
+  try {
+    await registerServiceWorker();
+  } catch (err) {
+    console.warn("[Version] Service worker registration failed:", err);
+  }
 
   // 1) Initial check on load
   await pollOnce();
@@ -119,18 +147,28 @@ export async function checkForUpdates() {
 
   // 3) Re-check when tab becomes visible again (catches long-idle tabs)
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") pollOnce();
+    if (document.visibilityState === "hidden" && sessionStorage.getItem("jtd_update_available")) {
+      void hardReload();
+      return;
+    }
+    if (document.visibilityState === "visible" && Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
   });
-  window.addEventListener("focus", pollOnce);
-  window.addEventListener("online", pollOnce);
+  window.addEventListener("focus", () => {
+    if (Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
+  });
+  window.addEventListener("online", () => {
+    if (Date.now() - lastPollAt > POLL_INTERVAL_MS) pollOnce();
+  });
 
-  // 4) When a new SW takes control, force a hard reload so HTML/JS match SW cache
+  // 4) When a new SW takes control, reload only once the tab is backgrounded.
+  // Reloading immediately on controllerchange was causing full app resets while
+  // users were actively working, especially with several tabs open.
   if ("serviceWorker" in navigator) {
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (refreshing) return;
       refreshing = true;
-      hardReload();
+      void hardReloadOnlyWhenHidden();
     });
   }
 }
