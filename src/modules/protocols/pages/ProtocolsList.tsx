@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import ProtocolsAnalyticsBlock, { ProtocolStatFilter } from "@/modules/protocols/components/ProtocolsAnalyticsBlock";
 import { useProtocolsAxes } from "@/modules/protocols/hooks/useProtocolsAnalytics";
+import ActiveFiltersBar from "@/modules/protocols/components/ActiveFiltersBar";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -279,6 +280,25 @@ export default function ProtocolsList() {
           riskRadarPayload={riskRadarPayload}
         />
       )}
+
+      {/* Виджет «Активные фильтры» */}
+      <ActiveFiltersBar
+        search={search}
+        onClearSearch={() => setSearch("")}
+        statusFilter={statusFilter}
+        onResetStatus={() => setStatusFilter("active")}
+        statFilter={statFilter}
+        onClearStat={() => setStatFilter("none")}
+        axisTagIds={axisTagIds}
+        axes={axesForRadar}
+        onRemoveAxis={(tid) => setAxisTagIds((prev) => prev.filter((x) => x !== tid))}
+        onResetAll={() => {
+          setSearch("");
+          setStatusFilter("active");
+          setStatFilter("none");
+          setAxisTagIds([]);
+        }}
+      />
 
       {/* List */}
       {groupsLoading ? (
