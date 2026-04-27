@@ -1302,7 +1302,7 @@ function AssigneePicker({
             </div>
           )}
 
-          {filtered.length === 0 && filteredAllContacts.length === 0 && filteredCompanies.length === 0 && (
+          {filtered.length === 0 && filteredAllContacts.length === 0 && filteredCompanies.length === 0 && filteredDepts.length === 0 && filteredContrs.length === 0 && (
             <div className="px-2 py-1 text-xs text-muted-foreground">Не найдено</div>
           )}
         </div>
