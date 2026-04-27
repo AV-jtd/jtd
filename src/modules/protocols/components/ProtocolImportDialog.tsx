@@ -21,26 +21,25 @@ import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
 import { toast } from "sonner";
 
-// pdfjs lazy import
-async function extractPdfText(file: File): Promise<string> {
-  const pdfjsLib: any = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Конвертация File → base64 (для multimodal-передачи в Gemini)
+async function fileToBase64(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  let text = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it: any) => it.str).join(" ") + "\n\n";
+  // Безопасная конвертация для больших файлов: чанками, чтобы не упереться в лимит
+  // String.fromCharCode.apply при большом массиве.
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)) as any);
   }
-  return text.trim();
+  return btoa(binary);
 }
 
 interface ParsedRow {
   title: string;
   description?: string | null;
   assignee_hint?: string | null;
+  assignee_hints?: string[] | null;
   deadline?: string | null;
   axes?: Record<string, string | null>;
   // UI state
@@ -51,11 +50,19 @@ interface ParsedRow {
   expanded?: boolean;
 }
 
+interface ParsedSection {
+  topic: string;
+  icon?: string | null;
+  summary?: string | null;
+  task_indices: number[];
+}
+
 interface ParsedProtocol {
   meeting_title?: string | null;
   meeting_date?: string | null;
   participants?: string[];
   summary?: string | null;
+  sections?: ParsedSection[];
   rows: ParsedRow[];
 }
 
@@ -75,12 +82,13 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
   const [step, setStep] = useState<Step>("input");
   const [text, setText] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
-  const [extractingPdf, setExtractingPdf] = useState(false);
   const [parsed, setParsed] = useState<ParsedProtocol | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ProtocolTemplate | null>(null);
   const [protocolName, setProtocolName] = useState("");
   const [meetingDate, setMeetingDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [includeSectionsInDescription, setIncludeSectionsInDescription] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,10 +96,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       setTimeout(() => {
         setStep("input");
         setText("");
+        setPdfFile(null);
         setParsed(null);
         setSelectedTemplate(null);
         setProtocolName("");
         setMeetingDate(format(new Date(), "yyyy-MM-dd"));
+        setIncludeSectionsInDescription(true);
       }, 200);
     }
   }, [open]);
@@ -109,23 +119,14 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
 
   const handleFile = async (file: File) => {
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      setExtractingPdf(true);
-      try {
-        const txt = await extractPdfText(file);
-        if (!txt || txt.length < 20) {
-          toast.error("Не удалось извлечь текст из PDF (возможно, скан без OCR)");
-          return;
-        }
-        setText(txt);
-        toast.success(`Извлечено ${txt.length.toLocaleString("ru")} символов`);
-      } catch (e: any) {
-        toast.error("Ошибка чтения PDF: " + (e?.message || ""));
-      } finally {
-        setExtractingPdf(false);
-      }
+      // PDF отправляем целиком в Gemini как multimodal — структура (таблицы, эмодзи, цвета) сохраняется.
+      setPdfFile(file);
+      setText("");
+      toast.success(`PDF готов к разбору (${(file.size / 1024).toFixed(0)} КБ)`);
     } else if (file.type.startsWith("text/") || /\.(txt|md)$/i.test(file.name)) {
       const txt = await file.text();
       setText(txt);
+      setPdfFile(null);
     } else {
       toast.error("Поддерживаются только PDF и текстовые файлы. Excel — через Smart Import.");
     }
@@ -134,13 +135,20 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
   const parseMutation = useMutation({
     mutationFn: async () => {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-protocol-text`;
+      let body: any;
+      if (pdfFile) {
+        const pdf_base64 = await fileToBase64(pdfFile);
+        body = { pdf_base64, pdf_mime: pdfFile.type || "application/pdf" };
+      } else {
+        body = { text };
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
@@ -158,7 +166,12 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       }));
       setParsed({ ...data, rows });
       setStep("template");
-      toast.success(`ИИ извлёк ${rows.length} строк`);
+      const secCount = data.sections?.length || 0;
+      toast.success(
+        secCount > 0
+          ? `ИИ извлёк ${rows.length} задач в ${secCount} секциях`
+          : `ИИ извлёк ${rows.length} строк`,
+      );
     },
     onError: (e: any) => toast.error(e?.message || "Ошибка разбора"),
   });
@@ -201,6 +214,20 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         .select()
         .single();
       if (gErr) throw gErr;
+
+      // Если есть секции и пользователь хочет — дополним описание группы выводами секций
+      if (parsed.sections && parsed.sections.length > 0 && includeSectionsInDescription) {
+        const sectionBlock = parsed.sections
+          .map((s) => {
+            const head = `${s.icon ? s.icon + " " : ""}${s.topic}`;
+            return s.summary ? `### ${head}\n${s.summary}` : `### ${head}`;
+          })
+          .join("\n\n");
+        const newDesc = (group as any).description
+          ? `${(group as any).description}\n\n---\n\n## Темы протокола\n\n${sectionBlock}`
+          : `## Темы протокола\n\n${sectionBlock}`;
+        await supabase.from("task_groups").update({ description: newDesc }).eq("id", (group as { id: string }).id);
+      }
 
       // 2. Создать задачи (черновик)
       const taskRows = selectedRows.map((r, idx) => ({
