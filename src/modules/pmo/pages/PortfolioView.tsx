@@ -37,7 +37,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   // dashboards (overdue/upcoming/drifted lists) and subproject mini-cards —
   // both of which only ever render ACTIVE tasks. A 7-day completed window
   // covers the brief "just-completed" line-through state.
-  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 7 });
+  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 14 });
   const { data: users = [] } = useAvailableUsers();
   const { data: milestones = [] } = useMilestones();
   const { user } = useAuth();

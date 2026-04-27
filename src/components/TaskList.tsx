@@ -108,7 +108,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const { data: tasks = [], isLoading } = useTasks(
     isGroupView ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined,
-    isGroupView ? undefined : { completedWindowDays: 7 },
+    isGroupView ? undefined : { completedWindowDays: 14 },
   );
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useVisibleTags();
