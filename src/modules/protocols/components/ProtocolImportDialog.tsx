@@ -676,15 +676,17 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                     <Label className="text-xs uppercase text-muted-foreground">
                       Найдено секций: {parsed.sections.length}
                     </Label>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
-                      <Checkbox
-                        checked={includeSectionsInDescription}
-                        onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
-                      />
-                      {isLivingTpl
-                        ? "Сохранить выводы блочно (над таблицей задач каждой темы)"
-                        : "Сохранить выводы секций в описание протокола"}
-                    </label>
+                    {/* Для living чекбокс не нужен — выводы блочно ВСЕГДА (живой формат
+                        без них теряет смысл). Для остальных — оставляем выбор. */}
+                    {!isLivingTpl && (
+                      <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                        <Checkbox
+                          checked={includeSectionsInDescription}
+                          onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
+                        />
+                        Сохранить выводы секций в описание протокола
+                      </label>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     {parsed.sections.map((s, i) => (
@@ -707,6 +709,39 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                       ? "Темы станут тегами и сгруппируют задачи. Выводы появятся как блок над таблицей внутри каждой темы — потом редактируются inline."
                       : "Каждая задача автоматически получит тег темы — и в таблице протокола они сразу сгруппируются по секциям."}
                   </p>
+                </div>
+              )}
+
+              {/* Подсказка о mismatch режима парсинга и выбранного шаблона.
+                  Living-промпт даёт смысловую группировку с тезисами, formal-промпт —
+                  ищет нумерованные блоки. Если расходятся — предлагаем перепарсить. */}
+              {parsedMode && (
+                (isLivingTpl && parsedMode === "formal") ||
+                (!isLivingTpl && parsedMode === "living")
+              ) && (
+                <div className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="flex-1">
+                    <div className="font-medium text-foreground">
+                      {isLivingTpl
+                        ? "Документ был разобран как формальный протокол"
+                        : "Документ был разобран как живые заметки"}
+                    </div>
+                    <div className="mt-0.5 text-muted-foreground">
+                      {isLivingTpl
+                        ? "Для шаблона «📖 Живой документ» лучше перепарсить — ИИ заново сгруппирует заметки по смысловым темам с тезисами-выводами."
+                        : "Для формальных шаблонов лучше перепарсить — ИИ найдёт нумерованные разделы и таблицы поручений."}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => parseMutation.mutate()}
+                    disabled={parseMutation.isPending}
+                  >
+                    {parseMutation.isPending && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                    Перепарсить
+                  </Button>
                 </div>
               )}
 
