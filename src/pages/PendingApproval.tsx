@@ -51,7 +51,7 @@ export default function PendingApproval() {
   if (isApproved) return <Navigate to="/" replace />;
 
   const handleRefresh = async () => {
-    const ok = await checkApproval(user.id);
+    await checkApproval(user.id);
   };
 
   return (
