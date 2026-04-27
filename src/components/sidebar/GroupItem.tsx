@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { TaskGroup, useTaskMutations, useAvailableUsers, useProjectFolders } from "@/hooks/useTasks";
+import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
@@ -55,6 +56,11 @@ function GroupItemImpl(props: GroupItemProps) {
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: folders = [] } = useProjectFolders();
 
+  // Hover-prefetch: warm the cache for this project's tasks before the click.
+  // The hook is internally debounced (120ms) and dedupes per-id, so it's safe
+  // to wire to mouseenter/focus on every row.
+  const { prefetchTasks, cancelPrefetch } = usePrefetchOnHover();
+
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(group.name);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -95,6 +101,9 @@ function GroupItemImpl(props: GroupItemProps) {
       <div className="group">
         <button
           onClick={() => onSelect(group.id)}
+          onMouseEnter={() => prefetchTasks(group.id)}
+          onMouseLeave={() => cancelPrefetch(group.id)}
+          onFocus={() => prefetchTasks(group.id)}
           className={cn(
             "flex items-center gap-2 w-full rounded-lg text-sm transition-colors",
             depth === 0 ? "px-3 py-2" : "px-3 py-1.5",

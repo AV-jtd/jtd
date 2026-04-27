@@ -11,6 +11,7 @@ import UnifiedImportDialog from "@/modules/protocols/components/UnifiedImportDia
 import { Sparkles } from "lucide-react";
 import ConfirmDelete from "@/components/ConfirmDelete";
 import { toast } from "sonner";
+import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 
 type StatusFilter = "all" | "active" | "archived";
 
@@ -196,6 +197,7 @@ function ProtocolRow({
 }) {
   const { group, total, completed, overdue, active, isArchived, isDraft, draftCount } = data;
   const created = format(parseISO(group.created_at), "d MMMM yyyy", { locale: ru });
+  const { prefetchTasks, cancelPrefetch } = usePrefetchOnHover();
 
   return (
     <div
@@ -204,8 +206,14 @@ function ProtocolRow({
         isDraft && "border-amber-400/50 bg-amber-50/30 dark:border-amber-500/40 dark:bg-amber-950/20",
         isArchived && "opacity-60",
       )}
+      onMouseEnter={() => prefetchTasks(group.id)}
+      onMouseLeave={() => cancelPrefetch(group.id)}
     >
-     <button onClick={onOpen} className="flex flex-1 items-center gap-4 text-left min-w-0">
+     <button
+       onClick={onOpen}
+       onFocus={() => prefetchTasks(group.id)}
+       className="flex flex-1 items-center gap-4 text-left min-w-0"
+     >
       {group.logo_url ? (
         <img
           src={group.logo_url}
