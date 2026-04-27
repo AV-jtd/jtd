@@ -398,6 +398,43 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
                 </div>
               )}
 
+              {parsed.sections && parsed.sections.length > 0 && (
+                <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs uppercase text-muted-foreground">
+                      Найдено секций: {parsed.sections.length}
+                    </Label>
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                      <Checkbox
+                        checked={includeSectionsInDescription}
+                        onCheckedChange={(v) => setIncludeSectionsInDescription(!!v)}
+                      />
+                      Сохранить выводы секций в описание протокола
+                    </label>
+                  </div>
+                  <div className="space-y-1.5">
+                    {parsed.sections.map((s, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded bg-background/60 px-2 py-1.5 text-xs">
+                        <span className="text-base leading-none">{s.icon || "📌"}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-foreground">{s.topic}</div>
+                          {s.summary && (
+                            <div className="mt-0.5 line-clamp-2 text-muted-foreground">{s.summary}</div>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {s.task_indices.length} зад.
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Каждая задача автоматически получит тег темы — и в таблице протокола они сразу
+                    сгруппируются по секциям.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label className="mb-2 block text-xs uppercase text-muted-foreground">Шаблон</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
