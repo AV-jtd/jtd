@@ -839,9 +839,39 @@ function ProtocolRow({
             externalOptions={externalAttendees}
             linkedClient={linkedClient}
             parsedPartner={parsedPartner}
-            onChange={(uid) => onUpdate({ assigned_to: uid, external_assignee: null as any })}
+            departmentId={(task as any).department_id ?? null}
+            contractorId={(task as any).contractor_id ?? null}
+            onChange={(uid) =>
+              onUpdate({
+                assigned_to: uid,
+                external_assignee: null as any,
+                department_id: null as any,
+                contractor_id: null as any,
+              })
+            }
             onChangeExternal={(ext) =>
-              onUpdate({ assigned_to: null, external_assignee: (ext as any) })
+              onUpdate({
+                assigned_to: null,
+                external_assignee: ext as any,
+                department_id: null as any,
+                contractor_id: null as any,
+              })
+            }
+            onChangeDepartment={(did) =>
+              onUpdate({
+                assigned_to: null,
+                external_assignee: null as any,
+                department_id: did as any,
+                contractor_id: null as any,
+              })
+            }
+            onChangeContractor={(cid) =>
+              onUpdate({
+                assigned_to: null,
+                external_assignee: null as any,
+                department_id: null as any,
+                contractor_id: cid as any,
+              })
             }
           />
         </td>
