@@ -77,8 +77,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, HARD_TIMEOUT_MS);
 
     try {
-      const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
-        supabase.from("profiles").select("is_approved").eq("id", userId).single(),
+      // Approval is the routing-critical bit. Load it first so a slow role/admin
+      // request cannot leave an approved user with stale `isApproved=false` and
+      // bounce them back to /pending.
+      const profileRes = await supabase
+        .from("profiles")
+        .select("is_approved")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (fetchIdRef.current !== fetchId || !isMounted()) return;
+
+      if (profileRes.error) {
+        console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
+      } else {
+        setIsApproved((profileRes.data as any)?.is_approved ?? false);
+      }
+
+      const [roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
         supabase.rpc("admin_exists"),
@@ -100,14 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Если профиль успешно прочитан — обновляем approval из БД.
-      // Если запрос упал (RLS/сеть/timeout), НЕ сбрасываем isApproved в false:
-      // иначе одобренного пользователя несправедливо выкинет на /pending.
-      if (profileRes.error) {
-        console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
-      } else {
-        setIsApproved((profileRes.data as any)?.is_approved ?? false);
-      }
       setIsAdmin(!!roleRes.data);
       setIsConsultant(!!consultantRes.data);
 
