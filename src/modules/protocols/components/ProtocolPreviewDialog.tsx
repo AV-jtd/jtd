@@ -704,6 +704,30 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                                 </td>
                               </tr>
                             );
+                            // Living protocols: render topic notes (markdown bullets) under the header.
+                            if (isLiving && topic) {
+                              const note = (topicNotes[topic.id] ?? "").trim();
+                              if (note) {
+                                const bullets = note
+                                  .split("\n")
+                                  .map((ln) => ln.replace(/^\s*[-*•]\s+/, "").trim())
+                                  .filter(Boolean);
+                                out.push(
+                                  <tr key={`notes-${key}`} className="bg-neutral-50">
+                                    <td colSpan={colCount} className="border border-neutral-300 px-3 py-2 text-[11px] text-neutral-700">
+                                      <div className="text-[9px] uppercase tracking-wide text-neutral-500 mb-1 font-medium">
+                                        Основные выводы
+                                      </div>
+                                      <ul className="list-disc pl-4 space-y-0.5">
+                                        {bullets.map((b, i) => (
+                                          <li key={i}>{b}</li>
+                                        ))}
+                                      </ul>
+                                    </td>
+                                  </tr>,
+                                );
+                              }
+                            }
                             for (const t of rows) {
                               runningIdx += 1;
                               out.push(renderRow(t, runningIdx, rowIdx));
