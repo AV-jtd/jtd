@@ -221,8 +221,9 @@ export default function SmartImportDialog({ trigger, targetGroupId, onSuccess, o
       setImportResult(result);
       setStep("done");
       toast.success(`Импортировано ${result.taskCount} задач`);
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      // Scoped: refresh global tasks + just-imported group; leave other groups intact.
+      invalidateTasksScoped(qc, result.groupId);
+      invalidateTaskGroups(qc);
       qc.invalidateQueries({ queryKey: ["tags"] });
       setTimeout(() => {
         setOpen(false);
