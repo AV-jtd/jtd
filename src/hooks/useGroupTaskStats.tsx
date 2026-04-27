@@ -33,6 +33,8 @@ export interface GroupTaskStats {
   drift: number;
   upcoming_7d: number;
   last_completed_at: string | null;
+  earliest_start: string | null;
+  max_drift_days: number;
 }
 
 const EMPTY_MAP: Record<string, GroupTaskStats> = Object.freeze({});
@@ -47,6 +49,8 @@ function makeEmpty(group_id: string): GroupTaskStats {
     drift: 0,
     upcoming_7d: 0,
     last_completed_at: null,
+    earliest_start: null,
+    max_drift_days: 0,
   };
 }
 
