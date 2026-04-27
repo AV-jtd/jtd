@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
+import { useQuery } from "@tanstack/react-query";
 
 import { useNavigate } from "react-router-dom";
 import { Task, Subtask, useTaskMutations, useVisibleTags, useAvailableUsers, useTaskParticipants, useTaskGroups, useLinkedTagIds, Profile, useTasks, useTagCategories, TaskGroup, type Tag as TagType, type TagCategory } from "@/hooks/useTasks";
@@ -13,6 +14,7 @@ import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
 import TaskClientPicker from "@/components/TaskClientPicker";
+import ClientAvatar from "@/components/ClientAvatar";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
@@ -528,6 +530,25 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const allGroups = sharedGroups || _ownGroups;
   const { data: _ownCategories = [] } = useTagCategories();
   const tagCategories = sharedTagCategories || _ownCategories;
+  // Reuse the same queryKey as TaskClientPicker so the cache is shared.
+  const { data: clientsList = [] } = useQuery({
+    queryKey: ["clients", "task-picker"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, logo_url")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!(task as any).client_id,
+  });
+  const linkedClient = useMemo(() => {
+    const cid = (task as any).client_id;
+    if (!cid) return null;
+    return (clientsList as any[]).find((c) => c.id === cid) ?? null;
+  }, [clientsList, (task as any).client_id]);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   // Lazy-load comments only when detail panel is open to avoid N queries
@@ -1054,6 +1075,16 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               );
             })()}
+            {/* Client chip — shown when task is linked to a CRM client */}
+            {linkedClient && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0 max-w-[160px]"
+                title={`Клиент: ${linkedClient.name}`}
+              >
+                <ClientAvatar client={linkedClient} size="xs" />
+                <span className="truncate">{linkedClient.name}</span>
+              </span>
+            )}
             {(() => {
               const MAX_CHIPS = 2;
               const MAX_EXPAND = 3;
