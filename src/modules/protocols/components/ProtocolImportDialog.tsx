@@ -598,6 +598,26 @@ function RowCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedAssignee?.id]);
 
+  // Авто-сопоставление дополнительных ответственных (assignee_hints[1..]) → participant_ids.
+  // Срабатывает один раз: только если participant_ids пуст.
+  useEffect(() => {
+    const hints = row.assignee_hints;
+    if (!hints || hints.length <= 1) return;
+    if ((row.participant_ids || []).length > 0) return;
+    const matched: string[] = [];
+    for (const raw of hints) {
+      const h = (raw || "").toLowerCase();
+      if (!h) continue;
+      const m = teamMembers.find((x) => {
+        const name = (x.display_name || x.email || "").toLowerCase();
+        return h.split(/[\s,()]+/).some((p) => p.length > 2 && name.includes(p));
+      });
+      if (m && !matched.includes(m.id) && m.id !== row.assignee_id) matched.push(m.id);
+    }
+    if (matched.length > 0) onChange({ participant_ids: matched });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.assignee_hints, row.assignee_id, teamMembers]);
+
   const assignee = teamMembers.find((m) => m.id === row.assignee_id);
   const participants = (row.participant_ids || [])
     .map((id) => teamMembers.find((m) => m.id === id))
