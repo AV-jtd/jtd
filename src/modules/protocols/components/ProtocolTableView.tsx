@@ -848,6 +848,12 @@ function ProtocolRow({
           />
         </td>
         <td className="px-3 py-2">
+          <TaskProjectPicker
+            attributedGroupId={(task as any).attributed_group_id ?? null}
+            onChange={(gid) => onUpdate({ attributed_group_id: gid } as any)}
+          />
+        </td>
+        <td className="px-3 py-2">
           <DeadlineCell
             value={task.deadline}
             overdue={!!overdue}
