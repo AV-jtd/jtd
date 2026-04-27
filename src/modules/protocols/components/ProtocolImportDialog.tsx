@@ -1250,16 +1250,19 @@ function buildDescription(r: ParsedRow): string {
   const parts: string[] = [];
   if (r.description) parts.push(r.description);
   const axes = r.axes || {};
-  const axisRows = Object.entries(axes)
+  // Оси сохраняем в виде обычных «ключ: значение» строк.
+  // Раньше вставляли markdown-таблицу, но описание задачи рендерится как plain text —
+  // получался мусор «| Параметр | Значение | |---|---| | Тема | ... |».
+  const axisLines = Object.entries(axes)
     .filter(([, v]) => v && String(v).trim())
-    .map(([k, v]) => `| ${AXIS_LABEL[k] || k} | ${v} |`);
-  if (axisRows.length > 0) {
-    parts.push("\n| Параметр | Значение |\n|---|---|\n" + axisRows.join("\n"));
+    .map(([k, v]) => `${AXIS_LABEL[k] || k}: ${v}`);
+  if (axisLines.length > 0) {
+    parts.push(axisLines.join("\n"));
   }
   if (r.assignee_hint && !r.assignee_id) {
-    parts.push(`\n_Из протокола: ${r.assignee_hint}_`);
+    parts.push(`Из протокола: ${r.assignee_hint}`);
   }
-  return parts.join("\n").trim();
+  return parts.join("\n\n").trim();
 }
 
 function guessTemplate(parsed: ParsedProtocol, templates: ProtocolTemplate[]): ProtocolTemplate {
