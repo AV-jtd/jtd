@@ -174,13 +174,37 @@ export function useTaskGroups() {
   });
 }
 
-export function useTasks(groupId?: string | null, filterTags?: string[] | null) {
+/**
+ * Options for useTasks.
+ *
+ * `includeCompleted` (default `false`): SQL-level filter `is_completed=false`.
+ * Set to `true` when the calling view legitimately needs completed tasks —
+ * Archive, dashboards, PMO/NPD progress metrics, Calendar (perfectly-rendered
+ * strikethrough), Gantt, protocols, exports.
+ *
+ * Why default `false`: on active users 70–90% of tasks are completed.
+ * Filtering them out at SQL level cuts the wire payload, parsing time,
+ * memory footprint and per-mutation cache work by a large factor.
+ *
+ * Search (Cmd+K / GlobalSearch) does its own server-side `ilike` queries
+ * and is NOT affected by this flag — completed tasks remain searchable.
+ */
+export interface UseTasksOptions {
+  includeCompleted?: boolean;
+}
+
+export function useTasks(
+  groupId?: string | null,
+  filterTags?: string[] | null,
+  options?: UseTasksOptions,
+) {
   const { user, loading } = useAuth();
+  const includeCompleted = options?.includeCompleted ?? false;
 
   // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
 
   return useQuery({
-    queryKey: ["tasks", user?.id, groupId, filterTags],
+    queryKey: ["tasks", user?.id, groupId, filterTags, includeCompleted],
     queryFn: async () => {
       const tasks = await fetchAllPages<Task>((from, to) => {
         let query = supabase
@@ -193,6 +217,10 @@ export function useTasks(groupId?: string | null, filterTags?: string[] | null) 
 
         if (groupId) {
           query = query.eq("group_id", groupId);
+        }
+
+        if (!includeCompleted) {
+          query = query.eq("is_completed", false);
         }
 
         return query;
