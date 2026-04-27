@@ -831,6 +831,13 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           />
         )}
 
+        {/* Лента «Протоколы» — кросс-протокольный AI-инсайт за неделю (только на главной) */}
+        {!batchMode && activeView === "all" && (
+          <div className="mb-4">
+            <ProtocolsInsightCard />
+          </div>
+        )}
+
         {batchMode && (
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <button
