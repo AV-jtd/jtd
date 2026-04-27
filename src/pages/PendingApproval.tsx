@@ -8,22 +8,32 @@ import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 export default function PendingApproval() {
   const { user, loading, isApproved, signOut } = useAuth();
 
-  // Poll approval status every 5 seconds
+  const checkApproval = async (uid: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("is_approved")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error) {
+      console.warn("[Pending] poll failed:", error);
+      return false;
+    }
+    if (data?.is_approved) {
+      // Force refresh of JWT/session so any cached client state picks up new role/approval
+      try { await supabase.auth.refreshSession(); } catch {}
+      window.location.replace("/");
+      return true;
+    }
+    return false;
+  };
+
+  // Immediate check on mount + poll every 5 seconds
   useEffect(() => {
     if (!user || isApproved) return;
-    const interval = setInterval(async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("is_approved")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (error) {
-        console.warn("[Pending] poll failed:", error);
-        return;
-      }
-      if (data?.is_approved) {
-        window.location.href = "/";
-      }
+    // Run once immediately so users who were just approved don't wait 5s
+    checkApproval(user.id);
+    const interval = setInterval(() => {
+      checkApproval(user.id);
     }, 5000);
     return () => clearInterval(interval);
   }, [user, isApproved]);
@@ -40,14 +50,8 @@ export default function PendingApproval() {
   if (isApproved) return <Navigate to="/" replace />;
 
   const handleRefresh = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("is_approved")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (data?.is_approved) {
-      window.location.href = "/";
-    } else {
+    const ok = await checkApproval(user.id);
+    if (!ok) {
       // hard reload to drop any stale cache / service-worker state
       window.location.reload();
     }
