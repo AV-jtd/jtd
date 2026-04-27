@@ -128,14 +128,46 @@
           }
         }
 
-        btn.addEventListener("click", function () {
-          status.textContent = "Проверяем соединение…";
-          location.reload();
+        // На «Попробовать снова» делаем агрессивный escape:
+        //   1. Снимаем регистрации service worker (чтобы он не вернул offline.html снова)
+        //   2. Чистим Workbox-кэш навигаций
+        //   3. Идём на корень с обходом кэша (cache-bust query)
+        // Это нужно, потому что при кратковременном сбое сети SW мог закэшировать
+        // offline.html как ответ на навигацию, и обычный reload крутит её по кругу.
+        btn.addEventListener("click", async function () {
+          btn.disabled = true;
+          status.textContent = "Восстанавливаем соединение…";
+          try {
+            if ("serviceWorker" in navigator) {
+              var regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(function (r) { return r.unregister(); }));
+            }
+            if (window.caches && caches.keys) {
+              var keys = await caches.keys();
+              await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            }
+          } catch (e) {
+            // best-effort
+          }
+          // Принудительный заход на корень в обход bfcache/SW-навигации.
+          window.location.replace("/?_=" + Date.now());
         });
 
         window.addEventListener("online", updateOnline);
+        window.addEventListener("offline", updateOnline);
         // Initial check (in case navigator.onLine flipped before script ran).
-        if (navigator.onLine) updateOnline();
+        updateOnline();
+
+        // Если сеть вернулась, пока пользователь смотрит на эту страницу,
+        // и пользователь не нажал кнопку 5 секунд — выводим пользователя сами.
+        var autoRecoverTimer = null;
+        window.addEventListener("online", function () {
+          if (autoRecoverTimer) return;
+          autoRecoverTimer = setTimeout(function () {
+            // Авто-эскейп через тот же путь, что и кнопка.
+            btn.click();
+          }, 5000);
+        });
       })();
     </script>
   </body>
