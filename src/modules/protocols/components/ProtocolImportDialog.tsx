@@ -1154,7 +1154,7 @@ function RowCard({
                   </button>
                 </span>
               ))}
-              <UserPicker
+              <MultiAssigneePicker
                 users={teamMembers}
                 excludeIds={[
                   ...(row.participant_ids || []),
@@ -1162,8 +1162,8 @@ function RowCard({
                 ]}
                 open={participantOpen}
                 onOpenChange={setParticipantOpen}
-                onSelect={(u) =>
-                  onChange({ participant_ids: [...(row.participant_ids || []), u.id] })
+                onSelectUsers={(ids) =>
+                  onChange({ participant_ids: [...(row.participant_ids || []), ...ids] })
                 }
                 trigger={
                   <button
