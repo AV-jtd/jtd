@@ -19,4 +19,14 @@ UI:
   "## Темы протокола \n ### emoji topic \n summary"
 - В RowCard auto-маппинг hints[1..] на participant_ids (один раз, если participants пусты)
 
+После INSERT задач выполняется привязка тем (event_topic):
+1. Уникальные axes.event_topic → найти/создать категорию event_topic пользователя
+2. Найти/создать теги в этой категории (case-insensitive)
+3. Авто-линк: если есть открытый task_group с тем же именем (и нет linked_tag_id) — записать tag.id в linked_tag_id
+4. INSERT task_tags для всех задач с темой
+
+Когда в строке протокола пользователь привязывает «проект» (status_meta.linked_project_id),
+и у проекта есть linked_tag_id из категории event_topic — этот тег автоматически проставляется
+как тема задачи (старые event_topic-теги снимаются, чтобы тема была одна).
+
 Текстовый flow (paste/.txt) сохранён без изменений.
