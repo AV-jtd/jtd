@@ -36,4 +36,6 @@ type: feature
 - ✅ TaskCreateBar (главная строка быстрого создания задач)
 - ✅ ProjectDetailPanel → быстрое добавление задачи в проект
 - ✅ NPD MatrixTaskRow
+- ✅ Строка протокола → колонка «Ответственный» (секции «Отдел» и «Подрядчик» в локальном AssigneePicker)
+- ✅ Раскрытый контекст строки протокола → чип «Участники» (секция «Отделы»: toggle разворачивает в head + членов user_departments через batch insert/delete в task_participants)
 - ⏳ CRM-специфичные пикеры — точечно по требованию.
