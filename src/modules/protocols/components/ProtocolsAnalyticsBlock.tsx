@@ -22,9 +22,9 @@ interface Props {
   /** Выбранная метрика-фильтр */
   statFilter: ProtocolStatFilter;
   onStatFilterChange: (f: ProtocolStatFilter) => void;
-  /** Выбранный тег-ось (фильтрует список протоколов по чьим group_tags содержат tagId) */
-  axisTagId: string | null;
-  onAxisTagChange: (tagId: string | null, protocolIds: string[]) => void;
+  /** Выбранные теги-оси. Логика: OR внутри одной axis-категории, AND между категориями. */
+  axisTagIds: string[];
+  onAxisTagsChange: (tagIds: string[]) => void;
   /** Данные для AI Risk Radar (передаются из родителя — он уже знает enriched-данные) */
   riskRadarPayload: {
     name: string;
@@ -57,21 +57,31 @@ export default function ProtocolsAnalyticsBlock({
   metrics,
   statFilter,
   onStatFilterChange,
-  axisTagId,
-  onAxisTagChange,
+  axisTagIds,
+  onAxisTagsChange,
   riskRadarPayload,
 }: Props) {
   const [open, setOpen] = useState(true);
   const { data: axes = [], isLoading } = useProtocolsAxes({ protocolIds: visibleProtocolIds });
 
-  const activeAxisChip = useMemo(() => {
-    if (!axisTagId) return null;
+  const activeChips = useMemo(() => {
+    if (!axisTagIds.length) return [];
+    const set = new Set(axisTagIds);
+    const out: Array<{ axis: AxisGroup; chip: AxisGroup["chips"][number] }> = [];
     for (const g of axes) {
-      const c = g.chips.find((x) => x.tagId === axisTagId);
-      if (c) return { axis: g, chip: c };
+      for (const c of g.chips) {
+        if (set.has(c.tagId)) out.push({ axis: g, chip: c });
+      }
     }
-    return null;
-  }, [axes, axisTagId]);
+    return out;
+  }, [axes, axisTagIds]);
+
+  const toggleTag = (tagId: string) => {
+    const set = new Set(axisTagIds);
+    if (set.has(tagId)) set.delete(tagId);
+    else set.add(tagId);
+    onAxisTagsChange(Array.from(set));
+  };
 
   return (
     <div className="mb-4 rounded-lg border border-border bg-card/50">
@@ -89,21 +99,24 @@ export default function ProtocolsAnalyticsBlock({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {activeAxisChip && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-              {activeAxisChip.axis.label}: {activeAxisChip.chip.tagName}
+          {activeChips.map(({ axis, chip }) => (
+            <span
+              key={chip.tagId}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+            >
+              {axis.label}: {chip.tagName}
               <span
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAxisTagChange(null, []);
+                  toggleTag(chip.tagId);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     e.stopPropagation();
-                    onAxisTagChange(null, []);
+                    toggleTag(chip.tagId);
                   }
                 }}
                 className="ml-0.5 rounded p-0.5 hover:bg-primary/20 cursor-pointer"
@@ -111,6 +124,18 @@ export default function ProtocolsAnalyticsBlock({
                 <X className="h-3 w-3" />
               </span>
             </span>
+          ))}
+          {activeChips.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAxisTagsChange([]);
+              }}
+              className="text-[10px] text-muted-foreground hover:text-foreground underline"
+            >
+              сбросить
+            </button>
           )}
           {statFilter !== "none" && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300">
@@ -187,13 +212,8 @@ export default function ProtocolsAnalyticsBlock({
                 <AxisRow
                   key={g.key}
                   group={g}
-                  activeTagId={axisTagId}
-                  onPick={(chip) =>
-                    onAxisTagChange(
-                      axisTagId === chip.tagId ? null : chip.tagId,
-                      axisTagId === chip.tagId ? [] : chip.protocolIds,
-                    )
-                  }
+                  activeTagIds={axisTagIds}
+                  onPick={(chip) => toggleTag(chip.tagId)}
                 />
               ))}
             </div>
@@ -206,17 +226,18 @@ export default function ProtocolsAnalyticsBlock({
 
 function AxisRow({
   group,
-  activeTagId,
+  activeTagIds,
   onPick,
 }: {
   group: AxisGroup;
-  activeTagId: string | null;
+  activeTagIds: string[];
   onPick: (chip: AxisGroup["chips"][number]) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const VISIBLE = 12;
   const visible = showAll ? group.chips : group.chips.slice(0, VISIBLE);
   const hidden = group.chips.length - visible.length;
+  const activeSet = useMemo(() => new Set(activeTagIds), [activeTagIds]);
 
   return (
     <div className="flex items-start gap-3">
@@ -225,7 +246,7 @@ function AxisRow({
       </div>
       <div className="flex flex-1 flex-wrap gap-1.5">
         {visible.map((c) => {
-          const active = activeTagId === c.tagId;
+          const active = activeSet.has(c.tagId);
           return (
             <button
               key={c.tagId}
