@@ -284,7 +284,11 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
 
       // 3. Living: seed placeholder via helper (best-effort, non-blocking).
       if (isLivingTpl) {
-        seedLivingPlaceholder(user.id, (group as any).id).catch((e) =>
+        // Если пользователь выбрал «Серию / Тему» в фильтре — переносим этот тег
+        // в новый протокол, чтобы тема карриоверилась со встречи на встречу.
+        const carriedTopicId =
+          topicFilter && topicFilter !== "all" ? topicFilter : null;
+        seedLivingPlaceholder(user.id, (group as any).id, carriedTopicId).catch((e) =>
           console.error("[NewProtocolDialog] living seed failed", e),
         );
       }
