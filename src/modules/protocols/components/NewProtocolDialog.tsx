@@ -217,8 +217,10 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
       if (!name.trim()) throw new Error("Введите название протокола");
 
       const isCF = selected.system_key === "cross_functional";
-      // Build description: for cross_functional keep it clean (user-only), for others keep auto-hint
-      const finalDescription = isCF
+      const isLivingTpl = selected.system_key === "living";
+      const carryOver = isCF || isLivingTpl;
+      // Build description: for cross_functional / living keep it clean (user-only), for others keep auto-hint
+      const finalDescription = (isCF || isLivingTpl)
         ? description.trim() || null
         : description.trim() || `Шаблон: ${selected.name}\nДата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`;
 
@@ -245,8 +247,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // 2. For cross_functional — optionally clone open tasks from selected past protocols as drafts
-      if (isCF && selectedPrevIds.length > 0) {
+      // 2. For cross_functional / living — optionally clone open tasks from selected past protocols as drafts
+      if (carryOver && selectedPrevIds.length > 0) {
         const { data: openTasks, error: tErr } = await supabase
           .from("tasks")
           .select("id, title, description, assigned_to, deadline, priority, is_important, group_id")
