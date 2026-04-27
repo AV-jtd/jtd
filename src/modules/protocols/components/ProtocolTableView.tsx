@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, KeyboardEvent, lazy, Suspense } from "react";
+import { useMemo, useState, useRef, useEffect, KeyboardEvent, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
