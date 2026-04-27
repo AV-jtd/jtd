@@ -1406,11 +1406,11 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             }}
             className={cn(
               "p-1.5 rounded transition-colors",
-              chatComments.length > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              hasComments ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}
             title="Чат"
           >
-            <MessageCircle className={cn("h-3.5 w-3.5", chatComments.length > 0 && "fill-primary/20")} />
+            <MessageCircle className={cn("h-3.5 w-3.5", hasComments && "fill-primary/20")} />
           </button>
 
           <Popover>
