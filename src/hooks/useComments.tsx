@@ -121,13 +121,18 @@ export function useTasksWithComments(taskIds: string[]) {
     queryKey: ["task_comments_presence", key],
     queryFn: async () => {
       if (sortedIds.length === 0) return new Set<string>();
-      const { data, error } = await supabase
-        .from("task_comments" as any)
-        .select("task_id")
-        .in("task_id", sortedIds);
-      if (error) throw error;
       const set = new Set<string>();
-      for (const row of (data || []) as unknown as { task_id: string }[]) set.add(row.task_id);
+      // Batch to avoid URL length limits when many task IDs are involved.
+      const BATCH = 200;
+      for (let i = 0; i < sortedIds.length; i += BATCH) {
+        const chunk = sortedIds.slice(i, i + BATCH);
+        const { data, error } = await supabase
+          .from("task_comments" as any)
+          .select("task_id")
+          .in("task_id", chunk);
+        if (error) throw error;
+        for (const row of (data || []) as unknown as { task_id: string }[]) set.add(row.task_id);
+      }
       return set;
     },
     enabled: !!user && sortedIds.length > 0,
