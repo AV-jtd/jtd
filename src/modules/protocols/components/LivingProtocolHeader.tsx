@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAvailableUsers, useTaskGroups } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
@@ -99,6 +99,8 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
     () => attendeeIds.map((id) => profiles.find((p) => p.id === id)).filter(Boolean) as any[],
     [attendeeIds, profiles],
   );
+
+  const [attendeePickerOpen, setAttendeePickerOpen] = useState(false);
 
   const addAttendee = (userId: string) => {
     if (attendeeIds.includes(userId)) return;
@@ -305,7 +307,7 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
             <span
               key={p.id}
               className="group inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-              title={p.full_name ?? p.username ?? "Участник"}
+              title={p.display_name ?? "Участник"}
             >
               {p.avatar_url ? (
                 <img
@@ -315,11 +317,11 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
                 />
               ) : (
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[9px] font-semibold text-primary">
-                  {getInitials(p.full_name ?? p.username ?? "?")}
+                  {getInitials(p.display_name ?? "?")}
                 </span>
               )}
               <span className="text-foreground">
-                {p.full_name ?? p.username ?? "—"}
+                {p.display_name ?? "—"}
               </span>
               <button
                 type="button"
@@ -334,14 +336,18 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
 
           {/* Add attendee */}
           <UserPicker
-            value={null}
-            onChange={(uid) => uid && addAttendee(uid)}
-            users={profiles.filter((p) => !attendeeIds.includes(p.id))}
+            users={profiles}
+            excludeIds={attendeeIds}
+            open={attendeePickerOpen}
+            onOpenChange={setAttendeePickerOpen}
+            onSelect={(u) => addAttendee(u.id)}
+            title="Добавить участника"
             trigger={
               <button
                 type="button"
                 className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:border-primary hover:text-primary"
                 aria-label="Добавить участника"
+                onClick={() => setAttendeePickerOpen(true)}
               >
                 <Plus className="h-3 w-3" />
                 <span>Добавить</span>
