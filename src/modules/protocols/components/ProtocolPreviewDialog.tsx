@@ -53,6 +53,11 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   const meta: any = (protocol as any)?.protocol_meta ?? {};
   const sides = useMemo(() => parseProtocolSides(protocol?.name), [protocol?.name]);
   const isCrossFunctional = meta?.template_system_key === "cross_functional";
+  const isLiving = meta?.template_system_key === "living";
+  // For internal-style protocols (cross-functional, living) we treat layout the same:
+  // single side, no partner card, no signatures.
+  const isInternalStyle = isCrossFunctional || isLiving;
+  const topicNotes: Record<string, string> = (meta?.topic_notes as Record<string, string>) ?? {};
 
   // CRM client (для логотипа и имени партнёра)
   const linkedClientId: string | null = isCrossFunctional ? null : (meta.client_id ?? null);
@@ -122,6 +127,8 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
   // ---------- Sides toggle: показывать имена или только сторону ----------
   const [showSideOnly, setShowSideOnly] = useState(false);
   const [groupByTopic, setGroupByTopic] = useState(() => {
+    // Living protocols are organized by topic by default.
+    if (meta?.template_system_key === "living") return true;
     const topicIds = new Set<string>();
     for (const t of tasks) {
       const topic = getTaskTopic(t);
