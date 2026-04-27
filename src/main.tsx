@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { checkForUpdates } from "./lib/versionCheck";
 
 // Guard: unregister service workers in iframe/preview contexts to avoid stale caches.
 // In production (custom domain / published URL), vite-plugin-pwa's auto-injected
@@ -16,6 +17,8 @@ if (isPreviewHost || isInIframe) {
   navigator.serviceWorker?.getRegistrations().then((regs) => {
     regs.forEach((r) => r.unregister());
   });
+} else {
+  void checkForUpdates();
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
