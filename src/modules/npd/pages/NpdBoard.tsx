@@ -106,7 +106,7 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
   // to 7 days drops the bulk of the wire payload on heavy accounts.
   // Card-level "X/Y" metrics still need the full count → those come from
   // the server-side `useGroupTaskStats` aggregate (see `npdStatsById` below).
-  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 7 });
+  const { data: allTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 14 });
   const { data: availableUsers = [] } = useAvailableUsers();
 
   // Fetch all tags for filtering
