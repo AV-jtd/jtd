@@ -16,6 +16,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isApproved: boolean;
+  /** True only after we have a confirmed approval status from DB or fresh cache.
+   *  While false, callers MUST NOT redirect to /pending — the value of `isApproved`
+   *  is the safe default (false) and may be stale. */
+  approvalKnown: boolean;
   isAdmin: boolean;
   isRealAdmin: boolean;
   isConsultant: boolean;
@@ -38,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isApproved, setIsApproved] = useState(false);
+  const [approvalKnown, setApprovalKnown] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isConsultant, setIsConsultant] = useState(false);
   const [adminModeDisabled, setAdminModeDisabledState] = useState<boolean>(() => {
@@ -59,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     const off = subscribeAuthMeta(user.id, (snap) => {
       setIsApproved(snap.isApproved);
+      setApprovalKnown(true);
       setIsAdmin(snap.isAdmin);
       setIsConsultant(snap.isConsultant);
       setAdminModeDisabledState(snap.adminModeDisabled);
@@ -93,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cached = readAuthMeta(userId);
     if (cached && fetchIdRef.current === fetchId && isMounted()) {
       setIsApproved(cached.isApproved);
+      setApprovalKnown(true);
       setIsAdmin(cached.isAdmin);
       setIsConsultant(cached.isConsultant);
       setAdminModeDisabledState(cached.adminModeDisabled);
@@ -113,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fresh = readAuthMeta(userId);
       if (fresh && fetchIdRef.current === fetchId && isMounted()) {
         setIsApproved(fresh.isApproved);
+        setApprovalKnown(true);
         setIsAdmin(fresh.isAdmin);
         setIsConsultant(fresh.isConsultant);
         setAdminModeDisabledState(fresh.adminModeDisabled);
@@ -150,9 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let approvedNext = isApproved;
       if (profileRes.error) {
         console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
+        // Do NOT mark approval as known on failure — otherwise a transient
+        // statement timeout would bounce an already-approved user to /pending.
       } else {
         approvedNext = (profileRes.data as any)?.is_approved ?? false;
         setIsApproved(approvedNext);
+        setApprovalKnown(true);
       }
 
       const [roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
@@ -173,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
         setIsApproved(true);
+        setApprovalKnown(true);
         setLoading(false);
         writeAuthMeta(userId, {
           isApproved: true,
@@ -256,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         currentUserIdRef.current = null;
         setIsApproved(false);
+        setApprovalKnown(false);
         setIsAdmin(false);
         setIsConsultant(false);
         setLoading(false);
@@ -359,7 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, loading, isApproved,
+      user, session, loading, isApproved, approvalKnown,
       isAdmin: effectiveIsAdmin,
       isRealAdmin: isAdmin,
       isConsultant: effectiveIsConsultant,
