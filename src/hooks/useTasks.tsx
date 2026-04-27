@@ -561,7 +561,7 @@ export function useTaskMutations() {
   // ========== GROUPS ==========
 
   const addGroup = useMutation({
-    mutationFn: async ({ name, parent_id }: { name: string; parent_id?: string | null }) => {
+    mutationFn: async ({ name, parent_id, initial_tag_ids }: { name: string; parent_id?: string | null; initial_tag_ids?: string[] }) => {
       await checkDuplicateName(name, "project", user!.id);
 
       // Reuse an existing free-standing tag with the same name (case-insensitive)
@@ -613,6 +613,38 @@ export function useTaskMutations() {
         invited_by: user!.id,
         role: "owner",
       });
+
+      // ===== Tag inheritance =====
+      // Collect candidate tag_ids to attach as group_tags (метки контекста):
+      // 1) explicit initial_tag_ids passed by caller
+      // 2) non-system group_tags inherited from parent project
+      // System tags (площадка/бренд/территория и т.п.) НЕ наследуем автоматически —
+      // их пользователь явно навешивает в нужном месте.
+      const candidateIds = new Set<string>((initial_tag_ids || []).filter(Boolean));
+
+      if (parent_id) {
+        const { data: parentTagRows } = await supabase
+          .from("group_tags" as any)
+          .select("tag_id")
+          .eq("group_id", parent_id);
+        const parentTagIds = (parentTagRows || []).map((r: any) => r.tag_id).filter(Boolean);
+        if (parentTagIds.length > 0) {
+          // copy all parent group_tags (per user's choice: "Да, копировать все group_tags родителя")
+          parentTagIds.forEach((id: string) => candidateIds.add(id));
+        }
+      }
+
+      // Never duplicate the linked_tag_id as a group_tag — it's already the umbrella.
+      candidateIds.delete(tagId);
+
+      if (candidateIds.size > 0) {
+        const rows = Array.from(candidateIds).map((tag_id) => ({
+          group_id: groupData.id,
+          tag_id,
+        }));
+        // Best-effort insert; ignore conflicts so re-runs are safe.
+        await supabase.from("group_tags" as any).insert(rows);
+      }
     },
     onMutate: async ({ name, parent_id }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
