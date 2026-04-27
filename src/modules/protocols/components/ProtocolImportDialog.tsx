@@ -325,15 +325,21 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
               }}
               className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 p-8 transition-colors hover:border-primary/50 hover:bg-muted/40"
             >
-              {extractingPdf ? (
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              {pdfFile ? (
+                <FileText className="h-8 w-8 text-primary" />
               ) : (
                 <Download className="h-8 w-8 text-muted-foreground" />
               )}
               <div className="text-sm font-medium text-foreground">
-                {extractingPdf ? "Извлекаем текст из PDF…" : "Перетащите PDF или текстовый файл сюда"}
+                {pdfFile
+                  ? `📎 ${pdfFile.name}`
+                  : "Перетащите PDF или текстовый файл сюда"}
               </div>
-              <div className="text-xs text-muted-foreground">или нажмите, чтобы выбрать файл</div>
+              <div className="text-xs text-muted-foreground">
+                {pdfFile
+                  ? "ИИ разберёт PDF целиком: таблицы, эмодзи, выделения цветом"
+                  : "или нажмите, чтобы выбрать файл"}
+              </div>
               <input
                 ref={fileRef}
                 type="file"
