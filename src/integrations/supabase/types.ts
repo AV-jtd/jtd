@@ -1471,7 +1471,6 @@ export type Database = {
         Row: {
           approval_status: string | null
           assigned_to: string | null
-          attributed_group_id: string | null
           client_id: string | null
           closure_attachments: Json | null
           closure_result: string | null
@@ -1511,7 +1510,6 @@ export type Database = {
         Insert: {
           approval_status?: string | null
           assigned_to?: string | null
-          attributed_group_id?: string | null
           client_id?: string | null
           closure_attachments?: Json | null
           closure_result?: string | null
@@ -1551,7 +1549,6 @@ export type Database = {
         Update: {
           approval_status?: string | null
           assigned_to?: string | null
-          attributed_group_id?: string | null
           client_id?: string | null
           closure_attachments?: Json | null
           closure_result?: string | null
