@@ -1267,6 +1267,17 @@ function guessTemplate(parsed: ParsedProtocol, templates: ProtocolTemplate[]): P
     const t = templates.find((t) => t.system_key === "npd_gate");
     if (t) return t;
   }
+  // Эвристика «живого документа»: формальной структуры нет (мало секций, нет таблиц
+  // | ... | ... |, нет нумерованных заголовков типа "## 1." / "### 2."), но задачи
+  // есть. Это типичные свободные заметки встречи — для них живой формат удобнее.
+  const looksFormal =
+    /\|\s*[^|]+\s*\|\s*[^|]+\s*\|/.test(text) || // таблица
+    /\b#{1,4}\s*\d+[.)]/.test(text) || // нумерованный заголовок
+    (parsed.sections?.length ?? 0) >= 3; // 3+ секций = явно структурированный документ
+  if (!looksFormal && parsed.rows.length > 0) {
+    const t = templates.find((t) => t.system_key === "living");
+    if (t) return t;
+  }
   return (
     templates.find((t) => t.system_key === "cross_functional") ||
     templates.find((t) => t.system_key === "blank") ||
