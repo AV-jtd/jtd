@@ -189,6 +189,12 @@ async function checkDuplicateName(
     if (entity === "tag") {
       throw new DuplicateNameError(`Тэг «${dupTag.name}» уже существует`);
     }
+    // For "project" entity we INTENTIONALLY do not throw: a user creating a
+    // project that matches an existing free-standing tag usually wants to
+    // promote that tag into a project (collect tagged tasks under one umbrella).
+    // The addGroup mutation reuses the existing tag as linked_tag_id, so the
+    // task-hierarchy filter automatically pulls everything tagged with it.
+    if (entity === "project") return;
     throw new DuplicateNameError(`Название «${name.trim()}» уже используется тэгом «${dupTag.name}»`);
   }
 }
