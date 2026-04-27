@@ -182,6 +182,46 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       const selectedRows = parsed.rows.filter((r) => r.selected);
       if (selectedRows.length === 0) throw new Error("Выберите хотя бы одну строку");
 
+      // Fallback-резолвер: если в строке остались только подсказки (assignee_hint /
+      // assignee_hints) и не выбран пользователь — пробуем сматчить по команде
+      // прямо при создании. RowCard делает это в useEffect, но автомэтч мог не
+      // успеть прорасти в state перед нажатием "Создать черновик".
+      const matchByHint = (hint: string | null | undefined): string | null => {
+        if (!hint) return null;
+        const h = hint.toLowerCase().trim();
+        if (!h) return null;
+        const parts = h.split(/[\s,()@.]+/).filter((p) => p.length > 2);
+        if (parts.length === 0) return null;
+        const found = (teamMembers as Profile[]).find((m) => {
+          const name = (m.display_name || m.email || "").toLowerCase();
+          return parts.some((p) => name.includes(p));
+        });
+        return found?.id ?? null;
+      };
+      const resolvedRows = selectedRows.map((r) => {
+        let assignee_id = r.assignee_id ?? null;
+        let participant_ids = [...(r.participant_ids || [])];
+
+        // Главный ответственный: из hint, если не выбран
+        if (!assignee_id) {
+          const fromHint =
+            matchByHint(r.assignee_hint) ?? matchByHint(r.assignee_hints?.[0]);
+          if (fromHint) assignee_id = fromHint;
+        }
+
+        // Дополнительные ответственные: hints[1..] → participants (если пусто)
+        if (participant_ids.length === 0 && (r.assignee_hints?.length || 0) > 1) {
+          for (const h of (r.assignee_hints || []).slice(1)) {
+            const id = matchByHint(h);
+            if (id && id !== assignee_id && !participant_ids.includes(id)) {
+              participant_ids.push(id);
+            }
+          }
+        }
+
+        return { ...r, assignee_id, participant_ids };
+      });
+
       // 1. Создать проект-протокол (черновик)
       const { data: group, error: gErr } = await supabase
         .from("task_groups")
@@ -230,7 +270,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       }
 
       // 2. Создать задачи (черновик)
-      const taskRows = selectedRows.map((r, idx) => ({
+      const taskRows = resolvedRows.map((r, idx) => ({
         title: r.title,
         description: buildDescription(r),
         deadline: r.deadline || null,
@@ -349,7 +389,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
             // 3.6 Привязать теги к задачам (task_tags)
             const tagInserts: { task_id: string; tag_id: string }[] = [];
             (insertedTasks || []).forEach((t: { id: string }, i: number) => {
-              const topic = (selectedRows[i].axes?.event_topic || "").trim();
+              const topic = (resolvedRows[i].axes?.event_topic || "").trim();
               if (!topic) return;
               const tag = tagByLowerName.get(topic.toLowerCase());
               if (tag) tagInserts.push({ task_id: t.id, tag_id: tag.id });
@@ -369,7 +409,7 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
       // 4. Участники (опционально)
       const participantInserts: { task_id: string; user_id: string; role: string }[] = [];
       (insertedTasks || []).forEach((t: { id: string }, i: number) => {
-        const row = selectedRows[i];
+        const row = resolvedRows[i];
         (row.participant_ids || []).forEach((uid) => {
           if (uid && uid !== row.assignee_id) {
             participantInserts.push({ task_id: t.id, user_id: uid, role: "participant" });
