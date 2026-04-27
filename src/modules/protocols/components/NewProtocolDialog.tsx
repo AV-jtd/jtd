@@ -68,6 +68,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   }, [topicFilter]);
 
   const isCrossFunctional = selected?.system_key === "cross_functional";
+  const isLiving = selected?.system_key === "living";
+  // Шаблоны, которые поддерживают перенос открытых задач из прошлых встреч.
+  const supportsCarryOver = isCrossFunctional || isLiving;
   const { topicTags } = useEventTopicTags();
 
   // Reset on close
@@ -97,12 +100,12 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   // and count its open (uncompleted) tasks per protocol. Used to let the user pick which past
   // meeting(s) to carry open commitments from.
   const prevProtocolsQuery = useQuery({
-    queryKey: ["prev-cross-functional-list", user?.id],
-    enabled: !!user && isCrossFunctional && step === "details",
+    queryKey: ["prev-protocol-list", selected?.system_key, user?.id],
+    enabled: !!user && supportsCarryOver && step === "details",
     staleTime: 60 * 1000,
     queryFn: async () => {
       if (!user) return [] as Array<{ id: string; name: string; created_at: string; openCount: number; topicTagIds: string[]; primaryTopicId: string | null }>;
-      // Find recent cross_functional protocols of this user
+      // Find recent protocols of the same template for this user
       const { data: groups, error: gErr } = await supabase
         .from("task_groups")
         .select("id, name, created_at, protocol_meta")
@@ -111,10 +114,15 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .order("created_at", { ascending: false })
         .limit(100);
       if (gErr) throw gErr;
+      const targetKey = selected?.system_key;
       const candidates = (groups || []).filter((g: any) => {
         const meta = g.protocol_meta || {};
-        if (meta.template_system_key === "cross_functional") return true;
-        return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
+        if (meta.template_system_key === targetKey) return true;
+        // Legacy fallback for cross_functional protocols created before template_system_key existed
+        if (targetKey === "cross_functional") {
+          return typeof g.name === "string" && g.name.startsWith("Кросс-функциональный");
+        }
+        return false;
       }).slice(0, 30);
       if (candidates.length === 0) return [];
       const ids = candidates.map((g: any) => g.id);
@@ -209,8 +217,10 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
       if (!name.trim()) throw new Error("Введите название протокола");
 
       const isCF = selected.system_key === "cross_functional";
-      // Build description: for cross_functional keep it clean (user-only), for others keep auto-hint
-      const finalDescription = isCF
+      const isLivingTpl = selected.system_key === "living";
+      const carryOver = isCF || isLivingTpl;
+      // Build description: for cross_functional / living keep it clean (user-only), for others keep auto-hint
+      const finalDescription = (isCF || isLivingTpl)
         ? description.trim() || null
         : description.trim() || `Шаблон: ${selected.name}\nДата встречи: ${format(new Date(meetingDate), "dd.MM.yyyy")}`;
 
@@ -237,8 +247,8 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         .single();
       if (gErr) throw gErr;
 
-      // 2. For cross_functional — optionally clone open tasks from selected past protocols as drafts
-      if (isCF && selectedPrevIds.length > 0) {
+      // 2. For cross_functional / living — optionally clone open tasks from selected past protocols as drafts
+      if (carryOver && selectedPrevIds.length > 0) {
         const { data: openTasks, error: tErr } = await supabase
           .from("tasks")
           .select("id, title, description, assigned_to, deadline, priority, is_important, group_id")
@@ -285,8 +295,9 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
   });
 
   const showAxes = useMemo(() => {
-    // Cross-functional is an internal ritual — partner-style axes are noise here.
-    if (!selected || selected.system_key === "cross_functional") return [] as string[];
+    // Cross-functional and living are internal rituals — partner-style axes are noise here.
+    if (!selected) return [] as string[];
+    if (selected.system_key === "cross_functional" || selected.system_key === "living") return [] as string[];
     return [...selected.required_axes, ...selected.optional_axes];
   }, [selected]);
 
@@ -407,7 +418,7 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                 />
               </div>
 
-              {isCrossFunctional && (
+              {supportsCarryOver && (
                 <div className="rounded-md border border-border bg-muted/20 p-3">
                   <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
                     <Repeat className="h-3.5 w-3.5 text-primary" />
@@ -415,11 +426,11 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
                   </div>
                   {prevProtocolsQuery.isLoading ? (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Ищем кросс-функциональные протоколы…
+                      <Loader2 className="h-3 w-3 animate-spin" /> Ищем протоколы того же типа…
                     </div>
                   ) : prevProtocols.length === 0 ? (
                     <div className="text-xs text-muted-foreground">
-                      Прошлых кросс-функциональных протоколов не найдено.
+                      Прошлых протоколов «{selected?.name}» не найдено.
                     </div>
                   ) : (
                     <>
