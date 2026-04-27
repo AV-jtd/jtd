@@ -281,9 +281,22 @@ export default function NewProtocolDialog({ open, onOpenChange }: Props) {
         }
       }
 
-      // 3. Living: создаём плейсхолдер-тему «Общее», чтобы пользователь сразу видел
-      //    структуру «тема → выводы → задачи». Без не
-      return group as { id: string };
+      // 3. Living: seed default theme placeholder.
+      if (isLivingTpl) {
+        try {
+          let categoryId: string | null = null;
+          const catRes = await supabase
+            .from("tag_categories" as any)
+            .select("id")
+            .eq("system_key", "event_topic")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if ((catRes.data as any)?.id) {
+            categoryId = (catRes.data as any).id;
+          } else {
+            const ins = await supabase
+              .from("tag_categories" as any)
+              .
     },
     onSuccess: (group) => {
       invalidateTaskGroups(qc);
