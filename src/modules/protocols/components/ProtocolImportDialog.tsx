@@ -247,7 +247,126 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
         .select("id");
       if (tErr) throw tErr;
 
-      // 3. Участники (опционально)
+      // 3. Темы (event_topic) → теги + авто-линк к одноимённому проекту.
+      //    Каждая задача с axes.event_topic получает соответствующий тег;
+      //    задачи в таблице протокола сразу группируются по теме.
+      try {
+        // 3.1 Уникальные имена тем
+        const topicNames = Array.from(
+          new Set(
+            selectedRows
+              .map((r) => (r.axes?.event_topic || "").trim())
+              .filter((s) => s.length > 0),
+          ),
+        );
+
+        if (topicNames.length > 0) {
+          // 3.2 Найти/создать системную категорию event_topic пользователя
+          let categoryId: string | null = null;
+          {
+            const { data: existingCat } = await supabase
+              .from("tag_categories" as any)
+              .select("id")
+              .eq("system_key", "event_topic")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (existingCat?.id) {
+              categoryId = (existingCat as any).id;
+            } else {
+              const { data: createdCat } = await supabase
+                .from("tag_categories" as any)
+                .insert({ name: "Тема", system_key: "event_topic", is_system: true, user_id: user.id })
+                .select("id")
+                .single();
+              categoryId = (createdCat as any)?.id ?? null;
+            }
+          }
+
+          if (categoryId) {
+            // 3.3 Прочитать существующие теги в категории (case-insensitive)
+            const { data: existingTags } = await supabase
+              .from("tags")
+              .select("id, name, category_id, tag_categories!inner(system_key)")
+              .eq("tag_categories.system_key", "event_topic");
+            const tagByLowerName = new Map<string, { id: string; name: string }>();
+            for (const t of (existingTags ?? []) as any[]) {
+              tagByLowerName.set(String(t.name).trim().toLowerCase(), { id: t.id, name: t.name });
+            }
+
+            // 3.4 Создать недостающие теги
+            const missing = topicNames.filter(
+              (n) => !tagByLowerName.has(n.toLowerCase()),
+            );
+            if (missing.length > 0) {
+              const { data: createdTags } = await supabase
+                .from("tags")
+                .insert(
+                  missing.map((name) => ({
+                    name,
+                    category_id: categoryId,
+                    user_id: user.id,
+                    color: "hsl(var(--primary))",
+                  })),
+                )
+                .select("id, name");
+              for (const t of (createdTags ?? []) as any[]) {
+                tagByLowerName.set(String(t.name).trim().toLowerCase(), { id: t.id, name: t.name });
+              }
+            }
+
+            // 3.5 Авто-линк: если есть открытый проект с тем же именем —
+            //     записываем linked_tag_id (только в свои проекты).
+            const { data: matchingGroups } = await supabase
+              .from("task_groups")
+              .select("id, name, linked_tag_id, user_id")
+              .in(
+                "name",
+                topicNames, // exact match; case-чувствительно достаточно для авто-связи
+              )
+              .is("closed_at", null);
+            const groupsByLowerName = new Map<string, any[]>();
+            for (const g of (matchingGroups ?? []) as any[]) {
+              const key = String(g.name).trim().toLowerCase();
+              if (!groupsByLowerName.has(key)) groupsByLowerName.set(key, []);
+              groupsByLowerName.get(key)!.push(g);
+            }
+            for (const name of topicNames) {
+              const lower = name.toLowerCase();
+              const tag = tagByLowerName.get(lower);
+              const candidates = groupsByLowerName.get(lower) ?? [];
+              if (!tag || candidates.length === 0) continue;
+              const ownGroup =
+                candidates.find((g) => g.linked_tag_id === tag.id) ??
+                candidates.find((g) => g.user_id === user.id && !g.linked_tag_id);
+              if (ownGroup && !ownGroup.linked_tag_id) {
+                await supabase
+                  .from("task_groups")
+                  .update({ linked_tag_id: tag.id })
+                  .eq("id", ownGroup.id);
+              }
+            }
+
+            // 3.6 Привязать теги к задачам (task_tags)
+            const tagInserts: { task_id: string; tag_id: string }[] = [];
+            (insertedTasks || []).forEach((t: { id: string }, i: number) => {
+              const topic = (selectedRows[i].axes?.event_topic || "").trim();
+              if (!topic) return;
+              const tag = tagByLowerName.get(topic.toLowerCase());
+              if (tag) tagInserts.push({ task_id: t.id, tag_id: tag.id });
+            });
+            if (tagInserts.length > 0) {
+              await supabase
+                .from("task_tags")
+                .upsert(tagInserts as any, { onConflict: "task_id,tag_id", ignoreDuplicates: true });
+            }
+          }
+        }
+      } catch (e) {
+        // Темы — best-effort: не блокируем создание протокола
+        console.error("[protocol-import] topic linking failed", e);
+      }
+
+      // 4. Участники (опционально)
       const participantInserts: { task_id: string; user_id: string; role: string }[] = [];
       (insertedTasks || []).forEach((t: { id: string }, i: number) => {
         const row = selectedRows[i];
@@ -266,6 +385,8 @@ export default function ProtocolImportDialog({ open, onOpenChange }: Props) {
     onSuccess: (group) => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["tags"] });
+      qc.invalidateQueries({ queryKey: ["event_topic_tags"] });
       toast.success("Протокол создан как черновик");
       onOpenChange(false);
       navigate(`/protocols/${group.id}`);
