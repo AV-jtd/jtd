@@ -34,7 +34,7 @@ function ViewFallback() {
 }
 
 export default function Index() {
-  const { user, loading, isApproved, isConsultant } = useAuth();
+  const { user, loading, isApproved, approvalKnown, isConsultant } = useAuth();
   const [activeView, setActiveView] = useState("all");
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
