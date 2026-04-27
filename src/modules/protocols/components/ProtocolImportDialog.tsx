@@ -535,8 +535,17 @@ function RowCard({
 
   const topicAxis = row.axes?.event_topic || "";
   const setAxis = (key: string, value: string | null) => {
-    onChange({ axes: { ...(row.axes || {}), [key]: value } });
+    // Сохраняем пустую строку вместо null, чтобы инпут не размонтировался
+    // во время правки (фильтр для чипов всё равно скроет пустые значения).
+    onChange({ axes: { ...(row.axes || {}), [key]: value ?? "" } });
   };
+
+  // Все ключи доп. параметров (в т.ч. с временно пустыми значениями) —
+  // нужны для стабильного рендера инпутов при стирании текста.
+  const axisKeys = useMemo(() => {
+    if (!row.axes) return [] as string[];
+    return Object.keys(row.axes).filter((k) => k !== "event_topic");
+  }, [row.axes]);
 
   return (
     <div
