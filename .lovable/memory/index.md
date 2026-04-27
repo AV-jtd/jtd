@@ -18,3 +18,4 @@
 - [tech/performance/hover-prefetch](mem://tech/performance/hover-prefetch) — usePrefetchOnHover: debounce 120ms, греет кэш useTasks(groupId) при hover на проектах/протоколах в sidebar и ProtocolsList.
 - [tech/performance/streaming-pagination](mem://tech/performance/streaming-pagination) — useTasks стримит страницы (1000 строк) через setQueryData; первая страница рисуется ~в 2× быстрее. Отключено при filterTags.
 - [features/protocols/living-import-mode](mem://features/protocols/living-import-mode) — Living-импорт: body.mode в parse-protocol-text, отдельный промпт со смысловой группировкой, кнопка «Перепарсить» при смене шаблона.
+- [tech/performance/subtasks-task-id-index](mem://tech/performance/subtasks-task-id-index) — КРИТИЧНО: индекс subtasks(task_id) обязателен для useTasks LATERAL join (без него таймауты). Один unique constraint на task_participants(task_id,user_id).

@@ -1,0 +1,2 @@
+ALTER TABLE public.task_participants DROP CONSTRAINT IF EXISTS task_participants_task_user_uniq;
+ALTER TABLE public.task_participants DROP CONSTRAINT IF EXISTS task_participants_task_user_unique;
