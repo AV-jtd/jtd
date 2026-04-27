@@ -7,6 +7,7 @@ import { usePublishProtocol, useDiscardProtocolDraft } from "@/hooks/usePublishP
 import { useAuth } from "@/hooks/useAuth";
 import ProtocolTableView from "@/modules/protocols/components/ProtocolTableView";
 import ProtocolHeader from "@/modules/protocols/components/ProtocolHeader";
+import LivingProtocolHeader from "@/modules/protocols/components/LivingProtocolHeader";
 import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
 import ProtocolPreviewDialog from "@/modules/protocols/components/ProtocolPreviewDialog";
 import ProtocolSummary from "@/modules/protocols/components/ProtocolSummary";
@@ -99,16 +100,28 @@ export default function ProtocolDetailPage() {
           </div>
         ) : (
           <>
-            <ProtocolHeader
-              protocol={protocol as any}
-              isDraft={isDraft}
-              isCrossFunctional={isCrossFunctional}
-              internalAttendeeIds={Array.from(new Set(
-                tasks
-                  .filter((t) => t.group_id === id && t.assigned_to)
-                  .map((t) => t.assigned_to as string)
-              ))}
-            />
+            {isLiving ? (
+              <LivingProtocolHeader
+                protocol={protocol as any}
+                isDraft={isDraft}
+                internalAttendeeIds={Array.from(new Set(
+                  tasks
+                    .filter((t) => t.group_id === id && t.assigned_to)
+                    .map((t) => t.assigned_to as string)
+                ))}
+              />
+            ) : (
+              <ProtocolHeader
+                protocol={protocol as any}
+                isDraft={isDraft}
+                isCrossFunctional={isCrossFunctional}
+                internalAttendeeIds={Array.from(new Set(
+                  tasks
+                    .filter((t) => t.group_id === id && t.assigned_to)
+                    .map((t) => t.assigned_to as string)
+                ))}
+              />
+            )}
 
             {isDraft && (
               <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
@@ -213,11 +226,13 @@ export default function ProtocolDetailPage() {
               </div>
             )}
 
-            <ProtocolSummary
-              protocolId={protocol.id}
-              protocolName={protocol.name}
-              protocolMeta={(protocol as any).protocol_meta}
-            />
+            {!isLiving && (
+              <ProtocolSummary
+                protocolId={protocol.id}
+                protocolName={protocol.name}
+                protocolMeta={(protocol as any).protocol_meta}
+              />
+            )}
 
             <ProtocolTableView protocolId={protocol.id} />
 
