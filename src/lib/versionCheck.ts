@@ -2,7 +2,7 @@
  * Build-time version check.
  * On app load, fetches /version.json from the server.
  * If the server version differs from the embedded build version,
- * clears all caches and forces a hard reload.
+ * marks an update and applies it only after the tab is backgrounded.
  */
 
 // Injected at build time by Vite (see vite.config.ts define)
@@ -54,6 +54,10 @@ async function hardReload() {
 
 function markUpdateAvailable() {
   try { sessionStorage.setItem("jtd_update_available", String(Date.now())); } catch {}
+}
+
+function clearUpdateAvailable() {
+  try { sessionStorage.removeItem("jtd_update_available"); } catch {}
 }
 
 async function hardReloadOnlyWhenHidden() {
@@ -118,6 +122,8 @@ async function pollOnce() {
         await reg.update();
         if (reg.waiting) scheduleSafeActivation(reg);
       }
+    } else {
+      clearUpdateAvailable();
     }
   } catch {
     // Network error — ignore, will retry on next interval
@@ -127,7 +133,11 @@ async function pollOnce() {
 export async function checkForUpdates() {
   if (isSkippableContext()) return;
 
-  await registerServiceWorker();
+  try {
+    await registerServiceWorker();
+  } catch (err) {
+    console.warn("[Version] Service worker registration failed:", err);
+  }
 
   // 1) Initial check on load
   await pollOnce();
