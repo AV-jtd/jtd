@@ -224,6 +224,12 @@ export function useTasks(
 
         if (groupId) {
           query = query.eq("group_id", groupId);
+        } else {
+          // ⚡ Server-side exclusion of stm_stage tasks from global lists.
+          // 60%+ of tasks in mature accounts are stm_stage; excluding them
+          // server-side cuts payload by ~3x and avoids parsing them client-side.
+          // Client-side filter below remains as a safety net (also strips drafts).
+          query = query.or("task_type.is.null,task_type.neq.stm_stage");
         }
 
         if (completedWindowDays === 0) {
