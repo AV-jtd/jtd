@@ -6,6 +6,7 @@ import { useTasksWithComments } from "@/hooks/useComments";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
+import ProtocolsInsightCard from "@/modules/protocols/components/ProtocolsInsightCard";
 const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
 const VirtualTaskList = lazy(() => import("./task-list/VirtualTaskList"));
 import { useAiInsights } from "@/hooks/useAiInsights";
