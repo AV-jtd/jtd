@@ -711,7 +711,7 @@ type LinkedClient = { id: string; name: string; contact_name: string | null; ema
 
 function ProtocolRow({
   task, index, users, statuses, allStatusTagIds, externalAttendees, linkedClient, parsedPartner,
-  sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
+  isLiving, sortable, expanded, onToggleExpand, onToggleComplete, onChangeStatus, onUpdate, onDelete,
 }: {
   task: Task;
   index: number;
@@ -721,6 +721,7 @@ function ProtocolRow({
   externalAttendees: Array<{ name: string; organization?: string; role?: string }>;
   linkedClient: LinkedClient;
   parsedPartner: string | null;
+  isLiving?: boolean;
   sortable: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
