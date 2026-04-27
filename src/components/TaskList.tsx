@@ -97,9 +97,18 @@ interface TaskListProps {
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen, onViewChange }: TaskListProps) {
   const { user } = useAuth();
   const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
+  // Performance: in the global task list we only need active tasks plus
+  // completed-in-the-last-7-days (rendered in the collapsed «Выполнено»
+  // section + the «completed» smart-filter chip which itself looks back 7
+  // days). Older completed tasks are still found by global search and live
+  // in the Archive view, which uses unrestricted useTasks().
+  // For a specific project view (`activeView === "group"`) we keep the
+  // full history because the project page needs accurate progress metrics.
+  const isGroupView = activeView === "group";
   const { data: tasks = [], isLoading } = useTasks(
-    activeView === "group" ? activeGroupId : undefined,
-    activeTagFilters.length > 0 ? activeTagFilters : undefined
+    isGroupView ? activeGroupId : undefined,
+    activeTagFilters.length > 0 ? activeTagFilters : undefined,
+    isGroupView ? undefined : { completedWindowDays: 7 },
   );
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useVisibleTags();
