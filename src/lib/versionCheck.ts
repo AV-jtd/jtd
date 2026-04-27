@@ -10,6 +10,7 @@ const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION as string | undefined;
 
 const RELOAD_FLAG = "jtd_version_reload";
 const POLL_INTERVAL_MS = 60_000; // check every 60s
+const SW_UPDATE_INTERVAL_MS = 5 * 60_000;
 
 function isSkippableContext(): boolean {
   if (import.meta.env.DEV) return true;
@@ -30,12 +31,16 @@ async function hardReload() {
   sessionStorage.setItem(RELOAD_FLAG, String(Date.now()));
 
   try {
-    if ("caches" in window) {
-      const names = await caches.keys();
-      await Promise.all(names.map((n) => caches.delete(n)));
-    }
     const regs = await navigator.serviceWorker?.getRegistrations();
-    if (regs) await Promise.all(regs.map((r) => r.unregister()));
+    const currentOrigin = window.location.origin;
+    if (regs) {
+      await Promise.all(
+        regs.map((reg) => {
+          const activeUrl = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || "";
+          return activeUrl && !activeUrl.startsWith(currentOrigin) ? reg.unregister() : Promise.resolve(true);
+        }),
+      );
+    }
   } catch {
     // ignore — proceed to reload regardless
   }
@@ -44,6 +49,46 @@ async function hardReload() {
   const url = new URL(window.location.href);
   url.searchParams.set("_v", Date.now().toString(36));
   window.location.replace(url.toString());
+}
+
+function requestWaitingWorkerActivation(reg: ServiceWorkerRegistration) {
+  if (!reg.waiting) return;
+  reg.waiting.postMessage({ type: "SKIP_WAITING" });
+}
+
+function scheduleSafeActivation(reg: ServiceWorkerRegistration) {
+  if (!reg.waiting) return;
+
+  if (document.visibilityState === "hidden") {
+    requestWaitingWorkerActivation(reg);
+    return;
+  }
+
+  const activateOnHide = () => requestWaitingWorkerActivation(reg);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") activateOnHide();
+  }, { once: true });
+
+  window.setTimeout(() => requestWaitingWorkerActivation(reg), 10 * 60_000);
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  if (reg.waiting) scheduleSafeActivation(reg);
+
+  reg.addEventListener("updatefound", () => {
+    const worker = reg.installing;
+    if (!worker) return;
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "installed" && navigator.serviceWorker.controller) {
+        scheduleSafeActivation(reg);
+      }
+    });
+  });
+
+  window.setInterval(() => { void reg.update(); }, SW_UPDATE_INTERVAL_MS);
 }
 
 async function pollOnce() {
@@ -63,6 +108,8 @@ async function pollOnce() {
 
 export async function checkForUpdates() {
   if (isSkippableContext()) return;
+
+  await registerServiceWorker();
 
   // 1) Initial check on load
   await pollOnce();

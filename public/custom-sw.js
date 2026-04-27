@@ -21,6 +21,12 @@ const SW_VERSION = SW_URL.searchParams.get("v") || "";
 // Caches that should survive across deploys (shared, immutable assets).
 const PRESERVED_CACHES = new Set(["google-fonts-cache", "gstatic-fonts-cache"]);
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 function isCurrentVersionCache(name) {
   if (!SW_VERSION) return true; // no version info → don't risk deleting
   // Workbox precache name contains the cacheId we set in vite.config.ts.

@@ -40,13 +40,13 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     mode === "production" && versionJsonPlugin(buildVersion),
     VitePWA({
-      injectRegister: "auto",
-      registerType: "autoUpdate",
+      injectRegister: false,
+      registerType: "prompt",
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "placeholder.svg", "pwa-maskable-192x192.png", "pwa-maskable-512x512.png", "offline.html"],
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
+        skipWaiting: false,
+        clientsClaim: false,
         // Automatically delete precache entries from previous SW versions
         // on activation. Combined with the orphan-cache cleanup in
         // custom-sw.js, this prevents unbounded cache growth on mobile.
