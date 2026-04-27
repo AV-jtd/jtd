@@ -2135,8 +2135,10 @@ export type Database = {
           active: number
           completed: number
           drift: number
+          earliest_start: string
           group_id: string
           last_completed_at: string
+          max_drift_days: number
           overdue: number
           total: number
           upcoming_7d: number
