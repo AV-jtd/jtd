@@ -20,6 +20,7 @@ import { useProtocolTemplates, type ProtocolTemplate } from "@/hooks/useProtocol
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import UserPicker from "@/components/UserPicker";
 import { toast } from "sonner";
+import { invalidateTasksScoped, invalidateTaskGroups } from "@/lib/queryInvalidation";
 
 // Конвертация File → base64 (для multimodal-передачи в Gemini)
 async function fileToBase64(file: File): Promise<string> {
