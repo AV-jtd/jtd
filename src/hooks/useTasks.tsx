@@ -73,9 +73,28 @@ export class DuplicateNameError extends Error {
 }
 
 const SUPABASE_PAGE_SIZE = 1000;
+const SUPABASE_PAGE_TIMEOUT_MS = 15_000;
+
+async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      Promise.resolve(request),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 async function fetchAllPages<T>(
-  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
   maxPages = 100,
 ) {
   const all: T[] = [];
@@ -83,7 +102,7 @@ async function fetchAllPages<T>(
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
     const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await fetchPage(from, to);
+    const { data, error } = await withSupabaseTimeout(fetchPage(from, to), `Data page ${page + 1}`);
     if (error) throw error;
 
     const chunk = data || [];
@@ -112,7 +131,7 @@ async function fetchAllPages<T>(
  * post-processing (filtering, tag expansion) sees complete data.
  */
 async function fetchAllPagesStreaming<T>(
-  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
   onPage: (accumulated: T[], isFinal: boolean) => void,
   maxPages = 100,
 ) {
@@ -121,7 +140,7 @@ async function fetchAllPagesStreaming<T>(
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
     const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await fetchPage(from, to);
+    const { data, error } = await withSupabaseTimeout(fetchPage(from, to), `Tasks page ${page + 1}`);
     if (error) throw error;
 
     const chunk = data || [];
