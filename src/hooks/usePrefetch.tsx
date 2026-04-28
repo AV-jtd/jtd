@@ -143,7 +143,7 @@ export function usePrefetchData() {
       ];
 
       for (const run of prefetches) {
-        if (document.visibilityState === "hidden") break;
+        if (document.hidden) break;
         await run().catch(() => undefined);
       }
       finishPrefetch(user.id);
