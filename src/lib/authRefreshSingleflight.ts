@@ -121,6 +121,35 @@ if (w && !w[PATCH_FLAG]) {
       const response = await originalFetch(input, init);
       if (response.ok) {
         try { writeResult(hash, await response.clone().json()); } catch {}
+      } else if (response.status === 400 || response.status === 401) {
+        // Refresh token is invalid/expired. Supabase-js sometimes silently
+        // keeps the stale session in localStorage instead of firing SIGNED_OUT,
+        // which leaves the app in a broken state where every query returns 401
+        // and the user just sees "Не удалось загрузить задачи" with no way out.
+        //
+        // We proactively clear all Supabase auth keys and trigger a sign-out
+        // event so AuthProvider redirects to /auth.
+        try {
+          const body = await response.clone().json().catch(() => ({}));
+          const code = body?.error_code || body?.code;
+          if (code === "refresh_token_not_found" || code === "invalid_grant" || response.status === 401) {
+            console.warn("[Auth] refresh token rejected, clearing stale session", code);
+            // Clear every supabase auth-related key so a stale token does not
+            // get picked up on the next reload.
+            for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+              const key = localStorage.key(i);
+              if (key && (key.startsWith("sb-") || key.includes("supabase.auth"))) {
+                localStorage.removeItem(key);
+              }
+            }
+            // Hard reload so React Query, in-memory session, and singleflight
+            // cache all reset cleanly. The user lands on /auth.
+            setTimeout(() => {
+              if (!location.pathname.startsWith("/auth")) location.replace("/auth");
+              else location.reload();
+            }, 50);
+          }
+        } catch {}
       }
       return response;
     } finally {
