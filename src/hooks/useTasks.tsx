@@ -388,7 +388,7 @@ export function useTasks(
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
-          .select("*, subtasks(*), task_tags(tag_id)")
+          .select("*")
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
@@ -471,6 +471,8 @@ export function useTasks(
           return false;
         });
       }
+
+      void hydrateTaskRelationsInBackground(qc, queryKey, filteredTasks);
 
       return filteredTasks;
     },
