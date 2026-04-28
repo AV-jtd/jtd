@@ -53,6 +53,13 @@ interface AiInsightsCardProps {
   compactLabel?: string;
   /** User display name for simplified greeting */
   userName?: string;
+  /** Optional one-liner about stuck protocol tasks (shown in expanded section if stuck > 0) */
+  protocolsLine?: {
+    stuck: number;
+    topAxisLabel?: string;
+    topTagName?: string;
+    onOpen?: () => void;
+  } | null;
 }
 
 function getSmartFilterLabel(hint?: string, taskId?: string, groupId?: string) {
