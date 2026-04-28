@@ -88,6 +88,7 @@ async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
 
   const reg = await navigator.serviceWorker.register("/sw.js");
+  try { await reg.update(); } catch {}
   if (reg.waiting) scheduleSafeActivation(reg);
 
   reg.addEventListener("updatefound", () => {
