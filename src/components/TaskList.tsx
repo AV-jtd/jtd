@@ -112,7 +112,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   // For a specific project view (`activeView === "group"`) we keep the
   // full history because the project page needs accurate progress metrics.
   const isGroupView = activeView === "group";
-  const { data: tasks = [], isLoading, isFetching, error: tasksError, refetch: refetchTasks } = useTasks(
+  const { data: tasks = [], isLoading, error: tasksError, refetch: refetchTasks } = useTasks(
     isGroupView ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined,
     isGroupView ? undefined : { completedWindowDays: 14 },
