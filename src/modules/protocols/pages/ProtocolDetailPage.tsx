@@ -124,17 +124,30 @@ export default function ProtocolDetailPage() {
             )}
 
             {!isDraft && (
-              <div className="mb-5 flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewOpen(true)}
-                  className="h-8 gap-1.5 px-2"
-                  aria-label="Превью и экспорт PDF"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Превью / PDF</span>
-                </Button>
+              <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/[0.03] px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                    <Eye className="h-3.5 w-3.5" />
+                  </div>
+                  <p className="min-w-0 truncate text-sm">
+                    <span className="font-semibold text-foreground">Опубликовано</span>
+                    <span className="hidden text-muted-foreground sm:inline">
+                      {" "}— отправьте партнёрам PDF, копию текста или сообщение в Telegram
+                    </span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPreviewOpen(true)}
+                    className="h-8 gap-1.5 px-2"
+                    aria-label="Превью и экспорт PDF"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Превью / PDF</span>
+                  </Button>
+                </div>
               </div>
             )}
 
