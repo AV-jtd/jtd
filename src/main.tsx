@@ -54,13 +54,6 @@ import "./index.css";
 // Several users got a "zombie" shell from stale SW/IndexedDB caches: UI loaded,
 // but fresh auth/data requests never completed. Always start from network and
 // keep only auth/local UI state.
-const isInIframe = (() => {
-  try { return window.self !== window.top; } catch { return true; }
-})();
-const isPreviewHost =
-  window.location.hostname.includes("id-preview--") ||
-  window.location.hostname.includes("lovableproject.com");
-
 void (async () => {
   try {
     await navigator.serviceWorker?.getRegistrations().then((regs) =>
