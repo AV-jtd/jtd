@@ -388,6 +388,7 @@ export function useTasks(
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
           .range(from, to);
 
         if (groupId) {
