@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { formatMessagePreview } from "@/lib/systemMessages";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -334,7 +335,7 @@ export default function MessengerPanel({
                           {thread.lastMessageAuthor && (
                             <span className="font-medium text-foreground/60">{thread.lastMessageAuthor}: </span>
                           )}
-                          {thread.lastMessage}
+                          {formatMessagePreview(thread.lastMessage)}
                         </p>
                       )}
                     </div>
