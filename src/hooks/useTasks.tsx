@@ -72,7 +72,11 @@ export class DuplicateNameError extends Error {
   }
 }
 
-const SUPABASE_PAGE_SIZE = 1000;
+// Reduced from 1000 → 200 to keep heavy task queries (with subtasks +
+// task_tags embeds and RLS subqueries) under the Postgres statement_timeout.
+// Pagination still loads everything, just in more, smaller chunks; first
+// paint is faster because fetchAllPagesStreaming publishes each page.
+const SUPABASE_PAGE_SIZE = 200;
 const SUPABASE_PAGE_TIMEOUT_MS = 15_000;
 
 async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
