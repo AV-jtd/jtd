@@ -77,7 +77,7 @@ export class DuplicateNameError extends Error {
 // instead of waiting for nested RLS checks on subtasks/task_tags.
 const SUPABASE_PAGE_SIZE = 200;
 const SUPABASE_PAGE_TIMEOUT_MS = 15_000;
-const TASK_RELATION_BATCH_SIZE = 75;
+const TASK_RELATION_BATCH_SIZE = 200;
 const taskRelationHydrationInFlight = new Set<string>();
 
 async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
@@ -185,6 +185,9 @@ async function hydrateTaskRelationsInBackground(
   taskRelationHydrationInFlight.add(hydrationKey);
 
   try {
+    const subtasksByTask = new Map<string, Subtask[]>();
+    const tagsByTask = new Map<string, { tag_id: string }[]>();
+
     for (let i = 0; i < ids.length; i += TASK_RELATION_BATCH_SIZE) {
       if (typeof document !== "undefined" && document.hidden) break;
       await waitForIdle();
@@ -207,33 +210,26 @@ async function hydrateTaskRelationsInBackground(
         return;
       }
 
-      const subtasksByTask = new Map<string, Subtask[]>();
       for (const subtask of (subtasksRes.data || []) as Subtask[]) {
         const list = subtasksByTask.get(subtask.task_id) || [];
         list.push(subtask);
         subtasksByTask.set(subtask.task_id, list);
       }
 
-      const tagsByTask = new Map<string, { tag_id: string }[]>();
       for (const row of (tagsRes.data || []) as { task_id: string; tag_id: string }[]) {
         const list = tagsByTask.get(row.task_id) || [];
         list.push({ tag_id: row.tag_id });
         tagsByTask.set(row.task_id, list);
       }
-
-      const chunkSet = new Set(chunk);
-      qc.setQueryData<Task[]>(queryKey, (current) =>
-        current?.map((task) =>
-          chunkSet.has(task.id)
-            ? {
-                ...task,
-                subtasks: subtasksByTask.get(task.id) || [],
-                task_tags: tagsByTask.get(task.id) || [],
-              }
-            : task,
-        ),
-      );
     }
+
+    qc.setQueryData<Task[]>(queryKey, (current) =>
+      current?.map((task) => ({
+        ...task,
+        subtasks: subtasksByTask.get(task.id) || task.subtasks || [],
+        task_tags: tagsByTask.get(task.id) || task.task_tags || [],
+      })),
+    );
   } finally {
     taskRelationHydrationInFlight.delete(hydrationKey);
   }
