@@ -1,0 +1,4 @@
+name = "jtd-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+# No KV/secrets needed — target host is hardcoded.
