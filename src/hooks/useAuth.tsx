@@ -144,29 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, HARD_TIMEOUT_MS);
 
     try {
-      // Approval is the routing-critical bit. Load it first so a slow role/admin
-      // request cannot leave an approved user with stale `isApproved=false` and
-      // bounce them back to /pending.
-      const profileRes = await supabase
-        .from("profiles")
-        .select("is_approved")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (fetchIdRef.current !== fetchId || !isMounted()) return;
-
-      let approvedNext = isApproved;
-      if (profileRes.error) {
-        console.warn("[Auth] profiles fetch failed, keeping previous isApproved:", profileRes.error);
-        // Do NOT mark approval as known on failure — otherwise a transient
-        // statement timeout would bounce an already-approved user to /pending.
-      } else {
-        approvedNext = (profileRes.data as any)?.is_approved ?? false;
-        setIsApproved(approvedNext);
-        setApprovalKnown(true);
-      }
-
-      const [roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.all([
+      // Все 5 запросов идут одним RTT через allSettled: один реджект не валит
+      // весь профиль — каждое поле обновляется независимо. Approval — самый
+      // важный для роутинга, но даже если profiles упал, роли/admin-mode
+      // всё равно применятся.
+      const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.allSettled([
+        supabase.from("profiles").select("is_approved").eq("id", userId).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
         supabase.rpc("admin_exists"),
@@ -176,7 +159,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(safetyTimer);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
-      const noAdminsExist = adminExistsRes.data === false;
+      // --- profiles / approval ---
+      let approvedNext = isApproved;
+      if (profileRes.status === "fulfilled") {
+        const r = profileRes.value;
+        if (r.error) {
+          console.warn("[Auth] profiles query error, keeping previous isApproved:", r.error);
+        } else {
+          approvedNext = (r.data as any)?.is_approved ?? false;
+          setIsApproved(approvedNext);
+          setApprovalKnown(true);
+        }
+      } else {
+        console.warn("[Auth] profiles request rejected, keeping previous isApproved:", profileRes.reason);
+      }
+
+      // --- admin_exists (bootstrap первого админа) ---
+      const adminExistsOk = adminExistsRes.status === "fulfilled" && !adminExistsRes.value.error;
+      const noAdminsExist = adminExistsOk && adminExistsRes.value.data === false;
+      if (adminExistsRes.status === "rejected") {
+        console.warn("[Auth] admin_exists rejected:", adminExistsRes.reason);
+      } else if (adminExistsRes.status === "fulfilled" && adminExistsRes.value.error) {
+        console.warn("[Auth] admin_exists error:", adminExistsRes.value.error);
+      }
+
       if (noAdminsExist) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
@@ -195,14 +201,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const adminNext = !!roleRes.data;
-      const consultantNext = !!consultantRes.data;
-      setIsAdmin(adminNext);
-      setIsConsultant(consultantNext);
+      // --- user_roles: admin ---
+      let adminNext = isAdmin;
+      if (roleRes.status === "fulfilled") {
+        if (roleRes.value.error) {
+          console.warn("[Auth] user_roles(admin) error:", roleRes.value.error);
+        } else {
+          adminNext = !!roleRes.value.data;
+          setIsAdmin(adminNext);
+        }
+      } else {
+        console.warn("[Auth] user_roles(admin) rejected:", roleRes.reason);
+      }
 
-      // Sync admin_mode_disabled from server (source of truth)
-      const serverDisabled = !!(modeRes.data as any)?.admin_disabled;
-      setAdminModeDisabledState(serverDisabled);
+      // --- user_roles: consultant ---
+      let consultantNext = isConsultant;
+      if (consultantRes.status === "fulfilled") {
+        if (consultantRes.value.error) {
+          console.warn("[Auth] user_roles(consultant) error:", consultantRes.value.error);
+        } else {
+          consultantNext = !!consultantRes.value.data;
+          setIsConsultant(consultantNext);
+        }
+      } else {
+        console.warn("[Auth] user_roles(consultant) rejected:", consultantRes.reason);
+      }
+
+      // --- admin_mode_state ---
+      let serverDisabled = adminModeDisabled;
+      if (modeRes.status === "fulfilled") {
+        if (modeRes.value.error) {
+          console.warn("[Auth] admin_mode_state error:", modeRes.value.error);
+        } else {
+          serverDisabled = !!(modeRes.value.data as any)?.admin_disabled;
+          setAdminModeDisabledState(serverDisabled);
+        }
+      } else {
+        console.warn("[Auth] admin_mode_state rejected:", modeRes.reason);
+      }
+
       try {
         if (serverDisabled) localStorage.setItem("admin_mode_disabled", "1");
         else localStorage.removeItem("admin_mode_disabled");
@@ -219,7 +256,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       clearTimeout(safetyTimer);
-      console.error(`[Auth] fetchProfile failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
+      // Подробный лог: тип ошибки + сообщение + код, чтобы по жалобам
+      // юзеров можно было быстро понять, что именно упало.
+      const e: any = err;
+      console.error(
+        `[Auth] fetchProfile threw (attempt ${attempt + 1}/${MAX_RETRIES})`,
+        {
+          name: e?.name,
+          message: e?.message,
+          code: e?.code,
+          status: e?.status,
+          details: e?.details,
+        },
+        err,
+      );
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
       if (attempt < MAX_RETRIES - 1) {
