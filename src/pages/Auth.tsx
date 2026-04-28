@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ type Step = "form" | "otp";
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +23,11 @@ export default function Auth() {
   const [step, setStep] = useState<Step>("form");
   const [otpCode, setOtpCode] = useState("");
 
+  // Уже залогиненный юзер — мгновенный редирект, не ждём fetchProfile.
+  // Иначе на медленной сети spinner на /auth висит до 8 сек и юзер думает,
+  // что вход не работает.
+  if (user) return <Navigate to="/" replace />;
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -29,8 +35,6 @@ export default function Auth() {
       </div>
     );
   }
-
-  if (user) return <Navigate to="/" replace />;
 
   const handleSendCode = async () => {
     setSubmitting(true);
@@ -111,9 +115,18 @@ export default function Auth() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await signIn(email, password);
-    if (error) toast.error(error.message);
-    setSubmitting(false);
+    try {
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      // Явный navigate сразу после успешного логина — не ждём, пока
+      // useAuth закончит fetchProfile и Auth.tsx перерендерится.
+      navigate("/", { replace: true });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
