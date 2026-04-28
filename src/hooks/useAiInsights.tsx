@@ -117,9 +117,12 @@ export function useAiInsights(projectId?: string) {
   }, [user, projectId]);
 
   useEffect(() => {
-    if (user && !insights && !loading) {
-      fetchInsights();
-    }
+    // Auto-fetch DISABLED to keep first paint fast and reduce edge-function
+    // load. We still hydrate instantly from the local cache if it's fresh;
+    // a real network call only happens when the user clicks "refresh".
+    if (!user) return;
+    const cached = getCached(projectId);
+    if (cached) setInsights(cached.insights);
   }, [user, projectId]);
 
   const refresh = useCallback(() => {

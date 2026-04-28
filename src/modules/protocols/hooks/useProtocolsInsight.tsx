@@ -72,7 +72,11 @@ export function useProtocolsInsight() {
   }, [user]);
 
   useEffect(() => {
-    if (user && !insight && !loading) fetchInsight();
+    // Auto-fetch DISABLED: hydrate from local cache only; user clicks
+    // refresh to actually call the AI edge function.
+    if (!user) return;
+    const c = readCache();
+    if (c) setInsight(c.insight);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
