@@ -39,6 +39,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
 const SIGN_IN_TIMEOUT_MS = 15_000;
+const GET_SESSION_TIMEOUT_MS = 6_000;
+
+/** Wrap supabase.auth.getSession() with a hard timeout so a stuck network
+ *  call on mobile (cold Safari, flaky 3G, captive portal) cannot keep the
+ *  app on a loading spinner forever. On timeout we resolve with a null
+ *  session — the user will see the auth screen and can retry sign-in. */
+function getSessionWithTimeout(label: string) {
+  return Promise.race([
+    supabase.auth.getSession(),
+    new Promise<{ data: { session: Session | null } }>((resolve) =>
+      window.setTimeout(() => {
+        console.warn(`[Auth] getSession timed out (${label}) — assuming no session`);
+        resolve({ data: { session: null } });
+      }, GET_SESSION_TIMEOUT_MS),
+    ),
+  ]);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -303,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authBootstrapTimer = window.setTimeout(() => {
       if (!mounted || !loadingRef.current) return;
       console.warn("[Auth] bootstrap timeout — unblocking auth gate");
-      supabase.auth.getSession()
+      getSessionWithTimeout("bootstrap-fallback")
         .then(({ data: { session: s } }) => {
           if (!mounted || !loadingRef.current) return;
           setSession(s);
@@ -353,7 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fallback: if onAuthStateChange didn't fire synchronously (shouldn't happen, but just in case)
     setTimeout(() => {
       if (!initialSessionHandled && mounted) {
-        supabase.auth.getSession().then(({ data: { session: s } }) => {
+        getSessionWithTimeout("initial-fallback").then(({ data: { session: s } }) => {
           if (!mounted || initialSessionHandled) return;
           setSession(s);
           setUser(s?.user ?? null);
