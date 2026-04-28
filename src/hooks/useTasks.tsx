@@ -413,7 +413,7 @@ export function useTasks(
           query = query.or(`is_completed.eq.false,completed_at.gte.${cutoff}`);
         }
 
-        return query;
+        return query as unknown as PromiseLike<{ data: Task[] | null; error: unknown }>;
       }, (accumulated, isFinal) => {
         if (!canStream || isFinal) return; // final page is published by useQuery itself
         // Push intermediate result so the list paints early. The final
