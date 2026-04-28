@@ -577,8 +577,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     sharedTagCategories: tagCategories,
     sharedLinkedTagIds: linkedTagIds,
     sharedMutations: mutations,
+    sharedParticipantsByTask: participantsByTask,
     sharedTasksWithComments: tasksWithComments,
-  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, tasksWithComments]);
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, participantsByTask, tasksWithComments]);
 
   return (
     <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
