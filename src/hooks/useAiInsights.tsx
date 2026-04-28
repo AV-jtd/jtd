@@ -29,6 +29,27 @@ export interface DailyInsights {
 
 const CACHE_KEY = "ai_insights_cache_v2";
 const CACHE_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
+const AI_INSIGHTS_TIMEOUT_MS = 15_000;
+
+async function invokeInsights(projectId?: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      supabase.functions.invoke("ai-insights", {
+        body: projectId ? { projectId } : undefined,
+      }),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("AI insights request timed out")),
+          AI_INSIGHTS_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 function getCacheKey(projectId?: string) {
   return projectId ? `${CACHE_KEY}_project_${projectId}` : CACHE_KEY;
@@ -72,9 +93,7 @@ export function useAiInsights(projectId?: string) {
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("ai-insights", {
-        body: projectId ? { projectId } : undefined,
-      });
+      const { data, error: fnError } = await invokeInsights(projectId);
 
       if (fnError) {
         const errBody = typeof fnError === "object" ? fnError : {};
