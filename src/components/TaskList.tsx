@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
+import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories, useTaskParticipantsBulk } from "@/hooks/useTasks";
 import { useLinkedProtocolTasks } from "@/hooks/useLinkedProtocolTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasksWithComments } from "@/hooks/useComments";
@@ -569,6 +569,8 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   // Shared data props for TaskItem — avoids N duplicate hook subscriptions
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks]);
   const { data: tasksWithComments } = useTasksWithComments(taskIds);
+  const { data: participantsByTask } = useTaskParticipantsBulk(taskIds);
+  const emptyParticipantsByTask = useMemo(() => new Map(), []);
   const sharedTaskItemProps = useMemo(() => ({
     sharedTags: allTags,
     sharedUsers: availableUsers,
@@ -576,8 +578,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     sharedTagCategories: tagCategories,
     sharedLinkedTagIds: linkedTagIds,
     sharedMutations: mutations,
+    sharedParticipantsByTask: participantsByTask || emptyParticipantsByTask,
     sharedTasksWithComments: tasksWithComments,
-  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, tasksWithComments]);
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, participantsByTask, emptyParticipantsByTask, tasksWithComments]);
 
   return (
     <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>

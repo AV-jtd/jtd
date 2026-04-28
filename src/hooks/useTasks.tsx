@@ -592,6 +592,40 @@ export function useTaskParticipants(taskId: string | null) {
   });
 }
 
+export function useTaskParticipantsBulk(taskIds: string[]) {
+  const { user } = useAuth();
+  const sortedIds = useMemo(() => [...new Set(taskIds)].sort(), [taskIds]);
+  const key = sortedIds.join(",");
+
+  return useQuery({
+    queryKey: ["task_participants", "bulk", key],
+    queryFn: async () => {
+      const byTask = new Map<string, TaskParticipant[]>();
+      const BATCH = 200;
+
+      for (let i = 0; i < sortedIds.length; i += BATCH) {
+        const chunk = sortedIds.slice(i, i + BATCH);
+        const { data, error } = await supabase
+          .from("task_participants" as any)
+          .select("*")
+          .in("task_id", chunk);
+
+        if (error) throw error;
+
+        for (const row of (data || []) as unknown as TaskParticipant[]) {
+          const list = byTask.get(row.task_id) || [];
+          list.push(row);
+          byTask.set(row.task_id, list);
+        }
+      }
+
+      return byTask;
+    },
+    enabled: !!user && sortedIds.length > 0,
+    staleTime: 30_000,
+  });
+}
+
 export function useGroupMembers(groupId: string | null) {
   const { user } = useAuth();
   return useQuery({
