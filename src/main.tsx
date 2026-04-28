@@ -49,11 +49,11 @@ import { createRoot } from "react-dom/client";
 import "./lib/authRefreshSingleflight";
 import App from "./App.tsx";
 import "./index.css";
-import { checkForUpdates } from "./lib/versionCheck";
 
-// Guard: unregister service workers in iframe/preview contexts to avoid stale caches.
-// In production (custom domain / published URL), vite-plugin-pwa's auto-injected
-// registration script takes over and installs the real Workbox service worker.
+// Emergency offline reset: production PWA/offline caching is disabled for now.
+// Several users got a "zombie" shell from stale SW/IndexedDB caches: UI loaded,
+// but fresh auth/data requests never completed. Always start from network and
+// keep only auth/local UI state.
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
@@ -61,13 +61,29 @@ const isPreviewHost =
   window.location.hostname.includes("id-preview--") ||
   window.location.hostname.includes("lovableproject.com");
 
-if (isPreviewHost || isInIframe) {
-  navigator.serviceWorker?.getRegistrations().then((regs) => {
-    regs.forEach((r) => r.unregister());
-  }).catch(() => {});
-} else {
-  try { void checkForUpdates(); } catch (err) { console.warn("[Boot] checkForUpdates failed:", err); }
-}
+void (async () => {
+  try {
+    await navigator.serviceWorker?.getRegistrations().then((regs) =>
+      Promise.all(regs.map((r) => r.unregister())),
+    );
+  } catch (err) {
+    console.warn("[Boot] service worker cleanup failed:", err);
+  }
+
+  try {
+    const cacheNames = await caches?.keys?.();
+    await Promise.all((cacheNames || []).map((name) => caches.delete(name)));
+  } catch (err) {
+    console.warn("[Boot] cache cleanup failed:", err);
+  }
+
+  try {
+    indexedDB.deleteDatabase("keyval-store");
+    indexedDB.deleteDatabase("workbox-expiration");
+  } catch (err) {
+    console.warn("[Boot] IndexedDB cleanup failed:", err);
+  }
+})();
 
 // Global last-resort error visible UI: if anything throws synchronously during
 // app boot (a vendor chunk, a top-level module, etc.) the user otherwise sees
