@@ -388,7 +388,7 @@ export function useTasks(
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
-          .select("*")
+          .select(filterTags && filterTags.length > 0 ? "*, task_tags(tag_id)" : "*")
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
