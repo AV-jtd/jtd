@@ -1039,7 +1039,6 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
               const isOverdueSection = section.key === "overdue";
               const sectionContent = (
                 <div key={section.key} className={cn(
-                  "animate-fade-in",
                   isOverdueSection && "rounded-xl border border-destructive/20 bg-destructive/5 p-2"
                 )}>
                   <button
