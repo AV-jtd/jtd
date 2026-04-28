@@ -112,11 +112,12 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   // For a specific project view (`activeView === "group"`) we keep the
   // full history because the project page needs accurate progress metrics.
   const isGroupView = activeView === "group";
-  const { data: tasks = [], isLoading } = useTasks(
+  const { data: tasks = [], isLoading, error: tasksError, refetch: refetchTasks } = useTasks(
     isGroupView ? activeGroupId : undefined,
     activeTagFilters.length > 0 ? activeTagFilters : undefined,
     isGroupView ? undefined : { completedWindowDays: 14 },
   );
+  const showTaskSkeleton = isLoading && tasks.length === 0;
   const { data: groups = [] } = useTaskGroups();
   const { data: allTags = [] } = useVisibleTags();
   const { data: availableUsers = [] } = useAvailableUsers();
@@ -1015,8 +1016,20 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
         )}
 
         {/* Task list */}
-        {isLoading ? (
+        {showTaskSkeleton ? (
           <SkeletonRows count={6} />
+        ) : tasksError && tasks.length === 0 ? (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-5 text-center">
+            <p className="text-sm font-medium text-foreground">Не удалось загрузить задачи</p>
+            <p className="mt-1 text-xs text-muted-foreground">Проверьте соединение и повторите загрузку.</p>
+            <button
+              type="button"
+              onClick={() => refetchTasks()}
+              className="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Повторить
+            </button>
+          </div>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center py-20">
             <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-5">
