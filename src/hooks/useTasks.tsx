@@ -1912,7 +1912,7 @@ export function useTaskMutations() {
 
       // Notify participant
       const event = role === "assignee" ? "task_assigned" : "task_participant_added";
-      notifyEvent(event, taskData?.title || "", [participantUserId]);
+      notifyEvent(event, taskData?.title || "", [participantUserId], task_id);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["task_groups"] }); },
     onError: (e) => toast.error(e.message),
