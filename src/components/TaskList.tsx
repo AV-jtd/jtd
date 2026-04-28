@@ -831,14 +831,19 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             compactMode={activeView === "group"}
             compactLabel={activeView === "group" && activeGroup ? activeGroup.name : undefined}
             userName={user?.user_metadata?.display_name || undefined}
+            protocolsLine={
+              activeView === "all" && protocolsInsight && protocolsInsight.totals.stuck > 0
+                ? {
+                    stuck: protocolsInsight.totals.stuck,
+                    topTagName: protocolsInsight.axes?.[0]?.chips?.[0]?.tagName,
+                    onOpen: () => {
+                      const top = protocolsInsight.axes?.[0]?.chips?.[0];
+                      navigate(top ? `/protocols?axis=${top.tagId}` : "/protocols");
+                    },
+                  }
+                : null
+            }
           />
-        )}
-
-        {/* Лента «Протоколы» — кросс-протокольный AI-инсайт за неделю (только на главной) */}
-        {!batchMode && activeView === "all" && (
-          <div className="mb-4">
-            <ProtocolsInsightCard />
-          </div>
         )}
 
         {batchMode && (
