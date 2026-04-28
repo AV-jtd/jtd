@@ -65,6 +65,18 @@ function getSessionWithTimeout(label: string) {
   ]);
 }
 
+function withAuthTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`[Auth] ${label} timed out`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
