@@ -9,7 +9,7 @@ export default function PendingApproval() {
   const { user, loading, isApproved, markApproved, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const checkApproval = async (uid: string) => {
+  const checkApproval = async () => {
     const { data, error } = await supabase.rpc("get_my_profile_approval");
     if (error) {
       console.warn("[Pending] poll failed:", error);
@@ -27,9 +27,9 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user || isApproved) return;
     // Run once immediately so users who were just approved don't wait 5s
-    checkApproval(user.id);
+    checkApproval();
     const interval = setInterval(() => {
-      checkApproval(user.id);
+      checkApproval();
     }, 5000);
     return () => clearInterval(interval);
   }, [user, isApproved, markApproved]);
@@ -46,7 +46,7 @@ export default function PendingApproval() {
   if (isApproved) return <Navigate to="/" replace />;
 
   const handleRefresh = async () => {
-    await checkApproval(user.id);
+    await checkApproval();
   };
 
   return (
