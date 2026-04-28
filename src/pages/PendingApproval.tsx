@@ -10,16 +10,12 @@ export default function PendingApproval() {
   const navigate = useNavigate();
 
   const checkApproval = async (uid: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("is_approved")
-      .eq("id", uid)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("get_my_profile_approval");
     if (error) {
       console.warn("[Pending] poll failed:", error);
       return false;
     }
-    if (data?.is_approved) {
+    if (data === true) {
       // Force refresh of JWT/session so any cached client state picks up new role/approval
       try { await supabase.auth.refreshSession(); } catch {}
       navigate("/", { replace: true });
