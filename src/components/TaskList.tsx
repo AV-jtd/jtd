@@ -14,6 +14,7 @@ import { useAiInsights } from "@/hooks/useAiInsights";
 import { List, Star, CalendarDays, Users, Inbox, Expand, X, MessageCircle, Clock, Trash2, FolderOpen, Tag, Sparkles, ChevronLeft, ChevronRight, ChevronDown, GripVertical, Layers } from "lucide-react";
 import SubprojectCards from "@/components/SubprojectCards";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonRows } from "@/components/SkeletonRows";
 import { isToday, parseISO, isBefore, startOfDay, isThisWeek } from "date-fns";
 import { pluralizeRu } from "@/lib/pluralize";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
