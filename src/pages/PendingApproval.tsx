@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 
 export default function PendingApproval() {
-  const { user, loading, isApproved, signOut } = useAuth();
+  const { user, loading, isApproved, markApproved, signOut } = useAuth();
   const navigate = useNavigate();
 
   const checkApproval = async (uid: string) => {
@@ -16,8 +16,7 @@ export default function PendingApproval() {
       return false;
     }
     if (data === true) {
-      // Force refresh of JWT/session so any cached client state picks up new role/approval
-      try { await supabase.auth.refreshSession(); } catch {}
+      markApproved();
       navigate("/", { replace: true });
       return true;
     }
@@ -33,7 +32,7 @@ export default function PendingApproval() {
       checkApproval(user.id);
     }, 5000);
     return () => clearInterval(interval);
-  }, [user, isApproved]);
+  }, [user, isApproved, markApproved]);
 
   if (loading) {
     return (
