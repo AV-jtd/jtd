@@ -166,7 +166,7 @@ function smartName(fullName?: string): string | undefined {
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
+  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName, protocolsLine,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
