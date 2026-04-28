@@ -903,12 +903,17 @@ export function useTaskMutations() {
   });
 
   // --- Notification helper (fire-and-forget) ---
-  const notifyEvent = async (event: string, taskTitle: string, targetUserIds: string[]) => {
+  const notifyEvent = async (
+    event: string,
+    taskTitle: string,
+    targetUserIds: string[],
+    taskId?: string | null,
+  ) => {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session) return;
       supabase.functions.invoke("notify-event", {
-        body: { event, taskTitle, targetUserIds },
+        body: { event, taskTitle, targetUserIds, taskId: taskId || null },
         headers: { Authorization: `Bearer ${session.session.access_token}` },
       }).catch(() => {});
     } catch {}
