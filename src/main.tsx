@@ -71,15 +71,19 @@ void (async () => {
   }
 
   try {
-    const cacheNames = await caches?.keys?.();
-    await Promise.all((cacheNames || []).map((name) => caches.delete(name)));
+    if ("caches" in window) {
+      const cacheNames = await window.caches.keys();
+      await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+    }
   } catch (err) {
     console.warn("[Boot] cache cleanup failed:", err);
   }
 
   try {
-    indexedDB.deleteDatabase("keyval-store");
-    indexedDB.deleteDatabase("workbox-expiration");
+    if ("indexedDB" in window) {
+      window.indexedDB.deleteDatabase("keyval-store");
+      window.indexedDB.deleteDatabase("workbox-expiration");
+    }
   } catch (err) {
     console.warn("[Boot] IndexedDB cleanup failed:", err);
   }
