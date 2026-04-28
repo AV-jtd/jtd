@@ -172,6 +172,7 @@ export default function Index() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Task list views - kept mounted via CSS hidden */}
           <div className={cn("flex flex-1 min-w-0 overflow-hidden", !isTaskView && "hidden")}>
+            <Suspense fallback={<ViewFallback />}>
             <TaskList
               activeView={activeView}
               activeGroupId={activeGroupId}
@@ -203,6 +204,7 @@ export default function Index() {
               onAiOpen={() => setAiOpen(true)}
               onViewChange={(v) => { setActiveView(v); setActiveGroupId(null); setActiveTagFilters([]); }}
             />
+            </Suspense>
             {chatOpen && activeGroupId && activeView === "group" && !isConsultant && (
               <div className="w-80 shrink-0 h-full border-l border-border animate-fade-in">
                 <Suspense fallback={<ViewFallback />}>
