@@ -165,6 +165,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchIdRef.current === fetchId && isMounted()) {
         console.warn("[Auth] fetchProfile hard timeout — clearing loading state");
         setLoading(false);
+        // Авто-retry: если по таймауту не успели получить роли/approval —
+        // через 3 сек тихо повторяем fetch, чтобы UI не остался "битым"
+        // (видим интерфейс, но таблицы пустые, имя/админ не подгружены).
+        if (attempt < MAX_RETRIES - 1) {
+          setTimeout(() => {
+            if (fetchIdRef.current === fetchId && isMounted()) {
+              console.info("[Auth] auto-retry after hard timeout, attempt", attempt + 2);
+              fetchProfile(userId, fetchId, isMounted, attempt + 1);
+            }
+          }, 3000);
+        }
       }
     }, HARD_TIMEOUT_MS);
 
