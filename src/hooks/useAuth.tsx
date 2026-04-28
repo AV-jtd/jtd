@@ -41,6 +41,14 @@ const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
 const SIGN_IN_TIMEOUT_MS = 15_000;
 const GET_SESSION_TIMEOUT_MS = 6_000;
 
+type AuthMetaRpcRow = {
+  is_approved: boolean | null;
+  is_admin: boolean | null;
+  is_consultant: boolean | null;
+  admin_disabled: boolean | null;
+  no_admins_exist: boolean | null;
+};
+
 /** Wrap supabase.auth.getSession() with a hard timeout so a stuck network
  *  call on mobile (cold Safari, flaky 3G, captive portal) cannot keep the
  *  app on a loading spinner forever. On timeout we resolve with a null
@@ -55,6 +63,18 @@ function getSessionWithTimeout(label: string) {
       }, GET_SESSION_TIMEOUT_MS),
     ),
   ]);
+}
+
+function withAuthTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`[Auth] ${label} timed out`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -180,101 +200,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, HARD_TIMEOUT_MS);
 
     try {
-      // Все 5 запросов идут одним RTT через allSettled: один реджект не валит
-      // весь профиль — каждое поле обновляется независимо. Approval — самый
-      // важный для роутинга, но даже если profiles упал, роли/admin-mode
-      // всё равно применятся.
-      const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.allSettled([
-        supabase.rpc("get_my_profile_approval"),
-        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
-        supabase.rpc("admin_exists"),
-        supabase.from("admin_mode_state" as any).select("admin_disabled").eq("user_id", userId).maybeSingle(),
-      ]);
-
+      // Один SECURITY DEFINER RPC вместо 5 параллельных REST/RPC-запросов.
+      // На чистых устройствах Promise.all из profiles/user_roles/admin_exists/admin_mode_state
+      // мог зависать/частично падать и оставлять UI в zombie-state: user есть,
+      // но роли/approval не применились, поэтому RLS выглядел как «всё заблокировано».
+      const authMetaRes = await withAuthTimeout(
+        supabase.rpc("get_my_auth_meta" as any),
+        "get_my_auth_meta",
+        HARD_TIMEOUT_MS,
+      ) as { data: AuthMetaRpcRow[] | AuthMetaRpcRow | null; error: any };
       clearTimeout(safetyTimer);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
-      // --- profiles / approval ---
-      let approvedNext = isApproved;
-      if (profileRes.status === "fulfilled") {
-        const r = profileRes.value;
-        if (r.error) {
-          console.warn("[Auth] profiles query error, keeping previous isApproved:", r.error);
-        } else {
-          approvedNext = (r.data as boolean | null) ?? false;
-          setIsApproved(approvedNext);
-          setApprovalKnown(true);
-        }
-      } else {
-        console.warn("[Auth] profiles request rejected, keeping previous isApproved:", profileRes.reason);
-      }
+      if (authMetaRes.error) throw authMetaRes.error;
 
-      // --- admin_exists (bootstrap первого админа) ---
-      const adminExistsOk = adminExistsRes.status === "fulfilled" && !adminExistsRes.value.error;
-      const noAdminsExist = adminExistsOk && adminExistsRes.value.data === false;
-      if (adminExistsRes.status === "rejected") {
-        console.warn("[Auth] admin_exists rejected:", adminExistsRes.reason);
-      } else if (adminExistsRes.status === "fulfilled" && adminExistsRes.value.error) {
-        console.warn("[Auth] admin_exists error:", adminExistsRes.value.error);
-      }
+      const row = Array.isArray(authMetaRes.data) ? authMetaRes.data[0] : authMetaRes.data;
+      if (!row) throw new Error("get_my_auth_meta returned no row");
 
-      if (noAdminsExist) {
+      let approvedNext = !!row.is_approved;
+      let adminNext = !!row.is_admin;
+      const consultantNext = !!row.is_consultant;
+      let serverDisabled = !!row.admin_disabled;
+
+      setIsApproved(approvedNext);
+      setApprovalKnown(true);
+
+      if (row.no_admins_exist) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
-        setIsAdmin(true);
         await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
-        setIsApproved(true);
-        setApprovalKnown(true);
-        setLoading(false);
-        writeAuthMeta(userId, {
-          isApproved: true,
-          isAdmin: true,
-          isConsultant: false,
-          adminModeDisabled: false,
-        });
-        return;
+        approvedNext = true;
+        adminNext = true;
+        serverDisabled = false;
       }
 
-      // --- user_roles: admin ---
-      let adminNext = isAdmin;
-      if (roleRes.status === "fulfilled") {
-        if (roleRes.value.error) {
-          console.warn("[Auth] user_roles(admin) error:", roleRes.value.error);
-        } else {
-          adminNext = !!roleRes.value.data;
-          setIsAdmin(adminNext);
-        }
-      } else {
-        console.warn("[Auth] user_roles(admin) rejected:", roleRes.reason);
-      }
-
-      // --- user_roles: consultant ---
-      let consultantNext = isConsultant;
-      if (consultantRes.status === "fulfilled") {
-        if (consultantRes.value.error) {
-          console.warn("[Auth] user_roles(consultant) error:", consultantRes.value.error);
-        } else {
-          consultantNext = !!consultantRes.value.data;
-          setIsConsultant(consultantNext);
-        }
-      } else {
-        console.warn("[Auth] user_roles(consultant) rejected:", consultantRes.reason);
-      }
-
-      // --- admin_mode_state ---
-      let serverDisabled = adminModeDisabled;
-      if (modeRes.status === "fulfilled") {
-        if (modeRes.value.error) {
-          console.warn("[Auth] admin_mode_state error:", modeRes.value.error);
-        } else {
-          serverDisabled = !!(modeRes.value.data as any)?.admin_disabled;
-          setAdminModeDisabledState(serverDisabled);
-        }
-      } else {
-        console.warn("[Auth] admin_mode_state rejected:", modeRes.reason);
-      }
+      setIsApproved(approvedNext);
+      setIsAdmin(adminNext);
+      setIsConsultant(consultantNext);
+      setAdminModeDisabledState(serverDisabled);
 
       try {
         if (serverDisabled) localStorage.setItem("admin_mode_disabled", "1");
