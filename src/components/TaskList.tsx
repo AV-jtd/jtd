@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories } from "@/hooks/useTasks";
+import { useTasks, useTaskMutations, useTaskGroups, useVisibleTags, useAvailableUsers, useLinkedTagIds, useTagCategories, useTaskParticipantsBulk } from "@/hooks/useTasks";
 import { useLinkedProtocolTasks } from "@/hooks/useLinkedProtocolTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasksWithComments } from "@/hooks/useComments";
@@ -569,6 +569,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   // Shared data props for TaskItem — avoids N duplicate hook subscriptions
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks]);
   const { data: tasksWithComments } = useTasksWithComments(taskIds);
+  const { data: participantsByTask } = useTaskParticipantsBulk(taskIds);
   const sharedTaskItemProps = useMemo(() => ({
     sharedTags: allTags,
     sharedUsers: availableUsers,
