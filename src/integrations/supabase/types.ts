@@ -2267,6 +2267,10 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      is_task_visible: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_team_director: {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
