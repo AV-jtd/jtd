@@ -75,9 +75,10 @@ export class DuplicateNameError extends Error {
 // Keep task pages small: the first pass intentionally loads task rows only.
 // Relations (steps/tags) hydrate in the background so tabs can paint quickly
 // instead of waiting for nested RLS checks on subtasks/task_tags.
-const SUPABASE_PAGE_SIZE = 200;
-const SUPABASE_PAGE_TIMEOUT_MS = 15_000;
-const TASK_RELATION_BATCH_SIZE = 200;
+const SUPABASE_PAGE_SIZE = 100;
+const SUPABASE_PAGE_TIMEOUT_MS = 30_000;
+const TASK_RELATION_BATCH_SIZE = 100;
+const TASK_BOOT_MAX_PAGES = 20;
 const taskRelationHydrationInFlight = new Set<string>();
 
 async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
@@ -320,6 +321,7 @@ export function useTaskGroups() {
           .select("*")
           .order("position")
           .range(from, to)
+          .abortSignal(signal)
       );
       return data;
     },
@@ -390,6 +392,7 @@ export function useTasks(
       // it's still safe to leave on.
       const canStream = !filterTags || filterTags.length === 0;
 
+      const controller = new AbortController();
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
@@ -398,7 +401,8 @@ export function useTasks(
           .order("position")
           .order("created_at", { ascending: false })
           .order("id", { ascending: true })
-          .range(from, to);
+          .range(from, to)
+          .abortSignal(controller.signal);
 
         if (groupId) {
           query = query.eq("group_id", groupId);
@@ -425,6 +429,9 @@ export function useTasks(
         // Push intermediate result so the list paints early. The final
         // resolution will overwrite this with the post-processed array.
         qc.setQueryData<Task[]>(queryKey, filterChunk(accumulated));
+      }, TASK_BOOT_MAX_PAGES, (accumulated) => {
+        if (groupId || filterTags?.length) return false;
+        return accumulated.length >= SUPABASE_PAGE_SIZE;
       });
 
       let filteredTasks = tasks;
@@ -494,7 +501,7 @@ export function useTags() {
   return useQuery({
     queryKey: ["tags", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tags").select("*").order("name");
+      const { data, error } = await supabase.from("tags").select("id,name,color,category_id,user_id,created_at").order("name");
       if (error) throw error;
       return data as Tag[];
     },
@@ -551,7 +558,7 @@ export function useTagCategories() {
   return useQuery({
     queryKey: ["tag_categories", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tag_categories" as any).select("*").order("position");
+      const { data, error } = await supabase.from("tag_categories" as any).select("id,name,color,position,user_id,created_at,parent_id").order("position");
       if (error) throw error;
       return (data || []) as unknown as TagCategory[];
     },
@@ -568,7 +575,8 @@ export function useAvailableUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username");
+        .select("id, display_name, email, telegram_username")
+        .abortSignal(AbortSignal.timeout(20_000));
       if (error) throw error;
       return (data || []) as Profile[];
     },
