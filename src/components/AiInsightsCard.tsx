@@ -216,10 +216,11 @@ function AiInsightsCardInner({
     );
   }
 
-  if (error || !insights) return null;
+  if (error && !insights) return null;
 
-  const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
+  const hasFocusLink = Boolean(insights && (insights.focusTaskId || insights.focusGroupId));
   const navigateToFocus = () => {
+    if (!insights) return;
     if (onSmartFilter) {
       onSmartFilter({ taskId: insights.focusTaskId, groupId: insights.focusGroupId });
     } else if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
@@ -275,27 +276,45 @@ function AiInsightsCardInner({
           <StatChipRow stats={roleStats} onStatClick={onStatClick} activeKey={activeStatFilter} />
         )}
 
-        <div className="flex items-start gap-2 pl-6 min-w-0">
-          <Target className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-          <span className="text-xs line-clamp-2 text-foreground/70 flex-1 leading-relaxed min-w-0">
-            {insights.focusOfDay}
-          </span>
-          {hasFocusLink && (
-            <InsightLinkAction
-              compact
-              label={getSmartFilterLabel(undefined, insights.focusTaskId, insights.focusGroupId)}
-              onClick={navigateToFocus}
-            />
-          )}
-        </div>
+        {insights ? (
+          <div className="flex items-start gap-2 pl-6 min-w-0">
+            <Target className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+            <span className="text-xs line-clamp-2 text-foreground/70 flex-1 leading-relaxed min-w-0">
+              {insights.focusOfDay}
+            </span>
+            {hasFocusLink && (
+              <InsightLinkAction
+                compact
+                label={getSmartFilterLabel(undefined, insights.focusTaskId, insights.focusGroupId)}
+                onClick={navigateToFocus}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pl-6 min-w-0">
+            <Target className="h-3.5 w-3.5 text-primary/40 shrink-0" />
+            <span className="text-xs text-muted-foreground flex-1 leading-relaxed min-w-0">
+              ИИ-анализ задач не запущен
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+              disabled={loading}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              <span>Запустить анализ</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={cn(
         "grid transition-all duration-200 ease-in-out",
-        expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        expanded && insights ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
       )}>
         <div className="overflow-hidden border-t border-border/50">
-          {insights.urgentItems.length > 0 && (
+          {insights && insights.urgentItems.length > 0 && (
             <div className="px-3 pt-2 pb-1 space-y-1.5">
               {insights.urgentItems.map((item, i) => (
                 <InsightRow
@@ -309,6 +328,7 @@ function AiInsightsCardInner({
             </div>
           )}
 
+          {insights && (
           <div className="mx-3 my-1.5 px-2.5 py-2 rounded-lg bg-primary/8 border border-primary/10">
             <div className="flex items-center gap-1.5">
               <Target className="h-3 w-3 text-primary shrink-0" />
@@ -324,8 +344,9 @@ function AiInsightsCardInner({
             </div>
             <p className="text-xs text-foreground/70 mt-1 leading-relaxed">{insights.focusOfDay}</p>
           </div>
+          )}
 
-          {insights.tips && insights.tips.length > 0 && (
+          {insights && insights.tips && insights.tips.length > 0 && (
             <div className="px-3 py-1 space-y-0.5">
               {insights.tips.map((tip, i) => (
                 <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">💡 {tip}</p>
@@ -350,9 +371,11 @@ function AiInsightsCardInner({
             </div>
           )}
 
-          <div className="px-3 pb-2.5 pt-1">
-            <p className="text-[11px] text-muted-foreground/70 italic">{insights.motivation}</p>
-          </div>
+          {insights && (
+            <div className="px-3 pb-2.5 pt-1">
+              <p className="text-[11px] text-muted-foreground/70 italic">{insights.motivation}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
