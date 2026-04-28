@@ -64,6 +64,7 @@ interface TaskItemProps {
   sharedMutations?: ReturnType<typeof useTaskMutations>;
   /** Bulk-fetched participants for this task; avoids one network request per row. */
   sharedParticipants?: TaskParticipant[];
+  sharedParticipantsByTask?: Map<string, TaskParticipant[]>;
   /** Bulk-fetched set of task IDs that have at least one comment (for chat icon highlight). */
   sharedTasksWithComments?: Set<string>;
 }
@@ -513,7 +514,7 @@ const SortableSubtaskRow = memo(SortableSubtaskRowInner, (prev, next) => (
   prev.availableUsers === next.availableUsers
 ));
 
-function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations, sharedParticipants, sharedTasksWithComments }: TaskItemProps) {
+function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onProjectClick, selectable, selected, onToggleSelect, onLongPress, sharedTags, sharedUsers, sharedGroups, sharedTagCategories, sharedLinkedTagIds, sharedMutations, sharedParticipants, sharedParticipantsByTask, sharedTasksWithComments }: TaskItemProps) {
   const isMobile = useIsMobile();
   const { user: currentUser } = useAuth();
   const navigateTo = useNavigate();
@@ -528,8 +529,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const linkedTagIds = sharedLinkedTagIds || _ownLinkedTagIds;
   const { data: _ownUsers = [] } = useAvailableUsers();
   const availableUsers = sharedUsers || _ownUsers;
-  const { data: ownParticipants = [] } = useTaskParticipants(sharedParticipants ? null : task.id);
-  const participants = sharedParticipants || ownParticipants;
+  const hasSharedParticipants = !!sharedParticipants || !!sharedParticipantsByTask;
+  const { data: ownParticipants = [] } = useTaskParticipants(hasSharedParticipants ? null : task.id);
+  const participants = sharedParticipants ?? sharedParticipantsByTask?.get(task.id) ?? ownParticipants;
   const { data: _ownGroups = [] } = useTaskGroups();
   const allGroups = sharedGroups || _ownGroups;
   const { data: _ownCategories = [] } = useTagCategories();
