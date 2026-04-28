@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -453,7 +453,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.invalidateQueries();
   };
 
-  const markApproved = () => {
+  const markApproved = useCallback(() => {
     setIsApproved(true);
     setApprovalKnown(true);
     if (user?.id) {
@@ -464,7 +464,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adminModeDisabled,
       });
     }
-  };
+  }, [adminModeDisabled, isAdmin, isConsultant, user?.id]);
 
   return (
     <AuthContext.Provider value={{
