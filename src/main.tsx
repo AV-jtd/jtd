@@ -56,6 +56,13 @@ import "./index.css";
 // keep only auth/local UI state.
 void (async () => {
   try {
+    const killRegistration = await navigator.serviceWorker?.register("/sw.js", { updateViaCache: "none" });
+    await killRegistration?.update?.();
+  } catch (err) {
+    console.warn("[Boot] service worker kill registration failed:", err);
+  }
+
+  try {
     await navigator.serviceWorker?.getRegistrations().then((regs) =>
       Promise.all(regs.map((r) => r.unregister())),
     );
