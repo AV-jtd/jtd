@@ -72,12 +72,13 @@ export class DuplicateNameError extends Error {
   }
 }
 
-// Reduced from 1000 → 200 to keep heavy task queries (with subtasks +
-// task_tags embeds and RLS subqueries) under the Postgres statement_timeout.
-// Pagination still loads everything, just in more, smaller chunks; first
-// paint is faster because fetchAllPagesStreaming publishes each page.
+// Keep task pages small: the first pass intentionally loads task rows only.
+// Relations (steps/tags) hydrate in the background so tabs can paint quickly
+// instead of waiting for nested RLS checks on subtasks/task_tags.
 const SUPABASE_PAGE_SIZE = 200;
 const SUPABASE_PAGE_TIMEOUT_MS = 15_000;
+const TASK_RELATION_BATCH_SIZE = 200;
+const taskRelationHydrationInFlight = new Set<string>();
 
 async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -160,6 +161,78 @@ async function fetchAllPagesStreaming<T>(
   }
 
   return all;
+}
+
+function waitForIdle(timeout = 600) {
+  return new Promise<void>((resolve) => {
+    const ric = typeof window !== "undefined" &&
+      (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(() => resolve(), { timeout });
+    else window.setTimeout(resolve, 0);
+  });
+}
+
+async function hydrateTaskRelationsInBackground(
+  qc: QueryClient,
+  queryKey: readonly unknown[],
+  tasks: Task[],
+) {
+  const ids = [...new Set(tasks.map((t) => t.id))];
+  if (ids.length === 0) return;
+
+  const hydrationKey = JSON.stringify(queryKey);
+  if (taskRelationHydrationInFlight.has(hydrationKey)) return;
+  taskRelationHydrationInFlight.add(hydrationKey);
+
+  try {
+    const subtasksByTask = new Map<string, Subtask[]>();
+    const tagsByTask = new Map<string, { tag_id: string }[]>();
+
+    for (let i = 0; i < ids.length; i += TASK_RELATION_BATCH_SIZE) {
+      if (typeof document !== "undefined" && document.hidden) break;
+      await waitForIdle();
+
+      const chunk = ids.slice(i, i + TASK_RELATION_BATCH_SIZE);
+      const [subtasksRes, tagsRes] = await Promise.all([
+        supabase
+          .from("subtasks")
+          .select("*")
+          .in("task_id", chunk)
+          .order("position"),
+        supabase
+          .from("task_tags")
+          .select("task_id, tag_id")
+          .in("task_id", chunk),
+      ]);
+
+      if (subtasksRes.error || tagsRes.error) {
+        console.warn("[Tasks] relation hydration skipped", subtasksRes.error || tagsRes.error);
+        return;
+      }
+
+      for (const subtask of (subtasksRes.data || []) as Subtask[]) {
+        const list = subtasksByTask.get(subtask.task_id) || [];
+        list.push(subtask);
+        subtasksByTask.set(subtask.task_id, list);
+      }
+
+      for (const row of (tagsRes.data || []) as { task_id: string; tag_id: string }[]) {
+        const list = tagsByTask.get(row.task_id) || [];
+        list.push({ tag_id: row.tag_id });
+        tagsByTask.set(row.task_id, list);
+      }
+    }
+
+    qc.setQueryData<Task[]>(queryKey, (current) =>
+      current?.map((task) => ({
+        ...task,
+        subtasks: subtasksByTask.get(task.id) || task.subtasks || [],
+        task_tags: tagsByTask.get(task.id) || task.task_tags || [],
+      })),
+    );
+  } finally {
+    taskRelationHydrationInFlight.delete(hydrationKey);
+  }
 }
 
 /**
@@ -311,7 +384,7 @@ export function useTasks(
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
-          .select("*, subtasks(*), task_tags(tag_id)")
+          .select(filterTags && filterTags.length > 0 ? "*, task_tags(tag_id)" : "*")
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
@@ -336,7 +409,7 @@ export function useTasks(
           query = query.or(`is_completed.eq.false,completed_at.gte.${cutoff}`);
         }
 
-        return query;
+        return query as unknown as PromiseLike<{ data: Task[] | null; error: unknown }>;
       }, (accumulated, isFinal) => {
         if (!canStream || isFinal) return; // final page is published by useQuery itself
         // Push intermediate result so the list paints early. The final
@@ -394,6 +467,8 @@ export function useTasks(
           return false;
         });
       }
+
+      void hydrateTaskRelationsInBackground(qc, queryKey, filteredTasks);
 
       return filteredTasks;
     },
