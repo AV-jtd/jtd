@@ -239,6 +239,7 @@ export function useTaskGroups() {
     },
     enabled: !loading && !!user,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     refetchOnReconnect: "always",
   });
 }
@@ -394,6 +395,7 @@ export function useTasks(
     },
     enabled: !loading && !!user,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     refetchOnReconnect: "always",
   });
 }
