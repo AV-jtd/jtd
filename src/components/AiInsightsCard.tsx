@@ -53,6 +53,13 @@ interface AiInsightsCardProps {
   compactLabel?: string;
   /** User display name for simplified greeting */
   userName?: string;
+  /** Optional one-liner about stuck protocol tasks (shown in expanded section if stuck > 0) */
+  protocolsLine?: {
+    stuck: number;
+    topAxisLabel?: string;
+    topTagName?: string;
+    onOpen?: () => void;
+  } | null;
 }
 
 function getSmartFilterLabel(hint?: string, taskId?: string, groupId?: string) {
@@ -159,7 +166,7 @@ function smartName(fullName?: string): string | undefined {
 
 function AiInsightsCardInner({
   insights, loading, error, dismissed, onRefresh, onDismiss,
-  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName,
+  onNavigateToTask, onNavigateToProject, onSmartFilter, roleStats, onStatClick, activeStatFilter, compactMode, compactLabel, userName, protocolsLine,
 }: AiInsightsCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -323,6 +330,23 @@ function AiInsightsCardInner({
               {insights.tips.map((tip, i) => (
                 <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">💡 {tip}</p>
               ))}
+            </div>
+          )}
+
+          {protocolsLine && protocolsLine.stuck > 0 && (
+            <div className="px-3 py-1">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); protocolsLine.onOpen?.(); }}
+                className="w-full flex items-center gap-1.5 text-[11px] text-foreground/70 hover:text-foreground leading-relaxed text-left"
+              >
+                <span>📋</span>
+                <span className="flex-1 min-w-0 truncate">
+                  Протоколы: {protocolsLine.stuck} зависших задач{protocolsLine.stuck === 1 ? "а" : ""} за неделю
+                  {protocolsLine.topTagName ? ` (чаще всего — ${protocolsLine.topTagName})` : ""}
+                </span>
+                <span className="text-primary shrink-0">Открыть ↓</span>
+              </button>
             </div>
           )}
 

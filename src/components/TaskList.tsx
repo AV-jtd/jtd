@@ -6,7 +6,8 @@ import { useTasksWithComments } from "@/hooks/useComments";
 import TaskItem from "./TaskItem";
 import ProjectDetailPanel from "./ProjectDetailPanel";
 import AiInsightsCard, { type StatChipKey, type TaskRoleStats, type InsightSmartFilter } from "./AiInsightsCard";
-import ProtocolsInsightCard from "@/modules/protocols/components/ProtocolsInsightCard";
+import { useProtocolsInsight } from "@/modules/protocols/hooks/useProtocolsInsight";
+import { useNavigate } from "react-router-dom";
 const BulkTaskDialog = lazy(() => import("./BulkTaskDialog"));
 const VirtualTaskList = lazy(() => import("./task-list/VirtualTaskList"));
 import { useAiInsights } from "@/hooks/useAiInsights";
@@ -100,6 +101,8 @@ interface TaskListProps {
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen, onViewChange }: TaskListProps) {
   const { user } = useAuth();
   const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
+  const { insight: protocolsInsight } = useProtocolsInsight();
+  const navigate = useNavigate();
   // Performance: in the global task list we only need active tasks plus
   // completed-in-the-last-7-days (rendered in the collapsed «Выполнено»
   // section + the «completed» smart-filter chip which itself looks back 7
@@ -828,14 +831,19 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
             compactMode={activeView === "group"}
             compactLabel={activeView === "group" && activeGroup ? activeGroup.name : undefined}
             userName={user?.user_metadata?.display_name || undefined}
+            protocolsLine={
+              activeView === "all" && protocolsInsight && protocolsInsight.totals.stuck > 0
+                ? {
+                    stuck: protocolsInsight.totals.stuck,
+                    topTagName: protocolsInsight.axes?.[0]?.chips?.[0]?.tagName,
+                    onOpen: () => {
+                      const top = protocolsInsight.axes?.[0]?.chips?.[0];
+                      navigate(top ? `/protocols?axis=${top.tagId}` : "/protocols");
+                    },
+                  }
+                : null
+            }
           />
-        )}
-
-        {/* Лента «Протоколы» — кросс-протокольный AI-инсайт за неделю (только на главной) */}
-        {!batchMode && activeView === "all" && (
-          <div className="mb-4">
-            <ProtocolsInsightCard />
-          </div>
         )}
 
         {batchMode && (
