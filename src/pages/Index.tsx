@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
-import TaskList from "@/components/TaskList";
 import { useTaskGroups } from "@/hooks/useTasks";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Loader2 } from "lucide-react";
@@ -12,6 +11,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // Lazy-loaded — keep critical bundle small (especially on mobile)
 const AppSidebar = lazy(() => import("@/components/AppSidebar"));
+const TaskList = lazy(() => import("@/components/TaskList"));
 const CalendarView = lazy(() => import("@/components/CalendarView"));
 const SubordinatesView = lazy(() => import("@/components/SubordinatesView"));
 const DashboardView = lazy(() => import("@/components/DashboardView"));
@@ -23,15 +23,15 @@ const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
 const ProjectDetailPanel = lazy(() => import("@/components/ProjectDetailPanel"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const AiAssistant = lazy(() => import("@/components/AiAssistant"));
-import { SkeletonRows } from "@/components/SkeletonRows";
+import { ViewSkeleton } from "@/components/SkeletonRows";
 
-function ViewFallback() {
-  return (
-    <div className="flex-1 p-4">
-      <SkeletonRows count={6} />
-    </div>
-  );
-}
+/**
+ * Единый Suspense fallback для всех view-компонентов (вкл. TaskList).
+ * Внутри view продолжает использоваться SkeletonRows для data-loading —
+ * это даёт визуально единый shell от bundle-load до data-ready и устраняет
+ * «прыжок» между Suspense и внутренним isLoading.
+ */
+const ViewFallback = ViewSkeleton;
 
 export default function Index() {
   const { user, loading, isApproved, approvalKnown, isConsultant } = useAuth();
