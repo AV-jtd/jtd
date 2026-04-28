@@ -94,7 +94,7 @@ async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, ti
 }
 
 async function fetchAllPages<T>(
-  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   maxPages = 100,
 ) {
   const all: T[] = [];
@@ -131,7 +131,7 @@ async function fetchAllPages<T>(
  * post-processing (filtering, tag expansion) sees complete data.
  */
 async function fetchAllPagesStreaming<T>(
-  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   onPage: (accumulated: T[], isFinal: boolean) => void,
   maxPages = 100,
 ) {
