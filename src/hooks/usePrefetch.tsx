@@ -42,8 +42,14 @@ function finishPrefetch(userId: string) {
 }
 
 /**
- * Prefetches all key data when user logs in so it's available offline.
- * Runs once per session and populates React Query cache → IndexedDB.
+ * Prefetches lightweight reference data after login.
+ *
+ * Important: do NOT prefetch the global tasks table here. The task list has
+ * its own paginated/windowed query key; the old eager prefetch used a different
+ * key and fetched the entire task history, including STM stages and old
+ * completed rows. On clean devices that meant a duplicate multi-megabyte boot
+ * query racing the real first paint and often ending in "Не удалось загрузить
+ * задачи" before the useful query could settle.
  */
 export function usePrefetchData() {
   const { user } = useAuth();
@@ -61,8 +67,8 @@ export function usePrefetchData() {
     const prefetch = async () => {
       if (document.visibilityState === "hidden" || !shouldRunPrefetch(user.id)) return;
 
-      await Promise.allSettled([
-        qc.prefetchQuery({
+      const prefetches = [
+        () => qc.prefetchQuery({
           queryKey: ["task_groups", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -74,21 +80,7 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-        qc.prefetchQuery({
-          queryKey: ["tasks", user.id, null, null],
-          queryFn: async () => {
-            const { data, error } = await supabase
-              .from("tasks")
-              .select("*, subtasks(*), task_tags(tag_id)")
-              .order("is_completed", { ascending: true })
-              .order("position")
-              .order("created_at", { ascending: false });
-            if (error) throw error;
-            return data;
-          },
-          staleTime: 1000 * 60 * 5,
-        }),
-        qc.prefetchQuery({
+        () => qc.prefetchQuery({
           queryKey: ["tags", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -100,7 +92,7 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-        qc.prefetchQuery({
+        () => qc.prefetchQuery({
           queryKey: ["tag_categories", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -112,7 +104,7 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-        qc.prefetchQuery({
+        () => qc.prefetchQuery({
           queryKey: ["project_folders", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -124,7 +116,7 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-        qc.prefetchQuery({
+        () => qc.prefetchQuery({
           queryKey: ["project_folder_items", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -136,7 +128,7 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-        qc.prefetchQuery({
+        () => qc.prefetchQuery({
           queryKey: ["clients", user.id],
           queryFn: async () => {
             const { data, error } = await supabase
@@ -148,7 +140,12 @@ export function usePrefetchData() {
           },
           staleTime: 1000 * 60 * 5,
         }),
-      ]);
+      ];
+
+      for (const run of prefetches) {
+        if (document.visibilityState === "hidden") break;
+        await run().catch(() => undefined);
+      }
       finishPrefetch(user.id);
     };
 
