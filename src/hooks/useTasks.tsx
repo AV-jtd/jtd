@@ -1065,7 +1065,7 @@ export function useTaskMutations() {
             .eq("group_id", resolvedGroupId);
           const memberIds = (members || []).map((m: any) => m.user_id);
           if (memberIds.length > 0) {
-            notifyEvent("new_task_in_group", task.title, memberIds);
+            notifyEvent("new_task_in_group", task.title, memberIds, taskData.id);
           }
         }
       }
@@ -1233,7 +1233,7 @@ export function useTaskMutations() {
       if (updates.assigned_to && updates.assigned_to !== user?.id) {
         const { data: taskData } = await supabase.from("tasks").select("title").eq("id", id).single();
         const event = updates.delegated_from ? "task_delegated" : "task_assigned";
-        notifyEvent(event, taskData?.title || "", [updates.assigned_to as string]);
+        notifyEvent(event, taskData?.title || "", [updates.assigned_to as string], id);
       }
     },
     onMutate: async ({ id, ...updates }) => {
@@ -1335,7 +1335,7 @@ export function useTaskMutations() {
           .eq("task_id", id);
         const targetIds = (participants || []).map((p: any) => p.user_id);
         if (targetIds.length > 0) {
-          notifyEvent("task_completed", taskData.title, targetIds);
+          notifyEvent("task_completed", taskData.title, targetIds, id);
         }
       }
     },
@@ -1362,7 +1362,7 @@ export function useTaskMutations() {
       if (error) throw error;
       const { data: taskData } = await supabase.from("tasks").select("title, user_id").eq("id", id).single();
       if (taskData) {
-        notifyEvent("task_completed", `⏳ Задача «${taskData.title}» ожидает утверждения`, [taskData.user_id]);
+        notifyEvent("task_completed", `⏳ Задача «${taskData.title}» ожидает утверждения`, [taskData.user_id], id);
       }
     },
     onMutate: async ({ id, closure_result }) => {
@@ -1404,7 +1404,7 @@ export function useTaskMutations() {
       }
       const targetIds = [taskData.assigned_to, taskData.user_id].filter(Boolean).filter(uid => uid !== user!.id) as string[];
       if (targetIds.length > 0) {
-        notifyEvent("task_completed", taskData.title, targetIds);
+        notifyEvent("task_completed", taskData.title, targetIds, id);
       }
     },
     onMutate: async ({ id }) => {
@@ -1432,7 +1432,7 @@ export function useTaskMutations() {
       }).eq("id", id);
       if (error) throw error;
       if (taskData?.assigned_to) {
-        notifyEvent("task_completed", `❌ Задача «${taskData.title}» отклонена, требуется доработка`, [taskData.assigned_to]);
+        notifyEvent("task_completed", `❌ Задача «${taskData.title}» отклонена, требуется доработка`, [taskData.assigned_to], id);
       }
     },
     onMutate: async ({ id }) => {
