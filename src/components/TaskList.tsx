@@ -570,6 +570,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks]);
   const { data: tasksWithComments } = useTasksWithComments(taskIds);
   const { data: participantsByTask } = useTaskParticipantsBulk(taskIds);
+  const emptyParticipantsByTask = useMemo(() => new Map(), []);
   const sharedTaskItemProps = useMemo(() => ({
     sharedTags: allTags,
     sharedUsers: availableUsers,
@@ -577,9 +578,9 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
     sharedTagCategories: tagCategories,
     sharedLinkedTagIds: linkedTagIds,
     sharedMutations: mutations,
-    sharedParticipantsByTask: participantsByTask,
+    sharedParticipantsByTask: participantsByTask || emptyParticipantsByTask,
     sharedTasksWithComments: tasksWithComments,
-  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, participantsByTask, tasksWithComments]);
+  }), [allTags, availableUsers, groups, tagCategories, linkedTagIds, mutations, participantsByTask, emptyParticipantsByTask, tasksWithComments]);
 
   return (
     <main ref={scrollParentRef} className="flex-1 overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' }}>
