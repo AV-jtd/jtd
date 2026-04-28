@@ -216,10 +216,11 @@ function AiInsightsCardInner({
     );
   }
 
-  if (error || !insights) return null;
+  if (error && !insights) return null;
 
-  const hasFocusLink = Boolean(insights.focusTaskId || insights.focusGroupId);
+  const hasFocusLink = Boolean(insights && (insights.focusTaskId || insights.focusGroupId));
   const navigateToFocus = () => {
+    if (!insights) return;
     if (onSmartFilter) {
       onSmartFilter({ taskId: insights.focusTaskId, groupId: insights.focusGroupId });
     } else if (insights.focusTaskId && onNavigateToTask) onNavigateToTask(insights.focusTaskId);
