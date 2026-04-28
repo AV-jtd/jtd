@@ -47,14 +47,8 @@
 
 import { createRoot } from "react-dom/client";
 import "./lib/authRefreshSingleflight";
-import { installSupabaseProxy } from "./lib/supabaseProxy";
 import App from "./App.tsx";
 import "./index.css";
-
-// Install Supabase proxy BEFORE any module that imports the supabase client
-// makes its first request. The shim monkey-patches window.fetch + WebSocket
-// to redirect *.supabase.co → Cloudflare Worker (если PROXY_HOST задан).
-installSupabaseProxy();
 
 // Emergency offline reset: production PWA/offline caching is disabled for now.
 // Several users got a "zombie" shell from stale SW/IndexedDB caches. Run the
