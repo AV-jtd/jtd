@@ -97,7 +97,7 @@ export function useAiInsights(projectId?: string) {
 
       if (fnError) {
         const errBody = typeof fnError === "object" ? fnError : {};
-        if ((errBody as any)?.status === 429) {
+        if ((errBody as { status?: number })?.status === 429) {
           setError("rate_limited");
           return;
         }
@@ -108,9 +108,9 @@ export function useAiInsights(projectId?: string) {
         setInsights(data.insights);
         setCache(data.insights, projectId);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("AI insights error:", e);
-      setError(e?.message || "error");
+      setError(e instanceof Error ? e.message : "error");
     } finally {
       setLoading(false);
     }
