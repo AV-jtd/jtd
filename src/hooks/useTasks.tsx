@@ -141,6 +141,7 @@ async function fetchAllPagesStreaming<T>(
   maxPages = 100,
 ) {
   const all: T[] = [];
+  const seenIds = new Set<string>();
 
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
@@ -149,7 +150,15 @@ async function fetchAllPagesStreaming<T>(
     if (error) throw error;
 
     const chunk = data || [];
-    all.push(...chunk);
+    // Defensive dedup: non-unique ORDER BY columns (e.g. position) combined
+    // with .range() pagination can cause Postgres to return overlapping rows
+    // across pages. Always keep an id-set to prevent x2/x3 duplicates.
+    for (const row of chunk) {
+      const id = (row as unknown as { id?: string }).id;
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      all.push(row);
+    }
 
     const isFinal = chunk.length < SUPABASE_PAGE_SIZE;
     // Hand the running total to the caller. The caller decides whether to
