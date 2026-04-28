@@ -126,7 +126,55 @@ Deno.serve(async (req) => {
       baseline_locked: `Сроки проекта зафиксированы`,
     };
     const title = titles[event] || "Уведомление";
-    const body = taskTitle || "";
+    let body = taskTitle || "";
+
+    // Enrich with project + deadline context for task-level events
+    let projectLabel: string | null = null;
+    let deadlineLabel: string | null = null;
+    if (taskId) {
+      try {
+        const { data: taskCtx } = await serviceClient
+          .from("tasks")
+          .select("deadline, group_id, task_groups:group_id (name, icon)")
+          .eq("id", taskId)
+          .maybeSingle();
+        if (taskCtx) {
+          const g = (taskCtx as any).task_groups;
+          if (g?.name) {
+            projectLabel = `${g.icon || "📁"} ${g.name}`;
+          }
+          if (taskCtx.deadline) {
+            try {
+              const d = new Date(taskCtx.deadline as string);
+              const dateStr = d.toLocaleDateString("ru-RU", {
+                day: "2-digit", month: "2-digit", year: "numeric",
+                timeZone: "Europe/Moscow",
+              });
+              const hh = d.getUTCHours();
+              const mm = d.getUTCMinutes();
+              // Show time only if not midnight UTC (i.e. user set a specific time)
+              const hasTime = !(hh === 0 && mm === 0);
+              if (hasTime) {
+                const timeStr = d.toLocaleTimeString("ru-RU", {
+                  hour: "2-digit", minute: "2-digit",
+                  timeZone: "Europe/Moscow",
+                });
+                deadlineLabel = `${dateStr} ${timeStr}`;
+              } else {
+                deadlineLabel = dateStr;
+              }
+            } catch {}
+          }
+        }
+      } catch (e) {
+        console.error("Failed to enrich notification context:", e);
+      }
+    }
+
+    const contextLines: string[] = [];
+    if (projectLabel) contextLines.push(`📁 ${projectLabel.replace(/^📁\s*/, "")}`);
+    if (deadlineLabel) contextLines.push(`🗓 до ${deadlineLabel}`);
+    const contextSuffix = contextLines.length > 0 ? `\n${contextLines.join(" · ")}` : "";
 
     // Get VAPID keys and build ApplicationServer
     const { data: vapid } = await serviceClient
@@ -216,7 +264,7 @@ Deno.serve(async (req) => {
                 },
               };
               const subscriber = appServer.subscribe(pushSub);
-              const pushPayload = JSON.stringify({ title, body });
+              const pushPayload = JSON.stringify({ title, body: body + contextSuffix });
 
               await subscriber.pushTextMessage(pushPayload, {
                 ttl: 86400,
@@ -245,7 +293,10 @@ Deno.serve(async (req) => {
 
         if (chatId) {
           try {
-            const tgMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}`;
+            const tgContext = contextLines
+              .map((l) => escapeHtml(l))
+              .join("\n");
+            const tgMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${tgContext ? `\n\n${tgContext}` : ""}`;
             const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
