@@ -123,6 +123,21 @@ export default function ProtocolDetailPage() {
               />
             )}
 
+            {!isDraft && (
+              <div className="mb-5 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewOpen(true)}
+                  className="h-8 gap-1.5 px-2"
+                  aria-label="Превью и экспорт PDF"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Превью / PDF</span>
+                </Button>
+              </div>
+            )}
+
             {isDraft && (
               <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
