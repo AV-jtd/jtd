@@ -101,6 +101,8 @@ interface TaskListProps {
 export default function TaskList({ activeView, activeGroupId, activeTagFilters, projectDetailOpen, onToggleProjectDetail, chatOpen, onToggleChat, messengerOpen, onToggleMessenger, highlightTaskId, onHighlightClear, onTagClick, onProjectClick, onInsightTaskNavigate, onAiOpen, onViewChange }: TaskListProps) {
   const { user } = useAuth();
   const { insights, loading: insightsLoading, error: insightsError, dismissed: insightsDismissed, refresh: refreshInsights, dismiss: dismissInsights } = useAiInsights();
+  const { insight: protocolsInsight } = useProtocolsInsight();
+  const navigate = useNavigate();
   // Performance: in the global task list we only need active tasks plus
   // completed-in-the-last-7-days (rendered in the collapsed «Выполнено»
   // section + the «completed» smart-filter chip which itself looks back 7
