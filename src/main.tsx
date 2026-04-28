@@ -51,10 +51,15 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Emergency offline reset: production PWA/offline caching is disabled for now.
-// Several users got a "zombie" shell from stale SW/IndexedDB caches: UI loaded,
-// but fresh auth/data requests never completed. Always start from network and
-// keep only auth/local UI state.
+// Several users got a "zombie" shell from stale SW/IndexedDB caches. Run the
+// cleanup once per browser, then leave storage alone so future offline work can
+// safely reuse IndexedDB and caches.
 void (async () => {
+  const RESET_KEY = "jtd_offline_reset_2026_04_28_v2";
+  try {
+    if (localStorage.getItem(RESET_KEY) === "done") return;
+  } catch {}
+
   try {
     const killRegistration = await navigator.serviceWorker?.register("/sw.js", { updateViaCache: "none" });
     await killRegistration?.update?.();
@@ -87,6 +92,10 @@ void (async () => {
   } catch (err) {
     console.warn("[Boot] IndexedDB cleanup failed:", err);
   }
+
+  try {
+    localStorage.setItem(RESET_KEY, "done");
+  } catch {}
 })();
 
 // Global last-resort error visible UI: if anything throws synchronously during

@@ -19,7 +19,6 @@ self.addEventListener("activate", (event) => {
       const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clientsList) {
         client.postMessage({ type: "JTD_SW_KILLED", version: CACHE_KILL_VERSION });
-        client.navigate(client.url);
       }
     } catch {}
   })());
