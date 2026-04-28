@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // важный для роутинга, но даже если profiles упал, роли/admin-mode
       // всё равно применятся.
       const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.allSettled([
-        supabase.from("profiles").select("is_approved").eq("id", userId).maybeSingle(),
+        supabase.rpc("get_my_profile_approval"),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
         supabase.rpc("admin_exists"),
@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (r.error) {
           console.warn("[Auth] profiles query error, keeping previous isApproved:", r.error);
         } else {
-          approvedNext = (r.data as any)?.is_approved ?? false;
+          approvedNext = (r.data as boolean | null) ?? false;
           setIsApproved(approvedNext);
           setApprovalKnown(true);
         }
