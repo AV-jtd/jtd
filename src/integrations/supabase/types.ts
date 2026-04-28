@@ -2148,6 +2148,7 @@ export type Database = {
           upcoming_7d: number
         }[]
       }
+      get_my_profile_approval: { Args: never; Returns: boolean }
       get_unread_threads: {
         Args: never
         Returns: {
