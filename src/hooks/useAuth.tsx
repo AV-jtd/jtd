@@ -36,6 +36,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
+const SIGN_IN_TIMEOUT_MS = 15_000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -56,7 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const fetchIdRef = useRef(0); // Track latest fetch to avoid stale updates
   const currentUserIdRef = useRef<string | null>(null);
+  const loadingRef = useRef(true);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   // Cross-tab broadcast: when another tab finishes loading auth meta for the
   // current user, apply its snapshot here too — avoids redundant network calls.
@@ -292,6 +299,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const isMounted = () => mounted;
     let initialSessionHandled = false;
+    const authBootstrapTimer = window.setTimeout(() => {
+      if (!mounted || !loadingRef.current) return;
+      console.warn("[Auth] bootstrap timeout — unblocking auth gate");
+      supabase.auth.getSession()
+        .then(({ data: { session: s } }) => {
+          if (!mounted || !loadingRef.current) return;
+          setSession(s);
+          setUser(s?.user ?? null);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("[Auth] bootstrap fallback getSession failed:", err);
+          if (mounted) setLoading(false);
+        });
+    }, AUTH_BOOTSTRAP_TIMEOUT_MS);
 
     // Set up onAuthStateChange FIRST — it fires INITIAL_SESSION synchronously
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -346,6 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      window.clearTimeout(authBootstrapTimer);
       subscription.unsubscribe();
     };
   }, []);
@@ -364,8 +387,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error("Вход не отвечает. Проверьте сеть и попробуйте ещё раз.")), SIGN_IN_TIMEOUT_MS);
+        }),
+      ]);
+      return { error: result.error as Error | null };
+    } catch (error) {
+      return { error: error as Error };
+    }
   };
 
   const signOut = async () => {
