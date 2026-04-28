@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ interface AuthContextType {
   setSimulatedRole: (role: "consultant" | "employee" | null) => void;
   adminModeDisabled: boolean;
   setAdminModeDisabled: (disabled: boolean) => void;
+  markApproved: () => void;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -452,6 +453,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.invalidateQueries();
   };
 
+  const markApproved = useCallback(() => {
+    setIsApproved(true);
+    setApprovalKnown(true);
+    if (user?.id) {
+      writeAuthMeta(user.id, {
+        isApproved: true,
+        isAdmin,
+        isConsultant,
+        adminModeDisabled,
+      });
+    }
+  }, [adminModeDisabled, isAdmin, isConsultant, user?.id]);
+
   return (
     <AuthContext.Provider value={{
       user, session, loading, isApproved, approvalKnown,
@@ -463,6 +477,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSimulatedRole,
       adminModeDisabled,
       setAdminModeDisabled,
+      markApproved,
       signUp, signIn, signOut,
     }}>
       {children}
