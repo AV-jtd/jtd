@@ -382,8 +382,10 @@ Deno.serve(async (req) => {
 
       const userId = profile.id;
 
-      // Save chat_id
-      await supabase.from("profiles").update({ telegram_chat_id: chatId }).eq("id", userId);
+      // NOTE: do NOT save chatId here — in group chats chatId is the group's
+      // negative ID. We must only persist private (positive) chat_ids in
+      // profiles.telegram_chat_id, otherwise personal notifications get sent
+      // to the whole Telegram group.
 
       // === /link — link this Telegram group to a project ===
       if (command === "link") {
@@ -1057,11 +1059,15 @@ Deno.serve(async (req) => {
 
     const userId = profile.id;
 
-    // Save telegram chat_id
-    await supabase
-      .from("profiles")
-      .update({ telegram_chat_id: chatId })
-      .eq("id", userId);
+    // Save telegram chat_id — but ONLY for private chats. Negative chat_ids
+    // belong to groups/channels and must never be stored as a personal
+    // notification target (otherwise DM notifications leak into group chats).
+    if (chatId > 0) {
+      await supabase
+        .from("profiles")
+        .update({ telegram_chat_id: chatId })
+        .eq("id", userId);
+    }
 
     // Handle /projects
     if (message.text === "/projects") {
