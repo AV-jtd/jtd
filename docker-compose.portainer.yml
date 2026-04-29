@@ -1,0 +1,6 @@
+services:
+  app:
+    image: ghcr.io/av-jtd/jtd:latest
+    ports:
+      - "80:80"
+    restart: unless-stopped

@@ -5,9 +5,12 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// If VITE_SUPABASE_PROXY_URL is set (Cloudflare Worker or nginx), route all
-// traffic through it. This bypasses geo-blocks without any other code changes.
-const EFFECTIVE_URL = import.meta.env.VITE_SUPABASE_PROXY_URL || SUPABASE_URL;
+// Proxy URL: explicit env var → same-origin /sb (Docker/nginx) → direct Supabase.
+// The same-origin fallback means the pre-built Docker image works on any server
+// without knowing the IP at build time — nginx always serves /sb/ on the same host.
+const EFFECTIVE_URL =
+  import.meta.env.VITE_SUPABASE_PROXY_URL ||
+  (typeof window !== 'undefined' ? `${window.location.origin}/sb` : SUPABASE_URL);
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
