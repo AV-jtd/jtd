@@ -6,22 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Clock, LogOut, RefreshCw } from "lucide-react";
 
 export default function PendingApproval() {
-  const { user, loading, isApproved, signOut } = useAuth();
+  const { user, loading, isApproved, markApproved, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const checkApproval = async (uid: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("is_approved")
-      .eq("id", uid)
-      .maybeSingle();
+  const checkApproval = async () => {
+    const { data, error } = await supabase.rpc("get_my_profile_approval");
     if (error) {
       console.warn("[Pending] poll failed:", error);
       return false;
     }
-    if (data?.is_approved) {
-      // Force refresh of JWT/session so any cached client state picks up new role/approval
-      try { await supabase.auth.refreshSession(); } catch {}
+    if (data === true) {
+      markApproved();
       navigate("/", { replace: true });
       return true;
     }
@@ -32,12 +27,12 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user || isApproved) return;
     // Run once immediately so users who were just approved don't wait 5s
-    checkApproval(user.id);
+    checkApproval();
     const interval = setInterval(() => {
-      checkApproval(user.id);
+      checkApproval();
     }, 5000);
     return () => clearInterval(interval);
-  }, [user, isApproved]);
+  }, [user, isApproved, markApproved]);
 
   if (loading) {
     return (
@@ -51,7 +46,7 @@ export default function PendingApproval() {
   if (isApproved) return <Navigate to="/" replace />;
 
   const handleRefresh = async () => {
-    await checkApproval(user.id);
+    await checkApproval();
   };
 
   return (

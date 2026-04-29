@@ -2,15 +2,13 @@ import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, onlineManager } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { UndoProvider } from "@/hooks/useUndoStack";
-import { idbPersister } from "@/lib/queryPersist";
 import { usePrefetchData } from "@/hooks/usePrefetch";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -70,14 +68,14 @@ const queryClient = new QueryClient({
     queries: {
       gcTime: 1000 * 60 * 60 * 24, // 24 hours
       staleTime: 1000 * 60 * 5, // 5 minutes
-      networkMode: "offlineFirst",
+      networkMode: "online",
       // Gmail-style: при смене параметров запроса (фильтры, id, страницы)
       // мгновенно показываем предыдущие данные, новые подгружаются в фоне.
       // Это убирает «спиннер на пустом месте» по всему приложению.
       placeholderData: (prev: unknown) => prev,
     },
     mutations: {
-      networkMode: "offlineFirst",
+      networkMode: "online",
       retry: 3,
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     },
@@ -138,10 +136,7 @@ function AppContent() {
 }
 
 const App = () => (
-  <PersistQueryClientProvider
-    client={queryClient}
-    persistOptions={{ persister: idbPersister, maxAge: 1000 * 60 * 60 * 24 }}
-  >
+  <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
         <UndoProvider>
@@ -151,7 +146,7 @@ const App = () => (
         </UndoProvider>
       </AuthProvider>
     </ThemeProvider>
-  </PersistQueryClientProvider>
+  </QueryClientProvider>
 );
 
 export default App;

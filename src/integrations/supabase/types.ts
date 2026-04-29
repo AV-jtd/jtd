@@ -2148,6 +2148,17 @@ export type Database = {
           upcoming_7d: number
         }[]
       }
+      get_my_auth_meta: {
+        Args: never
+        Returns: {
+          admin_disabled: boolean
+          is_admin: boolean
+          is_approved: boolean
+          is_consultant: boolean
+          no_admins_exist: boolean
+        }[]
+      }
+      get_my_profile_approval: { Args: never; Returns: boolean }
       get_unread_threads: {
         Args: never
         Returns: {
@@ -2263,6 +2274,10 @@ export type Database = {
         Returns: boolean
       }
       is_task_participant: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_task_visible: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }

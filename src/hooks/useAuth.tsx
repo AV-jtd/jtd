@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ interface AuthContextType {
   setSimulatedRole: (role: "consultant" | "employee" | null) => void;
   adminModeDisabled: boolean;
   setAdminModeDisabled: (disabled: boolean) => void;
+  markApproved: () => void;
   signUp: (email: string, password: string, displayName: string, telegramUsername?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -38,6 +39,54 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
 const SIGN_IN_TIMEOUT_MS = 15_000;
+const GET_SESSION_TIMEOUT_MS = 6_000;
+
+type AuthMetaRpcRow = {
+  is_approved: boolean | null;
+  is_admin: boolean | null;
+  is_consultant: boolean | null;
+  admin_disabled: boolean | null;
+  no_admins_exist: boolean | null;
+};
+
+/** Wrap supabase.auth.getSession() with a hard timeout so a stuck network
+ *  call on mobile (cold Safari, flaky 3G, captive portal) cannot keep the
+ *  app on a loading spinner forever. On timeout we resolve with a null
+ *  session — the user will see the auth screen and can retry sign-in. */
+function getSessionWithTimeout(label: string) {
+  return Promise.race([
+    supabase.auth.getSession(),
+    new Promise<{ data: { session: Session | null } }>((resolve) =>
+      window.setTimeout(() => {
+        console.warn(`[Auth] getSession timed out (${label}) — assuming no session`);
+        resolve({ data: { session: null } });
+      }, GET_SESSION_TIMEOUT_MS),
+    ),
+  ]);
+}
+
+function withAuthTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`[Auth] ${label} timed out`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
+function clearLocalAuthState() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || key.includes("supabase.auth"))) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {}
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -147,105 +196,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchIdRef.current === fetchId && isMounted()) {
         console.warn("[Auth] fetchProfile hard timeout — clearing loading state");
         setLoading(false);
+        // Авто-retry: если по таймауту не успели получить роли/approval —
+        // через 3 сек тихо повторяем fetch, чтобы UI не остался "битым"
+        // (видим интерфейс, но таблицы пустые, имя/админ не подгружены).
+        if (attempt < MAX_RETRIES - 1) {
+          setTimeout(() => {
+            if (fetchIdRef.current === fetchId && isMounted()) {
+              console.info("[Auth] auto-retry after hard timeout, attempt", attempt + 2);
+              fetchProfile(userId, fetchId, isMounted, attempt + 1);
+            }
+          }, 3000);
+        }
       }
     }, HARD_TIMEOUT_MS);
 
     try {
-      // Все 5 запросов идут одним RTT через allSettled: один реджект не валит
-      // весь профиль — каждое поле обновляется независимо. Approval — самый
-      // важный для роутинга, но даже если profiles упал, роли/admin-mode
-      // всё равно применятся.
-      const [profileRes, roleRes, consultantRes, adminExistsRes, modeRes] = await Promise.allSettled([
-        supabase.from("profiles").select("is_approved").eq("id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "consultant" as any).maybeSingle(),
-        supabase.rpc("admin_exists"),
-        supabase.from("admin_mode_state" as any).select("admin_disabled").eq("user_id", userId).maybeSingle(),
-      ]);
-
+      // Один SECURITY DEFINER RPC вместо 5 параллельных REST/RPC-запросов.
+      // На чистых устройствах Promise.all из profiles/user_roles/admin_exists/admin_mode_state
+      // мог зависать/частично падать и оставлять UI в zombie-state: user есть,
+      // но роли/approval не применились, поэтому RLS выглядел как «всё заблокировано».
+      const authMetaRes = await withAuthTimeout(
+        supabase.rpc("get_my_auth_meta" as any),
+        "get_my_auth_meta",
+        HARD_TIMEOUT_MS,
+      ) as { data: AuthMetaRpcRow[] | AuthMetaRpcRow | null; error: any };
       clearTimeout(safetyTimer);
       if (fetchIdRef.current !== fetchId || !isMounted()) return;
 
-      // --- profiles / approval ---
-      let approvedNext = isApproved;
-      if (profileRes.status === "fulfilled") {
-        const r = profileRes.value;
-        if (r.error) {
-          console.warn("[Auth] profiles query error, keeping previous isApproved:", r.error);
-        } else {
-          approvedNext = (r.data as any)?.is_approved ?? false;
-          setIsApproved(approvedNext);
-          setApprovalKnown(true);
-        }
-      } else {
-        console.warn("[Auth] profiles request rejected, keeping previous isApproved:", profileRes.reason);
-      }
+      if (authMetaRes.error) throw authMetaRes.error;
 
-      // --- admin_exists (bootstrap первого админа) ---
-      const adminExistsOk = adminExistsRes.status === "fulfilled" && !adminExistsRes.value.error;
-      const noAdminsExist = adminExistsOk && adminExistsRes.value.data === false;
-      if (adminExistsRes.status === "rejected") {
-        console.warn("[Auth] admin_exists rejected:", adminExistsRes.reason);
-      } else if (adminExistsRes.status === "fulfilled" && adminExistsRes.value.error) {
-        console.warn("[Auth] admin_exists error:", adminExistsRes.value.error);
-      }
+      const row = Array.isArray(authMetaRes.data) ? authMetaRes.data[0] : authMetaRes.data;
+      if (!row) throw new Error("get_my_auth_meta returned no row");
 
-      if (noAdminsExist) {
+      let approvedNext = !!row.is_approved;
+      let adminNext = !!row.is_admin;
+      const consultantNext = !!row.is_consultant;
+      let serverDisabled = !!row.admin_disabled;
+
+      setIsApproved(approvedNext);
+      setApprovalKnown(true);
+
+      if (row.no_admins_exist) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "admin" } as any);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
-        setIsAdmin(true);
         await supabase.from("profiles").update({ is_approved: true } as any).eq("id", userId);
         if (fetchIdRef.current !== fetchId || !isMounted()) return;
-        setIsApproved(true);
-        setApprovalKnown(true);
-        setLoading(false);
-        writeAuthMeta(userId, {
-          isApproved: true,
-          isAdmin: true,
-          isConsultant: false,
-          adminModeDisabled: false,
-        });
-        return;
+        approvedNext = true;
+        adminNext = true;
+        serverDisabled = false;
       }
 
-      // --- user_roles: admin ---
-      let adminNext = isAdmin;
-      if (roleRes.status === "fulfilled") {
-        if (roleRes.value.error) {
-          console.warn("[Auth] user_roles(admin) error:", roleRes.value.error);
-        } else {
-          adminNext = !!roleRes.value.data;
-          setIsAdmin(adminNext);
-        }
-      } else {
-        console.warn("[Auth] user_roles(admin) rejected:", roleRes.reason);
-      }
-
-      // --- user_roles: consultant ---
-      let consultantNext = isConsultant;
-      if (consultantRes.status === "fulfilled") {
-        if (consultantRes.value.error) {
-          console.warn("[Auth] user_roles(consultant) error:", consultantRes.value.error);
-        } else {
-          consultantNext = !!consultantRes.value.data;
-          setIsConsultant(consultantNext);
-        }
-      } else {
-        console.warn("[Auth] user_roles(consultant) rejected:", consultantRes.reason);
-      }
-
-      // --- admin_mode_state ---
-      let serverDisabled = adminModeDisabled;
-      if (modeRes.status === "fulfilled") {
-        if (modeRes.value.error) {
-          console.warn("[Auth] admin_mode_state error:", modeRes.value.error);
-        } else {
-          serverDisabled = !!(modeRes.value.data as any)?.admin_disabled;
-          setAdminModeDisabledState(serverDisabled);
-        }
-      } else {
-        console.warn("[Auth] admin_mode_state rejected:", modeRes.reason);
-      }
+      setIsApproved(approvedNext);
+      setIsAdmin(adminNext);
+      setIsConsultant(consultantNext);
+      setAdminModeDisabledState(serverDisabled);
 
       try {
         if (serverDisabled) localStorage.setItem("admin_mode_disabled", "1");
@@ -287,7 +291,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, RETRY_DELAY);
       } else {
         console.error("[Auth] All retries exhausted, clearing loading state");
+        clearLocalAuthState();
+        clearAuthMeta(userId);
+        qc.clear();
+        setSession(null);
+        setUser(null);
+        setIsApproved(false);
+        setApprovalKnown(false);
+        setIsAdmin(false);
+        setIsConsultant(false);
+        setAdminModeDisabledState(false);
         setLoading(false);
+        void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
       }
     } finally {
       clearTimeout(safetyTimer);
@@ -302,7 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authBootstrapTimer = window.setTimeout(() => {
       if (!mounted || !loadingRef.current) return;
       console.warn("[Auth] bootstrap timeout — unblocking auth gate");
-      supabase.auth.getSession()
+      getSessionWithTimeout("bootstrap-fallback")
         .then(({ data: { session: s } }) => {
           if (!mounted || !loadingRef.current) return;
           setSession(s);
@@ -352,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fallback: if onAuthStateChange didn't fire synchronously (shouldn't happen, but just in case)
     setTimeout(() => {
       if (!initialSessionHandled && mounted) {
-        supabase.auth.getSession().then(({ data: { session: s } }) => {
+        getSessionWithTimeout("initial-fallback").then(({ data: { session: s } }) => {
           if (!mounted || initialSessionHandled) return;
           setSession(s);
           setUser(s?.user ?? null);
@@ -452,6 +467,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.invalidateQueries();
   };
 
+  const markApproved = useCallback(() => {
+    setIsApproved(true);
+    setApprovalKnown(true);
+    if (user?.id) {
+      writeAuthMeta(user.id, {
+        isApproved: true,
+        isAdmin,
+        isConsultant,
+        adminModeDisabled,
+      });
+    }
+  }, [adminModeDisabled, isAdmin, isConsultant, user?.id]);
+
   return (
     <AuthContext.Provider value={{
       user, session, loading, isApproved, approvalKnown,
@@ -463,6 +491,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSimulatedRole,
       adminModeDisabled,
       setAdminModeDisabled,
+      markApproved,
       signUp, signIn, signOut,
     }}>
       {children}

@@ -5,7 +5,7 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// If VITE_SUPABASE_PROXY_URL is set (e.g. a Cloudflare Worker), route all
+// If VITE_SUPABASE_PROXY_URL is set (Cloudflare Worker or nginx), route all
 // traffic through it. This bypasses geo-blocks without any other code changes.
 const EFFECTIVE_URL = import.meta.env.VITE_SUPABASE_PROXY_URL || SUPABASE_URL;
 
@@ -19,8 +19,6 @@ export const supabase = createClient<Database>(EFFECTIVE_URL, SUPABASE_PUBLISHAB
     autoRefreshToken: true,
   },
   realtime: {
-    // Supabase JS derives the WebSocket URL from the base URL automatically.
-    // When using a proxy, pass the apikey explicitly so the WS handshake works.
     params: { apikey: SUPABASE_PUBLISHABLE_KEY },
   },
 });

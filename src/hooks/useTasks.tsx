@@ -72,10 +72,35 @@ export class DuplicateNameError extends Error {
   }
 }
 
-const SUPABASE_PAGE_SIZE = 1000;
+// Keep task pages small: the first pass intentionally loads task rows only.
+// Relations (steps/tags) hydrate in the background so tabs can paint quickly
+// instead of waiting for nested RLS checks on subtasks/task_tags.
+const SUPABASE_PAGE_SIZE = 100;
+const SUPABASE_PAGE_TIMEOUT_MS = 30_000;
+const TASK_RELATION_BATCH_SIZE = 100;
+const TASK_BOOT_MAX_PAGES = 20;
+const taskRelationHydrationInFlight = new Set<string>();
+
+async function withSupabaseTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs = SUPABASE_PAGE_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      Promise.resolve(request),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 async function fetchAllPages<T>(
-  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   maxPages = 100,
 ) {
   const all: T[] = [];
@@ -83,7 +108,7 @@ async function fetchAllPages<T>(
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
     const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await fetchPage(from, to);
+    const { data, error } = await withSupabaseTimeout(fetchPage(from, to), `Data page ${page + 1}`);
     if (error) throw error;
 
     const chunk = data || [];
@@ -112,20 +137,30 @@ async function fetchAllPages<T>(
  * post-processing (filtering, tag expansion) sees complete data.
  */
 async function fetchAllPagesStreaming<T>(
-  fetchPage: (from: number, to: number) => { then: (onfulfilled: (value: { data: T[] | null; error: any }) => unknown, onrejected?: (reason: any) => unknown) => unknown },
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   onPage: (accumulated: T[], isFinal: boolean) => void,
   maxPages = 100,
+  shouldStop?: (accumulated: T[]) => boolean,
 ) {
   const all: T[] = [];
+  const seenIds = new Set<string>();
 
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
     const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await fetchPage(from, to);
+    const { data, error } = await withSupabaseTimeout(fetchPage(from, to), `Tasks page ${page + 1}`);
     if (error) throw error;
 
     const chunk = data || [];
-    all.push(...chunk);
+    // Defensive dedup: non-unique ORDER BY columns (e.g. position) combined
+    // with .range() pagination can cause Postgres to return overlapping rows
+    // across pages. Always keep an id-set to prevent x2/x3 duplicates.
+    for (const row of chunk) {
+      const id = (row as unknown as { id?: string }).id;
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      all.push(row);
+    }
 
     const isFinal = chunk.length < SUPABASE_PAGE_SIZE;
     // Hand the running total to the caller. The caller decides whether to
@@ -134,9 +169,82 @@ async function fetchAllPagesStreaming<T>(
     onPage(all, isFinal);
 
     if (isFinal) break;
+    if (shouldStop && shouldStop(all)) break;
   }
 
   return all;
+}
+
+function waitForIdle(timeout = 600) {
+  return new Promise<void>((resolve) => {
+    const ric = typeof window !== "undefined" &&
+      (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(() => resolve(), { timeout });
+    else window.setTimeout(resolve, 0);
+  });
+}
+
+async function hydrateTaskRelationsInBackground(
+  qc: QueryClient,
+  queryKey: readonly unknown[],
+  tasks: Task[],
+) {
+  const ids = [...new Set(tasks.map((t) => t.id))];
+  if (ids.length === 0) return;
+
+  const hydrationKey = JSON.stringify(queryKey);
+  if (taskRelationHydrationInFlight.has(hydrationKey)) return;
+  taskRelationHydrationInFlight.add(hydrationKey);
+
+  try {
+    const subtasksByTask = new Map<string, Subtask[]>();
+    const tagsByTask = new Map<string, { tag_id: string }[]>();
+
+    for (let i = 0; i < ids.length; i += TASK_RELATION_BATCH_SIZE) {
+      if (typeof document !== "undefined" && document.hidden) break;
+      await waitForIdle();
+
+      const chunk = ids.slice(i, i + TASK_RELATION_BATCH_SIZE);
+      const [subtasksRes, tagsRes] = await Promise.all([
+        supabase
+          .from("subtasks")
+          .select("*")
+          .in("task_id", chunk)
+          .order("position"),
+        supabase
+          .from("task_tags")
+          .select("task_id, tag_id")
+          .in("task_id", chunk),
+      ]);
+
+      if (subtasksRes.error || tagsRes.error) {
+        console.warn("[Tasks] relation hydration skipped", subtasksRes.error || tagsRes.error);
+        return;
+      }
+
+      for (const subtask of (subtasksRes.data || []) as Subtask[]) {
+        const list = subtasksByTask.get(subtask.task_id) || [];
+        list.push(subtask);
+        subtasksByTask.set(subtask.task_id, list);
+      }
+
+      for (const row of (tagsRes.data || []) as { task_id: string; tag_id: string }[]) {
+        const list = tagsByTask.get(row.task_id) || [];
+        list.push({ tag_id: row.tag_id });
+        tagsByTask.set(row.task_id, list);
+      }
+    }
+
+    qc.setQueryData<Task[]>(queryKey, (current) =>
+      current?.map((task) => ({
+        ...task,
+        subtasks: subtasksByTask.get(task.id) || task.subtasks || [],
+        task_tags: tagsByTask.get(task.id) || task.task_tags || [],
+      })),
+    );
+  } finally {
+    taskRelationHydrationInFlight.delete(hydrationKey);
+  }
 }
 
 /**
@@ -220,6 +328,7 @@ export function useTaskGroups() {
     },
     enabled: !loading && !!user,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     refetchOnReconnect: "always",
   });
 }
@@ -284,14 +393,17 @@ export function useTasks(
       // it's still safe to leave on.
       const canStream = !filterTags || filterTags.length === 0;
 
+      const controller = new AbortController();
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
         let query = supabase
           .from("tasks")
-          .select("*, subtasks(*), task_tags(tag_id)")
+          .select(filterTags && filterTags.length > 0 ? "*, task_tags(tag_id)" : "*")
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
-          .range(from, to);
+          .order("id", { ascending: true })
+          .range(from, to)
+          .abortSignal(controller.signal);
 
         if (groupId) {
           query = query.eq("group_id", groupId);
@@ -312,12 +424,15 @@ export function useTasks(
           query = query.or(`is_completed.eq.false,completed_at.gte.${cutoff}`);
         }
 
-        return query;
+        return query as unknown as PromiseLike<{ data: Task[] | null; error: unknown }>;
       }, (accumulated, isFinal) => {
         if (!canStream || isFinal) return; // final page is published by useQuery itself
         // Push intermediate result so the list paints early. The final
         // resolution will overwrite this with the post-processed array.
         qc.setQueryData<Task[]>(queryKey, filterChunk(accumulated));
+      }, TASK_BOOT_MAX_PAGES, (accumulated) => {
+        if (groupId || filterTags?.length) return false;
+        return accumulated.length >= SUPABASE_PAGE_SIZE;
       });
 
       let filteredTasks = tasks;
@@ -371,10 +486,13 @@ export function useTasks(
         });
       }
 
+      void hydrateTaskRelationsInBackground(qc, queryKey, filteredTasks);
+
       return filteredTasks;
     },
     enabled: !loading && !!user,
     staleTime: 1000 * 60 * 5,
+    retry: 1,
     refetchOnReconnect: "always",
   });
 }
@@ -384,7 +502,7 @@ export function useTags() {
   return useQuery({
     queryKey: ["tags", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tags").select("*").order("name");
+      const { data, error } = await supabase.from("tags").select("id,name,color,category_id,user_id,created_at").order("name");
       if (error) throw error;
       return data as Tag[];
     },
@@ -441,7 +559,7 @@ export function useTagCategories() {
   return useQuery({
     queryKey: ["tag_categories", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tag_categories" as any).select("*").order("position");
+      const { data, error } = await supabase.from("tag_categories" as any).select("id,name,color,position,user_id,created_at,parent_id").order("position");
       if (error) throw error;
       return (data || []) as unknown as TagCategory[];
     },
@@ -458,7 +576,8 @@ export function useAvailableUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username");
+        .select("id, display_name, email, telegram_username")
+        .abortSignal(AbortSignal.timeout(20_000));
       if (error) throw error;
       return (data || []) as Profile[];
     },
@@ -479,6 +598,40 @@ export function useTaskParticipants(taskId: string | null) {
       return (data || []) as unknown as TaskParticipant[];
     },
     enabled: !!user && !!taskId,
+  });
+}
+
+export function useTaskParticipantsBulk(taskIds: string[]) {
+  const { user } = useAuth();
+  const sortedIds = useMemo(() => [...new Set(taskIds)].sort(), [taskIds]);
+  const key = sortedIds.join(",");
+
+  return useQuery({
+    queryKey: ["task_participants", "bulk", key],
+    queryFn: async () => {
+      const byTask = new Map<string, TaskParticipant[]>();
+      const BATCH = 200;
+
+      for (let i = 0; i < sortedIds.length; i += BATCH) {
+        const chunk = sortedIds.slice(i, i + BATCH);
+        const { data, error } = await supabase
+          .from("task_participants" as any)
+          .select("*")
+          .in("task_id", chunk);
+
+        if (error) throw error;
+
+        for (const row of (data || []) as unknown as TaskParticipant[]) {
+          const list = byTask.get(row.task_id) || [];
+          list.push(row);
+          byTask.set(row.task_id, list);
+        }
+      }
+
+      return byTask;
+    },
+    enabled: !!user && sortedIds.length > 0,
+    staleTime: 30_000,
   });
 }
 

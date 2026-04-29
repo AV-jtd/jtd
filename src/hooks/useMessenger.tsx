@@ -220,17 +220,23 @@ export function useThreads() {
       return threads;
     },
     enabled: !!user,
-    // Cache for 60s. Safe to be aggressive because `useThreadsRealtime`
-    // invalidates this query the moment a new message lands in either
-    // `group_messages` or `task_comments` — so the only thing this stale
-    // window protects against is repeated open/close of the messenger panel
-    // (and route remounts) firing the cursor-paginated fetch every time.
+    // Cache for 60s. Realtime invalidates this query when a new message
+    // arrives — so the stale window mainly protects against repeated
+    // open/close of the messenger panel re-running the cursor-paginated
+    // fetch. We DO refetch on focus/reconnect (see below) because the
+    // WebSocket can drop silently on mobile (background tab, Wi-Fi↔4G
+    // handover, locked PWA) and miss INSERTs while it was disconnected.
     staleTime: 1000 * 60,
     // Keep the cached threads in memory for 5 minutes after the panel
     // unmounts, so toggling it back on is instant instead of re-running
     // pagination from scratch.
     gcTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
+    // Recover from missed realtime events: when the user comes back to the
+    // tab after a long idle (or reconnects to network), force a refresh.
+    // React Query only fires these if the data is `stale`, so they are
+    // free during normal active use — they only kick in when needed.
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchOnMount: false,
   });
 }
@@ -263,7 +269,7 @@ export function useThreadsRealtime() {
       }, 500);
     };
 
-    const channel = supabase
+    let channel = supabase
       .channel("messenger_threads_feed")
       .on(
         "postgres_changes",
@@ -277,11 +283,23 @@ export function useThreadsRealtime() {
       )
       .subscribe();
 
+    // Belt-and-suspenders: if the browser comes back online after being
+    // offline, force a refresh — the realtime channel may have missed
+    // INSERTs while disconnected (mobile networks especially).
+    const onOnline = () => scheduleInvalidate();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleInvalidate();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);

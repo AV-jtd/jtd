@@ -29,6 +29,27 @@ export interface DailyInsights {
 
 const CACHE_KEY = "ai_insights_cache_v2";
 const CACHE_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
+const AI_INSIGHTS_TIMEOUT_MS = 15_000;
+
+async function invokeInsights(projectId?: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      supabase.functions.invoke("ai-insights", {
+        body: projectId ? { projectId } : undefined,
+      }),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("AI insights request timed out")),
+          AI_INSIGHTS_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 function getCacheKey(projectId?: string) {
   return projectId ? `${CACHE_KEY}_project_${projectId}` : CACHE_KEY;
@@ -72,13 +93,11 @@ export function useAiInsights(projectId?: string) {
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("ai-insights", {
-        body: projectId ? { projectId } : undefined,
-      });
+      const { data, error: fnError } = await invokeInsights(projectId);
 
       if (fnError) {
         const errBody = typeof fnError === "object" ? fnError : {};
-        if ((errBody as any)?.status === 429) {
+        if ((errBody as { status?: number })?.status === 429) {
           setError("rate_limited");
           return;
         }
@@ -89,18 +108,21 @@ export function useAiInsights(projectId?: string) {
         setInsights(data.insights);
         setCache(data.insights, projectId);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("AI insights error:", e);
-      setError(e?.message || "error");
+      setError(e instanceof Error ? e.message : "error");
     } finally {
       setLoading(false);
     }
   }, [user, projectId]);
 
   useEffect(() => {
-    if (user && !insights && !loading) {
-      fetchInsights();
-    }
+    // Auto-fetch DISABLED to keep first paint fast and reduce edge-function
+    // load. We still hydrate instantly from the local cache if it's fresh;
+    // a real network call only happens when the user clicks "refresh".
+    if (!user) return;
+    const cached = getCached(projectId);
+    if (cached) setInsights(cached.insights);
   }, [user, projectId]);
 
   const refresh = useCallback(() => {
