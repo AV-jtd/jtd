@@ -18,12 +18,17 @@ export const supabase = createClient<Database>(WORKER_URL, SUPABASE_PUBLISHABLE_
     persistSession: true,
     autoRefreshToken: true,
   },
-  realtime: {
-    // Force Realtime to connect directly to Supabase, bypassing the Worker.
-    params: {
-      eventsPerSecond: 10,
-    },
-    // @ts-expect-error — supabase-js accepts custom endpoint at runtime
-    endpoint: `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1/websocket`,
-  },
 });
+
+// Realtime: переопределяем endpoint на прямой Supabase URL (Worker не проксирует WebSocket).
+// Делаем через приватное поле клиента, т.к. supabase-js не даёт публичного API
+// сменить URL Realtime отдельно от REST.
+try {
+  const directWsUrl = `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1`;
+  // @ts-ignore — internal field
+  supabase.realtime.endPoint = `${directWsUrl}/websocket`;
+  // @ts-ignore — internal field
+  supabase.realtimeUrl = directWsUrl;
+} catch (err) {
+  console.warn('[supabase] failed to override realtime endpoint', err);
+}
