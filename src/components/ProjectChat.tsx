@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight } from "lucide-react";
@@ -86,6 +87,41 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     const text = draft.trim();
     if (!text) return;
     sendMessage.mutate({ group_id: groupId, content: text, reply_to: replyTo?.id || null });
+
+    // Parse @mentions and fire notify-event "user_mentioned" for each unique
+    // mentioned member of this project. Fire-and-forget — never blocks send.
+    try {
+      const mentionRe = /@([A-Za-zА-Яа-яЁё0-9_.\-]{2,40})/g;
+      const handles = new Set<string>();
+      let m: RegExpExecArray | null;
+      while ((m = mentionRe.exec(text)) !== null) handles.add(m[1].toLowerCase());
+      if (handles.size > 0) {
+        const targets = availableUsers
+          .filter((u) => {
+            const uname = (u as any).username?.toLowerCase?.() || "";
+            const tg = (u as any).telegram_username?.toLowerCase?.() || "";
+            const dn = (u.display_name || "").toLowerCase().replace(/\s+/g, "_");
+            return handles.has(uname) || handles.has(tg) || handles.has(dn);
+          })
+          .map((u) => u.id)
+          .filter((id) => id && id !== user?.id);
+        if (targets.length > 0) {
+          supabase.auth.getSession().then(({ data: s }) => {
+            if (!s.session) return;
+            supabase.functions.invoke("notify-event", {
+              body: {
+                event: "user_mentioned",
+                taskTitle: `${groupName}: ${text.slice(0, 80)}`,
+                targetUserIds: targets,
+                taskId: null,
+              },
+              headers: { Authorization: `Bearer ${s.session.access_token}` },
+            }).catch(() => {});
+          });
+        }
+      }
+    } catch { /* non-fatal */ }
+
     setDraft("");
     setReplyTo(null);
   };
