@@ -1,9 +1,9 @@
 # Stage 1: сборка React-приложения
-FROM node:20-alpine AS builder
+FROM oven/bun:1 AS builder
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
 
 COPY . .
 
@@ -15,7 +15,7 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 ENV VITE_SUPABASE_PROXY_URL=$VITE_SUPABASE_PROXY_URL
 
-RUN npm run build
+RUN bun run build
 
 # Stage 2: раздача через nginx
 FROM nginx:alpine
