@@ -599,6 +599,7 @@ export type Database = {
           push_task_participant_added: boolean
           telegram_added_to_group: boolean
           telegram_deadline_approaching: boolean
+          telegram_group_chat_message: boolean
           telegram_new_task_in_group: boolean
           telegram_task_assigned: boolean
           telegram_task_commented: boolean
@@ -623,6 +624,7 @@ export type Database = {
           push_task_participant_added?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
+          telegram_group_chat_message?: boolean
           telegram_new_task_in_group?: boolean
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
@@ -647,6 +649,7 @@ export type Database = {
           push_task_participant_added?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
+          telegram_group_chat_message?: boolean
           telegram_new_task_in_group?: boolean
           telegram_task_assigned?: boolean
           telegram_task_commented?: boolean
