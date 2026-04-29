@@ -14,6 +14,7 @@ import UserPicker from "./UserPicker";
 import { toast } from "sonner";
 import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
+import { AtSign } from "lucide-react";
 
 interface ProjectChatProps {
   groupId: string;
