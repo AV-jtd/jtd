@@ -321,7 +321,6 @@ export function useTaskGroups() {
           .select("*")
           .order("position")
           .range(from, to)
-          .abortSignal(signal)
       );
       return data;
     },
