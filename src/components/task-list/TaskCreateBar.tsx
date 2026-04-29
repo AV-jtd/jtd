@@ -165,9 +165,17 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
             onOpenChange={setAssigneeOpen}
             side="bottom"
             trigger={
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" className={iconBtn(!!effectiveAssignee || !!departmentId || !!contractorId)}>
+              <button
+                type="button"
+                className={iconBtn(!!effectiveAssignee || !!departmentId || !!contractorId)}
+                title={(() => {
+                  const u = availableUsers.find(x => x.id === effectiveAssignee);
+                  if (u) return u.display_name || u.email || "Ответственный";
+                  if (departmentId) return "Отдел";
+                  if (contractorId) return "Подрядчик";
+                  return "Ответственный";
+                })()}
+              >
                     {(() => {
                       const u = availableUsers.find(x => x.id === effectiveAssignee);
                       if (u) {
@@ -182,18 +190,7 @@ function TaskCreateBar({ inputRef, activeView, activeGroupId, availableUsers = [
                       }
                       return <UserRound className="h-3.5 w-3.5" />;
                     })()}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {(() => {
-                    const u = availableUsers.find(x => x.id === effectiveAssignee);
-                    if (u) return u.display_name || u.email;
-                    if (departmentId) return "Отдел";
-                    if (contractorId) return "Подрядчик";
-                    return "Ответственный";
-                  })()}
-                </TooltipContent>
-              </Tooltip>
+              </button>
             }
           />
 
