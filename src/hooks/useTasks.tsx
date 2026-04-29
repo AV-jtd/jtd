@@ -140,6 +140,7 @@ async function fetchAllPagesStreaming<T>(
   fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   onPage: (accumulated: T[], isFinal: boolean) => void,
   maxPages = 100,
+  shouldStop?: (accumulated: T[]) => boolean,
 ) {
   const all: T[] = [];
   const seenIds = new Set<string>();
@@ -168,6 +169,7 @@ async function fetchAllPagesStreaming<T>(
     onPage(all, isFinal);
 
     if (isFinal) break;
+    if (shouldStop && shouldStop(all)) break;
   }
 
   return all;
@@ -321,7 +323,6 @@ export function useTaskGroups() {
           .select("*")
           .order("position")
           .range(from, to)
-          .abortSignal(signal)
       );
       return data;
     },
