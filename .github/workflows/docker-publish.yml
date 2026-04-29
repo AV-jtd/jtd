@@ -37,3 +37,10 @@ jobs:
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
             VITE_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
             VITE_SUPABASE_PROXY_URL=
+
+      # Мгновенное обновление стека в Portainer после пуша образа.
+      # Нужно: в Portainer → Stack → включить Webhook → скопировать URL
+      # в GitHub Secrets как PORTAINER_WEBHOOK_URL.
+      - name: Trigger Portainer stack update
+        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
+        run: curl -s -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
