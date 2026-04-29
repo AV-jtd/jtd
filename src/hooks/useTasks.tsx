@@ -1257,6 +1257,8 @@ export function useTaskMutations() {
           }
         }
       }
+
+      return taskData;
     },
     onMutate: async (task) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
