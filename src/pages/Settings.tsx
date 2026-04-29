@@ -563,6 +563,16 @@ export default function Settings() {
                     {/* Автоотчёты */}
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Автоотчёты в Telegram</p>
+                      <div className="flex items-center justify-between py-2 border-b border-border">
+                        <div>
+                          <span className="text-sm">Сообщения из чата проекта</span>
+                          <p className="text-xs text-muted-foreground">Дублировать в личку каждое новое сообщение из чатов проектов, в которых вы участвуете</p>
+                        </div>
+                        <Switch
+                          checked={!!(prefs as any)?.telegram_group_chat_message}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_group_chat_message: v } as any)}
+                        />
+                      </div>
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <span className="text-sm">Еженедельный отчёт</span>
