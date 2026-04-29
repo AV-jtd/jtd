@@ -597,6 +597,7 @@ export type Database = {
           push_task_completed: boolean
           push_task_delegated: boolean
           push_task_participant_added: boolean
+          push_user_mentioned: boolean
           telegram_added_to_group: boolean
           telegram_deadline_approaching: boolean
           telegram_group_chat_message: boolean
@@ -606,6 +607,7 @@ export type Database = {
           telegram_task_completed: boolean
           telegram_task_delegated: boolean
           telegram_task_participant_added: boolean
+          telegram_user_mentioned: boolean
           telegram_weekly_ai_review: boolean
           telegram_weekly_report: boolean
           updated_at: string
@@ -622,6 +624,7 @@ export type Database = {
           push_task_completed?: boolean
           push_task_delegated?: boolean
           push_task_participant_added?: boolean
+          push_user_mentioned?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
           telegram_group_chat_message?: boolean
@@ -631,6 +634,7 @@ export type Database = {
           telegram_task_completed?: boolean
           telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
+          telegram_user_mentioned?: boolean
           telegram_weekly_ai_review?: boolean
           telegram_weekly_report?: boolean
           updated_at?: string
@@ -647,6 +651,7 @@ export type Database = {
           push_task_completed?: boolean
           push_task_delegated?: boolean
           push_task_participant_added?: boolean
+          push_user_mentioned?: boolean
           telegram_added_to_group?: boolean
           telegram_deadline_approaching?: boolean
           telegram_group_chat_message?: boolean
@@ -656,6 +661,7 @@ export type Database = {
           telegram_task_completed?: boolean
           telegram_task_delegated?: boolean
           telegram_task_participant_added?: boolean
+          telegram_user_mentioned?: boolean
           telegram_weekly_ai_review?: boolean
           telegram_weekly_report?: boolean
           updated_at?: string
