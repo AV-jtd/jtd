@@ -5,12 +5,34 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Proxy URL: explicit env var → same-origin /sb (Docker/nginx) → direct Supabase.
-// The same-origin fallback means the pre-built Docker image works on any server
-// without knowing the IP at build time — nginx always serves /sb/ on the same host.
-const EFFECTIVE_URL =
-  import.meta.env.VITE_SUPABASE_PROXY_URL ||
-  (typeof window !== 'undefined' ? `${window.location.origin}/sb` : SUPABASE_URL);
+// Proxy URL resolution:
+//   1. Explicit VITE_SUPABASE_PROXY_URL (Cloudflare Worker / custom proxy)
+//   2. Same-origin /sb only when the host actually proxies it (Docker/nginx on VPS).
+//      Detected via window.__SB_PROXY__ flag set by index.html on those builds,
+//      OR when running on the self-hosted domain (justtodoit.ru direct VPS).
+//   3. Otherwise — direct Supabase (Lovable hosting, dev preview).
+function resolveSupabaseUrl(): string {
+  const explicit = import.meta.env.VITE_SUPABASE_PROXY_URL;
+  if (explicit) return explicit;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // Self-hosted VPS deployments expose /sb via nginx.
+    // Lovable CDN (*.lovable.app, *.lovableproject.com) does NOT — must use direct URL.
+    const isLovableHost =
+      host.endsWith('.lovable.app') ||
+      host.endsWith('.lovableproject.com') ||
+      host.endsWith('.lovable.dev');
+    const hasSbProxyFlag = (window as unknown as { __SB_PROXY__?: boolean }).__SB_PROXY__ === true;
+    if (!isLovableHost && hasSbProxyFlag) {
+      return `${window.location.origin}/sb`;
+    }
+  }
+
+  return SUPABASE_URL;
+}
+
+const EFFECTIVE_URL = resolveSupabaseUrl();
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
