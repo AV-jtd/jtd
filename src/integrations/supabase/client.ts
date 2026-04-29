@@ -5,13 +5,25 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Cloudflare Worker proxy for REST/Auth/Storage/Functions (faster from RU).
+// Realtime (WebSocket) keeps direct Supabase URL — Worker не проксирует WS.
+const WORKER_URL = 'https://round-morning-5599.avedyaev.workers.dev';
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(WORKER_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  realtime: {
+    // Force Realtime to connect directly to Supabase, bypassing the Worker.
+    params: {
+      eventsPerSecond: 10,
+    },
+    // @ts-expect-error — supabase-js accepts custom endpoint at runtime
+    endpoint: `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1/websocket`,
+  },
 });
