@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        VITE_SUPABASE_URL: https://nvfioycpwyzwukvokwql.supabase.co
+        VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52ZmlveWNwd3l6d3Vrdm9rd3FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNzQzNzAsImV4cCI6MjA4NjY1MDM3MH0.sb2B0YezHqW8xsca32FS8kQ_FlT6Vgjyv_Igb4WkBqE
+        # Прокси — сам nginx проксирует /sb/ на Supabase.
+        # Замени SERVER_IP на реальный IP или домен сервера.
+        VITE_SUPABASE_PROXY_URL: http://${SERVER_IP:-localhost}/sb
+    ports:
+      - "80:80"
+    restart: unless-stopped
