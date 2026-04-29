@@ -382,8 +382,10 @@ Deno.serve(async (req) => {
 
       const userId = profile.id;
 
-      // Save chat_id
-      await supabase.from("profiles").update({ telegram_chat_id: chatId }).eq("id", userId);
+      // NOTE: do NOT save chatId here — in group chats chatId is the group's
+      // negative ID. We must only persist private (positive) chat_ids in
+      // profiles.telegram_chat_id, otherwise personal notifications get sent
+      // to the whole Telegram group.
 
       // === /link — link this Telegram group to a project ===
       if (command === "link") {
