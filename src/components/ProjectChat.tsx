@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -136,6 +136,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     });
   };
 
+  // In-thread search: filters root messages (and matching replies stay visible
+  // under their root). Toggled via a magnifier in the header.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const searchLower = searchQ.trim().toLowerCase();
+  const visibleRoots = useMemo(() => {
+    if (!searchLower) return rootMessages;
+    return rootMessages.filter((m) => {
+      if (m.content?.toLowerCase().includes(searchLower)) return true;
+      const replies = repliesMap[m.id] || [];
+      return replies.some((r) => r.content?.toLowerCase().includes(searchLower));
+    });
+  }, [rootMessages, repliesMap, searchLower]);
+
   const handleCreateTask = async (msg: GroupMessage, payload: { title: string; assignee: Profile | null; deadline: string | null }) => {
     try {
       const desc = `Из обсуждения проекта «${groupName}»\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}`;
@@ -160,6 +174,30 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           deadline: payload.deadline,
         },
       }));
+
+      // Send a "task created" card to project members' Telegram chats
+      // (opt-in via telegram_group_chat_message). Fire-and-forget.
+      try {
+        const { data: s } = await supabase.auth.getSession();
+        if (s.session) {
+          supabase.functions
+            .invoke("send-chat-telegram", {
+              body: {
+                kind: "task_created",
+                group_id: groupId,
+                task_id: t.id,
+                task_title: t.title,
+                assignee_name: payload.assignee?.display_name || null,
+                deadline: payload.deadline || null,
+                sender_name: user?.user_metadata?.display_name || user?.email || null,
+                sender_user_id: user?.id || null,
+              },
+              headers: { Authorization: `Bearer ${s.session.access_token}` },
+            })
+            .catch(() => {});
+        }
+      } catch { /* non-fatal */ }
+
       // Гарантированно закрываем форму этого сообщения. Если пользователь
       // успел открыть форму другого сообщения — её не трогаем.
       setTaskFormFor(prev => (prev === msg.id ? null : prev));
@@ -218,6 +256,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           </button>
           <div className="flex items-center gap-1">
             <button
+              onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQ(""); }}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                searchOpen ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+              title="Поиск в чате"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setShowAi(true)}
               className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
               title="ИИ-ассистент проекта"
@@ -233,7 +281,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
 
       {/* AI button when embedded (no own header) */}
       {embedded && (
-        <div className="flex justify-end px-4 py-1.5 border-b border-border shrink-0">
+        <div className="flex justify-end items-center gap-1 px-4 py-1.5 border-b border-border shrink-0">
+          <button
+            onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQ(""); }}
+            className={cn(
+              "flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors",
+              searchOpen ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+            )}
+            title="Поиск в чате"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => setShowAi(true)}
             className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
@@ -244,21 +302,47 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
         </div>
       )}
 
+      {/* In-thread search input */}
+      {searchOpen && (
+        <div className="relative px-4 py-2 border-b border-border shrink-0 bg-muted/20">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            autoFocus
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Найти в этом чате..."
+            className="h-8 text-sm pl-8 pr-16"
+            onKeyDown={(e) => { if (e.key === "Escape") { setSearchQ(""); setSearchOpen(false); } }}
+          />
+          {searchQ && (
+            <span className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+              {visibleRoots.length}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-3">
         {isLoading ? (
           <p className="text-sm text-muted-foreground text-center py-8">Загрузка...</p>
-        ) : rootMessages.length === 0 ? (
+        ) : visibleRoots.length === 0 ? (
           <div className="text-center py-12">
             <MessageCircle className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Начните обсуждение проекта</p>
+            <p className="text-sm text-muted-foreground">
+              {searchLower ? "Ничего не найдено" : "Начните обсуждение проекта"}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {rootMessages.map(msg => {
+            {visibleRoots.map(msg => {
               const replies = repliesMap[msg.id] || [];
               const isOwn = msg.user_id === user?.id;
-              const expanded = expandedThreads.has(msg.id);
+              // When searching, auto-expand threads where reply matched
+              const matchedReply = searchLower
+                ? replies.some((r) => r.content?.toLowerCase().includes(searchLower))
+                : false;
+              const expanded = expandedThreads.has(msg.id) || matchedReply;
 
               return (
                 <div key={msg.id} className="group">
@@ -297,17 +381,23 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                   {replies.length > 0 && (
                     <button
                       onClick={() => toggleThread(msg.id)}
-                      className="ml-8 mt-1 text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                      className="ml-4 mt-1 text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5"
                     >
                       <Reply className="h-3 w-3" />
                       {expanded ? "Скрыть" : `${replies.length} ${replies.length === 1 ? "ответ" : replies.length < 5 ? "ответа" : "ответов"}`}
                     </button>
                   )}
 
-                  {/* Thread replies */}
-                  {expanded && replies.map(reply => (
-                    <div key={reply.id} className="ml-8 mt-1.5">
-                      <MessageBubble
+                  {/* Thread replies — visualised as a vertical branch with a
+                      quoted parent reference at the top. */}
+                  {expanded && replies.length > 0 && (
+                    <div className="ml-3 mt-1.5 pl-3 border-l-2 border-primary/30 space-y-1.5">
+                      <div className="text-[10px] text-muted-foreground/70 italic truncate">
+                        ↳ ответ на «{msg.content.slice(0, 60)}{msg.content.length > 60 ? "…" : ""}»
+                      </div>
+                      {replies.map(reply => (
+                        <div key={reply.id}>
+                          <MessageBubble
                         msg={reply}
                         isOwn={reply.user_id === user?.id}
                         onReply={() => setReplyTo(msg)}
@@ -333,8 +423,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                           onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
                         />
                       )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               );
             })}

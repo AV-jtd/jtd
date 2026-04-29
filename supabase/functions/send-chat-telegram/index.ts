@@ -29,10 +29,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { group_id, content, sender_name, sender_user_id } = await req.json();
+    const body = await req.json();
+    const {
+      group_id,
+      content,
+      sender_name,
+      sender_user_id,
+      // optional: structured task-created card
+      kind,                 // "message" (default) | "task_created"
+      task_id,
+      task_title,
+      assignee_name,
+      deadline,             // ISO string or null
+    } = body || {};
 
-    if (!group_id || !content) {
-      return new Response(JSON.stringify({ error: "Missing group_id or content" }), {
+    if (!group_id) {
+      return new Response(JSON.stringify({ error: "Missing group_id" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+    if (kind !== "task_created" && !content) {
+      return new Response(JSON.stringify({ error: "Missing content" }), {
         status: 400,
         headers: corsHeaders,
       });
@@ -100,7 +118,29 @@ Deno.serve(async (req) => {
     }
 
     const groupLabel = `${group.icon || "📁"} ${group.name}`;
-    const text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
+
+    let text: string;
+    if (kind === "task_created") {
+      // Compact task card
+      const lines: string[] = [];
+      lines.push(`✅ *Новая задача* в *${escapeMarkdown(groupLabel)}*`);
+      lines.push(`*${escapeMarkdown(task_title || "Без названия")}*`);
+      if (assignee_name) lines.push(`👤 ${escapeMarkdown(assignee_name)}`);
+      if (deadline) {
+        try {
+          const d = new Date(deadline);
+          if (!isNaN(d.getTime())) {
+            const dd = String(d.getDate()).padStart(2, "0");
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            lines.push(`📅 до ${escapeMarkdown(`${dd}.${mm}`)}`);
+          }
+        } catch { /* ignore */ }
+      }
+      if (sender_name) lines.push(`_создал: ${escapeMarkdown(sender_name)}_`);
+      text = lines.join("\n");
+    } else {
+      text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
+    }
 
     let sent = 0;
     for (const p of recipients) {
