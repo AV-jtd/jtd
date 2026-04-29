@@ -298,38 +298,65 @@ export default function MessengerPanel({
             <div className="py-1">
               {filtered.map(thread => {
                 const unread = isThreadUnread?.(thread.id, thread.lastMessageAt, thread.lastMessageUserId) ?? false;
+                const isProject = thread.type === "group";
+                const projectColor = isProject ? thread.groupColor || null : null;
+                const projectEmoji = isProject
+                  ? (thread.groupIcon && thread.groupIcon !== "list" ? thread.groupIcon : "📁")
+                  : null;
                 return (
                   <button
                     key={thread.id}
                     onClick={() => handleOpenThread(thread)}
-                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                    className={cn(
+                      "relative w-full flex items-start gap-3 px-4 py-3 transition-colors text-left",
+                      isProject
+                        ? "bg-primary/[0.04] hover:bg-primary/10 pl-[15px]"
+                        : "hover:bg-muted/50",
+                    )}
+                    style={isProject && projectColor ? { boxShadow: `inset 3px 0 0 0 ${projectColor}` } : undefined}
                   >
                     <div className="relative">
-                      <div className={cn(
-                        "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
-                        thread.type === "group" ? "bg-primary/10" : "bg-accent"
-                      )}>
-                        {thread.type === "group"
-                          ? <FolderOpen className="h-4 w-4 text-primary" />
-                          : <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                        }
-                      </div>
+                      {isProject ? (
+                        thread.groupLogoUrl ? (
+                          <img
+                            src={thread.groupLogoUrl}
+                            alt=""
+                            className="h-9 w-9 rounded-xl object-cover shrink-0 mt-0.5 ring-1 ring-border"
+                          />
+                        ) : (
+                          <div
+                            className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-base ring-1 ring-border/40"
+                            style={projectColor ? { backgroundColor: `${projectColor}26` } : { backgroundColor: "hsl(var(--primary) / 0.12)" }}
+                          >
+                            <span className="leading-none">{projectEmoji}</span>
+                          </div>
+                        )
+                      ) : (
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-accent">
+                          <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
                       {unread && (
                         <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn("text-sm truncate", unread ? "font-bold text-foreground" : "font-medium text-foreground")}>
+                        <span className={cn(
+                          "text-sm truncate",
+                          unread ? "font-bold text-foreground" : isProject ? "font-semibold text-foreground" : "font-medium text-foreground"
+                        )}>
                           {thread.name}
                         </span>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {formatThreadDate(thread.lastMessageAt)}
                         </span>
                       </div>
-                      {thread.groupName && thread.type === "task" && (
+                      {isProject ? (
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 truncate">Чат проекта</p>
+                      ) : thread.groupName ? (
                         <p className="text-[10px] text-muted-foreground/60 truncate">{thread.groupName}</p>
-                      )}
+                      ) : null}
                       {thread.lastMessage && (
                         <p className={cn("text-xs truncate mt-0.5", unread ? "text-foreground/80 font-medium" : "text-muted-foreground")}>
                           {thread.lastMessageAuthor && (
