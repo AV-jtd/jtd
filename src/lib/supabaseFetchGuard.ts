@@ -14,7 +14,10 @@ if (typeof window !== "undefined") {
   BACKEND_HOSTS.add(window.location.host);
 }
 
-const MAX_CONCURRENT_BACKEND_REQUESTS = 4;
+// Cloudflare Worker spravlyaetsya s bolshim parallelizmom; 4 — sliskom malo dlya
+// stranits s desyatkami batched-zaprosov (tasks + comments + participants + subtasks).
+// Browser sam ogranichivaet ~6 connections per host, no через HTTP/2 (CF) можно больше.
+const MAX_CONCURRENT_BACKEND_REQUESTS = 12;
 const READ_TIMEOUT_MS = 22_000;
 const WRITE_TIMEOUT_MS = 45_000;
 
