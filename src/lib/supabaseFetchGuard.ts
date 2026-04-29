@@ -1,11 +1,23 @@
 const PATCH_FLAG = "__jtdSupabaseFetchGuard";
 
-const BACKEND_HOSTS = new Set([
-  "round-morning-5599.avedyaev.workers.dev",
-  "nvfioycpwyzwukvokwql.supabase.co",
-]);
+// Hosts treated as "backend" for throttling. Always include the direct Supabase
+// host, plus the configured proxy (Cloudflare Worker / nginx /sb).
+// We derive the proxy host from VITE_SUPABASE_PROXY_URL so future redeploys to
+// a new worker URL keep working without touching code.
+const BACKEND_HOSTS = new Set<string>(["nvfioycpwyzwukvokwql.supabase.co"]);
+try {
+  const proxyUrl = (import.meta as any).env?.VITE_SUPABASE_PROXY_URL;
+  if (proxyUrl) BACKEND_HOSTS.add(new URL(proxyUrl).host);
+} catch {}
+if (typeof window !== "undefined") {
+  // Same-origin /sb fallback (Docker/nginx self-host).
+  BACKEND_HOSTS.add(window.location.host);
+}
 
-const MAX_CONCURRENT_BACKEND_REQUESTS = 4;
+// Cloudflare Worker spravlyaetsya s bolshim parallelizmom; 4 — sliskom malo dlya
+// stranits s desyatkami batched-zaprosov (tasks + comments + participants + subtasks).
+// Browser sam ogranichivaet ~6 connections per host, no через HTTP/2 (CF) можно больше.
+const MAX_CONCURRENT_BACKEND_REQUESTS = 12;
 const READ_TIMEOUT_MS = 22_000;
 const WRITE_TIMEOUT_MS = 45_000;
 
