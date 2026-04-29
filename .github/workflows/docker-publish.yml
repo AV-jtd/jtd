@@ -42,5 +42,7 @@ jobs:
       # Нужно: в Portainer → Stack → включить Webhook → скопировать URL
       # в GitHub Secrets как PORTAINER_WEBHOOK_URL.
       - name: Trigger Portainer stack update
-        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
-        run: curl -s -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        if: env.PORTAINER_WEBHOOK_URL != ''
+        run: curl -s -X POST "$PORTAINER_WEBHOOK_URL"
