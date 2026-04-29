@@ -354,12 +354,22 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
       {/* Input */}
       <form
         onSubmit={e => { e.preventDefault(); handleSend(); }}
-        className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0"
+        className="relative flex items-center gap-2 px-4 py-3 border-t border-border shrink-0"
       >
+        <MentionAutocomplete
+          value={draft}
+          users={availableUsers}
+          onPick={(u) => {
+            const handle = ((u as any).username || (u as any).telegram_username || (u.display_name || "user").replace(/\s+/g, "_")).toString();
+            const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
+            const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
+            setDraft(`${base}@${handle} `);
+          }}
+        />
         <Input
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          placeholder="Написать сообщение..."
+          placeholder="Написать сообщение... (@ — упомянуть)"
           className="flex-1 text-sm"
           autoComplete="off"
         />
