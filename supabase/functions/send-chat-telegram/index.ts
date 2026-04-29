@@ -81,11 +81,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, sent: 0 }), { headers: corsHeaders });
     }
 
+    // Filter by per-user notification preference (telegram_group_chat_message)
+    // Only users who explicitly opted in receive group chat messages in Telegram.
+    const { data: prefs } = await supabase
+      .from("notification_preferences")
+      .select("user_id, telegram_group_chat_message")
+      .in("user_id", profiles.map((p) => p.id));
+
+    const optedInIds = new Set(
+      (prefs || [])
+        .filter((pr: any) => pr.telegram_group_chat_message === true)
+        .map((pr: any) => pr.user_id)
+    );
+
+    const recipients = profiles.filter((p) => optedInIds.has(p.id));
+    if (recipients.length === 0) {
+      return new Response(JSON.stringify({ ok: true, sent: 0, skipped: "no opt-in" }), { headers: corsHeaders });
+    }
+
     const groupLabel = `${group.icon || "📁"} ${group.name}`;
     const text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
 
     let sent = 0;
-    for (const p of profiles) {
+    for (const p of recipients) {
       if (!p.telegram_chat_id) continue;
       try {
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
