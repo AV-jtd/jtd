@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
       task_delegated: "push_task_delegated",
       baseline_approver_assigned: "push_task_assigned",
       baseline_locked: "push_task_assigned",
+      user_mentioned: "push_user_mentioned",
     };
 
     const telegramPrefKey: Record<string, string> = {
@@ -87,6 +88,7 @@ Deno.serve(async (req) => {
       task_delegated: "telegram_task_delegated",
       baseline_approver_assigned: "telegram_task_assigned",
       baseline_locked: "telegram_task_assigned",
+      user_mentioned: "telegram_user_mentioned",
     };
 
     const prefColumn = pushPrefKey[event];
@@ -124,6 +126,7 @@ Deno.serve(async (req) => {
       task_delegated: `${senderName} делегировал вам задачу`,
       baseline_approver_assigned: `${senderName} назначил вас утверждающим сроки`,
       baseline_locked: `Сроки проекта зафиксированы`,
+      user_mentioned: `${senderName} упомянул вас в чате`,
     };
     const title = titles[event] || "Уведомление";
     let body = taskTitle || "";
