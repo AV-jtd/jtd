@@ -1,0 +1,10 @@
+name = "jtd-supabase-proxy"
+main = "supabase-proxy.js"
+compatibility_date = "2024-01-01"
+
+# После деплоя воркер будет доступен по адресу:
+# https://jtd-supabase-proxy.<твой-аккаунт>.workers.dev
+#
+# Скопируй этот URL в переменную VITE_SUPABASE_PROXY_URL
+# в настройках Lovable (Settings → Environment Variables)
+# или в локальный .env файл.

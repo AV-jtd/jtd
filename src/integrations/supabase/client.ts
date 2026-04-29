@@ -5,30 +5,20 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Cloudflare Worker proxy for REST/Auth/Storage/Functions (faster from RU).
-// Realtime (WebSocket) keeps direct Supabase URL — Worker не проксирует WS.
-const WORKER_URL = 'https://round-morning-5599.avedyaev.workers.dev';
+// If VITE_SUPABASE_PROXY_URL is set (Cloudflare Worker or nginx), route all
+// traffic through it. This bypasses geo-blocks without any other code changes.
+const EFFECTIVE_URL = import.meta.env.VITE_SUPABASE_PROXY_URL || SUPABASE_URL;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(WORKER_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(EFFECTIVE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
   },
+  realtime: {
+    params: { apikey: SUPABASE_PUBLISHABLE_KEY },
+  },
 });
-
-// Realtime: переопределяем endpoint на прямой Supabase URL (Worker не проксирует WebSocket).
-// Делаем через приватное поле клиента, т.к. supabase-js не даёт публичного API
-// сменить URL Realtime отдельно от REST.
-try {
-  const directWsUrl = `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1`;
-  // @ts-ignore — internal field
-  supabase.realtime.endPoint = `${directWsUrl}/websocket`;
-  // @ts-ignore — internal field
-  supabase.realtimeUrl = directWsUrl;
-} catch (err) {
-  console.warn('[supabase] failed to override realtime endpoint', err);
-}
