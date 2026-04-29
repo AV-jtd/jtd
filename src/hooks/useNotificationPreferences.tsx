@@ -24,6 +24,8 @@ export interface NotificationPrefs {
   telegram_weekly_report: boolean;
   telegram_weekly_ai_review: boolean;
   telegram_group_chat_message: boolean;
+  push_user_mentioned: boolean;
+  telegram_user_mentioned: boolean;
 }
 
 const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
@@ -46,6 +48,8 @@ const DEFAULTS: Omit<NotificationPrefs, "id" | "user_id"> = {
   telegram_weekly_report: false,
   telegram_weekly_ai_review: true,
   telegram_group_chat_message: false,
+  push_user_mentioned: true,
+  telegram_user_mentioned: false,
 };
 
 export function useNotificationPreferences() {

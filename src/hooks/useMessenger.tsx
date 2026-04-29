@@ -19,6 +19,11 @@ export type Thread = {
   /** For task threads */
   taskId?: string;
   groupName?: string;
+  /** Visual hints for project (group) threads, used by the messenger to
+   *  visually distinguish project chats from task chats in the list. */
+  groupIcon?: string | null;
+  groupColor?: string | null;
+  groupLogoUrl?: string | null;
 };
 
 /**
@@ -138,7 +143,7 @@ export function useThreads() {
 
       const [groupsRes, tasksRes, profilesRes] = await Promise.all([
         groupIds.length > 0
-          ? supabase.from("task_groups").select("id, name, icon, color").in("id", groupIds)
+          ? supabase.from("task_groups").select("id, name, icon, color, logo_url").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title, group_id").in("id", taskIds)
@@ -183,13 +188,19 @@ export function useThreads() {
         threads.push({
           id: `group-${g.id}`,
           type: "group",
-          name: `${(g as any).icon && (g as any).icon !== "list" ? (g as any).icon + " " : ""}${g.name}`,
+          // Keep the plain name — icon/color/logo are passed separately so the
+          // messenger UI can render a coloured avatar instead of stuffing the
+          // emoji into the title.
+          name: g.name,
           lastMessage: info.content,
           lastMessageAt: info.created_at,
           lastMessageAuthor: profileMap.get(info.user_id) || null,
           lastMessageUserId: info.user_id,
           messageCount: info.count,
           groupId: g.id,
+          groupIcon: (g as any).icon ?? null,
+          groupColor: (g as any).color ?? null,
+          groupLogoUrl: (g as any).logo_url ?? null,
         });
       }
 

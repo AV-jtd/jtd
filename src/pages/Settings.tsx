@@ -117,6 +117,7 @@ const NOTIFICATION_EVENTS = [
   { push: "push_task_participant_added", tg: "telegram_task_participant_added", label: "Добавлен участником" },
   { push: "push_task_completed", tg: "telegram_task_completed", label: "Завершение задачи" },
   { push: "push_task_commented", tg: "telegram_task_commented", label: "Новый комментарий" },
+  { push: "push_user_mentioned", tg: "telegram_user_mentioned", label: "Меня упомянули в чате (@)" },
   { push: "push_added_to_group", tg: "telegram_added_to_group", label: "Добавление в проект" },
   { push: "push_new_task_in_group", tg: "telegram_new_task_in_group", label: "Новая задача в проекте" },
   { push: "push_deadline_approaching", tg: "telegram_deadline_approaching", label: "Приближение дедлайна" },
