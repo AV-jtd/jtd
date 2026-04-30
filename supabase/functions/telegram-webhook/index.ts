@@ -730,6 +730,9 @@ Deno.serve(async (req) => {
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
         if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
+        if (autoJoinedNames.length > 0) {
+          confirmation += `\n➕ Добавлен${autoJoinedNames.length > 1 ? "ы" : ""} в проект: ${autoJoinedNames.join(", ")}`;
+        }
 
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
