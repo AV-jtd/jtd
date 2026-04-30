@@ -29,10 +29,20 @@ export default function UserPicker({
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
+    const raw = search.trim().toLowerCase().replace(/^@/, "");
     return users.filter(u => {
       if (excludeIds.includes(u.id)) return false;
-      if (!search.trim()) return true;
-      return u.display_name?.toLowerCase().includes(search.toLowerCase());
+      if (!raw) return true;
+      const hay = [
+        u.display_name,
+        (u as any).username,
+        (u as any).telegram_username,
+        (u as any).email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(raw);
     });
   }, [users, excludeIds, search]);
 
