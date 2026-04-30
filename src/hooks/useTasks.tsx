@@ -20,7 +20,7 @@ export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null;
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
-export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null };
+export type Profile = { id: string; display_name: string | null; email: string | null; telegram_username: string | null; username: string | null };
 export type ProjectFolder = { id: string; user_id: string; name: string; color: string | null; icon: string | null; position: number; created_at: string };
 export type ProjectFolderItem = { id: string; folder_id: string; group_id: string; user_id: string; position: number; created_at: string };
 export type TagCategory = { id: string; name: string; color: string | null; position: number; user_id: string; created_at: string; parent_id?: string | null };
@@ -576,7 +576,7 @@ export function useAvailableUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username")
+        .select("id, display_name, email, telegram_username, username")
         .abortSignal(AbortSignal.timeout(20_000));
       if (error) throw error;
       return (data || []) as Profile[];
