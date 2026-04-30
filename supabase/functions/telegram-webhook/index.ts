@@ -1934,6 +1934,9 @@ Deno.serve(async (req) => {
     if (groupId) extras.push("📂 в проекте");
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
     if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
+    if (assigneeAutoJoinedName) {
+      confirmation += `\n➕ Добавлен в проект: ${assigneeAutoJoinedName}`;
+    }
 
     await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
