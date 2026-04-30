@@ -2715,6 +2715,84 @@ function findMemberByName(
   return null;
 }
 
+/**
+ * Глобальный поиск пользователя по @username/имени среди ВСЕХ approved-профилей.
+ * Возвращает профиль, если найден где-то в системе (даже если не в проекте).
+ */
+async function findApprovedProfileGlobally(
+  supabase: any,
+  needle: string,
+): Promise<{ id: string; display_name: string | null; telegram_username: string | null } | null> {
+  if (!needle) return null;
+  const cleaned = needle.replace(/^@/, "").trim().toLowerCase();
+  if (!cleaned) return null;
+
+  // 1. Точное совпадение по telegram_username
+  const { data: byTg } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .ilike("telegram_username", cleaned)
+    .eq("is_approved", true)
+    .maybeSingle();
+  if (byTg) return byTg;
+
+  // 2. Fuzzy/имя — берём всех approved и прогоняем findMemberByName
+  const { data: all } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .eq("is_approved", true);
+  if (!all || all.length === 0) return null;
+
+  const asMembers = all.map((p: any) => ({
+    id: p.id,
+    name: p.display_name || p.telegram_username || "Без имени",
+    telegram_username: p.telegram_username,
+  }));
+  const match = findMemberByName(cleaned, asMembers);
+  if (!match) return null;
+  return all.find((p: any) => p.id === match.id) || null;
+}
+
+/**
+ * Если пользователя нет в group_members проекта — добавляет его как participant.
+ * Безопасно вызывать многократно (idempotent через проверку).
+ * Возвращает true, если запись была добавлена (для UI-подсказки).
+ */
+async function ensureGroupMembership(
+  supabase: any,
+  groupId: string,
+  userId: string,
+  invitedBy: string,
+): Promise<boolean> {
+  // Уже владелец?
+  const { data: g } = await supabase
+    .from("task_groups")
+    .select("user_id")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (g?.user_id === userId) return false;
+
+  const { data: existing } = await supabase
+    .from("group_members")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) return false;
+
+  const { error } = await supabase.from("group_members").insert({
+    group_id: groupId,
+    user_id: userId,
+    invited_by: invitedBy,
+    role: "participant",
+  });
+  if (error) {
+    console.error("[ensureGroupMembership] insert error", error);
+    return false;
+  }
+  return true;
+}
+
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
