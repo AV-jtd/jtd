@@ -511,6 +511,7 @@ Deno.serve(async (req) => {
         let assigneeFuzzyHint = "";
         const explicitParticipantIds: string[] = [];
         const explicitParticipantNames: string[] = [];
+        const autoJoinedNames: string[] = [];
 
         if (mentionUsernames.length > 0) {
           // Remove all @mentions from text
@@ -532,12 +533,30 @@ Deno.serve(async (req) => {
 
           for (let i = 0; i < mentionUsernames.length; i++) {
             const uname = mentionUsernames[i];
-            const profile = profileMap.get(uname) || findMemberByName(uname, projectMembers);
+            let profile: any = profileMap.get(uname) || findMemberByName(uname, projectMembers);
+            let autoJoined = false;
+            // Fallback: ищем глобально среди approved-профилей и при успехе — добавляем в проект
+            if (!profile) {
+              const globalProfile = await findApprovedProfileGlobally(supabase, uname);
+              if (globalProfile) {
+                const added = await ensureGroupMembership(supabase, groupId, globalProfile.id, userId);
+                profile = {
+                  id: globalProfile.id,
+                  display_name: globalProfile.display_name,
+                  telegram_username: globalProfile.telegram_username,
+                  name: globalProfile.display_name || globalProfile.telegram_username || uname,
+                };
+                if (added) autoJoined = true;
+              }
+            }
             if (i === 0) {
               // First mention = assignee
               assigneeUsername = uname;
               if (profile) {
                 assignedTo = profile.id;
+                if (autoJoined) {
+                  autoJoinedNames.push(profile.display_name || profile.telegram_username || uname);
+                }
               } else {
                 // Fuzzy hint for assignee only
                 if (allProfiles) {
@@ -554,6 +573,9 @@ Deno.serve(async (req) => {
               if (profile) {
                 explicitParticipantIds.push(profile.id);
                 explicitParticipantNames.push(profile.display_name || profile.telegram_username || uname);
+                if (autoJoined) {
+                  autoJoinedNames.push(profile.display_name || profile.telegram_username || uname);
+                }
               }
             }
           }
