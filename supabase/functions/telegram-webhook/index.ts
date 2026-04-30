@@ -524,10 +524,15 @@ Deno.serve(async (req) => {
             .not("telegram_username", "is", null);
 
           const profileMap = new Map((allProfiles || []).map(p => [p.telegram_username?.toLowerCase(), p]));
+          const projectMembers = (allProfiles || []).map((p: any) => ({
+            id: p.id,
+            name: p.display_name || p.telegram_username || "Без имени",
+            telegram_username: p.telegram_username,
+          }));
 
           for (let i = 0; i < mentionUsernames.length; i++) {
             const uname = mentionUsernames[i];
-            const profile = profileMap.get(uname);
+            const profile = profileMap.get(uname) || findMemberByName(uname, projectMembers);
             if (i === 0) {
               // First mention = assignee
               assigneeUsername = uname;
@@ -816,24 +821,14 @@ Deno.serve(async (req) => {
 
         const targetTask = tasksList[taskNum - 1];
 
-        // Find assignee among group members
-        const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
-        const { data: assigneeProfile } = await supabase
-          .from("profiles")
-          .select("id, display_name, telegram_username")
-          .eq("telegram_username", targetUsername)
-          .in("id", memberIds)
-          .single();
+      // Find assignee among group members by @username, name, or name alias
+      const members = await getProjectMembers(supabase, groupId, linkedGroup.user_id);
+      const assigneeProfile = findMemberByName(targetUsername, members);
 
         if (!assigneeProfile) {
           // Fuzzy suggestions
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("telegram_username, display_name")
-            .in("id", memberIds)
-            .not("telegram_username", "is", null);
-          const suggestions = (profiles || [])
-            .filter(p => p.telegram_username && fuzzyMatch(targetUsername, p.telegram_username))
+        const suggestions = members
+          .filter(p => p.telegram_username && fuzzyMatch(targetUsername, p.telegram_username))
             .slice(0, 3);
           const hint = suggestions.length > 0
             ? `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username}`).join(", ")}`
@@ -1687,33 +1682,51 @@ Deno.serve(async (req) => {
     if (assigneeUsername) {
       const { data: assignee } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, display_name, telegram_username")
         .eq("telegram_username", assigneeUsername)
-        .single();
+        .maybeSingle();
 
       if (assignee) {
         assignedTo = assignee.id;
       } else {
+        const { data: allApprovedProfiles } = await supabase
+          .from("profiles")
+          .select("id, display_name, telegram_username")
+          .eq("is_approved", true);
+        const byName = findMemberByName(
+          assigneeUsername,
+          (allApprovedProfiles || []).map((p: any) => ({
+            id: p.id,
+            name: p.display_name || p.telegram_username || "Без имени",
+            telegram_username: p.telegram_username,
+          })),
+        );
+        if (byName) {
+          assignedTo = byName.id;
+        }
+
         // Fuzzy search: find similar usernames from team members
-        const { data: teamMembers } = await supabase
+        if (!assignedTo) {
+          const { data: teamMembers } = await supabase
           .from("team_members")
           .select("user_id")
           .in("team_id", (await supabase.from("team_members").select("team_id").eq("user_id", userId)).data?.map(t => t.team_id) || []);
 
-        if (teamMembers && teamMembers.length > 0) {
-          const memberIds = [...new Set(teamMembers.map(m => m.user_id))];
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("telegram_username, display_name")
-            .in("id", memberIds)
-            .not("telegram_username", "is", null);
+          if (teamMembers && teamMembers.length > 0) {
+            const memberIds = [...new Set(teamMembers.map(m => m.user_id))];
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("telegram_username, display_name")
+              .in("id", memberIds)
+              .not("telegram_username", "is", null);
 
-          if (profiles && profiles.length > 0) {
-            const suggestions = profiles
-              .filter(p => p.telegram_username && fuzzyMatch(assigneeUsername, p.telegram_username))
-              .slice(0, 3);
-            if (suggestions.length > 0) {
-              assigneeFuzzyHint = `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username} (${s.display_name || ""})`).join(", ")}`;
+            if (profiles && profiles.length > 0) {
+              const suggestions = profiles
+                .filter(p => p.telegram_username && fuzzyMatch(assigneeUsername, p.telegram_username))
+                .slice(0, 3);
+              if (suggestions.length > 0) {
+                assigneeFuzzyHint = `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username} (${s.display_name || ""})`).join(", ")}`;
+              }
             }
           }
         }
@@ -2626,8 +2639,9 @@ const NAME_ALIASES: Record<string, string[]> = {
   "михаил": ["миша", "мишаня"],
   "николай": ["коля", "колян"],
   "евгений": ["женя", "жека"],
-  "артём": ["тёма", "тема", "артемка"],
-  "артем": ["тёма", "тема", "артемка"],
+    "артём": ["тёма", "тема", "артемка"],
+    "артем": ["тёма", "тема", "артемка"],
+    "альберт": ["алберт", "алик", "аля"],
   "максим": ["макс", "максимка"],
   "иван": ["ваня", "ванюша"],
   "павел": ["паша", "пашка"],
