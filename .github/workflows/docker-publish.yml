@@ -3,6 +3,7 @@ name: Build & Push Docker image
 on:
   push:
     branches: [main]
+    workflow_dispatch:
 
 env:
   IMAGE: ghcr.io/av-jtd/jtd
@@ -36,7 +37,7 @@ jobs:
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
             VITE_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-            VITE_SUPABASE_PROXY_URL=
+            VITE_SUPABASE_PROXY_URL=${{ secrets.VITE_SUPABASE_PROXY_URL }}
 
       # Мгновенное обновление стека в Portainer после пуша образа.
       # Нужно: в Portainer → Stack → включить Webhook → скопировать URL
