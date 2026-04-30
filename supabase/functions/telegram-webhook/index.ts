@@ -821,24 +821,14 @@ Deno.serve(async (req) => {
 
         const targetTask = tasksList[taskNum - 1];
 
-        // Find assignee among group members
-        const memberIds = await getGroupMemberIds(supabase, groupId, linkedGroup.user_id);
-        const { data: assigneeProfile } = await supabase
-          .from("profiles")
-          .select("id, display_name, telegram_username")
-          .eq("telegram_username", targetUsername)
-          .in("id", memberIds)
-          .single();
+      // Find assignee among group members by @username, name, or name alias
+      const members = await getProjectMembers(supabase, groupId, linkedGroup.user_id);
+      const assigneeProfile = findMemberByName(targetUsername, members);
 
         if (!assigneeProfile) {
           // Fuzzy suggestions
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("telegram_username, display_name")
-            .in("id", memberIds)
-            .not("telegram_username", "is", null);
-          const suggestions = (profiles || [])
-            .filter(p => p.telegram_username && fuzzyMatch(targetUsername, p.telegram_username))
+        const suggestions = members
+          .filter(p => p.telegram_username && fuzzyMatch(targetUsername, p.telegram_username))
             .slice(0, 3);
           const hint = suggestions.length > 0
             ? `\n💡 Возможно: ${suggestions.map(s => `@${s.telegram_username}`).join(", ")}`
