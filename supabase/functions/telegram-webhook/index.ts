@@ -1704,6 +1704,7 @@ Deno.serve(async (req) => {
     // 6. Find assignee profile (with fuzzy fallback)
     let assignedTo: string | null = null;
     let assigneeFuzzyHint = "";
+    let assigneeAutoJoinedName: string | null = null;
     if (assigneeUsername) {
       const { data: assignee } = await supabase
         .from("profiles")
@@ -1755,6 +1756,19 @@ Deno.serve(async (req) => {
             }
           }
         }
+      }
+    }
+
+    // 6.5 Если ассайни найден глобально, но проект задан и юзер не в group_members — добавим
+    if (assignedTo && groupId) {
+      const added = await ensureGroupMembership(supabase, groupId, assignedTo, userId);
+      if (added) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("display_name, telegram_username")
+          .eq("id", assignedTo)
+          .maybeSingle();
+        assigneeAutoJoinedName = p?.display_name || p?.telegram_username || assigneeUsername;
       }
     }
 
