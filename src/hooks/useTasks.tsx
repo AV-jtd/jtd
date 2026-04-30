@@ -576,7 +576,7 @@ export function useAvailableUsers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username")
+        .select("id, display_name, email, telegram_username, username")
         .abortSignal(AbortSignal.timeout(20_000));
       if (error) throw error;
       return (data || []) as Profile[];
