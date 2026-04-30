@@ -6,6 +6,13 @@ import { Slider } from "@/components/ui/slider";
 import { format, parseISO, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Check, User, CalendarIcon, Flag, Trash2 } from "lucide-react";
+import UserPicker from "@/components/UserPicker";
+
+// Преобразует выбранный в календаре день (local midnight) в стабильный ISO,
+// фиксируя 12:00 UTC — чтобы во всех TZ отображался ровно тот же день.
+function dayToStableISO(date: Date): string {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)).toISOString();
+}
 
 interface GanttTaskPopoverProps {
   task: Task;
@@ -96,7 +103,7 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
                   <button
                     type="button"
                     onClick={() => {
-                      onUpdate(task.id, { deadline: addDays(baseDate, daysInput).toISOString() });
+                      onUpdate(task.id, { deadline: dayToStableISO(addDays(baseDate, daysInput)) });
                       setShowCal(false);
                     }}
                     className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -120,11 +127,11 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
                 mode="single"
                 selected={task.deadline ? parseISO(task.deadline) : undefined}
                 onSelect={(date) => {
-                  onUpdate(task.id, { deadline: date ? date.toISOString() : null });
+                  onUpdate(task.id, { deadline: date ? dayToStableISO(date) : null });
                   setShowCal(false);
                 }}
                 locale={ru}
-                className="rounded-b-md border border-t-0"
+                className="rounded-b-md border border-t-0 p-3 pointer-events-auto"
               />
             </div>
           )}
@@ -148,31 +155,31 @@ export default function GanttTaskPopover({ task, project, children, onUpdate, on
 
         {/* Assignee */}
         <div className="relative">
-          <button
-            onClick={() => setShowAssign(!showAssign)}
-            className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs hover:bg-muted transition-colors"
-          >
-            <User className="h-3.5 w-3.5" />
-            {assignee ? assignee.display_name || assignee.email : "Назначить"}
-          </button>
-          {showAssign && (
-            <div className="mt-1 max-h-32 overflow-y-auto border rounded-md bg-popover">
+          <UserPicker
+            users={users as any}
+            open={showAssign}
+            onOpenChange={setShowAssign}
+            title="Ответственный"
+            placeholder="Поиск (имя, @username, email)…"
+            side="bottom"
+            onSelect={(u) => onUpdate(task.id, { assigned_to: u.id })}
+            trigger={
               <button
-                onClick={() => { onUpdate(task.id, { assigned_to: null }); setShowAssign(false); }}
-                className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted text-muted-foreground"
+                onClick={() => setShowAssign(!showAssign)}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs hover:bg-muted transition-colors"
               >
-                Без назначения
+                <User className="h-3.5 w-3.5" />
+                {assignee ? assignee.display_name || assignee.email : "Назначить"}
               </button>
-              {users.map(u => (
-                <button
-                  key={u.id}
-                  onClick={() => { onUpdate(task.id, { assigned_to: u.id }); setShowAssign(false); }}
-                  className={`w-full text-left px-2 py-1.5 text-xs hover:bg-muted ${task.assigned_to === u.id ? "bg-primary/10 text-primary" : ""}`}
-                >
-                  {u.display_name || u.email}
-                </button>
-              ))}
-            </div>
+            }
+          />
+          {assignee && (
+            <button
+              onClick={() => onUpdate(task.id, { assigned_to: null })}
+              className="mt-1 w-full text-left px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted rounded"
+            >
+              Снять назначение
+            </button>
           )}
         </div>
 
