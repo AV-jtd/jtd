@@ -104,6 +104,7 @@ async function fetchAllPages<T>(
   maxPages = 100,
 ) {
   const all: T[] = [];
+  const seenIds = new Set<string>();
 
   for (let page = 0; page < maxPages; page++) {
     const from = page * SUPABASE_PAGE_SIZE;
@@ -112,7 +113,16 @@ async function fetchAllPages<T>(
     if (error) throw error;
 
     const chunk = data || [];
-    all.push(...chunk);
+    // Defensive dedup: non-unique ORDER BY columns (e.g. `position`) combined
+    // with `.range()` pagination can cause Postgres to return overlapping
+    // rows across pages — which surfaced as duplicate project cards in
+    // /pmo (same project rendered 2-3 times). Skip rows we've already seen.
+    for (const row of chunk) {
+      const id = (row as unknown as { id?: string }).id;
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      all.push(row);
+    }
 
     if (chunk.length < SUPABASE_PAGE_SIZE) break;
   }
