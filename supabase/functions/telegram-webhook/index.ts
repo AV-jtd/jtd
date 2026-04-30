@@ -511,6 +511,7 @@ Deno.serve(async (req) => {
         let assigneeFuzzyHint = "";
         const explicitParticipantIds: string[] = [];
         const explicitParticipantNames: string[] = [];
+        const autoJoinedNames: string[] = [];
 
         if (mentionUsernames.length > 0) {
           // Remove all @mentions from text
@@ -532,12 +533,30 @@ Deno.serve(async (req) => {
 
           for (let i = 0; i < mentionUsernames.length; i++) {
             const uname = mentionUsernames[i];
-            const profile = profileMap.get(uname) || findMemberByName(uname, projectMembers);
+            let profile: any = profileMap.get(uname) || findMemberByName(uname, projectMembers);
+            let autoJoined = false;
+            // Fallback: ищем глобально среди approved-профилей и при успехе — добавляем в проект
+            if (!profile) {
+              const globalProfile = await findApprovedProfileGlobally(supabase, uname);
+              if (globalProfile) {
+                const added = await ensureGroupMembership(supabase, groupId, globalProfile.id, userId);
+                profile = {
+                  id: globalProfile.id,
+                  display_name: globalProfile.display_name,
+                  telegram_username: globalProfile.telegram_username,
+                  name: globalProfile.display_name || globalProfile.telegram_username || uname,
+                };
+                if (added) autoJoined = true;
+              }
+            }
             if (i === 0) {
               // First mention = assignee
               assigneeUsername = uname;
               if (profile) {
                 assignedTo = profile.id;
+                if (autoJoined) {
+                  autoJoinedNames.push(profile.display_name || profile.telegram_username || uname);
+                }
               } else {
                 // Fuzzy hint for assignee only
                 if (allProfiles) {
@@ -554,6 +573,9 @@ Deno.serve(async (req) => {
               if (profile) {
                 explicitParticipantIds.push(profile.id);
                 explicitParticipantNames.push(profile.display_name || profile.telegram_username || uname);
+                if (autoJoined) {
+                  autoJoinedNames.push(profile.display_name || profile.telegram_username || uname);
+                }
               }
             }
           }
@@ -708,6 +730,9 @@ Deno.serve(async (req) => {
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
         if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
+        if (autoJoinedNames.length > 0) {
+          confirmation += `\n➕ Добавлен${autoJoinedNames.length > 1 ? "ы" : ""} в проект: ${autoJoinedNames.join(", ")}`;
+        }
 
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -1679,6 +1704,7 @@ Deno.serve(async (req) => {
     // 6. Find assignee profile (with fuzzy fallback)
     let assignedTo: string | null = null;
     let assigneeFuzzyHint = "";
+    let assigneeAutoJoinedName: string | null = null;
     if (assigneeUsername) {
       const { data: assignee } = await supabase
         .from("profiles")
@@ -1730,6 +1756,19 @@ Deno.serve(async (req) => {
             }
           }
         }
+      }
+    }
+
+    // 6.5 Если ассайни найден глобально, но проект задан и юзер не в group_members — добавим
+    if (assignedTo && groupId) {
+      const added = await ensureGroupMembership(supabase, groupId, assignedTo, userId);
+      if (added) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("display_name, telegram_username")
+          .eq("id", assignedTo)
+          .maybeSingle();
+        assigneeAutoJoinedName = p?.display_name || p?.telegram_username || assigneeUsername;
       }
     }
 
@@ -1895,6 +1934,9 @@ Deno.serve(async (req) => {
     if (groupId) extras.push("📂 в проекте");
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
     if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
+    if (assigneeAutoJoinedName) {
+      confirmation += `\n➕ Добавлен в проект: ${assigneeAutoJoinedName}`;
+    }
 
     await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
 
@@ -2713,6 +2755,84 @@ function findMemberByName(
   }
 
   return null;
+}
+
+/**
+ * Глобальный поиск пользователя по @username/имени среди ВСЕХ approved-профилей.
+ * Возвращает профиль, если найден где-то в системе (даже если не в проекте).
+ */
+async function findApprovedProfileGlobally(
+  supabase: any,
+  needle: string,
+): Promise<{ id: string; display_name: string | null; telegram_username: string | null } | null> {
+  if (!needle) return null;
+  const cleaned = needle.replace(/^@/, "").trim().toLowerCase();
+  if (!cleaned) return null;
+
+  // 1. Точное совпадение по telegram_username
+  const { data: byTg } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .ilike("telegram_username", cleaned)
+    .eq("is_approved", true)
+    .maybeSingle();
+  if (byTg) return byTg;
+
+  // 2. Fuzzy/имя — берём всех approved и прогоняем findMemberByName
+  const { data: all } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .eq("is_approved", true);
+  if (!all || all.length === 0) return null;
+
+  const asMembers = all.map((p: any) => ({
+    id: p.id,
+    name: p.display_name || p.telegram_username || "Без имени",
+    telegram_username: p.telegram_username,
+  }));
+  const match = findMemberByName(cleaned, asMembers);
+  if (!match) return null;
+  return all.find((p: any) => p.id === match.id) || null;
+}
+
+/**
+ * Если пользователя нет в group_members проекта — добавляет его как participant.
+ * Безопасно вызывать многократно (idempotent через проверку).
+ * Возвращает true, если запись была добавлена (для UI-подсказки).
+ */
+async function ensureGroupMembership(
+  supabase: any,
+  groupId: string,
+  userId: string,
+  invitedBy: string,
+): Promise<boolean> {
+  // Уже владелец?
+  const { data: g } = await supabase
+    .from("task_groups")
+    .select("user_id")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (g?.user_id === userId) return false;
+
+  const { data: existing } = await supabase
+    .from("group_members")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) return false;
+
+  const { error } = await supabase.from("group_members").insert({
+    group_id: groupId,
+    user_id: userId,
+    invited_by: invitedBy,
+    role: "participant",
+  });
+  if (error) {
+    console.error("[ensureGroupMembership] insert error", error);
+    return false;
+  }
+  return true;
 }
 
 async function createBulkTasks(
