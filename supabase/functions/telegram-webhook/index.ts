@@ -524,10 +524,15 @@ Deno.serve(async (req) => {
             .not("telegram_username", "is", null);
 
           const profileMap = new Map((allProfiles || []).map(p => [p.telegram_username?.toLowerCase(), p]));
+          const projectMembers = (allProfiles || []).map((p: any) => ({
+            id: p.id,
+            name: p.display_name || p.telegram_username || "Без имени",
+            telegram_username: p.telegram_username,
+          }));
 
           for (let i = 0; i < mentionUsernames.length; i++) {
             const uname = mentionUsernames[i];
-            const profile = profileMap.get(uname);
+            const profile = profileMap.get(uname) || findMemberByName(uname, projectMembers);
             if (i === 0) {
               // First mention = assignee
               assigneeUsername = uname;
