@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 import { AtSign } from "lucide-react";
+import { useTaskStatuses } from "@/hooks/useTaskStatuses";
+import ClosedTaskPill from "./ClosedTaskPill";
 
 interface ProjectChatProps {
   groupId: string;
@@ -68,6 +70,15 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
+
+  // Подгружаем актуальный статус задач, ссылки на которые уже есть в чате
+  // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
+  // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
+  const linkedTaskIds = useMemo(
+    () => Object.values(createdTasks).map((t) => t.id),
+    [createdTasks],
+  );
+  const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -373,6 +384,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                   {createdTasks[msg.id] && (
                     <CreatedTaskCard
                       info={createdTasks[msg.id]}
+                      isCompleted={taskStatusMap?.get(createdTasks[msg.id].id) ?? false}
                       onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
                     />
                   )}
@@ -420,6 +432,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                       {createdTasks[reply.id] && (
                         <CreatedTaskCard
                           info={createdTasks[reply.id]}
+                          isCompleted={taskStatusMap?.get(createdTasks[reply.id].id) ?? false}
                           onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
                         />
                       )}
