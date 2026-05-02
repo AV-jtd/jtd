@@ -1313,6 +1313,7 @@ export function useTaskMutations() {
         stm_flow: null,
         subtasks: [],
         task_tags: [],
+        follow_up_of: (task as any).follow_up_of ?? null,
       };
       updateAllTaskCaches(qc, (tasks) => [optimisticTask, ...tasks]);
       return { snap };
