@@ -425,7 +425,19 @@ export default function MessengerPanel({
           )}
           title={activeThread.type === "group" ? "Открыть проект" : "Перейти к задаче"}
         >
-          <p className="text-sm font-semibold text-foreground truncate">{activeThread.name}</p>
+          <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
+            <span
+              className={cn(
+                "truncate",
+                activeThread.type === "task" && activeThread.taskCompleted && "line-through text-muted-foreground",
+              )}
+            >
+              {activeThread.name}
+            </span>
+            {activeThread.type === "task" && activeThread.taskCompleted && (
+              <ClosedTaskPill className="shrink-0" />
+            )}
+          </p>
           <p className="text-[10px] text-muted-foreground">
             {activeThread.type === "group" ? "Чат проекта" : "Чат задачи"}
             {activeThread.groupName ? ` · ${activeThread.groupName}` : ""}
