@@ -487,6 +487,8 @@ export default function MessengerPanel({
             taskTitle={activeThread.name}
             availableUsers={availableUsers}
             variant="full"
+            isCompleted={activeThread.taskCompleted}
+            groupId={activeThread.groupId ?? null}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
