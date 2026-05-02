@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
-import { Profile } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon } from "lucide-react";
+import { Profile, useTaskMutations } from "@/hooks/useTasks";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,10 @@ import ClosedTaskPill from "./ClosedTaskPill";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
+/** Префикс системного маркера «эта задача была закрыта → создана задача-продолжение». */
+const SYS_FOLLOWUP_PREFIX = "__sys_task_followup__:";
+/** Префикс системного маркера «эта задача является продолжением другой». */
+const SYS_SOURCE_PREFIX = "__sys_task_source__:";
 
 /**
  * Формат содержимого системного сообщения:
@@ -36,6 +40,27 @@ function parseSystemMessage(content: string): { taskId: string; title: string } 
   return { taskId: rest.slice(0, sep), title: rest.slice(sep + 1) };
 }
 
+/**
+ * Распарсить любой системный маркер связи задач (created / followup / source).
+ * Возвращает kind для разной отрисовки SystemDivider'ом.
+ */
+function parseAnySystemMessage(
+  content: string,
+): { kind: "created" | "followup" | "source"; taskId: string; title: string } | null {
+  const tryParse = (prefix: string, kind: "created" | "followup" | "source") => {
+    if (!content.startsWith(prefix)) return null;
+    const rest = content.slice(prefix.length);
+    const sep = rest.indexOf("|");
+    if (sep === -1) return null;
+    return { kind, taskId: rest.slice(0, sep), title: rest.slice(sep + 1) };
+  };
+  return (
+    tryParse(SYS_PREFIX, "created") ||
+    tryParse(SYS_FOLLOWUP_PREFIX, "followup") ||
+    tryParse(SYS_SOURCE_PREFIX, "source")
+  );
+}
+
 interface TaskChatProps {
   taskId: string;
   taskTitle: string;
@@ -48,6 +73,14 @@ interface TaskChatProps {
   variant?: "inline" | "full";
   /** Открыть задачу по ID (если предоставлено — системные карточки кликабельны). */
   onNavigateToTask?: (taskId: string) => void;
+  /** Текущий статус задачи (нужен для отрисовки кнопки «Закрыть/Открыть»
+   *  и блокировки follow-up формы пока задача открыта). Если не передан —
+   *  компонент сам определит из tasks-кэша через useTaskStatuses. */
+  isCompleted?: boolean;
+  /** ID проекта, в котором живёт задача — нужен для копирования контекста
+   *  при создании задачи-продолжения (тот же group_id). Если не передан,
+   *  follow-up создастся в "Inbox". */
+  groupId?: string | null;
 }
 
 function formatMsgDate(dateStr: string) {
@@ -57,11 +90,18 @@ function formatMsgDate(dateStr: string) {
   return format(d, "d MMM, HH:mm", { locale: ru });
 }
 
-export default function TaskChat({ taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask }: TaskChatProps) {
+export default function TaskChat({
+  taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask,
+  isCompleted: isCompletedProp, groupId: groupIdProp,
+}: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
   const { addComment, deleteComment } = useCommentMutations();
+  const { toggleTask } = useTaskMutations();
   const [draft, setDraft] = useState("");
+  /** Открыта inline-форма создания follow-up задачи (после закрытия текущей). */
+  const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
+  const [creatingFollowUp, setCreatingFollowUp] = useState(false);
 
   // ID обычных (не системных) комментариев для подгрузки реакций.
   const reactableIds = useMemo(
@@ -69,15 +109,20 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     [comments],
   );
   const { data: reactionsByMsg = {} } = useMessageReactions("task_comment", reactableIds);
-  // Системные сообщения «Создана задача» — подгрузим статус, чтобы
-  // показать перечёркнутый заголовок + pill «Закрыта», если задача закрыта.
-  const linkedTaskIds = useMemo(
-    () => comments
-      .map((c) => parseSystemMessage(c.content)?.taskId)
-      .filter((x): x is string => !!x),
-    [comments],
-  );
+  // Системные сообщения (created/followup/source) — подгрузим статусы
+  // упомянутых задач, чтобы перечеркнуть закрытые + показать pill.
+  // Плюс — статус самой текущей задачи, если он не пришёл пропом.
+  const linkedTaskIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const c of comments) {
+      const sys = parseAnySystemMessage(c.content);
+      if (sys) ids.push(sys.taskId);
+    }
+    if (isCompletedProp === undefined) ids.push(taskId);
+    return ids;
+  }, [comments, taskId, isCompletedProp]);
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
+  const isCompleted = isCompletedProp ?? taskStatusMap?.get(taskId) ?? false;
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -87,7 +132,7 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [comments.length]);
+  }, [comments.length, followUpFormOpen]);
 
   const getProfileName = (userId: string) => {
     const p = availableUsers.find(u => u.id === userId);
@@ -99,6 +144,103 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     if (!text) return;
     addComment.mutate({ task_id: taskId, content: text });
     setDraft("");
+  };
+
+  /**
+   * Закрыть/открыть текущую задачу прямо из чата.
+   * При закрытии — автоматически открываем форму создания задачи-продолжения,
+   * чтобы воркфлоу «закрытие → новая задача» был в один клик.
+   */
+  const handleToggleClosed = () => {
+    const next = !isCompleted;
+    toggleTask.mutate(
+      { id: taskId, is_completed: next },
+      {
+        onSuccess: () => {
+          if (next) {
+            toast.success("Задача закрыта");
+            // Сразу подсказываем создать продолжение.
+            setFollowUpFormOpen(true);
+          } else {
+            toast.success("Задача снова открыта");
+            setFollowUpFormOpen(false);
+          }
+        },
+        onError: (e: any) => toast.error(e?.message || "Не удалось обновить статус"),
+      },
+    );
+  };
+
+  /**
+   * Создать задачу-продолжение (follow_up_of = текущая задача).
+   * Копируем group_id и оставляем системные карточки в обоих чатах
+   * для двусторонней навигации:
+   *  - в чате источника:    `__sys_task_followup__:<newId>|<newTitle>`
+   *  - в чате новой задачи: `__sys_task_source__:<srcId>|<srcTitle>`
+   */
+  const handleCreateFollowUp = async (
+    payload: { title: string; assigneeId: string | null; deadline: Date | null },
+  ) => {
+    if (!user) return;
+    setCreatingFollowUp(true);
+    try {
+      // group_id: используем переданный prop, иначе подтягиваем из исходной задачи.
+      let groupId = groupIdProp ?? null;
+      if (groupId === null && groupIdProp === undefined) {
+        const { data: srcTask } = await supabase
+          .from("tasks").select("group_id").eq("id", taskId).maybeSingle();
+        groupId = (srcTask as any)?.group_id ?? null;
+      }
+
+      const desc = `🔁 Продолжение задачи «${taskTitle}»\n\nИсходная задача закрыта ${format(new Date(), "d MMM yyyy, HH:mm", { locale: ru })}.`;
+
+      const { data: newTask, error: insErr } = await supabase
+        .from("tasks")
+        .insert({
+          title: payload.title.trim() || `Продолжение: ${taskTitle.slice(0, 60)}`,
+          description: desc,
+          group_id: groupId,
+          user_id: user.id,
+          assigned_to: payload.assigneeId,
+          deadline: payload.deadline ? payload.deadline.toISOString() : null,
+          start_at: new Date().toISOString(),
+          follow_up_of: taskId,
+        } as any)
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      await supabase.from("task_participants").insert({
+        task_id: newTask.id,
+        user_id: user.id,
+        role: "creator",
+      });
+
+      // Системная карточка в чате источника — «закрыта → продолжение Y».
+      await supabase.from("task_comments").insert({
+        task_id: taskId,
+        user_id: user.id,
+        content: `${SYS_FOLLOWUP_PREFIX}${newTask.id}|${newTask.title}`,
+      });
+
+      // Обратная карточка в чате новой задачи — «продолжение задачи X».
+      await supabase.from("task_comments").insert({
+        task_id: newTask.id,
+        user_id: user.id,
+        content: `${SYS_SOURCE_PREFIX}${taskId}|${taskTitle}`,
+      });
+
+      qc.invalidateQueries({ queryKey: ["task_comments", taskId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_statuses"] });
+      toast.success("Связанная задача создана");
+      setFollowUpFormOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Не удалось создать связанную задачу");
+    } finally {
+      setCreatingFollowUp(false);
+    }
   };
 
   /**
@@ -189,13 +331,14 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     ) : (
       <div className="space-y-2.5">
         {comments.map(c => {
-          const sys = parseSystemMessage(c.content);
+          const sys = parseAnySystemMessage(c.content);
 
-          // Системное сообщение → тонкая строка-разделитель по центру
+          // Системное сообщение → тонкая строка-разделитель по центру.
           if (sys) {
             return (
               <SystemDivider
                 key={c.id}
+                kind={sys.kind}
                 title={sys.title}
                 isCompleted={taskStatusMap?.get(sys.taskId) ?? false}
                 onClick={onNavigateToTask ? () => onNavigateToTask(sys.taskId) : undefined}
@@ -289,6 +432,65 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     )
   );
 
+  /**
+   * Кнопка «Закрыть/Открыть» + (после закрытия) inline-форма продолжения.
+   * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
+   * «закрыл → создал связанную» прямо из чата.
+   */
+  const closeAction = (
+    <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleToggleClosed}
+          disabled={toggleTask.isPending}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-50",
+            isCompleted
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
+          )}
+          title={isCompleted ? "Снова открыть задачу" : "Закрыть задачу"}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {isCompleted ? "Открыть снова" : "Закрыть задачу"}
+        </button>
+        {isCompleted && !followUpFormOpen && (
+          <button
+            type="button"
+            onClick={() => setFollowUpFormOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+            title="Создать задачу-продолжение"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Связанная задача
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {followUpFormOpen && (
+        <InlineCreateTaskForm
+          source={{
+            id: taskId,
+            task_id: taskId,
+            content: `Продолжение: ${taskTitle}`,
+            user_id: user?.id || "",
+            created_at: new Date().toISOString(),
+          } as TaskComment}
+          availableUsers={availableUsers}
+          defaultAssigneeId={user?.id || null}
+          onCancel={() => setFollowUpFormOpen(false)}
+          onSubmit={(p) => handleCreateFollowUp({
+            title: p.title,
+            assigneeId: p.assigneeId,
+            deadline: p.deadline,
+          })}
+          isSubmitting={creatingFollowUp}
+        />
+      )}
+    </div>
+  );
+
   const inputForm = (
     <form
       onSubmit={e => { e.preventDefault(); handleSend(); }}
@@ -327,6 +529,7 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
   if (isFull) {
     return (
       <div className="flex flex-col h-full">
+        {closeAction}
         <ScrollArea className="flex-1 px-4 py-3">
           {messagesContent}
         </ScrollArea>
@@ -338,11 +541,15 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
   // Inline variant: компактный с заголовком и рамкой
   return (
     <div id={`task-chat-${taskId}`} className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-        <MessageCircle className="h-3 w-3" /> Чат {comments.length > 0 && `(${comments.length})`}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <MessageCircle className="h-3 w-3" /> Чат {comments.length > 0 && `(${comments.length})`}
+          {isCompleted && <ClosedTaskPill className="ml-1" />}
+        </p>
+      </div>
 
       <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+        {closeAction}
         <ScrollArea className="max-h-64 px-3 py-2">
           {messagesContent}
         </ScrollArea>
@@ -356,11 +563,32 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
  * Системный разделитель в стиле Slack «New messages».
  * Тонкая горизонтальная линия с центральной пилюлей-ссылкой.
  */
-function SystemDivider({ title, onClick, isCompleted }: { title: string; onClick?: () => void; isCompleted?: boolean }) {
+function SystemDivider({
+  title, onClick, isCompleted, kind = "created",
+}: {
+  title: string;
+  onClick?: () => void;
+  isCompleted?: boolean;
+  kind?: "created" | "followup" | "source";
+}) {
+  const label =
+    kind === "followup" ? "Закрыта → продолжение:" :
+    kind === "source"   ? "Продолжение задачи:" :
+                          "Создана задача:";
+  const Icon = kind === "source" ? ArrowRight : kind === "followup" ? CheckCircle2 : CheckSquare;
+  const tone =
+    kind === "followup" ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" :
+    kind === "source"   ? "bg-primary/10 text-primary" :
+                          "bg-primary/10 text-primary";
+  const lineTone =
+    kind === "followup" ? "bg-amber-500/30" :
+    kind === "source"   ? "bg-primary/20" :
+                          "bg-primary/20";
+
   const content = (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
-      <CheckSquare className="h-2.5 w-2.5" />
-      Создана задача:{" "}
+    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium", tone)}>
+      <Icon className="h-2.5 w-2.5" />
+      {label}{" "}
       <span
         className={cn(
           "font-semibold truncate max-w-[180px]",
@@ -374,7 +602,7 @@ function SystemDivider({ title, onClick, isCompleted }: { title: string; onClick
   );
   return (
     <div className="flex items-center gap-2 py-1">
-      <div className="flex-1 h-px bg-primary/20" />
+      <div className={cn("flex-1 h-px", lineTone)} />
       {onClick ? (
         <button
           type="button"
@@ -387,7 +615,7 @@ function SystemDivider({ title, onClick, isCompleted }: { title: string; onClick
       ) : (
         content
       )}
-      <div className="flex-1 h-px bg-primary/20" />
+      <div className={cn("flex-1 h-px", lineTone)} />
     </div>
   );
 }

@@ -1313,6 +1313,7 @@ export function useTaskMutations() {
         stm_flow: null,
         subtasks: [],
         task_tags: [],
+        follow_up_of: (task as any).follow_up_of ?? null,
       };
       updateAllTaskCaches(qc, (tasks) => [optimisticTask, ...tasks]);
       return { snap };
@@ -1513,7 +1514,14 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
+      // Закрытие/открытие задачи влияет на отображение в чатах
+      // (зачёркивание + pill «Закрыта» в TaskChat header, ProjectChat
+      // CreatedTaskCard и шапке/списке тредов мессенджера).
+      qc.invalidateQueries({ queryKey: ["task_statuses"] });
+      qc.invalidateQueries({ queryKey: ["messenger_threads"] });
+    },
   });
 
   // Submit task for approval (instead of direct completion)

@@ -106,6 +106,23 @@ export default function MessengerPanel({
     }
   }, [initialActiveThreadId, threads, activeThread?.id]);
 
+  // Подхватываем свежие данные активного треда (например, taskCompleted
+  // после закрытия задачи прямо из чата). Без этого шапка треда показывала
+  // бы устаревший snapshot до повторного открытия панели.
+  useEffect(() => {
+    if (!activeThread) return;
+    const fresh = threads.find(t => t.id === activeThread.id);
+    if (!fresh) return;
+    // Сравнение по ключевым полям, чтобы не дёргать setState на ровном месте.
+    if (
+      fresh.taskCompleted !== activeThread.taskCompleted ||
+      fresh.name !== activeThread.name ||
+      fresh.lastMessageAt !== activeThread.lastMessageAt
+    ) {
+      setActiveThread(fresh);
+    }
+  }, [threads, activeThread]);
+
   const handleOpenThread = (thread: Thread) => {
     // Always switch to the freshly clicked thread, even if another one is
     // already active. Using a functional updater guarantees the new value is
@@ -487,6 +504,8 @@ export default function MessengerPanel({
             taskTitle={activeThread.name}
             availableUsers={availableUsers}
             variant="full"
+            isCompleted={activeThread.taskCompleted}
+            groupId={activeThread.groupId ?? null}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);

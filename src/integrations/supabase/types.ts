@@ -1493,6 +1493,7 @@ export type Database = {
           description: string | null
           external_assignee: Json | null
           external_ref: string | null
+          follow_up_of: string | null
           group_id: string | null
           id: string
           is_completed: boolean
@@ -1532,6 +1533,7 @@ export type Database = {
           description?: string | null
           external_assignee?: Json | null
           external_ref?: string | null
+          follow_up_of?: string | null
           group_id?: string | null
           id?: string
           is_completed?: boolean
@@ -1571,6 +1573,7 @@ export type Database = {
           description?: string | null
           external_assignee?: Json | null
           external_ref?: string | null
+          follow_up_of?: string | null
           group_id?: string | null
           id?: string
           is_completed?: boolean
@@ -1614,6 +1617,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_follow_up_of_fkey"
+            columns: ["follow_up_of"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {

@@ -2223,7 +2223,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           </div>
 
           {/* Chat */}
-          <TaskChat taskId={task.id} taskTitle={task.title} availableUsers={availableUsers} />
+          <TaskChat
+            taskId={task.id}
+            taskTitle={task.title}
+            availableUsers={availableUsers}
+            isCompleted={task.is_completed}
+            groupId={task.group_id}
+          />
 
           {/* Created at + Wiki */}
           <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
