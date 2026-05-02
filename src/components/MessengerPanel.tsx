@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatMessagePreview } from "@/lib/systemMessages";
+import ClosedTaskPill from "./ClosedTaskPill";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -342,11 +343,17 @@ export default function MessengerPanel({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn(
-                          "text-sm truncate",
-                          unread ? "font-bold text-foreground" : isProject ? "font-semibold text-foreground" : "font-medium text-foreground"
-                        )}>
-                          {thread.name}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className={cn(
+                            "text-sm truncate",
+                            unread ? "font-bold text-foreground" : isProject ? "font-semibold text-foreground" : "font-medium text-foreground",
+                            thread.type === "task" && thread.taskCompleted && "line-through text-muted-foreground",
+                          )}>
+                            {thread.name}
+                          </span>
+                          {thread.type === "task" && thread.taskCompleted && (
+                            <ClosedTaskPill className="shrink-0" />
+                          )}
                         </span>
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {formatThreadDate(thread.lastMessageAt)}
@@ -418,7 +425,19 @@ export default function MessengerPanel({
           )}
           title={activeThread.type === "group" ? "Открыть проект" : "Перейти к задаче"}
         >
-          <p className="text-sm font-semibold text-foreground truncate">{activeThread.name}</p>
+          <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
+            <span
+              className={cn(
+                "truncate",
+                activeThread.type === "task" && activeThread.taskCompleted && "line-through text-muted-foreground",
+              )}
+            >
+              {activeThread.name}
+            </span>
+            {activeThread.type === "task" && activeThread.taskCompleted && (
+              <ClosedTaskPill className="shrink-0" />
+            )}
+          </p>
           <p className="text-[10px] text-muted-foreground">
             {activeThread.type === "group" ? "Чат проекта" : "Чат задачи"}
             {activeThread.groupName ? ` · ${activeThread.groupName}` : ""}

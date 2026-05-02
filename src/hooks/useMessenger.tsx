@@ -18,6 +18,8 @@ export type Thread = {
   groupId?: string;
   /** For task threads */
   taskId?: string;
+  /** For task threads — current completion status (closed = strike-through). */
+  taskCompleted?: boolean;
   groupName?: string;
   /** Visual hints for project (group) threads, used by the messenger to
    *  visually distinguish project chats from task chats in the list. */
@@ -146,7 +148,7 @@ export function useThreads() {
           ? supabase.from("task_groups").select("id, name, icon, color, logo_url").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
-          ? supabase.from("tasks").select("id, title, group_id").in("id", taskIds)
+          ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
           : Promise.resolve({ data: [] as any[] }),
         authorIds.length > 0
           ? supabase.from("profiles").select("id, display_name, email").in("id", authorIds)
@@ -217,6 +219,7 @@ export function useThreads() {
           lastMessageUserId: info.user_id,
           messageCount: info.count,
           taskId: t.id,
+          taskCompleted: !!(t as any).is_completed,
           groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
         });
       }

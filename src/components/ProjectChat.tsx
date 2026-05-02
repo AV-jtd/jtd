@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 import { AtSign } from "lucide-react";
+import { useTaskStatuses } from "@/hooks/useTaskStatuses";
+import ClosedTaskPill from "./ClosedTaskPill";
 
 interface ProjectChatProps {
   groupId: string;
@@ -68,6 +70,15 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
+
+  // Подгружаем актуальный статус задач, ссылки на которые уже есть в чате
+  // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
+  // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
+  const linkedTaskIds = useMemo(
+    () => Object.values(createdTasks).map((t) => t.id),
+    [createdTasks],
+  );
+  const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -373,6 +384,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                   {createdTasks[msg.id] && (
                     <CreatedTaskCard
                       info={createdTasks[msg.id]}
+                      isCompleted={taskStatusMap?.get(createdTasks[msg.id].id) ?? false}
                       onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
                     />
                   )}
@@ -420,6 +432,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                       {createdTasks[reply.id] && (
                         <CreatedTaskCard
                           info={createdTasks[reply.id]}
+                          isCompleted={taskStatusMap?.get(createdTasks[reply.id].id) ?? false}
                           onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
                         />
                       )}
@@ -637,7 +650,7 @@ function InlineTaskForm({
 
 type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
 
-function CreatedTaskCard({ info, onClick }: { info: CreatedTaskInfo; onClick: () => void }) {
+function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo; onClick: () => void; isCompleted?: boolean }) {
   const assignee = info.assigneeName?.trim();
   let deadlineLabel = "";
   if (info.deadline) {
@@ -656,9 +669,14 @@ function CreatedTaskCard({ info, onClick }: { info: CreatedTaskInfo; onClick: ()
         <CheckSquare className="h-3.5 w-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-foreground truncate">{info.title || "Без названия"}</p>
+        <p className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
+          <span className={cn("truncate", isCompleted && "line-through text-muted-foreground")}>
+            {info.title || "Без названия"}
+          </span>
+          {isCompleted && <ClosedTaskPill />}
+        </p>
         <p className="text-[10px] text-muted-foreground truncate">
-          Задача создана
+          {isCompleted ? "Задача закрыта" : "Задача создана"}
           {assignee ? ` · ${assignee}` : ""}
           {deadlineLabel}
         </p>

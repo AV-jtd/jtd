@@ -17,6 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
+import { useTaskStatuses } from "@/hooks/useTaskStatuses";
+import ClosedTaskPill from "./ClosedTaskPill";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
@@ -67,6 +69,15 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
     [comments],
   );
   const { data: reactionsByMsg = {} } = useMessageReactions("task_comment", reactableIds);
+  // Системные сообщения «Создана задача» — подгрузим статус, чтобы
+  // показать перечёркнутый заголовок + pill «Закрыта», если задача закрыта.
+  const linkedTaskIds = useMemo(
+    () => comments
+      .map((c) => parseSystemMessage(c.content)?.taskId)
+      .filter((x): x is string => !!x),
+    [comments],
+  );
+  const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -186,6 +197,7 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
               <SystemDivider
                 key={c.id}
                 title={sys.title}
+                isCompleted={taskStatusMap?.get(sys.taskId) ?? false}
                 onClick={onNavigateToTask ? () => onNavigateToTask(sys.taskId) : undefined}
               />
             );
@@ -344,11 +356,20 @@ export default function TaskChat({ taskId, taskTitle, availableUsers, variant = 
  * Системный разделитель в стиле Slack «New messages».
  * Тонкая горизонтальная линия с центральной пилюлей-ссылкой.
  */
-function SystemDivider({ title, onClick }: { title: string; onClick?: () => void }) {
+function SystemDivider({ title, onClick, isCompleted }: { title: string; onClick?: () => void; isCompleted?: boolean }) {
   const content = (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
       <CheckSquare className="h-2.5 w-2.5" />
-      Создана задача: <span className="font-semibold truncate max-w-[180px]">{title}</span>
+      Создана задача:{" "}
+      <span
+        className={cn(
+          "font-semibold truncate max-w-[180px]",
+          isCompleted && "line-through opacity-70",
+        )}
+      >
+        {title}
+      </span>
+      {isCompleted && <ClosedTaskPill className="ml-1" />}
     </span>
   );
   return (
