@@ -115,7 +115,6 @@ async function fetchThreadAggregates<T extends string>(opts: {
 
 export function useThreads() {
   const { user } = useAuth();
-  const qc = useQueryClient();
 
   return useQuery({
     queryKey: ["messenger_threads", user?.id],
@@ -144,20 +143,6 @@ export function useThreads() {
       const groupIds = [...groupMap.keys()];
       const taskIds = [...taskMap.keys()];
 
-      // Reuse the shared `available_users` cache (populated by usePrefetchData
-      // right after auth) instead of re-querying `profiles`. We only fall back
-      // to the network for IDs that are missing from the cache (e.g. messages
-      // from users the current user normally can't see — guests, ex-members).
-      const cachedUsers =
-        (qc.getQueryData(["available_users", user?.id]) as
-          | { id: string; display_name: string | null; email: string | null }[]
-          | undefined) ?? [];
-      const cachedNameById = new Map<string, string>();
-      for (const u of cachedUsers) {
-        cachedNameById.set(u.id, u.display_name || "");
-      }
-      const missingAuthorIds = authorIds.filter((id) => !cachedNameById.has(id));
-
       const [groupsRes, tasksRes, profilesRes] = await Promise.all([
         groupIds.length > 0
           ? supabase.from("task_groups").select("id, name, icon, color, logo_url").in("id", groupIds)
@@ -165,17 +150,16 @@ export function useThreads() {
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
           : Promise.resolve({ data: [] as any[] }),
-        missingAuthorIds.length > 0
-          ? supabase.from("profiles").select("id, display_name, email").in("id", missingAuthorIds)
+        authorIds.length > 0
+          ? supabase.from("profiles").select("id, display_name, email").in("id", authorIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const groups = (groupsRes.data as any[]) || [];
       const tasks = (tasksRes.data as any[]) || [];
-      const profileMap = new Map<string, string>(cachedNameById);
-      for (const p of ((profilesRes.data as any[]) || [])) {
-        profileMap.set(p.id, p.display_name || "");
-      }
+      const profileMap = new Map(
+        ((profilesRes.data as any[]) || []).map((p) => [p.id, p.display_name || ""]),
+      );
 
       // Step 4: for task threads we still need parent-group names for the
       // subtitle. Fetch only the groups that aren't already in `groups`

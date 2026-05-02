@@ -885,21 +885,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
     setEditingDescription(false);
   };
 
-  // Build an O(1) id→name map from the shared `available_users` cache so we
-  // never do a linear find() per render and never fall back to the raw UUID
-  // hash (the dreaded "188e3429" chips). When a name is not yet in the cache
-  // we render an em-dash placeholder; the real name appears as soon as the
-  // single global `available_users` query settles.
-  const profileNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const u of availableUsers) {
-      if (u?.id) m.set(u.id, u.display_name || u.email || "");
-    }
-    return m;
-  }, [availableUsers]);
   const getProfileName = (userId: string) => {
-    if (!userId) return "";
-    return profileNameById.get(userId) || "…";
+    const p = availableUsers.find(u => u.id === userId);
+    return p?.display_name || userId.slice(0, 8);
   };
 
   const style = {
