@@ -286,6 +286,32 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ==================== AUTO-LINK telegram_chat_id ====================
+    // Если у профиля заполнен telegram_username, но пустой telegram_chat_id —
+    // подхватываем from.id из ЛЮБОГО входящего сообщения (личного или группового).
+    // from.id — это персональный Telegram user_id, совпадает с личным chat_id.
+    // Доставка в DM сработает, если юзер хоть раз когда-то нажимал /start у бота.
+    try {
+      const fromUsername = message.from?.username;
+      const fromUserId = message.from?.id;
+      if (fromUsername && fromUserId && fromUserId > 0) {
+        const { data: linkProfile } = await supabase
+          .from("profiles")
+          .select("id, telegram_chat_id")
+          .ilike("telegram_username", fromUsername)
+          .maybeSingle();
+        if (linkProfile && !linkProfile.telegram_chat_id) {
+          await supabase
+            .from("profiles")
+            .update({ telegram_chat_id: fromUserId })
+            .eq("id", linkProfile.id);
+          console.log(`[auto-link] Bound telegram_chat_id=${fromUserId} for @${fromUsername} (profile ${linkProfile.id})`);
+        }
+      }
+    } catch (e) {
+      console.error("[auto-link] error:", e);
+    }
+
     // ==================== GROUP CHAT HANDLING ====================
     if (isGroupChat) {
       // In group chats, only respond to commands directed at the bot
