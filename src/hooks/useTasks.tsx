@@ -592,6 +592,17 @@ export function useAvailableUsers() {
       return (data || []) as Profile[];
     },
     enabled: !!user,
+    // Profiles change very rarely (display_name edits) but this hook is
+    // consumed by 30+ components (TaskItem, PortfolioView, NpdBoard, …).
+    // Without staleTime every navigation re-fired the query and TaskItem
+    // rendered `userId.slice(0, 8)` (the short "188e3429" hashes the user
+    // sees) until profiles came back. 5 min cache + long gcTime makes the
+    // names appear instantly across route changes.
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: "always",
   });
 }
 
