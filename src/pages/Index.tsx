@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
+import TelegramLinkBanner from "@/components/TelegramLinkBanner";
 import { useTaskGroups } from "@/hooks/useTasks";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Loader2 } from "lucide-react";
@@ -145,6 +146,7 @@ export default function Index() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <TelegramLinkBanner />
       <AppHeader
         onMenuClick={() => setSidebarOpen(true)}
         onSearchOpen={() => setSearchOpen(true)}
