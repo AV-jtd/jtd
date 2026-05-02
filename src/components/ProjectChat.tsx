@@ -650,7 +650,7 @@ function InlineTaskForm({
 
 type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
 
-function CreatedTaskCard({ info, onClick }: { info: CreatedTaskInfo; onClick: () => void }) {
+function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo; onClick: () => void; isCompleted?: boolean }) {
   const assignee = info.assigneeName?.trim();
   let deadlineLabel = "";
   if (info.deadline) {
@@ -669,9 +669,14 @@ function CreatedTaskCard({ info, onClick }: { info: CreatedTaskInfo; onClick: ()
         <CheckSquare className="h-3.5 w-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-foreground truncate">{info.title || "Без названия"}</p>
+        <p className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
+          <span className={cn("truncate", isCompleted && "line-through text-muted-foreground")}>
+            {info.title || "Без названия"}
+          </span>
+          {isCompleted && <ClosedTaskPill />}
+        </p>
         <p className="text-[10px] text-muted-foreground truncate">
-          Задача создана
+          {isCompleted ? "Задача закрыта" : "Задача создана"}
           {assignee ? ` · ${assignee}` : ""}
           {deadlineLabel}
         </p>
