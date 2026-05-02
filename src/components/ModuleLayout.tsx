@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import TelegramLinkBanner from "@/components/TelegramLinkBanner";
 import AiAssistant from "@/components/AiAssistant";
 import MessengerPanel from "@/components/MessengerPanel";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -57,6 +58,7 @@ export default function ModuleLayout({
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <TelegramLinkBanner />
       <AppHeader
         onSearchOpen={() => setSearchOpen(true)}
         onAiOpen={() => setAiOpen(true)}
