@@ -56,6 +56,30 @@ export function usePrefetchData() {
   const qc = useQueryClient();
   // Guard against re-runs (StrictMode double-mount, qc identity changes, etc.)
   const prefetchedFor = useRef<string | null>(null);
+  const usersPrefetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    if (usersPrefetchedFor.current === user.id) return;
+    usersPrefetchedFor.current = user.id;
+
+    // Critical path: names are rendered in the very first task list paint.
+    // Start this immediately (not on idle), so TaskItem/MessengerPanel can
+    // reuse the in-flight query instead of briefly showing UUID fragments.
+    void qc.prefetchQuery({
+      queryKey: ["available_users", user.id],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, display_name, email, telegram_username, username")
+          .abortSignal(AbortSignal.timeout(20_000));
+        if (error) throw error;
+        return data || [];
+      },
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+    }).catch(() => undefined);
+  }, [user?.id, qc]);
 
   useEffect(() => {
     if (!user) return;
