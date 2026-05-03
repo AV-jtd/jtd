@@ -20,3 +20,4 @@
 - [features/protocols/living-import-mode](mem://features/protocols/living-import-mode) — Living-импорт: body.mode в parse-protocol-text, отдельный промпт со смысловой группировкой, кнопка «Перепарсить» при смене шаблона.
 - [tech/performance/subtasks-task-id-index](mem://tech/performance/subtasks-task-id-index) — КРИТИЧНО: индекс subtasks(task_id) обязателен для useTasks LATERAL join (без него таймауты). Один unique constraint на task_participants(task_id,user_id).
 - [features/project-tag-inheritance](mem://features/project-tag-inheritance) — Создание проекта: одноимённый свободный тег → linked_tag_id (зеркало); подпроект наследует все group_tags родителя; addGroup принимает initial_tag_ids.
+- [style/product-naming](mem://style/product-naming) — Продукт называется только "JustTODOit" или "JTD". Запрещено "TaskFlow".

@@ -377,7 +377,7 @@ Deno.serve(async (req) => {
         await sendTelegramMessage(
           BOT_TOKEN,
           chatId,
-          "👋 Привет! Я TaskFlow Bot для групповых чатов.\n\n" +
+          "👋 Привет! Я JustTODOit (JTD) для групповых чатов.\n\n" +
           "🔗 `/link Название проекта` — привязать чат к проекту\n" +
           "📝 `/task Текст @ответственный !срок` — создать задачу\n" +
           "📋 `/tasks` — список открытых задач\n" +
@@ -402,7 +402,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (!profile) {
-        await sendTelegramMessage(BOT_TOKEN, chatId, `❌ @${username} не зарегистрирован в TaskFlow.`);
+        await sendTelegramMessage(BOT_TOKEN, chatId, `❌ @${username} не зарегистрирован в JustTODOit.`);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -1021,7 +1021,7 @@ Deno.serve(async (req) => {
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
-        "👋 Привет! Я TaskFlow Bot.\n\n" +
+        "👋 Привет! Я JustTODOit (JTD).\n\n" +
         "📝 Отправь сообщение — создам задачу.\n" +
         "📦 Отправь список — создам пакетно.\n" +
         "🎤 Отправь голосовое — распознаю и создам.\n" +
@@ -1048,7 +1048,7 @@ Deno.serve(async (req) => {
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
-        "📖 *Справка TaskFlow Bot*\n\n" +
+        "📖 *Справка JustTODOit (JTD)*\n\n" +
         "Просто отправь текст — создам задачу.\n\n" +
         "*Модификаторы (в любом порядке):*\n" +
         "• `!` в начале текста — пометить как важную\n" +
@@ -1098,7 +1098,7 @@ Deno.serve(async (req) => {
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
-        `❌ Аккаунт с username @${username} не найден.\n\nПривяжите свой Telegram в настройках TaskFlow.`
+        `❌ Аккаунт с username @${username} не найден.\n\nПривяжите свой Telegram в настройках JustTODOit.`
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }

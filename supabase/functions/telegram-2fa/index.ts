@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       if (!chatIdValue) {
         return new Response(JSON.stringify({
           error: "not_found",
-          message: "Сначала напишите боту @JustTODOit_bot в Telegram, чтобы привязать аккаунт",
+          message: "Сначала напишите боту @Scope_todo_bot в Telegram, чтобы привязать аккаунт",
         }), {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
