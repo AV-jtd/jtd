@@ -440,10 +440,7 @@ export function useTasks(
         // Push intermediate result so the list paints early. The final
         // resolution will overwrite this with the post-processed array.
         qc.setQueryData<Task[]>(queryKey, filterChunk(accumulated));
-      }, TASK_BOOT_MAX_PAGES, (accumulated) => {
-        if (groupId || filterTags?.length) return false;
-        return accumulated.length >= SUPABASE_PAGE_SIZE;
-      });
+      }, TASK_BOOT_MAX_PAGES);
 
       let filteredTasks = tasks;
 
