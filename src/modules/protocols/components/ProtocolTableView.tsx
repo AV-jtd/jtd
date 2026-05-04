@@ -9,11 +9,11 @@ import TopicCell from "@/modules/protocols/components/TopicCell";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, CalendarOff, FolderOpen, Loader2,
   Building2, Circle, GripVertical, Trash2, Sparkles,
 } from "lucide-react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
