@@ -250,6 +250,58 @@ export default function ProtocolImportDialog({ open, onOpenChange, forcedTemplat
       });
 
       // 1. Создать проект-протокол (черновик)
+      // 1.0 Загрузить оригинал (PDF или .txt) в storage, чтобы сохранить ссылку
+      //     на исходник прямо в protocol_meta.source_file (видна в шапке).
+      let sourceFile:
+        | { url: string; name: string; mime: string; size: number; kind: "pdf" | "text" }
+        | null = null;
+      try {
+        const ts = Date.now();
+        if (pdfFile) {
+          const ext = (pdfFile.name.split(".").pop() || "pdf").toLowerCase();
+          const path = `${user.id}/protocol-source-${ts}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("task-attachments")
+            .upload(path, pdfFile, {
+              upsert: false,
+              contentType: pdfFile.type || "application/pdf",
+            });
+          if (!upErr) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("task-attachments")
+              .getPublicUrl(path);
+            sourceFile = {
+              url: publicUrl,
+              name: pdfFile.name,
+              mime: pdfFile.type || "application/pdf",
+              size: pdfFile.size,
+              kind: "pdf",
+            };
+          }
+        } else if (text.trim()) {
+          const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+          const path = `${user.id}/protocol-source-${ts}.txt`;
+          const { error: upErr } = await supabase.storage
+            .from("task-attachments")
+            .upload(path, blob, { upsert: false, contentType: "text/plain" });
+          if (!upErr) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("task-attachments")
+              .getPublicUrl(path);
+            sourceFile = {
+              url: publicUrl,
+              name: `protocol-${ts}.txt`,
+              mime: "text/plain",
+              size: blob.size,
+              kind: "text",
+            };
+          }
+        }
+      } catch (e) {
+        // Не валим импорт, если не удалось загрузить оригинал — просто без ссылки.
+        console.warn("[ProtocolImport] source upload failed", e);
+      }
+
       const { data: group, error: gErr } = await supabase
         .from("task_groups")
         .insert({
@@ -276,6 +328,7 @@ export default function ProtocolImportDialog({ open, onOpenChange, forcedTemplat
             // он мог продолжать редактировать задачи после публикации.
             internal_attendees: [user.id],
             template_system_key: selectedTemplate.system_key || null,
+            source_file: sourceFile,
           },
         } as any)
         .select()
