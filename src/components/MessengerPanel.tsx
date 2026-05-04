@@ -5,7 +5,7 @@ import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, User as UserIcon } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, User as UserIcon, MailWarning } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -87,6 +87,8 @@ export default function MessengerPanel({
   //   and task threads, since task threads also carry `groupId`).
   const [authorIds, setAuthorIds] = useState<string[]>([]);
   const [projectIds, setProjectIds] = useState<string[]>([]);
+  // Быстрый фильтр «только непрочитанные».
+  const [unreadOnly, setUnreadOnly] = useState(false);
 
   // Restore the active thread when the parent provides a remembered id and
   // the matching thread is available in the loaded list. Runs once per
@@ -169,12 +171,25 @@ export default function MessengerPanel({
       if (q && !t.name.toLowerCase().includes(q)) return false;
       if (authorIds.length && (!t.lastMessageUserId || !authorIds.includes(t.lastMessageUserId))) return false;
       if (projectIds.length && (!t.groupId || !projectIds.includes(t.groupId))) return false;
+      if (unreadOnly) {
+        const unread = isThreadUnread?.(t.id, t.lastMessageAt, t.lastMessageUserId) ?? false;
+        if (!unread) return false;
+      }
       return true;
     });
-  }, [threads, search, authorIds, projectIds]);
+  }, [threads, search, authorIds, projectIds, unreadOnly, isThreadUnread]);
 
-  const activeFilterCount = authorIds.length + projectIds.length;
-  const clearAllFilters = () => { setAuthorIds([]); setProjectIds([]); };
+  const unreadTotal = useMemo(() => {
+    if (!isThreadUnread) return 0;
+    let n = 0;
+    for (const t of threads) {
+      if (isThreadUnread(t.id, t.lastMessageAt, t.lastMessageUserId)) n++;
+    }
+    return n;
+  }, [threads, isThreadUnread]);
+
+  const activeFilterCount = authorIds.length + projectIds.length + (unreadOnly ? 1 : 0);
+  const clearAllFilters = () => { setAuthorIds([]); setProjectIds([]); setUnreadOnly(false); };
   const toggleId = (set: string[], setSet: (v: string[]) => void, id: string) =>
     setSet(set.includes(id) ? set.filter(x => x !== id) : [...set, id]);
 
@@ -254,6 +269,28 @@ export default function MessengerPanel({
           </div>
           {/* Filter chips: by author / by project. Multi-select via popovers. */}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setUnreadOnly(v => !v)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors",
+                unreadOnly
+                  ? "bg-destructive/10 border-destructive/30 text-destructive"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+              title="Только непрочитанные"
+            >
+              <MailWarning className="h-3 w-3" />
+              <span>Непрочитанные</span>
+              {unreadTotal > 0 && (
+                <span className={cn(
+                  "ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
+                  unreadOnly ? "bg-destructive text-destructive-foreground" : "bg-muted-foreground/15 text-foreground",
+                )}>
+                  {unreadTotal > 99 ? "99+" : unreadTotal}
+                </span>
+              )}
+            </button>
             <FilterChip
               icon={<UserIcon className="h-3 w-3" />}
               label="Автор"
