@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Review — Макет</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+    body { background: hsl(210 20% 98%); color: hsl(220 20% 10%); }
+
+    :root {
+      --primary: hsl(217 91% 60%);
+      --primary-light: hsl(217 91% 95%);
+      --muted: hsl(220 14% 96%);
+      --muted-fg: hsl(220 10% 46%);
+      --border: hsl(220 13% 91%);
+      --success: hsl(142 71% 45%);
+      --warning: hsl(38 92% 50%);
+      --destructive: hsl(0 84% 60%);
+      --sidebar-bg: hsl(220 14% 96%);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: hsl(220 13% 85%); border-radius: 2px; }
+
+    /* Tree indent lines */
+    .tree-line { border-left: 1.5px solid hsl(220 13% 88%); margin-left: 11px; padding-left: 16px; }
+
+    /* Transitions */
+    .collapsible-content { overflow: hidden; transition: max-height 0.2s ease, opacity 0.2s ease; }
+    .collapsible-content.collapsed { max-height: 0; opacity: 0; }
+    .collapsible-content.expanded { max-height: 2000px; opacity: 1; }
+
+    /* Chevron rotation */
+    .chevron { transition: transform 0.2s ease; }
+    .chevron.open { transform: rotate(90deg); }
+
+    /* Section accent */
+    .section-done { border-left: 3px solid var(--success); }
+    .section-moved { border-left: 3px solid var(--warning); }
+    .section-deadlines { border-left: 3px solid var(--destructive); }
+    .section-decisions { border-left: 3px solid var(--primary); }
+    .section-internal { border-left: 3px solid hsl(0 84% 60% / 0.6); background: hsl(0 84% 60% / 0.03); }
+
+    /* Hover */
+    .task-row:hover { background: hsl(220 14% 97%); }
+    .project-row:hover { background: hsl(217 91% 60% / 0.04); }
+
+    /* Badge */
+    .badge { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+    .badge-success { background: hsl(142 71% 45% / 0.12); color: hsl(142 71% 32%); }
+    .badge-warning { background: hsl(38 92% 50% / 0.12); color: hsl(38 92% 35%); }
+    .badge-danger  { background: hsl(0 84% 60% / 0.12); color: hsl(0 84% 45%); }
+    .badge-muted   { background: hsl(220 14% 91%); color: var(--muted-fg); }
+    .badge-primary { background: hsl(217 91% 60% / 0.12); color: hsl(217 91% 42%); }
+
+    /* Checkbox */
+    .cb { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid hsl(220 13% 78%); flex-shrink: 0; }
+    .cb.checked { background: var(--success); border-color: var(--success); display: flex; align-items: center; justify-content: center; }
+
+    /* Step dot */
+    .step-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .step-dot.done { background: var(--success); }
+    .step-dot.pending { background: hsl(220 13% 82%); border: 1.5px solid hsl(220 13% 72%); }
+
+    /* Input inline */
+    .inline-input {
+      border: none; border-bottom: 1px solid transparent; background: transparent;
+      font-size: 12px; color: hsl(220 10% 46%); outline: none; width: 100%;
+      transition: border-color 0.15s;
+    }
+    .inline-input:focus { border-bottom-color: var(--primary); color: hsl(220 20% 10%); }
+    .inline-input::placeholder { color: hsl(220 10% 65%); }
+
+    /* Avatar */
+    .avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+
+    /* Progress bar */
+    .progress-bar { height: 3px; border-radius: 2px; background: hsl(220 13% 91%); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; background: var(--success); transition: width 0.3s; }
+
+    /* Stat card */
+    .stat-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+  <!-- ═══════════════════════════════════════════════════ APP HEADER -->
+  <header style="background:white; border-bottom:1px solid hsl(220 13% 91%);" class="h-11 flex items-center px-4 gap-4 flex-shrink-0 z-10">
+    <div class="flex items-center gap-2">
+      <!-- Logo placeholder -->
+      <div style="width:22px;height:22px;background:var(--primary);border-radius:5px;"></div>
+      <span style="font-size:13px;color:var(--muted-fg);" class="hidden sm:block">JTD</span>
+    </div>
+    <div style="width:1px;height:20px;background:var(--border);"></div>
+    <!-- Module tabs -->
+    <nav class="flex gap-1">
+      <button class="px-3 py-1 rounded-md text-xs font-medium" style="color:var(--muted-fg);">PMO</button>
+      <button class="px-3 py-1 rounded-md text-xs font-medium" style="color:var(--muted-fg);">NPD</button>
+      <button class="px-3 py-1 rounded-md text-xs font-medium" style="color:var(--muted-fg);">CRM</button>
+      <button class="px-3 py-1 rounded-md text-xs font-medium" style="background:hsl(217 91% 60% / 0.1);color:hsl(217 91% 42%);">Team Review</button>
+    </nav>
+    <div class="flex-1"></div>
+    <button style="color:var(--muted-fg);" class="p-1.5 rounded-md hover:bg-gray-100">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+    <div class="avatar" style="background:hsl(217 91% 60% / 0.15);color:hsl(217 91% 42%);width:28px;height:28px;font-size:11px;">АД</div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════ REVIEW HEADER -->
+  <div style="background:white;border-bottom:1px solid hsl(220 13% 91%);" class="flex-shrink-0 px-4 py-2.5 flex flex-wrap items-center gap-2">
+    <!-- Title -->
+    <input value="Team Review — Q2 Sprint 4" class="font-semibold text-sm border-none outline-none bg-transparent" style="min-width:220px;" />
+
+    <div style="width:1px;height:18px;background:var(--border);"></div>
+
+    <!-- Date -->
+    <div class="flex items-center gap-1.5 px-2 py-1 rounded-md" style="background:var(--muted);font-size:12px;color:hsl(220 20% 30%);">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      5 мая 2026
+    </div>
+
+    <!-- Format toggle -->
+    <div class="flex rounded-md overflow-hidden" style="border:1px solid var(--border);font-size:11px;">
+      <button class="px-2.5 py-1" style="background:var(--primary);color:white;">Онлайн</button>
+      <button class="px-2.5 py-1" style="color:var(--muted-fg);">Офлайн</button>
+      <button class="px-2.5 py-1" style="color:var(--muted-fg);">Гибрид</button>
+    </div>
+
+    <div style="width:1px;height:18px;background:var(--border);"></div>
+
+    <!-- Project chips -->
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <span style="font-size:11px;color:var(--muted-fg);">Проекты:</span>
+      <span class="flex items-center gap-1 badge badge-primary">
+        📁 Запуск продукта
+        <button style="opacity:0.6;font-size:13px;line-height:1;" onclick="this.parentElement.remove()">×</button>
+      </span>
+      <span class="flex items-center gap-1 badge badge-primary">
+        📁 CRM внедрение
+        <button style="opacity:0.6;font-size:13px;line-height:1;" onclick="this.parentElement.remove()">×</button>
+      </span>
+      <button class="flex items-center gap-0.5 badge badge-muted" style="cursor:pointer;">
+        <span style="font-size:14px;line-height:1;">+</span> Проект
+      </button>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <!-- Actions -->
+    <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium" style="border:1px solid var(--border);color:hsl(220 20% 30%);">
+      💾 Сохранить
+    </button>
+    <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium" style="border:1px solid var(--border);color:hsl(220 20% 30%);">
+      📋 Протокол
+    </button>
+    <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white" style="background:var(--primary);">
+      📄 Документ
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ MAIN BODY -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- ═══════════════════════════ LEFT PANEL -->
+    <aside style="width:252px;flex-shrink:0;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;" class="flex flex-col gap-0">
+
+      <!-- Participants -->
+      <div class="px-3 py-3" style="border-bottom:1px solid var(--border);">
+        <div class="flex items-center justify-between mb-2">
+          <span style="font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;">Участники</span>
+          <button style="font-size:11px;color:var(--primary);">+ Добавить</button>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center gap-2 px-2 py-1 rounded-md" style="background:white;border:1px solid var(--border);">
+            <div class="avatar" style="background:hsl(217 91% 60% / 0.15);color:hsl(217 91% 42%);">ИИ</div>
+            <div>
+              <div style="font-size:12px;font-weight:500;">Иван Иванов</div>
+              <div style="font-size:10px;color:var(--muted-fg);">Разработка</div>
+            </div>
+            <button style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+          </div>
+          <div class="flex items-center gap-2 px-2 py-1 rounded-md" style="background:white;border:1px solid var(--border);">
+            <div class="avatar" style="background:hsl(142 71% 45% / 0.15);color:hsl(142 71% 32%);">МК</div>
+            <div>
+              <div style="font-size:12px;font-weight:500;">Мария Ковалёва</div>
+              <div style="font-size:10px;color:var(--muted-fg);">Дизайн</div>
+            </div>
+            <button style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+          </div>
+          <div class="flex items-center gap-2 px-2 py-1 rounded-md" style="background:white;border:1px solid var(--border);">
+            <div class="avatar" style="background:hsl(262 83% 58% / 0.15);color:hsl(262 83% 45%);">АС</div>
+            <div>
+              <div style="font-size:12px;font-weight:500;">Алексей Смирнов</div>
+              <div style="font-size:10px;color:var(--muted-fg);">Продукт</div>
+            </div>
+            <button style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Period -->
+      <div class="px-3 py-3" style="border-bottom:1px solid var(--border);">
+        <div class="mb-2" style="font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;">Период</div>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <div style="font-size:10px;color:var(--muted-fg);margin-bottom:3px;">С</div>
+            <input type="date" value="2026-04-01" class="w-full px-2 py-1 rounded-md text-xs" style="border:1px solid var(--border);background:white;outline:none;" />
+          </div>
+          <div class="flex-1">
+            <div style="font-size:10px;color:var(--muted-fg);margin-bottom:3px;">По</div>
+            <input type="date" value="2026-05-05" class="w-full px-2 py-1 rounded-md text-xs" style="border:1px solid var(--border);background:white;outline:none;" />
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted-fg);margin-top:6px;">Дедлайны на:</div>
+        <div class="flex gap-1 mt-1">
+          <button class="px-2 py-0.5 rounded text-xs" style="background:var(--primary);color:white;">7 дней</button>
+          <button class="px-2 py-0.5 rounded text-xs" style="border:1px solid var(--border);color:var(--muted-fg);">14 дней</button>
+          <button class="px-2 py-0.5 rounded text-xs" style="border:1px solid var(--border);color:var(--muted-fg);">30 дней</button>
+        </div>
+      </div>
+
+      <!-- Protocols -->
+      <div class="px-3 py-3" style="border-bottom:1px solid var(--border);">
+        <div class="mb-2" style="font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;">Протоколы встреч</div>
+        <div class="flex flex-col gap-1">
+          <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer" style="background:white;border:1px solid var(--border);">
+            <input type="checkbox" checked class="rounded" style="accent-color:var(--primary);" />
+            <div class="flex-1 min-w-0">
+              <div style="font-size:12px;font-weight:500;" class="truncate">Встреча 21 апр</div>
+              <div style="font-size:10px;color:var(--muted-fg);">4 открытые задачи</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer" style="background:white;border:1px solid var(--border);">
+            <input type="checkbox" checked class="rounded" style="accent-color:var(--primary);" />
+            <div class="flex-1 min-w-0">
+              <div style="font-size:12px;font-weight:500;" class="truncate">Встреча 14 апр</div>
+              <div style="font-size:10px;color:var(--muted-fg);">2 открытые задачи</div>
+            </div>
+          </label>
+          <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer" style="background:white;border:1px solid var(--border);opacity:0.55;">
+            <input type="checkbox" class="rounded" />
+            <div class="flex-1 min-w-0">
+              <div style="font-size:12px;font-weight:500;" class="truncate">Встреча 7 апр</div>
+              <div style="font-size:10px;color:var(--muted-fg);">нет открытых задач</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="px-3 py-3">
+        <div class="mb-2" style="font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;">Итоги периода</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <div class="stat-card">
+            <div style="font-size:18px;font-weight:700;color:hsl(142 71% 38%);">7</div>
+            <div style="font-size:10px;color:var(--muted-fg);">✅ Выполнено</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:18px;font-weight:700;color:hsl(38 92% 40%);">4</div>
+            <div style="font-size:10px;color:var(--muted-fg);">↪ Перенесено</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:18px;font-weight:700;color:hsl(0 84% 52%);">1</div>
+            <div style="font-size:10px;color:var(--muted-fg);">🔴 Просрочено</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:18px;font-weight:700;color:hsl(217 91% 52%);">5</div>
+            <div style="font-size:10px;color:var(--muted-fg);">📅 Дедлайны</div>
+          </div>
+        </div>
+        <button onclick="alert('Данные обновлены')" class="mt-3 w-full py-1.5 rounded-md text-xs font-medium" style="background:var(--primary);color:white;">
+          🔄 Обновить данные
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ═══════════════════════════ RIGHT PANEL (Review Editor) -->
+    <main style="flex:1;overflow-y:auto;background:hsl(210 20% 98%);" class="p-4 flex flex-col gap-3">
+
+      <!-- ─────────── SECTION: Что сделано -->
+      <div class="rounded-lg overflow-hidden" style="background:white;border:1px solid var(--border);">
+        <!-- Section header -->
+        <button onclick="toggleSection(this)" class="w-full flex items-center gap-3 px-4 py-3 section-done hover:bg-gray-50" style="border-bottom:1px solid transparent;">
+          <svg class="chevron open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span style="font-size:13px;font-weight:600;">✅ Что сделано</span>
+          <span class="badge badge-success">7 задач</span>
+          <span style="font-size:11px;color:var(--muted-fg);margin-left:auto;">2 проекта</span>
+        </button>
+        <div class="collapsible-content expanded">
+          <div class="px-4 pb-3 pt-2 flex flex-col gap-0">
+
+            <!-- Project A -->
+            <div>
+              <button onclick="toggleProject(this)" class="w-full flex items-center gap-2 py-2 px-2 rounded-md project-row">
+                <svg class="chevron open" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(217 91% 52%)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="font-size:12px;font-weight:600;">Запуск продукта</span>
+                <span style="font-size:11px;color:hsl(142 71% 38%);margin-left:4px;">3 / 5</span>
+                <div class="flex-1 flex items-center gap-2 ml-2">
+                  <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:60%;"></div></div>
+                </div>
+              </button>
+
+              <div class="collapsible-content expanded tree-line">
+
+                <!-- Task 1.1 done -->
+                <div class="mb-2">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron open" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="cb checked">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">Редизайн главной страницы</span>
+                    <div class="avatar" style="background:hsl(217 91% 60% / 0.15);color:hsl(217 91% 42%);width:20px;height:20px;font-size:9px;flex-shrink:0;">ИИ</div>
+                    <span style="font-size:11px;color:var(--muted-fg);flex-shrink:0;">30 апр</span>
+                  </button>
+                  <div class="collapsible-content expanded tree-line" style="margin-left:35px;">
+                    <!-- Steps -->
+                    <div class="flex flex-col gap-1 py-1">
+                      <div class="flex items-center gap-2">
+                        <div class="step-dot done"></div>
+                        <span style="font-size:11px;color:hsl(220 10% 45%);">Wireframes готовы</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <div class="step-dot done"></div>
+                        <span style="font-size:11px;color:hsl(220 10% 45%);">Согласование с клиентом</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <div class="step-dot pending"></div>
+                        <span style="font-size:11px;color:var(--muted-fg);">Финальная вёрстка</span>
+                        <span class="badge badge-warning" style="font-size:10px;padding:0 5px;">не завершён</span>
+                      </div>
+                    </div>
+                    <!-- Comment field -->
+                    <div class="flex items-center gap-1.5 mt-1 pb-1">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted-fg);flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <input class="inline-input" placeholder="Добавить комментарий к задаче..." />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Task 1.2 done -->
+                <div class="mb-2">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="cb checked">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">API интеграция платёжной системы</span>
+                    <div class="avatar" style="background:hsl(142 71% 45% / 0.15);color:hsl(142 71% 32%);width:20px;height:20px;font-size:9px;flex-shrink:0;">МК</div>
+                    <span style="font-size:11px;color:var(--muted-fg);flex-shrink:0;">28 апр</span>
+                  </button>
+                  <div class="collapsible-content collapsed tree-line" style="margin-left:35px;">
+                    <div class="flex flex-col gap-1 py-1">
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;color:hsl(220 10% 45%);">Документация API</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;color:hsl(220 10% 45%);">Тесты написаны и пройдены</span></div>
+                    </div>
+                    <div class="flex items-center gap-1.5 mt-1 pb-1">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted-fg);flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <input class="inline-input" placeholder="Добавить комментарий..." />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Task 1.3 done -->
+                <div class="mb-1">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="cb checked">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">Настройка CI/CD pipeline</span>
+                    <div class="avatar" style="background:hsl(262 83% 58% / 0.15);color:hsl(262 83% 45%);width:20px;height:20px;font-size:9px;flex-shrink:0;">АС</div>
+                    <span style="font-size:11px;color:var(--muted-fg);flex-shrink:0;">25 апр</span>
+                  </button>
+                  <div class="collapsible-content collapsed tree-line" style="margin-left:35px;">
+                    <div class="flex flex-col gap-1 py-1">
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;">GitHub Actions настроен</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;">Деплой на staging</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;">Деплой на production</span></div>
+                    </div>
+                    <div class="flex items-center gap-1.5 mt-1 pb-1">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted-fg);flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <input class="inline-input" placeholder="Добавить комментарий..." />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Add task manually -->
+                <button class="flex items-center gap-1.5 mt-1 mb-1 px-2 py-1 rounded-md text-xs" style="color:var(--primary);border:1px dashed hsl(217 91% 75%);" onclick="alert('Добавить задачу вручную')">
+                  + Добавить задачу вручную
+                </button>
+              </div>
+            </div>
+
+            <!-- Project B collapsed -->
+            <div>
+              <button onclick="toggleProject(this)" class="w-full flex items-center gap-2 py-2 px-2 rounded-md project-row">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(217 91% 52%)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="font-size:12px;font-weight:600;">CRM внедрение</span>
+                <span style="font-size:11px;color:hsl(142 71% 38%);margin-left:4px;">4 / 4</span>
+                <div class="flex-1 flex items-center gap-2 ml-2">
+                  <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:100%;"></div></div>
+                </div>
+              </button>
+              <div class="collapsible-content collapsed tree-line">
+                <div class="px-2 py-2" style="font-size:12px;color:var(--muted-fg);">4 задачи выполнены...</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SECTION: Перенесено -->
+      <div class="rounded-lg overflow-hidden" style="background:white;border:1px solid var(--border);">
+        <button onclick="toggleSection(this)" class="w-full flex items-center gap-3 px-4 py-3 section-moved hover:bg-gray-50">
+          <svg class="chevron open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span style="font-size:13px;font-weight:600;">↪ Перенесено / В работе</span>
+          <span class="badge badge-warning">4 задачи</span>
+          <span style="font-size:11px;color:var(--muted-fg);margin-left:auto;">2 проекта</span>
+        </button>
+        <div class="collapsible-content expanded">
+          <div class="px-4 pb-3 pt-2 flex flex-col gap-0">
+
+            <!-- Project A -->
+            <div>
+              <button onclick="toggleProject(this)" class="w-full flex items-center gap-2 py-2 px-2 rounded-md project-row">
+                <svg class="chevron open" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(217 91% 52%)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="font-size:12px;font-weight:600;">Запуск продукта</span>
+                <span style="font-size:11px;color:hsl(38 92% 40%);margin-left:4px;">2 задачи</span>
+              </button>
+
+              <div class="collapsible-content expanded tree-line">
+
+                <!-- Moved task -->
+                <div class="mb-3">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron open" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span style="font-size:14px;line-height:1;">↪</span>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">Финальная вёрстка лендинга</span>
+                    <div class="avatar" style="background:hsl(217 91% 60% / 0.15);color:hsl(217 91% 42%);width:20px;height:20px;font-size:9px;flex-shrink:0;">ИИ</div>
+                  </button>
+                  <div class="collapsible-content expanded tree-line" style="margin-left:35px;">
+                    <!-- Deadline change -->
+                    <div class="flex items-center gap-2 py-1">
+                      <span style="font-size:11px;color:var(--muted-fg);">Было:</span>
+                      <span class="badge badge-danger" style="font-size:10px;text-decoration:line-through;">25 апр</span>
+                      <span style="font-size:11px;color:var(--muted-fg);">→</span>
+                      <input type="date" value="2026-05-12" style="font-size:11px;border:1px solid var(--border);border-radius:5px;padding:1px 6px;outline:none;background:white;" />
+                    </div>
+                    <!-- Reason -->
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                      <span style="font-size:11px;color:var(--muted-fg);flex-shrink:0;">Причина:</span>
+                      <input class="inline-input" placeholder="Укажите причину переноса..." style="font-size:11px;" />
+                    </div>
+                    <!-- Steps -->
+                    <button onclick="toggleTask(this.parentElement.querySelector('.nested-steps'))" class="flex items-center gap-1 mt-1 text-xs" style="color:var(--muted-fg);">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                      Шаги (2 из 3 выполнены)
+                    </button>
+                    <div class="nested-steps flex flex-col gap-1 mt-1 ml-3">
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;color:hsl(220 10% 45%);">Макет утверждён</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;color:hsl(220 10% 45%);">Адаптив мобильный</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot pending"></div><span style="font-size:11px;color:var(--muted-fg);">Cross-browser тест</span></div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Project B collapsed -->
+            <div>
+              <button onclick="toggleProject(this)" class="w-full flex items-center gap-2 py-2 px-2 rounded-md project-row">
+                <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(217 91% 52%)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="font-size:12px;font-weight:600;">CRM внедрение</span>
+                <span style="font-size:11px;color:hsl(38 92% 40%);margin-left:4px;">2 задачи</span>
+              </button>
+              <div class="collapsible-content collapsed tree-line">
+                <div class="px-2 py-2" style="font-size:12px;color:var(--muted-fg);">...</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SECTION: Ближайшие дедлайны -->
+      <div class="rounded-lg overflow-hidden" style="background:white;border:1px solid var(--border);">
+        <button onclick="toggleSection(this)" class="w-full flex items-center gap-3 px-4 py-3 section-deadlines hover:bg-gray-50">
+          <svg class="chevron open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span style="font-size:13px;font-weight:600;">📅 Ближайшие дедлайны</span>
+          <span class="badge badge-danger">5 задач на 7 дней</span>
+        </button>
+        <div class="collapsible-content expanded">
+          <div class="px-4 pb-3 pt-2 flex flex-col gap-0">
+
+            <div>
+              <button onclick="toggleProject(this)" class="w-full flex items-center gap-2 py-2 px-2 rounded-md project-row">
+                <svg class="chevron open" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(217 91% 52%)"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="font-size:12px;font-weight:600;">Запуск продукта</span>
+              </button>
+              <div class="collapsible-content expanded tree-line">
+
+                <div class="mb-1">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span style="font-size:16px;line-height:1;">🔴</span>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">Тест-план QA</span>
+                    <div class="avatar" style="background:hsl(142 71% 45% / 0.15);color:hsl(142 71% 32%);width:20px;height:20px;font-size:9px;flex-shrink:0;">МК</div>
+                    <span style="font-size:11px;flex-shrink:0;" class="badge badge-danger">07 мая · 3 дня</span>
+                  </button>
+                  <div class="collapsible-content collapsed tree-line" style="margin-left:35px;">
+                    <div class="flex flex-col gap-1 py-1">
+                      <div class="flex items-center gap-2"><div class="step-dot pending"></div><span style="font-size:11px;color:var(--muted-fg);">Сценарии тестирования</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot pending"></div><span style="font-size:11px;color:var(--muted-fg);">Регрессия</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-1">
+                  <button onclick="toggleTask(this)" class="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md task-row">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span style="font-size:16px;line-height:1;">🟡</span>
+                    <span style="font-size:12px;color:hsl(220 20% 30%);" class="flex-1 text-left">Документация пользователя</span>
+                    <div class="avatar" style="background:hsl(217 91% 60% / 0.15);color:hsl(217 91% 42%);width:20px;height:20px;font-size:9px;flex-shrink:0;">ИИ</div>
+                    <span style="font-size:11px;flex-shrink:0;" class="badge badge-warning">14 мая · 10 дней</span>
+                  </button>
+                  <div class="collapsible-content collapsed tree-line" style="margin-left:35px;">
+                    <div class="flex flex-col gap-1 py-1">
+                      <div class="flex items-center gap-2"><div class="step-dot done"></div><span style="font-size:11px;">Структура документа</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot pending"></div><span style="font-size:11px;color:var(--muted-fg);">Скриншоты и гайды</span></div>
+                      <div class="flex items-center gap-2"><div class="step-dot pending"></div><span style="font-size:11px;color:var(--muted-fg);">Финальная корректура</span></div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SECTION: Решения и комментарии -->
+      <div class="rounded-lg overflow-hidden" style="background:white;border:1px solid var(--border);">
+        <button onclick="toggleSection(this)" class="w-full flex items-center gap-3 px-4 py-3 section-decisions hover:bg-gray-50">
+          <svg class="chevron open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span style="font-size:13px;font-weight:600;">💬 Решения и комментарии</span>
+          <button onclick="event.stopPropagation(); addDecisionBlock()" class="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded-md" style="border:1px solid var(--border);color:var(--muted-fg);font-weight:normal;">
+            + Блок
+          </button>
+        </button>
+        <div class="collapsible-content expanded">
+          <div id="decisions-container" class="px-4 pb-3 pt-2 flex flex-col gap-2">
+            <!-- Decision block 1 -->
+            <div class="decision-block rounded-md p-3" style="background:hsl(217 91% 60% / 0.04);border:1px solid hsl(217 91% 60% / 0.15);">
+              <div class="flex items-center gap-2 mb-1.5">
+                <input value="Решение №1" style="font-size:12px;font-weight:600;border:none;background:transparent;outline:none;color:hsl(217 91% 42%);" />
+                <button onclick="this.closest('.decision-block').remove()" style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+              </div>
+              <textarea rows="2" class="w-full text-xs rounded p-1.5 resize-none" style="border:1px solid var(--border);outline:none;background:white;" placeholder="Опишите принятое решение, договорённость или важный комментарий...">Перенести запуск на 15 мая. Команда разработки согласовала дополнительные 10 дней для завершения QA-тестирования.</textarea>
+              <div class="flex items-center gap-2 mt-1.5">
+                <span style="font-size:10px;color:var(--muted-fg);">Ответственный:</span>
+                <div class="avatar" style="background:hsl(262 83% 58% / 0.15);color:hsl(262 83% 45%);width:18px;height:18px;font-size:9px;">АС</div>
+                <span style="font-size:11px;">Алексей Смирнов</span>
+              </div>
+            </div>
+            <!-- Decision block 2 -->
+            <div class="decision-block rounded-md p-3" style="background:hsl(217 91% 60% / 0.04);border:1px solid hsl(217 91% 60% / 0.15);">
+              <div class="flex items-center gap-2 mb-1.5">
+                <input value="Решение №2" style="font-size:12px;font-weight:600;border:none;background:transparent;outline:none;color:hsl(217 91% 42%);" />
+                <button onclick="this.closest('.decision-block').remove()" style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+              </div>
+              <textarea rows="2" class="w-full text-xs rounded p-1.5 resize-none" style="border:1px solid var(--border);outline:none;background:white;" placeholder="Опишите принятое решение...">Назначить Марию ответственной за документацию. Срок — 14 мая. Промежуточная проверка — 10 мая.</textarea>
+              <div class="flex items-center gap-2 mt-1.5">
+                <span style="font-size:10px;color:var(--muted-fg);">Ответственный:</span>
+                <div class="avatar" style="background:hsl(142 71% 45% / 0.15);color:hsl(142 71% 32%);width:18px;height:18px;font-size:9px;">МК</div>
+                <span style="font-size:11px;">Мария Ковалёва</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SECTION: Внутренние заметки -->
+      <div class="rounded-lg overflow-hidden" style="background:white;border:1px solid var(--border);">
+        <button onclick="toggleSection(this)" class="w-full flex items-center gap-3 px-4 py-3 section-internal hover:bg-red-50">
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:hsl(0 84% 55%)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span style="font-size:13px;font-weight:600;color:hsl(0 84% 45%);">Внутренние заметки</span>
+          <span class="badge" style="background:hsl(0 84% 60% / 0.1);color:hsl(0 84% 45%);font-size:10px;">не войдут в протокол</span>
+        </button>
+        <div class="collapsible-content collapsed">
+          <div class="px-4 pb-3 pt-2">
+            <textarea rows="3" class="w-full text-xs rounded p-2 resize-none" style="border:1px solid hsl(0 84% 60% / 0.2);outline:none;background:hsl(0 84% 60% / 0.03);" placeholder="Заметки только для команды. Не отображаются в финальном протоколе и документе..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom spacer -->
+      <div class="h-4"></div>
+
+    </main>
+  </div>
+
+  <script>
+    function toggleSection(btn) {
+      const chevron = btn.querySelector('.chevron');
+      const content = btn.nextElementSibling;
+      const isOpen = chevron.classList.contains('open');
+      chevron.classList.toggle('open', !isOpen);
+      content.classList.toggle('expanded', !isOpen);
+      content.classList.toggle('collapsed', isOpen);
+      btn.style.borderBottomColor = isOpen ? 'transparent' : 'hsl(220 13% 91%)';
+    }
+
+    function toggleProject(btn) {
+      const chevron = btn.querySelector('.chevron');
+      const content = btn.nextElementSibling;
+      const isOpen = chevron.classList.contains('open');
+      chevron.classList.toggle('open', !isOpen);
+      content.classList.toggle('expanded', !isOpen);
+      content.classList.toggle('collapsed', isOpen);
+    }
+
+    function toggleTask(btn) {
+      const chevron = btn.querySelector('.chevron');
+      const content = btn.nextElementSibling;
+      if (!chevron || !content) return;
+      const isOpen = chevron.classList.contains('open');
+      chevron.classList.toggle('open', !isOpen);
+      content.classList.toggle('expanded', !isOpen);
+      content.classList.toggle('collapsed', isOpen);
+    }
+
+    let decisionCount = 3;
+    function addDecisionBlock() {
+      const container = document.getElementById('decisions-container');
+      const block = document.createElement('div');
+      block.className = 'decision-block rounded-md p-3';
+      block.style.cssText = 'background:hsl(217 91% 60% / 0.04);border:1px solid hsl(217 91% 60% / 0.15);';
+      block.innerHTML = `
+        <div class="flex items-center gap-2 mb-1.5">
+          <input value="Решение №${decisionCount++}" style="font-size:12px;font-weight:600;border:none;background:transparent;outline:none;color:hsl(217 91% 42%);" />
+          <button onclick="this.closest('.decision-block').remove()" style="margin-left:auto;color:hsl(220 13% 75%);font-size:14px;" class="hover:text-red-400">×</button>
+        </div>
+        <textarea rows="2" class="w-full text-xs rounded p-1.5 resize-none" style="border:1px solid hsl(220 13% 91%);outline:none;background:white;" placeholder="Опишите принятое решение..."></textarea>
+        <div class="flex items-center gap-2 mt-1.5">
+          <span style="font-size:10px;color:hsl(220 10% 46%);">Ответственный:</span>
+          <input placeholder="Выбрать участника..." style="font-size:11px;border:1px solid hsl(220 13% 91%);border-radius:4px;padding:1px 6px;outline:none;background:white;" />
+        </div>`;
+      container.appendChild(block);
+      block.querySelector('textarea').focus();
+    }
+  </script>
+</body>
+</html>
