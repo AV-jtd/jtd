@@ -1,6 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
   Archive,
   ChevronDown,
   ChevronRight,
@@ -10,6 +9,7 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
   Plus,
   Send,
 } from "lucide-react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
