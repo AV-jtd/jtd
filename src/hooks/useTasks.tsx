@@ -405,9 +405,18 @@ export function useTasks(
 
       const controller = new AbortController();
       const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
+        // Steps (subtasks) MUST be in the main SELECT — background hydration
+        // proved unreliable for big global lists (1000+ tasks): streaming
+        // page writes + slow chunked re-fetch could land in any order, and
+        // users saw "0 шагов" in «Во всех задачах» even when subtasks
+        // existed in DB. Inline join keeps a single source of truth.
         let query = supabase
           .from("tasks")
-          .select(filterTags && filterTags.length > 0 ? "*, task_tags(tag_id)" : "*")
+          .select(
+            filterTags && filterTags.length > 0
+              ? "*, subtasks(*), task_tags(tag_id)"
+              : "*, subtasks(*)",
+          )
           .order("is_completed", { ascending: true })
           .order("position")
           .order("created_at", { ascending: false })
