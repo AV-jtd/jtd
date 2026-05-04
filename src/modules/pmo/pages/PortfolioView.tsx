@@ -988,6 +988,9 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors min-w-0"
       >
+        <span className="shrink-0 text-muted-foreground">
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </span>
         <div
           className="h-5 w-5 rounded flex items-center justify-center shrink-0 text-[9px] font-semibold"
           style={{ backgroundColor: (color || "hsl(var(--primary))") + "18", color: color || "hsl(var(--primary))" }}
@@ -1045,7 +1048,6 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
           <button onClick={(e) => { e.stopPropagation(); onOpenGantt(); }} className="text-muted-foreground hover:text-primary transition-colors">
             <GanttChart className="h-3.5 w-3.5" />
           </button>
-          {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
         </div>
       </button>
 
