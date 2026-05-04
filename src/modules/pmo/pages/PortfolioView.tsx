@@ -918,7 +918,8 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 /* ─── NPD-style subproject card for PMO expanded view ─── */
 
-type PmoTask = { id: string; title: string; is_completed: boolean; deadline: string | null; original_deadline: string | null; assigned_to: string | null; user_id: string; start_at: string | null };
+type PmoSubtask = { id: string; title: string; is_completed: boolean; deadline: string | null; assigned_to: string | null };
+type PmoTask = { id: string; title: string; is_completed: boolean; deadline: string | null; original_deadline: string | null; assigned_to: string | null; user_id: string; start_at: string | null; subtasks?: PmoSubtask[] | null };
 
 const STATUS_BADGE_PMO: Record<string, string> = {
   "on-track": "border-success/40 bg-success/10 text-success",
