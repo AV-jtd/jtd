@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,7 +13,8 @@ import { usePrefetchData } from "@/hooks/usePrefetch";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "./components/OnlineStatus";
-const PerfMetricsOverlay = lazy(() => import("@/components/PerfMetricsOverlay"));
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const PerfMetricsOverlay = lazyWithRetry(() => import("@/components/PerfMetricsOverlay"));
 import PendingSync from "./components/PendingSync";
 import { Loader2 } from "lucide-react";
 
@@ -22,23 +23,23 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 
 // Lazy-loaded modules
-const Settings = lazy(() => import("./pages/Settings"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const PendingApproval = lazy(() => import("./pages/PendingApproval"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Pmo = lazy(() => import("./pages/Pmo"));
-const Crm = lazy(() => import("./pages/Crm"));
-const Npd = lazy(() => import("./pages/Npd"));
-const NpdMatrix = lazy(() => import("./pages/NpdMatrix"));
-const StmMatrix = lazy(() => import("./pages/StmMatrix"));
-const ProjectPage = lazy(() => import("./pages/ProjectPage"));
-const WikiDemo = lazy(() => import("./pages/WikiDemo"));
-const PublicReport = lazy(() => import("./pages/PublicReport"));
-const Protocols = lazy(() => import("./pages/Protocols"));
-const ProtocolDetail = lazy(() => import("./pages/ProtocolDetail"));
-const MyDepartment = lazy(() => import("./pages/MyDepartment"));
-const ConsultantAreasDemo = lazy(() => import("./pages/dev/ConsultantAreasDemo"));
-const SwStatus = lazy(() => import("./pages/dev/SwStatus"));
+const Settings = lazyWithRetry(() => import("./pages/Settings"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
+const PendingApproval = lazyWithRetry(() => import("./pages/PendingApproval"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const Pmo = lazyWithRetry(() => import("./pages/Pmo"));
+const Crm = lazyWithRetry(() => import("./pages/Crm"));
+const Npd = lazyWithRetry(() => import("./pages/Npd"));
+const NpdMatrix = lazyWithRetry(() => import("./pages/NpdMatrix"));
+const StmMatrix = lazyWithRetry(() => import("./pages/StmMatrix"));
+const ProjectPage = lazyWithRetry(() => import("./pages/ProjectPage"));
+const WikiDemo = lazyWithRetry(() => import("./pages/WikiDemo"));
+const PublicReport = lazyWithRetry(() => import("./pages/PublicReport"));
+const Protocols = lazyWithRetry(() => import("./pages/Protocols"));
+const ProtocolDetail = lazyWithRetry(() => import("./pages/ProtocolDetail"));
+const MyDepartment = lazyWithRetry(() => import("./pages/MyDepartment"));
+const ConsultantAreasDemo = lazyWithRetry(() => import("./pages/dev/ConsultantAreasDemo"));
+const SwStatus = lazyWithRetry(() => import("./pages/dev/SwStatus"));
 
 /**
  * Redirects consultants away from modules they are not allowed to see.

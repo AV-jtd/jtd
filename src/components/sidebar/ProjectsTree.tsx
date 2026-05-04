@@ -1,5 +1,6 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
   Archive,
   ChevronDown,
   ChevronRight,
@@ -21,7 +22,7 @@ import GroupItem from "@/components/sidebar/GroupItem";
 import FolderRow from "@/components/sidebar/FolderRow";
 import VirtualGroupList, { type VirtualGroupListHandle } from "@/components/sidebar/VirtualGroupList";
 
-const SmartImportDialog = lazy(() => import("@/components/SmartImportDialog"));
+const SmartImportDialog = lazyWithRetry(() => import("@/components/SmartImportDialog"));
 
 /**
  * The "Projects" branch of the sidebar.

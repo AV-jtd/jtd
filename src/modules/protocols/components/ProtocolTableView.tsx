@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, KeyboardEvent, lazy, Suspense } from "react";
+import { useMemo, useState, useRef, useEffect, KeyboardEvent, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTasks, useTaskMutations, useAvailableUsers, useTaskGroups, type Task, type Profile } from "@/hooks/useTasks";
@@ -9,6 +9,7 @@ import TopicCell from "@/modules/protocols/components/TopicCell";
 import { format, isPast, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
   CheckCircle2, Clock, AlertTriangle, ListChecks, Plus, ChevronDown, ChevronUp,
   ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, User2, Calendar, CalendarOff, FolderOpen, Loader2,
   Building2, Circle, GripVertical, Trash2, Sparkles,
@@ -36,7 +37,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
 import { SkeletonRows } from "@/components/SkeletonRows";
 import TopicNotesBlock from "@/modules/protocols/components/TopicNotesBlock";
-const BulkTaskDialog = lazy(() => import("@/components/BulkTaskDialog"));
+const BulkTaskDialog = lazyWithRetry(() => import("@/components/BulkTaskDialog"));
 
 type Props = { protocolId: string };
 

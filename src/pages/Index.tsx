@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -10,20 +10,21 @@ import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 // Lazy-loaded — keep critical bundle small (especially on mobile)
-const AppSidebar = lazy(() => import("@/components/AppSidebar"));
-const TaskList = lazy(() => import("@/components/TaskList"));
-const CalendarView = lazy(() => import("@/components/CalendarView"));
-const SubordinatesView = lazy(() => import("@/components/SubordinatesView"));
-const DashboardView = lazy(() => import("@/components/DashboardView"));
-const ArchiveView = lazy(() => import("@/components/ArchiveView"));
-const CommunityView = lazy(() => import("@/components/CommunityView"));
-const WikiHubView = lazy(() => import("@/components/WikiHubView"));
-const ProjectChat = lazy(() => import("@/components/ProjectChat"));
-const MessengerPanel = lazy(() => import("@/components/MessengerPanel"));
-const ProjectDetailPanel = lazy(() => import("@/components/ProjectDetailPanel"));
-const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
-const AiAssistant = lazy(() => import("@/components/AiAssistant"));
+const AppSidebar = lazyWithRetry(() => import("@/components/AppSidebar"));
+const TaskList = lazyWithRetry(() => import("@/components/TaskList"));
+const CalendarView = lazyWithRetry(() => import("@/components/CalendarView"));
+const SubordinatesView = lazyWithRetry(() => import("@/components/SubordinatesView"));
+const DashboardView = lazyWithRetry(() => import("@/components/DashboardView"));
+const ArchiveView = lazyWithRetry(() => import("@/components/ArchiveView"));
+const CommunityView = lazyWithRetry(() => import("@/components/CommunityView"));
+const WikiHubView = lazyWithRetry(() => import("@/components/WikiHubView"));
+const ProjectChat = lazyWithRetry(() => import("@/components/ProjectChat"));
+const MessengerPanel = lazyWithRetry(() => import("@/components/MessengerPanel"));
+const ProjectDetailPanel = lazyWithRetry(() => import("@/components/ProjectDetailPanel"));
+const GlobalSearch = lazyWithRetry(() => import("@/components/GlobalSearch"));
+const AiAssistant = lazyWithRetry(() => import("@/components/AiAssistant"));
 import { ViewSkeleton } from "@/components/SkeletonRows";
 
 /**
