@@ -1109,26 +1109,76 @@ function PmoDashboardSection({ title, count, children, variant }: { title: strin
 
 function PmoDashboardTaskRow({ task, drift, assigneeName, variant, onClick }: { task: PmoTask; drift?: number; assigneeName?: string | null; variant?: "overdue"; onClick?: () => void }) {
   const isOverdue = variant === "overdue" || (!task.is_completed && task.deadline && isPast(parseISO(task.deadline)));
+  const subtasks = task.subtasks ?? [];
+  const hasSteps = subtasks.length > 0;
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      className={cn("flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0", onClick && "cursor-pointer")}
-      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-    >
-      <span className={cn(
-        "text-[11px] truncate flex-1 min-w-0",
-        isOverdue ? "text-destructive" : "text-foreground",
-        task.is_completed && "line-through text-muted-foreground"
-      )}>{task.title}</span>
-      {assigneeName && <span className="text-[9px] text-muted-foreground shrink-0">{assigneeName}</span>}
-      {drift !== undefined && (
-        <span className={cn("text-[9px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-success")}>
-          {drift > 0 ? `+${drift}д` : `${drift}д`}
+    <div className="min-w-0">
+      <div
+        className={cn("flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors min-w-0")}
+      >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); if (hasSteps) setOpen(v => !v); }}
+          className={cn("shrink-0 w-4 h-4 inline-flex items-center justify-center rounded text-muted-foreground", hasSteps ? "hover:text-foreground hover:bg-muted" : "opacity-30 cursor-default")}
+          aria-label={hasSteps ? "Развернуть шаги" : undefined}
+          tabIndex={hasSteps ? 0 : -1}
+        >
+          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </button>
+        <span
+          className={cn(
+            "text-[11px] truncate flex-1 min-w-0",
+            isOverdue ? "text-destructive" : "text-foreground",
+            task.is_completed && "line-through text-muted-foreground",
+            onClick && "cursor-pointer hover:underline",
+          )}
+          onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+          title={task.title}
+        >
+          {task.title}
         </span>
-      )}
-      {task.deadline && (
-        <span className="text-[9px] text-muted-foreground shrink-0">
-          {format(parseISO(task.deadline), "d MMM", { locale: ru })}
-        </span>
+        {hasSteps && (
+          <span className="text-[9px] text-muted-foreground shrink-0 tabular-nums">
+            {subtasks.filter(s => s.is_completed).length}/{subtasks.length}
+          </span>
+        )}
+        {assigneeName && <span className="text-[9px] text-muted-foreground shrink-0">{assigneeName}</span>}
+        {drift !== undefined && (
+          <span className={cn("text-[9px] font-mono font-semibold shrink-0", drift > 0 ? "text-destructive" : "text-success")}>
+            {drift > 0 ? `+${drift}д` : `${drift}д`}
+          </span>
+        )}
+        {task.deadline && (
+          <span className="text-[9px] text-muted-foreground shrink-0">
+            {format(parseISO(task.deadline), "d MMM", { locale: ru })}
+          </span>
+        )}
+      </div>
+      {open && hasSteps && (
+        <ul className="ml-7 mb-1 mt-0.5 space-y-0.5 border-l border-border/40 pl-2">
+          {subtasks.map((s) => {
+            const sOverdue = !s.is_completed && s.deadline && isPast(parseISO(s.deadline));
+            return (
+              <li key={s.id} className="flex items-center gap-1.5 min-w-0">
+                <span className={cn(
+                  "h-1.5 w-1.5 rounded-full shrink-0",
+                  s.is_completed ? "bg-success" : sOverdue ? "bg-destructive" : "bg-muted-foreground/40",
+                )} />
+                <span className={cn(
+                  "text-[10px] truncate min-w-0 flex-1",
+                  s.is_completed && "line-through text-muted-foreground",
+                  sOverdue && "text-destructive",
+                )}>{s.title}</span>
+                {s.deadline && (
+                  <span className="text-[9px] text-muted-foreground shrink-0">
+                    {format(parseISO(s.deadline), "d MMM", { locale: ru })}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );
