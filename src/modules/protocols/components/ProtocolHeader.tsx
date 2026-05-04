@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { getInitials } from "@/lib/initials";
 import { parseProtocolSides, namesEqual } from "@/lib/protocolSides";
 import ourLogoDefault from "@/assets/our-logo-default.jpg";
+import ProtocolSourceLink from "./ProtocolSourceLink";
 
 type Format = "online" | "offline" | "hybrid";
 
@@ -590,6 +591,8 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
                 />
               </PopoverContent>
             </Popover>
+
+            <ProtocolSourceLink source={(meta as any).source_file} />
 
             {!isCrossFunctional && (
             <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background p-0.5">

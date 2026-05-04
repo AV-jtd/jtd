@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/initials";
 import { Input } from "@/components/ui/input";
+import ProtocolSourceLink from "./ProtocolSourceLink";
 
 /**
  * Минималистичная шапка для протокола типа "Живой документ" (living).
@@ -224,6 +225,13 @@ export default function LivingProtocolHeader({ protocol, isDraft, internalAttend
             />
           </PopoverContent>
         </Popover>
+
+        {(meta as any).source_file && (
+          <>
+            <span className="text-border">·</span>
+            <ProtocolSourceLink source={(meta as any).source_file} />
+          </>
+        )}
 
         <span className="text-border">·</span>
 
