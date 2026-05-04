@@ -1,4 +1,4 @@
-import { FileText, FileType2, ExternalLink } from "lucide-react";
+import { FileText, FileType2, ExternalLink, Download } from "lucide-react";
 
 interface SourceFile {
   url: string;
@@ -25,19 +25,29 @@ export default function ProtocolSourceLink({ source, className }: Props) {
   const label = source.name || (isPdf ? "Оригинал PDF" : "Оригинал");
   const sizeKb = source.size ? ` · ${(source.size / 1024).toFixed(0)} КБ` : "";
   return (
+    <span className={"inline-flex items-center gap-1 " + (className || "")}>
     <a
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={
-        "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted hover:text-foreground " +
-        (className || "")
-      }
+      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted hover:text-foreground"
       title={`Открыть исходник${sizeKb}`}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" />
       <span className="max-w-[200px] truncate">{label}</span>
       <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
     </a>
+    <a
+      href={source.url}
+      download={source.name || "protocol-source"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted hover:text-foreground"
+      title={`Скачать исходник${sizeKb}`}
+    >
+      <Download className="h-3.5 w-3.5 shrink-0" />
+      <span className="hidden sm:inline">Скачать</span>
+    </a>
+    </span>
   );
 }
