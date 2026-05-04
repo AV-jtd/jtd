@@ -51,6 +51,16 @@ import "./lib/authRefreshSingleflight";
 import App from "./App.tsx";
 import "./index.css";
 
+// Vite native hook для ошибок предзагрузки модулей
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  const RELOAD_KEY = 'chunk-reload-attempted';
+  if (!sessionStorage.getItem(RELOAD_KEY)) {
+    sessionStorage.setItem(RELOAD_KEY, '1');
+    window.location.reload();
+  }
+});
+
 // Emergency offline reset: production PWA/offline caching is disabled for now.
 // Several users got a "zombie" shell from stale SW/IndexedDB caches. Run the
 // cleanup once per browser, then leave storage alone so future offline work can
