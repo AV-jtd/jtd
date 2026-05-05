@@ -602,6 +602,7 @@ export default function TaskChat({
   if (isFull) {
     return (
       <div className="flex flex-col h-full">
+        {tabsBar}
         {closeAction}
         <ScrollArea className="flex-1 px-4 py-3">
           {messagesContent}
@@ -616,12 +617,13 @@ export default function TaskChat({
     <div id={`task-chat-${taskId}`} className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-          <MessageCircle className="h-3 w-3" /> Чат {comments.length > 0 && `(${comments.length})`}
+          <MessageCircle className="h-3 w-3" /> Чат {chatCount > 0 && `(${chatCount})`}
           {isCompleted && <ClosedTaskPill className="ml-1" />}
         </p>
       </div>
 
       <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+        {tabsBar}
         {closeAction}
         <ScrollArea className="max-h-64 px-3 py-2">
           {messagesContent}
