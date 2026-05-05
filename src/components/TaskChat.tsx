@@ -452,7 +452,8 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const closeAction = (
+  const showActionWrapper = showCloseAction || followUpFormOpen;
+  const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
       {showCloseAction && (
       <div className="flex items-center gap-2">
@@ -506,7 +507,7 @@ export default function TaskChat({
         />
       )}
     </div>
-  );
+  ) : null;
 
   const inputForm = (
     <form
