@@ -12,6 +12,9 @@ export type TaskComment = {
   content: string;
   created_at: string;
   updated_at: string;
+  /** message — живой текст; system — системная карточка про связь задач; log — авто-лог изменений. */
+  kind?: "message" | "system" | "log";
+  meta?: { changes?: Array<{ field: string; old: unknown; new: unknown }> } | null;
 };
 
 export function useTaskComments(taskId: string | null) {

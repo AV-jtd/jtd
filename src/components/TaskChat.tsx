@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus } from "lucide-react";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -107,6 +107,8 @@ export default function TaskChat({
   const { addComment, deleteComment } = useCommentMutations();
   const { toggleTask } = useTaskMutations();
   const [draft, setDraft] = useState("");
+  /** Активная вкладка: chat (message+system), log (только log), all (всё). */
+  const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
   /** Открыта inline-форма создания follow-up задачи (после закрытия текущей). */
   const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
@@ -333,19 +335,43 @@ export default function TaskChat({
 
   const isFull = variant === "full";
 
+  /** Видимые комментарии под текущую вкладку. */
+  const visibleComments = useMemo(() => {
+    return comments.filter((c) => {
+      const k = (c.kind ?? (parseAnySystemMessage(c.content) ? "system" : "message")) as
+        | "message" | "system" | "log";
+      if (tab === "log") return k === "log";
+      if (tab === "chat") return k !== "log";
+      return true;
+    });
+  }, [comments, tab]);
+  const logCount = useMemo(() => comments.filter((c) => c.kind === "log").length, [comments]);
+  const chatCount = comments.length - logCount;
+
   const messagesContent = (
     isLoading ? (
       <p className={cn("text-muted-foreground text-center", isFull ? "text-sm py-8" : "text-xs py-4")}>Загрузка...</p>
-    ) : comments.length === 0 ? (
+    ) : visibleComments.length === 0 ? (
       <div className={cn("text-center", isFull ? "py-12" : "py-6")}>
         <MessageCircle className={cn("text-muted-foreground/20 mx-auto", isFull ? "h-10 w-10 mb-3" : "h-8 w-8 mb-2")} />
         <p className={cn("text-muted-foreground", isFull ? "text-sm" : "text-xs text-muted-foreground/60")}>
-          Начните обсуждение
+          {tab === "log" ? "Изменений пока нет" : "Начните обсуждение"}
         </p>
       </div>
     ) : (
       <div className="space-y-2.5">
-        {comments.map(c => {
+        {visibleComments.map(c => {
+          // Лог-запись — компактная серая строка с иконкой.
+          if (c.kind === "log") {
+            return (
+              <LogEntry
+                key={c.id}
+                comment={c}
+                authorName={getProfileName(c.user_id)}
+                availableUsers={availableUsers}
+              />
+            );
+          }
           const sys = parseAnySystemMessage(c.content);
 
           // Системное сообщение → тонкая строка-разделитель по центру.
@@ -445,6 +471,35 @@ export default function TaskChat({
         <div ref={bottomRef} />
       </div>
     )
+  );
+
+  /** Панель переключения вкладок Чат / Лог / Всё. */
+  const tabsBar = (
+    <div className={cn("flex items-center gap-1 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      {(
+        [
+          { key: "chat", label: "Чат", count: chatCount, icon: MessageCircle },
+          { key: "log",  label: "Лог",  count: logCount,  icon: History },
+          { key: "all",  label: "Всё",  count: comments.length, icon: null },
+        ] as const
+      ).map(({ key, label, count, icon: Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setTab(key)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+            tab === key
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          {Icon && <Icon className="h-3 w-3" />}
+          {label}
+          {count > 0 && <span className="opacity-60">{count}</span>}
+        </button>
+      ))}
+    </div>
   );
 
   /**
@@ -547,6 +602,7 @@ export default function TaskChat({
   if (isFull) {
     return (
       <div className="flex flex-col h-full">
+        {tabsBar}
         {closeAction}
         <ScrollArea className="flex-1 px-4 py-3">
           {messagesContent}
@@ -561,12 +617,13 @@ export default function TaskChat({
     <div id={`task-chat-${taskId}`} className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-          <MessageCircle className="h-3 w-3" /> Чат {comments.length > 0 && `(${comments.length})`}
+          <MessageCircle className="h-3 w-3" /> Чат {chatCount > 0 && `(${chatCount})`}
           {isCompleted && <ClosedTaskPill className="ml-1" />}
         </p>
       </div>
 
       <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+        {tabsBar}
         {closeAction}
         <ScrollArea className="max-h-64 px-3 py-2">
           {messagesContent}
@@ -763,6 +820,59 @@ function InlineCreateTaskForm({
           {isSubmitting ? "Создаю..." : "Создать"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Компактная серая строка лог-записи в ленте чата.
+ * Отрисовывает все изменения из meta.changes одной строкой.
+ */
+function LogEntry({
+  comment,
+  authorName,
+  availableUsers,
+}: {
+  comment: TaskComment;
+  authorName: string;
+  availableUsers: Profile[];
+}) {
+  const changes = comment.meta?.changes || [];
+  const fmtVal = (field: string, v: unknown) => {
+    if (v === null || v === undefined || v === "") return "—";
+    if (field === "deadline" && typeof v === "string") {
+      try { return format(parseISO(v), "d MMM yyyy", { locale: ru }); } catch { return String(v); }
+    }
+    if (field === "assigned_to" && typeof v === "string") {
+      return availableUsers.find((u) => u.id === v)?.display_name || "—";
+    }
+    if (field === "is_completed") return v ? "закрыта" : "открыта";
+    if (typeof v === "boolean") return v ? "да" : "нет";
+    return String(v);
+  };
+  const fieldLabel: Record<string, string> = {
+    deadline: "срок",
+    assigned_to: "ответственный",
+    is_completed: "статус",
+    approval_status: "согласование",
+    group_id: "проект",
+    priority: "приоритет",
+  };
+  return (
+    <div className="flex items-start gap-1.5 py-0.5 text-[11px] text-muted-foreground">
+      <History className="h-3 w-3 mt-0.5 shrink-0 opacity-60" />
+      <span className="opacity-60 shrink-0">{format(parseISO(comment.created_at), "d MMM, HH:mm", { locale: ru })}</span>
+      <span className="opacity-80 shrink-0">{authorName}:</span>
+      <span className="flex-1 break-words">
+        {changes.map((ch, i) => (
+          <span key={i}>
+            {i > 0 && "; "}
+            <span className="text-foreground/70">{fieldLabel[ch.field] || ch.field}</span>{" "}
+            <span className="line-through opacity-60">{fmtVal(ch.field, ch.old)}</span>{" → "}
+            <span className="text-foreground">{fmtVal(ch.field, ch.new)}</span>
+          </span>
+        ))}
+      </span>
     </div>
   );
 }

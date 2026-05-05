@@ -1217,6 +1217,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          kind: string
+          meta: Json | null
           task_id: string
           updated_at: string
           user_id: string
@@ -1225,6 +1227,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          kind?: string
+          meta?: Json | null
           task_id: string
           updated_at?: string
           user_id: string
@@ -1233,6 +1237,8 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          kind?: string
+          meta?: Json | null
           task_id?: string
           updated_at?: string
           user_id?: string
