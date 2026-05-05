@@ -557,6 +557,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [clientsList, (task as any).client_id]);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
+  /** Тик-сигнал для TaskChat: при изменении раскрывает форму создания связанной задачи. */
+  const [followUpSignal, setFollowUpSignal] = useState(0);
   // Lazy-load comments only when detail panel is open to avoid N queries
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   // Cheap presence flag from bulk query in parent — used to highlight chat icon
@@ -1566,6 +1568,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   Вернуть в работу
                 </button>
               )}
+              <button
+                onClick={() => setFollowUpSignal(Date.now())}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-medium"
+                title="Создать связанную задачу"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Связанная задача
+              </button>
               {!task.is_completed && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -2229,6 +2239,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             availableUsers={availableUsers}
             isCompleted={task.is_completed}
             groupId={task.group_id}
+            showCloseAction={false}
+            openFollowUpSignal={followUpSignal}
           />
 
           {/* Created at + Wiki */}

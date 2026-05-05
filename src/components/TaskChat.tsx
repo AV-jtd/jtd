@@ -81,6 +81,13 @@ interface TaskChatProps {
    *  при создании задачи-продолжения (тот же group_id). Если не передан,
    *  follow-up создастся в "Inbox". */
   groupId?: string | null;
+  /** Спрятать встроенную панель «Закрыть/Связанная задача» (когда родитель
+   *  уже отрисовал свои кнопки — TaskItem). Сама follow-up форма всё равно
+   *  открывается через `openFollowUpSignal`. */
+  showCloseAction?: boolean;
+  /** Внешний триггер для открытия inline-формы создания связанной задачи.
+   *  Меняется числом (Date.now()) — при изменении форма раскрывается. */
+  openFollowUpSignal?: number;
 }
 
 function formatMsgDate(dateStr: string) {
@@ -93,6 +100,7 @@ function formatMsgDate(dateStr: string) {
 export default function TaskChat({
   taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask,
   isCompleted: isCompletedProp, groupId: groupIdProp,
+  showCloseAction = true, openFollowUpSignal,
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
@@ -133,6 +141,13 @@ export default function TaskChat({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [comments.length, followUpFormOpen]);
+
+  // Внешний триггер от родителя (TaskItem): открыть форму follow-up.
+  useEffect(() => {
+    if (openFollowUpSignal !== undefined && openFollowUpSignal > 0) {
+      setFollowUpFormOpen(true);
+    }
+  }, [openFollowUpSignal]);
 
   const getProfileName = (userId: string) => {
     const p = availableUsers.find(u => u.id === userId);
@@ -437,8 +452,10 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const closeAction = (
+  const showActionWrapper = showCloseAction || followUpFormOpen;
+  const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      {showCloseAction && (
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -468,6 +485,7 @@ export default function TaskChat({
           </button>
         )}
       </div>
+      )}
       {followUpFormOpen && (
         <InlineCreateTaskForm
           source={{
@@ -489,7 +507,7 @@ export default function TaskChat({
         />
       )}
     </div>
-  );
+  ) : null;
 
   const inputForm = (
     <form
