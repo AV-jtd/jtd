@@ -473,6 +473,35 @@ export default function TaskChat({
     )
   );
 
+  /** Панель переключения вкладок Чат / Лог / Всё. */
+  const tabsBar = (
+    <div className={cn("flex items-center gap-1 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      {(
+        [
+          { key: "chat", label: "Чат", count: chatCount, icon: MessageCircle },
+          { key: "log",  label: "Лог",  count: logCount,  icon: History },
+          { key: "all",  label: "Всё",  count: comments.length, icon: null },
+        ] as const
+      ).map(({ key, label, count, icon: Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => setTab(key)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+            tab === key
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          {Icon && <Icon className="h-3 w-3" />}
+          {label}
+          {count > 0 && <span className="opacity-60">{count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+
   /**
    * Кнопка «Закрыть/Открыть» + (после закрытия) inline-форма продолжения.
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
