@@ -1549,6 +1549,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
           )}>
             {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
 
+            {/* Связь с источником (эта задача — продолжение другой) */}
+            {followUpSource && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                <ArrowRight className="h-3.5 w-3.5 text-primary rotate-180 shrink-0" />
+                <span className="text-muted-foreground">Продолжение задачи:</span>
+                <span
+                  className={cn(
+                    "font-medium text-primary truncate",
+                    followUpSource.is_completed && "line-through opacity-70",
+                  )}
+                  title={followUpSource.title}
+                >
+                  {followUpSource.title}
+                </span>
+              </div>
+            )}
+
             {/* Overdue alert banner */}
             {deadlineOverdue && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
