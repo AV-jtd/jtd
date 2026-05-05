@@ -557,6 +557,8 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   }, [clientsList, (task as any).client_id]);
   const [expanded, setExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
+  /** Тик-сигнал для TaskChat: при изменении раскрывает форму создания связанной задачи. */
+  const [followUpSignal, setFollowUpSignal] = useState(0);
   // Lazy-load comments only when detail panel is open to avoid N queries
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   // Cheap presence flag from bulk query in parent — used to highlight chat icon
