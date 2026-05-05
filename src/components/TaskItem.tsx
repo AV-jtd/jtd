@@ -2239,7 +2239,6 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             availableUsers={availableUsers}
             isCompleted={task.is_completed}
             groupId={task.group_id}
-            showCloseAction={false}
             openFollowUpSignal={followUpSignal}
           />
 
