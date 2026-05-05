@@ -472,7 +472,7 @@ export default function TaskChat({
           <CheckCircle2 className="h-3.5 w-3.5" />
           {isCompleted ? "Открыть снова" : "Закрыть задачу"}
         </button>
-        {isCompleted && !followUpFormOpen && (
+        {!followUpFormOpen && (
           <button
             type="button"
             onClick={() => setFollowUpFormOpen(true)}

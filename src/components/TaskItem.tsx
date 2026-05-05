@@ -559,6 +559,22 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const [detailsOpen, setDetailsOpen] = useState(!!initialOpen);
   /** Тик-сигнал для TaskChat: при изменении раскрывает форму создания связанной задачи. */
   const [followUpSignal, setFollowUpSignal] = useState(0);
+  /** Источник, если эта задача создана как follow-up. */
+  const [followUpSource, setFollowUpSource] = useState<{ id: string; title: string; is_completed: boolean } | null>(null);
+  useEffect(() => {
+    const srcId = (task as any).follow_up_of as string | null | undefined;
+    if (!detailsOpen || !srcId) { setFollowUpSource(null); return; }
+    let cancelled = false;
+    supabase
+      .from("tasks")
+      .select("id,title,is_completed")
+      .eq("id", srcId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) setFollowUpSource(data as any);
+      });
+    return () => { cancelled = true; };
+  }, [detailsOpen, (task as any).follow_up_of]);
   // Lazy-load comments only when detail panel is open to avoid N queries
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   // Cheap presence flag from bulk query in parent — used to highlight chat icon
@@ -1532,6 +1548,23 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
             isMobile ? "px-4 pb-4 pt-2" : "px-3.5 pb-3 ml-8 border-t border-border pt-3"
           )}>
             {isMobile && <h2 className="text-sm font-semibold text-foreground mb-2">{task.title}</h2>}
+
+            {/* Связь с источником (эта задача — продолжение другой) */}
+            {followUpSource && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                <ArrowRight className="h-3.5 w-3.5 text-primary rotate-180 shrink-0" />
+                <span className="text-muted-foreground">Продолжение задачи:</span>
+                <span
+                  className={cn(
+                    "font-medium text-primary truncate",
+                    followUpSource.is_completed && "line-through opacity-70",
+                  )}
+                  title={followUpSource.title}
+                >
+                  {followUpSource.title}
+                </span>
+              </div>
+            )}
 
             {/* Overdue alert banner */}
             {deadlineOverdue && (
