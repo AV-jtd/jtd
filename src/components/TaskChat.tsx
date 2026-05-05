@@ -823,3 +823,56 @@ function InlineCreateTaskForm({
     </div>
   );
 }
+
+/**
+ * Компактная серая строка лог-записи в ленте чата.
+ * Отрисовывает все изменения из meta.changes одной строкой.
+ */
+function LogEntry({
+  comment,
+  authorName,
+  availableUsers,
+}: {
+  comment: TaskComment;
+  authorName: string;
+  availableUsers: Profile[];
+}) {
+  const changes = comment.meta?.changes || [];
+  const fmtVal = (field: string, v: unknown) => {
+    if (v === null || v === undefined || v === "") return "—";
+    if (field === "deadline" && typeof v === "string") {
+      try { return format(parseISO(v), "d MMM yyyy", { locale: ru }); } catch { return String(v); }
+    }
+    if (field === "assigned_to" && typeof v === "string") {
+      return availableUsers.find((u) => u.id === v)?.display_name || "—";
+    }
+    if (field === "is_completed") return v ? "закрыта" : "открыта";
+    if (typeof v === "boolean") return v ? "да" : "нет";
+    return String(v);
+  };
+  const fieldLabel: Record<string, string> = {
+    deadline: "срок",
+    assigned_to: "ответственный",
+    is_completed: "статус",
+    approval_status: "согласование",
+    group_id: "проект",
+    priority: "приоритет",
+  };
+  return (
+    <div className="flex items-start gap-1.5 py-0.5 text-[11px] text-muted-foreground">
+      <History className="h-3 w-3 mt-0.5 shrink-0 opacity-60" />
+      <span className="opacity-60 shrink-0">{format(parseISO(comment.created_at), "d MMM, HH:mm", { locale: ru })}</span>
+      <span className="opacity-80 shrink-0">{authorName}:</span>
+      <span className="flex-1 break-words">
+        {changes.map((ch, i) => (
+          <span key={i}>
+            {i > 0 && "; "}
+            <span className="text-foreground/70">{fieldLabel[ch.field] || ch.field}</span>{" "}
+            <span className="line-through opacity-60">{fmtVal(ch.field, ch.old)}</span>{" → "}
+            <span className="text-foreground">{fmtVal(ch.field, ch.new)}</span>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
