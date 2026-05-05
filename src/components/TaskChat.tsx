@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus } from "lucide-react";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -107,6 +107,8 @@ export default function TaskChat({
   const { addComment, deleteComment } = useCommentMutations();
   const { toggleTask } = useTaskMutations();
   const [draft, setDraft] = useState("");
+  /** Активная вкладка: chat (message+system), log (только log), all (всё). */
+  const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
   /** Открыта inline-форма создания follow-up задачи (после закрытия текущей). */
   const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
