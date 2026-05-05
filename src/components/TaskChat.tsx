@@ -454,6 +454,7 @@ export default function TaskChat({
    */
   const closeAction = (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      {showCloseAction && (
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -483,6 +484,7 @@ export default function TaskChat({
           </button>
         )}
       </div>
+      )}
       {followUpFormOpen && (
         <InlineCreateTaskForm
           source={{
