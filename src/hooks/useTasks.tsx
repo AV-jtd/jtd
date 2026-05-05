@@ -2069,6 +2069,16 @@ export function useTaskMutations() {
 
   const addParticipant = useMutation({
     mutationFn: async ({ task_id, user_id: participantUserId, role }: { task_id: string; user_id: string; role: string }) => {
+      // Если назначаем нового assignee — сначала демоутим текущего, иначе
+      // partial unique index task_participants_one_assignee_per_task упадёт duplicate key.
+      if (role === "assignee") {
+        await supabase
+          .from("task_participants" as any)
+          .update({ role: "participant" })
+          .eq("task_id", task_id)
+          .eq("role", "assignee")
+          .neq("user_id", participantUserId);
+      }
       // Use upsert so existing participants can be promoted to assignee
       const { error } = await supabase.from("task_participants" as any).upsert(
         { task_id, user_id: participantUserId, role },
