@@ -1568,6 +1568,14 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                   Вернуть в работу
                 </button>
               )}
+              <button
+                onClick={() => setFollowUpSignal(Date.now())}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-medium"
+                title="Создать связанную задачу"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Связанная задача
+              </button>
               {!task.is_completed && (
                 <Popover>
                   <PopoverTrigger asChild>
