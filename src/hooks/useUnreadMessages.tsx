@@ -34,7 +34,7 @@ const UNREAD_QUERY_KEY = ["unread_threads"] as const;
  * to the user (any genuine new message that arrives after this window will
  * correctly re-mark the thread as unread).
  */
-const RECENTLY_READ_WINDOW_MS = 5000;
+const RECENTLY_READ_WINDOW_MS = 15000;
 
 export function useUnreadMessages() {
   const { user } = useAuth();
@@ -94,8 +94,6 @@ export function useUnreadMessages() {
   const markThreadRead = useCallback(
     async (threadId: string) => {
       if (!user) return;
-      const now = new Date().toISOString();
-
       // Local guard: any rendering that happens between now and the server
       // confirming the upsert will treat this thread as read, even if a
       // stale realtime refetch lands in between.
@@ -107,10 +105,15 @@ export function useUnreadMessages() {
         (prev) => (prev ?? []).filter((r) => r.thread_id !== threadId),
       );
 
-      const { error } = await (supabase as any).from("chat_read_status").upsert(
-        { user_id: user.id, thread_id: threadId, last_read_at: now },
-        { onConflict: "user_id,thread_id" },
-      );
+      // Use server-side timestamp via RPC instead of `new Date()` from the
+      // client. If the user's device clock lags even a second behind the
+      // server, a client-side `last_read_at` would be older than the most
+      // recent message timestamps (which are written with `now()` on the
+      // server), and the unread count would re-appear as soon as the local
+      // "recently read" guard expires.
+      const { error } = await (supabase as any).rpc("mark_thread_read", {
+        _thread_id: threadId,
+      });
 
       if (error) {
         // Rollback on failure: drop the local guard so the next refetch can

@@ -2313,6 +2313,7 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      mark_thread_read: { Args: { _thread_id: string }; Returns: string }
       protocol_copyable_system_keys: { Args: never; Returns: string[] }
       remove_protocol_system_tags_from_task: {
         Args: { _protocol_id: string; _task_id: string }
