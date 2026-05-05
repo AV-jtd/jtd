@@ -335,19 +335,43 @@ export default function TaskChat({
 
   const isFull = variant === "full";
 
+  /** Видимые комментарии под текущую вкладку. */
+  const visibleComments = useMemo(() => {
+    return comments.filter((c) => {
+      const k = (c.kind ?? (parseAnySystemMessage(c.content) ? "system" : "message")) as
+        | "message" | "system" | "log";
+      if (tab === "log") return k === "log";
+      if (tab === "chat") return k !== "log";
+      return true;
+    });
+  }, [comments, tab]);
+  const logCount = useMemo(() => comments.filter((c) => c.kind === "log").length, [comments]);
+  const chatCount = comments.length - logCount;
+
   const messagesContent = (
     isLoading ? (
       <p className={cn("text-muted-foreground text-center", isFull ? "text-sm py-8" : "text-xs py-4")}>Загрузка...</p>
-    ) : comments.length === 0 ? (
+    ) : visibleComments.length === 0 ? (
       <div className={cn("text-center", isFull ? "py-12" : "py-6")}>
         <MessageCircle className={cn("text-muted-foreground/20 mx-auto", isFull ? "h-10 w-10 mb-3" : "h-8 w-8 mb-2")} />
         <p className={cn("text-muted-foreground", isFull ? "text-sm" : "text-xs text-muted-foreground/60")}>
-          Начните обсуждение
+          {tab === "log" ? "Изменений пока нет" : "Начните обсуждение"}
         </p>
       </div>
     ) : (
       <div className="space-y-2.5">
-        {comments.map(c => {
+        {visibleComments.map(c => {
+          // Лог-запись — компактная серая строка с иконкой.
+          if (c.kind === "log") {
+            return (
+              <LogEntry
+                key={c.id}
+                comment={c}
+                authorName={getProfileName(c.user_id)}
+                availableUsers={availableUsers}
+              />
+            );
+          }
           const sys = parseAnySystemMessage(c.content);
 
           // Системное сообщение → тонкая строка-разделитель по центру.
