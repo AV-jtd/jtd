@@ -65,7 +65,7 @@ ${audienceHint}
 
     const userPrompt = `Протокол: «${protocolName}»\n\nЗадачи:\n${taskLines || "(пока нет задач)"}`;
 
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

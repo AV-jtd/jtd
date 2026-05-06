@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
 
 Формат: 1) краткая оценка состояния (1 строка), 2) 1-2 главных риска, 3) 1-2 рекомендации команде. Без markdown, эмодзи в начале строк допустимы. Кратко, по делу.`;
 
-          const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${LOVABLE_API_KEY}`,

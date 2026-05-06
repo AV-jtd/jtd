@@ -133,7 +133,7 @@ ${activeProjectInfo}
 Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}${formatQuickHints(quickHints)}`;
 
     if (action === "parse_task") {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -208,7 +208,7 @@ ${activeProjectInfo}
     }
 
     if (action === "plan_project") {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -316,7 +316,7 @@ ${activeProjectInfo}
     if (action === "decompose_task") {
       const { title, description, existingSubtasks, taskTemplates } = context;
       const templatesCtx = formatTaskTemplates(taskTemplates);
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -403,7 +403,7 @@ ${activeProjectInfo}
         ? `\nУже существующие задачи (НЕ дублируй их):\n${existingTasks.map((t: string) => `- ${t}`).join("\n")}`
         : "";
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -516,7 +516,7 @@ ${activeProjectInfo}
   Стримы: ${(p.streams || []).map((s: any) => `${s.name} (${s.completed}/${s.total})`).join(", ")}`
       ).join("\n\n");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -620,7 +620,7 @@ ${activeProjectInfo}
 Средний срок в воронке: ${avgDaysInFunnel != null ? avgDaysInFunnel + " дней" : "нет данных"}
 Распределение по этапам: ${(stageStats || []).map((s: any) => `${s.stage}: ${s.count}`).join(", ")}`;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -726,7 +726,7 @@ ${activeProjectInfo}
   ${p.milestones ? `Вехи: ${p.milestones.total} (завершено: ${p.milestones.completed}, просрочено: ${p.milestones.overdue})` : ""}`
       ).join("\n\n");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -824,7 +824,7 @@ ${activeProjectInfo}
   Контекст: ${(p.axes || []).join(", ") || "—"}`
       ).join("\n\n");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -922,7 +922,7 @@ ${activeProjectInfo}
   ${p.milestones ? `Вехи: ${p.milestones.completed}/${p.milestones.total}${p.milestones.overdue > 0 ? ` (просрочено: ${p.milestones.overdue})` : ""}` : ""}`
       ).join("\n\n");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -985,7 +985,7 @@ ${activeProjectInfo}
         resources: "Ресурсы и ссылки",
       };
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1074,7 +1074,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
     if (action === "map_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1187,7 +1187,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       const { headers: excelHeaders, sampleRows, stages, flow } = context;
       const stagesList = (stages || []).map((s: any) => `- ${s.key}: ${s.title} (${s.description || ""})`).join("\n");
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1302,7 +1302,7 @@ ${stagesList}
     if (action === "map_crm_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1418,7 +1418,7 @@ ${stagesList}
         ? `\nУчастники: ${bulkUsers.map((u: any) => u.name).join(", ")}`
         : "";
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1578,7 +1578,7 @@ ${ganttContextBlock}
 Доступные участники: ${(ctxUsers || []).map((u: any) => u.name).join(", ") || "не указаны"}
 Текущая дата: ${new Date().toISOString().split("T")[0]}`;
 
-      const ganttResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const ganttResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1616,7 +1616,7 @@ ${ganttContextBlock}
     // === SMART ACTION: LLM-based intent detection with all tools ===
     if (action === "smart") {
       // First, try non-streaming with tool_choice auto
-      const smartResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const smartResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1875,7 +1875,7 @@ ${contextInfo}
 
 Отвечай на русском языке. Используй markdown для форматирования. Будь конкретным — ссылайся на реальные данные проекта.`;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -1914,7 +1914,7 @@ ${contextInfo}
     }
 
     // Default: chat mode (streaming)
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
