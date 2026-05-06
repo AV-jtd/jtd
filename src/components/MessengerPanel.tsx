@@ -469,12 +469,13 @@ export default function MessengerPanel({
   // Active thread view
   return (
     <div className="flex flex-col h-full bg-card border-l border-border">
-      {/* Back header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+      {/* Back header — single-line compact design */}
+      <div className="flex items-center gap-1.5 px-3 h-11 border-b border-border shrink-0">
         <button
           onClick={clearActiveThread}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
           title="К списку чатов"
+          aria-label="К списку чатов"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -482,7 +483,6 @@ export default function MessengerPanel({
           onClick={() => {
             if (activeThread.type === "group" && activeThread.groupId && onNavigateToProject) {
               if (onOpenProjectDetail) {
-                // Overlay mode: keep messenger open, just show the detail panel above it.
                 onOpenProjectDetail(activeThread.groupId);
               } else {
                 onNavigateToProject(activeThread.groupId);
@@ -497,40 +497,55 @@ export default function MessengerPanel({
             (activeThread.type === "task" && !onNavigateToTask)
           }
           className={cn(
-            "flex-1 min-w-0 text-left",
-            ((activeThread.type === "group" && onNavigateToProject) || (activeThread.type === "task" && onNavigateToTask)) && "hover:opacity-70 transition-opacity cursor-pointer"
+            "flex-1 min-w-0 flex items-center gap-1.5 text-left rounded-md px-1.5 py-1 -mx-1.5",
+            ((activeThread.type === "group" && onNavigateToProject) || (activeThread.type === "task" && onNavigateToTask)) &&
+              "hover:bg-muted transition-colors cursor-pointer",
           )}
-          title={activeThread.type === "group" ? "Открыть проект" : "Перейти к задаче"}
+          title={
+            (activeThread.type === "group" ? "Чат проекта: " : "Чат задачи: ") +
+            activeThread.name +
+            (activeThread.groupName ? ` · ${activeThread.groupName}` : "")
+          }
         >
-          <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
-            <span
-              className={cn(
-                "truncate",
-                activeThread.type === "task" && activeThread.taskCompleted && "line-through text-muted-foreground",
-              )}
-            >
-              {activeThread.name}
-            </span>
-            {activeThread.type === "task" && activeThread.taskCompleted && (
-              <ClosedTaskPill className="shrink-0" />
+          {activeThread.type === "group" ? (
+            <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+          ) : (
+            <CheckSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+          <span
+            className={cn(
+              "text-sm font-semibold truncate",
+              activeThread.type === "task" && activeThread.taskCompleted
+                ? "line-through text-muted-foreground"
+                : "text-foreground",
             )}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {activeThread.type === "group" ? "Чат проекта" : "Чат задачи"}
-            {activeThread.groupName ? ` · ${activeThread.groupName}` : ""}
-          </p>
+          >
+            {activeThread.name}
+          </span>
+          {activeThread.type === "task" && activeThread.taskCompleted && (
+            <ClosedTaskPill className="shrink-0" />
+          )}
+          {activeThread.type === "task" && activeThread.groupName && (
+            <span className="text-[11px] text-muted-foreground truncate shrink min-w-0">
+              · {activeThread.groupName}
+            </span>
+          )}
         </button>
         {onMinimize && (
           <button
             onClick={onMinimize}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
             title="Свернуть чат (тред сохранится)"
             aria-label="Свернуть чат"
           >
             <Minimize2 className="h-4 w-4" />
           </button>
         )}
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Закрыть"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
