@@ -268,13 +268,35 @@ export default function MessengerPanel({
               className="h-8 text-sm pl-8"
             />
           </div>
-          {/* Filter chips: by author / by project. Multi-select via popovers. */}
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          {/* One-line bar: segmented Чат/Лог/Всё + filter chips. */}
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar">
+            <div className="inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5 text-[11px]">
+              {([
+                { key: "chat", label: "Чат" },
+                { key: "log",  label: "Лог" },
+                { key: "all",  label: "Всё" },
+              ] as { key: ThreadKindFilter; label: string }[]).map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setKindFilter(opt.key)}
+                  className={cn(
+                    "px-2 py-1 rounded-[5px] font-medium transition-colors",
+                    kindFilter === opt.key
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="h-4 w-px bg-border shrink-0" aria-hidden />
             <button
               type="button"
               onClick={() => setUnreadOnly(v => !v)}
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors",
+                "inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors",
                 unreadOnly
                   ? "bg-destructive/10 border-destructive/30 text-destructive"
                   : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -315,33 +337,11 @@ export default function MessengerPanel({
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto shrink-0"
               >
                 Сбросить
               </button>
             )}
-          </div>
-          {/* Chat / Log / All segmented switch — mirrors TaskChat tabs. */}
-          <div className="mt-2 inline-flex rounded-md border border-border bg-muted/40 p-0.5 text-[11px]">
-            {([
-              { key: "chat", label: "Чат" },
-              { key: "log",  label: "Лог" },
-              { key: "all",  label: "Всё" },
-            ] as { key: ThreadKindFilter; label: string }[]).map(opt => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setKindFilter(opt.key)}
-                className={cn(
-                  "px-2.5 py-1 rounded-[5px] font-medium transition-colors",
-                  kindFilter === opt.key
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
         </div>
 
