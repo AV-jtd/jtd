@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
+import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
@@ -73,7 +73,8 @@ export default function MessengerPanel({
   initialActiveThreadId,
   onActiveThreadChange,
 }: MessengerPanelProps) {
-  const { data: threads = [], isLoading } = useThreads();
+  const [kindFilter, setKindFilter] = useState<ThreadKindFilter>("chat");
+  const { data: threads = [], isLoading } = useThreads(kindFilter);
   // Live updates: refresh the thread list when new messages/comments arrive
   // anywhere, without waiting for `staleTime`.
   useThreadsRealtime();
@@ -319,6 +320,28 @@ export default function MessengerPanel({
                 Сбросить
               </button>
             )}
+          </div>
+          {/* Chat / Log / All segmented switch — mirrors TaskChat tabs. */}
+          <div className="mt-2 inline-flex rounded-md border border-border bg-muted/40 p-0.5 text-[11px]">
+            {([
+              { key: "chat", label: "Чат" },
+              { key: "log",  label: "Лог" },
+              { key: "all",  label: "Всё" },
+            ] as { key: ThreadKindFilter; label: string }[]).map(opt => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setKindFilter(opt.key)}
+                className={cn(
+                  "px-2.5 py-1 rounded-[5px] font-medium transition-colors",
+                  kindFilter === opt.key
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
