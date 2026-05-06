@@ -52,6 +52,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
   maxPages?: number;
   desiredThreads?: number;
   gracePages?: number;
+      excludeLogs?: boolean;
 }): Promise<
   Map<string, { content: string; created_at: string; user_id: string; count: number }>
 > {
@@ -62,6 +63,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
     maxPages = 10,
     desiredThreads = 50,
     gracePages = 1,
+        excludeLogs = false,
   } = opts;
 
   const map = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
@@ -71,10 +73,11 @@ async function fetchThreadAggregates<T extends string>(opts: {
   for (let page = 0; page < maxPages; page++) {
     let q = supabase
       .from(table as any)
-      .select(`${parentKey}, content, created_at, user_id`)
+      .select(`${parentKey}, content, created_at, user_id${excludeLogs ? ", kind" : ""}`)
       .order("created_at", { ascending: false })
       .limit(pageSize);
     if (cursor) q = q.lt("created_at", cursor);
+    if (excludeLogs) q = q.neq("kind", "log");
 
     const { data, error } = await q;
     if (error || !data || data.length === 0) break;
@@ -125,7 +128,7 @@ export function useThreads() {
       // group_messages / task_comments and don't depend on each other.
       const [groupMap, taskMap] = await Promise.all([
         fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
-        fetchThreadAggregates({ table: "task_comments", parentKey: "task_id" }),
+        fetchThreadAggregates({ table: "task_comments", parentKey: "task_id", excludeLogs: true }),
       ]);
 
       // Step 2: build the union of user_ids for the last-message authors across
