@@ -295,7 +295,7 @@ export function useThreadsRealtime() {
     const scheduleInvalidate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["messenger_threads", user.id] });
+        queryClient.invalidateQueries({ queryKey: ["messenger_threads", user.id], exact: false });
       }, 500);
     };
 
