@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 export type ThreadType = "group" | "task";
+export type ThreadKindFilter = "chat" | "log" | "all";
 
 export type Thread = {
   id: string;
@@ -53,6 +54,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
   desiredThreads?: number;
   gracePages?: number;
       excludeLogs?: boolean;
+      onlyLogs?: boolean;
 }): Promise<
   Map<string, { content: string; created_at: string; user_id: string; count: number }>
 > {
@@ -64,6 +66,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
     desiredThreads = 50,
     gracePages = 1,
         excludeLogs = false,
+        onlyLogs = false,
   } = opts;
 
   const map = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
@@ -78,6 +81,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
       .limit(pageSize);
     if (cursor) q = q.lt("created_at", cursor);
     if (excludeLogs) q = q.neq("kind", "log");
+    if (onlyLogs) q = q.eq("kind", "log");
 
     const { data, error } = await q;
     if (error || !data || data.length === 0) break;
@@ -116,19 +120,28 @@ async function fetchThreadAggregates<T extends string>(opts: {
   return map;
 }
 
-export function useThreads() {
+export function useThreads(kindFilter: ThreadKindFilter = "chat") {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["messenger_threads", user?.id],
+    queryKey: ["messenger_threads", user?.id, kindFilter],
     queryFn: async () => {
       const threads: Thread[] = [];
 
-      // Step 1: collect both aggregate maps in parallel — these only hit
-      // group_messages / task_comments and don't depend on each other.
+      // Step 1: collect aggregate maps. The "log" tab is task-only — group
+      // chats don't generate log entries, so we skip group_messages entirely
+      // in that mode.
+      const taskOpts =
+        kindFilter === "chat"
+          ? { excludeLogs: true }
+          : kindFilter === "log"
+            ? { onlyLogs: true }
+            : {};
       const [groupMap, taskMap] = await Promise.all([
-        fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
-        fetchThreadAggregates({ table: "task_comments", parentKey: "task_id", excludeLogs: true }),
+        kindFilter === "log"
+          ? Promise.resolve(new Map())
+          : fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
+        fetchThreadAggregates({ table: "task_comments", parentKey: "task_id", ...taskOpts }),
       ]);
 
       // Step 2: build the union of user_ids for the last-message authors across
