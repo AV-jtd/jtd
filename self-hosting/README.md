@@ -62,34 +62,21 @@ node self-hosting/generate-keys.js "$JWT_SECRET"
 
 ---
 
-## Шаг 4 — AI Gateway (единственное изменение в коде)
+## Шаг 4 — AI Gateway
 
-Функции используют `https://ai.gateway.lovable.dev` с моделями `google/gemini-2.5-flash`.
-Это Lovable-специфичный шлюз — на self-hosted он недоступен.
+Функции используют `https://ai.gateway.lovable.dev` с `LOVABLE_API_KEY`.
+Это обычный HTTP эндпоинт — запросы к нему делаются с твоего сервера,
+ограничений по IP нет. Просто перенеси тот же ключ из Supabase Dashboard
+→ Secrets в `.env.supabase`:
 
-**Замена: OpenRouter** (поддерживает те же модели, тот же API формат)
-
-1. Зарегистрируйся на https://openrouter.ai
-2. Создай API ключ
-3. В `.env.supabase` поставь: `LOVABLE_API_KEY=sk-or-...`
-
-В коде функций менять ничего не нужно — URL шлюза нужно обновить в 6 функциях:
 ```
-supabase/functions/ai-insights/index.ts
-supabase/functions/ai-assistant/index.ts
-supabase/functions/generate-protocol-summary/index.ts
-supabase/functions/protocols-insights/index.ts
-supabase/functions/suggest-tags/index.ts
-supabase/functions/send-weekly-ai-review/index.ts
-supabase/functions/send-weekly-group-report/index.ts
+LOVABLE_API_KEY=<скопировать из Supabase Dashboard → Project Settings → Edge Function Secrets>
 ```
 
-Замена (одна строка в каждом файле):
-```
-https://ai.gateway.lovable.dev/v1/chat/completions
-→
-https://openrouter.ai/api/v1/chat/completions
-```
+Код функций менять не нужно.
+
+Если ключ перестанет работать (маловероятно) — запасной план: OpenRouter.ai
+поддерживает те же модели `google/gemini-2.5-flash` с тем же API форматом.
 
 ---
 
