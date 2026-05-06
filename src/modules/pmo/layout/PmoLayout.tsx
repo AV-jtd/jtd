@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LayoutDashboard, GanttChart, Flag, Users, BarChart3, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";

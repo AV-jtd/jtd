@@ -22,7 +22,8 @@ export function lazyWithRetry<T extends ComponentType<any>>(
         msg.includes('Failed to fetch dynamically imported module') ||
         msg.includes('Importing a module script failed') ||
         msg.includes('Loading chunk') ||
-        msg.includes('Loading CSS chunk');
+        msg.includes('Loading CSS chunk') ||
+        /Cannot read propert(y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg);
 
       if (isChunkError && !sessionStorage.getItem(RELOAD_KEY)) {
         sessionStorage.setItem(RELOAD_KEY, '1');
