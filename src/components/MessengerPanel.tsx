@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useThreads, useThreadsRealtime, Thread } from "@/hooks/useMessenger";
+import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
 import TaskChat from "./TaskChat";
@@ -73,7 +73,8 @@ export default function MessengerPanel({
   initialActiveThreadId,
   onActiveThreadChange,
 }: MessengerPanelProps) {
-  const { data: threads = [], isLoading } = useThreads();
+  const [kindFilter, setKindFilter] = useState<ThreadKindFilter>("chat");
+  const { data: threads = [], isLoading } = useThreads(kindFilter);
   // Live updates: refresh the thread list when new messages/comments arrive
   // anywhere, without waiting for `staleTime`.
   useThreadsRealtime();
