@@ -268,55 +268,34 @@ export default function MessengerPanel({
               className="h-8 text-sm pl-8"
             />
           </div>
-          {/* One-line bar: segmented Чат/Лог/Всё + filter chips. */}
-          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar">
-            <div className="inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5 text-[11px]">
-              {([
-                { key: "chat", label: "Чат" },
-                { key: "log",  label: "Лог" },
-                { key: "all",  label: "Всё" },
-              ] as { key: ThreadKindFilter; label: string }[]).map(opt => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setKindFilter(opt.key)}
-                  className={cn(
-                    "px-2 py-1 rounded-[5px] font-medium transition-colors",
-                    kindFilter === opt.key
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="h-4 w-px bg-border shrink-0" aria-hidden />
+          {/* One-line bar: icon filters on the left, text segmented Чат/Лог/Всё on the right. */}
+          <div className="flex items-center gap-1 mt-2">
             <button
               type="button"
               onClick={() => setUnreadOnly(v => !v)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors",
+                "relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors",
                 unreadOnly
                   ? "bg-destructive/10 border-destructive/30 text-destructive"
                   : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
               title="Только непрочитанные"
+              aria-label="Только непрочитанные"
             >
-              <MailWarning className="h-3 w-3" />
-              <span>Непрочитанные</span>
+              <MailWarning className="h-3.5 w-3.5" />
               {unreadTotal > 0 && (
                 <span className={cn(
-                  "ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
-                  unreadOnly ? "bg-destructive text-destructive-foreground" : "bg-muted-foreground/15 text-foreground",
+                  "absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center",
+                  unreadOnly ? "bg-destructive text-destructive-foreground" : "bg-muted-foreground/30 text-foreground",
                 )}>
                   {unreadTotal > 99 ? "99+" : unreadTotal}
                 </span>
               )}
             </button>
             <FilterChip
-              icon={<UserIcon className="h-3 w-3" />}
+              icon={<UserIcon className="h-3.5 w-3.5" />}
               label="Автор"
+              iconOnly
               count={authorIds.length}
               options={authorOptions}
               selected={authorIds}
@@ -325,8 +304,9 @@ export default function MessengerPanel({
               emptyHint="Нет авторов"
             />
             <FilterChip
-              icon={<FolderOpen className="h-3 w-3" />}
+              icon={<FolderOpen className="h-3.5 w-3.5" />}
               label="Проект"
+              iconOnly
               count={projectIds.length}
               options={projectOptions}
               selected={projectIds}
@@ -337,11 +317,33 @@ export default function MessengerPanel({
             {activeFilterCount > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto shrink-0"
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                title="Сбросить фильтры"
               >
                 Сбросить
               </button>
             )}
+            <div className="ml-auto inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5 text-[11px]">
+              {([
+                { key: "chat", label: "Чат" },
+                { key: "log",  label: "Лог" },
+                { key: "all",  label: "Всё" },
+              ] as { key: ThreadKindFilter; label: string }[]).map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setKindFilter(opt.key)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-[5px] font-medium transition-colors",
+                    kindFilter === opt.key
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -607,6 +609,7 @@ function FilterChip({
   onToggle,
   onClear,
   emptyHint,
+  iconOnly,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -616,6 +619,7 @@ function FilterChip({
   onToggle: (id: string) => void;
   onClear: () => void;
   emptyHint: string;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -623,19 +627,28 @@ function FilterChip({
       <PopoverTrigger asChild>
         <button
           type="button"
+          title={label}
+          aria-label={label}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors",
+            "relative inline-flex items-center gap-1 rounded-md border transition-colors text-[11px]",
+            iconOnly ? "h-7 w-7 justify-center" : "px-2 py-0.5 rounded-full",
             count > 0
               ? "bg-primary/10 border-primary/30 text-primary"
               : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
         >
           {icon}
-          <span>{label}</span>
+          {!iconOnly && <span>{label}</span>}
           {count > 0 && (
-            <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] px-1">
-              {count}
-            </span>
+            iconOnly ? (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[15px] h-[15px] rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-1">
+                {count}
+              </span>
+            ) : (
+              <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] px-1">
+                {count}
+              </span>
+            )
           )}
         </button>
       </PopoverTrigger>
