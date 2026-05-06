@@ -38,6 +38,24 @@ Deno.serve(async (req) => {
 
       const cleanUsername = telegram_username.replace(/^@/, "").toLowerCase().trim();
 
+      // Block duplicate registrations: if this telegram_username is already
+      // attached to an existing profile with a different email — refuse.
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id, email, telegram_username")
+        .ilike("telegram_username", cleanUsername)
+        .maybeSingle();
+
+      if (existingProfile && existingProfile.email?.toLowerCase().trim() !== email.toLowerCase().trim()) {
+        return new Response(JSON.stringify({
+          error: "telegram_taken",
+          message: `Пользователь с Telegram @${cleanUsername} уже зарегистрирован под другим email. Войдите под существующим аккаунтом или воспользуйтесь «Забыли пароль».`,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Find telegram chat_id — first check telegram_bot_chats (for new users),
       // then fall back to profiles (for existing users)
       let chatIdValue: number | null = null;
