@@ -26,7 +26,7 @@ serve(async (req) => {
 
     const tagList = availableTags.map((t: { id: string; name: string }) => `- id: "${t.id}", name: "${t.name}"`).join("\n");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

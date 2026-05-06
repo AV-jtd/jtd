@@ -305,7 +305,7 @@ serve(async (req) => {
 
     const finalUserContent = mode === "living" ? userContentLiving : userContent;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

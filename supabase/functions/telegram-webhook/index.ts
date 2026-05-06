@@ -2003,7 +2003,7 @@ async function aiEnrichTask(
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -2204,7 +2204,7 @@ async function handleAiChat(
 
     const contextStr = contextParts.length > 0 ? contextParts.join("\n") : "Нет данных о проектах.";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -2501,7 +2501,7 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
     const base64Audio = btoa(binary);
 
     // Transcribe with Gemini (supports audio natively)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -2573,7 +2573,7 @@ async function aiBulkParse(
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
