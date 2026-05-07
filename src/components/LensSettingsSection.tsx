@@ -5,20 +5,70 @@ import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useVisibleTags, useTagCategories, type TaskGroup, type Tag } from "@/hooks/useTasks";
 import { toast } from "sonner";
 
 const FORBIDDEN_LENS_TYPES = new Set(["npd", "crm", "stm", "protocol"]);
+
+function isLensEligible(group: TaskGroup): boolean {
+  const projectType = (group as any).project_type as string;
+  if (FORBIDDEN_LENS_TYPES.has(projectType)) return false;
+  if (group.parent_id) return false;
+  return true;
+}
+
+/**
+ * Компактный inline-переключатель «Линза» — встаёт в один ряд с CRM/NPD.
+ */
+export function LensToggleInline({ group }: Props) {
+  const qc = useQueryClient();
+  const viewMode = ((group as any).view_mode as string) ?? "container";
+  const isLens = viewMode === "lens";
+
+  const setViewMode = useMutation({
+    mutationFn: async (mode: "lens" | "container") => {
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ view_mode: mode } as any)
+        .eq("id", group.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, mode) => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      toast.success(mode === "lens" ? "Линза включена" : "Линза выключена");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось обновить режим"),
+  });
+
+  if (!isLensEligible(group)) return null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <Switch
+        id="lens-toggle"
+        checked={isLens}
+        onCheckedChange={(v) => setViewMode.mutate(v ? "lens" : "container")}
+        disabled={setViewMode.isPending}
+      />
+      <Label
+        htmlFor="lens-toggle"
+        className="text-xs font-medium text-muted-foreground flex items-center gap-1 cursor-pointer"
+        title="Линза собирает задачи по тегам из любых проектов. Контейнер у задач не меняется."
+      >
+        <Eye className="h-3 w-3" /> Линза
+      </Label>
+    </div>
+  );
+}
 
 interface Props {
   group: TaskGroup;
 }
 
 /**
- * Секция «Линза» в настройках проекта.
- * - Если view_mode='container': кнопка «Превратить в линзу» с превью.
- * - Если view_mode='lens': мульти-выбор тегов (OR) + счётчик задач + кнопка «Вернуть в обычный».
- * Запрещено для project_type ∈ {npd, crm, stm, protocol}.
+ * Блок настроек тэгов линзы — показывается только когда линза включена.
+ * Сам переключатель вынесен в <LensToggleInline /> рядом с CRM/NPD.
  */
 export default function LensSettingsSection({ group }: Props) {
   const qc = useQueryClient();
@@ -27,10 +77,8 @@ export default function LensSettingsSection({ group }: Props) {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
 
-  const projectType = (group as any).project_type as string;
   const viewMode = ((group as any).view_mode as string) ?? "container";
   const isLens = viewMode === "lens";
-  const forbidden = FORBIDDEN_LENS_TYPES.has(projectType);
 
   // Linked tags (m:n)
   const { data: linkedTagIds = [] } = useQuery({
@@ -89,21 +137,6 @@ export default function LensSettingsSection({ group }: Props) {
     return Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path, "ru"));
   }, [allTags, categories, tagSearch]);
 
-  const setViewMode = useMutation({
-    mutationFn: async (mode: "lens" | "container") => {
-      const { error } = await supabase
-        .from("task_groups")
-        .update({ view_mode: mode } as any)
-        .eq("id", group.id);
-      if (error) throw error;
-    },
-    onSuccess: (_d, mode) => {
-      qc.invalidateQueries({ queryKey: ["task_groups"] });
-      toast.success(mode === "lens" ? "Проект превращён в линзу" : "Линза снова обычный проект");
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Не удалось обновить режим"),
-  });
-
   const addTag = useMutation({
     mutationFn: async (tagId: string) => {
       const { error } = await supabase
@@ -137,30 +170,15 @@ export default function LensSettingsSection({ group }: Props) {
     else addTag.mutate(tagId);
   };
 
-  if (forbidden) return null;
-  if (group.parent_id) return null; // линзы только верхнего уровня
+  if (!isLensEligible(group)) return null;
+  if (!isLens) return null;
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Eye className="h-3 w-3" /> Линза
-          <span
-            className="text-muted-foreground/70 font-normal"
-            title="Линза собирает задачи по тегам из любых проектов. Контейнер у задач не меняется."
-          >
-            — собирает задачи по тегам
-          </span>
-        </div>
-        <Switch
-          checked={isLens}
-          onCheckedChange={(v) => setViewMode.mutate(v ? "lens" : "container")}
-          disabled={setViewMode.isPending}
-        />
-      </div>
-
-      {isLens && (
-        <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+        <Eye className="h-3 w-3" /> Тэги линзы
+      </p>
+      <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {linkedTags.map((tag) => (
               <span
@@ -249,8 +267,7 @@ export default function LensSettingsSection({ group }: Props) {
               ? "Считаем задачи…"
               : `Найдено задач: ${matchCount} (OR по ${linkedTagIds.length} тэгам)`}
           </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

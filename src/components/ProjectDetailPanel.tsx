@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 const SmartExportDialog = lazyWithRetry(() => import("@/components/SmartExportDialog"));
 const SmartImportDialog = lazyWithRetry(() => import("@/components/SmartImportDialog"));
 const MigrateToNpdDialog = lazyWithRetry(() => import("@/components/MigrateToNpdDialog"));
-import LensSettingsSection from "@/components/LensSettingsSection";
+import LensSettingsSection, { LensToggleInline } from "@/components/LensSettingsSection";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
@@ -321,6 +321,8 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
               )}
             </div>
           )}
+
+          <LensToggleInline group={group} />
         </div>
       </div>
 
