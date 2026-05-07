@@ -324,6 +324,9 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         </div>
       </div>
 
+      {/* Линза */}
+      <LensSettingsSection group={group} />
+
       {/* Archive / Close Project */}
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
