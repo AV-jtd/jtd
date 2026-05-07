@@ -1289,6 +1289,27 @@ export type Database = {
         }
         Relationships: []
       }
+      task_group_linked_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          group_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          group_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          group_id?: string
+          tag_id?: string
+        }
+        Relationships: []
+      }
       task_groups: {
         Row: {
           archive_comment: string | null

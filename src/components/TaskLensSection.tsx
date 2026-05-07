@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * "Видна также в" — read-only секция в раскрытой детали задачи.
  *
- * Показывает проекты с view_mode='lens', чей linked_tag_id присутствует
- * в task_tags задачи. Это даёт двунаправленную навигацию: задача знает,
- * через какие линзы (Качество, Азиатская линейка и т.п.) её увидят.
+ * Линза — проект с view_mode='lens' и набором привязанных тегов
+ * (task_group_linked_tags, OR-логика). Если хотя бы один тег задачи
+ * входит в этот набор — линза показывается.
  *
- * Не показывается если линз нет или у задачи нет тегов.
+ * Также учитываем legacy task_groups.linked_tag_id (single-tag),
+ * чтобы не сломать ранее созданные линзы во время миграции.
  */
 export default function TaskLensSection({ taskTagIds }: { taskTagIds: string[] }) {
   const tagIdsKey = useMemo(() => [...taskTagIds].sort().join(","), [taskTagIds]);
@@ -21,11 +22,31 @@ export default function TaskLensSection({ taskTagIds }: { taskTagIds: string[] }
     enabled: taskTagIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1) m:n linked tags
+      const { data: links, error: linksErr } = await supabase
+        .from("task_group_linked_tags")
+        .select("group_id")
+        .in("tag_id", taskTagIds);
+      if (linksErr) throw linksErr;
+      const idsFromLinks = Array.from(new Set((links ?? []).map((r: any) => r.group_id)));
+
+      // 2) legacy single linked_tag_id
+      const { data: legacy, error: legacyErr } = await supabase
         .from("task_groups")
-        .select("id, name, icon, color, logo_url, linked_tag_id")
+        .select("id")
         .eq("view_mode", "lens")
         .in("linked_tag_id", taskTagIds);
+      if (legacyErr) throw legacyErr;
+      const idsFromLegacy = (legacy ?? []).map((r: any) => r.id);
+
+      const allIds = Array.from(new Set([...idsFromLinks, ...idsFromLegacy]));
+      if (allIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from("task_groups")
+        .select("id, name, icon, color, logo_url")
+        .eq("view_mode", "lens")
+        .in("id", allIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string;
@@ -33,7 +54,6 @@ export default function TaskLensSection({ taskTagIds }: { taskTagIds: string[] }
         icon: string | null;
         color: string | null;
         logo_url: string | null;
-        linked_tag_id: string | null;
       }>;
     },
   });
