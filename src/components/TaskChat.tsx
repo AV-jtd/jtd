@@ -362,7 +362,13 @@ export default function TaskChat({
       <div className="space-y-2.5">
         {visibleComments.map(c => {
           // Лог-запись — компактная серая строка с иконкой.
-          if (c.kind === "log") {
+          // Доп. защита: некоторые старые записи могут прийти без kind,
+          // но с маркером content="__log__" и meta.changes — их тоже рендерим как лог.
+          const isLogEntry =
+            c.kind === "log" ||
+            c.content === "__log__" ||
+            !!(c.meta && Array.isArray((c.meta as any).changes) && (c.meta as any).changes.length > 0);
+          if (isLogEntry) {
             return (
               <LogEntry
                 key={c.id}
