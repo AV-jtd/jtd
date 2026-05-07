@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useVisibleTags, useTagCategories, type TaskGroup, type Tag } from "@/hooks/useTasks";
+import { useVisibleTags, useTagCategories, useTaskGroups, type TaskGroup, type Tag } from "@/hooks/useTasks";
 import { toast } from "sonner";
 
 const FORBIDDEN_LENS_TYPES = new Set(["npd", "crm", "stm", "protocol"]);
@@ -23,7 +23,10 @@ function isLensEligible(group: TaskGroup): boolean {
  */
 export function LensToggleInline({ group }: Props) {
   const qc = useQueryClient();
-  const viewMode = ((group as any).view_mode as string) ?? "container";
+  // Берём актуальное view_mode из общего кэша task_groups, а не из stale-пропса.
+  const { data: groups = [] } = useTaskGroups();
+  const liveGroup = groups.find((g) => g.id === group.id) ?? group;
+  const viewMode = ((liveGroup as any).view_mode as string) ?? "container";
   const isLens = viewMode === "lens";
 
   const setViewMode = useMutation({
@@ -33,6 +36,16 @@ export function LensToggleInline({ group }: Props) {
         .update({ view_mode: mode } as any)
         .eq("id", group.id);
       if (error) throw error;
+      return mode;
+    },
+    onMutate: async (mode) => {
+      // Оптимистично обновляем все кэши task_groups, чтобы UI мгновенно
+      // переключался без ожидания рефетча.
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      qc.getQueriesData<TaskGroup[]>({ queryKey: ["task_groups"] }).forEach(([key, data]) => {
+        if (!data) return;
+        qc.setQueryData<TaskGroup[]>(key, data.map((g) => g.id === group.id ? ({ ...g, view_mode: mode } as any) : g));
+      });
     },
     onSuccess: (_d, mode) => {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
@@ -74,10 +87,12 @@ export default function LensSettingsSection({ group }: Props) {
   const qc = useQueryClient();
   const { data: allTags = [] } = useVisibleTags();
   const { data: categories = [] } = useTagCategories();
+  const { data: groups = [] } = useTaskGroups();
+  const liveGroup = groups.find((g) => g.id === group.id) ?? group;
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
 
-  const viewMode = ((group as any).view_mode as string) ?? "container";
+  const viewMode = ((liveGroup as any).view_mode as string) ?? "container";
   const isLens = viewMode === "lens";
 
   // Linked tags (m:n)
