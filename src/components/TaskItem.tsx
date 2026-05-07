@@ -10,6 +10,7 @@ import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
+import TaskLensSection from "@/components/TaskLensSection";
 import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
@@ -1580,6 +1581,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
                 </span>
               </div>
             )}
+
+            {/* Lens projects — задача может появляться в линзах через теги */}
+            <TaskLensSection taskTagIds={taskTagIds} />
 
             {/* Quick actions: close + reschedule */}
             <div className="flex items-center gap-2 flex-wrap">
