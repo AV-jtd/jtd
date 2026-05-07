@@ -10,6 +10,7 @@ import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { useAuth } from "@/hooks/useAuth";
 import TaskChat from "@/components/TaskChat";
+import TaskLensSection from "@/components/TaskLensSection";
 import { useTaskComments } from "@/hooks/useComments";
 import ProjectIcon from "@/components/ProjectIcon";
 import UserPicker from "@/components/UserPicker";
