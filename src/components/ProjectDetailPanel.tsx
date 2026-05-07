@@ -22,6 +22,7 @@ const MigrateToNpdDialog = lazyWithRetry(() => import("@/components/MigrateToNpd
 import LensSettingsSection, { LensToggleInline } from "@/components/LensSettingsSection";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
+import { parseISO } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -574,6 +575,15 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
 
       {/* Tasks */}
       <TasksSection groupId={group.id} />
+
+      {/* Created at + creator (как в карточке задачи) */}
+      {group.created_at && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-1">
+          <Clock className="h-3 w-3" />
+          Создан {format(parseISO(group.created_at), "d MMM yyyy, HH:mm", { locale: ru })}
+          {group.user_id && <span>· создал: {getProfileName(group.user_id)}</span>}
+        </div>
+      )}
     </div>
   );
 }
