@@ -4,6 +4,7 @@ import { Eye, Plus, X, Sparkles, Check, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useVisibleTags, useTagCategories, type TaskGroup, type Tag } from "@/hooks/useTasks";
 import { toast } from "sonner";
 
@@ -141,28 +142,24 @@ export default function LensSettingsSection({ group }: Props) {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-        <Eye className="h-3 w-3" /> Линза
-        {isLens && (
-          <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
-            <Sparkles className="h-2.5 w-2.5" /> активна
-          </span>
-        )}
-      </p>
-
-      {!isLens ? (
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">
-            Линза собирает задачи по тегам из любых проектов. Контейнер у задач не меняется.
-          </p>
-          <button
-            onClick={() => setViewMode.mutate("lens")}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Eye className="h-3 w-3" /> Линза
+          <span
+            className="text-muted-foreground/70 font-normal"
+            title="Линза собирает задачи по тегам из любых проектов. Контейнер у задач не меняется."
           >
-            <Plus className="h-3 w-3" /> Превратить в линзу
-          </button>
+            — собирает задачи по тегам
+          </span>
         </div>
-      ) : (
+        <Switch
+          checked={isLens}
+          onCheckedChange={(v) => setViewMode.mutate(v ? "lens" : "container")}
+          disabled={setViewMode.isPending}
+        />
+      </div>
+
+      {isLens && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {linkedTags.map((tag) => (
@@ -245,21 +242,13 @@ export default function LensSettingsSection({ group }: Props) {
             </Popover>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <p className="text-[11px] text-muted-foreground">
-              {linkedTagIds.length === 0
-                ? "Привяжите хотя бы один тег — иначе линза пуста."
-                : countLoading
-                ? "Считаем задачи…"
-                : `Найдено задач: ${matchCount} (OR по ${linkedTagIds.length} тэгам)`}
-            </p>
-            <button
-              onClick={() => setViewMode.mutate("container")}
-              className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
-            >
-              Вернуть в обычный
-            </button>
-          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {linkedTagIds.length === 0
+              ? "Привяжите хотя бы один тег — иначе линза пуста."
+              : countLoading
+              ? "Считаем задачи…"
+              : `Найдено задач: ${matchCount} (OR по ${linkedTagIds.length} тэгам)`}
+          </p>
         </div>
       )}
     </div>
