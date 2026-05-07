@@ -166,7 +166,11 @@ export function useTasksWithComments(taskIds: string[]) {
         const { data, error } = await supabase
           .from("task_comments" as any)
           .select("task_id")
-          .in("task_id", chunk);
+          .in("task_id", chunk)
+          // Считаем только реальные сообщения/системные карточки —
+          // автоматические лог-записи (изменения полей) не должны
+          // подсвечивать иконку чата как «есть обсуждение».
+          .neq("kind", "log");
         if (error) throw error;
         for (const row of (data || []) as unknown as { task_id: string }[]) set.add(row.task_id);
       }

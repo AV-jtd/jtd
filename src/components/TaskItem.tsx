@@ -579,7 +579,13 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   // Cheap presence flag from bulk query in parent — used to highlight chat icon
   // when the detail panel is closed (we don't fetch full thread for every list row).
-  const hasComments = chatComments.length > 0 || (sharedTasksWithComments?.has(task.id) ?? false);
+  // Лог-записи (kind="log" — автоматические следы изменений полей) не считаются
+  // «обсуждением» и не подсвечивают иконку чата: пользователь ждёт увидеть
+  // сообщения, а не системный аудит.
+  const hasRealComments = chatComments.some(
+    (c) => c.kind !== "log" && c.content !== "__log__",
+  );
+  const hasComments = hasRealComments || (sharedTasksWithComments?.has(task.id) ?? false);
   const [highlighted, setHighlighted] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [showAddSubtask, setShowAddSubtask] = useState(false);
