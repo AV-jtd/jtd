@@ -1582,6 +1582,9 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
               </div>
             )}
 
+            {/* Lens projects — задача может появляться в линзах через теги */}
+            <TaskLensSection taskTagIds={taskTagIds} />
+
             {/* Quick actions: close + reschedule */}
             <div className="flex items-center gap-2 flex-wrap">
               {!task.is_completed && (
