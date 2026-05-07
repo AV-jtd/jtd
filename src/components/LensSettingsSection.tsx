@@ -79,8 +79,7 @@ export default function LensSettingsSection({ group }: Props) {
       if (error) throw error;
     },
     onSuccess: (_d, mode) => {
-      qc.invalidateQueries({ queryKey: ["task-groups"] });
-      qc.invalidateQueries({ queryKey: ["taskGroups"] });
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
       toast.success(mode === "lens" ? "Проект превращён в линзу" : "Линза снова обычный проект");
     },
     onError: (e: any) => toast.error(e?.message ?? "Не удалось обновить режим"),
