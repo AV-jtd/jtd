@@ -1313,6 +1313,7 @@ export type Database = {
           protocol_meta: Json
           stm_meta: Json
           user_id: string
+          view_mode: string
         }
         Insert: {
           archive_comment?: string | null
@@ -1337,6 +1338,7 @@ export type Database = {
           protocol_meta?: Json
           stm_meta?: Json
           user_id: string
+          view_mode?: string
         }
         Update: {
           archive_comment?: string | null
@@ -1361,6 +1363,7 @@ export type Database = {
           protocol_meta?: Json
           stm_meta?: Json
           user_id?: string
+          view_mode?: string
         }
         Relationships: [
           {
