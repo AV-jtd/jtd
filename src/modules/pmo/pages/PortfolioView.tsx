@@ -671,98 +671,14 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                                   Матрица
                                 </button>
                               </div>
-                              {/* Dashboard summary */}
-                              {(() => {
-                                const childIds = children.map((c) => c.id);
-                                const grandIds = children.flatMap((c) => groups.filter((g) => g.parent_id === c.id).map((g) => g.id));
-                                const allProjectIds = [project.id, ...childIds, ...grandIds];
-                                const projectTasks = allTasks.filter((t) => t.group_id && allProjectIds.includes(t.group_id));
-                                const now = new Date();
-                                const weekFromNow = new Date(now.getTime() + 7 * 86400000);
-                                const active = projectTasks.filter((t) => !t.is_completed);
-                                const overdue = active.filter((t) => t.deadline && new Date(t.deadline) < now);
-                                const upcoming = active.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
-                                const drifted = active
-                                  .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-                                  .map((t) => ({ task: t, days: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000) }));
-
-                                const userName = (uid: string | null) => {
-                                  if (!uid) return null;
-                                  const p = userMap.get(uid);
-                                  return p?.display_name || p?.email?.split("@")[0] || null;
-                                };
-
-                                if (active.length === 0 && projectTasks.length > 0) {
-                                  return <p className="text-xs text-muted-foreground text-center py-1">✅ Все задачи завершены</p>;
-                                }
-                                if (projectTasks.length === 0) {
-                                  return <p className="text-xs text-muted-foreground text-center py-1">Нет задач</p>;
-                                }
-
-                                return (
-                                  <>
-                                    {overdue.length > 0 && (
-                                      <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
-                                        {overdue.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => setSelectedTaskId(t.id)} />
-                                        ))}
-                                      </PmoDashboardSection>
-                                    )}
-                                    {upcoming.length > 0 && (
-                                      <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
-                                        {upcoming.map((t) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
-                                        ))}
-                                      </PmoDashboardSection>
-                                    )}
-                                    {drifted.length > 0 && (
-                                      <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
-                                        {drifted.map(({ task: t, days }) => (
-                                          <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => setSelectedTaskId(t.id)} />
-                                        ))}
-                                      </PmoDashboardSection>
-                                    )}
-                                    {overdue.length === 0 && upcoming.length === 0 && drifted.length === 0 && (
-                                      <p className="text-[11px] text-success text-center py-1">✅ Все задачи в графике</p>
-                                    )}
-                                  </>
-                                );
-                              })()}
-
-                              {/* Subproject breakdown */}
-                              {children.length > 0 && (() => {
-                                const cards = children
-                                  .map((child) => {
-                                    const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
-                                    const childTasks = allTasks.filter((t) => t.group_id === child.id);
-                                    const grandchildren = groups.filter((g) => g.parent_id === child.id);
-                                    const grandTasks = grandchildren.flatMap((gc) => allTasks.filter((t) => t.group_id === gc.id));
-                                    const allChildTasks = [...childTasks, ...grandTasks];
-                                    return { child, childName, allChildTasks };
-                                  })
-                                  .filter((c) => c.allChildTasks.length > 0);
-                                if (cards.length === 0) return null;
-                                return (
-                                  <div className="pt-1 border-t border-border/20">
-                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Подпроекты</p>
-                                    <div className="space-y-1.5">
-                                      {cards.map(({ child, childName, allChildTasks }) => (
-                                        <PmoSubprojectCard
-                                          key={child.id}
-                                          name={childName}
-                                          color={child.color}
-                                          icon={child.icon}
-                                          tasks={allChildTasks}
-                                          onOpenGantt={() => onOpenGantt?.(child.id)}
-                                          userMap={userMap}
-                                          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
-                                        />
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                              
+                              <ExpandedProjectDashboard
+                                project={project}
+                                children={children}
+                                groups={groups}
+                                userMap={userMap}
+                                onOpenGantt={onOpenGantt}
+                                onTaskClick={(id) => setSelectedTaskId(id)}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -918,6 +834,144 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 
 type PmoSubtask = { id: string; title: string; is_completed: boolean; deadline: string | null; assigned_to: string | null };
 type PmoTask = { id: string; title: string; is_completed: boolean; deadline: string | null; original_deadline: string | null; assigned_to: string | null; user_id: string; start_at: string | null; subtasks?: PmoSubtask[] | null };
+
+/**
+ * Lazy-loaded dashboard for an expanded project row.
+ *
+ * Why: the global `useTasks` query is capped at 1000 rows by Supabase's
+ * default limit, so projects sitting in the "tail" (e.g. "Китай май") had
+ * empty Просроченные / Ближайшие / Переносы sections when expanded.
+ * This component fetches the project + its direct children + grandchildren
+ * in a focused query, bypassing the global cap.
+ */
+function ExpandedProjectDashboard({
+  project,
+  children,
+  groups,
+  userMap,
+  onOpenGantt,
+  onTaskClick,
+}: {
+  project: TaskGroup;
+  children: TaskGroup[];
+  groups: TaskGroup[];
+  userMap: Map<string, Profile>;
+  onOpenGantt?: (id: string) => void;
+  onTaskClick: (id: string) => void;
+}) {
+  const { user } = useAuth();
+  const scopeIds = useMemo(() => {
+    const ids = [project.id, ...children.map((c) => c.id)];
+    for (const c of children) {
+      for (const g of groups) if (g.parent_id === c.id) ids.push(g.id);
+    }
+    return ids;
+  }, [project.id, children, groups]);
+
+  const { data: scopedTasks = [], isLoading } = useQuery({
+    queryKey: ["pmo-expanded-tasks", project.id, scopeIds],
+    queryFn: async () => {
+      const results: any[] = [];
+      for (let i = 0; i < scopeIds.length; i += 20) {
+        const batch = scopeIds.slice(i, i + 20);
+        const { data, error } = await supabase
+          .from("tasks")
+          .select("id,title,is_completed,deadline,original_deadline,assigned_to,user_id,start_at,group_id,subtasks(id,title,is_completed,deadline,assigned_to)")
+          .in("group_id", batch);
+        if (error) throw error;
+        if (data) results.push(...data);
+      }
+      return results as (PmoTask & { group_id: string })[];
+    },
+    enabled: !!user && scopeIds.length > 0,
+    staleTime: 30 * 1000,
+  });
+
+  const userName = (uid: string | null) => {
+    if (!uid) return null;
+    const p = userMap.get(uid);
+    return p?.display_name || p?.email?.split("@")[0] || null;
+  };
+
+  if (isLoading) {
+    return <p className="text-xs text-muted-foreground text-center py-2">Загружаем задачи…</p>;
+  }
+
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+  const active = scopedTasks.filter((t) => !t.is_completed);
+  const overdue = active.filter((t) => t.deadline && new Date(t.deadline) < now);
+  const upcoming = active.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
+  const drifted = active
+    .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .map((t) => ({ task: t, days: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000) }));
+
+  const subprojectCards = children
+    .map((child) => {
+      const childName = child.name.includes("/") ? child.name.split("/").pop()?.trim() || child.name : child.name;
+      const grandIds = groups.filter((g) => g.parent_id === child.id).map((g) => g.id);
+      const allChildTasks = scopedTasks.filter((t) => t.group_id === child.id || grandIds.includes(t.group_id));
+      return { child, childName, allChildTasks };
+    })
+    .filter((c) => c.allChildTasks.length > 0);
+
+  return (
+    <>
+      {scopedTasks.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-1">Нет задач</p>
+      ) : active.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-1">✅ Все задачи завершены</p>
+      ) : (
+        <>
+          {overdue.length > 0 && (
+            <PmoDashboardSection title="Просроченные" count={overdue.length} variant="destructive">
+              {overdue.map((t) => (
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} variant="overdue" onClick={() => onTaskClick(t.id)} />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {upcoming.length > 0 && (
+            <PmoDashboardSection title="Ближайшие дедлайны" count={upcoming.length}>
+              {upcoming.map((t) => (
+                <PmoDashboardTaskRow key={t.id} task={t} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick(t.id)} />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {drifted.length > 0 && (
+            <PmoDashboardSection title="Переносы" count={drifted.length} variant="warning">
+              {drifted.map(({ task: t, days }) => (
+                <PmoDashboardTaskRow key={t.id} task={t} drift={days} assigneeName={userName(t.assigned_to || t.user_id)} onClick={() => onTaskClick(t.id)} />
+              ))}
+            </PmoDashboardSection>
+          )}
+          {overdue.length === 0 && upcoming.length === 0 && drifted.length === 0 && (
+            <p className="text-[11px] text-success text-center py-1">✅ Все задачи в графике</p>
+          )}
+        </>
+      )}
+
+      {subprojectCards.length > 0 && (
+        <div className="pt-1 border-t border-border/20">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Подпроекты</p>
+          <div className="space-y-1.5">
+            {subprojectCards.map(({ child, childName, allChildTasks }) => (
+              <PmoSubprojectCard
+                key={child.id}
+                name={childName}
+                color={child.color}
+                icon={child.icon}
+                tasks={allChildTasks}
+                onOpenGantt={() => onOpenGantt?.(child.id)}
+                userMap={userMap}
+                onTaskClick={onTaskClick}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 const STATUS_BADGE_PMO: Record<string, string> = {
   "on-track": "border-success/40 bg-success/10 text-success",
