@@ -438,12 +438,12 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                 const isExpanded = expandedIds.has(project.id);
                 return (
                   <div key={project.id}>
-                    <div className="rounded-lg border border-border bg-card p-2.5 transition-colors" onClick={() => children.length > 0 ? toggleExpand(project.id) : onOpenGantt?.(project.id)}>
+                    <div className="rounded-lg border border-border bg-card p-2.5 transition-colors" onClick={() => toggleExpand(project.id)}>
                       <div className="flex items-center gap-2">
                         <StatusDot status={health.deadlines} size="md" />
                         <span className="text-xs font-medium text-foreground truncate flex-1">{project.name}</span>
                         <div className="flex items-center gap-1"><StatusDot status={health.deadlines} /><StatusDot status={health.tasks} /><StatusDot status={health.milestones} /></div>
-                        {children.length > 0 && (isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />)}
+                        {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                         <button onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }} className="text-muted-foreground hover:text-primary"><GanttChart className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 ml-5">
@@ -452,21 +452,38 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
                       </div>
                       <div className="mt-1 ml-5"><ProgressBar progress={progress} stats={stats} compact /></div>
                     </div>
-                    {isExpanded && children.length > 0 && (
-                      <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-border pl-2">
-                        {children.map((child) => {
-                          const cs = getAggregatedStats(child.id);
-                          const cp = cs.total > 0 ? Math.round((cs.completed / cs.total) * 100) : 0;
-                          return (
-                            <div key={child.id} className="rounded-md bg-muted/30 p-2 text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => onOpenGantt?.(child.id)}>
-                              <div className="flex items-center gap-2">
-                                <StatusDot status={getHealthDot(child.id).deadlines} />
-                                <span className="truncate flex-1 text-foreground">{child.name.includes("/") ? child.name.split("/").pop()?.trim() : child.name}</span>
-                                <span className="text-muted-foreground text-[10px]">{cs.completed}/{cs.total}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                    {isExpanded && (
+                      <div className="ml-2 mt-1 mb-2 rounded-lg bg-muted/10 border border-border/40 px-2.5 py-2 space-y-2 animate-fade-in">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedProjectId(project.id); }}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          >
+                            <LayoutList className="h-3 w-3" /> Карточка
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onOpenGantt?.(project.id); }}
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          >
+                            <GanttChart className="h-3 w-3" /> Гантт
+                          </button>
+                          {project.project_type === "npd" && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); window.location.href = `/npd/matrix/${project.id}`; }}
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                            >
+                              <Layers className="h-3 w-3" /> Матрица
+                            </button>
+                          )}
+                        </div>
+                        <ExpandedProjectDashboard
+                          project={project}
+                          children={children}
+                          groups={groups}
+                          userMap={userMap}
+                          onOpenGantt={onOpenGantt}
+                          onTaskClick={(id) => setSelectedTaskId(id)}
+                        />
                       </div>
                     )}
                   </div>
