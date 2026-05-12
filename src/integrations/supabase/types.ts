@@ -366,6 +366,186 @@ export type Database = {
         }
         Relationships: []
       }
+      decision_clients: {
+        Row: {
+          client_id: string
+          decision_id: string
+        }
+        Insert: {
+          client_id: string
+          decision_id: string
+        }
+        Update: {
+          client_id?: string
+          decision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_clients_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_projects: {
+        Row: {
+          decision_id: string
+          group_id: string
+        }
+        Insert: {
+          decision_id: string
+          group_id: string
+        }
+        Update: {
+          decision_id?: string
+          group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_projects_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_projects_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_tags: {
+        Row: {
+          decision_id: string
+          tag_id: string
+        }
+        Insert: {
+          decision_id: string
+          tag_id: string
+        }
+        Update: {
+          decision_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tags_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_viewers: {
+        Row: {
+          decision_id: string
+          user_id: string
+        }
+        Insert: {
+          decision_id: string
+          user_id: string
+        }
+        Update: {
+          decision_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_viewers_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decisions: {
+        Row: {
+          body: string | null
+          created_at: string
+          decided_at: string
+          id: string
+          protocol_id: string
+          source_task_id: string | null
+          status: string
+          superseded_by: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          decided_at?: string
+          id?: string
+          protocol_id: string
+          source_task_id?: string | null
+          status?: string
+          superseded_by?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          decided_at?: string
+          id?: string
+          protocol_id?: string
+          source_task_id?: string | null
+          status?: string
+          superseded_by?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisions_protocol_id_fkey"
+            columns: ["protocol_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisions_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       department_directors: {
         Row: {
           created_at: string
@@ -2121,6 +2301,10 @@ export type Database = {
       }
       can_access_dependency: {
         Args: { _dep_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_see_decision: {
+        Args: { _decision_id: string; _user_id: string }
         Returns: boolean
       }
       can_see_task: {
