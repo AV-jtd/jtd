@@ -48,6 +48,8 @@ import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
+import DecisionsSection from "@/components/decisions/DecisionsSection";
+import { Lightbulb } from "lucide-react";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
 
 type BoardStage = {
