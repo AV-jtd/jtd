@@ -20,6 +20,7 @@ const SmartExportDialog = lazyWithRetry(() => import("@/components/SmartExportDi
 const SmartImportDialog = lazyWithRetry(() => import("@/components/SmartImportDialog"));
 const MigrateToNpdDialog = lazyWithRetry(() => import("@/components/MigrateToNpdDialog"));
 import LensSettingsSection, { LensToggleInline } from "@/components/LensSettingsSection";
+import DecisionsSection from "@/components/decisions/DecisionsSection";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { parseISO } from "date-fns";
@@ -575,6 +576,16 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
 
       {/* Tasks */}
       <TasksSection groupId={group.id} />
+
+      {/* Решения, привязанные к проекту (из протоколов) */}
+      <div className="pt-2 border-t border-border/40">
+        <DecisionsSection
+          groupId={group.id}
+          title="Решения по проекту"
+          emptyHint="Решения встреч, привязанные к этому проекту, появятся здесь."
+          compact
+        />
+      </div>
 
       {/* Created at + creator (как в карточке задачи) */}
       {group.created_at && (
