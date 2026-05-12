@@ -48,6 +48,8 @@ import { useBoardDnd } from "@/hooks/useBoardDnd";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 import CrmRiskRadar from "@/modules/crm/components/CrmRiskRadar";
+import DecisionsSection from "@/components/decisions/DecisionsSection";
+import { Lightbulb } from "lucide-react";
 import BulkTaskDialog from "@/components/BulkTaskDialog";
 
 type BoardStage = {
@@ -177,6 +179,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const [filterRankIds, setFilterRankIds] = useState<string[]>([]);
   const [filterManagerIds, setFilterManagerIds] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [decisionsSheetOpen, setDecisionsSheetOpen] = useState(false);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
@@ -1230,6 +1233,18 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
             </Popover>
 
             {/* CRM dimension filters */}
+            <button
+              onClick={() => setDecisionsSheetOpen(true)}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+              title="Решения встреч в CRM"
+            >
+              <Lightbulb className="h-3 w-3 text-amber-500" />
+              Решения
+            </button>
+
             {territoryTags.length > 0 && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -1611,6 +1626,23 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
               <TaskItem task={selectedTask} initialOpen />
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={decisionsSheetOpen} onOpenChange={setDecisionsSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-amber-500" /> Решения по CRM
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <DecisionsSection
+              tagIds={filterTagIds.length > 0 ? filterTagIds : undefined}
+              groupId={filterGroupIds.length === 1 ? filterGroupIds[0] : undefined}
+              emptyHint="Нет решений в выбранной области. Они появятся, когда зафиксируете решения в протоколах с привязкой к проектам/клиентам/тегам CRM."
+            />
+          </div>
         </SheetContent>
       </Sheet>
     </DndContext>

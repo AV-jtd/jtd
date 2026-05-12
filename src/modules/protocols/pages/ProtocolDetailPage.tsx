@@ -11,6 +11,7 @@ import LivingProtocolHeader from "@/modules/protocols/components/LivingProtocolH
 import ProtocolInternalSection, { CrmReportPlaceholder } from "@/modules/protocols/components/ProtocolInternalSection";
 import ProtocolPreviewDialog from "@/modules/protocols/components/ProtocolPreviewDialog";
 import ProtocolSummary from "@/modules/protocols/components/ProtocolSummary";
+import DecisionsSection from "@/components/decisions/DecisionsSection";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -263,6 +264,17 @@ export default function ProtocolDetailPage() {
             )}
 
             <ProtocolTableView protocolId={protocol.id} />
+
+            {/* Решения протокола (сквозной блок: видны в PMO/CRM) */}
+            <div className="mt-6 rounded-xl border border-border bg-card/50 p-4">
+              <DecisionsSection
+                protocolId={protocol.id}
+                allowCreate
+                defaultProtocolId={protocol.id}
+                title="Решения встречи"
+                emptyHint="Зафиксируйте решения, чтобы они подтянулись в карточки проектов и клиентов."
+              />
+            </div>
 
             {/* 🔴 Internal section (own team) + CRM report placeholder — hidden for cross-functional and living */}
             {!isCrossFunctional && !isLiving && (
