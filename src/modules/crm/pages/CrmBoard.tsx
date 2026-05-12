@@ -1638,7 +1638,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
           </SheetHeader>
           <div className="mt-4">
             <DecisionsSection
-              tagIds={filterTagIds.length > 0 ? filterTagIds : undefined as any}
+              tagIds={filterTagIds.length > 0 ? filterTagIds : undefined}
               groupId={filterGroupIds.length === 1 ? filterGroupIds[0] : undefined}
               emptyHint="Нет решений в выбранной области. Они появятся, когда зафиксируете решения в протоколах с привязкой к проектам/клиентам/тегам CRM."
             />
