@@ -19,6 +19,7 @@ interface Props {
   protocolId?: string | null;
   groupId?: string | null;
   clientId?: string | null;
+  tagIds?: string[];
   /** When true, shows the "+ Решение" button (only meaningful when protocolId is set). */
   allowCreate?: boolean;
   /** Force-create dialog always uses this protocol (required when allowCreate). */
@@ -34,6 +35,7 @@ export default function DecisionsSection({
   protocolId,
   groupId,
   clientId,
+  tagIds,
   allowCreate = false,
   defaultProtocolId,
   defaultProjectId,
@@ -43,7 +45,7 @@ export default function DecisionsSection({
   compact = false,
 }: Props) {
   const { user } = useAuth();
-  const { data: decisions = [], isLoading } = useDecisions({ protocolId, groupId, clientId });
+  const { data: decisions = [], isLoading } = useDecisions({ protocolId, groupId, clientId, tagIds });
   const [editing, setEditing] = useState<Decision | null>(null);
   const [creating, setCreating] = useState(false);
   const deleteMut = useDeleteDecision();
