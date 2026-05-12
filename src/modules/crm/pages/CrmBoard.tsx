@@ -179,6 +179,7 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
   const [filterRankIds, setFilterRankIds] = useState<string[]>([]);
   const [filterManagerIds, setFilterManagerIds] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [decisionsSheetOpen, setDecisionsSheetOpen] = useState(false);
 
   const { data: selectedTask } = useQuery({
     queryKey: ["crm-task-detail", selectedTaskId],
