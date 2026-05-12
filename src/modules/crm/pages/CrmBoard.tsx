@@ -1233,6 +1233,18 @@ export default function CrmBoard({ boardView }: { boardView: "funnel" | "sales" 
             </Popover>
 
             {/* CRM dimension filters */}
+            <button
+              onClick={() => setDecisionsSheetOpen(true)}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors",
+                "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+              title="Решения встреч в CRM"
+            >
+              <Lightbulb className="h-3 w-3 text-amber-500" />
+              Решения
+            </button>
+
             {territoryTags.length > 0 && (
               <Popover>
                 <PopoverTrigger asChild>
