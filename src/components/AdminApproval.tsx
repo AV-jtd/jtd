@@ -15,6 +15,7 @@ import { useDepartments } from "@/hooks/useDepartments";
 import { useAllUserDepartments } from "@/hooks/useOrgStructure";
 import { UserCard } from "./admin/UserCard";
 import { AuditHistoryDialog } from "./admin/AuditHistoryDialog";
+import { EditCredentialsDialog } from "./admin/EditCredentialsDialog";
 import type { AdminUser, Department, ClientLite, SortMode, GroupMode } from "./admin/types";
 
 export default function AdminApproval() {
@@ -41,6 +42,7 @@ export default function AdminApproval() {
 
   // Audit history dialog
   const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
+  const [credsUser, setCredsUser] = useState<AdminUser | null>(null);
 
   const { data: contractors = [] } = useContractors();
   const { data: userDeps = [] } = useAllUserDepartments();
@@ -326,6 +328,7 @@ export default function AdminApproval() {
       onRestore={restoreUser}
       onHardDelete={hardDeleteUser}
       onShowHistory={setHistoryUser}
+      onEditCredentials={setCredsUser}
     />
   );
 
@@ -484,6 +487,15 @@ export default function AdminApproval() {
       )}
 
       <AuditHistoryDialog user={historyUser} onClose={() => setHistoryUser(null)} />
+      <EditCredentialsDialog
+        user={credsUser}
+        open={!!credsUser}
+        onOpenChange={(v) => { if (!v) setCredsUser(null); }}
+        onUpdated={(patch) => {
+          if (!credsUser) return;
+          setUsers(prev => prev.map(u => u.id === credsUser.id ? { ...u, ...patch } : u));
+        }}
+      />
     </div>
   );
 }

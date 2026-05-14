@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown, Undo2, AlertTriangle } from "lucide-react";
+import { UserCheck, UserX, Building2, HardHat, Briefcase, Pencil, Check, X, Mail, Trash2, History, ShieldCheck, Crown, Undo2, AlertTriangle, KeyRound } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 import { UserExtraDeptsPicker } from "./UserExtraDeptsPicker";
 import type { AdminUser, Department, ContractorLite, ClientLite } from "./types";
@@ -33,6 +33,7 @@ interface Props {
   onRestore: (id: string) => void;
   onHardDelete: (id: string) => void;
   onShowHistory: (u: AdminUser) => void;
+  onEditCredentials: (u: AdminUser) => void;
 }
 
 export function UserCard({
@@ -40,6 +41,7 @@ export function UserCard({
   departments, contractors, clients, extraDeptIds,
   editingNameId, editingNameValue, onStartEditName, onChangeNameValue, onSaveName, onCancelEditName,
   onApprove, onDepartmentChange, onToggleHead, onUpdateField, onDelete, onRestore, onHardDelete, onShowHistory,
+  onEditCredentials,
 }: Props) {
   const userDept = u.department_id ? departments.find(d => d.id === u.department_id) : null;
   const isHead = !!(userDept && userDept.head_user_id === u.id);
@@ -232,6 +234,16 @@ export function UserCard({
 
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onShowHistory(u)} title="История изменений">
             <History className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => onEditCredentials(u)}
+            title="Изменить email / Telegram / пароль"
+          >
+            <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
 
           <AlertDialog>

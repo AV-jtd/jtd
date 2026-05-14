@@ -1,0 +1,94 @@
+// Admin-only edge function: update user's password and/or telegram_username.
+// Caller must be authenticated AND have role='admin' in user_roles.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return json({ error: "missing_auth" }, 401);
+    }
+
+    // Identify caller
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user) return json({ error: "invalid_token" }, 401);
+    const callerId = userData.user.id;
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Check admin role
+    const { data: roleRow } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) return json({ error: "forbidden" }, 403);
+
+    const body = await req.json().catch(() => ({}));
+    const targetUserId: string | undefined = body.target_user_id;
+    const newPassword: string | undefined = body.new_password;
+    const newTelegram: string | null | undefined = body.telegram_username;
+    const newEmail: string | undefined = body.email;
+
+    if (!targetUserId) return json({ error: "missing_target" }, 400);
+
+    // Update auth.users (password / email)
+    const authPatch: Record<string, unknown> = {};
+    if (newPassword) {
+      if (newPassword.length < 6) return json({ error: "password_too_short" }, 400);
+      authPatch.password = newPassword;
+    }
+    if (newEmail !== undefined && newEmail !== null) {
+      authPatch.email = newEmail;
+      authPatch.email_confirm = true;
+    }
+    if (Object.keys(authPatch).length > 0) {
+      const { error: aErr } = await admin.auth.admin.updateUserById(targetUserId, authPatch);
+      if (aErr) return json({ error: "auth_update_failed", message: aErr.message }, 400);
+    }
+
+    // Update profile (telegram_username, email mirror)
+    const profilePatch: Record<string, unknown> = {};
+    if (newTelegram !== undefined) {
+      const cleaned = newTelegram === null
+        ? null
+        : String(newTelegram).trim().replace(/^@/, "").toLowerCase() || null;
+      profilePatch.telegram_username = cleaned;
+      // reset chat link so user re-binds with /start link_<id>
+      profilePatch.telegram_chat_id = null;
+    }
+    if (newEmail !== undefined && newEmail !== null) profilePatch.email = newEmail;
+
+    if (Object.keys(profilePatch).length > 0) {
+      const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", targetUserId);
+      if (pErr) return json({ error: "profile_update_failed", message: pErr.message }, 400);
+    }
+
+    return json({ ok: true });
+  } catch (e) {
+    return json({ error: "internal", message: String((e as Error)?.message ?? e) }, 500);
+  }
+
+  function json(obj: unknown, status = 200) {
+    return new Response(JSON.stringify(obj), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
