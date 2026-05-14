@@ -312,7 +312,9 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        // gemini-2.5-pro слишком медленный для больших PDF (>45с — таймаут прокси).
+        // flash быстрее в 3-5× и стабильно справляется с tool-calling по нашей схеме.
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: finalUserContent },
