@@ -45,8 +45,32 @@ Deno.serve(async (req) => {
     const newPassword: string | undefined = body.new_password;
     const newTelegram: string | null | undefined = body.telegram_username;
     const newEmail: string | undefined = body.email;
+    const newDisplayName: string | undefined = body.display_name;
+    const action: string | undefined = body.action; // 'send_recovery' | 'sign_out_everywhere'
 
     if (!targetUserId) return json({ error: "missing_target" }, 400);
+
+    // Action: send password recovery email (uses Supabase Auth -> auth-email-hook)
+    if (action === "send_recovery") {
+      const { data: target, error: tErr } = await admin.auth.admin.getUserById(targetUserId);
+      if (tErr || !target?.user?.email) return json({ error: "user_not_found" }, 404);
+      const redirectTo = (body.redirect_to as string) || `${SUPABASE_URL.replace(/\/$/, "")}/reset-password`;
+      const { data: linkData, error: lErr } = await admin.auth.admin.generateLink({
+        type: "recovery",
+        email: target.user.email,
+        options: { redirectTo: body.redirect_to as string | undefined },
+      });
+      if (lErr) return json({ error: "link_failed", message: lErr.message }, 400);
+      // generateLink already triggers the email hook in Supabase.
+      return json({ ok: true, action_link: (linkData as any)?.properties?.action_link ?? null });
+    }
+
+    // Action: revoke all sessions
+    if (action === "sign_out_everywhere") {
+      const { error: sErr } = await admin.auth.admin.signOut(targetUserId, "global");
+      if (sErr) return json({ error: "signout_failed", message: sErr.message }, 400);
+      return json({ ok: true });
+    }
 
     // Update auth.users (password / email)
     const authPatch: Record<string, unknown> = {};
@@ -74,6 +98,7 @@ Deno.serve(async (req) => {
       profilePatch.telegram_chat_id = null;
     }
     if (newEmail !== undefined && newEmail !== null) profilePatch.email = newEmail;
+    if (newDisplayName !== undefined) profilePatch.display_name = newDisplayName;
 
     if (Object.keys(profilePatch).length > 0) {
       const { error: pErr } = await admin.from("profiles").update(profilePatch).eq("id", targetUserId);
