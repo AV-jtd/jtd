@@ -3,7 +3,7 @@ export interface AdminUser {
   display_name: string | null;
   email: string | null;
   telegram_username: string | null;
-  telegram_chat_id: string | null;
+  telegram_chat_id: number | string | null;
   created_at: string;
   is_approved: boolean;
   department_id: string | null;
