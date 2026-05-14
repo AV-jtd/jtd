@@ -40,6 +40,7 @@ export function useProtocolTemplates() {
       const { data, error } = await supabase
         .from("protocol_templates" as any)
         .select("*")
+        .eq("user_id", user!.id)
         .order("position", { ascending: true });
       if (error) throw error;
       return (data || []) as unknown as ProtocolTemplate[];
