@@ -60,6 +60,16 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
     return () => window.clearTimeout(t);
   }, [draftSearch, search]);
 
+  // ── Defer non-essential portfolio data ──
+  // Эти три запроса нужны ТОЛЬКО для:
+  //   • вычисления имени ответственного (group_members) — используется и без
+  //     группировки, поэтому грузим сразу;
+  //   • группировки «По папке» (folders + folder_items) — нужно ТОЛЬКО когда
+  //     пользователь явно выбрал groupBy='folder'.
+  // Раньше все три летели параллельно с основной загрузкой задач/групп/вех/
+  // RPC-статистики и порождали 7+ одновременных запросов на старте PMO. На
+  // медленном канале / через прокси с лимитом конкурентности это легко даёт
+  // «зависание» портфеля на старте.
   const { data: allGroupMembers = [] } = useQuery({
     queryKey: ["pmo-group-members"],
     queryFn: async () => {
@@ -68,6 +78,7 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       return data as { group_id: string; user_id: string; role: string }[];
     },
     enabled: !!user,
+    staleTime: 60 * 1000,
   });
 
   const { data: folders = [] } = useQuery({
@@ -77,7 +88,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       if (error) throw error;
       return data as { id: string; name: string; color: string | null }[];
     },
-    enabled: !!user,
+    enabled: !!user && groupBy === "folder",
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: folderItems = [] } = useQuery({
@@ -87,7 +99,8 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
       if (error) throw error;
       return data as { folder_id: string; group_id: string }[];
     },
-    enabled: !!user,
+    enabled: !!user && groupBy === "folder",
+    staleTime: 5 * 60 * 1000,
   });
 
   const projectFolderMap = useMemo(() => {
