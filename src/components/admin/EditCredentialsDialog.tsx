@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, KeyRound, MessageCircle, Mail, Wand2, Send, LogOut, User } from "lucide-react";
+import { Loader2, KeyRound, MessageCircle, Mail, Wand2, Send, LogOut, User, Link2, Unlink, MailCheck, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AdminUser } from "./types";
@@ -20,6 +20,7 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [chatId, setChatId] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
 
@@ -30,6 +31,7 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
       setEmail(user.email ?? "");
       setName(user.display_name ?? "");
       setPassword("");
+      setChatId(user.telegram_chat_id != null ? String(user.telegram_chat_id) : "");
     }
     onOpenChange(v);
   };
@@ -47,11 +49,29 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
     toast.success("Пароль сгенерирован и скопирован в буфер");
   };
 
-  const runAction = async (action: "send_recovery" | "sign_out_everywhere") => {
+  type Action =
+    | "send_recovery"
+    | "sign_out_everywhere"
+    | "confirm_email"
+    | "impersonate"
+    | "bind_telegram_chat"
+    | "unbind_telegram_chat";
+
+  const runAction = async (action: Action) => {
     setActionBusy(action);
     const body: Record<string, unknown> = { target_user_id: user.id, action };
-    if (action === "send_recovery") {
+    if (action === "send_recovery" || action === "impersonate") {
       body.redirect_to = `${window.location.origin}/reset-password`;
+      if (action === "impersonate") body.redirect_to = `${window.location.origin}/`;
+    }
+    if (action === "bind_telegram_chat") {
+      const cleaned = chatId.trim();
+      if (!/^-?\d{4,20}$/.test(cleaned)) {
+        toast.error("chat_id должен быть числом");
+        setActionBusy(null);
+        return;
+      }
+      body.telegram_chat_id = cleaned;
     }
     const { data, error } = await supabase.functions.invoke("admin-update-user", { body });
     setActionBusy(null);
@@ -60,10 +80,34 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
       toast.error(msg);
       return;
     }
-    if (action === "send_recovery") {
-      toast.success("Письмо со ссылкой для сброса отправлено");
-    } else {
-      toast.success("Все сессии пользователя завершены");
+    switch (action) {
+      case "send_recovery":
+        toast.success("Письмо со ссылкой для сброса отправлено");
+        break;
+      case "sign_out_everywhere":
+        toast.success("Все сессии пользователя завершены");
+        break;
+      case "confirm_email":
+        toast.success("Email подтверждён");
+        break;
+      case "bind_telegram_chat":
+        toast.success("Telegram chat_id привязан");
+        break;
+      case "unbind_telegram_chat":
+        toast.success("Telegram chat_id отвязан");
+        setChatId("");
+        break;
+      case "impersonate": {
+        const link = (data as any)?.action_link as string | undefined;
+        if (!link) {
+          toast.error("Ссылка не получена");
+          return;
+        }
+        try { await navigator.clipboard.writeText(link); } catch { /* ignore */ }
+        toast.success("Ссылка скопирована. Откройте в приватном окне, чтобы войти.");
+        window.open(link, "_blank", "noopener");
+        break;
+      }
     }
   };
 
@@ -153,6 +197,46 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
           </div>
 
           <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5" /> Telegram chat_id
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                value={chatId}
+                onChange={(e) => setChatId(e.target.value)}
+                placeholder="например 123456789"
+                inputMode="numeric"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => runAction("bind_telegram_chat")}
+                disabled={!!actionBusy || !chatId.trim()}
+              >
+                {actionBusy === "bind_telegram_chat"
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <><Link2 className="h-3.5 w-3.5 mr-1" /> Привязать</>}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => runAction("unbind_telegram_chat")}
+                disabled={!!actionBusy || !user.telegram_chat_id}
+              >
+                {actionBusy === "unbind_telegram_chat"
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <><Unlink className="h-3.5 w-3.5 mr-1" /> Отвязать</>}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Числовой chat_id из Telegram. Подходит, когда пользователь не может сделать /start (например, бот молчит).
+              Узнать chat_id можно через @userinfobot или из логов бота.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs flex items-center gap-1.5">
                 <KeyRound className="h-3.5 w-3.5" /> Новый пароль
@@ -188,6 +272,32 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
                   ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
                   : <Send className="h-3.5 w-3.5 mr-2" />}
                 Выслать письмо со ссылкой для сброса пароля
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => runAction("confirm_email")}
+                disabled={!!actionBusy}
+                className="justify-start"
+              >
+                {actionBusy === "confirm_email"
+                  ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  : <MailCheck className="h-3.5 w-3.5 mr-2" />}
+                Подтвердить email вручную
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => runAction("impersonate")}
+                disabled={!!actionBusy}
+                className="justify-start"
+              >
+                {actionBusy === "impersonate"
+                  ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  : <UserCheck className="h-3.5 w-3.5 mr-2" />}
+                Войти как пользователь (magic-link)
               </Button>
               <Button
                 type="button"
