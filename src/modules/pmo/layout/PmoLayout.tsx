@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LayoutDashboard, GanttChart, Flag, Users, BarChart3, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,18 @@ export default function PmoLayout() {
   const [activeView, setActiveView] = useState<PmoView>(initialView as PmoView);
   const [focusProjectId, setFocusProjectId] = useState<string | null>(initialProject);
   const [cameFromPortfolio, setCameFromPortfolio] = useState(false);
+
+  // Гант — самый тяжёлый экран PMO (тянет все задачи/вехи/зависимости и
+  // навешивает realtime-канал каскада). Раньше он монтировался сразу при
+  // открытии PMO (через `hidden`-таб), из-за чего портфель «висел» по 10–30 с
+  // у пользователей с широкими доступами. Теперь Гант инициализируется лениво:
+  // только когда пользователь впервые открывает вкладку «Гант».
+  // После первого монтирования компонент остаётся в DOM (скрытый), чтобы
+  // дальнейшие переключения вкладок были мгновенными.
+  const [ganttMounted, setGanttMounted] = useState(initialView === "gantt");
+  useEffect(() => {
+    if (activeView === "gantt" && !ganttMounted) setGanttMounted(true);
+  }, [activeView, ganttMounted]);
 
   const handleOpenGantt = useCallback((projectId: string) => {
     // Navigate to dedicated project page
@@ -74,7 +86,11 @@ export default function PmoLayout() {
       }
     >
       <div className={cn(activeView !== "portfolio" && "hidden", "h-full")}><PortfolioView onOpenGantt={handleOpenGantt} /></div>
-      <div className={cn(activeView !== "gantt" && "hidden", "h-full")}><GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} /></div>
+      {ganttMounted && (
+        <div className={cn(activeView !== "gantt" && "hidden", "h-full")}>
+          <GanttView initialProjectId={focusProjectId} onBack={cameFromPortfolio ? handleBackToPortfolio : undefined} />
+        </div>
+      )}
       {activeView === "milestones" && <MilestonesView />}
       {activeView === "resources" && <PlaceholderView icon={Users} title="Ресурсы" description="Загрузка участников и распределение по проектам" />}
       {activeView === "reports" && <ReportsView />}
