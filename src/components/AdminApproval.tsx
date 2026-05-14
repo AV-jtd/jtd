@@ -487,6 +487,15 @@ export default function AdminApproval() {
       )}
 
       <AuditHistoryDialog user={historyUser} onClose={() => setHistoryUser(null)} />
+      <EditCredentialsDialog
+        user={credsUser}
+        open={!!credsUser}
+        onOpenChange={(v) => { if (!v) setCredsUser(null); }}
+        onUpdated={(patch) => {
+          if (!credsUser) return;
+          setUsers(prev => prev.map(u => u.id === credsUser.id ? { ...u, ...patch } : u));
+        }}
+      />
     </div>
   );
 }
