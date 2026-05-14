@@ -46,7 +46,9 @@ Deno.serve(async (req) => {
     const newTelegram: string | null | undefined = body.telegram_username;
     const newEmail: string | undefined = body.email;
     const newDisplayName: string | undefined = body.display_name;
-    const action: string | undefined = body.action; // 'send_recovery' | 'sign_out_everywhere'
+    const action: string | undefined = body.action;
+    // 'send_recovery' | 'sign_out_everywhere' | 'confirm_email'
+    // | 'impersonate' | 'bind_telegram_chat' | 'unbind_telegram_chat'
 
     if (!targetUserId) return json({ error: "missing_target" }, 400);
 
@@ -69,6 +71,50 @@ Deno.serve(async (req) => {
     if (action === "sign_out_everywhere") {
       const { error: sErr } = await admin.auth.admin.signOut(targetUserId, "global");
       if (sErr) return json({ error: "signout_failed", message: sErr.message }, 400);
+      return json({ ok: true });
+    }
+
+    // Action: manually confirm email
+    if (action === "confirm_email") {
+      const { error: cErr } = await admin.auth.admin.updateUserById(targetUserId, {
+        email_confirm: true,
+      });
+      if (cErr) return json({ error: "confirm_failed", message: cErr.message }, 400);
+      return json({ ok: true });
+    }
+
+    // Action: impersonate (generate magic link admin can open)
+    if (action === "impersonate") {
+      const { data: target, error: tErr } = await admin.auth.admin.getUserById(targetUserId);
+      if (tErr || !target?.user?.email) return json({ error: "user_not_found" }, 404);
+      const { data: linkData, error: lErr } = await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email: target.user.email,
+        options: { redirectTo: body.redirect_to as string | undefined },
+      });
+      if (lErr) return json({ error: "link_failed", message: lErr.message }, 400);
+      return json({ ok: true, action_link: (linkData as any)?.properties?.action_link ?? null });
+    }
+
+    // Action: bind/unbind telegram_chat_id directly
+    if (action === "bind_telegram_chat") {
+      const raw = String(body.telegram_chat_id ?? "").trim();
+      if (!/^-?\d{4,20}$/.test(raw)) {
+        return json({ error: "invalid_chat_id", message: "chat_id должен быть числом" }, 400);
+      }
+      const { error: bErr } = await admin
+        .from("profiles")
+        .update({ telegram_chat_id: raw })
+        .eq("id", targetUserId);
+      if (bErr) return json({ error: "bind_failed", message: bErr.message }, 400);
+      return json({ ok: true });
+    }
+    if (action === "unbind_telegram_chat") {
+      const { error: uErr } = await admin
+        .from("profiles")
+        .update({ telegram_chat_id: null })
+        .eq("id", targetUserId);
+      if (uErr) return json({ error: "unbind_failed", message: uErr.message }, 400);
       return json({ ok: true });
     }
 

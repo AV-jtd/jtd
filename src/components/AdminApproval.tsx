@@ -69,7 +69,7 @@ export default function AdminApproval() {
     const [{ data: profiles }, { data: roles }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
+        .select("id, display_name, email, telegram_username, telegram_chat_id, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
         .order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id").eq("role", "admin"),
     ]);
@@ -92,7 +92,7 @@ export default function AdminApproval() {
     // Лёгкая перезагрузка только профилей
     supabase
       .from("profiles")
-      .select("id, display_name, email, telegram_username, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
+      .select("id, display_name, email, telegram_username, telegram_chat_id, created_at, is_approved, department_id, organization, contractor_id, client_id, deleted_at, deleted_by")
       .order("created_at", { ascending: false })
       .then(({ data }) => { if (data) setUsers(data as AdminUser[]); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
