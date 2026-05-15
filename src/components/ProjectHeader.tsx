@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3, Lock, Unlock, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers } from "@/hooks/useTasks";
+import { useTaskGroups, useTasksByGroupIds, useTaskMutations, useAvailableUsers } from "@/hooks/useTasks";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +29,6 @@ interface ProjectHeaderProps {
 export default function ProjectHeader({ projectId, activeView, onViewChange, onBack }: ProjectHeaderProps) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasks = [] } = useTasks();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { lockBaseline, unlockBaseline } = useTaskMutations();
   const navigate = useNavigate();
@@ -37,6 +36,8 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
   const project = useMemo(() => groups.find(g => g.id === projectId), [groups, projectId]);
   const isNpd = project?.project_type === "npd";
   const childIds = useMemo(() => groups.filter(g => g.parent_id === projectId).map(g => g.id), [groups, projectId]);
+  const projectScopeIds = useMemo(() => [projectId, ...childIds], [projectId, childIds]);
+  const { data: allTasks = [] } = useTasksByGroupIds(projectScopeIds);
 
   // Baseline status
   const baselineStatus = (project as any)?.baseline_status || 'planning';
