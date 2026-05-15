@@ -367,6 +367,8 @@ export function useTaskGroups() {
 export interface UseTasksOptions {
   /** `null` = unlimited (default), `0` = no completed, `N` = last N days. */
   completedWindowDays?: number | null;
+  /** Allows heavy callers to keep the hook mounted without firing the global query. */
+  enabled?: boolean;
 }
 
 export function useTasks(
@@ -377,6 +379,7 @@ export function useTasks(
   const { user, loading } = useAuth();
   const qc = useQueryClient();
   const completedWindowDays = options?.completedWindowDays ?? null;
+  const enabled = options?.enabled ?? true;
 
   // Realtime subscription moved to useRealtimeSubscriptions (singleton at App root)
 
@@ -506,10 +509,67 @@ export function useTasks(
 
       return filteredTasks;
     },
-    enabled: !loading && !!user,
+    enabled: enabled && !loading && !!user,
     staleTime: 1000 * 60 * 5,
     retry: 1,
     refetchOnReconnect: "always",
+  });
+}
+
+export function useTasksByGroupIds(
+  groupIds?: string[] | null,
+  options?: UseTasksOptions,
+) {
+  const { user, loading } = useAuth();
+  const qc = useQueryClient();
+  const completedWindowDays = options?.completedWindowDays ?? null;
+  const enabled = options?.enabled ?? true;
+
+  const sortedIds = useMemo(() => {
+    if (!groupIds?.length) return [] as string[];
+    return Array.from(new Set(groupIds)).sort();
+  }, [groupIds]);
+
+  return useQuery({
+    queryKey: ["tasks-by-groups", user?.id, sortedIds, completedWindowDays],
+    queryFn: async () => {
+      if (sortedIds.length === 0) return [] as Task[];
+      const queryKey = ["tasks-by-groups", user?.id, sortedIds, completedWindowDays] as const;
+      const controller = new AbortController();
+
+      const tasks = await fetchAllPagesStreaming<Task>((from, to) => {
+        let query = supabase
+          .from("tasks")
+          .select("*, subtasks(*)")
+          .in("group_id", sortedIds)
+          .order("is_completed", { ascending: true })
+          .order("position")
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+          .abortSignal(controller.signal);
+
+        if (completedWindowDays === 0) {
+          query = query.eq("is_completed", false);
+        } else if (typeof completedWindowDays === "number" && completedWindowDays > 0) {
+          const cutoff = new Date(Date.now() - completedWindowDays * 86400 * 1000).toISOString();
+          query = query.or(`is_completed.eq.false,completed_at.gte.${cutoff}`);
+        }
+
+        return query as unknown as PromiseLike<{ data: Task[] | null; error: unknown }>;
+      }, (accumulated, isFinal) => {
+        if (isFinal) return;
+        qc.setQueryData<Task[]>(queryKey, accumulated);
+      }, TASK_BOOT_MAX_PAGES);
+
+      void hydrateTaskRelationsInBackground(qc, queryKey, tasks);
+      return tasks;
+    },
+    enabled: enabled && !loading && !!user && sortedIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+    refetchOnReconnect: "always",
+    placeholderData: [],
   });
 }
 
