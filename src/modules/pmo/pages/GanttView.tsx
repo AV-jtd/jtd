@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
-import { useTaskGroups, useTasks, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
+import { useTaskGroups, useTasks, useTasksByGroupIds, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
@@ -46,7 +46,25 @@ const MAX_LEFT_PANEL = 1200;
 export default function GanttView({ initialProjectId, onBack, embedded }: { initialProjectId?: string | null; onBack?: () => void; embedded?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
-  const { data: allTasksGlobal = [] } = useTasks();
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
+  const visibleGroupIds = useMemo(() => {
+    if (!selectedProjectId) return null;
+    const ids = new Set<string>([selectedProjectId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const group of groups) {
+        if (group.parent_id && ids.has(group.parent_id) && !ids.has(group.id)) {
+          ids.add(group.id);
+          changed = true;
+        }
+      }
+    }
+    return [...ids];
+  }, [groups, selectedProjectId]);
+  const { data: globalGanttTasks = [] } = useTasks(undefined, undefined, { completedWindowDays: 14, enabled: !visibleGroupIds });
+  const { data: projectGanttTasks = [] } = useTasksByGroupIds(visibleGroupIds, { enabled: !!visibleGroupIds });
+  const allTasksGlobal = visibleGroupIds ? projectGanttTasks : globalGanttTasks;
   const { data: allMilestones = [] } = useMilestones();
   const { data: allDependencies = [] } = useDependencies();
   const { data: users = [] } = useAvailableUsers();
@@ -121,7 +139,6 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   }, [deleteTask, pushUndo]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<Scale>("week");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId || null);
 
   // Sync when parent changes the focused project
   useEffect(() => {
