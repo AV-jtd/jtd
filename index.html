@@ -27,6 +27,73 @@
 
   <body>
     <div id="root"></div>
+    <!--
+      PWA stale-shell recovery. Установленные ранее PWA могут открываться
+      под управлением старого service worker, который отдаёт закешированный
+      index.html со ссылками на удалённые JS-чанки → главный модуль не
+      грузится → белый экран. Ловим ошибку загрузки <script type="module">
+      и принудительно сбрасываем SW + кэши + перезагружаем страницу.
+    -->
+    <script>
+      (function () {
+        var RECOVERY_KEY = "jtd_pwa_shell_recovery";
+        var BOOT_OK_KEY = "jtd_boot_ok";
+        var BOOT_TIMEOUT_MS = 8000;
+
+        function recover(reason) {
+          try {
+            if (sessionStorage.getItem(RECOVERY_KEY)) return; // не зацикливаемся
+            sessionStorage.setItem(RECOVERY_KEY, String(Date.now()));
+          } catch (_) {}
+          console.warn("[PWA recovery] " + reason + " — resetting SW & caches");
+          var done = function () {
+            try { sessionStorage.removeItem(BOOT_OK_KEY); } catch (_) {}
+            var url = new URL(window.location.href);
+            url.searchParams.set("pwa-recovered", Date.now().toString());
+            window.location.replace(url.toString());
+          };
+          var tasks = [];
+          try {
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              tasks.push(
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                }).catch(function () {})
+              );
+            }
+            if (window.caches && caches.keys) {
+              tasks.push(
+                caches.keys().then(function (names) {
+                  return Promise.all(names.map(function (n) { return caches.delete(n); }));
+                }).catch(function () {})
+              );
+            }
+          } catch (_) {}
+          Promise.all(tasks).then(done, done);
+          setTimeout(done, 2500);
+        }
+
+        // 1. Любая ошибка загрузки <script type="module"> = смерть бандла.
+        window.addEventListener("error", function (e) {
+          var t = e && e.target;
+          if (t && t.tagName === "SCRIPT" && t.src) {
+            recover("script load failed: " + t.src);
+          }
+        }, true);
+
+        // 2. Если за BOOT_TIMEOUT_MS React не успел отрисовать ничего в #root —
+        //    скорее всего bundle сдох молча. Сбрасываем PWA-оболочку.
+        setTimeout(function () {
+          try {
+            if (sessionStorage.getItem(BOOT_OK_KEY) === "1") return;
+          } catch (_) {}
+          var root = document.getElementById("root");
+          if (!root || root.children.length === 0) {
+            recover("boot timeout — empty #root after " + BOOT_TIMEOUT_MS + "ms");
+          }
+        }, BOOT_TIMEOUT_MS);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

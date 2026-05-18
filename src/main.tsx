@@ -139,6 +139,10 @@ window.addEventListener("error", (e) => {
 
 try {
   createRoot(document.getElementById("root")!).render(<App />);
+  try {
+    sessionStorage.setItem("jtd_boot_ok", "1");
+    sessionStorage.removeItem("jtd_pwa_shell_recovery");
+  } catch {}
 } catch (err) {
   showBootError(err);
 }
