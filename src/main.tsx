@@ -48,6 +48,7 @@
 import { createRoot } from "react-dom/client";
 import "./lib/supabaseFetchGuard";
 import "./lib/authRefreshSingleflight";
+import { checkForUpdates } from "./lib/versionCheck";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -143,6 +144,8 @@ try {
     sessionStorage.setItem("jtd_boot_ok", "1");
     sessionStorage.removeItem("jtd_pwa_shell_recovery");
   } catch {}
+  // Запускаем фоновый чек версии — он покажет UpdateBanner, когда появится новая сборка.
+  void checkForUpdates();
 } catch (err) {
   showBootError(err);
 }
