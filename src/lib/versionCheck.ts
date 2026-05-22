@@ -54,10 +54,34 @@ async function hardReload() {
 
 function markUpdateAvailable() {
   try { sessionStorage.setItem("jtd_update_available", String(Date.now())); } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent("jtd:update-available"));
+  } catch {}
 }
 
 function clearUpdateAvailable() {
   try { sessionStorage.removeItem("jtd_update_available"); } catch {}
+}
+
+/**
+ * Manually trigger the pending update. Called from the in-app "Обновить сейчас"
+ * button so users don't have to wait for the tab to be backgrounded.
+ */
+export async function applyUpdateNow() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) {
+      try { await reg.update(); } catch {}
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+    }
+  } catch {}
+  await hardReload();
+}
+
+export function isUpdateAvailable(): boolean {
+  try { return sessionStorage.getItem("jtd_update_available") !== null; } catch { return false; }
 }
 
 async function hardReloadOnlyWhenHidden() {
