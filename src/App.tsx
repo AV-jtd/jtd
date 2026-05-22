@@ -17,6 +17,7 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const PerfMetricsOverlay = lazyWithRetry(() => import("@/components/PerfMetricsOverlay"));
 import PendingSync from "./components/PendingSync";
 import { Loader2 } from "lucide-react";
+import UpdateBanner from "./components/UpdateBanner";
 
 // Eagerly loaded (critical path)
 import Index from "./pages/Index";
@@ -98,6 +99,7 @@ function AppContent() {
     <>
       <Toaster />
       <Sonner />
+      <UpdateBanner />
       {import.meta.env.DEV && (
         <Suspense fallback={null}>
           <PerfMetricsOverlay />
