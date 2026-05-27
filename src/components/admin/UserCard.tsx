@@ -55,7 +55,7 @@ export function UserCard({
           ? "border-border"
           : "border-border bg-muted/30"
     } ${selected ? "ring-2 ring-primary/40" : ""}`}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-wrap">
         {!isDeleted && <Checkbox
           checked={selected}
           onCheckedChange={() => onToggleSelect(u.id)}
@@ -64,7 +64,7 @@ export function UserCard({
         />}
         <UserAvatar id={u.id} name={u.display_name} email={u.email} size={36} />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[200px] flex-1">
           {/* Name + edit */}
           {editingNameId === u.id ? (
             <div className="flex items-center gap-1">
@@ -173,7 +173,7 @@ export function UserCard({
             </AlertDialog>
           </div>
         ) : (
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
           <Select
             value={u.department_id ?? "__none"}
             onValueChange={(v) => onDepartmentChange(u.id, v === "__none" ? null : v)}
