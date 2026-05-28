@@ -131,6 +131,14 @@
     @apply border-border;
   }
 
+  /* Prevent mobile browsers (Android Chrome "Font Boosting", iOS Safari
+     orientation auto-scaling) from inflating text inside the app. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
