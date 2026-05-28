@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3, Lock, Unlock, Clock } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, GanttChart, Grid3X3, LayoutGrid, Lock, Unlock, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasksByGroupIds, useTaskMutations, useAvailableUsers } from "@/hooks/useTasks";
 import { useMemo } from "react";
@@ -17,7 +17,7 @@ const NPD_GATES_META = [
   { key: "gate5", short: "G5", label: "Анализ", tagName: "Gate 5: Анализ запуска", color: "bg-rose-500" },
 ] as const;
 
-type ProjectView = "dashboard" | "gantt" | "matrix";
+type ProjectView = "dashboard" | "gantt" | "matrix" | "kanban";
 
 interface ProjectHeaderProps {
   projectId: string;
@@ -114,6 +114,7 @@ export default function ProjectHeader({ projectId, activeView, onViewChange, onB
     { id: "dashboard", icon: LayoutDashboard, label: "Обзор" },
     { id: "gantt", icon: GanttChart, label: "Гантт" },
     { id: "matrix", icon: Grid3X3, label: "Матрица", disabled: !isNpd },
+    { id: "kanban", icon: LayoutGrid, label: "Канбан" },
   ];
 
   if (!project) return null;
