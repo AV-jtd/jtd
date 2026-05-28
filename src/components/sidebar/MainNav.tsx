@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, type LucideIcon } from "lucide-react";
+import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, LayoutGrid, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,6 +55,7 @@ export default function MainNav({ activeView, activeGroupId, onViewChange, onGro
     { id: "deferred", icon: Clock, label: "Отложенные" },
     { id: "community", icon: Globe, label: "Сообщество" },
     { id: "calendar", icon: CalendarDays, label: "Календарь" },
+    { id: "kanban", icon: LayoutGrid, label: "Канбан", href: "/kanban" },
     { id: "dashboard", icon: BarChart3, label: "Дашборд" },
     { id: "wiki", icon: BookOpen, label: "База знаний" },
     { id: "protocols", icon: FileText, label: "Протоколы", href: "/protocols" },
