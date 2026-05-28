@@ -825,6 +825,146 @@ export type Database = {
           },
         ]
       }
+      kanban_boards: {
+        Row: {
+          board_type: Database["public"]["Enums"]["kanban_board_type"]
+          created_at: string
+          filter_json: Json | null
+          group_by: string | null
+          group_id: string | null
+          icon: string
+          id: string
+          is_archived: boolean
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          board_type?: Database["public"]["Enums"]["kanban_board_type"]
+          created_at?: string
+          filter_json?: Json | null
+          group_by?: string | null
+          group_id?: string | null
+          icon?: string
+          id?: string
+          is_archived?: boolean
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          board_type?: Database["public"]["Enums"]["kanban_board_type"]
+          created_at?: string
+          filter_json?: Json | null
+          group_by?: string | null
+          group_id?: string | null
+          icon?: string
+          id?: string
+          is_archived?: boolean
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_boards_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_card_positions: {
+        Row: {
+          board_id: string
+          column_id: string
+          position: number
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          column_id: string
+          position?: number
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          column_id?: string
+          position?: number
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_card_positions_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_card_positions_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_card_positions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_columns: {
+        Row: {
+          board_id: string
+          color: string
+          created_at: string
+          id: string
+          mapping_json: Json | null
+          name: string
+          position: number
+          status_value: string | null
+          wip_limit: number | null
+        }
+        Insert: {
+          board_id: string
+          color?: string
+          created_at?: string
+          id?: string
+          mapping_json?: Json | null
+          name: string
+          position?: number
+          status_value?: string | null
+          wip_limit?: number | null
+        }
+        Update: {
+          board_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          mapping_json?: Json | null
+          name?: string
+          position?: number
+          status_value?: string | null
+          wip_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -2730,6 +2870,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "consultant" | "director"
+      kanban_board_type: "personal" | "project" | "smart"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2858,6 +2999,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "consultant", "director"],
+      kanban_board_type: ["personal", "project", "smart"],
     },
   },
 } as const
