@@ -1,72 +1,66 @@
-## Что делаем
+## План реализации: Канбан-доски (поэтапно)
 
-Добавляем сквозную сущность **Решения (Decisions)** — отдельную таблицу, привязанную к протоколу, проектам и осям-тегам, с опциональным ограничением видимости. Решения видны во всех модулях: Протоколах (где приняты), PMO (на карточке проекта), CRM (на карточке клиента/сделки).
+Разобью на 3 этапа, чтобы каждый можно было проверить и откатить независимо. Сейчас предлагаю стартовать с **Этапа 1**.
 
-Сейчас «решение» = текстовое поле `tasks.closure_result` на отдельной строке протокола. Этого мало: невозможно искать по решениям, привязать к нескольким проектам/тегам, ограничить круг лиц, агрегировать по клиенту/бренду.
+---
 
-## Модель данных
+### Этап 1 — Базовый MVP (Personal + Project, status-driven) ⬅️ сейчас
 
-Новая таблица `decisions`:
-- `id`, `user_id` (автор), `created_at`, `updated_at`
-- `protocol_id uuid` — ссылка на `task_groups` (протокол, где принято)
-- `source_task_id uuid NULL` — опц. строка протокола, из которой создано
-- `title text`, `body text` — суть решения
-- `decided_at timestamptz` — дата принятия (по умолчанию сегодня)
-- `status text` — `active` | `revoked` | `superseded` (с `superseded_by uuid`)
-- `visibility text` — `protocol` (видят все, кто видит протокол — дефолт) | `restricted` (только указанный круг)
+**Цель**: рабочие канбан-доски с DnD по статусам, без CRM/NPD-рефакторинга.
 
-Связи M2M:
-- `decision_projects(decision_id, group_id)` — намертво пришитые проекты
-- `decision_tags(decision_id, tag_id)` — оси (любые системные/пользовательские)
-- `decision_clients(decision_id, client_id)` — для CRM
-- `decision_viewers(decision_id, user_id)` — круг лиц при `visibility='restricted'`
+**Миграция БД:**
+- `kanban_boards` (id, name, icon, owner_id, board_type, group_id, group_by, is_archived, created_at, updated_at)
+- `kanban_columns` (id, board_id, name, color, position, wip_limit, mapping_json, status_value)
+- `kanban_card_positions` (board_id, task_id, column_id, position) — PK (board_id, task_id)
+- GRANTs + RLS: personal — owner_id; project — `has_project_access(group_id)`
+- Триггер: при создании board авто-генерация 4 дефолтных колонок (Inbox → Active → Review → Done), маппинг на `tasks.status`
 
-## Видимость (RLS)
+**Frontend:**
+- Маршрут `/kanban` (список досок) и `/kanban/:boardId` (канва)
+- Сайдбар: пункт "Канбан" в фазе ACT, под ним — personal-доски + project-доски, к которым есть доступ
+- Компоненты:
+  - `KanbanBoardPage` — канва с колонками
+  - `KanbanColumn` — обёртка над `BoardColumn`, WIP-индикатор
+  - `KanbanCard` — компактная карточка задачи (reuse `TaskCard` mini)
+  - `BoardSettingsDialog` — переименование, добавление/удаление/цвет колонок, WIP
+  - `CreateBoardDialog` — выбор типа (Personal / Project)
+- DnD: переиспользуем `useBoardDnd` + `DraggableWrapper`
+  - Drop → update `tasks.status` (status-driven) + upsert в `kanban_card_positions` (ручная сортировка)
+- Клик по карточке → открывает `ProjectDetailPanel` (desktop) / `TaskDetailSheet` (mobile)
+- Источник задач: для Personal — задачи юзера; для Project — задачи проекта (reuse существующих хуков)
 
-Функция `can_see_decision(_decision_id, _user_id)`:
-- админ → да
-- автор → да
-- если `visibility='protocol'` → проверка доступа к `protocol_id` (через `is_group_member` / `is_group_owner` / `is_task_in_protocol_attendee_scope`-логику)
-- если `visibility='restricted'` → запись в `decision_viewers` ИЛИ автор ИЛИ участник любого из связанных проектов
+**Что НЕ делаем на этом этапе:**
+- Smart boards (filter_json)
+- Swimlanes (group_by)
+- Рефакторинг CRM pipeline и NPD matrix (продолжают работать как есть)
+- Шаблоны, дублирование, автоматизации
 
-SELECT/INSERT/UPDATE/DELETE policies — стандартный набор: автор + админ редактируют, видимость через функцию. Консультантам — блок (как везде).
+---
 
-## UI
+### Этап 2 — Smart boards + Swimlanes (после проверки Этапа 1)
 
-**1. Протокол (`/protocols/:id`)**
-- Новая вкладка/секция «Решения» в шапке протокола (рядом с Таблица/Список/Чат/Wiki).
-- Кнопка «+ Решение» в шапке + быстрое действие в раскрытой строке таблицы: «Превратить решение в Decision» (берёт `closure_result` или создаёт новое).
-- Карточка решения: заголовок, текст, дата, чипы привязанных проектов/тегов/клиентов, индикатор «Ограниченный круг» + список зрителей.
-- Диалог `DecisionDialog` с: текст, дата, мульти-выбор проектов (`ProjectPicker`), мульти-выбор тегов (`TagPicker`), мульти-выбор клиентов (`ClientPicker`), переключатель видимости + `MultiAssigneePicker` для круга лиц.
+- `board_type = 'smart'` с `filter_json` (теги, assignee, дедлайн)
+- `group_by` (assignee / tag / due_week) — swimlanes
+- Шаблоны досок (Scrum, GTD)
 
-**2. PMO (`/pmo`)**
-- В `ExpandedProjectDashboard` (раскрытая карточка) — секция «Решения» рядом с Overdue/Upcoming/Drift. Источник: `decisions` где `group_id` ∈ scopeIds (проект + дети + внуки). Группировка: текст + чипы протокола (откуда), даты, кнопка «Открыть протокол».
-- В `ProjectDetailPanel` (футер карточки проекта) — компактный список последних 5 решений + ссылка «Все решения».
+---
 
-**3. CRM (`/crm`)**
-- В `CrmBoard`/карточке клиента — секция «Решения по клиенту»: запросы по `decision_clients.client_id`. Показ: заголовок, дата, протокол-источник.
+### Этап 3 — Унификация CRM/NPD (отдельное обсуждение)
 
-**4. Глобально**
-- В `ProjectDetailPanel` уже есть зона футера — добавим под создателем «N решений» с поповером.
-- Хук `useDecisions({ protocolId?, groupId?, clientId?, tagIds? })` — единая точка чтения.
+- CRM pipeline становится системной project-доской с `mapping_json` → `crm_status`
+- NPD matrix — то же с `npd_gate`, `kanban_card_positions` поглощает `npd_card_positions`
+- Требует осторожной миграции данных — будем решать отдельно
 
-## Технические детали
+---
 
-- Миграция: создать таблицы + RLS + функцию `can_see_decision` (`SECURITY DEFINER`, `STABLE`, `search_path=public`).
-- Триггер `update_updated_at_column` на `decisions`.
-- Индексы: `decisions(protocol_id)`, `decision_projects(group_id)`, `decision_clients(client_id)`, `decision_tags(tag_id)`.
-- Realtime: добавить `decisions`, `decision_*` в `supabase_realtime`.
-- TS-хуки: `useDecisions`, `useCreateDecision`, `useUpdateDecision`, `useDeleteDecision` в `src/hooks/useDecisions.tsx`.
-- Компоненты: `src/components/decisions/DecisionDialog.tsx`, `DecisionCard.tsx`, `DecisionsSection.tsx`.
-- Интеграция: новые секции в `ProtocolDetailPage`, `ExpandedProjectDashboard` (PMO), `CrmBoard`, `ProjectDetailPanel`.
+### Технические детали
 
-## Этапы
+- **Доска без колонок**: блок при создании невозможен — триггер сразу создаёт 4 дефолтные
+- **WIP-лимит**: визуальный (красная рамка колонки), не блокирует drop
+- **Сортировка**: при drop пересчитываем `position` соседей (шаг 1000, как в `npd_card_positions`)
+- **Realtime**: подписка на `kanban_card_positions` + `tasks` (через существующий singleton)
+- **Мобилка**: горизонтальный скролл колонок, ширина колонки 280px
 
-1. **Миграция БД** — таблицы, RLS, функция, индексы, realtime.
-2. **Хуки + диалог** — CRUD, форма с пикерами проектов/тегов/клиентов/зрителей.
-3. **Секция «Решения» в протоколе** — отдельная вкладка + кнопка в раскрытой строке.
-4. **Интеграция в PMO** — секция в `ExpandedProjectDashboard` + сводка в футере `ProjectDetailPanel`.
-5. **Интеграция в CRM** — секция «Решения по клиенту» на карточке клиента.
-6. **Memory** — обновить `mem://index.md` и завести `mem://features/decisions.md`.
+---
 
-Начать с миграции (Этап 1) — после её одобрения сразу пойдут хуки и UI.
+После одобрения начну с миграции БД, потом сайдбар + страница списка, потом канва с DnD.
