@@ -1,7 +1,7 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
-import { Settings, Loader2, Plus, AlertTriangle } from "lucide-react";
+import { Settings, Loader2, Plus, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
@@ -12,7 +12,8 @@ import {
   useColumnMutations,
   type KanbanColumn as KanbanColumnT,
 } from "@/hooks/useKanbanBoards";
-import { useTasks, type Task } from "@/hooks/useTasks";
+import { useTasks, useAvailableUsers, useTaskMutations, type Task } from "@/hooks/useTasks";
+import TaskCreateBar from "@/components/task-list/TaskCreateBar";
 import { KanbanCard } from "@/components/kanban/KanbanCard";
 import { BoardSettingsDialog } from "@/components/kanban/BoardSettingsDialog";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,9 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
   const navigate = useNavigate();
   const { data, isLoading } = useKanbanBoard(boardId);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const { data: availableUsers = [] } = useAvailableUsers();
+  const { addTask } = useTaskMutations();
 
   const board = data?.board;
   const columns = data?.columns ?? [];
@@ -91,6 +95,48 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
     [cardsByColumn, columns, posByTask, moveCard],
   );
 
+  // Create a task and place it into a specific column.
+  // If columnId is omitted, the task lands in the first column (default).
+  const createTaskInColumn = useCallback(
+    async (
+      payload: {
+        title: string;
+        group_id: string | null;
+        deadline: string | null;
+        assigned_to?: string | null;
+        department_id?: string | null;
+        contractor_id?: string | null;
+        task_type: "standard" | "crm";
+        client_name?: string;
+      },
+      columnId?: string,
+    ) => {
+      if (!board) return;
+      const effectiveGroupId =
+        board.board_type === "project" ? board.group_id ?? null : payload.group_id;
+      const created: any = await addTask.mutateAsync({
+        ...payload,
+        group_id: effectiveGroupId,
+      });
+      const targetColId = columnId ?? firstColumnId;
+      if (created?.id && targetColId) {
+        const list = cardsByColumn.get(targetColId) ?? [];
+        const last = list[list.length - 1];
+        const lastPos = last && posByTask.get(last.id)?.position;
+        const newPos = (lastPos ?? list.length * STEP) + STEP;
+        const targetCol = columns.find((c) => c.id === targetColId);
+        const mapping = (targetCol?.mapping_json ?? null) as { is_completed?: boolean } | null;
+        moveCard.mutate({
+          task_id: created.id,
+          column_id: targetColId,
+          position: newPos,
+          completeTask: mapping?.is_completed,
+        });
+      }
+    },
+    [addTask, board, cardsByColumn, columns, firstColumnId, moveCard, posByTask],
+  );
+
   const dropKeys = useMemo(() => columns.map((c) => c.id), [columns]);
   const { dndContextProps, overColumn, activeId } = useBoardDnd({ dropKeys, onDrop: handleDrop });
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null;
@@ -125,6 +171,19 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
         </div>
       )}
 
+      {/* Quick create bar — same UX as the global "Все задачи" view */}
+      <div className="shrink-0 border-b border-border bg-background/60 px-4 pt-3 md:px-6">
+        <TaskCreateBar
+          inputRef={createInputRef}
+          activeView={board.board_type === "project" ? "group" : "today"}
+          activeGroupId={board.group_id ?? null}
+          availableUsers={availableUsers}
+          onCreateTask={(payload) => {
+            void createTaskInColumn(payload);
+          }}
+        />
+      </div>
+
       <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
         <DndContext {...dndContextProps}>
           <div className="flex h-full min-w-min">
@@ -136,6 +195,17 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
                 isOver={overColumn === col.id}
                 onCardClick={(taskId) =>
                   navigate(`/?task=${taskId}${board.group_id ? `&group=${board.group_id}` : ""}`)
+                }
+                onQuickAdd={(title) =>
+                  createTaskInColumn(
+                    {
+                      title,
+                      group_id: board.group_id ?? null,
+                      deadline: null,
+                      task_type: "standard",
+                    },
+                    col.id,
+                  )
                 }
               />
             ))}
