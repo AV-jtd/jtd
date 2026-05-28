@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, GripVertical } from "lucide-react";
 import { useColumnMutations, useUpdateKanbanBoard, useDeleteKanbanBoard, type KanbanBoard, type KanbanColumn } from "@/hooks/useKanbanBoards";
-import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 
 const COLOR_PRESETS = ["#94A3B8", "#3B82F6", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6"];
@@ -86,16 +86,28 @@ export function BoardSettingsDialog({ open, onOpenChange, board, columns }: Prop
         </DialogContent>
       </Dialog>
 
-      <ConfirmDelete
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Удалить доску?"
-        description="Это действие нельзя отменить. Задачи останутся, удалится только сама доска и её колонки."
-        onConfirm={async () => {
-          await deleteBoard.mutateAsync(board.id);
-          navigate("/kanban");
-        }}
-      />
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить доску?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Задачи останутся, удалится только сама доска и её колонки.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                await deleteBoard.mutateAsync(board.id);
+                navigate("/kanban");
+              }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
