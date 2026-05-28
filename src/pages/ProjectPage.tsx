@@ -404,6 +404,10 @@ function ShadedMatrix() {
   );
 }
 
+import { useProjectKanbanBoard } from "@/hooks/useKanbanBoards";
+import { KanbanBoardCanvas } from "@/components/kanban/KanbanBoardCanvas";
+import { Loader2 } from "lucide-react";
+
 export default function ProjectPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -415,6 +419,12 @@ export default function ProjectPage() {
 
   const initialView = (searchParams.get("view") as ProjectView) || "gantt";
   const [activeView, setActiveView] = useState<ProjectView>(initialView);
+
+  // Lazily resolve/create the project's Kanban board only when its tab is opened.
+  const { data: kanbanBoard, isLoading: kanbanLoading } = useProjectKanbanBoard(
+    activeView === "kanban" ? projectId : null,
+    project?.name,
+  );
 
   const handleViewChange = useCallback((view: ProjectView) => {
     if (view === "matrix" && !isNpd) return;
@@ -447,6 +457,15 @@ export default function ProjectPage() {
             {activeView === "gantt" && <GanttView initialProjectId={projectId} onBack={handleBack} embedded />}
             {activeView === "matrix" && (
               isNpd ? <NpdSwimlaneMatrix embedded /> : <ShadedMatrix />
+            )}
+            {activeView === "kanban" && (
+              kanbanLoading || !kanbanBoard ? (
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <KanbanBoardCanvas boardId={kanbanBoard.id} showHeader={false} exposeSettings />
+              )
             )}
           </Suspense>
         </div>
