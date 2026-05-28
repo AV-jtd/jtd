@@ -79,6 +79,21 @@ function writeResult(hash: string, session: unknown) {
   try { localStorage.setItem(resultKey(hash), JSON.stringify({ at: Date.now(), session } satisfies StoredResult)); } catch {}
 }
 
+function storedRefreshTokenHash() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (!key || (!key.startsWith("sb-") && !key.includes("supabase.auth"))) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const token = parsed?.refresh_token || parsed?.currentSession?.refresh_token || parsed?.session?.refresh_token;
+      if (typeof token === "string") return tokenHash(token);
+    }
+  } catch {}
+  return null;
+}
+
 function responseFrom(session: unknown) {
   return new Response(JSON.stringify(session), { status: 200, headers: { "Content-Type": "application/json" } });
 }
@@ -133,6 +148,11 @@ if (w && !w[PATCH_FLAG]) {
           const body = await response.clone().json().catch(() => ({}));
           const code = body?.error_code || body?.code;
           if (code === "refresh_token_not_found" || code === "invalid_grant" || response.status === 401) {
+            const currentHash = storedRefreshTokenHash();
+            if (currentHash && currentHash !== hash) {
+              console.warn("[Auth] stale refresh request rejected after session rotation, keeping current session", code);
+              return response;
+            }
             console.warn("[Auth] refresh token rejected, clearing stale session", code);
             // Clear every supabase auth-related key so a stale token does not
             // get picked up on the next reload.
