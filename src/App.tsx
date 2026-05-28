@@ -39,6 +39,8 @@ const PublicReport = lazyWithRetry(() => import("./pages/PublicReport"));
 const Protocols = lazyWithRetry(() => import("./pages/Protocols"));
 const ProtocolDetail = lazyWithRetry(() => import("./pages/ProtocolDetail"));
 const MyDepartment = lazyWithRetry(() => import("./pages/MyDepartment"));
+const Kanban = lazyWithRetry(() => import("./pages/Kanban"));
+const KanbanBoard = lazyWithRetry(() => import("./pages/KanbanBoard"));
 const ConsultantAreasDemo = lazyWithRetry(() => import("./pages/dev/ConsultantAreasDemo"));
 const SwStatus = lazyWithRetry(() => import("./pages/dev/SwStatus"));
 
@@ -122,6 +124,8 @@ function AppContent() {
               <Route path="/npd/stm" element={<ConsultantBlocked><StmMatrix /></ConsultantBlocked>} />
               <Route path="/protocols" element={<ConsultantBlocked><Protocols /></ConsultantBlocked>} />
               <Route path="/protocols/:id" element={<ConsultantBlocked><ProtocolDetail /></ConsultantBlocked>} />
+              <Route path="/kanban" element={<ConsultantBlocked><Kanban /></ConsultantBlocked>} />
+              <Route path="/kanban/:boardId" element={<ConsultantBlocked><KanbanBoard /></ConsultantBlocked>} />
               <Route path="/my-department" element={<ConsultantBlocked><MyDepartment /></ConsultantBlocked>} />
               <Route path="/wiki-demo" element={<ConsultantBlocked><WikiDemo /></ConsultantBlocked>} />
               <Route path="/report" element={<PublicReport />} />
