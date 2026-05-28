@@ -49,6 +49,12 @@ function rewriteProxyUrl(rawUrl: string) {
   return rawUrl;
 }
 
+function rewriteRequestInput(input: RequestInfo | URL, rewrittenUrl: string) {
+  if (typeof input === "string" || input instanceof URL) return rewrittenUrl;
+  if (input.url === rewrittenUrl) return input;
+  return new Request(rewrittenUrl, input);
+}
+
 function getRequestMethod(input: RequestInfo | URL, init?: RequestInit) {
   return (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
 }
@@ -129,7 +135,7 @@ if (w && !w[PATCH_FLAG]) {
 
     const method = getRequestMethod(input, init);
     const rewrittenUrl = rewriteProxyUrl(rawUrl);
-    const requestInput = rewrittenUrl === rawUrl ? input : rewrittenUrl;
+    const requestInput = rewrittenUrl === rawUrl ? input : rewriteRequestInput(input, rewrittenUrl);
     const timeoutMs = method === "GET" || method === "HEAD" || method === "OPTIONS" ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
 
     return enqueue({
