@@ -77,17 +77,6 @@ function withAuthTimeout<T>(request: PromiseLike<T>, label: string, timeoutMs: n
   });
 }
 
-function clearLocalAuthState() {
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith("sb-") || key.includes("supabase.auth"))) {
-        localStorage.removeItem(key);
-      }
-    }
-  } catch {}
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
