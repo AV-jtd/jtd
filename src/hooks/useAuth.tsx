@@ -290,19 +290,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }, RETRY_DELAY);
       } else {
-        console.error("[Auth] All retries exhausted, clearing loading state");
-        clearLocalAuthState();
+        console.error("[Auth] All retries exhausted, keeping signed-in session with unknown profile meta");
         clearAuthMeta(userId);
-        qc.clear();
-        setSession(null);
-        setUser(null);
         setIsApproved(false);
         setApprovalKnown(false);
         setIsAdmin(false);
         setIsConsultant(false);
         setAdminModeDisabledState(false);
         setLoading(false);
-        void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
       }
     } finally {
       clearTimeout(safetyTimer);
