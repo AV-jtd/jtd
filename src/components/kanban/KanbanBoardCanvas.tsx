@@ -254,13 +254,27 @@ function KanbanColumnView({
   cards,
   isOver,
   onCardClick,
+  onQuickAdd,
 }: {
   column: KanbanColumnT;
   cards: Task[];
   isOver: boolean;
   onCardClick: (taskId: string) => void;
+  onQuickAdd: (title: string) => void | Promise<void>;
 }) {
   const wipExceeded = column.wip_limit != null && cards.length > column.wip_limit;
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const submit = () => {
+    const t = draft.trim();
+    if (!t) {
+      setAdding(false);
+      return;
+    }
+    void onQuickAdd(t);
+    setDraft("");
+    setAdding(false);
+  };
   return (
     <BoardColumn
       columnKey={column.id}
@@ -279,9 +293,64 @@ function KanbanColumnView({
             {cards.length}
             {column.wip_limit != null && ` / ${column.wip_limit}`}
           </span>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Добавить задачу в колонку"
+            aria-label="Добавить задачу в колонку"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
         </div>
       }
     >
+      {adding && (
+        <div className="p-2">
+          <div className="rounded-lg border border-primary/30 bg-card p-2 shadow-sm">
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submit();
+                } else if (e.key === "Escape") {
+                  setAdding(false);
+                  setDraft("");
+                }
+              }}
+              onBlur={submit}
+              placeholder="Название задачи…"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            />
+            <div className="mt-1.5 flex items-center justify-end gap-1">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setAdding(false);
+                  setDraft("");
+                }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Отмена"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={submit}
+                disabled={!draft.trim()}
+                className="rounded bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground disabled:opacity-40"
+              >
+                Добавить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {cards.map((task) => (
         <DraggableWrapper key={task.id} id={task.id}>
           {({ dragHandleProps }) => (
@@ -293,7 +362,7 @@ function KanbanColumnView({
           )}
         </DraggableWrapper>
       ))}
-      {cards.length === 0 && (
+      {cards.length === 0 && !adding && (
         <p className="px-3 py-6 text-center text-xs text-muted-foreground/60">Перетащите карточку сюда</p>
       )}
     </BoardColumn>
