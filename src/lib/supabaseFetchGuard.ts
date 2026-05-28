@@ -5,6 +5,7 @@ const PATCH_FLAG = "__jtdSupabaseFetchGuard";
 // We derive the proxy host from VITE_SUPABASE_PROXY_URL so future redeploys to
 // a new worker URL keep working without touching code.
 const BACKEND_HOSTS = new Set<string>(["nvfioycpwyzwukvokwql.supabase.co"]);
+const DIRECT_BACKEND_ORIGIN = "https://nvfioycpwyzwukvokwql.supabase.co";
 try {
   const proxyUrl = (import.meta as any).env?.VITE_SUPABASE_PROXY_URL;
   if (proxyUrl) BACKEND_HOSTS.add(new URL(proxyUrl).host);
@@ -37,13 +38,24 @@ function getRequestUrl(input: RequestInfo | URL) {
   return typeof input === "string" || input instanceof URL ? String(input) : input.url;
 }
 
+function rewriteProxyUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl, window.location.origin);
+    if (url.pathname.startsWith("/sb/")) {
+      const direct = new URL(url.pathname.slice(3) + url.search, DIRECT_BACKEND_ORIGIN);
+      return direct.toString();
+    }
+  } catch {}
+  return rawUrl;
+}
+
 function getRequestMethod(input: RequestInfo | URL, init?: RequestInit) {
   return (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
 }
 
 function isBackendRequest(rawUrl: string) {
   try {
-    const url = new URL(rawUrl, window.location.origin);
+    const url = new URL(rewriteProxyUrl(rawUrl), window.location.origin);
     return BACKEND_HOSTS.has(url.host) && (
       url.pathname.startsWith("/rest/v1/") ||
       url.pathname.startsWith("/auth/v1/") ||
@@ -116,11 +128,13 @@ if (w && !w[PATCH_FLAG]) {
     if (!isBackendRequest(rawUrl)) return originalFetch(input, init);
 
     const method = getRequestMethod(input, init);
+    const rewrittenUrl = rewriteProxyUrl(rawUrl);
+    const requestInput = rewrittenUrl === rawUrl ? input : rewrittenUrl;
     const timeoutMs = method === "GET" || method === "HEAD" || method === "OPTIONS" ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS;
 
     return enqueue({
-      priority: requestPriority(rawUrl, method),
-      run: () => fetchWithTimeout(originalFetch, input, init, timeoutMs),
+      priority: requestPriority(rewrittenUrl, method),
+      run: () => fetchWithTimeout(originalFetch, requestInput, init, timeoutMs),
     });
   };
 }
