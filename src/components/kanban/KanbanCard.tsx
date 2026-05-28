@@ -7,7 +7,7 @@ import type { Task } from "@/hooks/useTasks";
 interface KanbanCardProps {
   task: Task;
   onClick?: () => void;
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
 }
 
 const PRIORITY_COLOR: Record<number, string> = {
