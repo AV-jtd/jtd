@@ -75,6 +75,46 @@ export function useCreateKanbanBoard() {
   });
 }
 
+/**
+ * Resolve (or lazily create) the default Kanban board for a given project.
+ * Returns the board id once available. Used by the "Kanban" tab inside a project page.
+ */
+export function useProjectKanbanBoard(groupId: string | null | undefined, projectName?: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["project_kanban_board", groupId],
+    enabled: !!groupId && !!user,
+    queryFn: async () => {
+      const { data: existing, error } = await supabase
+        .from("kanban_boards")
+        .select("*")
+        .eq("group_id", groupId!)
+        .eq("board_type", "project")
+        .eq("is_archived", false)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (error) throw error;
+      if (existing && existing.length > 0) return existing[0] as KanbanBoard;
+
+      const { data: created, error: cErr } = await supabase
+        .from("kanban_boards")
+        .insert({
+          name: projectName ? `${projectName} — канбан` : "Канбан проекта",
+          icon: "LayoutGrid",
+          owner_id: user!.id,
+          board_type: "project",
+          group_id: groupId!,
+        })
+        .select()
+        .single();
+      if (cErr) throw cErr;
+      qc.invalidateQueries({ queryKey: ["kanban_boards"] });
+      return created as KanbanBoard;
+    },
+  });
+}
+
 export function useDeleteKanbanBoard() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
+import { useProjectKanbanBoard } from "@/hooks/useKanbanBoards";
+import { KanbanBoardCanvas } from "@/components/kanban/KanbanBoardCanvas";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
@@ -17,7 +19,7 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GanttView = lazyWithRetry(() => import("@/modules/pmo/pages/GanttView"));
 const NpdSwimlaneMatrix = lazyWithRetry(() => import("@/modules/npd/pages/NpdSwimlaneMatrix"));
 
-type ProjectView = "dashboard" | "gantt" | "matrix";
+type ProjectView = "dashboard" | "gantt" | "matrix" | "kanban";
 
 function LazyFallback() {
   return (
@@ -416,6 +418,12 @@ export default function ProjectPage() {
   const initialView = (searchParams.get("view") as ProjectView) || "gantt";
   const [activeView, setActiveView] = useState<ProjectView>(initialView);
 
+  // Lazily resolve/create the project's Kanban board only when its tab is opened.
+  const { data: kanbanBoard, isLoading: kanbanLoading } = useProjectKanbanBoard(
+    activeView === "kanban" ? projectId : null,
+    project?.name,
+  );
+
   const handleViewChange = useCallback((view: ProjectView) => {
     if (view === "matrix" && !isNpd) return;
     setActiveView(view);
@@ -447,6 +455,15 @@ export default function ProjectPage() {
             {activeView === "gantt" && <GanttView initialProjectId={projectId} onBack={handleBack} embedded />}
             {activeView === "matrix" && (
               isNpd ? <NpdSwimlaneMatrix embedded /> : <ShadedMatrix />
+            )}
+            {activeView === "kanban" && (
+              kanbanLoading || !kanbanBoard ? (
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <KanbanBoardCanvas boardId={kanbanBoard.id} showHeader={false} exposeSettings />
+              )
             )}
           </Suspense>
         </div>
