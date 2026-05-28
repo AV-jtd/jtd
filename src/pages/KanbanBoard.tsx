@@ -223,7 +223,7 @@ function KanbanColumnView({
             <KanbanCard
               task={task}
               onClick={() => onCardClick(task.id)}
-              dragHandleProps={dragHandleProps as React.HTMLAttributes<HTMLDivElement>}
+              dragHandleProps={dragHandleProps as unknown as React.HTMLAttributes<HTMLElement>}
             />
           )}
         </DraggableWrapper>
