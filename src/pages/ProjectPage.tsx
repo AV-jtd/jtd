@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2, Diamond, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
+import { useProjectKanbanBoard } from "@/hooks/useKanbanBoards";
+import { KanbanBoardCanvas } from "@/components/kanban/KanbanBoardCanvas";
 import { cn } from "@/lib/utils";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useMilestones } from "@/hooks/useMilestones";
@@ -17,7 +19,7 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GanttView = lazyWithRetry(() => import("@/modules/pmo/pages/GanttView"));
 const NpdSwimlaneMatrix = lazyWithRetry(() => import("@/modules/npd/pages/NpdSwimlaneMatrix"));
 
-type ProjectView = "dashboard" | "gantt" | "matrix";
+type ProjectView = "dashboard" | "gantt" | "matrix" | "kanban";
 
 function LazyFallback() {
   return (
@@ -403,10 +405,6 @@ function ShadedMatrix() {
     </div>
   );
 }
-
-import { useProjectKanbanBoard } from "@/hooks/useKanbanBoards";
-import { KanbanBoardCanvas } from "@/components/kanban/KanbanBoardCanvas";
-import { Loader2 } from "lucide-react";
 
 export default function ProjectPage() {
   const { id: projectId } = useParams<{ id: string }>();
