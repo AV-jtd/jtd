@@ -220,6 +220,18 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         );
       lines.push("");
     }
+    if (decisions.length > 0) {
+      lines.push("Принятые решения:");
+      decisions.forEach((d, i) => {
+        const dl = format(parseISO(d.decided_at), "d MMM yyyy", { locale: ru });
+        lines.push(`  ${i + 1}. ${d.title} (${dl})`);
+        const body = (d.body ?? "").trim();
+        if (body) {
+          body.split("\n").forEach((ln) => lines.push(`      ${ln}`));
+        }
+      });
+      lines.push("");
+    }
     lines.push("Решения и задачи:");
     if (tasks.length === 0) {
       lines.push("  — нет задач");
@@ -240,7 +252,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
       });
     }
     return lines.join("\n");
-  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags]);
+  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags, decisions]);
 
   // ---------- Actions ----------
   const a4Ref = useRef<HTMLDivElement>(null);
