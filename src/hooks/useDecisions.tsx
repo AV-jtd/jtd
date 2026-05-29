@@ -158,10 +158,16 @@ export function useCreateDecision() {
   return useMutation({
     mutationFn: async (input: DecisionInput) => {
       if (!user) throw new Error("Not authenticated");
+      // Resolve the user id from the LIVE session (not a possibly-stale cached
+      // useAuth().user). On backends still using the strict insert policy
+      // (auth.uid() = user_id) a stale id triggers an RLS violation; using the
+      // live session id keeps it in sync with the JWT actually sent.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUserId = sessionData.session?.user?.id ?? user.id;
       const { data, error } = await supabase
         .from("decisions")
         .insert({
-          user_id: user.id,
+          user_id: authUserId,
           protocol_id: input.protocol_id,
           source_task_id: input.source_task_id ?? null,
           title: input.title,
