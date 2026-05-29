@@ -637,6 +637,44 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                 )}
 
                 {/* === SECTION 3: Decisions table === */}
+                {/* === SECTION 2.7: Принятые решения (отдельная сущность) === */}
+                {decisions.length > 0 && (
+                  <div data-pdf-section className="mt-5" style={{ width: contentWidth }}>
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1.5 font-medium">
+                      Принятые решения · {decisions.length}
+                    </div>
+                    <ol className="space-y-1.5">
+                      {decisions.map((d, i) => {
+                        const body = (d.body ?? "").trim();
+                        return (
+                          <li
+                            key={d.id}
+                            className="flex gap-2 rounded-md border border-amber-300/60 bg-amber-50/60 px-3 py-2"
+                          >
+                            <span className="shrink-0 text-[11px] font-semibold text-amber-700">
+                              {i + 1}.
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[12px] font-medium leading-snug text-neutral-900">
+                                {d.title}
+                              </div>
+                              {body && (
+                                <div className="mt-0.5 whitespace-pre-wrap text-[11px] leading-[1.45] text-neutral-600">
+                                  {body}
+                                </div>
+                              )}
+                              <div className="mt-1 text-[10px] text-neutral-500">
+                                {format(parseISO(d.decided_at), "d MMMM yyyy", { locale: ru })}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                )}
+
+                {/* === SECTION 3: Decisions table === */}
                 <div data-pdf-section className="mt-5" style={{ width: contentWidth }}>
                   <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1.5 font-medium">
                     Решения и задачи · {tasks.length}
