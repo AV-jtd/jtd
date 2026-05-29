@@ -1,8 +1,15 @@
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { Settings, Loader2, Plus, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
 import { useBoardDnd } from "@/hooks/useBoardDnd";
@@ -39,6 +46,7 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
   const board = data?.board;
   const columns = data?.columns ?? [];
   const positions = data?.positions ?? [];
+  const [targetColumnId, setTargetColumnId] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(
     board?.board_type === "project" ? board.group_id : null,
@@ -53,6 +61,15 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
   }, [positions]);
 
   const firstColumnId = columns[0]?.id;
+
+  // Keep the quick-create target gate valid: default to the first column.
+  useEffect(() => {
+    if (columns.length === 0) return;
+    if (!targetColumnId || !columns.some((c) => c.id === targetColumnId)) {
+      setTargetColumnId(firstColumnId ?? null);
+    }
+  }, [columns, firstColumnId, targetColumnId]);
+
   const cardsByColumn = useMemo(() => {
     const out = new Map<string, Task[]>();
     for (const c of columns) out.set(c.id, []);
