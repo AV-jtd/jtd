@@ -30,7 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
-import { detectViolations, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
+import { detectViolations, resolveAllViolations, fillMissingDeadlines, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 import { toast } from "sonner";
 
