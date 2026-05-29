@@ -1404,6 +1404,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               {hideEmpty ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
               {hideEmpty ? "Показать пустые" : "Скрыть пустые"}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleFillDeadlines}>
+              <LocateFixed className="h-3.5 w-3.5 mr-2 text-primary" />
+              Заполнить даты по связям
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="text-xs">
