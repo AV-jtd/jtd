@@ -72,6 +72,53 @@ export interface ResolveUpdate {
 }
 
 /**
+ * Fill in MISSING deadlines from the dependency chain.
+ *
+ * For sequential planning the rule is: a successor starts after its predecessor
+ * ends (± lag). So when a predecessor has a start but no deadline, we can derive
+ * its deadline from the successor's start:
+ *
+ *   predecessor.deadline = successor.start_at - lag_days
+ *
+ * (negative lag = the successor starts a few days before the predecessor ends).
+ * When a predecessor has several successors we take the EARLIEST successor start
+ * so the bar never overruns any of them. The deadline is clamped to be no earlier
+ * than the predecessor's own start. Tasks that already have a deadline, or that
+ * have no successor with a start date (e.g. the last task in a chain), are left
+ * untouched.
+ *
+ * Returns map of entity_id -> { deadline } with only the deadlines to set.
+ */
+export function fillMissingDeadlines(
+  dependencies: TaskDependency[],
+  entities: Map<string, GraphEntity>,
+): Map<string, { deadline: string }> {
+  const updates = new Map<string, { deadline: string }>();
+
+  for (const d of dependencies) {
+    const pred = entities.get(d.predecessor_id);
+    const succ = entities.get(d.successor_id);
+    if (!pred || !succ) continue;
+    if (pred.deadline) continue; // only fill empty deadlines
+    if (!succ.start_at) continue; // need a successor start to derive from
+
+    let candidate = addDays(parseISO(succ.start_at), -(d.lag_days || 0));
+    // Clamp: deadline must not be earlier than the task's own start
+    if (pred.start_at) {
+      const ps = parseISO(pred.start_at);
+      if (candidate < ps) candidate = ps;
+    }
+
+    const existing = updates.get(d.predecessor_id);
+    if (!existing || parseISO(existing.deadline) > candidate) {
+      updates.set(d.predecessor_id, { deadline: candidate.toISOString() });
+    }
+  }
+
+  return updates;
+}
+
+/**
  * Auto-resolve dependency violations across the whole graph by shifting
  * successors forward to (predecessor.deadline + lag), preserving their original
  * duration (deadline - start_at). Propagates topologically until no violations remain.
