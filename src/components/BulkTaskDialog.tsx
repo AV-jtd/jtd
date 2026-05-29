@@ -172,7 +172,7 @@ function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectI
     } finally {
       setLoading(false);
     }
-  }, [prompt, selectedGroupId, selectedProject, allTasks, groups, users, projectName]);
+  }, [prompt, selectedGroupId, selectedProject, allTasks, groups, users, projectName, voiceMode]);
 
   const toggleTask = (gi: number, ti: number) => {
     setSuggestions(prev => prev?.map((g, i) => i === gi ? { ...g, tasks: g.tasks.map((t, j) => j === ti ? { ...t, selected: !t.selected } : t) } : g) || null);
