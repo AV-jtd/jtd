@@ -190,13 +190,39 @@ export function KanbanBoardCanvas({ boardId, showHeader = true, exposeSettings =
 
       {/* Quick create bar — same UX as the global "Все задачи" view */}
       <div className="shrink-0 border-b border-border bg-background/60 px-4 pt-3 md:px-6">
+        {columns.length > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Добавить в гейт:</span>
+            <Select
+              value={targetColumnId ?? undefined}
+              onValueChange={(v) => setTargetColumnId(v)}
+            >
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue placeholder="Выберите колонку" />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((c) => (
+                  <SelectItem key={c.id} value={c.id} className="text-xs">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: c.color }}
+                      />
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <TaskCreateBar
           inputRef={createInputRef}
           activeView={board.board_type === "project" ? "group" : "today"}
           activeGroupId={board.group_id ?? null}
           availableUsers={availableUsers}
           onCreateTask={(payload) => {
-            void createTaskInColumn(payload);
+            void createTaskInColumn(payload, targetColumnId ?? undefined);
           }}
         />
       </div>
