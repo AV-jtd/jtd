@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
+import { useDecisions } from "@/hooks/useDecisions";
 import { parseProtocolSides } from "@/lib/protocolSides";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -105,6 +106,17 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         .filter((t) => t.group_id === protocolId && (t as any).protocol_scope !== "internal")
         .sort((a, b) => a.position - b.position),
     [allTasks, protocolId],
+  );
+
+  // Зафиксированные «решения встречи» (отдельная сущность). В экспортируемый
+  // документ/письмо попадают только решения уровня протокола (не «ограниченные»).
+  const { data: allDecisions = [] } = useDecisions({ protocolId });
+  const decisions = useMemo(
+    () =>
+      allDecisions.filter(
+        (d) => d.visibility === "protocol" && d.status === "active",
+      ),
+    [allDecisions],
   );
 
   const internalAttendeeIds = useMemo(() => {
