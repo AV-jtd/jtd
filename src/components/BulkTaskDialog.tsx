@@ -44,7 +44,7 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
   _ref,
 ) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"ai" | "text">("ai");
+  const [tab, setTab] = useState<"ai" | "voice" | "text">("ai");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -62,6 +62,9 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
             <TabsTrigger value="ai" className="gap-1.5 text-xs">
               <Sparkles className="h-3 w-3" /> ИИ-генерация
             </TabsTrigger>
+            <TabsTrigger value="voice" className="gap-1.5 text-xs">
+              <Mic className="h-3 w-3" /> Голос
+            </TabsTrigger>
             <TabsTrigger value="text" className="gap-1.5 text-xs">
               <ListPlus className="h-3 w-3" /> Текстовый список
             </TabsTrigger>
@@ -69,6 +72,9 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
 
           <TabsContent value="ai" className="flex-1 min-h-0 mt-0">
             <AiTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} />
+          </TabsContent>
+          <TabsContent value="voice" className="flex-1 min-h-0 mt-0">
+            <AiTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} voiceMode />
           </TabsContent>
           <TabsContent value="text" className="flex-1 min-h-0 mt-0">
             <TextTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} />
