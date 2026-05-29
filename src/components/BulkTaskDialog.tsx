@@ -1,16 +1,17 @@
-import { useState, useCallback, forwardRef } from "react";
+import { useState, useCallback, useEffect, forwardRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, ListPlus, Loader2, Check, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Sparkles, ListPlus, Loader2, Check, Plus, ChevronDown, ChevronRight, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchTaskTemplates } from "@/lib/taskTemplates";
 import { useTaskGroups, useTaskMutations, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { toast } from "sonner";
 import { addDays, format } from "date-fns";
 import { parseQuickTask } from "@/lib/quickTaskParse";
@@ -43,7 +44,7 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
   _ref,
 ) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"ai" | "text">("ai");
+  const [tab, setTab] = useState<"ai" | "voice" | "text">("ai");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -61,6 +62,9 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
             <TabsTrigger value="ai" className="gap-1.5 text-xs">
               <Sparkles className="h-3 w-3" /> ИИ-генерация
             </TabsTrigger>
+            <TabsTrigger value="voice" className="gap-1.5 text-xs">
+              <Mic className="h-3 w-3" /> Голос
+            </TabsTrigger>
             <TabsTrigger value="text" className="gap-1.5 text-xs">
               <ListPlus className="h-3 w-3" /> Текстовый список
             </TabsTrigger>
@@ -68,6 +72,9 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
 
           <TabsContent value="ai" className="flex-1 min-h-0 mt-0">
             <AiTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} />
+          </TabsContent>
+          <TabsContent value="voice" className="flex-1 min-h-0 mt-0">
+            <AiTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} voiceMode />
           </TabsContent>
           <TabsContent value="text" className="flex-1 min-h-0 mt-0">
             <TextTab projectId={projectId} projectName={projectName} onDone={() => setOpen(false)} />
@@ -81,7 +88,7 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
 export default BulkTaskDialog;
 
 /* ============ AI TAB ============ */
-function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; projectName?: string | null; onDone: () => void }) {
+function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectId?: string | null; projectName?: string | null; onDone: () => void; voiceMode?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
@@ -93,6 +100,16 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<GeneratedGroup[] | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Голосовой ввод (Web Speech API)
+  const speech = useSpeechRecognition("ru-RU");
+  // Накапливаем распознанный текст в prompt
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (speech.finalTranscript) {
+      setPrompt(speech.finalTranscript);
+    }
+  }, [voiceMode, speech.finalTranscript]);
 
   const rootProjects = groups.filter(g => !g.parent_id);
   const selectedProject = groups.find(g => g.id === selectedGroupId);
@@ -263,11 +280,13 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
           <Textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
-            placeholder="Опишите, какие задачи нужны...&#10;Например: «Задачи для запуска рекламной кампании на 2 недели»"
+            placeholder={voiceMode
+              ? "Нажмите «Записать» и продиктуйте задачи…\nНапример: «Марку подготовить КП до 25 апреля, важно. Ире отправить договор через 3 дня»"
+              : "Опишите, какие задачи нужны...\nНапример: «Задачи для запуска рекламной кампании на 2 недели»"}
             className="text-xs min-h-[60px] max-h-[100px] resize-none flex-1"
           />
           <Button
-            onClick={generate}
+            onClick={() => { if (voiceMode && speech.listening) speech.stop(); generate(); }}
             disabled={loading || !prompt.trim()}
             size="sm"
             className="shrink-0 h-auto self-end"
@@ -275,6 +294,54 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           </Button>
         </div>
+
+        {voiceMode && (
+          <div className="space-y-1.5">
+            {speech.supported ? (
+              <div className="flex items-center gap-2">
+                {!speech.listening ? (
+                  <Button
+                    type="button"
+                    onClick={() => { speech.reset(); setPrompt(""); speech.start(); }}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs"
+                  >
+                    <Mic className="h-3.5 w-3.5 text-primary" /> Записать
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => speech.stop()}
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5 h-8 text-xs"
+                  >
+                    <Square className="h-3 w-3 fill-current" /> Остановить
+                  </Button>
+                )}
+                {speech.listening && (
+                  <span className="flex items-center gap-1.5 text-[10px] text-red-500">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Слушаю…
+                  </span>
+                )}
+                {speech.interimTranscript && (
+                  <span className="text-[10px] text-muted-foreground italic truncate flex-1">
+                    {speech.interimTranscript}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                Голосовой ввод не поддерживается этим браузером. Используйте Chrome или введите текст вручную.
+              </p>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              ИИ распознает ответственных и сроки прямо из речи. После записи нажмите{" "}
+              <Sparkles className="inline h-3 w-3 text-primary align-text-bottom" /> для генерации.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Results */}
