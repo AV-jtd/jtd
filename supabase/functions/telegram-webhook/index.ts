@@ -2091,6 +2091,25 @@ async function getProjectMembers(supabase: any, groupId: string, ownerId: string
   }));
 }
 
+/**
+ * Returns a candidate pool of people the creator can assign tasks to,
+ * even when no project is locked. Used so AI enrichment can resolve an
+ * assignee written as plain text (e.g. "ответственный Ведяев") in private chat.
+ */
+async function getReachableMembers(
+  supabase: any,
+): Promise<{ id: string; name: string; telegram_username: string | null }[]> {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .eq("is_approved", true);
+  return (profiles || []).map((p: any) => ({
+    id: p.id,
+    name: p.display_name || p.telegram_username || "Без имени",
+    telegram_username: p.telegram_username,
+  }));
+}
+
 async function handleAiChat(
   supabase: any,
   botToken: string,
