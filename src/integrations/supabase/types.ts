@@ -2573,6 +2573,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_view_profile: { Args: { _profile_id: string }; Returns: boolean }
       can_view_tag: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
@@ -2606,6 +2607,7 @@ export type Database = {
           parent_id: string
         }[]
       }
+      delegation_profile_ids: { Args: { _user_id: string }; Returns: string[] }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
