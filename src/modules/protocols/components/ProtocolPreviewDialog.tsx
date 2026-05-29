@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTaskGroups, useTasks, useAvailableUsers } from "@/hooks/useTasks";
 import { useEventTopicTags } from "@/hooks/useEventTopicTags";
+import { useDecisions } from "@/hooks/useDecisions";
 import { parseProtocolSides } from "@/lib/protocolSides";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -105,6 +106,17 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         .filter((t) => t.group_id === protocolId && (t as any).protocol_scope !== "internal")
         .sort((a, b) => a.position - b.position),
     [allTasks, protocolId],
+  );
+
+  // Зафиксированные «решения встречи» (отдельная сущность). В экспортируемый
+  // документ/письмо попадают только решения уровня протокола (не «ограниченные»).
+  const { data: allDecisions = [] } = useDecisions({ protocolId });
+  const decisions = useMemo(
+    () =>
+      allDecisions.filter(
+        (d) => d.visibility === "protocol" && d.status === "active",
+      ),
+    [allDecisions],
   );
 
   const internalAttendeeIds = useMemo(() => {
@@ -208,6 +220,18 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
         );
       lines.push("");
     }
+    if (decisions.length > 0) {
+      lines.push("Принятые решения:");
+      decisions.forEach((d, i) => {
+        const dl = format(parseISO(d.decided_at), "d MMM yyyy", { locale: ru });
+        lines.push(`  ${i + 1}. ${d.title} (${dl})`);
+        const body = (d.body ?? "").trim();
+        if (body) {
+          body.split("\n").forEach((ln) => lines.push(`      ${ln}`));
+        }
+      });
+      lines.push("");
+    }
     lines.push("Решения и задачи:");
     if (tasks.length === 0) {
       lines.push("  — нет задач");
@@ -228,7 +252,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
       });
     }
     return lines.join("\n");
-  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags]);
+  }, [protocol?.name, meetingDateLabel, formatLabel, ourSideName, internalAttendeeIds, partnerName, externals, tasks, users, showSideOnly, orgMap, topicTags, decisions]);
 
   // ---------- Actions ----------
   const a4Ref = useRef<HTMLDivElement>(null);
@@ -609,6 +633,44 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                     <div className="rounded-md border border-neutral-300 bg-neutral-50 p-3 text-[11px] leading-[1.55] text-neutral-800 whitespace-pre-wrap">
                       {meta.summary.text}
                     </div>
+                  </div>
+                )}
+
+                {/* === SECTION 3: Decisions table === */}
+                {/* === SECTION 2.7: Принятые решения (отдельная сущность) === */}
+                {decisions.length > 0 && (
+                  <div data-pdf-section className="mt-5" style={{ width: contentWidth }}>
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-neutral-500 mb-1.5 font-medium">
+                      Принятые решения · {decisions.length}
+                    </div>
+                    <ol className="space-y-1.5">
+                      {decisions.map((d, i) => {
+                        const body = (d.body ?? "").trim();
+                        return (
+                          <li
+                            key={d.id}
+                            className="flex gap-2 rounded-md border border-amber-300/60 bg-amber-50/60 px-3 py-2"
+                          >
+                            <span className="shrink-0 text-[11px] font-semibold text-amber-700">
+                              {i + 1}.
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[12px] font-medium leading-snug text-neutral-900">
+                                {d.title}
+                              </div>
+                              {body && (
+                                <div className="mt-0.5 whitespace-pre-wrap text-[11px] leading-[1.45] text-neutral-600">
+                                  {body}
+                                </div>
+                              )}
+                              <div className="mt-1 text-[10px] text-neutral-500">
+                                {format(parseISO(d.decided_at), "d MMMM yyyy", { locale: ru })}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
                   </div>
                 )}
 
