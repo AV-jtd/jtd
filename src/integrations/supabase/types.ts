@@ -2573,6 +2573,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_view_profile: { Args: { _profile_id: string }; Returns: boolean }
       can_view_tag: {
         Args: { _tag_id: string; _user_id: string }
         Returns: boolean
