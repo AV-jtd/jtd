@@ -1404,7 +1404,7 @@ ${stagesList}
 
     // === BULK GENERATE TASKS for existing project ===
     if (action === "bulk_generate_tasks") {
-      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers, taskTemplates: bulkTemplates } = context;
+      const { projectName: bulkProjectName, projectDescription: bulkDesc, existingTasks: bulkExisting, subprojects: bulkSubprojects, users: bulkUsers, taskTemplates: bulkTemplates, literal: bulkLiteral } = context;
 
       const existingInfo = bulkExisting?.length
         ? `\nУже существующие задачи (НЕ дублируй):\n${bulkExisting.map((t: string) => `- ${t}`).join("\n")}`
@@ -1418,18 +1418,24 @@ ${stagesList}
         ? `\nУчастники: ${bulkUsers.map((u: any) => u.name).join(", ")}`
         : "";
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "system",
-              content: `Ты — эксперт по управлению проектами. Сгенерируй список задач для проекта на основе описания пользователя.
+      // Литеральный режим (голосовой ввод / диктовка): извлекаем ровно те задачи,
+      // что произнёс пользователь, БЕЗ выдумывания дополнительных задач и подзадач.
+      const literalSystem = `Ты — точный парсер задач из речи/текста. Пользователь продиктовал список задач. Извлеки РОВНО те задачи, что он назвал — не больше и не меньше.
+
+СТРОГИЕ ПРАВИЛА:
+- НЕ придумывай новые задачи. Сколько задач произнёс пользователь — столько и верни.
+- Если названа ОДНА задача — верни ОДНУ задачу. Никогда не разбивай одну задачу на несколько.
+- НЕ добавляй подзадачи (subtasks), если пользователь явно их не перечислил.
+- НЕ группируй по этапам. Всегда используй одну группу с названием "Общие".
+- title — суть задачи (глагол + объект), убери из него имя ответственного и срок.
+- assignee_name — имя ответственного из списка участников, если пользователь его назвал (первое слово как в списке). Если не назвал — оставь пустым, НЕ угадывай.
+- deadline_offset_days — через сколько дней от сегодня срок, если назван ("завтра"=1, "через 3 дня"=3, "через неделю"=7). Если срок не назван — не указывай.
+- priority: 1 если сказано "важно/срочно/высокий", иначе не указывай.
+- Отвечай только через tool call.
+
+Список участников для сопоставления имён: ${bulkUsers?.length ? bulkUsers.map((u: any) => u.name).join(", ") : "(нет)"}`;
+
+      const planningSystem = `Ты — эксперт по управлению проектами. Сгенерируй список задач для проекта на основе описания пользователя.
 
 Правила:
 - Группируй задачи по этапам/категориям (groups)
@@ -1443,7 +1449,20 @@ ${stagesList}
 - 5-20 задач оптимально
 - Отвечай только через tool call
 
-Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}${formatTaskTemplates(bulkTemplates)}`,
+Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}${formatTaskTemplates(bulkTemplates)}`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "system",
+              content: bulkLiteral ? literalSystem : planningSystem,
             },
             {
               role: "user",
