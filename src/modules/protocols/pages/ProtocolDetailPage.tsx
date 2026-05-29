@@ -1,5 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, FileText, Sparkles, Send, Trash2, Loader2, Eye, AlertCircle } from "lucide-react";
 import ModuleLayout from "@/components/ModuleLayout";
 import { useTaskGroups, useTasks } from "@/hooks/useTasks";
@@ -37,10 +39,33 @@ export default function ProtocolDetailPage() {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const protocol = useMemo(
+  const protocolFromList = useMemo(
     () => groups.find((g) => g.id === id && g.project_type === "protocol"),
     [groups, id],
   );
+
+  // Fallback: the global task_groups list paginates over hundreds of rows and
+  // may not include a just-created protocol yet (cache still refetching).
+  // Fetch the single row directly by id so we never flash "Протокол не найден"
+  // for a protocol that actually exists.
+  const { data: protocolDirect, isLoading: directLoading } = useQuery({
+    queryKey: ["protocol-direct", id],
+    enabled: !!id && !protocolFromList,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_groups")
+        .select("*")
+        .eq("id", id)
+        .eq("project_type", "protocol")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const protocol = protocolFromList ?? (protocolDirect as typeof protocolFromList | undefined);
+  const stillLoading = isLoading || (!protocolFromList && directLoading);
 
   const isDraft = (protocol as any)?.draft_status === "draft";
   const templateKey: string | undefined = (protocol as any)?.protocol_meta?.template_system_key;
@@ -92,7 +117,7 @@ export default function ProtocolDetailPage() {
           К списку протоколов
         </button>
 
-        {isLoading ? (
+        {stillLoading ? (
           <div className="h-16 animate-pulse rounded-lg bg-muted" />
         ) : !protocol ? (
           <div className="rounded-lg border border-dashed border-border py-12 text-center">
