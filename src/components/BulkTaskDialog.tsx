@@ -88,7 +88,7 @@ const BulkTaskDialog = forwardRef<HTMLDivElement, BulkTaskDialogProps>(function 
 export default BulkTaskDialog;
 
 /* ============ AI TAB ============ */
-function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; projectName?: string | null; onDone: () => void }) {
+function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectId?: string | null; projectName?: string | null; onDone: () => void; voiceMode?: boolean }) {
   const { user } = useAuth();
   const { data: groups = [] } = useTaskGroups();
   const { data: allTasks = [] } = useTasks();
@@ -100,6 +100,16 @@ function AiTab({ projectId, projectName, onDone }: { projectId?: string | null; 
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<GeneratedGroup[] | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Голосовой ввод (Web Speech API)
+  const speech = useSpeechRecognition("ru-RU");
+  // Накапливаем распознанный текст в prompt
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (speech.finalTranscript) {
+      setPrompt(speech.finalTranscript);
+    }
+  }, [voiceMode, speech.finalTranscript]);
 
   const rootProjects = groups.filter(g => !g.parent_id);
   const selectedProject = groups.find(g => g.id === selectedGroupId);
