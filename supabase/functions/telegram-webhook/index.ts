@@ -1825,6 +1825,12 @@ Deno.serve(async (req) => {
         }
       }
 
+      // No project locked → give AI a workspace-wide candidate pool so it can
+      // resolve an assignee written by name (e.g. "ответственный Ведяев").
+      if (members.length === 0) {
+        members = await getReachableMembers(supabase);
+      }
+
       // Run AI enrichment even without project (will still determine deadline, priority, subtasks)
       aiEnrichment = await aiEnrichTask(text, members, projectNameForAi);
       if (aiEnrichment) {
