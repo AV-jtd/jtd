@@ -123,13 +123,17 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
 
   // STM SKU live in their own /npd/stm matrix and must not pollute the PMO portfolio.
   const isStm = useCallback((g: TaskGroup) => (g as any).project_subtype === "npd_stm", []);
+  // Protocols are their own entity living in the /protocols module — they must not
+  // appear as standalone projects in the PMO portfolio (they have their own
+  // top-level task_group with project_type === "protocol").
+  const isProtocol = useCallback((g: TaskGroup) => (g as any).project_type === "protocol", []);
   const rootProjects = useMemo(
-    () => groups.filter((g) => !g.parent_id && !(g as any).closed_at && !isStm(g)),
-    [groups, isStm],
+    () => groups.filter((g) => !g.parent_id && !(g as any).closed_at && !isStm(g) && !isProtocol(g)),
+    [groups, isStm, isProtocol],
   );
   const archivedProjects = useMemo(
-    () => groups.filter((g) => !g.parent_id && (g as any).closed_at && !isStm(g)),
-    [groups, isStm],
+    () => groups.filter((g) => !g.parent_id && (g as any).closed_at && !isStm(g) && !isProtocol(g)),
+    [groups, isStm, isProtocol],
   );
   const [showArchived, setShowArchived] = useState(false);
 
