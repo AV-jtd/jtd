@@ -332,6 +332,12 @@ export function useTaskGroups() {
           .from("task_groups")
           .select("*")
           .order("position")
+          // Stable tiebreaker: most rows share position=0, and without a unique
+          // secondary sort key `.range()` pagination re-sorts each page
+          // independently — silently SKIPPING rows across page boundaries
+          // (not just duplicating them). That made some protocols/projects
+          // never reach the UI. Ordering by `id` makes pagination deterministic.
+          .order("id")
           .range(from, to)
       );
       return data;
