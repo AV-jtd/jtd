@@ -30,7 +30,7 @@ import GanttTooltip from "@/modules/pmo/components/GanttTooltip";
 import GanttDependencyLines from "@/modules/pmo/components/GanttDependencyLines";
 import DependencyDialog from "@/modules/pmo/components/DependencyDialog";
 import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
-import { detectViolations, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
+import { detectViolations, resolveAllViolations, fillMissingDeadlines, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 import { toast } from "sonner";
 
@@ -876,6 +876,41 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     setSelectedTaskIds(new Set());
   }, [selectedTaskIds, deleteTask]);
 
+  // Заполнить пустые дедлайны по зависимостям и стартам (последовательная цепочка).
+  const handleFillDeadlines = useCallback(() => {
+    const taskIds = new Set(allTasks.map(t => t.id));
+    // Зависимости в рамках текущего набора задач
+    const relevantDeps = allDependencies.filter(
+      d => taskIds.has(d.predecessor_id) && taskIds.has(d.successor_id),
+    );
+    if (relevantDeps.length === 0) {
+      toast.info("Нет зависимостей между задачами в этом проекте");
+      return;
+    }
+    const entities = new Map<string, GraphEntity>();
+    allTasks.forEach(t => entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline }));
+
+    const updates = fillMissingDeadlines(relevantDeps as any, entities);
+    if (updates.size === 0) {
+      toast.info("Пустых дедлайнов для заполнения не найдено");
+      return;
+    }
+
+    const prev = new Map<string, string | null>();
+    for (const [id] of updates) {
+      prev.set(id, allTasks.find(t => t.id === id)?.deadline ?? null);
+    }
+    for (const [id, upd] of updates) {
+      updateTask.mutate({ id, deadline: upd.deadline });
+    }
+    pushUndo({
+      label: `Заполнено дедлайнов: ${updates.size}`,
+      undo: () => { for (const [id, dl] of prev) updateTask.mutate({ id, deadline: dl }); },
+      redo: () => { for (const [id, upd] of updates) updateTask.mutate({ id, deadline: upd.deadline }); },
+    });
+    toast.success(`Проставлено дедлайнов: ${updates.size}`);
+  }, [allTasks, allDependencies, updateTask, pushUndo]);
+
   // Timeline range
   const { timelineStart, timelineEnd, columns } = useMemo(() => {
     const now = new Date();
@@ -1368,6 +1403,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             <DropdownMenuItem onClick={() => setHideEmpty(prev => !prev)}>
               {hideEmpty ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
               {hideEmpty ? "Показать пустые" : "Скрыть пустые"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleFillDeadlines}>
+              <LocateFixed className="h-3.5 w-3.5 mr-2 text-primary" />
+              Заполнить даты по связям
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
