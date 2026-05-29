@@ -280,7 +280,9 @@ function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectI
           <Textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
-            placeholder="Опишите, какие задачи нужны...&#10;Например: «Задачи для запуска рекламной кампании на 2 недели»"
+            placeholder={voiceMode
+              ? "Нажмите «Записать» и продиктуйте задачи…\nНапример: «Марку подготовить КП до 25 апреля, важно. Ире отправить договор через 3 дня»"
+              : "Опишите, какие задачи нужны...\nНапример: «Задачи для запуска рекламной кампании на 2 недели»"}
             className="text-xs min-h-[60px] max-h-[100px] resize-none flex-1"
           />
           <Button
@@ -292,6 +294,54 @@ function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectI
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           </Button>
         </div>
+
+        {voiceMode && (
+          <div className="space-y-1.5">
+            {speech.supported ? (
+              <div className="flex items-center gap-2">
+                {!speech.listening ? (
+                  <Button
+                    type="button"
+                    onClick={() => { speech.reset(); setPrompt(""); speech.start(); }}
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs"
+                  >
+                    <Mic className="h-3.5 w-3.5 text-primary" /> Записать
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => speech.stop()}
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5 h-8 text-xs"
+                  >
+                    <Square className="h-3 w-3 fill-current" /> Остановить
+                  </Button>
+                )}
+                {speech.listening && (
+                  <span className="flex items-center gap-1.5 text-[10px] text-red-500">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Слушаю…
+                  </span>
+                )}
+                {speech.interimTranscript && (
+                  <span className="text-[10px] text-muted-foreground italic truncate flex-1">
+                    {speech.interimTranscript}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                Голосовой ввод не поддерживается этим браузером. Используйте Chrome или введите текст вручную.
+              </p>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              ИИ распознает ответственных и сроки прямо из речи. После записи нажмите{" "}
+              <Sparkles className="inline h-3 w-3 text-primary align-text-bottom" /> для генерации.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Results */}
