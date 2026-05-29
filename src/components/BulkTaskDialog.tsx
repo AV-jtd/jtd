@@ -286,7 +286,7 @@ function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectI
             className="text-xs min-h-[60px] max-h-[100px] resize-none flex-1"
           />
           <Button
-            onClick={generate}
+            onClick={() => { if (voiceMode && speech.listening) speech.stop(); generate(); }}
             disabled={loading || !prompt.trim()}
             size="sm"
             className="shrink-0 h-auto self-end"
