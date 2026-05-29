@@ -2606,6 +2606,7 @@ export type Database = {
           parent_id: string
         }[]
       }
+      delegation_profile_ids: { Args: { _user_id: string }; Returns: string[] }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
