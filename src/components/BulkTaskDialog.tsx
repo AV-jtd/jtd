@@ -146,6 +146,7 @@ function AiTab({ projectId, projectName, onDone, voiceMode = false }: { projectI
             subprojects,
             users: users.map(u => ({ id: u.id, name: u.display_name || u.email })),
             taskTemplates,
+            literal: voiceMode,
           },
         },
       });
