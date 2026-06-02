@@ -200,7 +200,14 @@ export default function TaskChat({
     // Уведомления об @-упоминаниях + адресный ответ (автоупоминание автора
     // сообщения, на которое отвечаем). Fire-and-forget — не блокирует отправку.
     try {
-      const targets = new Set(resolveMentionedUserIds(text, availableUsers));
+      const targets = new Set<string>();
+      // 1) Точные id выбранных через автокомплит/ответ упоминаний —
+      //    учитываем только те, чья подпись осталась в финальном тексте.
+      for (const [label, id] of mentionedRef.current.entries()) {
+        if (text.includes(label)) targets.add(id);
+      }
+      // 2) Фолбэк: пользователи, набранные руками по имени/нику.
+      for (const id of resolveMentionedUserIds(text, availableUsers)) targets.add(id);
       // Адресный ответ → всегда уведомляем автора исходного сообщения.
       if (parent?.user_id) targets.add(parent.user_id);
       targets.delete(user?.id || "");
@@ -223,6 +230,7 @@ export default function TaskChat({
 
     setDraft("");
     setReplyTo(null);
+    mentionedRef.current.clear();
   };
 
   /**
