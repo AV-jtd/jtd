@@ -359,23 +359,44 @@ function splitBulkSourceItems(text: string): string[] {
 function findAssigneeHint(text: string, members: Member[]): Member | null {
   if (!text || members.length === 0) return null;
 
-  const mentionMatches = [...text.matchAll(/@([a-zа-яё0-9_.-]+)/gi)];
+  // 1. Explicit @mentions — allow an optional second word ("@имя фамилия"),
+  //    and fall back to the first token if the two-word form doesn't resolve.
+  const mentionMatches = [...text.matchAll(/@([a-zа-яё0-9_.-]+(?:\s+[a-zа-яё0-9_.-]+)?)/gi)];
   for (const match of mentionMatches) {
-    const member = findMemberByName(match[1], members);
-    if (member) return member;
+    const raw = match[1].replace(/\s+/g, " ").trim();
+    let res = resolveMemberDetailed(raw, members);
+    if (!res.member && raw.includes(" ")) {
+      res = resolveMemberDetailed(raw.split(" ")[0], members);
+    }
+    if (res.member) {
+      console.log(`[assignee] @-упоминание "${raw}" → ${res.member.name} (стратегия: ${res.matchedBy})`);
+      return res.member;
+    }
+    console.warn(`[assignee] @-упоминание "${raw}" не распознано: ${res.reason}`);
   }
 
+  // 2. Keyword-driven assignment ("ответственный ...", "поручить ...").
   const keywordMatch = text.match(/(?:ответственн\w*|исполнитель|назначить|поручить|делает|сделает|на)\s+@?([a-zа-яё0-9_.-]+(?:\s+[a-zа-яё0-9_.-]+)?)/i);
   if (keywordMatch) {
-    const member = findMemberByName(keywordMatch[1], members);
-    if (member) return member;
+    const raw = keywordMatch[1].replace(/\s+/g, " ").trim();
+    const res = resolveMemberDetailed(raw, members);
+    if (res.member) {
+      console.log(`[assignee] по ключевому слову "${raw}" → ${res.member.name} (стратегия: ${res.matchedBy})`);
+      return res.member;
+    }
+    console.warn(`[assignee] ключевое слово "${raw}" не распознано: ${res.reason}`);
   }
 
+  // 3. Last-resort: trailing 1-2 words of the line might be a bare name.
   const words = text.split(/\s+/).map((word) => word.replace(/^[^a-zа-яё0-9@]+|[^a-zа-яё0-9_.-]+$/gi, "")).filter(Boolean);
   for (const tailSize of [2, 1]) {
     if (words.length < tailSize) continue;
-    const member = findMemberByName(words.slice(-tailSize).join(" "), members);
-    if (member) return member;
+    const tail = words.slice(-tailSize).join(" ");
+    const res = resolveMemberDetailed(tail, members);
+    if (res.member) {
+      console.log(`[assignee] по хвосту строки "${tail}" → ${res.member.name} (стратегия: ${res.matchedBy})`);
+      return res.member;
+    }
   }
 
   return null;
