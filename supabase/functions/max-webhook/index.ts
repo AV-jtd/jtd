@@ -189,6 +189,18 @@ Deno.serve(async (req) => {
   // ---- Incoming MAX webhook updates ----
   const updateType: string | undefined = body.update_type;
 
+  // Diagnostic: log the raw update so we can see exactly what MAX delivers
+  // (e.g. group chat_type, sender/recipient ids) when debugging linking.
+  try {
+    console.log("MAX update:", JSON.stringify({
+      update_type: updateType,
+      chat_type: body?.message?.recipient?.chat_type,
+      chat_id: body?.message?.recipient?.chat_id,
+      sender: body?.message?.sender?.user_id,
+      text: body?.message?.body?.text,
+    }));
+  } catch { /* ignore */ }
+
   // Inline-button press (e.g. ✅ Done / 👤 Take from a task list).
   if (updateType === "message_callback") {
     const supabase = svc();
@@ -243,7 +255,11 @@ Deno.serve(async (req) => {
 
       // ---- Group chat (linked project) handling ----
       const chatType: string = (msg.recipient?.chat_type ?? "").toString();
-      if (chatType === "chat" && maxUserId != null && maxChatId != null && text) {
+      // MAX uses chat_type "dialog" for 1:1 and "chat" for group chats. Treat
+      // anything that isn't an explicit dialog as a group when a chat id is
+      // present, so /link works even if MAX omits/renames the chat_type field.
+      const isGroup = chatType === "chat" || (chatType !== "dialog" && maxChatId != null && maxChatId !== maxUserId);
+      if (isGroup && maxUserId != null && maxChatId != null && text) {
         const cmd = extractBotCommand(text);
         const groupTransport = makeMaxTransport(TOKEN, { chatId: maxChatId });
         if (cmd && cmd.command === "link") {
