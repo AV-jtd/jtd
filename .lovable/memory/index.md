@@ -2,6 +2,7 @@
 ВНЕШНИЕ ПОЛЬЗОВАТЕЛИ (подрядчики, партнёры, консультанты, аудиторы и любые будущие категории) по умолчанию работают по правилам роли `consultant`. Любая новая таблица/модуль/edge-функция должна сразу учитывать эти ограничения. См. mem://constraints/external-users-default и mem://features/consultant-role.
 
 ## Memories
+- [streams/max-messenger-channel](mem://streams/max-messenger-channel) — MAX мессенджер (VK) как +1 альтернативный канал рядом с Telegram (НЕ замена): бот, чаты проектов, единый поток TG↔MAX↔JTD. ⏸ план готов.
 - [features/stm/ops-tasks-block](mem://features/stm/ops-tasks-block) — В раскрытой карточке SKU блок «Операционные задачи» (TaskCreateBar + 2 секции: Операционные / Из протоколов). В Гантте задачи из протоколов помечены 📋.
 - [features/stm/milestone-deadline-mapping](mem://features/stm/milestone-deadline-mapping) — Single source of truth для milestone STM: tasks.deadline (stm_stage). project_milestones.planned_date синхронизируется триггером sync_stm_milestone_from_stage_task. UI fallback не используется.
 - [streams/org-structure-stage-0](mem://streams/org-structure-stage-0) — Этап 0: оргструктура + роль director. Древовидные отделы (parent_department_id), department_directors many-to-many, Bulk-экран для 33 юзеров. Пауза перед миграцией БД. Тестовый кейс — Закупки.
