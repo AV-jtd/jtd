@@ -189,6 +189,18 @@ Deno.serve(async (req) => {
   // ---- Incoming MAX webhook updates ----
   const updateType: string | undefined = body.update_type;
 
+  // Diagnostic: log the raw update so we can see exactly what MAX delivers
+  // (e.g. group chat_type, sender/recipient ids) when debugging linking.
+  try {
+    console.log("MAX update:", JSON.stringify({
+      update_type: updateType,
+      chat_type: body?.message?.recipient?.chat_type,
+      chat_id: body?.message?.recipient?.chat_id,
+      sender: body?.message?.sender?.user_id,
+      text: body?.message?.body?.text,
+    }));
+  } catch { /* ignore */ }
+
   // Inline-button press (e.g. ✅ Done / 👤 Take from a task list).
   if (updateType === "message_callback") {
     const supabase = svc();
