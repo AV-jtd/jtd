@@ -356,6 +356,58 @@ function splitBulkSourceItems(text: string): string[] {
   return [text.trim()].filter(Boolean);
 }
 
+/**
+ * Strategies considered "confident" enough to assign a member from a bare word
+ * (no `@`). Prefix/substring/fuzzy are excluded here to avoid grabbing common
+ * Russian words that merely look like a name fragment.
+ */
+const CONFIDENT_STRATEGIES = new Set([
+  "username",
+  "username-prefix",
+  "fullname",
+  "multi-token",
+  "alias-token",
+]);
+
+/** Common short words that must never be treated as a bare name. */
+const NAME_STOPWORDS = new Set([
+  "на", "до", "от", "по", "за", "из", "под", "над", "для", "про", "без",
+  "и", "а", "но", "или", "что", "как", "это", "все", "там", "тут", "уже",
+  "его", "ее", "их", "мне", "нам", "вам", "был", "уже", "надо", "нужно",
+]);
+
+/**
+ * Smart bare-name detection (без `@`): scan every word and adjacent word-pair
+ * of the text against the member list, accepting only confident matches.
+ * Returns the first member found, or null.
+ */
+function scanTextForMember(text: string, members: Member[]): { member: Member; matchedBy: string; token: string } | null {
+  const words = text
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^a-zа-яё0-9@]+|[^a-zа-яё0-9_.-]+$/gi, ""))
+    .filter(Boolean);
+
+  // Try "Имя Фамилия" pairs first (more specific), then single words.
+  for (let i = 0; i < words.length - 1; i++) {
+    const pair = `${words[i]} ${words[i + 1]}`;
+    const res = resolveMemberDetailed(pair, members);
+    if (res.member && (res.matchedBy === "multi-token" || res.matchedBy === "fullname")) {
+      return { member: res.member, matchedBy: res.matchedBy, token: pair };
+    }
+  }
+
+  for (const word of words) {
+    const norm = normalizeToken(word.replace(/^@+/, ""));
+    if (norm.length < 3 || NAME_STOPWORDS.has(norm)) continue;
+    const res = resolveMemberDetailed(word, members);
+    if (res.member && res.matchedBy && CONFIDENT_STRATEGIES.has(res.matchedBy)) {
+      return { member: res.member, matchedBy: res.matchedBy, token: word };
+    }
+  }
+
+  return null;
+}
+
 function findAssigneeHint(text: string, members: Member[]): Member | null {
   if (!text || members.length === 0) return null;
 
@@ -387,16 +439,12 @@ function findAssigneeHint(text: string, members: Member[]): Member | null {
     console.warn(`[assignee] ключевое слово "${raw}" не распознано: ${res.reason}`);
   }
 
-  // 3. Last-resort: trailing 1-2 words of the line might be a bare name.
-  const words = text.split(/\s+/).map((word) => word.replace(/^[^a-zа-яё0-9@]+|[^a-zа-яё0-9_.-]+$/gi, "")).filter(Boolean);
-  for (const tailSize of [2, 1]) {
-    if (words.length < tailSize) continue;
-    const tail = words.slice(-tailSize).join(" ");
-    const res = resolveMemberDetailed(tail, members);
-    if (res.member) {
-      console.log(`[assignee] по хвосту строки "${tail}" → ${res.member.name} (стратегия: ${res.matchedBy})`);
-      return res.member;
-    }
+  // 3. Smart bare-name detection (без @): scan the whole text for a member
+  //    name mentioned anywhere, accepting only confident matches.
+  const scanned = scanTextForMember(text, members);
+  if (scanned) {
+    console.log(`[assignee] имя без @ "${scanned.token}" → ${scanned.member.name} (стратегия: ${scanned.matchedBy})`);
+    return scanned.member;
   }
 
   return null;
