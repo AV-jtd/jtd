@@ -113,8 +113,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter out sender from targets
-    const filteredTargets = targetUserIds.filter((id: string) => id !== user.id);
+    // Filter out sender from targets and de-duplicate IDs.
+    // De-dup is critical for @-mentions in replies: the same user can be both
+    // the parent-message author AND explicitly @-mentioned, which would
+    // otherwise produce two identical notifications.
+    const filteredTargets = [
+      ...new Set(targetUserIds.filter((id: string) => id && id !== user.id)),
+    ] as string[];
     if (filteredTargets.length === 0) {
       return new Response(JSON.stringify({ sent: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
