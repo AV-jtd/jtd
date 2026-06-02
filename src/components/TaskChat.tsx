@@ -657,16 +657,26 @@ export default function TaskChat({
     <form
       onSubmit={e => { e.preventDefault(); handleSend(); }}
       className={cn(
-        "flex items-center gap-2",
+        "relative flex items-center gap-2",
         isFull
           ? "px-4 py-3"
           : "px-3 py-2 bg-card/50"
       )}
     >
+      <MentionAutocomplete
+        value={draft}
+        users={availableUsers}
+        onPick={(u) => {
+          const handle = userMentionHandle(u);
+          const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
+          const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
+          setDraft(`${base}@${handle} `);
+        }}
+      />
       <Input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        placeholder={replyTo ? "Ответить..." : "Написать..."}
+        placeholder={replyTo ? "Ответить... (@ — упомянуть)" : "Написать... (@ — упомянуть)"}
         enterKeyHint="send"
         className={cn(
           "flex-1",
