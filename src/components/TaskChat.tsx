@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
+import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
@@ -528,9 +529,11 @@ export default function TaskChat({
               content={
                 <>
                   {parentQuote}
-                  <p className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}>
-                    {c.content}
-                  </p>
+                  <MentionText
+                    content={c.content}
+                    users={availableUsers}
+                    className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}
+                  />
                 </>
               }
               messageType="task_comment"
