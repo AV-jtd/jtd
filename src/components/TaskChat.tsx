@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History } from "lucide-react";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History, Reply, CornerDownRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -101,6 +101,10 @@ export default function TaskChat({
   const [draft, setDraft] = useState("");
   /** Активная вкладка: chat (message+system), log (только log), all (всё). */
   const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
+  /** Сообщение, на которое сейчас отвечаем (thread/reply). */
+  const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
+  /** ID сообщения, к которому нужно подсветить/проскроллить (открытие контекста ответа). */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   /** Открыта inline-форма создания follow-up задачи (после закрытия текущей). */
   const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
@@ -148,11 +152,29 @@ export default function TaskChat({
     return p?.display_name || userId.slice(0, 8);
   };
 
+  /** Быстрый доступ к сообщению по id — для отрисовки цитаты родителя ответа. */
+  const commentsById = useMemo(() => {
+    const m = new Map<string, TaskComment>();
+    for (const c of comments) m.set(c.id, c);
+    return m;
+  }, [comments]);
+
+  /** Проскроллить к исходному сообщению и кратко его подсветить. */
+  const openReplyContext = (parentId: string) => {
+    setHighlightId(parentId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tc-msg-${taskId}-${parentId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    window.setTimeout(() => setHighlightId(null), 1800);
+  };
+
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    addComment.mutate({ task_id: taskId, content: text });
+    addComment.mutate({ task_id: taskId, content: text, reply_to: replyTo?.id ?? null });
     setDraft("");
+    setReplyTo(null);
   };
 
   /**
@@ -389,6 +411,12 @@ export default function TaskChat({
           const name = getProfileName(c.user_id);
           const actions: ChatAction[] = [
             {
+              icon: Reply,
+              onClick: () => setReplyTo(c),
+              title: "Ответить",
+              tone: "default",
+            },
+            {
               icon: CheckSquare,
               onClick: () => setTaskFormForCommentId(prev => (prev === c.id ? null : c.id)),
               title: "Создать задачу из сообщения",
@@ -403,17 +431,57 @@ export default function TaskChat({
               tone: "danger",
             });
           }
+          // Цитата исходного сообщения (если это ответ).
+          const parent = c.reply_to ? commentsById.get(c.reply_to) : undefined;
+          const parentQuote = c.reply_to ? (
+            <button
+              type="button"
+              onClick={() => parent && openReplyContext(parent.id)}
+              className={cn(
+                "mb-1 flex items-start gap-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-2 py-1 text-left transition-colors",
+                parent ? "hover:bg-primary/10" : "opacity-60 cursor-default",
+              )}
+              title={parent ? "Открыть исходное сообщение" : undefined}
+            >
+              <CornerDownRight className="h-3 w-3 mt-0.5 shrink-0 text-primary/70" />
+              <span className="min-w-0">
+                <span className="block text-[10px] font-medium text-primary/80">
+                  {parent ? getProfileName(parent.user_id) : "Сообщение удалено"}
+                </span>
+                {parent && (
+                  <span className="block text-[11px] text-muted-foreground truncate max-w-[220px]">
+                    {parent.content}
+                  </span>
+                )}
+              </span>
+            </button>
+          ) : null;
           return (
-            <ChatMessageRow
+            <div
               key={c.id}
+              id={`tc-msg-${taskId}-${c.id}`}
+              className={cn(
+                "rounded-md transition-colors",
+                highlightId === c.id && "bg-primary/10 ring-1 ring-primary/30",
+              )}
+            >
+            <ChatMessageRow
               authorName={name}
               isOwn={isOwn}
               createdAt={c.created_at}
-              content={c.content}
+              content={
+                <>
+                  {parentQuote}
+                  <p className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}>
+                    {c.content}
+                  </p>
+                </>
+              }
               messageType="task_comment"
               messageId={c.id}
               reactions={reactionsByMsg[c.id]}
               actions={actions}
+              isReply={!!c.reply_to}
             >
               {taskFormForCommentId === c.id && (
                 <InlineCreateTaskForm
@@ -426,6 +494,7 @@ export default function TaskChat({
                 />
               )}
             </ChatMessageRow>
+            </div>
           );
         })}
         <div ref={bottomRef} />
@@ -525,19 +594,39 @@ export default function TaskChat({
   ) : null;
 
   const inputForm = (
+    <div className="shrink-0 border-t border-border">
+      {replyTo && (
+        <div className={cn(
+          "flex items-center gap-2 text-xs text-muted-foreground bg-muted/50",
+          isFull ? "px-4 py-2" : "px-3 py-1.5",
+        )}>
+          <Reply className="h-3 w-3 shrink-0 text-primary" />
+          <span className="truncate">
+            Ответ: <span className="font-medium text-foreground/80">{getProfileName(replyTo.user_id)}</span> — {replyTo.content.slice(0, 50)}
+          </span>
+          <button
+            type="button"
+            onClick={() => setReplyTo(null)}
+            className="ml-auto shrink-0 hover:text-foreground"
+            aria-label="Отменить ответ"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     <form
       onSubmit={e => { e.preventDefault(); handleSend(); }}
       className={cn(
-        "flex items-center gap-2 shrink-0",
+        "flex items-center gap-2",
         isFull
-          ? "px-4 py-3 border-t border-border"
-          : "px-3 py-2 border-t border-border bg-card/50"
+          ? "px-4 py-3"
+          : "px-3 py-2 bg-card/50"
       )}
     >
       <Input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        placeholder="Написать..."
+        placeholder={replyTo ? "Ответить..." : "Написать..."}
         enterKeyHint="send"
         className={cn(
           "flex-1",
@@ -556,6 +645,7 @@ export default function TaskChat({
         <Send className={isFull ? "h-4 w-4" : "h-3.5 w-3.5"} />
       </button>
     </form>
+    </div>
   );
 
   // Full variant: занимает всю высоту контейнера, без обёртки
