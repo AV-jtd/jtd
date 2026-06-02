@@ -179,9 +179,7 @@ export default function TaskChat({
     const author = availableUsers.find((u) => u.id === c.user_id);
     if (author && c.user_id !== user?.id) {
       const handle = userMentionHandle(author);
-      setDraft((prev) =>
-        prev.includes(`@${handle}`) ? prev : `@${handle} ${prev}`.trimStart() + (prev ? "" : "")
-      );
+      setDraft((prev) => (prev.includes(`@${handle}`) ? prev : `@${handle} ${prev}`));
     }
   };
 
