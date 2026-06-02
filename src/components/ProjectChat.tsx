@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search, Link2 } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactio
 import { AtSign } from "lucide-react";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
+import ChatLinkDialog from "./ChatLinkDialog";
 
 interface ProjectChatProps {
   groupId: string;
@@ -50,6 +51,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
   const [showAi, setShowAi] = useState(false);
+  const [showLink, setShowLink] = useState(false);
   /** message.id → form open */
   const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
   /** уникальный nonce открытия формы — меняется при каждом открытии,
@@ -277,6 +279,13 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
               <Search className="h-4 w-4" />
             </button>
             <button
+              onClick={() => setShowLink(true)}
+              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+              title="Подключить чат Telegram / MAX"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setShowAi(true)}
               className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
               title="ИИ-ассистент проекта"
@@ -309,6 +318,13 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span>ИИ</span>
+          </button>
+          <button
+            onClick={() => setShowLink(true)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+            title="Подключить чат Telegram / MAX"
+          >
+            <Link2 className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
@@ -487,6 +503,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           <Send className="h-4 w-4" />
         </button>
       </form>
+      <ChatLinkDialog
+        groupId={groupId}
+        groupName={groupName}
+        open={showLink}
+        onOpenChange={setShowLink}
+      />
     </div>
   );
 }

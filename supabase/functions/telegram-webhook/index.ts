@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { linkGroupChat } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -466,7 +467,39 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
-        const projectName = args.trim();
+        const rawArg = args.trim();
+
+        // === Universal-code path: /link CODE (one code links both TG and MAX) ===
+        // If the argument looks like a short code AND matches an active token,
+        // bind via the unified-chat system (task_groups.telegram_group_chat_id)
+        // and keep the legacy telegram_group_chats row so /task etc. still work.
+        if (/^[A-Za-z0-9]{4,12}$/.test(rawArg)) {
+          const { data: tokenRow } = await supabase
+            .from("chat_link_tokens")
+            .select("group_id, expires_at")
+            .eq("code", rawArg.toUpperCase())
+            .maybeSingle();
+          if (tokenRow) {
+            const res = await linkGroupChat(supabase, "telegram", chatId, rawArg);
+            if (res.ok) {
+              await supabase.from("telegram_group_chats").upsert(
+                {
+                  telegram_chat_id: chatId,
+                  telegram_chat_title: message.chat.title || null,
+                  group_id: tokenRow.group_id,
+                  linked_by: userId,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "telegram_chat_id" },
+              );
+            }
+            await sendTelegramMessage(BOT_TOKEN, chatId, res.message, "Markdown");
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+          // no matching code → fall through to project-name matching below
+        }
+
+        const projectName = rawArg;
         const group = await findProject(supabase, userId, projectName);
 
         if (!group) {
