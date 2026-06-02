@@ -411,6 +411,12 @@ export default function TaskChat({
           const name = getProfileName(c.user_id);
           const actions: ChatAction[] = [
             {
+              icon: Reply,
+              onClick: () => setReplyTo(c),
+              title: "Ответить",
+              tone: "default",
+            },
+            {
               icon: CheckSquare,
               onClick: () => setTaskFormForCommentId(prev => (prev === c.id ? null : c.id)),
               title: "Создать задачу из сообщения",
@@ -425,9 +431,41 @@ export default function TaskChat({
               tone: "danger",
             });
           }
+          // Цитата исходного сообщения (если это ответ).
+          const parent = c.reply_to ? commentsById.get(c.reply_to) : undefined;
+          const parentQuote = c.reply_to ? (
+            <button
+              type="button"
+              onClick={() => parent && openReplyContext(parent.id)}
+              className={cn(
+                "mb-1 flex items-start gap-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-2 py-1 text-left transition-colors",
+                parent ? "hover:bg-primary/10" : "opacity-60 cursor-default",
+              )}
+              title={parent ? "Открыть исходное сообщение" : undefined}
+            >
+              <CornerDownRight className="h-3 w-3 mt-0.5 shrink-0 text-primary/70" />
+              <span className="min-w-0">
+                <span className="block text-[10px] font-medium text-primary/80">
+                  {parent ? getProfileName(parent.user_id) : "Сообщение удалено"}
+                </span>
+                {parent && (
+                  <span className="block text-[11px] text-muted-foreground truncate max-w-[220px]">
+                    {parent.content}
+                  </span>
+                )}
+              </span>
+            </button>
+          ) : null;
           return (
-            <ChatMessageRow
+            <div
               key={c.id}
+              id={`tc-msg-${taskId}-${c.id}`}
+              className={cn(
+                "rounded-md transition-colors",
+                highlightId === c.id && "bg-primary/10 ring-1 ring-primary/30",
+              )}
+            >
+            <ChatMessageRow
               authorName={name}
               isOwn={isOwn}
               createdAt={c.created_at}
@@ -436,7 +474,9 @@ export default function TaskChat({
               messageId={c.id}
               reactions={reactionsByMsg[c.id]}
               actions={actions}
+              isReply={!!c.reply_to}
             >
+              {parentQuote}
               {taskFormForCommentId === c.id && (
                 <InlineCreateTaskForm
                   source={c}
@@ -448,6 +488,7 @@ export default function TaskChat({
                 />
               )}
             </ChatMessageRow>
+            </div>
           );
         })}
         <div ref={bottomRef} />
