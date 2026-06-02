@@ -599,8 +599,10 @@ export async function getUserProjects(supabase: any, userId: string): Promise<{ 
  */
 export async function getTeamMembers(supabase: any, userId: string): Promise<Member[]> {
   // All groups the user owns or belongs to.
-  const { data: owned } = await supabase.from("task_groups").select("id, user_id").eq("user_id", userId);
-  const { data: memberships } = await supabase.from("group_members").select("group_id").eq("user_id", userId);
+  const { data: owned, error: ownedError } = await supabase.from("task_groups").select("id, user_id").eq("user_id", userId);
+  const { data: memberships, error: membershipsError } = await supabase.from("group_members").select("group_id").eq("user_id", userId);
+  if (ownedError) console.warn(`[assignee] Не удалось загрузить проекты пользователя: ${ownedError.message}`);
+  if (membershipsError) console.warn(`[assignee] Не удалось загрузить участия пользователя: ${membershipsError.message}`);
 
   const groupIds = new Set<string>();
   (owned || []).forEach((g: any) => groupIds.add(g.id));
@@ -611,17 +613,15 @@ export async function getTeamMembers(supabase: any, userId: string): Promise<Mem
 
   if (groupIds.size > 0) {
     const ids = [...groupIds];
-    const { data: groupOwners } = await supabase.from("task_groups").select("user_id").in("id", ids);
+    const groupOwners = await selectInChunks(supabase, "task_groups", "user_id", "id", ids);
     (groupOwners || []).forEach((g: any) => g.user_id && profileIds.add(g.user_id));
-    const { data: groupMembers } = await supabase.from("group_members").select("user_id").in("group_id", ids);
+    const groupMembers = await selectInChunks(supabase, "group_members", "user_id", "group_id", ids);
     (groupMembers || []).forEach((m: any) => m.user_id && profileIds.add(m.user_id));
   }
 
   if (profileIds.size === 0) return [];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, display_name, telegram_username")
-    .in("id", [...profileIds]);
+  console.log(`[assignee] Team scan: groups=${groupIds.size}, profileIds=${profileIds.size}`);
+  const profiles = await selectInChunks(supabase, "profiles", "id, display_name, telegram_username", "id", [...profileIds]);
   return (profiles || []).map((p: any) => ({
     id: p.id,
     name: p.display_name || "Без имени",
