@@ -52,6 +52,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [showLink, setShowLink] = useState(false);
+  const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
+  const [mirror, setMirror] = useState(true);
   /** message.id → form open */
   const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
   /** уникальный nonce открытия формы — меняется при каждом открытии,
