@@ -15,6 +15,8 @@ export type TaskComment = {
   /** message — живой текст; system — системная карточка про связь задач; log — авто-лог изменений. */
   kind?: "message" | "system" | "log";
   meta?: { changes?: Array<{ field: string; old: unknown; new: unknown }> } | null;
+  /** ID сообщения, на которое это сообщение является ответом (thread/reply). */
+  reply_to?: string | null;
 };
 
 export function useTaskComments(taskId: string | null) {
@@ -65,15 +67,16 @@ export function useCommentMutations() {
   const { user } = useAuth();
 
   const addComment = useMutation({
-    mutationFn: async ({ task_id, content }: { task_id: string; content: string }) => {
+    mutationFn: async ({ task_id, content, reply_to }: { task_id: string; content: string; reply_to?: string | null }) => {
       const { error } = await supabase.from("task_comments" as any).insert({
         task_id,
         user_id: user!.id,
         content,
+        reply_to: reply_to ?? null,
       });
       if (error) throw error;
     },
-    onMutate: async ({ task_id, content }) => {
+    onMutate: async ({ task_id, content, reply_to }) => {
       await qc.cancelQueries({ queryKey: ["task_comments", task_id] });
       const prev = qc.getQueryData<TaskComment[]>(["task_comments", task_id]);
       const optimistic: TaskComment = {
@@ -83,6 +86,7 @@ export function useCommentMutations() {
         content,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        reply_to: reply_to ?? null,
       };
       qc.setQueryData<TaskComment[]>(
         ["task_comments", task_id],
