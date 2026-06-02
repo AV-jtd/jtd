@@ -1090,8 +1090,10 @@ export async function handleBulkText(opts: {
   transport: MessengerTransport;
   userId: string;
   text: string;
+  /** When set, project context is fixed (e.g. a linked group chat). */
+  fixedProject?: { id: string; name: string };
 }): Promise<boolean> {
-  const { supabase, transport, userId, text } = opts;
+  const { supabase, transport, userId, text, fixedProject } = opts;
   const raw = text.replace(/^\/(spisok|s|t|p|d)\s*/i, "").trim();
   if (!raw) {
     await transport.send(
@@ -1106,17 +1108,23 @@ export async function handleBulkText(opts: {
   let groupName: string | null = null;
   let bulkText = raw;
 
-  const firstLine = raw.split("\n")[0].trim();
-  const restText = raw.substring(firstLine.length).trim();
-  if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
-    const group = await findProject(supabase, userId, firstLine);
-    if (group) {
-      groupId = group.id;
-      groupName = group.name;
-      bulkText = restText || firstLine; // if only a project name, fall through with original
-      if (!restText) {
-        await transport.send(`📦 Проект: ${groupName}\n\nТеперь пришлите список задач.`);
-        return true;
+  if (fixedProject) {
+    // Inside a linked group chat the project is implicit — no first-line parse.
+    groupId = fixedProject.id;
+    groupName = fixedProject.name;
+  } else {
+    const firstLine = raw.split("\n")[0].trim();
+    const restText = raw.substring(firstLine.length).trim();
+    if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
+      const group = await findProject(supabase, userId, firstLine);
+      if (group) {
+        groupId = group.id;
+        groupName = group.name;
+        bulkText = restText || firstLine; // if only a project name, fall through with original
+        if (!restText) {
+          await transport.send(`📦 Проект: ${groupName}\n\nТеперь пришлите список задач.`);
+          return true;
+        }
       }
     }
   }
@@ -1156,4 +1164,250 @@ export async function handleBulkText(opts: {
   const projectInfo = groupName ? ` в 📁 ${groupName}` : "";
   await transport.send(`📦 Создано ${results.length} ${pluralizeRu(results.length, ["задача", "задачи", "задач"])}${projectInfo}:\n\n${lines.join("\n")}`);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Unified chat — group binding, mirroring & fan-out (Stage 4)
+// ---------------------------------------------------------------------------
+
+export type ChatChannel = "telegram" | "max";
+
+export interface LinkedGroup {
+  id: string;
+  name: string;
+  icon: string | null;
+  user_id: string;
+  chat_mirror_enabled: boolean;
+  telegram_group_chat_id: number | null;
+  max_group_chat_id: string | null;
+}
+
+const GROUP_COL: Record<ChatChannel, string> = {
+  telegram: "telegram_group_chat_id",
+  max: "max_group_chat_id",
+};
+
+function groupColValue(channel: ChatChannel, chatId: string | number): string | number {
+  return channel === "telegram" ? Number(chatId) : String(chatId);
+}
+
+/** Resolve the JTD project bound to a messenger group chat, if any. */
+export async function resolveGroupByChat(
+  supabase: any,
+  channel: ChatChannel,
+  chatId: string | number,
+): Promise<LinkedGroup | null> {
+  const { data } = await supabase
+    .from("task_groups")
+    .select("id, name, icon, user_id, chat_mirror_enabled, telegram_group_chat_id, max_group_chat_id")
+    .eq(GROUP_COL[channel], groupColValue(channel, chatId))
+    .maybeSingle();
+  return (data as LinkedGroup) ?? null;
+}
+
+/** Resolve a JTD profile from a messenger user id. */
+export async function resolveProfileByExternalUser(
+  supabase: any,
+  channel: ChatChannel,
+  externalUserId: string | number,
+): Promise<{ id: string; name: string } | null> {
+  const col = channel === "telegram" ? "telegram_user_id" : "max_user_id";
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, display_name")
+    .eq(col, externalUserId)
+    .maybeSingle();
+  return data ? { id: data.id, name: data.display_name || "Без имени" } : null;
+}
+
+/** Bind a messenger group chat to a JTD project using a short-lived code. */
+export async function linkGroupChat(
+  supabase: any,
+  channel: ChatChannel,
+  chatId: string | number,
+  code: string,
+): Promise<{ ok: boolean; message: string; groupName?: string }> {
+  const trimmed = (code || "").trim().toUpperCase();
+  if (!trimmed) return { ok: false, message: "❌ Укажите код: `/link КОД` (код получаете в JTD)." };
+
+  const { data: row } = await supabase
+    .from("chat_link_tokens")
+    .select("code, group_id, channel, expires_at")
+    .eq("code", trimmed)
+    .maybeSingle();
+
+  if (!row) return { ok: false, message: "❌ Код не найден или уже использован." };
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await supabase.from("chat_link_tokens").delete().eq("code", trimmed);
+    return { ok: false, message: "❌ Срок действия кода истёк. Сгенерируйте новый в JTD." };
+  }
+  if (row.channel && row.channel !== "any" && row.channel !== channel) {
+    return { ok: false, message: "❌ Этот код предназначен для другого канала." };
+  }
+
+  const col = GROUP_COL[channel];
+  const value = groupColValue(channel, chatId);
+  // A messenger chat can map to only one project — clear any previous binding.
+  await supabase.from("task_groups").update({ [col]: null }).eq(col, value);
+  const { data: grp, error } = await supabase
+    .from("task_groups")
+    .update({ [col]: value })
+    .eq("id", row.group_id)
+    .select("name")
+    .single();
+  if (error || !grp) return { ok: false, message: "❌ Не удалось привязать группу. Попробуйте ещё раз." };
+
+  await supabase.from("chat_link_tokens").delete().eq("code", trimmed);
+  return {
+    ok: true,
+    groupName: grp.name,
+    message:
+      `✅ Группа привязана к проекту «${grp.name}».\n\n` +
+      "Теперь переписка и задачи синхронизируются с JTD.\n" +
+      "📋 `/tasks` · 👤 `/my` · ✅ `/done N` · 📦 `/new <задача>`",
+  };
+}
+
+/** Unbind the messenger group chat from its project. */
+export async function unlinkGroupChat(
+  supabase: any,
+  channel: ChatChannel,
+  chatId: string | number,
+): Promise<string> {
+  const col = GROUP_COL[channel];
+  const { data } = await supabase
+    .from("task_groups")
+    .update({ [col]: null })
+    .eq(col, groupColValue(channel, chatId))
+    .select("name");
+  if (!data || data.length === 0) return "ℹ️ Эта группа не была привязана к проекту.";
+  return `🔌 Группа отвязана от проекта «${data[0].name}».`;
+}
+
+/** Mirror an inbound messenger group message into group_messages (dedup-safe). */
+export async function mirrorIncomingGroupMessage(opts: {
+  supabase: any;
+  groupId: string;
+  source: ChatChannel;
+  content: string;
+  externalMessageId?: string | null;
+  jtdUserId?: string | null;
+  externalAuthor?: string | null;
+}): Promise<boolean> {
+  const { supabase, groupId, source, content, externalMessageId, jtdUserId, externalAuthor } = opts;
+  if (!content.trim()) return false;
+  const { error } = await supabase.from("group_messages").insert({
+    group_id: groupId,
+    source,
+    content: content.substring(0, 4000),
+    user_id: jtdUserId ?? null,
+    external_author: jtdUserId ? null : (externalAuthor ?? null),
+    external_message_id: externalMessageId ?? null,
+  });
+  if (error) {
+    if ((error as any).code === "23505") return false; // duplicate → already mirrored
+    console.error("[unified-chat] mirror insert failed:", error.message);
+    return false;
+  }
+  return true;
+}
+
+/** Fan a chat message out to the project's linked groups, except the origin. */
+export async function fanOutToGroups(opts: {
+  supabase: any;
+  group: LinkedGroup;
+  originChannel: "web" | ChatChannel;
+  text: string;
+  tgToken?: string | null;
+  maxToken?: string | null;
+}): Promise<void> {
+  const { group, originChannel, text, tgToken, maxToken } = opts;
+  if (originChannel !== "telegram" && group.telegram_group_chat_id && tgToken) {
+    try {
+      await makeTelegramTransport(tgToken, group.telegram_group_chat_id).send(text);
+    } catch (e) {
+      console.error("[unified-chat] TG group send failed:", e);
+    }
+  }
+  if (originChannel !== "max" && group.max_group_chat_id && maxToken) {
+    try {
+      await makeMaxTransport(maxToken, { chatId: Number(group.max_group_chat_id) }).send(text);
+    } catch (e) {
+      console.error("[unified-chat] MAX group send failed:", e);
+    }
+  }
+}
+
+/**
+ * High-level routing for a message that arrived inside a linked group chat.
+ * Commands run scoped to the group's project; plain text is mirrored to JTD and
+ * fanned out to the other channel; `/new|/spisok|/task` creates tasks here.
+ */
+export async function handleGroupMessage(opts: {
+  supabase: any;
+  channel: ChatChannel;
+  group: LinkedGroup;
+  text: string;
+  externalUserId: string | number;
+  externalUserName: string;
+  externalMessageId?: string | null;
+  transport: MessengerTransport;
+  tgToken?: string | null;
+  maxToken?: string | null;
+  saveList?: (taskIds: string[]) => Promise<void>;
+  loadList?: () => Promise<string[] | null>;
+}): Promise<void> {
+  const {
+    supabase, channel, group, text, externalUserId, externalUserName,
+    externalMessageId, transport, tgToken, maxToken, saveList, loadList,
+  } = opts;
+
+  const profile = await resolveProfileByExternalUser(supabase, channel, externalUserId);
+  const cmd = extractBotCommand(text);
+
+  if (cmd) {
+    const c = cmd.command;
+    // Task-creating commands inside a group → fixed to this project.
+    if (c === "new" || c === "task" || c === "spisok" || c === "s") {
+      if (!profile) {
+        await transport.send("🔗 Чтобы создавать задачи отсюда, привяжите аккаунт мессенджера к JTD (Настройки → каналы).");
+        return;
+      }
+      const bodyText = cmd.args.trim() || text;
+      await handleBulkText({
+        supabase, transport, userId: profile.id, text: bodyText,
+        fixedProject: { id: group.id, name: group.name },
+      });
+      return;
+    }
+    // Read/act commands (/my, /tasks, /done, /projects, /help).
+    if (!profile) {
+      await transport.send("🔗 Привяжите аккаунт мессенджера к JTD, чтобы управлять задачами.");
+      return;
+    }
+    // Bare `/tasks` inside a group defaults to this project.
+    const args = c === "tasks" && !cmd.args.trim() ? group.name : cmd.args;
+    const handled = await handleCoreCommand({
+      supabase, transport, userId: profile.id, command: c, args, saveList, loadList,
+    });
+    if (!handled) {
+      await handleBulkText({
+        supabase, transport, userId: profile.id, text,
+        fixedProject: { id: group.id, name: group.name },
+      });
+    }
+    return;
+  }
+
+  // Plain text → pure chat: mirror to JTD + fan out to the other channel.
+  if (group.chat_mirror_enabled) {
+    await mirrorIncomingGroupMessage({
+      supabase, groupId: group.id, source: channel, content: text,
+      externalMessageId, jtdUserId: profile?.id ?? null,
+      externalAuthor: profile ? null : `${externalUserName} (${channel === "telegram" ? "TG" : "MAX"})`,
+    });
+  }
+  const author = profile?.name || externalUserName;
+  const fanText = `💬 *${escapeMarkdown(author)}:*\n${escapeMarkdown(text)}`;
+  await fanOutToGroups({ supabase, group, originChannel: channel, text: fanText, tgToken, maxToken });
 }

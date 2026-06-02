@@ -6,6 +6,10 @@ import {
   handleBulkText,
   handleCorePayload,
   makeMaxTransport,
+  resolveGroupByChat,
+  handleGroupMessage,
+  linkGroupChat,
+  unlinkGroupChat,
 } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
@@ -99,6 +103,32 @@ async function loadMaxList(
     .select("task_ids")
     .eq("channel", "max")
     .eq("external_id", String(maxUserId))
+    .maybeSingle();
+  return (data?.task_ids as string[] | undefined) ?? null;
+}
+
+/** Persist/load the last list shown inside a MAX group chat (keyed by chat). */
+async function saveMaxGroupList(
+  supabase: ReturnType<typeof svc>,
+  externalId: string,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  await supabase.from("messenger_list_context").upsert(
+    { channel: "max", external_id: externalId, user_id: userId, task_ids: taskIds, updated_at: new Date().toISOString() },
+    { onConflict: "channel,external_id" },
+  );
+}
+
+async function loadMaxGroupList(
+  supabase: ReturnType<typeof svc>,
+  externalId: string,
+): Promise<string[] | null> {
+  const { data } = await supabase
+    .from("messenger_list_context")
+    .select("task_ids")
+    .eq("channel", "max")
+    .eq("external_id", externalId)
     .maybeSingle();
   return (data?.task_ids as string[] | undefined) ?? null;
 }
@@ -210,6 +240,38 @@ Deno.serve(async (req) => {
       messageText = text;
       // Accept "/start <token>" or a bare token pasted into the chat.
       tokenCandidate = text.replace(/^\/start\s+/i, "").trim();
+
+      // ---- Group chat (linked project) handling ----
+      const chatType: string = (msg.recipient?.chat_type ?? "").toString();
+      if (chatType === "chat" && maxUserId != null && maxChatId != null && text) {
+        const cmd = extractBotCommand(text);
+        const groupTransport = makeMaxTransport(TOKEN, { chatId: maxChatId });
+        if (cmd && cmd.command === "link") {
+          const res = await linkGroupChat(supabase, "max", maxChatId, cmd.args);
+          await groupTransport.send(res.message);
+          return new Response(JSON.stringify({ ok: true, link: res.ok }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (cmd && cmd.command === "unlink") {
+          await groupTransport.send(await unlinkGroupChat(supabase, "max", maxChatId));
+          return new Response(JSON.stringify({ ok: true, unlinked: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const group = await resolveGroupByChat(supabase, "max", maxChatId);
+        if (group) {
+          const senderName = (msg.sender?.name ?? msg.sender?.first_name ?? "Гость").toString();
+          const extId = `max:${maxChatId}`;
+          await handleGroupMessage({
+            supabase, channel: "max", group, text,
+            externalUserId: maxUserId, externalUserName: senderName,
+            externalMessageId: msg.body?.mid ?? msg.timestamp?.toString() ?? null,
+            transport: groupTransport, maxToken: TOKEN, tgToken: Deno.env.get("TELEGRAM_BOT_TOKEN"),
+            saveList: (ids) => saveMaxGroupList(supabase, extId, group.user_id, ids),
+            loadList: () => loadMaxGroupList(supabase, extId),
+          });
+          return new Response(JSON.stringify({ ok: true, group: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        // Unlinked group: only respond to an explicit /link attempt above.
+        return new Response(JSON.stringify({ ok: true, ignored: "unlinked-group" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (maxUserId == null) {

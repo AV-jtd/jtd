@@ -69,3 +69,11 @@ telegram-webhook = 3440 строк с большим набором команд
 
 - Перевести telegram-webhook на общее ядро (постепенно, по командам).
 - Единый чат TG↔MAX↔JTD: подключить MAX к fan-out (`send-chat-telegram` рассылает веб-сообщения в личку TG; нужен аналог для MAX + подавление эха).
+
+## Этап 4 (в работе) — Единый чат: нативные группы TG/MAX ↔ JTD (ChatOps)
+- Решение: нативные группы на проект (не релей в личку), TG+MAX сразу, ChatOps как основа.
+- Миграция применена: `task_groups.telegram_group_chat_id`(bigint uniq), `max_group_chat_id`(text uniq), `chat_mirror_enabled`(bool def true); `group_messages` — `user_id` теперь nullable + `external_author` + `external_message_id` (uniq dedup по source+external_message_id); таблица `chat_link_tokens`(code PK, group_id, channel, created_by, expires_at 1ч, RLS by created_by).
+- `_shared/messenger-core.ts` доп. функции: resolveGroupByChat, resolveProfileByExternalUser, linkGroupChat, unlinkGroupChat, mirrorIncomingGroupMessage, fanOutToGroups, handleGroupMessage. handleBulkText получил `fixedProject` (контекст проекта = группа, без парса первой строки).
+- ChatOps в группе: `/link КОД` /`/unlink`; `/new|/task|/spisok` создают задачи в проекте группы; `/my /tasks /done N` скоупятся на проект (bare /tasks = проект группы); обычный текст = чат → mirror в group_messages + fanout в другой канал. Эхо: доставка во все каналы КРОМЕ источника.
+- max-webhook: задеплоен, ловит групповые message_created (recipient.chat_type==='chat'), список /done N по external_id=`max:<chatId>`.
+- ОСТАЛОСЬ: (1) telegram-webhook (3510 стр) — ранняя ветка для групп (chat.id отриц.), reuse тех же core-функций; (2) send-chat-telegram — при наличии linked group постить в группу TG+MAX и пропускать per-user DM (DM только для персональных уведомлений); (3) UI «Каналы чата» в настройках проекта (генерация кода в chat_link_tokens client-side, отвязка); (4) фронт group_messages — показ external_author + бейдж канала; (5) BotFather: выключить Privacy Mode у TG-бота для полного зеркала; проверить MAX группы API.
