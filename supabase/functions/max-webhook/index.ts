@@ -107,6 +107,32 @@ async function loadMaxList(
   return (data?.task_ids as string[] | undefined) ?? null;
 }
 
+/** Persist/load the last list shown inside a MAX group chat (keyed by chat). */
+async function saveMaxGroupList(
+  supabase: ReturnType<typeof svc>,
+  externalId: string,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  await supabase.from("messenger_list_context").upsert(
+    { channel: "max", external_id: externalId, user_id: userId, task_ids: taskIds, updated_at: new Date().toISOString() },
+    { onConflict: "channel,external_id" },
+  );
+}
+
+async function loadMaxGroupList(
+  supabase: ReturnType<typeof svc>,
+  externalId: string,
+): Promise<string[] | null> {
+  const { data } = await supabase
+    .from("messenger_list_context")
+    .select("task_ids")
+    .eq("channel", "max")
+    .eq("external_id", externalId)
+    .maybeSingle();
+  return (data?.task_ids as string[] | undefined) ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
