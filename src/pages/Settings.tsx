@@ -19,6 +19,7 @@ import OrgStructurePanel from "@/components/admin/OrgStructurePanel";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
+import MaxLinkCard from "@/components/MaxLinkCard";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
