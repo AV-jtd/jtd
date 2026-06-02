@@ -138,44 +138,54 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    sendMessage.mutate({ group_id: groupId, content: text, reply_to: replyTo?.id || null });
+    const parent = replyTo;
+    sendMessage.mutate({ group_id: groupId, content: text, reply_to: parent?.id || null });
 
-    // Parse @mentions and fire notify-event "user_mentioned" for each unique
-    // mentioned member of this project. Fire-and-forget — never blocks send.
+    // @-упоминания: уведомляем выбранных участников. Точные id берём из
+    // mentionedRef (имя в тексте, id — отдельно), плюс фолбэк по тексту и
+    // автоупоминание автора сообщения, на которое отвечаем. Fire-and-forget.
     try {
-      const mentionRe = /@([A-Za-zА-Яа-яЁё0-9_.\-]{2,40})/g;
-      const handles = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = mentionRe.exec(text)) !== null) handles.add(m[1].toLowerCase());
-      if (handles.size > 0) {
-        const targets = availableUsers
-          .filter((u) => {
-            const uname = (u as any).username?.toLowerCase?.() || "";
-            const tg = (u as any).telegram_username?.toLowerCase?.() || "";
-            const dn = (u.display_name || "").toLowerCase().replace(/\s+/g, "_");
-            return handles.has(uname) || handles.has(tg) || handles.has(dn);
-          })
-          .map((u) => u.id)
-          .filter((id) => id && id !== user?.id);
-        if (targets.length > 0) {
-          supabase.auth.getSession().then(({ data: s }) => {
-            if (!s.session) return;
-            supabase.functions.invoke("notify-event", {
-              body: {
-                event: "user_mentioned",
-                taskTitle: `${groupName}: ${text.slice(0, 80)}`,
-                targetUserIds: targets,
-                taskId: null,
-              },
-              headers: { Authorization: `Bearer ${s.session.access_token}` },
-            }).catch(() => {});
-          });
-        }
+      const targets = new Set<string>();
+      for (const [label, id] of mentionedRef.current.entries()) {
+        if (text.includes(label)) targets.add(id);
+      }
+      for (const id of resolveMentionedUserIds(text, availableUsers)) targets.add(id);
+      if (parent?.user_id) targets.add(parent.user_id);
+      targets.delete(user?.id || "");
+      const targetIds = [...targets].filter(Boolean);
+      if (targetIds.length > 0) {
+        supabase.auth.getSession().then(({ data: s }) => {
+          if (!s.session) return;
+          supabase.functions.invoke("notify-event", {
+            body: {
+              event: "user_mentioned",
+              taskTitle: `${groupName}: ${text.slice(0, 80)}`,
+              targetUserIds: targetIds,
+              taskId: null,
+            },
+            headers: { Authorization: `Bearer ${s.session.access_token}` },
+          }).catch(() => {});
+        });
       }
     } catch { /* non-fatal */ }
 
     setDraft("");
     setReplyTo(null);
+    mentionedRef.current.clear();
+  };
+
+  /**
+   * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
+   * автора в начало черновика (если он ещё не упомянут).
+   */
+  const startReply = (msg: GroupMessage) => {
+    setReplyTo(msg);
+    const author = availableUsers.find((u) => u.id === msg.user_id);
+    if (author && msg.user_id !== user?.id) {
+      const label = userMentionLabel(author);
+      mentionedRef.current.set(`@${label}`, author.id);
+      setDraft((prev) => (prev.includes(`@${label}`) ? prev : `@${label} ${prev}`));
+    }
   };
 
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
