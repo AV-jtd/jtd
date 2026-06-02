@@ -171,6 +171,33 @@ export function chunkButtons(items: InlineButton[], perRow: number): InlineButto
   return rows;
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+async function selectInChunks(
+  supabase: any,
+  table: string,
+  columns: string,
+  column: string,
+  values: string[],
+  chunkSize = 75,
+): Promise<any[]> {
+  const uniqueValues = [...new Set(values.filter(Boolean))];
+  const rows: any[] = [];
+  for (const chunk of chunkArray(uniqueValues, chunkSize)) {
+    const { data, error } = await supabase.from(table).select(columns).in(column, chunk);
+    if (error) {
+      console.warn(`[assignee] Не удалось загрузить ${table}.${column} чанком ${chunk.length}: ${error.message}`);
+      continue;
+    }
+    if (data) rows.push(...data);
+  }
+  return rows;
+}
+
 export function detectBulkMessage(text: string): boolean {
   const lines = text.split("\n").filter((l) => l.trim().length > 0);
   if (lines.length < 2) return false;
