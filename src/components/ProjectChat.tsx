@@ -12,7 +12,6 @@ import AiChatThread from "./AiChatThread";
 import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
 import UserPicker from "./UserPicker";
 import { toast } from "sonner";
-import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import { AtSign } from "lucide-react";
@@ -30,13 +29,6 @@ interface ProjectChatProps {
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
   onNavigateToTask?: (taskId: string) => void;
-}
-
-function formatMsgDate(dateStr: string) {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return `Вчера, ${format(d, "HH:mm")}`;
-  return format(d, "d MMM, HH:mm", { locale: ru });
 }
 
 function getAuthorName(msg: GroupMessage) {
