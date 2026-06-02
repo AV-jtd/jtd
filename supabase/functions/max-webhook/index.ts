@@ -186,6 +186,76 @@ Deno.serve(async (req) => {
     });
   }
 
+  // One-time backfill: import historical group messages from a MAX chat into
+  // group_messages, skipping technical noise (bot messages + slash commands).
+  if (body.action === "backfill_history") {
+    const supabase = svc();
+    const groupId: string | undefined = body.group_id;
+    const chatId: number | undefined = body.chat_id;
+    if (!groupId || chatId == null) {
+      return new Response(JSON.stringify({ error: "group_id and chat_id are required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let imported = 0, skipped = 0, scanned = 0;
+    let toMarker: number | undefined = undefined;
+
+    // Cache profile lookups by MAX user id within this run.
+    const profileCache = new Map<number, string | null>();
+    const resolveProfile = async (maxUserId: number | undefined): Promise<string | null> => {
+      if (maxUserId == null) return null;
+      if (profileCache.has(maxUserId)) return profileCache.get(maxUserId)!;
+      const { data } = await supabase
+        .from("profiles").select("id").eq("max_user_id", maxUserId).maybeSingle();
+      const id = (data?.id as string | undefined) ?? null;
+      profileCache.set(maxUserId, id);
+      return id;
+    };
+
+    for (let page = 0; page < 30; page++) {
+      const url = new URL(`${MAX_API_BASE}/messages`);
+      url.searchParams.set("chat_id", String(chatId));
+      url.searchParams.set("count", "100");
+      if (toMarker != null) url.searchParams.set("to", String(toMarker));
+      const res = await fetch(url, { headers: { "Authorization": TOKEN } });
+      let data: any = null;
+      try { data = await res.json(); } catch { /* ignore */ }
+      const msgs: any[] = data?.messages ?? [];
+      if (msgs.length === 0) break;
+
+      for (const m of msgs) {
+        scanned++;
+        const text = (m.body?.text ?? "").toString().trim();
+        const isBot = m.sender?.is_bot === true;
+        // Skip empty, bot-authored (fan-out + confirmations) and slash commands.
+        if (!text || isBot || text.startsWith("/")) { skipped++; continue; }
+        const mid = (m.body?.mid ?? null) as string | null;
+        const jtdUserId = await resolveProfile(m.sender?.user_id);
+        const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString();
+        const author = (m.sender?.name ?? m.sender?.first_name ?? "Гость").toString();
+        const { error } = await supabase.from("group_messages").insert({
+          group_id: groupId,
+          source: "max",
+          content: text.substring(0, 4000),
+          user_id: jtdUserId,
+          external_author: jtdUserId ? null : `${author} (MAX)`,
+          external_message_id: mid,
+          created_at: ts,
+        });
+        if (error) { skipped++; } else { imported++; }
+      }
+
+      const oldestTs = msgs[msgs.length - 1]?.timestamp;
+      if (oldestTs == null || msgs.length < 100) break;
+      toMarker = oldestTs - 1;
+    }
+
+    return new Response(JSON.stringify({ ok: true, scanned, imported, skipped }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // ---- Incoming MAX webhook updates ----
   const updateType: string | undefined = body.update_type;
 
