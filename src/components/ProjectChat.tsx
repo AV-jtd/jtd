@@ -503,6 +503,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           <Send className="h-4 w-4" />
         </button>
       </form>
+      <ChatLinkDialog
+        groupId={groupId}
+        groupName={groupName}
+        open={showLink}
+        onOpenChange={setShowLink}
+      />
     </div>
   );
 }
