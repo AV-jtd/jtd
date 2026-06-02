@@ -6,6 +6,7 @@ import {
   PushMessageError,
   Urgency,
 } from "jsr:@negrel/webpush@0.5.0";
+import { getMaxToken, sendMaxMessage } from "../_shared/max-api.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
