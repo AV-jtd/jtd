@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { blockConsultant } from "../_shared/consultant-guard.ts";
+import { fanOutToGroups, type LinkedGroup } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
     // Get group info
     const { data: group } = await supabase
       .from("task_groups")
-      .select("id, name, icon, user_id")
+      .select("id, name, icon, user_id, chat_mirror_enabled, telegram_group_chat_id, max_group_chat_id")
       .eq("id", group_id)
       .single();
 
@@ -68,6 +69,50 @@ Deno.serve(async (req) => {
         status: 404,
         headers: corsHeaders,
       });
+    }
+
+    const groupLabel = `${group.icon || "📁"} ${group.name}`;
+
+    // Build the message text once (shared by group posting and DM fallback).
+    let text: string;
+    if (kind === "task_created") {
+      const lines: string[] = [];
+      lines.push(`✅ *Новая задача* в *${escapeMarkdown(groupLabel)}*`);
+      lines.push(`*${escapeMarkdown(task_title || "Без названия")}*`);
+      if (assignee_name) lines.push(`👤 ${escapeMarkdown(assignee_name)}`);
+      if (deadline) {
+        try {
+          const d = new Date(deadline);
+          if (!isNaN(d.getTime())) {
+            const dd = String(d.getDate()).padStart(2, "0");
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            lines.push(`📅 до ${escapeMarkdown(`${dd}.${mm}`)}`);
+          }
+        } catch { /* ignore */ }
+      }
+      if (sender_name) lines.push(`_создал: ${escapeMarkdown(sender_name)}_`);
+      text = lines.join("\n");
+    } else {
+      text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
+    }
+
+    // ── Unified chat: if the project is bound to a TG/MAX group, post there and
+    // skip per-user DMs entirely. Only linked groups act as a single shared chat.
+    const hasLinkedGroup =
+      !!group.telegram_group_chat_id || !!group.max_group_chat_id;
+    if (hasLinkedGroup) {
+      await fanOutToGroups({
+        supabase,
+        group: group as LinkedGroup,
+        originChannel: "web",
+        text,
+        tgToken: BOT_TOKEN,
+        maxToken: Deno.env.get("MAX_BOT_TOKEN") ?? null,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, mode: "group", group_chat: true }),
+        { headers: corsHeaders },
+      );
     }
 
     // Collect all member user_ids (owner + group_members)
@@ -115,31 +160,6 @@ Deno.serve(async (req) => {
     const recipients = profiles.filter((p) => optedInIds.has(p.id));
     if (recipients.length === 0) {
       return new Response(JSON.stringify({ ok: true, sent: 0, skipped: "no opt-in" }), { headers: corsHeaders });
-    }
-
-    const groupLabel = `${group.icon || "📁"} ${group.name}`;
-
-    let text: string;
-    if (kind === "task_created") {
-      // Compact task card
-      const lines: string[] = [];
-      lines.push(`✅ *Новая задача* в *${escapeMarkdown(groupLabel)}*`);
-      lines.push(`*${escapeMarkdown(task_title || "Без названия")}*`);
-      if (assignee_name) lines.push(`👤 ${escapeMarkdown(assignee_name)}`);
-      if (deadline) {
-        try {
-          const d = new Date(deadline);
-          if (!isNaN(d.getTime())) {
-            const dd = String(d.getDate()).padStart(2, "0");
-            const mm = String(d.getMonth() + 1).padStart(2, "0");
-            lines.push(`📅 до ${escapeMarkdown(`${dd}.${mm}`)}`);
-          }
-        } catch { /* ignore */ }
-      }
-      if (sender_name) lines.push(`_создал: ${escapeMarkdown(sender_name)}_`);
-      text = lines.join("\n");
-    } else {
-      text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
     }
 
     let sent = 0;
