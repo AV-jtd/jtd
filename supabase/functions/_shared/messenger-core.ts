@@ -955,10 +955,13 @@ export async function handleCoreCommand(opts: {
     text += "\n✅ Выполнить: кнопки ниже или `/done N`";
     if (saveList) await saveList(tasks.map((t: any) => t.id));
     if (transport.sendWithButtons) {
-      const buttons: InlineButton[][] = tasks.map((t: any, i: number) => [
-        { text: `✅ ${i + 1}`, payload: `done:${t.id}` },
-      ]);
-      await transport.sendWithButtons(text, buttons);
+      // Pack the number buttons into a compact grid (5 per row) so a long
+      // list does not become a tall wall of one-button rows.
+      const flat: InlineButton[] = tasks.map((t: any, i: number) => ({
+        text: `✅ ${i + 1}`,
+        payload: `done:${t.id}`,
+      }));
+      await transport.sendWithButtons(text, chunkButtons(flat, 5));
     } else {
       await transport.send(text);
     }
