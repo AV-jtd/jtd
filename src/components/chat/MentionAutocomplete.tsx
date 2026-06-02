@@ -10,6 +10,11 @@ export function userMentionHandle(u: Profile): string {
   ).toString();
 }
 
+/** Читаемая подпись для @-упоминания: имя пользователя (если есть), иначе хэндл. */
+export function userMentionLabel(u: Profile): string {
+  return (u.display_name || userMentionHandle(u)).toString();
+}
+
 /**
  * Popup-подсказка участников при наборе `@` в конце слова.
  * Появляется над полем ввода. Выбор — кликом мыши.
