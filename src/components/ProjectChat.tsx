@@ -44,6 +44,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const { data: availableUsers = [] } = useAvailableUsers();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
+  /**
+   * Точное соответствие «подпись в тексте → user_id» для выбранных упоминаний,
+   * чтобы в тексте оставалось читаемое имя, а уведомление уходило нужному
+   * пользователю даже при совпадающих именах.
+   */
+  const mentionedRef = useRef<Map<string, string>>(new Map());
   const [showAi, setShowAi] = useState(false);
   const [showLink, setShowLink] = useState(false);
   const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
