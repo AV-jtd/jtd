@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
+import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
