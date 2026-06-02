@@ -170,6 +170,21 @@ export default function TaskChat({
     window.setTimeout(() => setHighlightId(null), 1800);
   };
 
+  /**
+   * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
+   * его автора в начало черновика (если он ещё не упомянут).
+   */
+  const startReply = (c: TaskComment) => {
+    setReplyTo(c);
+    const author = availableUsers.find((u) => u.id === c.user_id);
+    if (author && c.user_id !== user?.id) {
+      const handle = userMentionHandle(author);
+      setDraft((prev) =>
+        prev.includes(`@${handle}`) ? prev : `@${handle} ${prev}`.trimStart() + (prev ? "" : "")
+      );
+    }
+  };
+
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
