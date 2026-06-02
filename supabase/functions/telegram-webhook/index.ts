@@ -865,20 +865,38 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
-        const { data: tasks } = await supabase
-          .from("tasks")
-          .select("id, title")
-          .eq("group_id", groupId)
-          .eq("is_completed", false)
-          .order("position")
-          .limit(20);
+        // Prefer the saved numbering context (the last /tasks or /my list shown
+        // in this chat) so `/done N` always matches what the user saw.
+        const savedIds = await loadTgList(supabase, chatId);
+        let task: { id: string; title: string } | null = null;
 
-        if (!tasks || num > tasks.length) {
+        if (savedIds && num <= savedIds.length) {
+          const { data: ctxTask } = await supabase
+            .from("tasks")
+            .select("id, title")
+            .eq("id", savedIds[num - 1])
+            .eq("is_completed", false)
+            .maybeSingle();
+          if (ctxTask) task = ctxTask as any;
+        }
+
+        // Fallback: no saved context (or stale) — resolve by current order.
+        if (!task) {
+          const { data: tasks } = await supabase
+            .from("tasks")
+            .select("id, title")
+            .eq("group_id", groupId)
+            .eq("is_completed", false)
+            .order("position")
+            .limit(20);
+          if (tasks && num <= tasks.length) task = tasks[num - 1] as any;
+        }
+
+        if (!task) {
           await sendTelegramMessage(BOT_TOKEN, chatId, `❌ Задача #${num} не найдена. Используй /tasks`);
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
-        const task = tasks[num - 1];
         const { error: updateError } = await supabase
           .from("tasks")
           .update({ is_completed: true, completed_at: new Date().toISOString() })
