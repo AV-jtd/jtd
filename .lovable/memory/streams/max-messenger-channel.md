@@ -25,3 +25,11 @@ type: feature
 
 ## Главный технический нюанс
 telegram-webhook = 3440 строк с большим набором команд. Чтобы не дублировать — вынести messenger-agnostic ядро обработки команд + тонкие транспорт-адаптеры (TG/MAX). Это основной объём работ.
+
+## Что уже сделано (Этап 1)
+- Миграция: profiles.max_user_id/max_chat_id, notification_preferences.max_* (4 события + max_group_chat_message), таблица max_link_tokens (1 час TTL, RLS по auth.uid()).
+- `_shared/max-api.ts`: sendMaxMessage (header `Authorization: <token>` без Bearer, POST /messages?user_id=), getMaxBotInfo (GET /me).
+- Edge `max-webhook`: actions bot_info/setup_webhook + обработка bot_started/message_created → привязка по токену.
+- `notify-event`: MAX-доставка рядом с Telegram (maxPrefKey, max_chat_id/max_user_id, format html).
+- Settings → секция «MAX»: MaxLinkCard (привязка по коду + тумблеры уведомлений MAX). config.toml: max-webhook verify_jwt=false.
+- Секрет MAX_BOT_TOKEN сохранён. Бот `@id540819302807_bot`.
