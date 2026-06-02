@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           { userId: maxUserId },
           "✅ Аккаунт MAX привязан к JustTODOit (JTD).\n\n" +
             "Теперь сюда будут приходить уведомления, а ещё можно управлять задачами:\n" +
-            "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+            "📂 /projects · 👤 /my · 📋 /tasks Проект · ✅ /done N · 📦 /spisok\n\n" +
             "💡 Можно просто прислать список задач текстом.",
         );
         return new Response(JSON.stringify({ ok: true, bound: true }), {
@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
     if (boundProfileId && updateType === "bot_started") {
       await makeMaxTransport(TOKEN, { userId: maxUserId }).send(
         "👋 С возвращением в JustTODOit (JTD)!\n\n" +
-          "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+          "📂 /projects · 👤 /my · 📋 /tasks Проект · ✅ /done N · 📦 /spisok\n\n" +
           "💡 Можно просто прислать список задач текстом.",
       );
       return new Response(JSON.stringify({ ok: true, bound: true }), {
