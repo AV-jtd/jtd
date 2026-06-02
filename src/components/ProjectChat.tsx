@@ -367,6 +367,40 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
         </div>
       )}
 
+      {/* Chat link status */}
+      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border shrink-0 bg-muted/20">
+        <span className="text-[10px] text-muted-foreground font-medium">Чат:</span>
+        {linked.telegram ? (
+          <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            <Check className="h-2.5 w-2.5" /> Telegram
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Telegram</span>
+        )}
+        {linked.max ? (
+          <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            <Check className="h-2.5 w-2.5" /> MAX
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">MAX</span>
+        )}
+        {(linked.telegram || linked.max) && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium",
+              mirror
+                ? "bg-emerald-500/10 text-emerald-600"
+                : "bg-amber-500/10 text-amber-600"
+            )}
+          >
+            {mirror ? "↔ Зеркало" : "Зеркало выкл"}
+          </span>
+        )}
+        {!linked.telegram && !linked.max && (
+          <span className="text-[10px] text-muted-foreground">не привязан — <button onClick={() => setShowLink(true)} className="text-primary hover:underline">подключить</button></span>
+        )}
+      </div>
+
       {/* In-thread search input */}
       {searchOpen && (
         <div className="relative px-4 py-2 border-b border-border shrink-0 bg-muted/20">
