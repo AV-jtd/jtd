@@ -469,14 +469,20 @@ export default function TaskChat({
               authorName={name}
               isOwn={isOwn}
               createdAt={c.created_at}
-              content={c.content}
+              content={
+                <>
+                  {parentQuote}
+                  <p className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}>
+                    {c.content}
+                  </p>
+                </>
+              }
               messageType="task_comment"
               messageId={c.id}
               reactions={reactionsByMsg[c.id]}
               actions={actions}
               isReply={!!c.reply_to}
             >
-              {parentQuote}
               {taskFormForCommentId === c.id && (
                 <InlineCreateTaskForm
                   source={c}
