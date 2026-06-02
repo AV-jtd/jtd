@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getMaxToken, getMaxBotInfo, sendMaxMessage, MAX_API_BASE } from "../_shared/max-api.ts";
+import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, MAX_API_BASE } from "../_shared/max-api.ts";
 import {
   extractBotCommand,
   handleCoreCommand,
   handleBulkText,
+  handleCorePayload,
   makeMaxTransport,
 } from "../_shared/messenger-core.ts";
 
@@ -69,6 +70,39 @@ async function profileIdForMaxUser(
   return (data?.id as string | undefined) ?? null;
 }
 
+/** Persist the ordered task ids of the last list shown to a MAX user. */
+async function saveMaxList(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  await supabase.from("messenger_list_context").upsert(
+    {
+      channel: "max",
+      external_id: String(maxUserId),
+      user_id: userId,
+      task_ids: taskIds,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "channel,external_id" },
+  );
+}
+
+/** Load the ordered task ids of the last list shown to a MAX user. */
+async function loadMaxList(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+): Promise<string[] | null> {
+  const { data } = await supabase
+    .from("messenger_list_context")
+    .select("task_ids")
+    .eq("channel", "max")
+    .eq("external_id", String(maxUserId))
+    .maybeSingle();
+  return (data?.task_ids as string[] | undefined) ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -112,7 +146,7 @@ Deno.serve(async (req) => {
       headers: { "Authorization": TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({
         url: WEBHOOK_URL,
-        update_types: ["bot_started", "message_created"],
+        update_types: ["bot_started", "message_created", "message_callback"],
       }),
     });
     let result: unknown = null;
@@ -124,6 +158,35 @@ Deno.serve(async (req) => {
 
   // ---- Incoming MAX webhook updates ----
   const updateType: string | undefined = body.update_type;
+
+  // Inline-button press (e.g. ✅ Done / 👤 Take from a task list).
+  if (updateType === "message_callback") {
+    const supabase = svc();
+    const cb = body.callback ?? {};
+    const callbackId: string | undefined = cb.callback_id;
+    const maxUserId: number | undefined = cb.user?.user_id ?? cb.from?.user_id;
+    const payload: string = (cb.payload ?? "").toString();
+
+    if (!callbackId || maxUserId == null || !payload) {
+      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const boundProfileId = await profileIdForMaxUser(supabase, maxUserId);
+    if (!boundProfileId) {
+      await answerMaxCallback(TOKEN, callbackId, "❌ Аккаунт не привязан");
+      return new Response(JSON.stringify({ ok: true, bound: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const note = await handleCorePayload({ supabase, userId: boundProfileId, payload });
+    await answerMaxCallback(TOKEN, callbackId, note);
+    return new Response(JSON.stringify({ ok: true, handled: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   if (updateType === "bot_started" || updateType === "message_created") {
     const supabase = svc();
@@ -169,6 +232,8 @@ Deno.serve(async (req) => {
           userId: boundProfileId,
           command: cmd.command,
           args: cmd.args,
+          saveList: (ids) => saveMaxList(supabase, maxUserId!, boundProfileId, ids),
+          loadList: () => loadMaxList(supabase, maxUserId!),
         });
         if (!handled) {
           // Unknown slash command — fall back to bulk parsing of its body.
@@ -191,7 +256,7 @@ Deno.serve(async (req) => {
           { userId: maxUserId },
           "✅ Аккаунт MAX привязан к JustTODOit (JTD).\n\n" +
             "Теперь сюда будут приходить уведомления, а ещё можно управлять задачами:\n" +
-            "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+            "📂 /projects · 👤 /my · 📋 /tasks Проект · ✅ /done N · 📦 /spisok\n\n" +
             "💡 Можно просто прислать список задач текстом.",
         );
         return new Response(JSON.stringify({ ok: true, bound: true }), {
@@ -204,7 +269,7 @@ Deno.serve(async (req) => {
     if (boundProfileId && updateType === "bot_started") {
       await makeMaxTransport(TOKEN, { userId: maxUserId }).send(
         "👋 С возвращением в JustTODOit (JTD)!\n\n" +
-          "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+          "📂 /projects · 👤 /my · 📋 /tasks Проект · ✅ /done N · 📦 /spisok\n\n" +
           "💡 Можно просто прислать список задач текстом.",
       );
       return new Response(JSON.stringify({ ok: true, bound: true }), {

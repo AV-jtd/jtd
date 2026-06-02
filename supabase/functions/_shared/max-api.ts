@@ -5,6 +5,12 @@
 
 export const MAX_API_BASE = "https://platform-api.max.ru";
 
+/** A single inline-keyboard button (callback type). */
+export interface MaxInlineButton {
+  text: string;
+  payload: string;
+}
+
 /** Returns the configured MAX bot token or null if not set yet. */
 export function getMaxToken(): string | null {
   return Deno.env.get("MAX_BOT_TOKEN") ?? null;
@@ -18,7 +24,7 @@ export async function sendMaxMessage(
   token: string,
   target: { userId?: number; chatId?: number },
   text: string,
-  opts: { format?: "markdown" | "html"; notify?: boolean } = {},
+  opts: { format?: "markdown" | "html"; notify?: boolean; keyboard?: MaxInlineButton[][] } = {},
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
   const params = new URLSearchParams();
   if (target.userId != null) params.set("user_id", String(target.userId));
@@ -27,6 +33,18 @@ export async function sendMaxMessage(
   const body: Record<string, unknown> = { text };
   if (opts.format) body.format = opts.format;
   if (opts.notify === false) body.notify = false;
+  if (opts.keyboard && opts.keyboard.length > 0) {
+    body.attachments = [
+      {
+        type: "inline_keyboard",
+        payload: {
+          buttons: opts.keyboard.map((row) =>
+            row.map((b) => ({ type: "callback", text: b.text, payload: b.payload })),
+          ),
+        },
+      },
+    ];
+  }
 
   const res = await fetch(`${MAX_API_BASE}/messages?${params.toString()}`, {
     method: "POST",
@@ -45,6 +63,29 @@ export async function sendMaxMessage(
     parsed = null;
   }
   return { ok: res.ok, status: res.status, body: parsed };
+}
+
+/**
+ * Acknowledge an inline-button press. MAX shows `notification` as a toast and,
+ * if `text` is provided, edits the original message in place.
+ */
+export async function answerMaxCallback(
+  token: string,
+  callbackId: string,
+  notification?: string,
+  newText?: string,
+): Promise<{ ok: boolean; status: number }> {
+  const params = new URLSearchParams({ callback_id: callbackId });
+  const body: Record<string, unknown> = {};
+  if (notification) body.notification = notification;
+  if (newText) body.message = { text: newText };
+
+  const res = await fetch(`${MAX_API_BASE}/answers?${params.toString()}`, {
+    method: "POST",
+    headers: { "Authorization": token, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, status: res.status };
 }
 
 /** Fetch the bot's own profile (GET /me) — used to build deep-links. */
