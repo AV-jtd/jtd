@@ -667,10 +667,10 @@ export default function TaskChat({
         value={draft}
         users={availableUsers}
         onPick={(u) => {
-          const handle = userMentionHandle(u);
+          const label = userMentionLabel(u);
           const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
           const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
-          setDraft(`${base}@${handle} `);
+          setDraft(`${base}@${label} `);
         }}
       />
       <Input
