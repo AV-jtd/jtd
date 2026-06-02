@@ -413,6 +413,11 @@ function applyAssigneeFallbacks(
     if (task.assigned_to_id || task.assigned_to_name) return task;
     const hinted = findAssigneeHint(task.title, members) || findAssigneeHint(sourceItems[index] || sourceText, members);
     if (hinted) return { ...task, assigned_to_id: hinted.id, assigned_to_name: hinted.name };
+    console.warn(
+      `[assignee] Ответственный не определён для задачи "${task.title}" ` +
+        `(исходный текст: "${(sourceItems[index] || "").slice(0, 80)}"). ` +
+        `Участников доступно: ${members.length}. Назначен автор по умолчанию.`,
+    );
     return { ...task, assigned_to_id: defaultAssigneeId };
   });
 }
