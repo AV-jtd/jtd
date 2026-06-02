@@ -452,7 +452,7 @@ export default function TaskChat({
           const actions: ChatAction[] = [
             {
               icon: Reply,
-              onClick: () => setReplyTo(c),
+              onClick: () => startReply(c),
               title: "Ответить",
               tone: "default",
             },
