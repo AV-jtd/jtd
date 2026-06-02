@@ -101,6 +101,10 @@ export default function TaskChat({
   const [draft, setDraft] = useState("");
   /** Активная вкладка: chat (message+system), log (только log), all (всё). */
   const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
+  /** Сообщение, на которое сейчас отвечаем (thread/reply). */
+  const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
+  /** ID сообщения, к которому нужно подсветить/проскроллить (открытие контекста ответа). */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   /** Открыта inline-форма создания follow-up задачи (после закрытия текущей). */
   const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
