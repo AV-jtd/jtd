@@ -263,6 +263,57 @@ export function findMemberByName(needle: string, members: Member[]): Member | nu
   return null;
 }
 
+function splitBulkSourceItems(text: string): string[] {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const listLines = lines
+    .filter((line) => /^[-•*]\s+/.test(line) || /^\d+[\.)]\s+/.test(line))
+    .map((line) => line.replace(/^[-•*]\s+/, "").replace(/^\d+[\.)]\s+/, "").trim())
+    .filter(Boolean);
+  if (listLines.length > 0) return listLines;
+  if (lines.length > 1) return lines;
+  return [text.trim()].filter(Boolean);
+}
+
+function findAssigneeHint(text: string, members: Member[]): Member | null {
+  if (!text || members.length === 0) return null;
+
+  const mentionMatches = [...text.matchAll(/@([a-zа-яё0-9_.-]+)/gi)];
+  for (const match of mentionMatches) {
+    const member = findMemberByName(match[1], members);
+    if (member) return member;
+  }
+
+  const keywordMatch = text.match(/(?:ответственн\w*|исполнитель|назначить|поручить|делает|сделает|на)\s+@?([a-zа-яё0-9_.-]+(?:\s+[a-zа-яё0-9_.-]+)?)/i);
+  if (keywordMatch) {
+    const member = findMemberByName(keywordMatch[1], members);
+    if (member) return member;
+  }
+
+  const words = text.split(/\s+/).map((word) => word.replace(/^[^a-zа-яё0-9@]+|[^a-zа-яё0-9_.-]+$/gi, "")).filter(Boolean);
+  for (const tailSize of [2, 1]) {
+    if (words.length < tailSize) continue;
+    const member = findMemberByName(words.slice(-tailSize).join(" "), members);
+    if (member) return member;
+  }
+
+  return null;
+}
+
+function applyAssigneeFallbacks(
+  tasks: BulkParsedTask[],
+  sourceText: string,
+  members: Member[],
+  defaultAssigneeId: string,
+): BulkParsedTask[] {
+  const sourceItems = splitBulkSourceItems(sourceText);
+  return tasks.map((task, index) => {
+    if (task.assigned_to_id || task.assigned_to_name) return task;
+    const hinted = findAssigneeHint(task.title, members) || findAssigneeHint(sourceItems[index] || sourceText, members);
+    if (hinted) return { ...task, assigned_to_id: hinted.id, assigned_to_name: hinted.name };
+    return { ...task, assigned_to_id: defaultAssigneeId };
+  });
+}
+
 export function parseDeadline(text: string): { date: Date | null; cleaned: string } {
   const now = new Date();
   let cleaned = text;
@@ -886,7 +937,8 @@ export async function handleBulkText(opts: {
     return true;
   }
 
-  const results = await createBulkTasks(supabase, parsed, userId, groupId, members);
+  const parsedWithAssignees = applyAssigneeFallbacks(parsed, bulkText, members, userId);
+  const results = await createBulkTasks(supabase, parsedWithAssignees, userId, groupId, members);
   const lines = results.map((r, i) =>
     `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`,
   );
