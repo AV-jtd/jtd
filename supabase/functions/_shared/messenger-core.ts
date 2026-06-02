@@ -1108,17 +1108,23 @@ export async function handleBulkText(opts: {
   let groupName: string | null = null;
   let bulkText = raw;
 
-  const firstLine = raw.split("\n")[0].trim();
-  const restText = raw.substring(firstLine.length).trim();
-  if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
-    const group = await findProject(supabase, userId, firstLine);
-    if (group) {
-      groupId = group.id;
-      groupName = group.name;
-      bulkText = restText || firstLine; // if only a project name, fall through with original
-      if (!restText) {
-        await transport.send(`📦 Проект: ${groupName}\n\nТеперь пришлите список задач.`);
-        return true;
+  if (fixedProject) {
+    // Inside a linked group chat the project is implicit — no first-line parse.
+    groupId = fixedProject.id;
+    groupName = fixedProject.name;
+  } else {
+    const firstLine = raw.split("\n")[0].trim();
+    const restText = raw.substring(firstLine.length).trim();
+    if (!firstLine.startsWith("-") && !firstLine.startsWith("•") && !firstLine.startsWith("*") && !/^\d+[\.\)]/.test(firstLine)) {
+      const group = await findProject(supabase, userId, firstLine);
+      if (group) {
+        groupId = group.id;
+        groupName = group.name;
+        bulkText = restText || firstLine; // if only a project name, fall through with original
+        if (!restText) {
+          await transport.send(`📦 Проект: ${groupName}\n\nТеперь пришлите список задач.`);
+          return true;
+        }
       }
     }
   }
