@@ -46,7 +46,15 @@ telegram-webhook = 3440 строк с большим набором команд
 - Telegram-webhook (3440 строк) НЕ трогали — рабочий прод. Миграция TG на ядро отложена (риск), дубли хелперов осознанные.
 - Деплой max-webhook прошёл (ядро компилируется).
 
-## Этап 3 (дальше)
+## Что уже сделано (Этап 3 — команды MAX: /done + inline-кнопки)
+- `_shared/max-api.ts`: `sendMaxMessage` принимает `keyboard` (attachments type=`inline_keyboard`, кнопки type=`callback`), новый `answerMaxCallback(token, callbackId, notification?, newText?)` → POST `/answers?callback_id=`.
+- `_shared/messenger-core.ts`:
+  - `MessengerTransport.sendWithButtons(text, InlineButton[][])` — опционально; реализован в TG (reply_markup.inline_keyboard) и MAX адаптерах.
+  - `completeTask(supabase, taskId)`, `assignSelf(supabase, taskId, userId)`, `handleCorePayload({payload})` (роутит `done:<id>` / `assign:<id>`, возвращает строку-нотификацию).
+  - `handleCoreCommand` принял опц. `saveList`/`loadList`; `/my` и `/tasks` сохраняют упорядоченные id и шлют кнопки `✅ N` (+ `👤 N взять` в /tasks); добавлена команда `/done N` (несколько: `/done 1 3`).
+- Таблица `messenger_list_context (channel, external_id, user_id, task_ids[], updated_at)` PK(channel,external_id), только service_role, RLS on без политик. Хранит last-list для нумерации `/done N`.
+- `max-webhook`: обрабатывает `update_type=message_callback` (callback.user.user_id, callback.payload → handleCorePayload → answerMaxCallback); message_created прокидывает saveMaxList/loadMaxList в ядро; setup_webhook теперь подписывается и на `message_callback` (пере-вызван, success). Деплой прошёл, синтетический колбэк → bound:false без ошибок.
+
+## Этап 4 (дальше)
 - Перевести telegram-webhook на общее ядро (постепенно, по командам).
-- /done и нумерованный контекст задач для MAX (нужен last-list state).
-- Inline-кнопки MAX (done/assign) — расширить MessengerTransport.
+- Единый чат TG↔MAX↔JTD: подключить MAX к fan-out (`send-chat-telegram` рассылает веб-сообщения в личку TG; нужен аналог для MAX + подавление эха).
