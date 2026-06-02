@@ -6,6 +6,7 @@ import {
   PushMessageError,
   Urgency,
 } from "jsr:@negrel/webpush@0.5.0";
+import { getMaxToken, sendMaxMessage } from "../_shared/max-api.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,8 +92,20 @@ Deno.serve(async (req) => {
       user_mentioned: "telegram_user_mentioned",
     };
 
+    // MAX is a SECOND channel alongside Telegram (not a replacement).
+    // Only the core events have MAX preference columns so far.
+    const maxPrefKey: Record<string, string> = {
+      task_assigned: "max_task_assigned",
+      task_completed: "max_task_completed",
+      task_commented: "max_task_commented",
+      deadline_approaching: "max_deadline_approaching",
+      baseline_approver_assigned: "max_task_assigned",
+      baseline_locked: "max_task_assigned",
+    };
+
     const prefColumn = pushPrefKey[event];
     const telegramPrefColumn = telegramPrefKey[event];
+    const maxPrefColumn = maxPrefKey[event];
     if (!prefColumn) {
       return new Response(JSON.stringify({ error: "Unknown event" }), {
         status: 400,
@@ -215,10 +228,13 @@ Deno.serve(async (req) => {
     // Get Telegram bot token
     const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 
+    // Get MAX bot token (second channel, optional)
+    const MAX_TOKEN = getMaxToken();
+
     // Get profiles for telegram usernames
     const { data: targetProfiles } = await serviceClient
       .from("profiles")
-      .select("id, telegram_username")
+      .select("id, telegram_username, max_chat_id, max_user_id")
       .in("id", filteredTargets);
 
     // Get bot chats for Telegram DMs
@@ -242,12 +258,14 @@ Deno.serve(async (req) => {
 
     let totalSent = 0;
     let totalTelegramSent = 0;
+    let totalMaxSent = 0;
 
     for (const targetUserId of filteredTargets) {
       const userPrefs = allPrefs?.find((p: any) => p.user_id === targetUserId);
       const defaultEnabled = ["task_assigned", "task_completed", "task_participant_added", "added_to_group"].includes(event);
       const pushEnabled = userPrefs ? !!(userPrefs as any)[prefColumn] : defaultEnabled;
       const telegramEnabled = userPrefs && telegramPrefColumn ? !!(userPrefs as any)[telegramPrefColumn] : false;
+      const maxEnabled = userPrefs && maxPrefColumn ? !!(userPrefs as any)[maxPrefColumn] : false;
 
       // --- Push notification (RFC 8291 encrypted) ---
       if (pushEnabled && appServer) {
@@ -320,9 +338,32 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      // --- MAX notification (second channel) ---
+      if (maxEnabled && MAX_TOKEN) {
+        const profile = (targetProfiles || []).find((p: any) => p.id === targetUserId);
+        const maxUserId = profile?.max_user_id as number | null;
+        const maxChatId = profile?.max_chat_id as number | null;
+        if (maxUserId || maxChatId) {
+          try {
+            const maxContext = contextLines.map((l) => escapeHtml(l)).join("\n");
+            const maxMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${maxContext ? `\n\n${maxContext}` : ""}`;
+            const r = await sendMaxMessage(
+              MAX_TOKEN,
+              maxUserId ? { userId: maxUserId } : { chatId: maxChatId! },
+              maxMessage,
+              { format: "html" },
+            );
+            if (r.ok) totalMaxSent++;
+            else console.error("MAX send error:", r.status, r.body);
+          } catch (err) {
+            console.error("MAX error for user", targetUserId, err);
+          }
+        }
+      }
     }
 
-    return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent }), {
+    return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent, maxSent: totalMaxSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

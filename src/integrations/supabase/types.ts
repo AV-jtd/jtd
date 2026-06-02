@@ -965,6 +965,27 @@ export type Database = {
           },
         ]
       }
+      max_link_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -996,6 +1017,11 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          max_deadline_approaching: boolean
+          max_group_chat_message: boolean
+          max_task_assigned: boolean
+          max_task_commented: boolean
+          max_task_completed: boolean
           push_added_to_group: boolean
           push_deadline_approaching: boolean
           push_new_task_in_group: boolean
@@ -1023,6 +1049,11 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          max_deadline_approaching?: boolean
+          max_group_chat_message?: boolean
+          max_task_assigned?: boolean
+          max_task_commented?: boolean
+          max_task_completed?: boolean
           push_added_to_group?: boolean
           push_deadline_approaching?: boolean
           push_new_task_in_group?: boolean
@@ -1050,6 +1081,11 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          max_deadline_approaching?: boolean
+          max_group_chat_message?: boolean
+          max_task_assigned?: boolean
+          max_task_commented?: boolean
+          max_task_completed?: boolean
           push_added_to_group?: boolean
           push_deadline_approaching?: boolean
           push_new_task_in_group?: boolean
@@ -1156,6 +1192,8 @@ export type Database = {
           email: string | null
           id: string
           is_approved: boolean
+          max_chat_id: number | null
+          max_user_id: number | null
           organization: string | null
           telegram_chat_id: number | null
           telegram_username: string | null
@@ -1173,6 +1211,8 @@ export type Database = {
           email?: string | null
           id: string
           is_approved?: boolean
+          max_chat_id?: number | null
+          max_user_id?: number | null
           organization?: string | null
           telegram_chat_id?: number | null
           telegram_username?: string | null
@@ -1190,6 +1230,8 @@ export type Database = {
           email?: string | null
           id?: string
           is_approved?: boolean
+          max_chat_id?: number | null
+          max_user_id?: number | null
           organization?: string | null
           telegram_chat_id?: number | null
           telegram_username?: string | null
