@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
-import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History } from "lucide-react";
+import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History, Reply, CornerDownRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
