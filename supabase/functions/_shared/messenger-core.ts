@@ -348,6 +348,44 @@ export async function getUserProjects(supabase: any, userId: string): Promise<{ 
   return [...(owned || []), ...memberGroups];
 }
 
+/**
+ * Collect every teammate the user can reasonably assign work to — the union of
+ * members across all the user's projects (owned + member-of), plus the project
+ * owners and the user themselves. Used as a fallback for assignee resolution
+ * when a task is created without an explicit project (e.g. Inbox tasks).
+ */
+export async function getTeamMembers(supabase: any, userId: string): Promise<Member[]> {
+  // All groups the user owns or belongs to.
+  const { data: owned } = await supabase.from("task_groups").select("id, user_id").eq("user_id", userId);
+  const { data: memberships } = await supabase.from("group_members").select("group_id").eq("user_id", userId);
+
+  const groupIds = new Set<string>();
+  (owned || []).forEach((g: any) => groupIds.add(g.id));
+  (memberships || []).forEach((m: any) => groupIds.add(m.group_id));
+
+  const profileIds = new Set<string>([userId]);
+  (owned || []).forEach((g: any) => g.user_id && profileIds.add(g.user_id));
+
+  if (groupIds.size > 0) {
+    const ids = [...groupIds];
+    const { data: groupOwners } = await supabase.from("task_groups").select("user_id").in("id", ids);
+    (groupOwners || []).forEach((g: any) => g.user_id && profileIds.add(g.user_id));
+    const { data: groupMembers } = await supabase.from("group_members").select("user_id").in("group_id", ids);
+    (groupMembers || []).forEach((m: any) => m.user_id && profileIds.add(m.user_id));
+  }
+
+  if (profileIds.size === 0) return [];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, display_name, telegram_username")
+    .in("id", [...profileIds]);
+  return (profiles || []).map((p: any) => ({
+    id: p.id,
+    name: p.display_name || "Без имени",
+    telegram_username: p.telegram_username,
+  }));
+}
+
 export async function findProject(supabase: any, userId: string, name: string) {
   let { data: group } = await supabase
     .from("task_groups")
@@ -838,7 +876,9 @@ export async function handleBulkText(opts: {
         groupId,
         (await supabase.from("task_groups").select("user_id").eq("id", groupId).single()).data?.user_id || userId,
       )
-    : [];
+    : // No explicit project → fall back to the user's whole team so that
+      // @mentions still resolve (e.g. for Inbox tasks).
+      await getTeamMembers(supabase, userId);
 
   const parsed = await aiBulkParse(bulkText, members, groupName || undefined);
   if (!parsed || parsed.length === 0) {
