@@ -876,7 +876,9 @@ export async function handleBulkText(opts: {
         groupId,
         (await supabase.from("task_groups").select("user_id").eq("id", groupId).single()).data?.user_id || userId,
       )
-    : [];
+    : // No explicit project → fall back to the user's whole team so that
+      // @mentions still resolve (e.g. for Inbox tasks).
+      await getTeamMembers(supabase, userId);
 
   const parsed = await aiBulkParse(bulkText, members, groupName || undefined);
   if (!parsed || parsed.length === 0) {
