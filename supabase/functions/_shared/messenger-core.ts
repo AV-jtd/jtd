@@ -570,9 +570,74 @@ const HELP_TEXT =
   "📂 `/projects` — список проектов\n" +
   "👤 `/my` — мои открытые задачи\n" +
   "📋 `/tasks Проект` — задачи проекта\n" +
+  "✅ `/done N` — выполнить задачу №N из списка\n" +
   "📦 `/spisok` Проект + список — пакетное создание\n\n" +
   "💡 Можно просто прислать список задач текстом — я разберу их сам.\n" +
+  "💡 Под списком задач есть кнопки ✅ — нажмите, чтобы выполнить.\n" +
   "В тексте: `@имя` — ответственный, `завтра`/`15.03`/`3д` — срок.";
+
+/**
+ * Mark a task complete. Returns the task title, or null if it was not found
+ * or already completed. The caller is responsible for access scoping (ids come
+ * from a list that was already shown to the authorized user).
+ */
+export async function completeTask(supabase: any, taskId: string): Promise<string | null> {
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("id, title, is_completed")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!task || task.is_completed) return null;
+  const { error } = await supabase
+    .from("tasks")
+    .update({ is_completed: true, completed_at: new Date().toISOString() })
+    .eq("id", taskId);
+  if (error) return null;
+  return task.title as string;
+}
+
+/** Assign a task to `userId` and ensure they are a participant. */
+export async function assignSelf(supabase: any, taskId: string, userId: string): Promise<boolean> {
+  const { data: task } = await supabase.from("tasks").select("id").eq("id", taskId).maybeSingle();
+  if (!task) return false;
+  const { error } = await supabase.from("tasks").update({ assigned_to: userId }).eq("id", taskId);
+  if (error) return false;
+  const { data: existing } = await supabase
+    .from("task_participants")
+    .select("id")
+    .eq("task_id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!existing) {
+    await supabase.from("task_participants").insert({ task_id: taskId, user_id: userId, role: "assignee" });
+  }
+  return true;
+}
+
+/**
+ * Handle an inline-button payload (e.g. `done:<uuid>`, `assign:<uuid>`).
+ * Returns a short notification string for the channel to acknowledge with.
+ */
+export async function handleCorePayload(opts: {
+  supabase: any;
+  userId: string;
+  payload: string;
+}): Promise<string> {
+  const { supabase, userId, payload } = opts;
+  const sep = payload.indexOf(":");
+  const action = sep >= 0 ? payload.slice(0, sep) : payload;
+  const id = sep >= 0 ? payload.slice(sep + 1) : "";
+
+  if (action === "done" && id) {
+    const title = await completeTask(supabase, id);
+    return title ? `✅ ${title.substring(0, 40)}` : "❌ Задача не найдена или уже выполнена";
+  }
+  if (action === "assign" && id) {
+    const ok = await assignSelf(supabase, id, userId);
+    return ok ? "👤 Назначено на вас" : "❌ Не удалось назначить";
+  }
+  return "🤷";
+}
 
 /**
  * Handle a transport-neutral command. Returns true if it consumed the input.
@@ -584,8 +649,12 @@ export async function handleCoreCommand(opts: {
   userId: string;
   command: string;
   args: string;
+  /** Persist the ordered task ids of the last shown list (for `/done N`). */
+  saveList?: (taskIds: string[]) => Promise<void>;
+  /** Load the ordered task ids of the last shown list (for `/done N`). */
+  loadList?: () => Promise<string[] | null>;
 }): Promise<boolean> {
-  const { supabase, transport, userId, command, args } = opts;
+  const { supabase, transport, userId, command, args, saveList, loadList } = opts;
 
   if (command === "help" || command === "start") {
     await transport.send(HELP_TEXT);
@@ -624,7 +693,45 @@ export async function handleCoreCommand(opts: {
       const dl = t.deadline ? ` 📅 ${formatDate(new Date(t.deadline))}` : "";
       text += `${i + 1}. ${imp}${t.title.substring(0, 60)}${dl}\n`;
     });
-    await transport.send(text);
+    text += "\n✅ Выполнить: кнопки ниже или `/done N`";
+    if (saveList) await saveList(tasks.map((t: any) => t.id));
+    if (transport.sendWithButtons) {
+      const buttons: InlineButton[][] = tasks.map((t: any, i: number) => [
+        { text: `✅ ${i + 1}`, payload: `done:${t.id}` },
+      ]);
+      await transport.sendWithButtons(text, buttons);
+    } else {
+      await transport.send(text);
+    }
+    return true;
+  }
+
+  if (command === "done") {
+    const nums = args
+      .split(/[\s,]+/)
+      .map((s) => parseInt(s, 10))
+      .filter((n) => !isNaN(n) && n > 0);
+    if (nums.length === 0) {
+      await transport.send("✅ Формат: `/done 2` (номер задачи из `/my` или `/tasks`). Можно несколько: `/done 1 3`.");
+      return true;
+    }
+    const ids = loadList ? await loadList() : null;
+    if (!ids || ids.length === 0) {
+      await transport.send("❌ Сначала покажите список: `/my` или `/tasks Проект`, затем `/done N`.");
+      return true;
+    }
+    const done: string[] = [];
+    const failed: number[] = [];
+    for (const n of nums) {
+      const id = ids[n - 1];
+      if (!id) { failed.push(n); continue; }
+      const title = await completeTask(supabase, id);
+      if (title) done.push(title.substring(0, 60)); else failed.push(n);
+    }
+    let msg = "";
+    if (done.length) msg += `✅ Выполнено:\n${done.map((t) => `• ${t}`).join("\n")}`;
+    if (failed.length) msg += `${msg ? "\n\n" : ""}❌ Не найдено/уже выполнено: ${failed.join(", ")}`;
+    await transport.send(msg || "Нечего выполнять.");
     return true;
   }
 
@@ -667,7 +774,17 @@ export async function handleCoreCommand(opts: {
       const who = t.assigned_to && nameMap.get(t.assigned_to) ? ` 👤 ${nameMap.get(t.assigned_to)}` : "";
       text += `${i + 1}. ${imp}${t.title.substring(0, 60)}${dl}${who}\n`;
     });
-    await transport.send(text);
+    text += "\n✅ Выполнить / 👤 взять: кнопки ниже или `/done N`";
+    if (saveList) await saveList(tasks.map((t: any) => t.id));
+    if (transport.sendWithButtons) {
+      const buttons: InlineButton[][] = tasks.map((t: any, i: number) => [
+        { text: `✅ ${i + 1}`, payload: `done:${t.id}` },
+        { text: `👤 ${i + 1} взять`, payload: `assign:${t.id}` },
+      ]);
+      await transport.sendWithButtons(text, buttons);
+    } else {
+      await transport.send(text);
+    }
     return true;
   }
 
