@@ -977,6 +977,9 @@ Deno.serve(async (req) => {
           text += `${i + 1}. ${imp}${escapeMarkdown(t.title.substring(0, 60))}${dl}\n`;
         });
 
+        // Remember the exact ordering so `/done N` references this list.
+        await saveTgList(supabase, chatId, userId, tasks.map(t => t.id));
+
         await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
