@@ -6,6 +6,10 @@ import {
   handleBulkText,
   handleCorePayload,
   makeMaxTransport,
+  resolveGroupByChat,
+  handleGroupMessage,
+  linkGroupChat,
+  unlinkGroupChat,
 } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
