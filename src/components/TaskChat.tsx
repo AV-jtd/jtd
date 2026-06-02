@@ -89,13 +89,6 @@ interface TaskChatProps {
   openFollowUpSignal?: number;
 }
 
-function formatMsgDate(dateStr: string) {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return `Вчера, ${format(d, "HH:mm")}`;
-  return format(d, "d MMM, HH:mm", { locale: ru });
-}
-
 export default function TaskChat({
   taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask,
   isCompleted: isCompletedProp, groupId: groupIdProp,
