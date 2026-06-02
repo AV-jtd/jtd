@@ -86,6 +86,41 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_link_tokens: {
+        Row: {
+          channel: string
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          group_id: string
+        }
+        Insert: {
+          channel: string
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          group_id: string
+        }
+        Update: {
+          channel?: string
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_link_tokens_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_read_status: {
         Row: {
           id: string
@@ -751,32 +786,38 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          external_author: string | null
+          external_message_id: string | null
           group_id: string
           id: string
           reply_to: string | null
           source: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           content: string
           created_at?: string
+          external_author?: string | null
+          external_message_id?: string | null
           group_id: string
           id?: string
           reply_to?: string | null
           source?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           content?: string
           created_at?: string
+          external_author?: string | null
+          external_message_id?: string | null
           group_id?: string
           id?: string
           reply_to?: string | null
           source?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1814,6 +1855,7 @@ export type Database = {
           baseline_auto_lock_hours: number
           baseline_locked_at: string | null
           baseline_status: string
+          chat_mirror_enabled: boolean
           closed_at: string | null
           color: string | null
           created_at: string
@@ -1823,6 +1865,7 @@ export type Database = {
           id: string
           linked_tag_id: string | null
           logo_url: string | null
+          max_group_chat_id: string | null
           name: string
           parent_id: string | null
           position: number
@@ -1830,6 +1873,7 @@ export type Database = {
           project_type: string
           protocol_meta: Json
           stm_meta: Json
+          telegram_group_chat_id: number | null
           user_id: string
           view_mode: string
         }
@@ -1839,6 +1883,7 @@ export type Database = {
           baseline_auto_lock_hours?: number
           baseline_locked_at?: string | null
           baseline_status?: string
+          chat_mirror_enabled?: boolean
           closed_at?: string | null
           color?: string | null
           created_at?: string
@@ -1848,6 +1893,7 @@ export type Database = {
           id?: string
           linked_tag_id?: string | null
           logo_url?: string | null
+          max_group_chat_id?: string | null
           name: string
           parent_id?: string | null
           position?: number
@@ -1855,6 +1901,7 @@ export type Database = {
           project_type?: string
           protocol_meta?: Json
           stm_meta?: Json
+          telegram_group_chat_id?: number | null
           user_id: string
           view_mode?: string
         }
@@ -1864,6 +1911,7 @@ export type Database = {
           baseline_auto_lock_hours?: number
           baseline_locked_at?: string | null
           baseline_status?: string
+          chat_mirror_enabled?: boolean
           closed_at?: string | null
           color?: string | null
           created_at?: string
@@ -1873,6 +1921,7 @@ export type Database = {
           id?: string
           linked_tag_id?: string | null
           logo_url?: string | null
+          max_group_chat_id?: string | null
           name?: string
           parent_id?: string | null
           position?: number
@@ -1880,6 +1929,7 @@ export type Database = {
           project_type?: string
           protocol_meta?: Json
           stm_meta?: Json
+          telegram_group_chat_id?: number | null
           user_id?: string
           view_mode?: string
         }
