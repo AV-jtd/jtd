@@ -1013,6 +1013,30 @@ export type Database = {
         }
         Relationships: []
       }
+      messenger_list_context: {
+        Row: {
+          channel: string
+          external_id: string
+          task_ids: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          external_id: string
+          task_ids?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          external_id?: string
+          task_ids?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string
