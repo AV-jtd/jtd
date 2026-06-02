@@ -6,6 +6,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Persist the ordered task ids of the last list shown in a Telegram chat,
+ * so that `/done N` can reference the exact items the user just saw — even if
+ * task positions shift afterwards. Scoped per chat (group or private).
+ */
+async function saveTgList(
+  supabase: any,
+  chatId: number | string,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  try {
+    await supabase.from("messenger_list_context").upsert(
+      {
+        channel: "telegram",
+        external_id: String(chatId),
+        user_id: userId,
+        task_ids: taskIds,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "channel,external_id" },
+    );
+  } catch (e) {
+    console.error("[saveTgList] error:", e);
+  }
+}
+
+/** Load the ordered task ids of the last list shown in a Telegram chat. */
+async function loadTgList(
+  supabase: any,
+  chatId: number | string,
+): Promise<string[] | null> {
+  try {
+    const { data } = await supabase
+      .from("messenger_list_context")
+      .select("task_ids")
+      .eq("channel", "telegram")
+      .eq("external_id", String(chatId))
+      .maybeSingle();
+    return (data?.task_ids as string[] | undefined) ?? null;
+  } catch (e) {
+    console.error("[loadTgList] error:", e);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -804,6 +850,9 @@ Deno.serve(async (req) => {
           ]);
         });
 
+        // Remember the exact ordering so `/done N` references this list.
+        await saveTgList(supabase, chatId, userId, tasks.map(t => t.id));
+
         await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId, text, inlineKeyboard, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
@@ -816,20 +865,38 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
-        const { data: tasks } = await supabase
-          .from("tasks")
-          .select("id, title")
-          .eq("group_id", groupId)
-          .eq("is_completed", false)
-          .order("position")
-          .limit(20);
+        // Prefer the saved numbering context (the last /tasks or /my list shown
+        // in this chat) so `/done N` always matches what the user saw.
+        const savedIds = await loadTgList(supabase, chatId);
+        let task: { id: string; title: string } | null = null;
 
-        if (!tasks || num > tasks.length) {
+        if (savedIds && num <= savedIds.length) {
+          const { data: ctxTask } = await supabase
+            .from("tasks")
+            .select("id, title")
+            .eq("id", savedIds[num - 1])
+            .eq("is_completed", false)
+            .maybeSingle();
+          if (ctxTask) task = ctxTask as any;
+        }
+
+        // Fallback: no saved context (or stale) — resolve by current order.
+        if (!task) {
+          const { data: tasks } = await supabase
+            .from("tasks")
+            .select("id, title")
+            .eq("group_id", groupId)
+            .eq("is_completed", false)
+            .order("position")
+            .limit(20);
+          if (tasks && num <= tasks.length) task = tasks[num - 1] as any;
+        }
+
+        if (!task) {
           await sendTelegramMessage(BOT_TOKEN, chatId, `❌ Задача #${num} не найдена. Используй /tasks`);
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
 
-        const task = tasks[num - 1];
         const { error: updateError } = await supabase
           .from("tasks")
           .update({ is_completed: true, completed_at: new Date().toISOString() })
@@ -927,6 +994,9 @@ Deno.serve(async (req) => {
           const dl = t.deadline ? ` 📅 ${formatDate(new Date(t.deadline))}` : "";
           text += `${i + 1}. ${imp}${escapeMarkdown(t.title.substring(0, 60))}${dl}\n`;
         });
+
+        // Remember the exact ordering so `/done N` references this list.
+        await saveTgList(supabase, chatId, userId, tasks.map(t => t.id));
 
         await sendTelegramMessage(BOT_TOKEN, chatId, text, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });

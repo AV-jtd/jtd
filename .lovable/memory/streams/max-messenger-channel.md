@@ -56,5 +56,11 @@ telegram-webhook = 3440 строк с большим набором команд
 - `max-webhook`: обрабатывает `update_type=message_callback` (callback.user.user_id, callback.payload → handleCorePayload → answerMaxCallback); message_created прокидывает saveMaxList/loadMaxList в ядро; setup_webhook теперь подписывается и на `message_callback` (пере-вызван, success). Деплой прошёл, синтетический колбэк → bound:false без ошибок.
 
 ## Этап 4 (дальше)
+## Telegram: нумерация /done через messenger_list_context
+- `telegram-webhook` теперь использует общую таблицу `messenger_list_context` (channel=`telegram`, external_id=`chatId`) для нумерации.
+- Хелперы `saveTgList`/`loadTgList` (модульного уровня, не трогают 3440-строчное ядро).
+- `/tasks` и групповой `/my` сохраняют упорядоченные id показанного списка.
+- `/done N` сперва резолвит N по сохранённому контексту (с проверкой is_completed), фолбэк — прежний пересчёт по position. Деплой прошёл.
+
 - Перевести telegram-webhook на общее ядро (постепенно, по командам).
 - Единый чат TG↔MAX↔JTD: подключить MAX к fan-out (`send-chat-telegram` рассылает веб-сообщения в личку TG; нужен аналог для MAX + подавление эха).
