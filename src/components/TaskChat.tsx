@@ -152,11 +152,29 @@ export default function TaskChat({
     return p?.display_name || userId.slice(0, 8);
   };
 
+  /** Быстрый доступ к сообщению по id — для отрисовки цитаты родителя ответа. */
+  const commentsById = useMemo(() => {
+    const m = new Map<string, TaskComment>();
+    for (const c of comments) m.set(c.id, c);
+    return m;
+  }, [comments]);
+
+  /** Проскроллить к исходному сообщению и кратко его подсветить. */
+  const openReplyContext = (parentId: string) => {
+    setHighlightId(parentId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tc-msg-${taskId}-${parentId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    window.setTimeout(() => setHighlightId(null), 1800);
+  };
+
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    addComment.mutate({ task_id: taskId, content: text });
+    addComment.mutate({ task_id: taskId, content: text, reply_to: replyTo?.id ?? null });
     setDraft("");
+    setReplyTo(null);
   };
 
   /**
