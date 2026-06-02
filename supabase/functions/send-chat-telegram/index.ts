@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { blockConsultant } from "../_shared/consultant-guard.ts";
-import { fanOutToGroups, type LinkedGroup } from "../_shared/messenger-core.ts";
+import { fanOutToGroups, formatRelayMessage, type LinkedGroup } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       if (sender_name) lines.push(`_создал: ${escapeMarkdown(sender_name)}_`);
       text = lines.join("\n");
     } else {
-      text = `💬 *${escapeMarkdown(groupLabel)}*\n*${escapeMarkdown(sender_name || "Аноним")}:*\n${escapeMarkdown(content)}`;
+      text = formatRelayMessage(sender_name || "Аноним", content, "web");
     }
 
     // ── Unified chat: if the project is bound to a TG/MAX group, post there and
