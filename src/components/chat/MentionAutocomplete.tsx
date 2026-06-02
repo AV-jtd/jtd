@@ -79,20 +79,24 @@ export default function MentionAutocomplete({
 
 /**
  * Найти ID пользователей, упомянутых через @ в тексте.
- * Сопоставляет по username / telegram_username / display_name(snake_case).
+ * Сопоставляет по имени (display_name), а также по username / telegram_username
+ * и snake_case-варианту имени. Имя может содержать пробелы, поэтому ищем
+ * вхождение «@<имя>» в тексте для каждого пользователя.
  */
 export function resolveMentionedUserIds(text: string, users: Profile[]): string[] {
-  const mentionRe = /@([A-Za-zА-Яа-яЁё0-9_.\-]{2,40})/g;
-  const handles = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = mentionRe.exec(text)) !== null) handles.add(m[1].toLowerCase());
-  if (handles.size === 0) return [];
+  if (!text.includes("@")) return [];
+  const lower = text.toLowerCase();
   return users
     .filter((u) => {
-      const uname = (u as any).username?.toLowerCase?.() || "";
-      const tg = (u as any).telegram_username?.toLowerCase?.() || "";
-      const dn = (u.display_name || "").toLowerCase().replace(/\s+/g, "_");
-      return handles.has(uname) || handles.has(tg) || handles.has(dn);
+      const candidates = [
+        u.display_name || "",
+        (u as any).username || "",
+        (u as any).telegram_username || "",
+        (u.display_name || "").replace(/\s+/g, "_"),
+      ]
+        .map((c) => c.toLowerCase().trim())
+        .filter((c) => c.length >= 2);
+      return candidates.some((c) => lower.includes(`@${c}`));
     })
     .map((u) => u.id)
     .filter(Boolean);
