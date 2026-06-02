@@ -566,10 +566,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           value={draft}
           users={availableUsers}
           onPick={(u) => {
-            const handle = ((u as any).username || (u as any).telegram_username || (u.display_name || "user").replace(/\s+/g, "_")).toString();
+            const label = userMentionLabel(u);
             const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
             const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
-            setDraft(`${base}@${handle} `);
+            mentionedRef.current.set(`@${label}`, u.id);
+            setDraft(`${base}@${label} `);
           }}
         />
         <Input
