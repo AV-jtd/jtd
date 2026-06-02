@@ -60,6 +60,7 @@ telegram-webhook = 3440 строк с большим набором команд
 ## Назначение ответственного без проекта (fallback)
 - `getTeamMembers(supabase, userId)` в `_shared/messenger-core.ts`: union участников всех проектов юзера (owned + member-of) + владельцы + сам юзер.
 - `handleBulkText`: если проект не распознан (groupId null) — members берутся из getTeamMembers, иначе @упоминания не резолвились (задача в Inbox шла без ответственного). MAX исправлен. (TG-приватка имеет ту же старую логику в своём webhook — пока не трогали.)
+- MAX bulk-create теперь не создаёт задачи без ответственного: перед insert общий core явно ищет `@username`/имя/последнее слово в исходной строке, а если никого не нашёл — ставит автором задачи текущего MAX-пользователя.
 
 - `telegram-webhook` теперь использует общую таблицу `messenger_list_context` (channel=`telegram`, external_id=`chatId`) для нумерации.
 - Хелперы `saveTgList`/`loadTgList` (модульного уровня, не трогают 3440-строчное ядро).
