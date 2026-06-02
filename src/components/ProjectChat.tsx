@@ -605,6 +605,7 @@ function MessageBubble({
   onCreateTask,
   isReply,
   reactions,
+  users,
 }: {
   msg: GroupMessage;
   isOwn: boolean;
@@ -613,6 +614,7 @@ function MessageBubble({
   onCreateTask?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
+  users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
@@ -624,7 +626,13 @@ function MessageBubble({
       authorName={getAuthorName(msg)}
       isOwn={isOwn}
       createdAt={msg.created_at}
-      content={msg.content}
+      content={
+        <MentionText
+          content={msg.content}
+          users={users}
+          className="text-sm leading-relaxed break-words whitespace-pre-wrap"
+        />
+      }
       messageType="group_message"
       messageId={msg.id}
       reactions={reactions}
