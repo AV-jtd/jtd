@@ -1094,15 +1094,26 @@ export async function handleBulkText(opts: {
     }
   }
 
-  const members = groupId
-    ? await getProjectMembers(
-        supabase,
-        groupId,
-        (await supabase.from("task_groups").select("user_id").eq("id", groupId).single()).data?.user_id || userId,
-      )
-    : // No explicit project → fall back to the user's whole team so that
-      // @mentions still resolve (e.g. for Inbox tasks).
-      await getTeamMembers(supabase, userId);
+  // Always make the user's whole team available for assignee matching — a
+  // project may have few formal members, yet you still want to assign a
+  // teammate who isn't a member of that project (access is handled via
+  // assigned_to + task_participants). Project members are merged first so they
+  // keep priority during name resolution.
+  const teamMembers = await getTeamMembers(supabase, userId);
+  let members: Member[] = teamMembers;
+  if (groupId) {
+    const ownerId =
+      (await supabase.from("task_groups").select("user_id").eq("id", groupId).single()).data?.user_id || userId;
+    const projectMembers = await getProjectMembers(supabase, groupId, ownerId);
+    const seen = new Set<string>();
+    members = [];
+    for (const m of [...projectMembers, ...teamMembers]) {
+      if (seen.has(m.id)) continue;
+      seen.add(m.id);
+      members.push(m);
+    }
+  }
+  console.log(`[assignee] Пул участников для разбора: ${members.length} (проект: ${groupName || "Inbox"})`);
 
   const parsed = await aiBulkParse(bulkText, members, groupName || undefined);
   if (!parsed || parsed.length === 0) {
