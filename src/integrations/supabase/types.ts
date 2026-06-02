@@ -1757,6 +1757,7 @@ export type Database = {
           id: string
           kind: string
           meta: Json | null
+          reply_to: string | null
           task_id: string
           updated_at: string
           user_id: string
@@ -1767,6 +1768,7 @@ export type Database = {
           id?: string
           kind?: string
           meta?: Json | null
+          reply_to?: string | null
           task_id: string
           updated_at?: string
           user_id: string
@@ -1777,11 +1779,19 @@ export type Database = {
           id?: string
           kind?: string
           meta?: Json | null
+          reply_to?: string | null
           task_id?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_comments_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "task_comments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_comments_task_id_fkey"
             columns: ["task_id"]
