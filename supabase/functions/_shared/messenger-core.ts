@@ -13,7 +13,7 @@
 // this core so both channels share a single source of truth going forward.
 // ============================================================================
 
-import { sendMaxMessage } from "./max-api.ts";
+import { sendMaxMessage, type MaxInlineButton } from "./max-api.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,10 +49,18 @@ export interface Member {
 // Transport abstraction
 // ---------------------------------------------------------------------------
 
+/** A single inline button: visible `text` + opaque `payload` (max ~64 chars). */
+export interface InlineButton {
+  text: string;
+  payload: string;
+}
+
 /** A thin send-only channel. Each messenger provides its own adapter. */
 export interface MessengerTransport {
   /** Send a text message. `text` may use light markdown (*bold*). */
   send(text: string): Promise<void>;
+  /** Optional: send a message with an inline keyboard (rows of buttons). */
+  sendWithButtons?(text: string, buttons: InlineButton[][]): Promise<void>;
 }
 
 /** Telegram adapter — sends with Markdown parse mode to a numeric chat id. */
@@ -63,6 +71,22 @@ export function makeTelegramTransport(token: string, chatId: number): MessengerT
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      });
+    },
+    async sendWithButtons(text: string, buttons: InlineButton[][]) {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: buttons.map((row) =>
+              row.map((b) => ({ text: b.text, callback_data: b.payload })),
+            ),
+          },
+        }),
       });
     },
   };
@@ -76,6 +100,12 @@ export function makeMaxTransport(
   return {
     async send(text: string) {
       await sendMaxMessage(token, target, text, { format: "markdown" });
+    },
+    async sendWithButtons(text: string, buttons: InlineButton[][]) {
+      const keyboard: MaxInlineButton[][] = buttons.map((row) =>
+        row.map((b) => ({ text: b.text, payload: b.payload })),
+      );
+      await sendMaxMessage(token, target, text, { format: "markdown", keyboard });
     },
   };
 }
