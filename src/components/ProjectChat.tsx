@@ -511,11 +511,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                           <MessageBubble
                         msg={reply}
                         isOwn={reply.user_id === user?.id}
-                        onReply={() => setReplyTo(msg)}
+                        onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
                         onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
+                        users={availableUsers}
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
