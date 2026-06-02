@@ -91,8 +91,20 @@ Deno.serve(async (req) => {
       user_mentioned: "telegram_user_mentioned",
     };
 
+    // MAX is a SECOND channel alongside Telegram (not a replacement).
+    // Only the core events have MAX preference columns so far.
+    const maxPrefKey: Record<string, string> = {
+      task_assigned: "max_task_assigned",
+      task_completed: "max_task_completed",
+      task_commented: "max_task_commented",
+      deadline_approaching: "max_deadline_approaching",
+      baseline_approver_assigned: "max_task_assigned",
+      baseline_locked: "max_task_assigned",
+    };
+
     const prefColumn = pushPrefKey[event];
     const telegramPrefColumn = telegramPrefKey[event];
+    const maxPrefColumn = maxPrefKey[event];
     if (!prefColumn) {
       return new Response(JSON.stringify({ error: "Unknown event" }), {
         status: 400,
