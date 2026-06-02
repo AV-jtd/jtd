@@ -4,7 +4,7 @@ import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { ReactionChips, ReactionAddButton } from "../MessageReactions";
-import { useMessageReactions, type MessageType, type ReactionAgg } from "@/hooks/useMessageReactions";
+import type { MessageType, ReactionAgg } from "@/hooks/useMessageReactions";
 import ChatAvatar from "./ChatAvatar";
 
 /** Бейдж канала-источника сообщения. */
@@ -114,6 +114,4 @@ export default function ChatMessageRow({
   );
 }
 
-/** Re-export, чтобы избежать неиспользуемого импорта при будущем расширении. */
 export type { MessageType, ReactionAgg };
-void useMessageReactions;
