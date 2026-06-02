@@ -102,6 +102,13 @@ export default function TaskChat({
   const [draft, setDraft] = useState("");
   /** Активная вкладка: chat (message+system), log (только log), all (всё). */
   const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
+  /**
+   * Точное соответствие «подпись в тексте → user_id» для выбранных упоминаний.
+   * Храним идентификатор отдельно от текста, поэтому имя в сообщении остаётся
+   * читаемым, а уведомление гарантированно уходит нужному пользователю
+   * (даже при совпадающих именах). Чистим перед отправкой по реальному тексту.
+   */
+  const mentionedRef = useRef<Map<string, string>>(new Map());
   /** Сообщение, на которое сейчас отвечаем (thread/reply). */
   const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
   /** ID сообщения, к которому нужно подсветить/проскроллить (открытие контекста ответа). */
@@ -179,6 +186,7 @@ export default function TaskChat({
     const author = availableUsers.find((u) => u.id === c.user_id);
     if (author && c.user_id !== user?.id) {
       const label = userMentionLabel(author);
+      mentionedRef.current.set(`@${label}`, author.id);
       setDraft((prev) => (prev.includes(`@${label}`) ? prev : `@${label} ${prev}`));
     }
   };
@@ -192,7 +200,14 @@ export default function TaskChat({
     // Уведомления об @-упоминаниях + адресный ответ (автоупоминание автора
     // сообщения, на которое отвечаем). Fire-and-forget — не блокирует отправку.
     try {
-      const targets = new Set(resolveMentionedUserIds(text, availableUsers));
+      const targets = new Set<string>();
+      // 1) Точные id выбранных через автокомплит/ответ упоминаний —
+      //    учитываем только те, чья подпись осталась в финальном тексте.
+      for (const [label, id] of mentionedRef.current.entries()) {
+        if (text.includes(label)) targets.add(id);
+      }
+      // 2) Фолбэк: пользователи, набранные руками по имени/нику.
+      for (const id of resolveMentionedUserIds(text, availableUsers)) targets.add(id);
       // Адресный ответ → всегда уведомляем автора исходного сообщения.
       if (parent?.user_id) targets.add(parent.user_id);
       targets.delete(user?.id || "");
@@ -215,6 +230,7 @@ export default function TaskChat({
 
     setDraft("");
     setReplyTo(null);
+    mentionedRef.current.clear();
   };
 
   /**
@@ -670,6 +686,7 @@ export default function TaskChat({
           const label = userMentionLabel(u);
           const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
           const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
+          mentionedRef.current.set(`@${label}`, u.id);
           setDraft(`${base}@${label} `);
         }}
       />
