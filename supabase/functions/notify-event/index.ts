@@ -113,8 +113,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter out sender from targets
-    const filteredTargets = targetUserIds.filter((id: string) => id !== user.id);
+    // Filter out sender from targets and de-duplicate IDs.
+    // De-dup is critical for @-mentions in replies: the same user can be both
+    // the parent-message author AND explicitly @-mentioned, which would
+    // otherwise produce two identical notifications.
+    const filteredTargets = [
+      ...new Set(targetUserIds.filter((id: string) => id && id !== user.id)),
+    ] as string[];
     if (filteredTargets.length === 0) {
       return new Response(JSON.stringify({ sent: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -260,7 +265,15 @@ Deno.serve(async (req) => {
     let totalTelegramSent = 0;
     let totalMaxSent = 0;
 
-    for (const targetUserId of filteredTargets) {
+    // Pre-build the shared message bodies once (identical for every target).
+    const tgContext = contextLines.map((l) => escapeHtml(l)).join("\n");
+    const richMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${tgContext ? `\n\n${tgContext}` : ""}`;
+    const pushPayload = JSON.stringify({ title, body: body + contextSuffix });
+
+    // Process every target in parallel, and within a target run the three
+    // channels (push / Telegram / MAX) concurrently. This removes the
+    // sequential round-trip delays that grew linearly with recipient count.
+    await Promise.all(filteredTargets.map(async (targetUserId) => {
       const userPrefs = allPrefs?.find((p: any) => p.user_id === targetUserId);
       const defaultEnabled = ["task_assigned", "task_completed", "task_participant_added", "added_to_group"].includes(event);
       const pushEnabled = userPrefs ? !!(userPrefs as any)[prefColumn] : defaultEnabled;
@@ -268,100 +281,79 @@ Deno.serve(async (req) => {
       const maxEnabled = userPrefs && maxPrefColumn ? !!(userPrefs as any)[maxPrefColumn] : false;
 
       // --- Push notification (RFC 8291 encrypted) ---
-      if (pushEnabled && appServer) {
+      const pushTask = (async () => {
+        if (!(pushEnabled && appServer)) return;
         const { data: subs } = await serviceClient
           .from("push_subscriptions")
           .select("*")
           .eq("user_id", targetUserId);
-
-        if (subs) {
-          for (const sub of subs) {
-            try {
-              const pushSub: WPPushSubscription = {
-                endpoint: sub.endpoint,
-                keys: {
-                  p256dh: sub.p256dh,
-                  auth: sub.auth,
-                },
-              };
-              const subscriber = appServer.subscribe(pushSub);
-              const pushPayload = JSON.stringify({ title, body: body + contextSuffix });
-
-              await subscriber.pushTextMessage(pushPayload, {
-                ttl: 86400,
-                urgency: Urgency.High,
-                topic: "",
-              });
-
-              totalSent++;
-            } catch (err) {
-              if (err instanceof PushMessageError && err.isGone()) {
-                // Subscription expired, remove it
-                await serviceClient.from("push_subscriptions").delete().eq("id", sub.id);
-              } else {
-                console.error("Push error for sub", sub.id, err);
-              }
+        if (!subs) return;
+        await Promise.all(subs.map(async (sub: any) => {
+          try {
+            const pushSub: WPPushSubscription = {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            };
+            const subscriber = appServer!.subscribe(pushSub);
+            await subscriber.pushTextMessage(pushPayload, {
+              ttl: 86400,
+              urgency: Urgency.High,
+              topic: "",
+            });
+            totalSent++;
+          } catch (err) {
+            if (err instanceof PushMessageError && err.isGone()) {
+              await serviceClient.from("push_subscriptions").delete().eq("id", sub.id);
+            } else {
+              console.error("Push error for sub", sub.id, err);
             }
           }
-        }
-      }
+        }));
+      })();
 
       // --- Telegram notification ---
-      if (telegramEnabled && BOT_TOKEN) {
+      const tgTask = (async () => {
+        if (!(telegramEnabled && BOT_TOKEN)) return;
         const profile = (targetProfiles || []).find((p: any) => p.id === targetUserId);
         const tgUsername = profile?.telegram_username?.toLowerCase();
         const chatId = tgUsername ? botChatsMap[tgUsername] : null;
-
-        if (chatId) {
-          try {
-            const tgContext = contextLines
-              .map((l) => escapeHtml(l))
-              .join("\n");
-            const tgMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${tgContext ? `\n\n${tgContext}` : ""}`;
-            const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: chatId,
-                text: tgMessage,
-                parse_mode: "HTML",
-              }),
-            });
-            if (res.ok) {
-              totalTelegramSent++;
-            } else {
-              const errText = await res.text();
-              console.error("Telegram send error:", errText);
-            }
-          } catch (err) {
-            console.error("Telegram error for user", targetUserId, err);
-          }
+        if (!chatId) return;
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text: richMessage, parse_mode: "HTML" }),
+          });
+          if (res.ok) totalTelegramSent++;
+          else console.error("Telegram send error:", await res.text());
+        } catch (err) {
+          console.error("Telegram error for user", targetUserId, err);
         }
-      }
+      })();
 
       // --- MAX notification (second channel) ---
-      if (maxEnabled && MAX_TOKEN) {
+      const maxTask = (async () => {
+        if (!(maxEnabled && MAX_TOKEN)) return;
         const profile = (targetProfiles || []).find((p: any) => p.id === targetUserId);
         const maxUserId = profile?.max_user_id as number | null;
         const maxChatId = profile?.max_chat_id as number | null;
-        if (maxUserId || maxChatId) {
-          try {
-            const maxContext = contextLines.map((l) => escapeHtml(l)).join("\n");
-            const maxMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${maxContext ? `\n\n${maxContext}` : ""}`;
-            const r = await sendMaxMessage(
-              MAX_TOKEN,
-              maxUserId ? { userId: maxUserId } : { chatId: maxChatId! },
-              maxMessage,
-              { format: "html" },
-            );
-            if (r.ok) totalMaxSent++;
-            else console.error("MAX send error:", r.status, r.body);
-          } catch (err) {
-            console.error("MAX error for user", targetUserId, err);
-          }
+        if (!(maxUserId || maxChatId)) return;
+        try {
+          const r = await sendMaxMessage(
+            MAX_TOKEN,
+            maxUserId ? { userId: maxUserId } : { chatId: maxChatId! },
+            richMessage,
+            { format: "html" },
+          );
+          if (r.ok) totalMaxSent++;
+          else console.error("MAX send error:", r.status, r.body);
+        } catch (err) {
+          console.error("MAX error for user", targetUserId, err);
         }
-      }
-    }
+      })();
+
+      await Promise.all([pushTask, tgTask, maxTask]);
+    }));
 
     return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent, maxSent: totalMaxSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
