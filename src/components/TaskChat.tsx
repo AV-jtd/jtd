@@ -186,6 +186,7 @@ export default function TaskChat({
     const author = availableUsers.find((u) => u.id === c.user_id);
     if (author && c.user_id !== user?.id) {
       const label = userMentionLabel(author);
+      mentionedRef.current.set(`@${label}`, author.id);
       setDraft((prev) => (prev.includes(`@${label}`) ? prev : `@${label} ${prev}`));
     }
   };
