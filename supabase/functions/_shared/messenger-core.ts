@@ -1403,15 +1403,16 @@ export async function handleGroupMessage(opts: {
     return;
   }
 
-  // Plain text → pure chat: mirror to JTD + fan out to the other channel.
+  // Plain text → pure chat: only when sync is enabled, mirror to JTD and fan
+  // out to the other channel. When off, the group works in isolation.
   if (group.chat_mirror_enabled) {
     await mirrorIncomingGroupMessage({
       supabase, groupId: group.id, source: channel, content: text,
       externalMessageId, jtdUserId: profile?.id ?? null,
       externalAuthor: profile ? null : `${externalUserName} (${channel === "telegram" ? "TG" : "MAX"})`,
     });
+    const author = profile?.name || externalUserName;
+    const fanText = `💬 *${escapeMarkdown(author)}:*\n${escapeMarkdown(text)}`;
+    await fanOutToGroups({ supabase, group, originChannel: channel, text: fanText, tgToken, maxToken });
   }
-  const author = profile?.name || externalUserName;
-  const fanText = `💬 *${escapeMarkdown(author)}:*\n${escapeMarkdown(text)}`;
-  await fanOutToGroups({ supabase, group, originChannel: channel, text: fanText, tgToken, maxToken });
 }
