@@ -162,6 +162,15 @@ export function pluralizeRu(n: number, forms: [string, string, string]): string 
   return forms[2];
 }
 
+/** Split a flat list of buttons into rows of `perRow` (compact grid layout). */
+export function chunkButtons(items: InlineButton[], perRow: number): InlineButton[][] {
+  const rows: InlineButton[][] = [];
+  for (let i = 0; i < items.length; i += perRow) {
+    rows.push(items.slice(i, i + perRow));
+  }
+  return rows;
+}
+
 export function detectBulkMessage(text: string): boolean {
   const lines = text.split("\n").filter((l) => l.trim().length > 0);
   if (lines.length < 2) return false;
