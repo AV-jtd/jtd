@@ -529,9 +529,11 @@ export default function TaskChat({
               content={
                 <>
                   {parentQuote}
-                  <p className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}>
-                    {c.content}
-                  </p>
+                  <MentionText
+                    content={c.content}
+                    users={availableUsers}
+                    className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}
+                  />
                 </>
               }
               messageType="task_comment"
