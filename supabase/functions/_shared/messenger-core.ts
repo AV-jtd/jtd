@@ -1187,6 +1187,26 @@ const GROUP_COL: Record<ChatChannel, string> = {
   max: "max_group_chat_id",
 };
 
+/** Human badge for the channel a relayed message originally came from. */
+export function channelBadge(origin: "web" | ChatChannel): string {
+  if (origin === "telegram") return "✈️ Telegram";
+  if (origin === "max") return "🅜 MAX";
+  return "💻 JTD";
+}
+
+/**
+ * Format a relayed chat message with clear authorship. Bots can only post as
+ * themselves, so we make the real author + source channel unmistakable inside
+ * the message body: a name line with an origin badge, then the text.
+ */
+export function formatRelayMessage(
+  author: string,
+  text: string,
+  origin: "web" | ChatChannel,
+): string {
+  return `👤 *${escapeMarkdown(author)}* · _${channelBadge(origin)}_\n${escapeMarkdown(text)}`;
+}
+
 function groupColValue(channel: ChatChannel, chatId: string | number): string | number {
   return channel === "telegram" ? Number(chatId) : String(chatId);
 }
