@@ -102,6 +102,13 @@ export default function TaskChat({
   const [draft, setDraft] = useState("");
   /** Активная вкладка: chat (message+system), log (только log), all (всё). */
   const [tab, setTab] = useState<"chat" | "log" | "all">("chat");
+  /**
+   * Точное соответствие «подпись в тексте → user_id» для выбранных упоминаний.
+   * Храним идентификатор отдельно от текста, поэтому имя в сообщении остаётся
+   * читаемым, а уведомление гарантированно уходит нужному пользователю
+   * (даже при совпадающих именах). Чистим перед отправкой по реальному тексту.
+   */
+  const mentionedRef = useRef<Map<string, string>>(new Map());
   /** Сообщение, на которое сейчас отвечаем (thread/reply). */
   const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
   /** ID сообщения, к которому нужно подсветить/проскроллить (открытие контекста ответа). */
