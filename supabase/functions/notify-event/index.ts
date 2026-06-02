@@ -338,9 +338,32 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      // --- MAX notification (second channel) ---
+      if (maxEnabled && MAX_TOKEN) {
+        const profile = (targetProfiles || []).find((p: any) => p.id === targetUserId);
+        const maxUserId = profile?.max_user_id as number | null;
+        const maxChatId = profile?.max_chat_id as number | null;
+        if (maxUserId || maxChatId) {
+          try {
+            const maxContext = contextLines.map((l) => escapeHtml(l)).join("\n");
+            const maxMessage = `🔔 <b>${escapeHtml(title)}</b>${body ? `\n${escapeHtml(body)}` : ""}${maxContext ? `\n\n${maxContext}` : ""}`;
+            const r = await sendMaxMessage(
+              MAX_TOKEN,
+              maxUserId ? { userId: maxUserId } : { chatId: maxChatId! },
+              maxMessage,
+              { format: "html" },
+            );
+            if (r.ok) totalMaxSent++;
+            else console.error("MAX send error:", r.status, r.body);
+          } catch (err) {
+            console.error("MAX error for user", targetUserId, err);
+          }
+        }
+      }
     }
 
-    return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent }), {
+    return new Response(JSON.stringify({ sent: totalSent, telegramSent: totalTelegramSent, maxSent: totalMaxSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
