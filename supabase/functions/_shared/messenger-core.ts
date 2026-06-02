@@ -1257,13 +1257,17 @@ export async function linkGroupChat(
     .single();
   if (error || !grp) return { ok: false, message: "❌ Не удалось привязать группу. Попробуйте ещё раз." };
 
-  await supabase.from("chat_link_tokens").delete().eq("code", trimmed);
+  // NB: we intentionally DO NOT delete the token here. One universal code per
+  // project stays valid until it expires, so the same code can link both the
+  // Telegram AND the MAX group (run /link with it in each group separately).
+  const otherChannel = channel === "telegram" ? "MAX" : "Telegram";
   return {
     ok: true,
     groupName: grp.name,
     message:
       `✅ Группа привязана к проекту «${grp.name}».\n\n` +
       "Теперь переписка и задачи синхронизируются с JTD.\n" +
+      `💡 Тем же кодом можно привязать и группу в ${otherChannel} — отправьте там \`/link ${trimmed}\` (код действует, пока не истёк).\n\n` +
       "📋 `/tasks` · 👤 `/my` · ✅ `/done N` · 📦 `/new <задача>`",
   };
 }
