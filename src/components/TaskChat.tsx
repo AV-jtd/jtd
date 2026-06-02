@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
-import MentionAutocomplete, { userMentionHandle, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
+import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
@@ -178,8 +178,8 @@ export default function TaskChat({
     setReplyTo(c);
     const author = availableUsers.find((u) => u.id === c.user_id);
     if (author && c.user_id !== user?.id) {
-      const handle = userMentionHandle(author);
-      setDraft((prev) => (prev.includes(`@${handle}`) ? prev : `@${handle} ${prev}`));
+      const label = userMentionLabel(author);
+      setDraft((prev) => (prev.includes(`@${label}`) ? prev : `@${label} ${prev}`));
     }
   };
 
