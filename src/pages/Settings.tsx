@@ -592,6 +592,19 @@ export default function Settings() {
               </div>
             </SettingsSection>
 
+            {/* MAX messenger — second channel alongside Telegram (not a replacement) */}
+            <SettingsSection
+              icon={MessageCircle}
+              title="MAX"
+              description="Альтернативный канал рядом с Telegram: бот и уведомления в MAX."
+              sectionId="max_channel"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("max_channel", "MAX", "max мессенджер бот уведомления канал альтернатива")}
+            >
+              <MaxLinkCard />
+            </SettingsSection>
+
             {/* Calendar Subscription */}
             <ConsultantGuard area="calendar-sync">
               <SettingsSection
