@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
+import MentionAutocomplete, { userMentionHandle, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
@@ -169,10 +170,49 @@ export default function TaskChat({
     window.setTimeout(() => setHighlightId(null), 1800);
   };
 
+  /**
+   * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
+   * его автора в начало черновика (если он ещё не упомянут).
+   */
+  const startReply = (c: TaskComment) => {
+    setReplyTo(c);
+    const author = availableUsers.find((u) => u.id === c.user_id);
+    if (author && c.user_id !== user?.id) {
+      const handle = userMentionHandle(author);
+      setDraft((prev) => (prev.includes(`@${handle}`) ? prev : `@${handle} ${prev}`));
+    }
+  };
+
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    addComment.mutate({ task_id: taskId, content: text, reply_to: replyTo?.id ?? null });
+    const parent = replyTo;
+    addComment.mutate({ task_id: taskId, content: text, reply_to: parent?.id ?? null });
+
+    // Уведомления об @-упоминаниях + адресный ответ (автоупоминание автора
+    // сообщения, на которое отвечаем). Fire-and-forget — не блокирует отправку.
+    try {
+      const targets = new Set(resolveMentionedUserIds(text, availableUsers));
+      // Адресный ответ → всегда уведомляем автора исходного сообщения.
+      if (parent?.user_id) targets.add(parent.user_id);
+      targets.delete(user?.id || "");
+      const targetIds = [...targets].filter(Boolean);
+      if (targetIds.length > 0) {
+        supabase.auth.getSession().then(({ data: s }) => {
+          if (!s.session) return;
+          supabase.functions.invoke("notify-event", {
+            body: {
+              event: "user_mentioned",
+              taskTitle: `${taskTitle}: ${text.slice(0, 80)}`,
+              targetUserIds: targetIds,
+              taskId,
+            },
+            headers: { Authorization: `Bearer ${s.session.access_token}` },
+          }).catch(() => {});
+        });
+      }
+    } catch { /* non-fatal */ }
+
     setDraft("");
     setReplyTo(null);
   };
@@ -412,7 +452,7 @@ export default function TaskChat({
           const actions: ChatAction[] = [
             {
               icon: Reply,
-              onClick: () => setReplyTo(c),
+              onClick: () => startReply(c),
               title: "Ответить",
               tone: "default",
             },
@@ -617,16 +657,26 @@ export default function TaskChat({
     <form
       onSubmit={e => { e.preventDefault(); handleSend(); }}
       className={cn(
-        "flex items-center gap-2",
+        "relative flex items-center gap-2",
         isFull
           ? "px-4 py-3"
           : "px-3 py-2 bg-card/50"
       )}
     >
+      <MentionAutocomplete
+        value={draft}
+        users={availableUsers}
+        onPick={(u) => {
+          const handle = userMentionHandle(u);
+          const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
+          const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
+          setDraft(`${base}@${handle} `);
+        }}
+      />
       <Input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        placeholder={replyTo ? "Ответить..." : "Написать..."}
+        placeholder={replyTo ? "Ответить... (@ — упомянуть)" : "Написать... (@ — упомянуть)"}
         enterKeyHint="send"
         className={cn(
           "flex-1",
