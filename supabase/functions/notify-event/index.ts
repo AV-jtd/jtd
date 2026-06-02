@@ -228,10 +228,13 @@ Deno.serve(async (req) => {
     // Get Telegram bot token
     const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 
+    // Get MAX bot token (second channel, optional)
+    const MAX_TOKEN = getMaxToken();
+
     // Get profiles for telegram usernames
     const { data: targetProfiles } = await serviceClient
       .from("profiles")
-      .select("id, telegram_username")
+      .select("id, telegram_username, max_chat_id, max_user_id")
       .in("id", filteredTargets);
 
     // Get bot chats for Telegram DMs
