@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
+import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
