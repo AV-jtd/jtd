@@ -594,19 +594,39 @@ export default function TaskChat({
   ) : null;
 
   const inputForm = (
+    <div className="shrink-0 border-t border-border">
+      {replyTo && (
+        <div className={cn(
+          "flex items-center gap-2 text-xs text-muted-foreground bg-muted/50",
+          isFull ? "px-4 py-2" : "px-3 py-1.5",
+        )}>
+          <Reply className="h-3 w-3 shrink-0 text-primary" />
+          <span className="truncate">
+            Ответ: <span className="font-medium text-foreground/80">{getProfileName(replyTo.user_id)}</span> — {replyTo.content.slice(0, 50)}
+          </span>
+          <button
+            type="button"
+            onClick={() => setReplyTo(null)}
+            className="ml-auto shrink-0 hover:text-foreground"
+            aria-label="Отменить ответ"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     <form
       onSubmit={e => { e.preventDefault(); handleSend(); }}
       className={cn(
-        "flex items-center gap-2 shrink-0",
+        "flex items-center gap-2",
         isFull
-          ? "px-4 py-3 border-t border-border"
-          : "px-3 py-2 border-t border-border bg-card/50"
+          ? "px-4 py-3"
+          : "px-3 py-2 bg-card/50"
       )}
     >
       <Input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        placeholder="Написать..."
+        placeholder={replyTo ? "Ответить..." : "Написать..."}
         enterKeyHint="send"
         className={cn(
           "flex-1",
@@ -625,6 +645,7 @@ export default function TaskChat({
         <Send className={isFull ? "h-4 w-4" : "h-3.5 w-3.5"} />
       </button>
     </form>
+    </div>
   );
 
   // Full variant: занимает всю высоту контейнера, без обёртки
