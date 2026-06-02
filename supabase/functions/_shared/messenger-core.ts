@@ -1090,8 +1090,10 @@ export async function handleBulkText(opts: {
   transport: MessengerTransport;
   userId: string;
   text: string;
+  /** When set, project context is fixed (e.g. a linked group chat). */
+  fixedProject?: { id: string; name: string };
 }): Promise<boolean> {
-  const { supabase, transport, userId, text } = opts;
+  const { supabase, transport, userId, text, fixedProject } = opts;
   const raw = text.replace(/^\/(spisok|s|t|p|d)\s*/i, "").trim();
   if (!raw) {
     await transport.send(
