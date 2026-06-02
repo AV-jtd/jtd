@@ -698,11 +698,16 @@ export async function createBulkTasks(
       taskData.assigned_to = m.id;
       assigneeName = m.name;
     } else if (task.assigned_to_name && members.length > 0) {
-      const match = findMemberByName(task.assigned_to_name, members);
-      if (match) {
-        taskData.assigned_to = match.id;
-        assigneeName = match.name;
+      const res = resolveMemberDetailed(task.assigned_to_name, members);
+      if (res.member) {
+        taskData.assigned_to = res.member.id;
+        assigneeName = res.member.name;
+        console.log(`[assignee] по имени из AI "${task.assigned_to_name}" → ${res.member.name} (стратегия: ${res.matchedBy})`);
+      } else {
+        console.warn(`[assignee] имя из AI "${task.assigned_to_name}" не сопоставлено: ${res.reason}`);
       }
+    } else if (task.assigned_to_id && !memberById.has(task.assigned_to_id)) {
+      console.warn(`[assignee] AI вернул id "${task.assigned_to_id}", которого нет среди участников задачи "${task.title}"`);
     }
 
     const { data: newTask, error } = await supabase.from("tasks").insert(taskData).select("id").single();
