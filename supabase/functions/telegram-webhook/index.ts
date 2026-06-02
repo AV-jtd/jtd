@@ -850,6 +850,9 @@ Deno.serve(async (req) => {
           ]);
         });
 
+        // Remember the exact ordering so `/done N` references this list.
+        await saveTgList(supabase, chatId, userId, tasks.map(t => t.id));
+
         await sendTelegramMessageWithKeyboard(BOT_TOKEN, chatId, text, inlineKeyboard, "Markdown");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
