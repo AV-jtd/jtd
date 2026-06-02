@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search, Link2 } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search, Link2, Check } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [showLink, setShowLink] = useState(false);
+  const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
+  const [mirror, setMirror] = useState(true);
   /** message.id → form open */
   const [taskFormFor, setTaskFormFor] = useState<string | null>(null);
   /** уникальный nonce открытия формы — меняется при каждом открытии,
@@ -85,6 +87,42 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // Load current chat binding + mirror status.
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("task_groups")
+        .select("telegram_group_chat_id, max_group_chat_id, chat_mirror_enabled")
+        .eq("id", groupId)
+        .maybeSingle();
+      setLinked({
+        telegram: !!data?.telegram_group_chat_id,
+        max: !!data?.max_group_chat_id,
+      });
+      setMirror(data?.chat_mirror_enabled ?? true);
+    })();
+  }, [groupId]);
+
+  // Refresh status when link dialog closes (user may have changed binding).
+  const prevShowLink = useRef(showLink);
+  useEffect(() => {
+    if (prevShowLink.current && !showLink) {
+      (async () => {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("telegram_group_chat_id, max_group_chat_id, chat_mirror_enabled")
+          .eq("id", groupId)
+          .maybeSingle();
+        setLinked({
+          telegram: !!data?.telegram_group_chat_id,
+          max: !!data?.max_group_chat_id,
+        });
+        setMirror(data?.chat_mirror_enabled ?? true);
+      })();
+    }
+    prevShowLink.current = showLink;
+  }, [showLink, groupId]);
 
   // Group messages into threads: root messages + their replies
   const rootMessages = useMemo(() => messages.filter(m => !m.reply_to), [messages]);
@@ -328,6 +366,40 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           </button>
         </div>
       )}
+
+      {/* Chat link status */}
+      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border shrink-0 bg-muted/20">
+        <span className="text-[10px] text-muted-foreground font-medium">Чат:</span>
+        {linked.telegram ? (
+          <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            <Check className="h-2.5 w-2.5" /> Telegram
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Telegram</span>
+        )}
+        {linked.max ? (
+          <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            <Check className="h-2.5 w-2.5" /> MAX
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">MAX</span>
+        )}
+        {(linked.telegram || linked.max) && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium",
+              mirror
+                ? "bg-emerald-500/10 text-emerald-600"
+                : "bg-amber-500/10 text-amber-600"
+            )}
+          >
+            {mirror ? "↔ Зеркало" : "Зеркало выкл"}
+          </span>
+        )}
+        {!linked.telegram && !linked.max && (
+          <span className="text-[10px] text-muted-foreground">не привязан — <button onClick={() => setShowLink(true)} className="text-primary hover:underline">подключить</button></span>
+        )}
+      </div>
 
       {/* In-thread search input */}
       {searchOpen && (
