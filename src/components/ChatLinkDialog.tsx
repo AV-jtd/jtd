@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Copy, Link2, RefreshCw, Check, Send } from "lucide-react";
 
@@ -39,6 +40,8 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
+  const [mirror, setMirror] = useState(true);
+  const [savingMirror, setSavingMirror] = useState(false);
 
   // Load current binding state when the dialog opens.
   useEffect(() => {
@@ -47,15 +50,34 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
     (async () => {
       const { data } = await supabase
         .from("task_groups")
-        .select("telegram_group_chat_id, max_group_chat_id")
+        .select("telegram_group_chat_id, max_group_chat_id, chat_mirror_enabled")
         .eq("id", groupId)
         .maybeSingle();
       setLinked({
         telegram: !!data?.telegram_group_chat_id,
         max: !!data?.max_group_chat_id,
       });
+      setMirror(data?.chat_mirror_enabled ?? true);
     })();
   }, [open, groupId]);
+
+  const toggleMirror = async (next: boolean) => {
+    setMirror(next);
+    setSavingMirror(true);
+    try {
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ chat_mirror_enabled: next })
+        .eq("id", groupId);
+      if (error) throw error;
+      toast.success(next ? "Синхронизация включена" : "Синхронизация выключена");
+    } catch (e: any) {
+      setMirror(!next);
+      toast.error("Не удалось сохранить: " + (e?.message ?? "ошибка"));
+    } finally {
+      setSavingMirror(false);
+    }
+  };
 
   const generate = async () => {
     if (!user) return;
@@ -130,6 +152,22 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
           >
             {linked.max ? "✓ MAX привязан" : "MAX не привязан"}
           </span>
+        </div>
+
+        {/* Sync toggle */}
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-foreground">Синхронизация сообщений</p>
+            <p className="text-xs text-muted-foreground">
+              Зеркалить сообщения чата между JTD, Telegram и MAX. Карточки задач
+              отправляются всегда.
+            </p>
+          </div>
+          <Switch
+            checked={mirror}
+            disabled={savingMirror}
+            onCheckedChange={toggleMirror}
+          />
         </div>
 
         {/* Steps */}

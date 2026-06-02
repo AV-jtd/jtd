@@ -101,16 +101,20 @@ Deno.serve(async (req) => {
     const hasLinkedGroup =
       !!group.telegram_group_chat_id || !!group.max_group_chat_id;
     if (hasLinkedGroup) {
-      await fanOutToGroups({
-        supabase,
-        group: group as LinkedGroup,
-        originChannel: "web",
-        text,
-        tgToken: BOT_TOKEN,
-        maxToken: Deno.env.get("MAX_BOT_TOKEN") ?? null,
-      });
+      // Task cards always mirror; plain chat messages only when sync is on.
+      const allowFanOut = kind === "task_created" || group.chat_mirror_enabled;
+      if (allowFanOut) {
+        await fanOutToGroups({
+          supabase,
+          group: group as LinkedGroup,
+          originChannel: "web",
+          text,
+          tgToken: BOT_TOKEN,
+          maxToken: Deno.env.get("MAX_BOT_TOKEN") ?? null,
+        });
+      }
       return new Response(
-        JSON.stringify({ ok: true, mode: "group", group_chat: true }),
+        JSON.stringify({ ok: true, mode: "group", group_chat: true, mirrored: allowFanOut }),
         { headers: corsHeaders },
       );
     }
