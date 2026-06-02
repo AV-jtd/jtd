@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getMaxToken, getMaxBotInfo, sendMaxMessage, MAX_API_BASE } from "../_shared/max-api.ts";
+import {
+  extractBotCommand,
+  handleCoreCommand,
+  handleBulkText,
+  makeMaxTransport,
+} from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,6 +54,19 @@ async function bindWithToken(
   // One-time token — consume it.
   await supabase.from("max_link_tokens").delete().eq("token", trimmed);
   return row.user_id as string;
+}
+
+/** Resolve a JTD profile id from a bound MAX user id. */
+async function profileIdForMaxUser(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("max_user_id", maxUserId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
 }
 
 Deno.serve(async (req) => {
