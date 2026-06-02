@@ -258,12 +258,14 @@ Deno.serve(async (req) => {
 
     let totalSent = 0;
     let totalTelegramSent = 0;
+    let totalMaxSent = 0;
 
     for (const targetUserId of filteredTargets) {
       const userPrefs = allPrefs?.find((p: any) => p.user_id === targetUserId);
       const defaultEnabled = ["task_assigned", "task_completed", "task_participant_added", "added_to_group"].includes(event);
       const pushEnabled = userPrefs ? !!(userPrefs as any)[prefColumn] : defaultEnabled;
       const telegramEnabled = userPrefs && telegramPrefColumn ? !!(userPrefs as any)[telegramPrefColumn] : false;
+      const maxEnabled = userPrefs && maxPrefColumn ? !!(userPrefs as any)[maxPrefColumn] : false;
 
       // --- Push notification (RFC 8291 encrypted) ---
       if (pushEnabled && appServer) {
