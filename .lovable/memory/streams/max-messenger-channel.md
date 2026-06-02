@@ -33,3 +33,20 @@ telegram-webhook = 3440 строк с большим набором команд
 - `notify-event`: MAX-доставка рядом с Telegram (maxPrefKey, max_chat_id/max_user_id, format html).
 - Settings → секция «MAX»: MaxLinkCard (привязка по коду + тумблеры уведомлений MAX). config.toml: max-webhook verify_jwt=false.
 - Секрет MAX_BOT_TOKEN сохранён. Бот `@id540819302807_bot`.
+
+## Что уже сделано (Этап 2 — общее ядро команд)
+- `_shared/messenger-core.ts`: messenger-agnostic ядро.
+  - **MessengerTransport** (интерфейс send) + адаптеры `makeTelegramTransport` / `makeMaxTransport` (поверх sendMaxMessage).
+  - Чистые хелперы: extractBotCommand, parseDeadline, formatDate, fuzzyMatch, levenshtein, escapeMarkdown, normalizeToken/nameTokens/expandWithAliases (NAME_ALIASES), findMemberByName, detectBulkMessage, pluralizeRu.
+  - DB-хелперы: getGroupMemberIds, getProjectMembers, getUserProjects, findProject.
+  - AI/создание: aiBulkParse (gemini-2.5-flash, tool extract_tasks), createBulkTasks (assignee+participants+subtasks, task_participants sync).
+  - `handleCoreCommand`: /help · /start · /projects · /my (глобально) · /tasks Проект.
+  - `handleBulkText`: проект в первой строке → aiBulkParse → createBulkTasks; голый /spisok даёт подсказку.
+- `max-webhook` теперь маршрутизирует входящие message_created привязанного MAX-юзера через ядро: команда → handleCoreCommand, иначе → handleBulkText; bot_started для привязанного = меню. profileIdForMaxUser резолвит profiles.max_user_id.
+- Telegram-webhook (3440 строк) НЕ трогали — рабочий прод. Миграция TG на ядро отложена (риск), дубли хелперов осознанные.
+- Деплой max-webhook прошёл (ядро компилируется).
+
+## Этап 3 (дальше)
+- Перевести telegram-webhook на общее ядро (постепенно, по командам).
+- /done и нумерованный контекст задач для MAX (нужен last-list state).
+- Inline-кнопки MAX (done/assign) — расширить MessengerTransport.
