@@ -88,6 +88,42 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // Load current chat binding + mirror status.
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("task_groups")
+        .select("telegram_group_chat_id, max_group_chat_id, chat_mirror_enabled")
+        .eq("id", groupId)
+        .maybeSingle();
+      setLinked({
+        telegram: !!data?.telegram_group_chat_id,
+        max: !!data?.max_group_chat_id,
+      });
+      setMirror(data?.chat_mirror_enabled ?? true);
+    })();
+  }, [groupId]);
+
+  // Refresh status when link dialog closes (user may have changed binding).
+  const prevShowLink = useRef(showLink);
+  useEffect(() => {
+    if (prevShowLink.current && !showLink) {
+      (async () => {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("telegram_group_chat_id, max_group_chat_id, chat_mirror_enabled")
+          .eq("id", groupId)
+          .maybeSingle();
+        setLinked({
+          telegram: !!data?.telegram_group_chat_id,
+          max: !!data?.max_group_chat_id,
+        });
+        setMirror(data?.chat_mirror_enabled ?? true);
+      })();
+    }
+    prevShowLink.current = showLink;
+  }, [showLink, groupId]);
+
   // Group messages into threads: root messages + their replies
   const rootMessages = useMemo(() => messages.filter(m => !m.reply_to), [messages]);
   const repliesMap = useMemo(() => {
