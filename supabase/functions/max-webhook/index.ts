@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getMaxToken, getMaxBotInfo, sendMaxMessage, MAX_API_BASE } from "../_shared/max-api.ts";
+import {
+  extractBotCommand,
+  handleCoreCommand,
+  handleBulkText,
+  makeMaxTransport,
+} from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,6 +54,19 @@ async function bindWithToken(
   // One-time token — consume it.
   await supabase.from("max_link_tokens").delete().eq("token", trimmed);
   return row.user_id as string;
+}
+
+/** Resolve a JTD profile id from a bound MAX user id. */
+async function profileIdForMaxUser(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("max_user_id", maxUserId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -113,6 +132,7 @@ Deno.serve(async (req) => {
     let maxUserId: number | undefined;
     let maxChatId: number | undefined;
     let tokenCandidate = "";
+    let messageText = "";
 
     if (updateType === "bot_started") {
       maxUserId = body.user?.user_id ?? body.user_id;
@@ -124,6 +144,7 @@ Deno.serve(async (req) => {
       maxUserId = msg.sender?.user_id ?? msg.from?.user_id;
       maxChatId = msg.recipient?.chat_id ?? msg.chat_id ?? maxUserId;
       const text: string = (msg.body?.text ?? msg.text ?? "").toString().trim();
+      messageText = text;
       // Accept "/start <token>" or a bare token pasted into the chat.
       tokenCandidate = text.replace(/^\/start\s+/i, "").trim();
     }
@@ -134,18 +155,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (tokenCandidate) {
+    // If this MAX account is already linked, route the message through the
+    // shared messenger core (commands + bulk task creation) instead of
+    // re-running the binding flow.
+    const boundProfileId = await profileIdForMaxUser(supabase, maxUserId);
+    if (boundProfileId && updateType === "message_created" && messageText) {
+      const transport = makeMaxTransport(TOKEN, { userId: maxUserId });
+      const cmd = extractBotCommand(messageText);
+      if (cmd) {
+        const handled = await handleCoreCommand({
+          supabase,
+          transport,
+          userId: boundProfileId,
+          command: cmd.command,
+          args: cmd.args,
+        });
+        if (!handled) {
+          // Unknown slash command — fall back to bulk parsing of its body.
+          await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText });
+        }
+      } else {
+        // Plain text → treat as a list of tasks to create.
+        await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText });
+      }
+      return new Response(JSON.stringify({ ok: true, handled: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (tokenCandidate && !boundProfileId) {
       const boundUserId = await bindWithToken(supabase, tokenCandidate, maxUserId, maxChatId!);
       if (boundUserId) {
         await sendMaxMessage(
           TOKEN,
           { userId: maxUserId },
-          "✅ Аккаунт MAX привязан к JustTODOit (JTD). Теперь сюда будут приходить уведомления.",
+          "✅ Аккаунт MAX привязан к JustTODOit (JTD).\n\n" +
+            "Теперь сюда будут приходить уведомления, а ещё можно управлять задачами:\n" +
+            "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+            "💡 Можно просто прислать список задач текстом.",
         );
         return new Response(JSON.stringify({ ok: true, bound: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    // bot_started for an already-linked account → friendly menu.
+    if (boundProfileId && updateType === "bot_started") {
+      await makeMaxTransport(TOKEN, { userId: maxUserId }).send(
+        "👋 С возвращением в JustTODOit (JTD)!\n\n" +
+          "📂 /projects · 👤 /my · 📋 /tasks Проект · 📦 /spisok\n\n" +
+          "💡 Можно просто прислать список задач текстом.",
+      );
+      return new Response(JSON.stringify({ ok: true, bound: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // No valid token: greet and explain how to link.
