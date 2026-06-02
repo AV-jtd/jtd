@@ -803,6 +803,7 @@ export default function Settings() {
                   matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`) ||
                   matches("appearance", "Оформление", "тема цвет акцент") ||
                   matches("notifications", "Уведомления", "push web telegram бот матрица отчёт") ||
+                  matches("max_channel", "MAX", "max мессенджер бот уведомления канал альтернатива") ||
                   matches("calendar", "Подписка на календарь", "google outlook apple ics") ||
                   matches("tags", "Тэги", "категории фильтры") ||
                   matches("contractors", "Подрядчики", "внешние делегирование") ||
