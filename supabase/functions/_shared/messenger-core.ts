@@ -235,32 +235,114 @@ export function expandWithAliases(token: string): string[] {
   return [...result];
 }
 
-export function findMemberByName(needle: string, members: Member[]): Member | null {
-  if (!needle) return null;
-  const cleaned = needle.replace(/^@/, "").trim();
-  if (!cleaned) return null;
+/** Detailed outcome of resolving an `@name` / free-text mention to a member. */
+export interface MemberMatch {
+  member: Member | null;
+  /** Which strategy matched (for logging), or null when nothing matched. */
+  matchedBy: string | null;
+  /** Human-readable reason the resolution failed (for logging). */
+  reason?: string;
+}
+
+/**
+ * Resolve a raw `@name` / free-text hint to a team member, trying a ladder of
+ * increasingly fuzzy strategies. Handles: leading `@`, mixed case, extra/inner
+ * whitespace, partial (prefix) tokens, multi-word "Имя Фамилия", diminutives,
+ * substrings and small typos. Returns *why* it failed so callers can log it.
+ */
+export function resolveMemberDetailed(needle: string, members: Member[]): MemberMatch {
+  if (!needle || !needle.trim()) return { member: null, matchedBy: null, reason: "пустой запрос" };
+  if (members.length === 0) return { member: null, matchedBy: null, reason: "список участников пуст" };
+
+  // Strip every leading '@', collapse inner whitespace, trim edges.
+  const cleaned = needle.replace(/^@+/, "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return { member: null, matchedBy: null, reason: "запрос состоит только из '@'/пробелов" };
+
   const needleNorm = normalizeToken(cleaned);
+  const needleParts = cleaned.split(" ").map(normalizeToken).filter((p) => p.length >= 2);
 
-  const byUsername = members.find((m) => m.telegram_username?.toLowerCase() === cleaned.toLowerCase());
-  if (byUsername) return byUsername;
+  // 1. Exact username (case-insensitive).
+  const byUsername = members.find(
+    (m) => m.telegram_username && m.telegram_username.toLowerCase() === cleaned.toLowerCase(),
+  );
+  if (byUsername) return { member: byUsername, matchedBy: "username" };
 
+  // 1b. Username prefix — handles a partially typed handle.
+  if (needleNorm.length >= 3) {
+    const byUsernamePrefix = members.find(
+      (m) => m.telegram_username && normalizeToken(m.telegram_username).startsWith(needleNorm),
+    );
+    if (byUsernamePrefix) return { member: byUsernamePrefix, matchedBy: "username-prefix" };
+  }
+
+  // 2. Exact normalized full name.
   const byFullName = members.find((m) => normalizeToken(m.name) === needleNorm);
-  if (byFullName) return byFullName;
+  if (byFullName) return { member: byFullName, matchedBy: "fullname" };
 
+  // 2b. Multi-word "Имя Фамилия": every part matches a name token (exact or prefix).
+  if (needleParts.length >= 2) {
+    const byAllParts = members.find((m) => {
+      const toks = nameTokens(m.name);
+      return needleParts.every((p) =>
+        toks.some((t) => t === p || (p.length >= 3 && t.startsWith(p)) || (t.length >= 3 && p.startsWith(t))),
+      );
+    });
+    if (byAllParts) return { member: byAllParts, matchedBy: "multi-token" };
+  }
+
+  // 3. Alias / diminutive token matching (Витя=Виктория, Маша=Мария …).
   const needleVariants = new Set(expandWithAliases(needleNorm));
   for (const m of members) {
     for (const tok of nameTokens(m.name)) {
-      if (expandWithAliases(tok).some((v) => needleVariants.has(v))) return m;
+      if (expandWithAliases(tok).some((v) => needleVariants.has(v))) return { member: m, matchedBy: "alias-token" };
     }
   }
 
+  // 4. Partial / prefix token match. Unambiguous only — flag ties so the caller
+  //    can explain why nothing was assigned.
+  if (needleNorm.length >= 3) {
+    const candidates: Member[] = [];
+    for (const m of members) {
+      if (nameTokens(m.name).some((tok) => tok.startsWith(needleNorm) || needleNorm.startsWith(tok))) {
+        candidates.push(m);
+      }
+    }
+    if (candidates.length === 1) return { member: candidates[0], matchedBy: "prefix-token" };
+    if (candidates.length > 1) {
+      return {
+        member: null,
+        matchedBy: null,
+        reason: `неоднозначно: '${cleaned}' подходит ${candidates.length} участникам (${candidates.map((c) => c.name).join(", ")})`,
+      };
+    }
+  }
+
+  // 5. Substring on the full normalized name.
   for (const m of members) {
     const fullNorm = normalizeToken(m.name);
     if (needleNorm.length >= 4 && (fullNorm.includes(needleNorm) || needleNorm.includes(fullNorm))) {
-      return m;
+      return { member: m, matchedBy: "substring" };
     }
   }
-  return null;
+
+  // 6. Fuzzy token (small typos via Levenshtein).
+  if (needleNorm.length >= 3) {
+    for (const m of members) {
+      for (const tok of nameTokens(m.name)) {
+        if (fuzzyMatch(needleNorm, tok)) return { member: m, matchedBy: "fuzzy-token" };
+      }
+    }
+  }
+
+  return {
+    member: null,
+    matchedBy: null,
+    reason: `'${cleaned}' не найдено среди участников: ${members.map((m) => m.name).join(", ") || "—"}`,
+  };
+}
+
+export function findMemberByName(needle: string, members: Member[]): Member | null {
+  return resolveMemberDetailed(needle, members).member;
 }
 
 function splitBulkSourceItems(text: string): string[] {
