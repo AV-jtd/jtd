@@ -33,3 +33,7 @@ project_id = "nvfioycpwyzwukvokwql"
     verify_jwt = false
   [functions.vapid-keys]
     verify_jwt = false
+  [functions.max-webhook]
+    verify_jwt = false
+  [functions.send-chat-max]
+    verify_jwt = false
