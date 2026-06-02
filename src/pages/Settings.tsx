@@ -19,6 +19,7 @@ import OrgStructurePanel from "@/components/admin/OrgStructurePanel";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
+import MaxLinkCard from "@/components/MaxLinkCard";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
@@ -135,6 +136,7 @@ const SECTION_META: Record<string, SectionMeta> = {
   profile:        { id: "profile",        label: "Профиль",     keywords: "имя организация email telegram" },
   appearance:     { id: "appearance",     label: "Оформление",  keywords: "тема цвет акцент темная светлая палитра" },
   notifications:  { id: "notifications",  label: "Уведомления", keywords: "push web telegram бот матрица отчёт" },
+  max_channel:    { id: "max_channel",    label: "MAX",         keywords: "max мессенджер бот уведомления канал альтернатива" },
   calendar:       { id: "calendar",       label: "Календарь",   keywords: "google outlook apple ics подписка" },
   tags:           { id: "tags",           label: "Тэги",        keywords: "категории фильтры" },
   contractors:    { id: "contractors",    label: "Подрядчики",  keywords: "внешние делегирование" },
@@ -590,6 +592,19 @@ export default function Settings() {
               </div>
             </SettingsSection>
 
+            {/* MAX messenger — second channel alongside Telegram (not a replacement) */}
+            <SettingsSection
+              icon={MessageCircle}
+              title="MAX"
+              description="Альтернативный канал рядом с Telegram: бот и уведомления в MAX."
+              sectionId="max_channel"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("max_channel", "MAX", "max мессенджер бот уведомления канал альтернатива")}
+            >
+              <MaxLinkCard />
+            </SettingsSection>
+
             {/* Calendar Subscription */}
             <ConsultantGuard area="calendar-sync">
               <SettingsSection
@@ -788,6 +803,7 @@ export default function Settings() {
                   matches("profile", "Профиль", `${displayName} ${organization} ${workEmail} ${telegramUsername}`) ||
                   matches("appearance", "Оформление", "тема цвет акцент") ||
                   matches("notifications", "Уведомления", "push web telegram бот матрица отчёт") ||
+                  matches("max_channel", "MAX", "max мессенджер бот уведомления канал альтернатива") ||
                   matches("calendar", "Подписка на календарь", "google outlook apple ics") ||
                   matches("tags", "Тэги", "категории фильтры") ||
                   matches("contractors", "Подрядчики", "внешние делегирование") ||
