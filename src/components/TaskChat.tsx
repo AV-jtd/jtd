@@ -678,6 +678,7 @@ export default function TaskChat({
           const label = userMentionLabel(u);
           const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
           const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
+          mentionedRef.current.set(`@${label}`, u.id);
           setDraft(`${base}@${label} `);
         }}
       />
