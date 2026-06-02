@@ -14,7 +14,8 @@ import UserPicker from "./UserPicker";
 import { toast } from "sonner";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
-import { AtSign } from "lucide-react";
+import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
+import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 import ChatLinkDialog from "./ChatLinkDialog";
@@ -43,6 +44,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const { data: availableUsers = [] } = useAvailableUsers();
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
+  /**
+   * Точное соответствие «подпись в тексте → user_id» для выбранных упоминаний,
+   * чтобы в тексте оставалось читаемое имя, а уведомление уходило нужному
+   * пользователю даже при совпадающих именах.
+   */
+  const mentionedRef = useRef<Map<string, string>>(new Map());
   const [showAi, setShowAi] = useState(false);
   const [showLink, setShowLink] = useState(false);
   const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
@@ -131,44 +138,54 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    sendMessage.mutate({ group_id: groupId, content: text, reply_to: replyTo?.id || null });
+    const parent = replyTo;
+    sendMessage.mutate({ group_id: groupId, content: text, reply_to: parent?.id || null });
 
-    // Parse @mentions and fire notify-event "user_mentioned" for each unique
-    // mentioned member of this project. Fire-and-forget — never blocks send.
+    // @-упоминания: уведомляем выбранных участников. Точные id берём из
+    // mentionedRef (имя в тексте, id — отдельно), плюс фолбэк по тексту и
+    // автоупоминание автора сообщения, на которое отвечаем. Fire-and-forget.
     try {
-      const mentionRe = /@([A-Za-zА-Яа-яЁё0-9_.\-]{2,40})/g;
-      const handles = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = mentionRe.exec(text)) !== null) handles.add(m[1].toLowerCase());
-      if (handles.size > 0) {
-        const targets = availableUsers
-          .filter((u) => {
-            const uname = (u as any).username?.toLowerCase?.() || "";
-            const tg = (u as any).telegram_username?.toLowerCase?.() || "";
-            const dn = (u.display_name || "").toLowerCase().replace(/\s+/g, "_");
-            return handles.has(uname) || handles.has(tg) || handles.has(dn);
-          })
-          .map((u) => u.id)
-          .filter((id) => id && id !== user?.id);
-        if (targets.length > 0) {
-          supabase.auth.getSession().then(({ data: s }) => {
-            if (!s.session) return;
-            supabase.functions.invoke("notify-event", {
-              body: {
-                event: "user_mentioned",
-                taskTitle: `${groupName}: ${text.slice(0, 80)}`,
-                targetUserIds: targets,
-                taskId: null,
-              },
-              headers: { Authorization: `Bearer ${s.session.access_token}` },
-            }).catch(() => {});
-          });
-        }
+      const targets = new Set<string>();
+      for (const [label, id] of mentionedRef.current.entries()) {
+        if (text.includes(label)) targets.add(id);
+      }
+      for (const id of resolveMentionedUserIds(text, availableUsers)) targets.add(id);
+      if (parent?.user_id) targets.add(parent.user_id);
+      targets.delete(user?.id || "");
+      const targetIds = [...targets].filter(Boolean);
+      if (targetIds.length > 0) {
+        supabase.auth.getSession().then(({ data: s }) => {
+          if (!s.session) return;
+          supabase.functions.invoke("notify-event", {
+            body: {
+              event: "user_mentioned",
+              taskTitle: `${groupName}: ${text.slice(0, 80)}`,
+              targetUserIds: targetIds,
+              taskId: null,
+            },
+            headers: { Authorization: `Bearer ${s.session.access_token}` },
+          }).catch(() => {});
+        });
       }
     } catch { /* non-fatal */ }
 
     setDraft("");
     setReplyTo(null);
+    mentionedRef.current.clear();
+  };
+
+  /**
+   * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
+   * автора в начало черновика (если он ещё не упомянут).
+   */
+  const startReply = (msg: GroupMessage) => {
+    setReplyTo(msg);
+    const author = availableUsers.find((u) => u.id === msg.user_id);
+    if (author && msg.user_id !== user?.id) {
+      const label = userMentionLabel(author);
+      mentionedRef.current.set(`@${label}`, author.id);
+      setDraft((prev) => (prev.includes(`@${label}`) ? prev : `@${label} ${prev}`));
+    }
   };
 
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
@@ -442,10 +459,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                   <MessageBubble
                     msg={msg}
                     isOwn={isOwn}
-                    onReply={() => setReplyTo(msg)}
+                    onReply={() => startReply(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
                     onCreateTask={() => openTaskForm(msg.id)}
                     reactions={reactionsByMsg[msg.id]}
+                    users={availableUsers}
                   />
 
                   {/* Inline task form */}
@@ -493,11 +511,12 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                           <MessageBubble
                         msg={reply}
                         isOwn={reply.user_id === user?.id}
-                        onReply={() => setReplyTo(msg)}
+                        onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
                         onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
+                        users={availableUsers}
                       />
                       {taskFormFor === reply.id && (
                         <InlineTaskForm
@@ -547,10 +566,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           value={draft}
           users={availableUsers}
           onPick={(u) => {
-            const handle = ((u as any).username || (u as any).telegram_username || (u.display_name || "user").replace(/\s+/g, "_")).toString();
+            const label = userMentionLabel(u);
             const m = draft.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
             const base = m ? draft.slice(0, draft.length - m[0].length) : draft;
-            setDraft(`${base}@${handle} `);
+            mentionedRef.current.set(`@${label}`, u.id);
+            setDraft(`${base}@${label} `);
           }}
         />
         <Input
@@ -586,6 +606,7 @@ function MessageBubble({
   onCreateTask,
   isReply,
   reactions,
+  users,
 }: {
   msg: GroupMessage;
   isOwn: boolean;
@@ -594,6 +615,7 @@ function MessageBubble({
   onCreateTask?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
+  users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
@@ -605,7 +627,13 @@ function MessageBubble({
       authorName={getAuthorName(msg)}
       isOwn={isOwn}
       createdAt={msg.created_at}
-      content={msg.content}
+      content={
+        <MentionText
+          content={msg.content}
+          users={users}
+          className="text-sm leading-relaxed break-words whitespace-pre-wrap"
+        />
+      }
       messageType="group_message"
       messageId={msg.id}
       reactions={reactions}
@@ -738,72 +766,5 @@ function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo
       </div>
       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
     </button>
-  );
-}
-
-/**
- * Простой popup для подсказки участников при наборе `@` в конце слова.
- * Появляется над полем ввода. Стрелки/Enter не обрабатываем — клик мышью.
- */
-function MentionAutocomplete({
-  value,
-  users,
-  onPick,
-}: {
-  value: string;
-  users: Profile[];
-  onPick: (u: Profile) => void;
-}) {
-  // Извлекаем токен после последнего `@` в самом конце строки (без пробела).
-  const m = value.match(/@([A-Za-zА-Яа-яЁё0-9_.\-]*)$/);
-  if (!m) return null;
-  const query = m[1].toLowerCase();
-
-  const matches = users
-    .filter((u) => {
-      const dn = (u.display_name || "").toLowerCase();
-      const uname = ((u as any).username || "").toLowerCase();
-      const tg = ((u as any).telegram_username || "").toLowerCase();
-      if (!query) return true;
-      return dn.includes(query) || uname.includes(query) || tg.includes(query);
-    })
-    .slice(0, 6);
-
-  if (matches.length === 0) return null;
-
-  return (
-    <div className="absolute bottom-full left-4 right-4 mb-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
-      <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b border-border flex items-center gap-1">
-        <AtSign className="h-3 w-3" /> Упомянуть
-      </div>
-      <div className="max-h-56 overflow-y-auto">
-        {matches.map((u) => {
-          const handle =
-            (u as any).username ||
-            (u as any).telegram_username ||
-            (u.display_name || "user").replace(/\s+/g, "_");
-          return (
-            <button
-              key={u.id}
-              type="button"
-              onMouseDown={(e) => {
-                // mousedown, иначе input теряет фокус до onClick
-                e.preventDefault();
-                onPick(u);
-              }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-muted/60 transition-colors text-left"
-            >
-              <div className="h-6 w-6 rounded-full bg-primary/15 text-primary text-[10px] font-semibold flex items-center justify-center shrink-0">
-                {(u.display_name || "?").charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground truncate">{u.display_name || "Без имени"}</p>
-                <p className="text-[10px] text-muted-foreground truncate">@{handle}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
