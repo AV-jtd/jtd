@@ -6,6 +6,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Persist the ordered task ids of the last list shown in a Telegram chat,
+ * so that `/done N` can reference the exact items the user just saw — even if
+ * task positions shift afterwards. Scoped per chat (group or private).
+ */
+async function saveTgList(
+  supabase: any,
+  chatId: number | string,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  try {
+    await supabase.from("messenger_list_context").upsert(
+      {
+        channel: "telegram",
+        external_id: String(chatId),
+        user_id: userId,
+        task_ids: taskIds,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "channel,external_id" },
+    );
+  } catch (e) {
+    console.error("[saveTgList] error:", e);
+  }
+}
+
+/** Load the ordered task ids of the last list shown in a Telegram chat. */
+async function loadTgList(
+  supabase: any,
+  chatId: number | string,
+): Promise<string[] | null> {
+  try {
+    const { data } = await supabase
+      .from("messenger_list_context")
+      .select("task_ids")
+      .eq("channel", "telegram")
+      .eq("external_id", String(chatId))
+      .maybeSingle();
+    return (data?.task_ids as string[] | undefined) ?? null;
+  } catch (e) {
+    console.error("[loadTgList] error:", e);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
