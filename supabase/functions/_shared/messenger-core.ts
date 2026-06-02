@@ -1432,7 +1432,7 @@ export async function handleGroupMessage(opts: {
       externalAuthor: profile ? null : `${externalUserName} (${channel === "telegram" ? "TG" : "MAX"})`,
     });
     const author = profile?.name || externalUserName;
-    const fanText = `💬 *${escapeMarkdown(author)}:*\n${escapeMarkdown(text)}`;
+    const fanText = formatRelayMessage(author, text, channel);
     await fanOutToGroups({ supabase, group, originChannel: channel, text: fanText, tgToken, maxToken });
   }
 }
