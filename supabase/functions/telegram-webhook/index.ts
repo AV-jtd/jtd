@@ -529,6 +529,22 @@ Deno.serve(async (req) => {
           console.error("Link error:", linkError);
           await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось привязать чат.");
         } else {
+          // Also enable the unified-chat fan-out by writing the group chat id
+          // onto the project, mirroring what the universal-code path does.
+          // chat_mirror_enabled is left untouched if already set (so the user's
+          // sync on/off preference is preserved); defaults to true on first link.
+          const { data: existingGroup } = await supabase
+            .from("task_groups")
+            .select("chat_mirror_enabled")
+            .eq("id", group.id)
+            .maybeSingle();
+          await supabase
+            .from("task_groups")
+            .update({
+              telegram_group_chat_id: String(chatId),
+              chat_mirror_enabled: existingGroup?.chat_mirror_enabled ?? true,
+            })
+            .eq("id", group.id);
           await sendTelegramMessage(
             BOT_TOKEN, chatId,
             `✅ Чат привязан к проекту ${group.icon || "📁"} *${escapeMarkdown(group.name)}*\n\nТеперь используйте /task для создания задач.`,
