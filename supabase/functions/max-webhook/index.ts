@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getMaxToken, getMaxBotInfo, sendMaxMessage, MAX_API_BASE } from "../_shared/max-api.ts";
+import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, MAX_API_BASE } from "../_shared/max-api.ts";
 import {
   extractBotCommand,
   handleCoreCommand,
   handleBulkText,
+  handleCorePayload,
   makeMaxTransport,
 } from "../_shared/messenger-core.ts";
 
@@ -67,6 +68,39 @@ async function profileIdForMaxUser(
     .eq("max_user_id", maxUserId)
     .maybeSingle();
   return (data?.id as string | undefined) ?? null;
+}
+
+/** Persist the ordered task ids of the last list shown to a MAX user. */
+async function saveMaxList(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+  userId: string,
+  taskIds: string[],
+): Promise<void> {
+  await supabase.from("messenger_list_context").upsert(
+    {
+      channel: "max",
+      external_id: String(maxUserId),
+      user_id: userId,
+      task_ids: taskIds,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "channel,external_id" },
+  );
+}
+
+/** Load the ordered task ids of the last list shown to a MAX user. */
+async function loadMaxList(
+  supabase: ReturnType<typeof svc>,
+  maxUserId: number,
+): Promise<string[] | null> {
+  const { data } = await supabase
+    .from("messenger_list_context")
+    .select("task_ids")
+    .eq("channel", "max")
+    .eq("external_id", String(maxUserId))
+    .maybeSingle();
+  return (data?.task_ids as string[] | undefined) ?? null;
 }
 
 Deno.serve(async (req) => {
