@@ -279,6 +279,13 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
               <Search className="h-4 w-4" />
             </button>
             <button
+              onClick={() => setShowLink(true)}
+              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+              title="Подключить чат Telegram / MAX"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setShowAi(true)}
               className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
               title="ИИ-ассистент проекта"
@@ -311,6 +318,13 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span>ИИ</span>
+          </button>
+          <button
+            onClick={() => setShowLink(true)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+            title="Подключить чат Telegram / MAX"
+          >
+            <Link2 className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
