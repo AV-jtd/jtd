@@ -173,7 +173,33 @@ export default function TaskChat({
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
-    addComment.mutate({ task_id: taskId, content: text, reply_to: replyTo?.id ?? null });
+    const parent = replyTo;
+    addComment.mutate({ task_id: taskId, content: text, reply_to: parent?.id ?? null });
+
+    // Уведомления об @-упоминаниях + адресный ответ (автоупоминание автора
+    // сообщения, на которое отвечаем). Fire-and-forget — не блокирует отправку.
+    try {
+      const targets = new Set(resolveMentionedUserIds(text, availableUsers));
+      // Адресный ответ → всегда уведомляем автора исходного сообщения.
+      if (parent?.user_id) targets.add(parent.user_id);
+      targets.delete(user?.id || "");
+      const targetIds = [...targets].filter(Boolean);
+      if (targetIds.length > 0) {
+        supabase.auth.getSession().then(({ data: s }) => {
+          if (!s.session) return;
+          supabase.functions.invoke("notify-event", {
+            body: {
+              event: "user_mentioned",
+              taskTitle: `${taskTitle}: ${text.slice(0, 80)}`,
+              targetUserIds: targetIds,
+              taskId,
+            },
+            headers: { Authorization: `Bearer ${s.session.access_token}` },
+          }).catch(() => {});
+        });
+      }
+    } catch { /* non-fatal */ }
+
     setDraft("");
     setReplyTo(null);
   };
