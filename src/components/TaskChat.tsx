@@ -3,20 +3,19 @@ import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useCo
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
 import { Send, Trash2, MessageCircle, CheckSquare, X, CalendarIcon, User as UserIcon, CheckCircle2, ArrowRight, Plus, History } from "lucide-react";
-import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getInitials, getAvatarColors } from "@/lib/initials";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UserPicker from "./UserPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
+import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 
@@ -88,13 +87,6 @@ interface TaskChatProps {
   /** Внешний триггер для открытия inline-формы создания связанной задачи.
    *  Меняется числом (Date.now()) — при изменении форма раскрывается. */
   openFollowUpSignal?: number;
-}
-
-function formatMsgDate(dateStr: string) {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return `Вчера, ${format(d, "HH:mm")}`;
-  return format(d, "d MMM, HH:mm", { locale: ru });
 }
 
 export default function TaskChat({
@@ -395,74 +387,36 @@ export default function TaskChat({
 
           const isOwn = c.user_id === user?.id;
           const name = getProfileName(c.user_id);
+          const actions: ChatAction[] = [
+            {
+              icon: CheckSquare,
+              onClick: () => setTaskFormForCommentId(prev => (prev === c.id ? null : c.id)),
+              title: "Создать задачу из сообщения",
+              tone: "primary",
+            },
+          ];
+          if (isOwn) {
+            actions.push({
+              icon: Trash2,
+              onClick: () => deleteComment.mutate({ id: c.id, task_id: taskId }),
+              title: "Удалить",
+              tone: "danger",
+            });
+          }
           return (
-            <div key={c.id} className="group/msg">
-              <div className="flex items-center gap-1.5">
-                {isFull ? (
-                  <div
-                    className="h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-semibold shrink-0"
-                    style={getAvatarColors(name)}
-                  >
-                    {getInitials(name)}
-                  </div>
-                ) : (
-                  <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-semibold text-primary shrink-0">
-                    {name[0]?.toUpperCase() || "?"}
-                  </div>
-                )}
-                <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
-                  {name}
-                </span>
-                <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(c.created_at)}</span>
-                {/* Inline-чипы реакций: в одной строке с автором и временем */}
-                <ReactionChips
-                  messageType="task_comment"
-                  messageId={c.id}
-                  reactions={reactionsByMsg[c.id]}
-                  size="xs"
-                />
-                {/* Кнопка добавления реакции: inline, всегда видна (в т.ч. на мобиле). */}
-                <ReactionAddButton
-                  messageType="task_comment"
-                  messageId={c.id}
-                  reactions={reactionsByMsg[c.id]}
-                  className="ml-0.5"
-                />
-                {/* Кнопки действий — в одну группу справа */}
-                <div className="ml-auto flex items-center gap-0.5 shrink-0 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <button
-                  type="button"
-                  onClick={() =>
-                    setTaskFormForCommentId(prev => (prev === c.id ? null : c.id))
-                  }
-                    className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                  title="Создать задачу из сообщения"
-                  aria-label="Создать задачу из сообщения"
-                >
-                  <CheckSquare className="h-3 w-3" />
-                </button>
-                  {isOwn && (
-                    <button
-                      onClick={() => deleteComment.mutate({ id: c.id, task_id: taskId })}
-                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                      title="Удалить"
-                      aria-label="Удалить"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className={cn("flex items-start gap-1", isFull ? "pl-[22px]" : "ml-5.5 pl-[22px]")}>
-                <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90 flex-1">
-                  {c.content}
-                </p>
-              </div>
-
-              {/* Inline-форма создания задачи из этого сообщения */}
+            <ChatMessageRow
+              key={c.id}
+              authorName={name}
+              isOwn={isOwn}
+              createdAt={c.created_at}
+              content={c.content}
+              messageType="task_comment"
+              messageId={c.id}
+              reactions={reactionsByMsg[c.id]}
+              actions={actions}
+            >
               {taskFormForCommentId === c.id && (
                 <InlineCreateTaskForm
-                  key={c.id}
                   source={c}
                   availableUsers={availableUsers}
                   defaultAssigneeId={user?.id || null}
@@ -471,7 +425,7 @@ export default function TaskChat({
                   isSubmitting={creatingTask}
                 />
               )}
-            </div>
+            </ChatMessageRow>
           );
         })}
         <div ref={bottomRef} />

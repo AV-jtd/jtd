@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search, Link2, Check } from "lucide-react";
-import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,8 @@ import AiChatThread from "./AiChatThread";
 import { useTaskMutations, useAvailableUsers, type Profile, type Task } from "@/hooks/useTasks";
 import UserPicker from "./UserPicker";
 import { toast } from "sonner";
-import { ReactionChips, ReactionAddButton } from "./MessageReactions";
 import { useMessageReactions, type ReactionAgg } from "@/hooks/useMessageReactions";
+import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import { AtSign } from "lucide-react";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
@@ -29,13 +29,6 @@ interface ProjectChatProps {
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
   onNavigateToTask?: (taskId: string) => void;
-}
-
-function formatMsgDate(dateStr: string) {
-  const d = parseISO(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return `Вчера, ${format(d, "HH:mm")}`;
-  return format(d, "d MMM, HH:mm", { locale: ru });
 }
 
 function getAuthorName(msg: GroupMessage) {
@@ -602,56 +595,24 @@ function MessageBubble({
   isReply?: boolean;
   reactions?: ReactionAgg;
 }) {
-  const sourceIcon = msg.source === "telegram" ? "✈️" : null;
+  const actions: ChatAction[] = [];
+  if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
+  actions.push({ icon: Reply, onClick: onReply, title: "Ответить" });
+  if (onDelete) actions.push({ icon: Trash2, onClick: onDelete, title: "Удалить", tone: "danger" });
 
   return (
-    <div className={cn("group/msg relative flex flex-col", isReply ? "gap-0.5" : "gap-1")}>
-      <div className="flex items-center gap-1.5 pr-20 flex-wrap">
-        <span className={cn("text-xs font-medium", isOwn ? "text-primary" : "text-foreground/70")}>
-          {getAuthorName(msg)}
-        </span>
-        {sourceIcon && <span className="text-xs">{sourceIcon}</span>}
-        <span className="text-[10px] text-muted-foreground/60">{formatMsgDate(msg.created_at)}</span>
-        <ReactionChips
-          messageType="group_message"
-          messageId={msg.id}
-          reactions={reactions}
-          size="xs"
-        />
-        {/* Кнопка добавления реакции: inline в строке метаданных,
-            всегда видима (в т.ч. на мобиле). */}
-        <ReactionAddButton
-          messageType="group_message"
-          messageId={msg.id}
-          reactions={reactions}
-          className="ml-0.5"
-        />
-      </div>
-      <p className={cn(
-        "text-sm leading-relaxed break-words pr-2",
-        isOwn ? "text-foreground" : "text-foreground/90"
-      )}>
-        {msg.content}
-      </p>
-      {/* Action bar — абсолютный, не сдвигает текст и не перекрывается соседними блоками */}
-      <div className="pointer-events-none absolute top-0 right-0 z-10 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity">
-        <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
-          {onCreateTask && (
-            <button type="button" onClick={onCreateTask} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу из сообщения">
-              <CheckSquare className="h-3 w-3" />
-            </button>
-          )}
-          <button type="button" onClick={onReply} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Ответить">
-            <Reply className="h-3 w-3" />
-          </button>
-          {onDelete && (
-            <button type="button" onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Удалить">
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <ChatMessageRow
+      authorName={getAuthorName(msg)}
+      isOwn={isOwn}
+      createdAt={msg.created_at}
+      content={msg.content}
+      messageType="group_message"
+      messageId={msg.id}
+      reactions={reactions}
+      source={msg.source}
+      actions={actions}
+      isReply={isReply}
+    />
   );
 }
 
