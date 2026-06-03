@@ -421,6 +421,54 @@ Deno.serve(async (req) => {
             }
           }
         }
+
+        // ── Unified chat: mirror plain group text into JTD + fan out to MAX ──
+        try {
+          const linkedGroup = await resolveGroupByChat(supabase, "telegram", chatId);
+          if (linkedGroup && linkedGroup.chat_mirror_enabled) {
+            // Resolve the JTD author: prefer telegram_user_id, fall back to username.
+            let profile = message.from?.id
+              ? await resolveProfileByExternalUser(supabase, "telegram", message.from.id)
+              : null;
+            if (!profile && message.from?.username) {
+              const { data: byName } = await supabase
+                .from("profiles")
+                .select("id, display_name")
+                .ilike("telegram_username", message.from.username)
+                .maybeSingle();
+              if (byName) profile = { id: byName.id, name: byName.display_name || "Без имени" };
+            }
+
+            const tgAuthor =
+              [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") ||
+              message.from?.username ||
+              "Аноним";
+
+            await mirrorIncomingGroupMessage({
+              supabase,
+              groupId: linkedGroup.id,
+              source: "telegram",
+              content: message.text,
+              externalMessageId: message.message_id ? `tg:${chatId}:${message.message_id}` : null,
+              jtdUserId: profile?.id ?? null,
+              externalAuthor: profile ? null : `${tgAuthor} (TG)`,
+            });
+
+            const author = profile?.name || tgAuthor;
+            const fanText = formatRelayMessage(author, message.text, "telegram");
+            await fanOutToGroups({
+              supabase,
+              group: linkedGroup,
+              originChannel: "telegram",
+              text: fanText,
+              tgToken: BOT_TOKEN,
+              maxToken: Deno.env.get("MAX_BOT_TOKEN") ?? null,
+            });
+          }
+        } catch (e) {
+          console.error("[unified-chat] TG mirror failed:", e);
+        }
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
