@@ -459,6 +459,8 @@ Deno.serve(async (req) => {
           const linkedGroup = await resolveGroupByChat(supabase, "telegram", chatId);
           console.log(
             `[unified-chat] TG group msg chat_id=${chatId} type=${chatType} ` +
+            `title="${message.chat?.title ?? ""}" ` +
+            `from=@${message.from?.username ?? "?"}(${message.from?.first_name ?? ""}) ` +
             `linked=${linkedGroup ? linkedGroup.id : "none"} ` +
             `mirror=${linkedGroup?.chat_mirror_enabled ?? "n/a"}`,
           );
