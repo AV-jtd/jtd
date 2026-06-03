@@ -223,6 +223,12 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
                 Действует до {new Date(expiresAt).toLocaleString("ru-RU")}
               </p>
             )}
+            {relinkHint && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Отправьте эту команду в нужной Telegram-группе — привязка
+                переедет на неё, старый chat_id заменится.
+              </p>
+            )}
             <Button size="sm" variant="outline" className="w-full" onClick={generate} disabled={loading}>
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
               Сгенерировать новый
