@@ -1391,6 +1391,51 @@ export async function mirrorIncomingGroupMessage(opts: {
   return true;
 }
 
+/**
+ * Post a "task created" card into the project's web chat (group_messages),
+ * shown as a message authored by the creator. Safe no-op when there is no
+ * project (personal/Inbox task) or no creator. Dedup-safe via a synthetic
+ * external_message_id tied to the task id.
+ */
+export async function mirrorTaskCreatedCard(opts: {
+  supabase: any;
+  groupId: string | null;
+  userId: string | null;
+  source: ChatChannel;
+  taskId: string;
+  title: string;
+  assigneeName?: string | null;
+  deadlineStr?: string | null;
+  participantNames?: string[];
+  isImportant?: boolean;
+}): Promise<void> {
+  const {
+    supabase, groupId, userId, source, taskId, title,
+    assigneeName, deadlineStr, participantNames, isImportant,
+  } = opts;
+  if (!groupId) return;
+  const lines = [`📝 Создана задача: «${(title || "").substring(0, 200)}»`];
+  const meta: string[] = [];
+  if (isImportant) meta.push("⭐ важная");
+  if (assigneeName) meta.push(`👤 ${assigneeName}`);
+  if (participantNames && participantNames.length) meta.push(`👥 ${participantNames.join(", ")}`);
+  if (deadlineStr) meta.push(`📅 ${deadlineStr}`);
+  if (meta.length) lines.push(meta.join(" · "));
+  try {
+    await mirrorIncomingGroupMessage({
+      supabase,
+      groupId,
+      source,
+      content: lines.join("\n"),
+      externalMessageId: `task-created:${taskId}`,
+      jtdUserId: userId ?? null,
+      externalAuthor: userId ? null : "JTD",
+    });
+  } catch (e) {
+    console.error("[unified-chat] task-created card insert failed:", e);
+  }
+}
+
 /** Fan a chat message out to the project's linked groups, except the origin. */
 export async function fanOutToGroups(opts: {
   supabase: any;
