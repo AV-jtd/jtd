@@ -216,6 +216,11 @@ export default function Index() {
                     groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
                     onClose={() => setChatOpen(false)}
                     onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
+                    onNavigateToTask={(taskId) => {
+                      setActiveView("all");
+                      setActiveGroupId(null);
+                      setHighlightTaskId(taskId);
+                    }}
                   />
                 </Suspense>
               </div>
