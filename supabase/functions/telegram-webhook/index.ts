@@ -3340,6 +3340,19 @@ async function createBulkTasks(
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
     });
+
+    // Surface the new task as a card in the JTD web chat (group_messages).
+    await mirrorTaskCreatedCard({
+      supabase,
+      groupId,
+      userId,
+      source: "telegram",
+      taskId: newTask.id,
+      title: task.title,
+      assigneeName,
+      deadlineStr,
+      participantNames: resolvedParticipantNames,
+    });
   }
 
   return results;
