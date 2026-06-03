@@ -55,8 +55,9 @@ async function fetchThreadAggregates<T extends string>(opts: {
   gracePages?: number;
       excludeLogs?: boolean;
       onlyLogs?: boolean;
+      includeExternalAuthor?: boolean;
 }): Promise<
-  Map<string, { content: string; created_at: string; user_id: string; count: number }>
+  Map<string, { content: string; created_at: string; user_id: string; external_author?: string | null; count: number }>
 > {
   const {
     table,
@@ -67,16 +68,17 @@ async function fetchThreadAggregates<T extends string>(opts: {
     gracePages = 1,
         excludeLogs = false,
         onlyLogs = false,
+        includeExternalAuthor = false,
   } = opts;
 
-  const map = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
+  const map = new Map<string, { content: string; created_at: string; user_id: string; external_author?: string | null; count: number }>();
   let cursor: string | null = null;
   let pagesSinceNewThread = 0;
 
   for (let page = 0; page < maxPages; page++) {
     let q = supabase
       .from(table as any)
-      .select(`${parentKey}, content, created_at, user_id${excludeLogs ? ", kind" : ""}`)
+      .select(`${parentKey}, content, created_at, user_id${excludeLogs ? ", kind" : ""}${includeExternalAuthor ? ", external_author" : ""}`)
       .order("created_at", { ascending: false })
       .limit(pageSize);
     if (cursor) q = q.lt("created_at", cursor);
@@ -96,6 +98,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
           content: row.content,
           created_at: row.created_at,
           user_id: row.user_id,
+          external_author: includeExternalAuthor ? (row.external_author ?? null) : null,
           count: 1,
         });
         foundNewThread = true;
