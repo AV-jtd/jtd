@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Copy, Link2, RefreshCw, Check, Send } from "lucide-react";
+import { Copy, Link2, RefreshCw, Check, Send, RotateCw } from "lucide-react";
 
 interface ChatLinkDialogProps {
   groupId: string;
@@ -42,6 +42,7 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
   const [linked, setLinked] = useState<{ telegram: boolean; max: boolean }>({ telegram: false, max: false });
   const [mirror, setMirror] = useState(true);
   const [savingMirror, setSavingMirror] = useState(false);
+  const [relinkHint, setRelinkHint] = useState(false);
 
   // Load current binding state when the dialog opens.
   useEffect(() => {
@@ -104,6 +105,16 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
     }
   };
 
+  // Re-link: generate a fresh code and surface a clear hint that running
+  // `/link КОД` in the (possibly recreated) Telegram group will overwrite the
+  // stored chat_id automatically. This fixes the common case where a group was
+  // recreated/migrated and its chat_id changed, breaking message mirroring.
+  const relinkTelegram = async () => {
+    setRelinkHint(true);
+    await generate();
+    toast.success("Код готов — отправьте /link в нужной группе");
+  };
+
   const copy = async () => {
     if (!code) return;
     try {
@@ -153,6 +164,23 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
             {linked.max ? "✓ MAX привязан" : "MAX не привязан"}
           </span>
         </div>
+
+        {/* Re-link Telegram: overwrite a stale chat_id (recreated/migrated group) */}
+        {linked.telegram && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+            <p className="text-sm font-medium text-foreground">Перепривязать Telegram-группу</p>
+            <p className="text-xs text-muted-foreground">
+              Если группу пересоздавали или повышали до супергруппы, её
+              идентификатор мог измениться и сообщения перестают доходить.
+              Сгенерируйте код и отправьте <code className="px-1 rounded bg-muted">/link КОД</code> в актуальной
+              группе — chat_id обновится автоматически.
+            </p>
+            <Button size="sm" variant="outline" className="w-full" onClick={relinkTelegram} disabled={loading}>
+              <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+              Перепривязать Telegram-группу
+            </Button>
+          </div>
+        )}
 
         {/* Sync toggle */}
         <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
