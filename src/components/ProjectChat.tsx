@@ -79,8 +79,15 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
   // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
   const linkedTaskIds = useMemo(
-    () => Object.values(createdTasks).map((t) => t.id),
-    [createdTasks],
+    () => {
+      const ids = new Set(Object.values(createdTasks).map((t) => t.id));
+      for (const m of messages) {
+        const parsed = parseTaskCreatedCard(m);
+        if (parsed) ids.add(parsed.id);
+      }
+      return [...ids];
+    },
+    [createdTasks, messages],
   );
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
