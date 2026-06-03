@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { linkGroupChat } from "../_shared/messenger-core.ts";
+import {
+  linkGroupChat,
+  resolveGroupByChat,
+  resolveProfileByExternalUser,
+  mirrorIncomingGroupMessage,
+  fanOutToGroups,
+  formatRelayMessage,
+} from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
