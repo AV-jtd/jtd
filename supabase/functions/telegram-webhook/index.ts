@@ -400,6 +400,37 @@ Deno.serve(async (req) => {
 
     // ==================== GROUP CHAT HANDLING ====================
     if (isGroupChat) {
+      // ── Auto-join: любой участник чата автоматически становится участником
+      // привязанного проекта в JTD (если у него есть аккаунт). Работает для
+      // любых сообщений — и обычных, и команд.
+      try {
+        const autoJoinGroup = await resolveGroupByChat(supabase, "telegram", chatId);
+        if (autoJoinGroup) {
+          let joinProfileId: string | null = null;
+          if (message.from?.username) {
+            const { data } = await supabase
+              .from("profiles")
+              .select("id")
+              .ilike("telegram_username", message.from.username)
+              .maybeSingle();
+            if (data) joinProfileId = data.id;
+          }
+          if (!joinProfileId && message.from?.id) {
+            const { data } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("telegram_chat_id", message.from.id)
+              .maybeSingle();
+            if (data) joinProfileId = data.id;
+          }
+          if (joinProfileId) {
+            await ensureGroupMembership(supabase, autoJoinGroup.id, joinProfileId, autoJoinGroup.user_id);
+          }
+        }
+      } catch (e) {
+        console.error("[auto-join] failed:", e);
+      }
+
       // In group chats, only respond to commands directed at the bot
       const botCommand = extractBotCommand(message.text);
       if (!botCommand) {

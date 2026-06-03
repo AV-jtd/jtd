@@ -10,6 +10,7 @@ import {
   handleGroupMessage,
   linkGroupChat,
   unlinkGroupChat,
+  ensureGroupMembership,
 } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
@@ -368,6 +369,19 @@ Deno.serve(async (req) => {
         if (group) {
           const senderName = (msg.sender?.name ?? msg.sender?.first_name ?? "Гость").toString();
           const extId = `max:${maxChatId}`;
+          // Авто-вступление: участник чата становится участником проекта в JTD
+          try {
+            const { data: joinProfile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("max_user_id", maxUserId)
+              .maybeSingle();
+            if (joinProfile) {
+              await ensureGroupMembership(supabase, group.id, joinProfile.id, group.user_id);
+            }
+          } catch (e) {
+            console.error("[max auto-join] failed:", e);
+          }
           await handleGroupMessage({
             supabase, channel: "max", group, text,
             externalUserId: maxUserId, externalUserName: senderName,
