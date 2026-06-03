@@ -3192,6 +3192,21 @@ async function createBulkTasks(
         assigneeName = match.name;
       }
     }
+    // Fallback: ответственный не в проекте — ищем глобально среди approved и авто-добавляем
+    if (!taskData.assigned_to && task.assigned_to_name && groupId) {
+      const globalProfile = await findApprovedProfileGlobally(supabase, task.assigned_to_name);
+      if (globalProfile) {
+        await ensureGroupMembership(supabase, groupId, globalProfile.id, userId);
+        const gName = globalProfile.display_name || globalProfile.telegram_username || task.assigned_to_name;
+        taskData.assigned_to = globalProfile.id;
+        assigneeName = gName;
+        if (!memberById.has(globalProfile.id)) {
+          const added = { id: globalProfile.id, name: gName, telegram_username: globalProfile.telegram_username };
+          members.push(added);
+          memberById.set(globalProfile.id, added);
+        }
+      }
+    }
 
     const { data: newTask, error } = await supabase
       .from("tasks")
@@ -3233,7 +3248,20 @@ async function createBulkTasks(
     }
     if (task.participant_names && task.participant_names.length > 0 && members.length > 0) {
       for (const pName of task.participant_names) {
-        const match = findMemberByName(pName, members);
+        let match = findMemberByName(pName, members);
+        // Fallback: участник не в проекте — ищем глобально и авто-добавляем
+        if (!match && groupId) {
+          const gp = await findApprovedProfileGlobally(supabase, pName);
+          if (gp) {
+            await ensureGroupMembership(supabase, groupId, gp.id, userId);
+            const gName = gp.display_name || gp.telegram_username || pName;
+            match = { id: gp.id, name: gName, telegram_username: gp.telegram_username };
+            if (!memberById.has(gp.id)) {
+              members.push(match);
+              memberById.set(gp.id, match);
+            }
+          }
+        }
         if (match && !seenIds.has(match.id) && match.id !== userId) {
           await supabase.from("task_participants").insert({
             task_id: newTask.id,
