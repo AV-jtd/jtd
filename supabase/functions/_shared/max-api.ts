@@ -103,3 +103,32 @@ export async function getMaxBotInfo(
     return null;
   }
 }
+
+/** A single bot command shown in MAX's "/" command hint menu. */
+export interface MaxBotCommand {
+  name: string;
+  description: string;
+}
+
+/**
+ * Register the bot's command list (PATCH /me) so MAX shows hints when the user
+ * types "/" — both in DMs and in groups. Command names must be lowercase
+ * latin/digits/underscore. This mirrors Telegram's setMyCommands.
+ */
+export async function setMaxCommands(
+  token: string,
+  commands: MaxBotCommand[],
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const res = await fetch(`${MAX_API_BASE}/me`, {
+    method: "PATCH",
+    headers: { "Authorization": token, "Content-Type": "application/json" },
+    body: JSON.stringify({ commands }),
+  });
+  let parsed: unknown = null;
+  try {
+    parsed = await res.json();
+  } catch {
+    parsed = null;
+  }
+  return { ok: res.ok, status: res.status, body: parsed };
+}
