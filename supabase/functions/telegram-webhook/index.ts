@@ -426,17 +426,25 @@ Deno.serve(async (req) => {
         try {
           const linkedGroup = await resolveGroupByChat(supabase, "telegram", chatId);
           if (linkedGroup && linkedGroup.chat_mirror_enabled) {
-            // Resolve the JTD author: prefer telegram_user_id, fall back to username.
-            let profile = message.from?.id
-              ? await resolveProfileByExternalUser(supabase, "telegram", message.from.id)
-              : null;
-            if (!profile && message.from?.username) {
+            // Resolve the JTD author by Telegram username, falling back to the
+            // personal chat id (profiles store telegram_username/telegram_chat_id,
+            // there is no telegram_user_id column).
+            let profile: { id: string; name: string } | null = null;
+            if (message.from?.username) {
               const { data: byName } = await supabase
                 .from("profiles")
                 .select("id, display_name")
                 .ilike("telegram_username", message.from.username)
                 .maybeSingle();
               if (byName) profile = { id: byName.id, name: byName.display_name || "Без имени" };
+            }
+            if (!profile && message.from?.id) {
+              const { data: byChat } = await supabase
+                .from("profiles")
+                .select("id, display_name")
+                .eq("telegram_chat_id", message.from.id)
+                .maybeSingle();
+              if (byChat) profile = { id: byChat.id, name: byChat.display_name || "Без имени" };
             }
 
             const tgAuthor =
