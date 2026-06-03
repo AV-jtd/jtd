@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, MAX_API_BASE } from "../_shared/max-api.ts";
+import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, setMaxCommands, MAX_API_BASE } from "../_shared/max-api.ts";
 import {
   extractBotCommand,
   handleCoreCommand,
@@ -18,6 +18,20 @@ const corsHeaders = {
 };
 
 const WEBHOOK_URL = "https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/max-webhook";
+
+// Command hints shown by MAX when the user types "/" (DMs and groups).
+const MAX_BOT_COMMANDS = [
+  { name: "help", description: "Справка по командам" },
+  { name: "start", description: "Начать работу с ботом" },
+  { name: "projects", description: "Мои проекты" },
+  { name: "my", description: "Мои задачи" },
+  { name: "tasks", description: "Задачи проекта" },
+  { name: "done", description: "Завершить задачу по номеру" },
+  { name: "task", description: "Создать задачу" },
+  { name: "spisok", description: "Массовое создание задач" },
+  { name: "link", description: "Привязать чат к проекту" },
+  { name: "unlink", description: "Отвязать чат от проекта" },
+];
 
 function svc() {
   return createClient(
@@ -182,6 +196,15 @@ Deno.serve(async (req) => {
     let result: unknown = null;
     try { result = await res.json(); } catch { /* ignore */ }
     return new Response(JSON.stringify({ ok: res.ok, status: res.status, result }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Register the bot command list so MAX shows hints when the user types "/"
+  // (works in DMs and groups). Mirrors Telegram's setMyCommands.
+  if (body.action === "setup_commands") {
+    const res = await setMaxCommands(TOKEN, MAX_BOT_COMMANDS);
+    return new Response(JSON.stringify(res), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
