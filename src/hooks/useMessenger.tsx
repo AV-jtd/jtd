@@ -215,7 +215,8 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           name: g.name,
           lastMessage: info.content,
           lastMessageAt: info.created_at,
-          lastMessageAuthor: profileMap.get(info.user_id) || null,
+          lastMessageAuthor:
+            profileMap.get(info.user_id) || info.external_author || null,
           lastMessageUserId: info.user_id,
           messageCount: info.count,
           groupId: g.id,
