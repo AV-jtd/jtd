@@ -1028,6 +1028,20 @@ Deno.serve(async (req) => {
           confirmation += `\n➕ Добавлен${autoJoinedNames.length > 1 ? "ы" : ""} в проект: ${autoJoinedNames.join(", ")}`;
         }
 
+        // Surface the task as a card in the JTD web chat (group_messages).
+        await mirrorTaskCreatedCard({
+          supabase,
+          groupId,
+          userId,
+          source: "telegram",
+          taskId: newTask.id,
+          title: taskText,
+          assigneeName: assignedTo ? (assigneeUsername || null) : null,
+          deadlineStr: deadline.date ? formatDate(deadline.date) : null,
+          participantNames: explicitParticipantNames,
+          isImportant,
+        });
+
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
