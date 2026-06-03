@@ -296,6 +296,38 @@ Deno.serve(async (req) => {
 
     const message = body.message;
 
+    // ==================== GROUP → SUPERGROUP MIGRATION ====================
+    // When a regular Telegram group is upgraded to a supergroup (which happens
+    // automatically when the bot is made an admin, when the group grows, etc.)
+    // its chat id CHANGES (e.g. -5101185130 → -100xxxxxxxxxx). Telegram sends a
+    // service message carrying `migrate_to_chat_id` (in the old group) and
+    // `migrate_from_chat_id` (in the new supergroup). If we don't follow the
+    // migration, the linked project keeps the OLD id and group messages stop
+    // mirroring into JTD. Re-point the binding to the new supergroup id here.
+    if (message && (message.migrate_to_chat_id || message.migrate_from_chat_id)) {
+      try {
+        const oldId = message.migrate_from_chat_id ?? message.chat?.id;
+        const newId = message.migrate_to_chat_id ?? message.chat?.id;
+        if (oldId && newId && oldId !== newId) {
+          const supabaseMig = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          );
+          const { data: migrated } = await supabaseMig
+            .from("task_groups")
+            .update({ telegram_group_chat_id: Number(newId) })
+            .eq("telegram_group_chat_id", Number(oldId))
+            .select("id, name");
+          console.log(
+            `[migrate] telegram group ${oldId} → ${newId}; updated ${migrated?.length ?? 0} project(s)`,
+          );
+        }
+      } catch (e) {
+        console.error("[migrate] failed to follow supergroup migration:", e);
+      }
+      return new Response(JSON.stringify({ ok: true, migrated: true }), { headers: corsHeaders });
+    }
+
     // Handle forwarded messages: extract text or caption
     if (message && !message.text && message.forward_date) {
       // Forwarded message might have caption (for media) but no text
