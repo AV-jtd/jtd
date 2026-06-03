@@ -750,6 +750,7 @@ export async function createBulkTasks(
   userId: string,
   groupId: string | null,
   members: Member[],
+  source: ChatChannel = "telegram",
 ): Promise<BulkTaskResult[]> {
   const results: BulkTaskResult[] = [];
   const now = new Date();
@@ -842,6 +843,20 @@ export async function createBulkTasks(
       participants: resolvedParticipantNames.length > 0 ? resolvedParticipantNames : undefined,
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
+    });
+
+    // Surface the new task as a card in the project's web chat (group_messages),
+    // so tasks created from a bot command show up in the JTD chat too.
+    await mirrorTaskCreatedCard({
+      supabase,
+      groupId,
+      userId,
+      source,
+      taskId: newTask.id,
+      title: task.title,
+      assigneeName,
+      deadlineStr,
+      participantNames: resolvedParticipantNames,
     });
   }
   return results;
@@ -1092,8 +1107,10 @@ export async function handleBulkText(opts: {
   text: string;
   /** When set, project context is fixed (e.g. a linked group chat). */
   fixedProject?: { id: string; name: string };
+  /** Originating channel, used for the task-created card badge in the web chat. */
+  source?: ChatChannel;
 }): Promise<boolean> {
-  const { supabase, transport, userId, text, fixedProject } = opts;
+  const { supabase, transport, userId, text, fixedProject, source = "telegram" } = opts;
   const raw = text.replace(/^\/(spisok|s|t|p|d)\s*/i, "").trim();
   if (!raw) {
     await transport.send(
@@ -1157,7 +1174,7 @@ export async function handleBulkText(opts: {
   }
 
   const parsedWithAssignees = applyAssigneeFallbacks(parsed, bulkText, members, userId);
-  const results = await createBulkTasks(supabase, parsedWithAssignees, userId, groupId, members);
+  const results = await createBulkTasks(supabase, parsedWithAssignees, userId, groupId, members, source);
   const lines = results.map((r, i) =>
     `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`,
   );
@@ -1374,6 +1391,51 @@ export async function mirrorIncomingGroupMessage(opts: {
     return false;
   }
   return true;
+}
+
+/**
+ * Post a "task created" card into the project's web chat (group_messages),
+ * shown as a message authored by the creator. Safe no-op when there is no
+ * project (personal/Inbox task) or no creator. Dedup-safe via a synthetic
+ * external_message_id tied to the task id.
+ */
+export async function mirrorTaskCreatedCard(opts: {
+  supabase: any;
+  groupId: string | null;
+  userId: string | null;
+  source: ChatChannel;
+  taskId: string;
+  title: string;
+  assigneeName?: string | null;
+  deadlineStr?: string | null;
+  participantNames?: string[];
+  isImportant?: boolean;
+}): Promise<void> {
+  const {
+    supabase, groupId, userId, source, taskId, title,
+    assigneeName, deadlineStr, participantNames, isImportant,
+  } = opts;
+  if (!groupId) return;
+  const lines = [`📝 Создана задача: «${(title || "").substring(0, 200)}»`];
+  const meta: string[] = [];
+  if (isImportant) meta.push("⭐ важная");
+  if (assigneeName) meta.push(`👤 ${assigneeName}`);
+  if (participantNames && participantNames.length) meta.push(`👥 ${participantNames.join(", ")}`);
+  if (deadlineStr) meta.push(`📅 ${deadlineStr}`);
+  if (meta.length) lines.push(meta.join(" · "));
+  try {
+    await mirrorIncomingGroupMessage({
+      supabase,
+      groupId,
+      source,
+      content: lines.join("\n"),
+      externalMessageId: `task-created:${taskId}`,
+      jtdUserId: userId ?? null,
+      externalAuthor: userId ? null : "JTD",
+    });
+  } catch (e) {
+    console.error("[unified-chat] task-created card insert failed:", e);
+  }
 }
 
 /** Fan a chat message out to the project's linked groups, except the origin. */

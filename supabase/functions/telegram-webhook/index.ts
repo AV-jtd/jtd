@@ -3,6 +3,7 @@ import {
   linkGroupChat,
   resolveGroupByChat,
   mirrorIncomingGroupMessage,
+  mirrorTaskCreatedCard,
   fanOutToGroups,
   formatRelayMessage,
 } from "../_shared/messenger-core.ts";
@@ -1026,6 +1027,20 @@ Deno.serve(async (req) => {
         if (autoJoinedNames.length > 0) {
           confirmation += `\n➕ Добавлен${autoJoinedNames.length > 1 ? "ы" : ""} в проект: ${autoJoinedNames.join(", ")}`;
         }
+
+        // Surface the task as a card in the JTD web chat (group_messages).
+        await mirrorTaskCreatedCard({
+          supabase,
+          groupId,
+          userId,
+          source: "telegram",
+          taskId: newTask.id,
+          title: taskText,
+          assigneeName: assignedTo ? (assigneeUsername || null) : null,
+          deadlineStr: deadline.date ? formatDate(deadline.date) : null,
+          participantNames: explicitParticipantNames,
+          isImportant,
+        });
 
         await sendTelegramMessage(BOT_TOKEN, chatId, confirmation);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -3324,6 +3339,19 @@ async function createBulkTasks(
       participants: resolvedParticipantNames.length > 0 ? resolvedParticipantNames : undefined,
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
+    });
+
+    // Surface the new task as a card in the JTD web chat (group_messages).
+    await mirrorTaskCreatedCard({
+      supabase,
+      groupId,
+      userId,
+      source: "telegram",
+      taskId: newTask.id,
+      title: task.title,
+      assigneeName,
+      deadlineStr,
+      participantNames: resolvedParticipantNames,
     });
   }
 
