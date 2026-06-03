@@ -460,6 +460,21 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                 : false;
               const expanded = expandedThreads.has(msg.id) || matchedReply;
 
+              // Системная карточка задачи, прилетевшая из Telegram/MAX —
+              // рендерим как богатую CreatedTaskCard, а не как обычный пузырь.
+              const mirroredTask = parseTaskCreatedCard(msg);
+              if (mirroredTask) {
+                return (
+                  <div key={msg.id} className="group">
+                    <CreatedTaskCard
+                      info={mirroredTask}
+                      isCompleted={taskStatusMap?.get(mirroredTask.id) ?? false}
+                      onClick={() => onNavigateToTask?.(mirroredTask.id)}
+                    />
+                  </div>
+                );
+              }
+
               return (
                 <div key={msg.id} className="group">
                   {/* Root message */}
