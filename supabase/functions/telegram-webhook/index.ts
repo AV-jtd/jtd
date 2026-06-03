@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
       ];
       const groupCommands = [
         { command: "link", description: "🔗 Привязать чат к проекту" },
+        { command: "unlink", description: "🔌 Отвязать чат от проекта" },
         { command: "task", description: "📝 Создать задачу" },
         { command: "spisok", description: "📦 Пакетное создание задач" },
         { command: "tasks", description: "📋 Список открытых задач" },
