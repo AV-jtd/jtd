@@ -1231,7 +1231,9 @@ export async function resolveProfileByExternalUser(
   channel: ChatChannel,
   externalUserId: string | number,
 ): Promise<{ id: string; name: string } | null> {
-  const col = channel === "telegram" ? "telegram_user_id" : "max_user_id";
+  // NB: profiles has NO `telegram_user_id` column — Telegram users are matched
+  // by their personal chat id (telegram_chat_id == from.id). MAX uses max_user_id.
+  const col = channel === "telegram" ? "telegram_chat_id" : "max_user_id";
   const { data } = await supabase
     .from("profiles")
     .select("id, display_name")
