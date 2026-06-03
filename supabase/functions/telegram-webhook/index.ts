@@ -654,6 +654,45 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      // === /unlink — detach this Telegram group from its project (bot stays) ===
+      if (command === "unlink") {
+        // Find the linked project either via the legacy table or the unified field.
+        const { data: existingLink } = await supabase
+          .from("telegram_group_chats")
+          .select("group_id")
+          .eq("telegram_chat_id", chatId)
+          .maybeSingle();
+        const { data: unifiedGroup } = await supabase
+          .from("task_groups")
+          .select("id, name, icon")
+          .eq("telegram_group_chat_id", String(chatId))
+          .maybeSingle();
+
+        if (!existingLink && !unifiedGroup) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "ℹ️ Этот чат не привязан ни к одному проекту.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // Remove the legacy binding row.
+        await supabase.from("telegram_group_chats").delete().eq("telegram_chat_id", chatId);
+
+        // Clear the unified-chat fan-out so mirroring stops immediately.
+        const targetGroupId = unifiedGroup?.id ?? existingLink?.group_id ?? null;
+        if (targetGroupId) {
+          await supabase
+            .from("task_groups")
+            .update({ telegram_group_chat_id: null })
+            .eq("id", targetGroupId);
+        }
+
+        await sendTelegramMessage(
+          BOT_TOKEN, chatId,
+          "✅ Чат отвязан от проекта. Зеркалирование остановлено.\nБот остаётся в группе — чтобы привязать заново, отправьте `/link КОД`.",
+          "Markdown",
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       // For /task, /tasks, /done, /my — need linked project
       const { data: chatLink } = await supabase
         .from("telegram_group_chats")
