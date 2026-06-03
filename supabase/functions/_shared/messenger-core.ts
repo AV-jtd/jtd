@@ -750,6 +750,7 @@ export async function createBulkTasks(
   userId: string,
   groupId: string | null,
   members: Member[],
+  source: ChatChannel = "telegram",
 ): Promise<BulkTaskResult[]> {
   const results: BulkTaskResult[] = [];
   const now = new Date();
@@ -842,6 +843,20 @@ export async function createBulkTasks(
       participants: resolvedParticipantNames.length > 0 ? resolvedParticipantNames : undefined,
       deadline: deadlineStr,
       subtaskCount: subtaskCount || undefined,
+    });
+
+    // Surface the new task as a card in the project's web chat (group_messages),
+    // so tasks created from a bot command show up in the JTD chat too.
+    await mirrorTaskCreatedCard({
+      supabase,
+      groupId,
+      userId,
+      source,
+      taskId: newTask.id,
+      title: task.title,
+      assigneeName,
+      deadlineStr,
+      participantNames: resolvedParticipantNames,
     });
   }
   return results;
