@@ -404,17 +404,148 @@
     transform: translateX(-50%); background: #000; color: #fff; font-size: 11px; padding: 3px 7px;
     border-radius: 5px; white-space: nowrap; z-index: 999; pointer-events: none; }
 
-  /* mobile responsive hint */
-  @media(max-width: 1024px) {
-    .sidebar-left { width: 240px; }
-    .sidebar-right { width: 260px; }
+  /* ── MOBILE DRAWER SYSTEM ── */
+
+  /* overlay backdrop */
+  .drawer-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 200; backdrop-filter: blur(2px); opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .drawer-backdrop.visible { opacity: 1; }
+
+  /* hamburger / close buttons in topbar (hidden on desktop) */
+  .mob-btn {
+    display: none; width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg3);
+    align-items: center; justify-content: center; cursor: pointer;
+    color: var(--text2); flex-shrink: 0; transition: all 0.15s;
+  }
+  .mob-btn:hover { border-color: var(--accent); color: var(--text); }
+  .mob-btn svg { width: 16px; height: 16px; }
+
+  /* notification dot on right sidebar button */
+  .mob-btn.has-dot { position: relative; }
+  .mob-btn.has-dot::after {
+    content: ''; position: absolute; top: 6px; right: 6px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--bg2);
+  }
+
+  /* bottom nav bar (mobile only) */
+  .mobile-nav {
+    display: none; height: 56px; background: var(--bg2); border-top: 1px solid var(--border);
+    flex-shrink: 0; align-items: center; justify-content: space-around; padding: 0 8px;
+    position: relative; z-index: 50;
+  }
+  .mnav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer; padding: 6px 12px; border-radius: 10px; transition: all 0.15s;
+    color: var(--text3); min-width: 52px;
+  }
+  .mnav-item:hover, .mnav-item.active { color: var(--accent); background: rgba(79,142,247,0.08); }
+  .mnav-item svg { width: 20px; height: 20px; }
+  .mnav-item span { font-size: 10px; font-weight: 600; }
+  .mnav-badge { position: relative; }
+  .mnav-badge::after {
+    content: '3'; position: absolute; top: -4px; right: -6px;
+    background: var(--accent); color: white; font-size: 9px; font-weight: 700;
+    padding: 1px 4px; border-radius: 8px; border: 2px solid var(--bg2);
+  }
+
+  /* tablet: narrow sidebars */
+  @media(max-width: 1100px) {
+    :root { --left-w: 240px; --right-w: 260px; }
+  }
+
+  /* mobile: drawers */
+  @media(max-width: 768px) {
+    :root { --left-w: 300px; --right-w: 300px; }
+
+    /* hide desktop topbar elements, show mobile buttons */
+    .mob-btn { display: flex; }
+    .stage-badge, .topbar-score, .topbar-sep { display: none; }
+    .tb-btn:not(.primary) { display: none; }
+    .topbar-client { padding: 4px 8px; }
+    .topbar-client .client-avatar { display: flex; }
+    /* hide client name on very small screens */
+    @media(max-width: 420px) {
+      .topbar-client .client-name,
+      .topbar-client .client-sub,
+      .topbar-chevron { display: none; }
+    }
+
+    /* left sidebar: off-screen left drawer */
+    .sidebar-left {
+      position: fixed; left: 0; top: 48px; bottom: 56px;
+      width: var(--left-w); z-index: 210;
+      transform: translateX(-100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    }
+    .sidebar-left.open { transform: translateX(0); }
+
+    /* right sidebar: off-screen right drawer */
+    .sidebar-right {
+      position: fixed; right: 0; top: 48px; bottom: 56px;
+      width: var(--right-w); z-index: 210;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    }
+    .sidebar-right.open { transform: translateX(0); }
+
+    /* backdrop */
+    .drawer-backdrop { display: block; }
+
+    /* chat messages: less side padding */
+    .chat-messages { padding: 14px 12px; }
+
+    /* input: compact toolbar */
+    .chat-input-wrap { padding: 8px 12px 10px; }
+    .input-toolbar { gap: 4px; }
+    .it-btn .it-label { display: none; }
+    .it-btn { padding: 5px 7px; }
+    .it-sep { display: none; }
+
+    /* bottom nav visible */
+    .mobile-nav { display: flex; }
+
+    /* msg bubble max-width */
+    .msg-bubble { max-width: calc(100vw - 80px); }
+    .event-card { max-width: calc(100vw - 80px); }
+    .ai-strip { max-width: calc(100vw - 80px); }
+    .deal-card { max-width: calc(100vw - 80px); }
+
+    /* tab bar: scrollable */
+    .tab-bar { overflow-x: auto; padding: 0 8px; }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab { padding: 8px 10px; font-size: 11px; }
+
+    /* topbar primary btn: icon only */
+    .tb-btn.primary .btn-label { display: none; }
+    .tb-btn.primary { padding: 5px 8px; }
+  }
+
+  /* very small phones */
+  @media(max-width: 380px) {
+    :root { --left-w: 280px; --right-w: 280px; }
+    .topbar-logo { font-size: 13px; }
   }
 </style>
 </head>
 <body>
 
+<!-- DRAWER BACKDROP -->
+<div class="drawer-backdrop" id="backdrop" onclick="closeAll()"></div>
+
 <!-- TOP BAR -->
 <div class="topbar">
+  <!-- Mobile: hamburger (left sidebar) -->
+  <button class="mob-btn" id="btn-open-left" onclick="toggleLeft()" aria-label="Клиенты">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
   <div class="topbar-logo">JTD CRM</div>
   <div class="topbar-sep"></div>
 
@@ -442,10 +573,14 @@
     </button>
     <button class="tb-btn primary" onclick="alert('Новая сделка')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-      Сделка
+      <span class="btn-label">Сделка</span>
     </button>
     <div class="topbar-sep"></div>
     <div class="user-ava" data-tip="Вы — Алексей В.">АВ</div>
+    <!-- Mobile: right sidebar button -->
+    <button class="mob-btn has-dot" id="btn-open-right" onclick="toggleRight()" aria-label="Детали клиента">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </button>
   </div>
 </div>
 
@@ -1031,7 +1166,74 @@
 
 </div><!-- /main -->
 
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <div class="mnav-item" onclick="toggleLeft()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span>Клиенты</span>
+  </div>
+  <div class="mnav-item active mnav-badge" onclick="closeAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span>Чат</span>
+  </div>
+  <div class="mnav-item" onclick="alert('Задачи')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    <span>Задачи</span>
+  </div>
+  <div class="mnav-item" onclick="toggleRight()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span>Детали</span>
+  </div>
+</nav>
+
 <script>
+const backdrop = document.getElementById('backdrop');
+const sideLeft = document.querySelector('.sidebar-left');
+const sideRight = document.querySelector('.sidebar-right');
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function openLeft() {
+  sideLeft.classList.add('open');
+  sideRight.classList.remove('open');
+  backdrop.classList.add('visible');
+}
+function openRight() {
+  sideRight.classList.add('open');
+  sideLeft.classList.remove('open');
+  backdrop.classList.add('visible');
+}
+function closeAll() {
+  sideLeft.classList.remove('open');
+  sideRight.classList.remove('open');
+  backdrop.classList.remove('visible');
+}
+function toggleLeft() {
+  if (!isMobile()) return;
+  sideLeft.classList.contains('open') ? closeAll() : openLeft();
+}
+function toggleRight() {
+  if (!isMobile()) return;
+  sideRight.classList.contains('open') ? closeAll() : openRight();
+}
+
+// swipe-to-close: drag backdrop area
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, {passive:true});
+document.addEventListener('touchend', e => {
+  if (!isMobile()) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  // swipe left on left drawer → close
+  if (sideLeft.classList.contains('open') && dx < -50) closeAll();
+  // swipe right on right drawer → close
+  if (sideRight.classList.contains('open') && dx > 50) closeAll();
+  // swipe right from left edge → open left
+  if (!sideLeft.classList.contains('open') && !sideRight.classList.contains('open') && touchStartX < 24 && dx > 60) openLeft();
+}, {passive:true});
+
+// escape key
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+
 // Auto-scroll to bottom
 const msgs = document.getElementById('msgs');
 msgs.scrollTop = msgs.scrollHeight;
@@ -1055,10 +1257,10 @@ document.querySelector('.input-field').addEventListener('keydown', function(e) {
           <div class="msg-bubble right">${val}</div>
         </div>
       </div>`;
-    // remove typing indicator temporarily
     msgs.appendChild(row);
     this.value = '';
     msgs.scrollTop = msgs.scrollHeight;
+    if (isMobile()) closeAll();
   }
 });
 
@@ -1075,6 +1277,15 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', function() {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     this.classList.add('active');
+  });
+});
+
+// Contact item click → close drawer on mobile
+document.querySelectorAll('.contact-item').forEach(el => {
+  el.addEventListener('click', function() {
+    document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    if (isMobile()) closeAll();
   });
 });
 </script>
