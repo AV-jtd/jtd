@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, ChevronRight, Search, Link2, Check } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -775,40 +775,32 @@ function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineL
   return { id, title, assigneeName, deadlineLabel };
 }
 
-function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick: () => void; isCompleted?: boolean }) {
-  const assignee = info.assigneeName?.trim();
-  let deadlineLabel = "";
-  if (info.deadlineLabel) {
-    deadlineLabel = ` · до ${info.deadlineLabel}`;
-  } else if (info.deadline) {
-    const d = new Date(info.deadline);
-    if (!isNaN(d.getTime())) {
-      deadlineLabel = ` · до ${format(d, "d MMM", { locale: ru })}`;
-    }
-  }
+function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick?: () => void; isCompleted?: boolean }) {
+  const content = (
+    <span className="inline-flex min-w-0 max-w-[calc(100vw-5.5rem)] items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary sm:max-w-[280px]">
+      <CheckSquare className="h-2.5 w-2.5 shrink-0" />
+      <span className="shrink-0">Создана задача:</span>
+      <span className={cn("truncate font-semibold", isCompleted && "line-through opacity-70")}>
+        {info.title || "Без названия"}
+      </span>
+      {isCompleted && <ClosedTaskPill className="ml-1" />}
+    </span>
+  );
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 hover:bg-primary/10 transition-colors text-left group/card"
-    >
-      <div className="h-7 w-7 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
-        <CheckSquare className="h-3.5 w-3.5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-foreground truncate flex items-center gap-1.5">
-          <span className={cn("truncate", isCompleted && "line-through text-muted-foreground")}>
-            {info.title || "Без названия"}
-          </span>
-          {isCompleted && <ClosedTaskPill />}
-        </p>
-        <p className="text-[10px] text-muted-foreground truncate">
-          {isCompleted ? "Задача закрыта" : "Задача создана"}
-          {assignee ? ` · ${assignee}` : ""}
-          {deadlineLabel}
-        </p>
-      </div>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
-    </button>
+    <div className="mt-2 flex items-center gap-2 py-1">
+      <div className="h-px flex-1 bg-primary/20" />
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="min-w-0 hover:opacity-80 transition-opacity"
+          title="Открыть задачу"
+        >
+          {content}
+        </button>
+      ) : content}
+      <div className="h-px flex-1 bg-primary/20" />
+    </div>
   );
 }
