@@ -456,6 +456,11 @@ Deno.serve(async (req) => {
         // ── Unified chat: mirror plain group text into JTD + fan out to MAX ──
         try {
           const linkedGroup = await resolveGroupByChat(supabase, "telegram", chatId);
+          console.log(
+            `[unified-chat] TG group msg chat_id=${chatId} type=${chatType} ` +
+            `linked=${linkedGroup ? linkedGroup.id : "none"} ` +
+            `mirror=${linkedGroup?.chat_mirror_enabled ?? "n/a"}`,
+          );
           if (linkedGroup && linkedGroup.chat_mirror_enabled) {
             // Resolve the JTD author by Telegram username, falling back to the
             // personal chat id (profiles store telegram_username/telegram_chat_id,
