@@ -79,8 +79,15 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
   // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
   const linkedTaskIds = useMemo(
-    () => Object.values(createdTasks).map((t) => t.id),
-    [createdTasks],
+    () => {
+      const ids = new Set(Object.values(createdTasks).map((t) => t.id));
+      for (const m of messages) {
+        const parsed = parseTaskCreatedCard(m);
+        if (parsed) ids.add(parsed.id);
+      }
+      return [...ids];
+    },
+    [createdTasks, messages],
   );
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
@@ -453,6 +460,21 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                 : false;
               const expanded = expandedThreads.has(msg.id) || matchedReply;
 
+              // Системная карточка задачи, прилетевшая из Telegram/MAX —
+              // рендерим как богатую CreatedTaskCard, а не как обычный пузырь.
+              const mirroredTask = parseTaskCreatedCard(msg);
+              if (mirroredTask) {
+                return (
+                  <div key={msg.id} className="group">
+                    <CreatedTaskCard
+                      info={mirroredTask}
+                      isCompleted={taskStatusMap?.get(mirroredTask.id) ?? false}
+                      onClick={() => onNavigateToTask?.(mirroredTask.id)}
+                    />
+                  </div>
+                );
+              }
+
               return (
                 <div key={msg.id} className="group">
                   {/* Root message */}
@@ -733,10 +755,32 @@ function InlineTaskForm({
 
 type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
 
-function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo; onClick: () => void; isCompleted?: boolean }) {
+/**
+ * Распознаём системную карточку «📝 Создана задача …», прилетевшую из
+ * Telegram/MAX (mirrorTaskCreatedCard). Маркер — external_message_id вида
+ * "task-created:<taskId>". Возвращаем данные для рендера CreatedTaskCard.
+ */
+function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineLabel?: string }) | null {
+  const ext = msg.external_message_id || "";
+  if (!ext.startsWith("task-created:")) return null;
+  const id = ext.slice("task-created:".length);
+  if (!id) return null;
+  const content = msg.content || "";
+  const titleMatch = content.match(/«([\s\S]*?)»/);
+  const title = titleMatch?.[1]?.trim() || "Без названия";
+  const assigneeMatch = content.match(/👤\s*([^·\n]+)/);
+  const assigneeName = assigneeMatch?.[1]?.trim() || undefined;
+  const deadlineMatch = content.match(/📅\s*([^·\n]+)/);
+  const deadlineLabel = deadlineMatch?.[1]?.trim() || undefined;
+  return { id, title, assigneeName, deadlineLabel };
+}
+
+function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick: () => void; isCompleted?: boolean }) {
   const assignee = info.assigneeName?.trim();
   let deadlineLabel = "";
-  if (info.deadline) {
+  if (info.deadlineLabel) {
+    deadlineLabel = ` · до ${info.deadlineLabel}`;
+  } else if (info.deadline) {
     const d = new Date(info.deadline);
     if (!isNaN(d.getTime())) {
       deadlineLabel = ` · до ${format(d, "d MMM", { locale: ru })}`;

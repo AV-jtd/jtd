@@ -16,6 +16,8 @@ export type GroupMessage = {
   updated_at: string;
   /** Name of an external (TG/MAX) sender that has no matched JTD profile. */
   external_author?: string | null;
+  /** External id; "task-created:<taskId>" marks a mirrored task-created card. */
+  external_message_id?: string | null;
   profile?: { display_name: string | null; email: string | null; telegram_username: string | null };
 };
 
