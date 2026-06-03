@@ -3192,6 +3192,21 @@ async function createBulkTasks(
         assigneeName = match.name;
       }
     }
+    // Fallback: ответственный не в проекте — ищем глобально среди approved и авто-добавляем
+    if (!taskData.assigned_to && task.assigned_to_name && groupId) {
+      const globalProfile = await findApprovedProfileGlobally(supabase, task.assigned_to_name);
+      if (globalProfile) {
+        await ensureGroupMembership(supabase, groupId, globalProfile.id, userId);
+        const gName = globalProfile.display_name || globalProfile.telegram_username || task.assigned_to_name;
+        taskData.assigned_to = globalProfile.id;
+        assigneeName = gName;
+        if (!memberById.has(globalProfile.id)) {
+          const added = { id: globalProfile.id, name: gName, telegram_username: globalProfile.telegram_username };
+          members.push(added);
+          memberById.set(globalProfile.id, added);
+        }
+      }
+    }
 
     const { data: newTask, error } = await supabase
       .from("tasks")
