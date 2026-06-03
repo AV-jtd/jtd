@@ -437,7 +437,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-3">
+      <ScrollArea className="flex-1 px-4 py-3 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:!min-w-0">
         {isLoading ? (
           <p className="text-sm text-muted-foreground text-center py-8">Загрузка...</p>
         ) : visibleRoots.length === 0 ? (
