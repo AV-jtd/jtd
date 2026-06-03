@@ -422,11 +422,11 @@ Deno.serve(async (req) => {
         });
         if (!handled) {
           // Unknown slash command — fall back to bulk parsing of its body.
-          await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText });
+          await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText, source: "max" });
         }
       } else {
         // Plain text → treat as a list of tasks to create.
-        await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText });
+        await handleBulkText({ supabase, transport, userId: boundProfileId, text: messageText, source: "max" });
       }
       return new Response(JSON.stringify({ ok: true, handled: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
