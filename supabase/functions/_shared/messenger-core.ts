@@ -1240,6 +1240,44 @@ export async function resolveProfileByExternalUser(
   return data ? { id: data.id, name: data.display_name || "Без имени" } : null;
 }
 
+/**
+ * Если пользователя ещё нет в group_members проекта — добавляет его как participant.
+ * Идемпотентно. Используется для авто-вступления участников чата в проект.
+ */
+export async function ensureGroupMembership(
+  supabase: any,
+  groupId: string,
+  userId: string,
+  invitedBy: string,
+): Promise<boolean> {
+  const { data: g } = await supabase
+    .from("task_groups")
+    .select("user_id")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (g?.user_id === userId) return false;
+
+  const { data: existing } = await supabase
+    .from("group_members")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) return false;
+
+  const { error } = await supabase.from("group_members").insert({
+    group_id: groupId,
+    user_id: userId,
+    invited_by: invitedBy,
+    role: "participant",
+  });
+  if (error) {
+    console.error("[ensureGroupMembership] insert error", error);
+    return false;
+  }
+  return true;
+}
+
 /** Bind a messenger group chat to a JTD project using a short-lived code. */
 export async function linkGroupChat(
   supabase: any,
