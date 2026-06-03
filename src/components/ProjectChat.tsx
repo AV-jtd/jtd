@@ -753,10 +753,12 @@ function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineL
   return { id, title, assigneeName, deadlineLabel };
 }
 
-function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo; onClick: () => void; isCompleted?: boolean }) {
+function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick: () => void; isCompleted?: boolean }) {
   const assignee = info.assigneeName?.trim();
   let deadlineLabel = "";
-  if (info.deadline) {
+  if (info.deadlineLabel) {
+    deadlineLabel = ` · до ${info.deadlineLabel}`;
+  } else if (info.deadline) {
     const d = new Date(info.deadline);
     if (!isNaN(d.getTime())) {
       deadlineLabel = ` · до ${format(d, "d MMM", { locale: ru })}`;
