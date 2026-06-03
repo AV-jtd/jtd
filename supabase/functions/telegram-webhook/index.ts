@@ -3,6 +3,7 @@ import {
   linkGroupChat,
   resolveGroupByChat,
   mirrorIncomingGroupMessage,
+  mirrorTaskCreatedCard,
   fanOutToGroups,
   formatRelayMessage,
 } from "../_shared/messenger-core.ts";
