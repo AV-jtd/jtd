@@ -19,6 +19,20 @@ const corsHeaders = {
 
 const WEBHOOK_URL = "https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/max-webhook";
 
+// Command hints shown by MAX when the user types "/" (DMs and groups).
+const MAX_BOT_COMMANDS = [
+  { name: "help", description: "Справка по командам" },
+  { name: "start", description: "Начать работу с ботом" },
+  { name: "projects", description: "Мои проекты" },
+  { name: "my", description: "Мои задачи" },
+  { name: "tasks", description: "Задачи проекта" },
+  { name: "done", description: "Завершить задачу по номеру" },
+  { name: "task", description: "Создать задачу" },
+  { name: "spisok", description: "Массовое создание задач" },
+  { name: "link", description: "Привязать чат к проекту" },
+  { name: "unlink", description: "Отвязать чат от проекта" },
+];
+
 function svc() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
