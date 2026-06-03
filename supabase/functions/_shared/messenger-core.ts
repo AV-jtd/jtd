@@ -1107,8 +1107,10 @@ export async function handleBulkText(opts: {
   text: string;
   /** When set, project context is fixed (e.g. a linked group chat). */
   fixedProject?: { id: string; name: string };
+  /** Originating channel, used for the task-created card badge in the web chat. */
+  source?: ChatChannel;
 }): Promise<boolean> {
-  const { supabase, transport, userId, text, fixedProject } = opts;
+  const { supabase, transport, userId, text, fixedProject, source = "telegram" } = opts;
   const raw = text.replace(/^\/(spisok|s|t|p|d)\s*/i, "").trim();
   if (!raw) {
     await transport.send(
@@ -1172,7 +1174,7 @@ export async function handleBulkText(opts: {
   }
 
   const parsedWithAssignees = applyAssigneeFallbacks(parsed, bulkText, members, userId);
-  const results = await createBulkTasks(supabase, parsedWithAssignees, userId, groupId, members);
+  const results = await createBulkTasks(supabase, parsedWithAssignees, userId, groupId, members, source);
   const lines = results.map((r, i) =>
     `${i + 1}. ✅ ${r.title}${r.assignee ? ` 👤 ${r.assignee}` : ""}${r.participants?.length ? ` 👥 ${r.participants.join(", ")}` : ""}${r.deadline ? ` 📅 ${r.deadline}` : ""}${r.subtaskCount ? ` 📋${r.subtaskCount}` : ""}`,
   );
