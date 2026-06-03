@@ -143,7 +143,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       const [groupMap, taskMap] = await Promise.all([
         kindFilter === "log"
           ? Promise.resolve(new Map())
-          : fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
+          : fetchThreadAggregates({ table: "group_messages", parentKey: "group_id", includeExternalAuthor: true }),
         fetchThreadAggregates({ table: "task_comments", parentKey: "task_id", ...taskOpts }),
       ]);
 
@@ -153,8 +153,8 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       // doubling work and roundtrips. Now we do exactly ONE batched profiles
       // query for the unique union.
       const authorIdSet = new Set<string>();
-      for (const v of groupMap.values()) authorIdSet.add(v.user_id);
-      for (const v of taskMap.values()) authorIdSet.add(v.user_id);
+      for (const v of groupMap.values()) if (v.user_id) authorIdSet.add(v.user_id);
+      for (const v of taskMap.values()) if (v.user_id) authorIdSet.add(v.user_id);
       const authorIds = [...authorIdSet];
 
       // Step 3: fan out independent lookups in parallel. None of them depend
