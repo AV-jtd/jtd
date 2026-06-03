@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, MAX_API_BASE } from "../_shared/max-api.ts";
+import { getMaxToken, getMaxBotInfo, sendMaxMessage, answerMaxCallback, setMaxCommands, MAX_API_BASE } from "../_shared/max-api.ts";
 import {
   extractBotCommand,
   handleCoreCommand,
@@ -182,6 +182,15 @@ Deno.serve(async (req) => {
     let result: unknown = null;
     try { result = await res.json(); } catch { /* ignore */ }
     return new Response(JSON.stringify({ ok: res.ok, status: res.status, result }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Register the bot command list so MAX shows hints when the user types "/"
+  // (works in DMs and groups). Mirrors Telegram's setMyCommands.
+  if (body.action === "setup_commands") {
+    const res = await setMaxCommands(TOKEN, MAX_BOT_COMMANDS);
+    return new Response(JSON.stringify(res), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
