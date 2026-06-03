@@ -733,6 +733,26 @@ function InlineTaskForm({
 
 type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
 
+/**
+ * Распознаём системную карточку «📝 Создана задача …», прилетевшую из
+ * Telegram/MAX (mirrorTaskCreatedCard). Маркер — external_message_id вида
+ * "task-created:<taskId>". Возвращаем данные для рендера CreatedTaskCard.
+ */
+function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineLabel?: string }) | null {
+  const ext = msg.external_message_id || "";
+  if (!ext.startsWith("task-created:")) return null;
+  const id = ext.slice("task-created:".length);
+  if (!id) return null;
+  const content = msg.content || "";
+  const titleMatch = content.match(/«([\s\S]*?)»/);
+  const title = titleMatch?.[1]?.trim() || "Без названия";
+  const assigneeMatch = content.match(/👤\s*([^·\n]+)/);
+  const assigneeName = assigneeMatch?.[1]?.trim() || undefined;
+  const deadlineMatch = content.match(/📅\s*([^·\n]+)/);
+  const deadlineLabel = deadlineMatch?.[1]?.trim() || undefined;
+  return { id, title, assigneeName, deadlineLabel };
+}
+
 function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo; onClick: () => void; isCompleted?: boolean }) {
   const assignee = info.assigneeName?.trim();
   let deadlineLabel = "";
