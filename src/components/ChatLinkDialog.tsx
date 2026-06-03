@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Copy, Link2, RefreshCw, Check, Send, RotateCw } from "lucide-react";
+import { Unlink } from "lucide-react";
 
 interface ChatLinkDialogProps {
   groupId: string;
@@ -43,6 +44,7 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
   const [mirror, setMirror] = useState(true);
   const [savingMirror, setSavingMirror] = useState(false);
   const [relinkHint, setRelinkHint] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
 
   // Load current binding state when the dialog opens.
   useEffect(() => {
@@ -115,6 +117,26 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
     toast.success("Код готов — отправьте /link в нужной группе");
   };
 
+  // Unlink: stop mirroring without removing the bot from the group. Clears the
+  // stored telegram_group_chat_id; the bot can be re-linked later via /link КОД.
+  const unlinkTelegram = async () => {
+    setUnlinking(true);
+    try {
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ telegram_group_chat_id: null })
+        .eq("id", groupId);
+      if (error) throw error;
+      setLinked((prev) => ({ ...prev, telegram: false }));
+      setRelinkHint(false);
+      toast.success("Telegram-группа отвязана — зеркалирование остановлено");
+    } catch (e: any) {
+      toast.error("Не удалось отвязать: " + (e?.message ?? "ошибка"));
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const copy = async () => {
     if (!code) return;
     try {
@@ -179,6 +201,20 @@ export default function ChatLinkDialog({ groupId, groupName, open, onOpenChange 
               <RotateCw className="h-3.5 w-3.5 mr-1.5" />
               Перепривязать Telegram-группу
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full text-destructive hover:text-destructive"
+              onClick={unlinkTelegram}
+              disabled={unlinking}
+            >
+              <Unlink className="h-3.5 w-3.5 mr-1.5" />
+              {unlinking ? "Отвязываем…" : "Отвязать Telegram-группу"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              Бот останется в группе — остановится только зеркалирование. Можно
+              также отправить <code className="px-1 rounded bg-muted">/unlink</code> прямо в группе.
+            </p>
           </div>
         )}
 
