@@ -10,6 +10,7 @@ import {
   handleGroupMessage,
   linkGroupChat,
   unlinkGroupChat,
+  ensureGroupMembership,
 } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
