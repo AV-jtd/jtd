@@ -14,6 +14,8 @@ export type GroupMessage = {
   source: string;
   created_at: string;
   updated_at: string;
+  /** Name of an external (TG/MAX) sender that has no matched JTD profile. */
+  external_author?: string | null;
   profile?: { display_name: string | null; email: string | null; telegram_username: string | null };
 };
 
@@ -33,7 +35,11 @@ export function useGroupMessages(groupId: string | null) {
       if (error) throw error;
       // Fetch profiles for all unique user_ids
       const msgs = (data || []) as unknown as GroupMessage[];
-      const userIds = [...new Set(msgs.map(m => m.user_id))];
+      // IMPORTANT: drop null/undefined — messages mirrored from TG/MAX without a
+      // matched JTD profile have user_id === null. Passing null into `.in("id", …)`
+      // makes PostgREST reject the whole query (invalid uuid), which previously
+      // wiped ALL author names and rendered every message as "Аноним".
+      const userIds = [...new Set(msgs.map(m => m.user_id).filter(Boolean))];
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")

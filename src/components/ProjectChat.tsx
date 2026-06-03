@@ -33,7 +33,7 @@ interface ProjectChatProps {
 }
 
 function getAuthorName(msg: GroupMessage) {
-  return msg.profile?.display_name || "Аноним";
+  return msg.profile?.display_name || msg.external_author || "Аноним";
 }
 
 export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
