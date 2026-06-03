@@ -55,8 +55,9 @@ async function fetchThreadAggregates<T extends string>(opts: {
   gracePages?: number;
       excludeLogs?: boolean;
       onlyLogs?: boolean;
+      includeExternalAuthor?: boolean;
 }): Promise<
-  Map<string, { content: string; created_at: string; user_id: string; count: number }>
+  Map<string, { content: string; created_at: string; user_id: string; external_author?: string | null; count: number }>
 > {
   const {
     table,
@@ -67,16 +68,17 @@ async function fetchThreadAggregates<T extends string>(opts: {
     gracePages = 1,
         excludeLogs = false,
         onlyLogs = false,
+        includeExternalAuthor = false,
   } = opts;
 
-  const map = new Map<string, { content: string; created_at: string; user_id: string; count: number }>();
+  const map = new Map<string, { content: string; created_at: string; user_id: string; external_author?: string | null; count: number }>();
   let cursor: string | null = null;
   let pagesSinceNewThread = 0;
 
   for (let page = 0; page < maxPages; page++) {
     let q = supabase
       .from(table as any)
-      .select(`${parentKey}, content, created_at, user_id${excludeLogs ? ", kind" : ""}`)
+      .select(`${parentKey}, content, created_at, user_id${excludeLogs ? ", kind" : ""}${includeExternalAuthor ? ", external_author" : ""}`)
       .order("created_at", { ascending: false })
       .limit(pageSize);
     if (cursor) q = q.lt("created_at", cursor);
@@ -96,6 +98,7 @@ async function fetchThreadAggregates<T extends string>(opts: {
           content: row.content,
           created_at: row.created_at,
           user_id: row.user_id,
+          external_author: includeExternalAuthor ? (row.external_author ?? null) : null,
           count: 1,
         });
         foundNewThread = true;
@@ -140,7 +143,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       const [groupMap, taskMap] = await Promise.all([
         kindFilter === "log"
           ? Promise.resolve(new Map())
-          : fetchThreadAggregates({ table: "group_messages", parentKey: "group_id" }),
+          : fetchThreadAggregates({ table: "group_messages", parentKey: "group_id", includeExternalAuthor: true }),
         fetchThreadAggregates({ table: "task_comments", parentKey: "task_id", ...taskOpts }),
       ]);
 
@@ -150,8 +153,8 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       // doubling work and roundtrips. Now we do exactly ONE batched profiles
       // query for the unique union.
       const authorIdSet = new Set<string>();
-      for (const v of groupMap.values()) authorIdSet.add(v.user_id);
-      for (const v of taskMap.values()) authorIdSet.add(v.user_id);
+      for (const v of groupMap.values()) if (v.user_id) authorIdSet.add(v.user_id);
+      for (const v of taskMap.values()) if (v.user_id) authorIdSet.add(v.user_id);
       const authorIds = [...authorIdSet];
 
       // Step 3: fan out independent lookups in parallel. None of them depend
@@ -212,7 +215,8 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           name: g.name,
           lastMessage: info.content,
           lastMessageAt: info.created_at,
-          lastMessageAuthor: profileMap.get(info.user_id) || null,
+          lastMessageAuthor:
+            profileMap.get(info.user_id) || info.external_author || null,
           lastMessageUserId: info.user_id,
           messageCount: info.count,
           groupId: g.id,
