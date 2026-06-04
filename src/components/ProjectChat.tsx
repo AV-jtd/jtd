@@ -221,33 +221,53 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
     });
   }, [rootMessages, repliesMap, searchLower]);
 
-  const handleCreateTask = async (msg: GroupMessage, payload: { title: string; assignee: Profile | null; deadline: string | null }) => {
+  /**
+   * Единая точка создания задачи/поручения из чата (из сообщения или из
+   * композера). После создания пишет в `group_messages` персистентную
+   * system-карточку (через реестр chatCards), которая рендерится во всех чатах
+   * и зеркалится в TG/MAX. `msg = null` — создание из слэш-команды композера.
+   */
+  const handleCreateCard = async (
+    kind: ChatCardKind,
+    msg: GroupMessage | null,
+    payload: { title: string; assignee: Profile | null; deadline: string | null },
+  ) => {
+    const def = getChatCardDef(kind);
     try {
-      const desc = `Из обсуждения проекта «${groupName}»\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}`;
+      const sourceText = msg ? `\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}` : "";
+      const desc = `Из обсуждения проекта «${groupName}»${sourceText}`;
+      const title = payload.title.trim() || (msg ? msg.content.slice(0, 80) : def.label);
       const created = await addTask.mutateAsync({
-        title: payload.title.trim() || msg.content.slice(0, 80),
+        title,
         group_id: groupId,
         assigned_to: payload.assignee?.id || null,
         deadline: payload.deadline ? new Date(payload.deadline).toISOString() : null,
       } as any);
       const t = created as unknown as Task;
-      // Patch description through the standard mutation (addTask doesn't accept description)
       try {
         await updateTask.mutateAsync({ id: t.id, description: desc });
       } catch (e) { /* non-fatal */ }
+      // Поручение = делегирование 1 уровня: отмечаем delegated_from.
+      if (kind === "assignment_created" && payload.assignee?.id) {
+        try {
+          await updateTask.mutateAsync({ id: t.id, assigned_to: payload.assignee.id, delegated_from: user?.id || null } as any);
+        } catch (e) { /* non-fatal */ }
+      }
 
-      setCreatedTasks(prev => ({
-        ...prev,
-        [msg.id]: {
-          id: t.id,
-          title: t.title,
-          assigneeName: payload.assignee?.display_name || undefined,
-          deadline: payload.deadline,
-        },
-      }));
+      const deadlineLabel = payload.deadline
+        ? new Date(payload.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+        : null;
 
-      // Send a "task created" card to project members' Telegram chats
-      // (opt-in via telegram_group_chat_message). Fire-and-forget.
+      // Персистентная system-карточка в ленту чата.
+      await supabase.from("group_messages" as any).insert({
+        group_id: groupId,
+        user_id: user!.id,
+        content: formatChatCardBody(kind, t.title, { assigneeName: payload.assignee?.display_name, deadlineLabel }),
+        external_message_id: chatCardMarker(kind, t.id),
+        source: "web",
+      });
+
+      // Зеркало в Telegram/MAX. Fire-and-forget.
       try {
         const { data: s } = await supabase.auth.getSession();
         if (s.session) {
@@ -269,15 +289,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
         }
       } catch { /* non-fatal */ }
 
-      // Гарантированно закрываем форму этого сообщения. Если пользователь
-      // успел открыть форму другого сообщения — её не трогаем.
-      setTaskFormFor(prev => (prev === msg.id ? null : prev));
-      // Bump nonce, чтобы при следующем открытии любой формы InlineTaskForm
-      // смонтировалась заново с дефолтными значениями (title из текста, ассайни-автор, пустой дедлайн).
+      if (msg) setTaskFormFor(prev => (prev === msg.id ? null : prev));
       setTaskFormNonce(n => n + 1);
-      toast.success("Задача создана");
+      toast.success(kind === "assignment_created" ? "Поручение создано" : "Задача создана");
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось создать задачу");
+      toast.error(e?.message || "Не удалось создать");
     }
   };
 
