@@ -62,7 +62,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   /** уникальный nonce открытия формы — меняется при каждом открытии,
    *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
   const [taskFormNonce, setTaskFormNonce] = useState(0);
-  const openTaskForm = (id: string) => {
+  /** Какой тип карточки создаём текущей открытой формой. */
+  const [formKind, setFormKind] = useState<ChatCardKind>("task_created");
+  const openTaskForm = (id: string, kind: ChatCardKind = "task_created") => {
+    setFormKind(kind);
     setTaskFormFor(prev => {
       if (prev === id) return null;          // toggle close
       setTaskFormNonce(n => n + 1);          // bump для нового монтирования
@@ -70,27 +73,24 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
     });
   };
   const closeTaskForm = () => setTaskFormFor(null);
-  /** message.id → созданная задача (для системной карточки) */
-  const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
 
-  // Подгружаем актуальный статус задач, ссылки на которые уже есть в чате
-  // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
-  // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
+  // Подгружаем актуальный статус задач, на которые ссылаются system-карточки в
+  // ленте (создание задачи/поручения). Закрытые рисуем перечёркнутыми.
   const linkedTaskIds = useMemo(
     () => {
-      const ids = new Set(Object.values(createdTasks).map((t) => t.id));
+      const ids = new Set<string>();
       for (const m of messages) {
-        const parsed = parseTaskCreatedCard(m);
-        if (parsed) ids.add(parsed.id);
+        const card = parseChatCard(m.external_message_id, m.content);
+        if (card && card.def.target === "task") ids.add(card.entityId);
       }
       return [...ids];
     },
-    [createdTasks, messages],
+    [messages],
   );
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
