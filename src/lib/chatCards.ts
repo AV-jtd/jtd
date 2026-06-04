@@ -1,4 +1,4 @@
-import { CheckSquare, UserCheck, FileText, BarChart3, type LucideIcon } from "lucide-react";
+import { CheckSquare, FileText, BarChart3, type LucideIcon } from "lucide-react";
 
 /**
  * Единый реестр system-карточек чата.
@@ -15,7 +15,6 @@ import { CheckSquare, UserCheck, FileText, BarChart3, type LucideIcon } from "lu
  */
 export type ChatCardKind =
   | "task_created"
-  | "assignment_created"
   | "protocol_linked"
   | "metric_logged";
 
@@ -39,14 +38,6 @@ export const CHAT_CARD_DEFS: ChatCardDef[] = [
     icon: CheckSquare,
     label: "Создана задача",
     tone: "bg-primary/10 text-primary",
-    target: "task",
-  },
-  {
-    kind: "assignment_created",
-    prefix: "assignment-created:",
-    icon: UserCheck,
-    label: "Поручение",
-    tone: "bg-tag-purple/10 text-tag-purple",
     target: "task",
   },
   {
