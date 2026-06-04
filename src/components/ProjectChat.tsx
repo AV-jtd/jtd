@@ -25,6 +25,10 @@ interface ProjectChatProps {
   onClose: () => void;
   /** When true, hides the header (used inside MessengerPanel) */
   embedded?: boolean;
+  /** When true, chat is rendered as a full-screen page. */
+  fullscreen?: boolean;
+  /** Toggle between side panel and full-screen route. */
+  onToggleFullscreen?: () => void;
   /** Navigate to the project detail view */
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
@@ -35,7 +39,7 @@ function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || msg.external_author || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
