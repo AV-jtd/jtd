@@ -43,6 +43,7 @@ const Kanban = lazyWithRetry(() => import("./pages/Kanban"));
 const KanbanBoard = lazyWithRetry(() => import("./pages/KanbanBoard"));
 const ConsultantAreasDemo = lazyWithRetry(() => import("./pages/dev/ConsultantAreasDemo"));
 const SwStatus = lazyWithRetry(() => import("./pages/dev/SwStatus"));
+const CrmChatDemo = lazyWithRetry(() => import("./pages/dev/CrmChatDemo"));
 
 /**
  * Redirects consultants away from modules they are not allowed to see.
@@ -131,6 +132,7 @@ function AppContent() {
               <Route path="/report" element={<PublicReport />} />
               <Route path="/dev/consultant-areas" element={<ConsultantAreasDemo />} />
               <Route path="/dev/sw-status" element={<SwStatus />} />
+              <Route path="/dev/crm-chat" element={<CrmChatDemo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
