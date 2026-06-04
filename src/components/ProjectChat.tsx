@@ -668,7 +668,6 @@ function MessageBubble({
   onReply,
   onDelete,
   onCreateTask,
-  onCreateAssignment,
   isReply,
   reactions,
   users,
@@ -678,14 +677,12 @@ function MessageBubble({
   onReply: () => void;
   onDelete?: () => void;
   onCreateTask?: () => void;
-  onCreateAssignment?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
   users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
-  if (onCreateAssignment) actions.push({ icon: UserCheck, onClick: onCreateAssignment, title: "Создать поручение", tone: "primary" });
   actions.push({ icon: Reply, onClick: onReply, title: "Ответить" });
   if (onDelete) actions.push({ icon: Trash2, onClick: onDelete, title: "Удалить", tone: "danger" });
 
