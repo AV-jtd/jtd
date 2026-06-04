@@ -649,6 +649,7 @@ function MessageBubble({
   onReply,
   onDelete,
   onCreateTask,
+  onCreateAssignment,
   isReply,
   reactions,
   users,
@@ -658,12 +659,14 @@ function MessageBubble({
   onReply: () => void;
   onDelete?: () => void;
   onCreateTask?: () => void;
+  onCreateAssignment?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
   users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
+  if (onCreateAssignment) actions.push({ icon: UserCheck, onClick: onCreateAssignment, title: "Создать поручение", tone: "primary" });
   actions.push({ icon: Reply, onClick: onReply, title: "Ответить" });
   if (onDelete) actions.push({ icon: Trash2, onClick: onDelete, title: "Удалить", tone: "danger" });
 
@@ -696,6 +699,7 @@ function InlineTaskForm({
   onCancel,
   onSubmit,
   isSubmitting,
+  kind = "task_created",
 }: {
   message: GroupMessage;
   availableUsers: Profile[];
@@ -703,7 +707,9 @@ function InlineTaskForm({
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
+  kind?: ChatCardKind;
 }) {
+  const isAssignment = kind === "assignment_created";
   const [title, setTitle] = useState(() => message.content.slice(0, 80));
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
@@ -715,7 +721,7 @@ function InlineTaskForm({
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Название задачи"
+        placeholder={isAssignment ? "Что поручить" : "Название задачи"}
         className="h-8 text-sm"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -768,62 +774,10 @@ function InlineTaskForm({
             onClick={() => onSubmit({ title, assignee, deadline: deadline || null })}
             className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
           >
-            {isSubmitting ? "..." : "Создать"}
+            {isSubmitting ? "..." : isAssignment ? "Поручить" : "Создать"}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
-
-/**
- * Распознаём системную карточку «📝 Создана задача …», прилетевшую из
- * Telegram/MAX (mirrorTaskCreatedCard). Маркер — external_message_id вида
- * "task-created:<taskId>". Возвращаем данные для рендера CreatedTaskCard.
- */
-function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineLabel?: string }) | null {
-  const ext = msg.external_message_id || "";
-  if (!ext.startsWith("task-created:")) return null;
-  const id = ext.slice("task-created:".length);
-  if (!id) return null;
-  const content = msg.content || "";
-  const titleMatch = content.match(/«([\s\S]*?)»/);
-  const title = titleMatch?.[1]?.trim() || "Без названия";
-  const assigneeMatch = content.match(/👤\s*([^·\n]+)/);
-  const assigneeName = assigneeMatch?.[1]?.trim() || undefined;
-  const deadlineMatch = content.match(/📅\s*([^·\n]+)/);
-  const deadlineLabel = deadlineMatch?.[1]?.trim() || undefined;
-  return { id, title, assigneeName, deadlineLabel };
-}
-
-function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick?: () => void; isCompleted?: boolean }) {
-  const content = (
-    <span className="inline-flex min-w-0 max-w-[calc(100vw-5.5rem)] items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary sm:max-w-[280px]">
-      <CheckSquare className="h-2.5 w-2.5 shrink-0" />
-      <span className="shrink-0">Создана задача:</span>
-      <span className={cn("truncate font-semibold", isCompleted && "line-through opacity-70")}>
-        {info.title || "Без названия"}
-      </span>
-      {isCompleted && <ClosedTaskPill className="ml-1" />}
-    </span>
-  );
-
-  return (
-    <div className="mt-2 flex items-center gap-2 py-1">
-      <div className="h-px flex-1 bg-primary/20" />
-      {onClick ? (
-        <button
-          type="button"
-          onClick={onClick}
-          className="min-w-0 hover:opacity-80 transition-opacity"
-          title="Открыть задачу"
-        >
-          {content}
-        </button>
-      ) : content}
-      <div className="h-px flex-1 bg-primary/20" />
     </div>
   );
 }
