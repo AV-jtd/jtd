@@ -44,6 +44,7 @@ const KanbanBoard = lazyWithRetry(() => import("./pages/KanbanBoard"));
 const ConsultantAreasDemo = lazyWithRetry(() => import("./pages/dev/ConsultantAreasDemo"));
 const SwStatus = lazyWithRetry(() => import("./pages/dev/SwStatus"));
 const CrmChatDemo = lazyWithRetry(() => import("./pages/dev/CrmChatDemo"));
+const ChatFullscreen = lazyWithRetry(() => import("./pages/ChatFullscreen"));
 
 /**
  * Redirects consultants away from modules they are not allowed to see.
@@ -127,6 +128,7 @@ function AppContent() {
               <Route path="/protocols/:id" element={<ConsultantBlocked><ProtocolDetail /></ConsultantBlocked>} />
               <Route path="/kanban" element={<ConsultantBlocked><Kanban /></ConsultantBlocked>} />
               <Route path="/kanban/:boardId" element={<ConsultantBlocked><KanbanBoard /></ConsultantBlocked>} />
+              <Route path="/chat/:groupId" element={<ConsultantBlocked><ChatFullscreen /></ConsultantBlocked>} />
               <Route path="/my-department" element={<ConsultantBlocked><MyDepartment /></ConsultantBlocked>} />
               <Route path="/wiki-demo" element={<ConsultantBlocked><WikiDemo /></ConsultantBlocked>} />
               <Route path="/report" element={<PublicReport />} />
