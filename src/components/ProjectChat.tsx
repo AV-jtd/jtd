@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, UserCheck, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,8 +15,9 @@ import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
 import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
-import ClosedTaskPill from "./ClosedTaskPill";
 import ChatLinkDialog from "./ChatLinkDialog";
+import SystemCard from "./chat/SystemCard";
+import { parseChatCard, getChatCardDef, chatCardMarker, formatChatCardBody, type ChatCardKind, type ParsedChatCard } from "@/lib/chatCards";
 
 interface ProjectChatProps {
   groupId: string;
