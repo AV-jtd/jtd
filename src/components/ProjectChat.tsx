@@ -148,6 +148,26 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
+
+    // Слэш-команды: /задача <текст> · /поручение @Кто <текст> — создают
+    // задачу/поручение прямо из композера и постят system-карточку в ленту.
+    const slash = text.match(/^\/(задача|task|поручение|assignment)\s+([\s\S]+)$/i);
+    if (slash) {
+      const kind: ChatCardKind = /поручение|assignment/i.test(slash[1]) ? "assignment_created" : "task_created";
+      let rest = slash[2].trim();
+      let assignee: Profile | null = null;
+      const mentionIds = resolveMentionedUserIds(rest, availableUsers);
+      if (mentionIds.length > 0) {
+        assignee = availableUsers.find((u) => u.id === mentionIds[0]) || null;
+        rest = rest.replace(/@([A-Za-zА-Яа-яЁё0-9_.\-]+)/g, "").trim();
+      }
+      handleCreateCard(kind, null, { title: rest, assignee, deadline: null });
+      setDraft("");
+      setReplyTo(null);
+      mentionedRef.current.clear();
+      return;
+    }
+
     const parent = replyTo;
     sendMessage.mutate({ group_id: groupId, content: text, reply_to: parent?.id || null });
 
