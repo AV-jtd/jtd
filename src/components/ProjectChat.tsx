@@ -506,7 +506,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                     isOwn={isOwn}
                     onReply={() => startReply(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
-                    onCreateTask={() => openTaskForm(msg.id)}
+                    onCreateTask={() => openTaskForm(msg.id, "task_created")}
+                    onCreateAssignment={() => openTaskForm(msg.id, "assignment_created")}
                     reactions={reactionsByMsg[msg.id]}
                     users={availableUsers}
                   />
@@ -563,7 +564,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                         isOwn={reply.user_id === user?.id}
                         onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => openTaskForm(reply.id)}
+                        onCreateTask={() => openTaskForm(reply.id, "task_created")}
+                        onCreateAssignment={() => openTaskForm(reply.id, "assignment_created")}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
                         users={availableUsers}
