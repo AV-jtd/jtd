@@ -116,7 +116,7 @@ export default function ProjectsTree({
       const sub = (g as { project_subtype?: string }).project_subtype;
       if (t === "npd" && sub === "npd_stm") stm.push(g);
       else if (t === "npd") npd.push(g);
-      else if (t !== "protocol") nonNpd.push(g);
+      else if (t !== "protocol" && t !== "crm_client") nonNpd.push(g);
     }
     return { rootGroups: root, archivedGroups: archived, npdRootGroups: npd, stmRootGroups: stm, nonNpdRootGroups: nonNpd };
   }, [groups]);

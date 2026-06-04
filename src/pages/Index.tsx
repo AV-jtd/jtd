@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams, useNavigate } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
 import TelegramLinkBanner from "@/components/TelegramLinkBanner";
 import { useTaskGroups } from "@/hooks/useTasks";
@@ -59,6 +59,7 @@ export default function Index() {
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Consultants are limited to a small whitelist of personal views.
   // If they (or a stale state) try to land on a restricted view — bounce to "all".
@@ -215,6 +216,7 @@ export default function Index() {
                     groupId={activeGroupId}
                     groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
                     onClose={() => setChatOpen(false)}
+                    onToggleFullscreen={() => navigate(`/chat/${activeGroupId}`)}
                     onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
                     onNavigateToTask={(taskId) => {
                       setActiveView("all");
