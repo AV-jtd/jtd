@@ -9,8 +9,8 @@ import ChatAvatar from "@/components/chat/ChatAvatar";
 import {
   Search, Send, Paperclip, Phone, Mail, MapPin, CheckSquare,
   TrendingUp, TrendingDown, Target, Clock, AlertTriangle, FileText,
-  ListChecks, BarChart3, MessageSquare, UserCheck, ChevronRight,
-  Sparkles, CircleDot, Plus, CalendarClock, Building2, Reply, Users, AtSign,
+  ListChecks, BarChart3, MessageSquare, UserCheck, ChevronRight, ChevronLeft,
+  Sparkles, CircleDot, Plus, CalendarClock, Building2, Reply, Users, AtSign, Info, X,
 } from "lucide-react";
 
 /**
@@ -20,16 +20,19 @@ import {
  *
  * ВАЖНО (уточнение Артёма): чат НЕ с клиентом. Это ВНУТРЕННИЙ чат команды
  * ПРО клиента — рабочая комната, где менеджеры, аналитики и смежные отделы
- * обсуждают клиента, договариваются и прямо из переписки заводят задачи,
- * поручения и фиксируют показатели.
- *
- * 1 клиент = 1 рабочая комната команды.
+ * обсуждают клиента и прямо из переписки заводят задачи, поручения и
+ * фиксируют показатели. 1 клиент = 1 рабочая комната команды.
  *
  * Оформление наследует реальный чат приложения (ProjectChat):
  *  - строки сообщений с аватаром-инициалами + имя + время + текст (без «пузырей»),
  *  - системные события (Создана задача / Поручение / Показатель / Протокол)
  *    рендерятся карточками-разделителями в ленте,
  *  - hover-действия (ответить, задача), @упоминания, /команды в композере.
+ *
+ * АДАПТИВ: на узких экранах сайдбары скрываются.
+ *  - Левая (список комнат) и центр (чат) переключаются: выбор клиента → чат,
+ *    кнопка «назад» → список.
+ *  - Правая (контекст клиента) открывается выезжающей шторкой по кнопке (i).
  *
  * Полностью на фейковых данных, ничего не пишет в БД.
  */
@@ -44,7 +47,7 @@ type Room = {
   rank: "A" | "B" | "C";
   stage: string;
   stageColor: string;
-  members: string[];          // команда, работающая по клиенту
+  members: string[];
   last: string;
   lastAuthor: string;
   time: string;
@@ -64,7 +67,6 @@ type Msg =
   | { kind: "system"; id: string; variant: "task" | "assignment" | "metric" | "protocol"; text: string; meta?: string; time: string }
   | { kind: "date"; id: string; label: string };
 
-// Внутренняя переписка КОМАНДЫ про клиента «Магнит»
 const THREAD: Msg[] = [
   { kind: "date", id: "d1", label: "Сегодня" },
   { kind: "system", id: "p1", variant: "protocol", text: "Протокол встречи «Запуск новой линейки»", meta: "5 решений · 3 задачи · опубликован", time: "09:15" },
@@ -122,31 +124,39 @@ function rankColor(r: string) {
 export default function CrmChatDemo() {
   const [activeRoom, setActiveRoom] = useState("1");
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("chat");
+  const [mobileShowRoom, setMobileShowRoom] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const room = ROOMS.find((c) => c.id === activeRoom)!;
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Concept banner */}
-      <div className="shrink-0 border-b border-border bg-gradient-to-r from-cyan-500/10 via-primary/5 to-violet-500/10 px-5 py-3">
+      <div className="shrink-0 border-b border-border bg-gradient-to-r from-cyan-500/10 via-primary/5 to-violet-500/10 px-4 sm:px-5 py-2.5 sm:py-3">
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center shrink-0">
             <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold tracking-tight">
+            <div className="text-xs sm:text-sm font-bold tracking-tight truncate">
               Концепт · CRM через внутренний командный чат
             </div>
-            <div className="text-xs text-muted-foreground truncate">
-              Чат не с клиентом, а команды ПРО клиента. 1 клиент = 1 рабочая комната: обсуждение, задачи, поручения и показатели в одной ленте.
+            <div className="text-[11px] sm:text-xs text-muted-foreground truncate">
+              Чат не с клиентом, а команды ПРО клиента. 1 клиент = 1 рабочая комната.
             </div>
           </div>
-          <Badge variant="outline" className="ml-auto shrink-0 text-[10px]">Макет · фейковые данные</Badge>
+          <Badge variant="outline" className="ml-auto shrink-0 text-[10px] hidden sm:inline-flex">Макет · фейковые данные</Badge>
         </div>
       </div>
 
       <div className="flex flex-1 min-h-0">
         {/* ── LEFT: room list (1 client = 1 team room) ── */}
-        <aside className="w-80 shrink-0 border-r border-border flex flex-col bg-sidebar-bg/40">
+        <aside
+          className={cn(
+            "w-80 shrink-0 border-r border-border flex flex-col bg-sidebar-bg/40",
+            "max-md:w-full max-md:border-r-0",
+            mobileShowRoom && "max-md:hidden",
+          )}
+        >
           <div className="p-3 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
               Рабочие комнаты по клиентам
@@ -161,10 +171,10 @@ export default function CrmChatDemo() {
               {ROOMS.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => { setActiveRoom(c.id); setTab("chat"); }}
+                  onClick={() => { setActiveRoom(c.id); setTab("chat"); setMobileShowRoom(true); }}
                   className={cn(
                     "w-full text-left rounded-xl px-2.5 py-2.5 flex gap-3 transition-colors",
-                    c.id === activeRoom ? "bg-primary/10" : "hover:bg-muted/60"
+                    c.id === activeRoom ? "bg-primary/10 md:bg-primary/10" : "hover:bg-muted/60"
                   )}
                 >
                   <div className="h-11 w-11 rounded-full bg-gradient-to-br from-muted to-secondary flex items-center justify-center text-xl shrink-0">
@@ -184,7 +194,6 @@ export default function CrmChatDemo() {
                         <span className="font-medium text-foreground/70">{c.lastAuthor}:</span> {c.last}
                       </span>
                     </div>
-                    {/* team in this room */}
                     <div className="flex items-center gap-1 mt-1.5">
                       <div className="flex -space-x-1.5">
                         {c.members.slice(0, 3).map((m) => (
@@ -208,16 +217,28 @@ export default function CrmChatDemo() {
         </aside>
 
         {/* ── CENTER: team room with tabs ── */}
-        <main className="flex-1 min-w-0 flex flex-col">
+        <main
+          className={cn(
+            "flex-1 min-w-0 flex flex-col",
+            !mobileShowRoom && "max-md:hidden",
+          )}
+        >
           {/* header */}
-          <div className="shrink-0 px-4 py-3 border-b border-border flex items-center gap-3">
+          <div className="shrink-0 px-3 sm:px-4 py-3 border-b border-border flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setMobileShowRoom(false)}
+              className="md:hidden -ml-1 p-1 rounded-lg hover:bg-muted text-muted-foreground shrink-0"
+              aria-label="Назад к списку"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-muted to-secondary flex items-center justify-center text-lg shrink-0">
               {room.emoji}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight">{room.name}</span>
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", `bg-${room.stageColor}/15 text-${room.stageColor}`)}>{room.stage}</span>
+                <span className="font-bold tracking-tight truncate">{room.name}</span>
+                <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0", `bg-${room.stageColor}/15 text-${room.stageColor}`)}>{room.stage}</span>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <MapPin className="h-3 w-3" /> {room.territory}
@@ -225,25 +246,28 @@ export default function CrmChatDemo() {
                 <Users className="h-3 w-3" /> команда по клиенту
               </div>
             </div>
-            {/* team avatars instead of "call client" actions */}
             <div className="ml-auto flex items-center gap-2">
-              <div className="flex -space-x-2">
+              <div className="hidden sm:flex -space-x-2">
                 {room.members.map((m) => (
                   <ChatAvatar key={m} name={m} size="sm" className="ring-2 ring-background h-7 w-7 text-[10px]" />
                 ))}
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
+              {/* open context as drawer when right sidebar is hidden (< xl) */}
+              <Button variant="ghost" size="icon" className="h-8 w-8 xl:hidden" onClick={() => setInfoOpen(true)} aria-label="Контекст клиента">
+                <Info className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hidden xl:inline-flex"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
 
           {/* tabs */}
-          <div className="shrink-0 flex items-center gap-1 px-3 border-b border-border">
+          <div className="shrink-0 flex items-center gap-1 px-2 sm:px-3 border-b border-border overflow-x-auto">
             {TABS.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-1.5 px-2.5 sm:px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0",
                   tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -263,113 +287,139 @@ export default function CrmChatDemo() {
           {tab === "assignments" && <AssignmentsTab />}
         </main>
 
-        {/* ── RIGHT: context sidebar ── */}
+        {/* ── RIGHT: context sidebar (desktop ≥ xl) ── */}
         <aside className="w-80 shrink-0 border-l border-border hidden xl:flex flex-col bg-sidebar-bg/40">
           <ScrollArea className="flex-1">
-            <div className="p-4 space-y-5">
-              {/* client card */}
-              <div className="text-center">
-                <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-muted to-secondary flex items-center justify-center text-3xl mb-2">{room.emoji}</div>
-                <div className="font-bold">{room.name}</div>
-                <div className="text-xs text-muted-foreground">{room.territory} · Ранг {room.rank}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5 text-xs">
-                <InfoRow icon={Phone} text="+7 495 123-45-67" />
-                <InfoRow icon={Mail} text="anna@magnit.ru" />
-                <InfoRow icon={UserCheck} text="Ира К." />
-                <InfoRow icon={Building2} text="Сеть FMCG" />
-              </div>
-
-              {/* team in room */}
-              <Section title="Команда по клиенту" action="+">
-                <div className="space-y-1">
-                  {[
-                    { n: "Ира К.", r: "Менеджер · ответственный" },
-                    { n: "Олег В.", r: "Аналитик" },
-                    { n: "Марк С.", r: "Логистика" },
-                  ].map((p) => (
-                    <div key={p.n} className="flex items-center gap-2 text-xs rounded-lg px-1.5 py-1 hover:bg-muted/60">
-                      <ChatAvatar name={p.n} />
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{p.n}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{p.r}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* funnel progress */}
-              <Section title="Стадия воронки">
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-muted-foreground">Переговоры</span>
-                  <span className="font-semibold">4 / 5</span>
-                </div>
-                <Progress value={80} className="h-1.5" />
-              </Section>
-
-              {/* key metrics */}
-              <Section title="Показатели" action="Все">
-                <div className="grid grid-cols-2 gap-2">
-                  {METRICS.slice(0, 4).map((m) => (
-                    <div key={m.label} className="rounded-xl border border-border bg-card p-2.5">
-                      <div className="text-[10px] text-muted-foreground">{m.label}</div>
-                      <div className="text-sm font-bold">{m.value}</div>
-                      <div className={cn("text-[10px] font-medium", m.up ? "text-tag-green" : "text-destructive")}>{m.delta}</div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* main tasks */}
-              <Section title="Основные задачи" action="4">
-                <div className="space-y-1.5">
-                  {TASKS.slice(0, 3).map((t) => (
-                    <div key={t.title} className="flex items-start gap-2 text-xs rounded-lg px-2 py-1.5 hover:bg-muted/60">
-                      {t.done
-                        ? <CheckSquare className="h-3.5 w-3.5 text-tag-green mt-0.5 shrink-0" />
-                        : <CircleDot className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", t.overdue ? "text-destructive" : "text-muted-foreground")} />}
-                      <div className="min-w-0">
-                        <div className={cn("truncate", t.done && "line-through text-muted-foreground")}>{t.title}</div>
-                        <div className={cn("text-[10px]", t.overdue ? "text-destructive" : "text-muted-foreground")}>
-                          {t.overdue ? "⚠ просрочено · " : ""}{t.who} · {t.due}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* assignments */}
-              <Section title="Поручения" action="2">
-                <div className="space-y-1.5">
-                  {ASSIGNMENTS.map((a) => (
-                    <div key={a.title} className="rounded-lg border border-border bg-card px-2.5 py-2 text-xs">
-                      <div className="font-medium truncate">{a.title}</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <UserCheck className="h-3 w-3" /> {a.to} · до {a.due}
-                        <span className="ml-auto px-1.5 py-0.5 rounded-full bg-tag-purple/15 text-tag-purple">{a.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* documents */}
-              <Section title="Документы">
-                <div className="space-y-1">
-                  {["КП_новая_линейка.pdf", "Договор_поставки_2026.docx", "Протокол_встречи_03.06.pdf"].map((d) => (
-                    <div key={d} className="flex items-center gap-2 text-xs text-primary hover:underline cursor-pointer">
-                      <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{d}</span>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            </div>
+            <ContextPanel room={room} />
           </ScrollArea>
         </aside>
+
+        {/* ── RIGHT: context drawer (mobile / tablet < xl) ── */}
+        {infoOpen && (
+          <div className="fixed inset-0 z-50 xl:hidden">
+            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setInfoOpen(false)} />
+            <aside className="absolute right-0 top-0 h-full w-[86%] max-w-sm bg-background border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+              <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+                <span className="text-sm font-semibold">Контекст клиента</span>
+                <button onClick={() => setInfoOpen(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground" aria-label="Закрыть">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <ScrollArea className="flex-1">
+                <ContextPanel room={room} />
+              </ScrollArea>
+            </aside>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────── context panel ───────────────────────────
+
+function ContextPanel({ room }: { room: Room }) {
+  return (
+    <div className="p-4 space-y-5">
+      {/* client card */}
+      <div className="text-center">
+        <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-muted to-secondary flex items-center justify-center text-3xl mb-2">{room.emoji}</div>
+        <div className="font-bold">{room.name}</div>
+        <div className="text-xs text-muted-foreground">{room.territory} · Ранг {room.rank}</div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 text-xs">
+        <InfoRow icon={Phone} text="+7 495 123-45-67" />
+        <InfoRow icon={Mail} text="anna@magnit.ru" />
+        <InfoRow icon={UserCheck} text="Ира К." />
+        <InfoRow icon={Building2} text="Сеть FMCG" />
+      </div>
+
+      {/* team in room */}
+      <Section title="Команда по клиенту" action="+">
+        <div className="space-y-1">
+          {[
+            { n: "Ира К.", r: "Менеджер · ответственный" },
+            { n: "Олег В.", r: "Аналитик" },
+            { n: "Марк С.", r: "Логистика" },
+          ].map((p) => (
+            <div key={p.n} className="flex items-center gap-2 text-xs rounded-lg px-1.5 py-1 hover:bg-muted/60">
+              <ChatAvatar name={p.n} />
+              <div className="min-w-0">
+                <div className="font-medium truncate">{p.n}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{p.r}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* funnel progress */}
+      <Section title="Стадия воронки">
+        <div className="flex items-center justify-between text-xs mb-1.5">
+          <span className="text-muted-foreground">Переговоры</span>
+          <span className="font-semibold">4 / 5</span>
+        </div>
+        <Progress value={80} className="h-1.5" />
+      </Section>
+
+      {/* key metrics */}
+      <Section title="Показатели" action="Все">
+        <div className="grid grid-cols-2 gap-2">
+          {METRICS.slice(0, 4).map((m) => (
+            <div key={m.label} className="rounded-xl border border-border bg-card p-2.5">
+              <div className="text-[10px] text-muted-foreground">{m.label}</div>
+              <div className="text-sm font-bold">{m.value}</div>
+              <div className={cn("text-[10px] font-medium", m.up ? "text-tag-green" : "text-destructive")}>{m.delta}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* main tasks */}
+      <Section title="Основные задачи" action="4">
+        <div className="space-y-1.5">
+          {TASKS.slice(0, 3).map((t) => (
+            <div key={t.title} className="flex items-start gap-2 text-xs rounded-lg px-2 py-1.5 hover:bg-muted/60">
+              {t.done
+                ? <CheckSquare className="h-3.5 w-3.5 text-tag-green mt-0.5 shrink-0" />
+                : <CircleDot className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", t.overdue ? "text-destructive" : "text-muted-foreground")} />}
+              <div className="min-w-0">
+                <div className={cn("truncate", t.done && "line-through text-muted-foreground")}>{t.title}</div>
+                <div className={cn("text-[10px]", t.overdue ? "text-destructive" : "text-muted-foreground")}>
+                  {t.overdue ? "⚠ просрочено · " : ""}{t.who} · {t.due}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* assignments */}
+      <Section title="Поручения" action="2">
+        <div className="space-y-1.5">
+          {ASSIGNMENTS.map((a) => (
+            <div key={a.title} className="rounded-lg border border-border bg-card px-2.5 py-2 text-xs">
+              <div className="font-medium truncate">{a.title}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                <UserCheck className="h-3 w-3" /> {a.to} · до {a.due}
+                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-tag-purple/15 text-tag-purple">{a.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* documents */}
+      <Section title="Документы">
+        <div className="space-y-1">
+          {["КП_новая_линейка.pdf", "Договор_поставки_2026.docx", "Протокол_встречи_03.06.pdf"].map((d) => (
+            <div key={d} className="flex items-center gap-2 text-xs text-primary hover:underline cursor-pointer">
+              <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{d}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
     </div>
   );
 }
@@ -379,7 +429,7 @@ export default function CrmChatDemo() {
 function ChatTab() {
   return (
     <>
-      <ScrollArea className="flex-1 px-4 py-4 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:!min-w-0">
+      <ScrollArea className="flex-1 px-3 sm:px-4 py-4 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:!min-w-0">
         <div className="max-w-2xl mx-auto space-y-3">
           {THREAD.map((m) => {
             if (m.kind === "date") {
@@ -397,16 +447,16 @@ function ChatTab() {
         </div>
       </ScrollArea>
       {/* composer */}
-      <div className="shrink-0 border-t border-border p-3">
+      <div className="shrink-0 border-t border-border p-2.5 sm:p-3">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0"><Plus className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 hidden sm:inline-flex"><Plus className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0"><Paperclip className="h-4 w-4" /></Button>
-            <Input placeholder="Сообщение команде · @упоминание · /задача · /поручение…" className="h-10 bg-background" />
+            <Input placeholder="Сообщение · @упоминание · /задача…" className="h-10 bg-background" />
             <Button size="icon" className="h-10 w-10 shrink-0"><Send className="h-4 w-4" /></Button>
           </div>
-          <div className="flex items-center gap-3 mt-1.5 pl-12 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1"><AtSign className="h-3 w-3" /> упомянуть коллегу</span>
+          <div className="flex items-center gap-3 mt-1.5 pl-1 sm:pl-12 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><AtSign className="h-3 w-3" /> упомянуть</span>
             <span className="flex items-center gap-1"><CheckSquare className="h-3 w-3" /> /задача</span>
             <span className="flex items-center gap-1"><UserCheck className="h-3 w-3" /> /поручение</span>
           </div>
@@ -435,8 +485,7 @@ function MessageRow({ m }: { m: Extract<Msg, { kind: "msg" }> }) {
           <MentionText text={m.text} />
         </p>
       </div>
-      {/* hover actions like real chat */}
-      <div className="pointer-events-none absolute top-0 right-0 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+      <div className="pointer-events-none absolute top-0 right-0 opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 transition-opacity">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-card/95 backdrop-blur-sm border border-border shadow-sm px-1 py-0.5">
           <button className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary" title="Создать задачу"><CheckSquare className="h-3 w-3" /></button>
           <button className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Ответить"><Reply className="h-3 w-3" /></button>
@@ -468,11 +517,11 @@ function SystemCard({ m }: { m: Extract<Msg, { kind: "system" }> }) {
   return (
     <div className="flex items-center gap-2 py-0.5">
       <div className={cn("h-px flex-1", s.line)} />
-      <button className={cn("group inline-flex items-center gap-2 rounded-full px-2.5 py-1 max-w-[80%] transition-colors hover:brightness-105", s.chip)}>
+      <button className={cn("group inline-flex items-center gap-2 rounded-full px-2.5 py-1 max-w-[85%] transition-colors hover:brightness-105", s.chip)}>
         <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="text-[10px] font-bold uppercase tracking-wide shrink-0">{s.label}:</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide shrink-0 hidden sm:inline">{s.label}:</span>
         <span className="text-xs font-medium truncate">{m.text}</span>
-        {m.meta && <span className="text-[10px] opacity-70 truncate hidden sm:inline">· {m.meta}</span>}
+        {m.meta && <span className="text-[10px] opacity-70 truncate hidden md:inline">· {m.meta}</span>}
         <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-100" />
       </button>
       <div className={cn("h-px flex-1", s.line)} />
@@ -483,7 +532,7 @@ function SystemCard({ m }: { m: Extract<Msg, { kind: "system" }> }) {
 function TasksTab() {
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-2xl mx-auto p-5 space-y-2">
+      <div className="max-w-2xl mx-auto p-4 sm:p-5 space-y-2">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold">Задачи по клиенту</h3>
           <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"><Plus className="h-3 w-3" /> Задача</Button>
@@ -495,7 +544,7 @@ function TasksTab() {
               : <CircleDot className={cn("h-4 w-4 shrink-0", t.overdue ? "text-destructive" : "text-muted-foreground")} />}
             <div className="min-w-0 flex-1">
               <div className={cn("text-sm truncate", t.done && "line-through text-muted-foreground")}>{t.title}</div>
-              <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
                 <span className="px-1.5 py-0.5 rounded-full bg-muted">{t.stage}</span>
                 <UserCheck className="h-3 w-3" /> {t.who}
                 <CalendarClock className="h-3 w-3" /> <span className={cn(t.overdue && "text-destructive font-medium")}>{t.overdue ? "⚠ " : ""}{t.due}</span>
@@ -511,7 +560,7 @@ function TasksTab() {
 function MetricsTab() {
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-2xl mx-auto p-5 space-y-4">
+      <div className="max-w-2xl mx-auto p-4 sm:p-5 space-y-4">
         <h3 className="text-sm font-semibold">Показатели клиента</h3>
         <div className="grid grid-cols-2 gap-3">
           {METRICS.map((m) => (
@@ -546,7 +595,7 @@ function MetricsTab() {
 function AssignmentsTab() {
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-2xl mx-auto p-5 space-y-2">
+      <div className="max-w-2xl mx-auto p-4 sm:p-5 space-y-2">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold">Поручения по клиенту</h3>
           <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"><Plus className="h-3 w-3" /> Поручение</Button>
