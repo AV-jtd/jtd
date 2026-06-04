@@ -543,7 +543,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                       <div className="text-[10px] text-muted-foreground/70 italic truncate">
                         ↳ ответ на «{msg.content.slice(0, 60)}{msg.content.length > 60 ? "…" : ""}»
                       </div>
-                      {replies.map(reply => (
+                      {replies.map(reply => {
+                        const replyCard = parseChatCard(reply.external_message_id, reply.content);
+                        if (replyCard) {
+                          return (
+                            <div key={reply.id}>
+                              <SystemCard
+                                card={replyCard}
+                                isCompleted={replyCard.def.target === "task" ? (taskStatusMap?.get(replyCard.entityId) ?? false) : false}
+                                onClick={replyCard.def.target === "task" ? () => onNavigateToTask?.(replyCard.entityId) : undefined}
+                              />
+                            </div>
+                          );
+                        }
+                        return (
                         <div key={reply.id}>
                           <MessageBubble
                         msg={reply}
@@ -562,19 +575,14 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
                           onCancel={closeTaskForm}
-                          onSubmit={(payload) => handleCreateTask(reply, payload)}
+                          kind={formKind}
+                          onSubmit={(payload) => handleCreateCard(formKind, reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
                       )}
-                      {createdTasks[reply.id] && (
-                        <CreatedTaskCard
-                          info={createdTasks[reply.id]}
-                          isCompleted={taskStatusMap?.get(createdTasks[reply.id].id) ?? false}
-                          onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
-                        />
-                      )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
