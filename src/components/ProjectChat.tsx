@@ -238,16 +238,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   }, [rootMessages, repliesMap, searchLower]);
 
   /**
-   * Единая точка создания задачи/поручения из чата (из сообщения или из
-   * композера). После создания пишет в `group_messages` персистентную
-   * system-карточку (через реестр chatCards), которая рендерится во всех чатах
-   * и зеркалится в TG/MAX. `msg = null` — создание из слэш-команды композера.
+   * Единая точка создания задачи из чата (из сообщения или из композера).
+   * После создания пишет в `group_messages` персистентную system-карточку
+   * (через реестр chatCards), которая рендерится во всех чатах и зеркалится в
+   * TG/MAX. `msg = null` — создание из слэш-команды композера.
    */
   const handleCreateCard = async (
-    kind: ChatCardKind,
     msg: GroupMessage | null,
     payload: { title: string; assignee: Profile | null; deadline: string | null },
   ) => {
+    const kind: ChatCardKind = "task_created";
     const def = getChatCardDef(kind);
     try {
       const sourceText = msg ? `\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}` : "";
@@ -263,12 +263,6 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
       try {
         await updateTask.mutateAsync({ id: t.id, description: desc });
       } catch (e) { /* non-fatal */ }
-      // Поручение = делегирование 1 уровня: отмечаем delegated_from.
-      if (kind === "assignment_created" && payload.assignee?.id) {
-        try {
-          await updateTask.mutateAsync({ id: t.id, assigned_to: payload.assignee.id, delegated_from: user?.id || null } as any);
-        } catch (e) { /* non-fatal */ }
-      }
 
       const deadlineLabel = payload.deadline
         ? new Date(payload.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
@@ -307,7 +301,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
 
       if (msg) setTaskFormFor(prev => (prev === msg.id ? null : prev));
       setTaskFormNonce(n => n + 1);
-      toast.success(kind === "assignment_created" ? "Поручение создано" : "Задача создана");
+      toast.success("Задача создана");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось создать");
     }
