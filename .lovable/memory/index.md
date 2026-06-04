@@ -23,3 +23,4 @@
 - [features/project-tag-inheritance](mem://features/project-tag-inheritance) — Создание проекта: одноимённый свободный тег → linked_tag_id (зеркало); подпроект наследует все group_tags родителя; addGroup принимает initial_tag_ids.
 - [style/product-naming](mem://style/product-naming) — Продукт называется только "JustTODOit" или "JTD". Запрещено "TaskFlow".
 - [features/messenger-auto-join](mem://features/messenger-auto-join) — Пишущие в привязанном чате (TG/MAX) авто-добавляются участниками проекта JTD.
+- [streams/crm-chat-communication](mem://streams/crm-chat-communication) — ⏸ Концепт: CRM через внутренний чат, 1 клиент=1 чат с вкладками (Обсуждение/Задачи/Показатели/Поручения). Макет /dev/crm-chat.
