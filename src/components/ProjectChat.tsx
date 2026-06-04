@@ -479,16 +479,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                 : false;
               const expanded = expandedThreads.has(msg.id) || matchedReply;
 
-              // Системная карточка задачи, прилетевшая из Telegram/MAX —
-              // рендерим как богатую CreatedTaskCard, а не как обычный пузырь.
-              const mirroredTask = parseTaskCreatedCard(msg);
-              if (mirroredTask) {
+              // System-карточка (создана задача/поручение/протокол…) — из реестра,
+              // распознаётся по external_message_id, рендерится как разделитель.
+              const card = parseChatCard(msg.external_message_id, msg.content);
+              if (card) {
                 return (
                   <div key={msg.id} className="group">
-                    <CreatedTaskCard
-                      info={mirroredTask}
-                      isCompleted={taskStatusMap?.get(mirroredTask.id) ?? false}
-                      onClick={() => onNavigateToTask?.(mirroredTask.id)}
+                    <SystemCard
+                      card={card}
+                      isCompleted={card.def.target === "task" ? (taskStatusMap?.get(card.entityId) ?? false) : false}
+                      onClick={
+                        card.def.target === "task"
+                          ? () => onNavigateToTask?.(card.entityId)
+                          : undefined
+                      }
                     />
                   </div>
                 );
@@ -515,17 +519,9 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                       availableUsers={availableUsers}
                       defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
                       onCancel={closeTaskForm}
-                      onSubmit={(payload) => handleCreateTask(msg, payload)}
+                      kind={formKind}
+                      onSubmit={(payload) => handleCreateCard(formKind, msg, payload)}
                       isSubmitting={addTask.isPending}
-                    />
-                  )}
-
-                  {/* System card: task created from this message */}
-                  {createdTasks[msg.id] && (
-                    <CreatedTaskCard
-                      info={createdTasks[msg.id]}
-                      isCompleted={taskStatusMap?.get(createdTasks[msg.id].id) ?? false}
-                      onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
                     />
                   )}
 
