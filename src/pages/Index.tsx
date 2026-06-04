@@ -59,6 +59,7 @@ export default function Index() {
   const isMobile = useIsMobile();
   const { data: groups = [] } = useTaskGroups();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Consultants are limited to a small whitelist of personal views.
   // If they (or a stale state) try to land on a restricted view — bounce to "all".
