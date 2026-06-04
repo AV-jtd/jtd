@@ -215,6 +215,7 @@ export default function Index() {
                     groupId={activeGroupId}
                     groupName={groups.find(g => g.id === activeGroupId)?.name || "Проект"}
                     onClose={() => setChatOpen(false)}
+                    onToggleFullscreen={() => navigate(`/chat/${activeGroupId}`)}
                     onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); }}
                     onNavigateToTask={(taskId) => {
                       setActiveView("all");
