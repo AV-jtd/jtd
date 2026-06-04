@@ -42,7 +42,7 @@ export default function SystemCard({
 
   return (
     <div className="mt-2 flex items-center gap-2 py-1">
-      <div className={cn("h-px flex-1", def.tone.replace(/text-\S+/, "").trim(), "opacity-40 bg-current")} />
+      <div className="h-px flex-1 bg-border" />
       {clickable ? (
         <button
           type="button"
@@ -55,7 +55,7 @@ export default function SystemCard({
       ) : (
         content
       )}
-      <div className={cn("h-px flex-1", def.tone.replace(/text-\S+/, "").trim(), "opacity-40 bg-current")} />
+      <div className="h-px flex-1 bg-border" />
     </div>
   );
 }
