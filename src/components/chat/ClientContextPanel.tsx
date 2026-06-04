@@ -4,7 +4,7 @@ import { Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriang
 import ClientAvatar from "@/components/ClientAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { initialsFromName } from "@/lib/initials";
+import { getInitials } from "@/lib/initials";
 
 type ClientCtx = {
   client: { id: string; name: string; logo_url: string | null; contact_name: string | null; phone: string | null; email: string | null; city: string | null; rankLabel: string | null; territoryLabel: string | null } | null;
