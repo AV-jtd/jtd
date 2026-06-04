@@ -47,6 +47,12 @@ export type ProjectFilterOptions = {
    * проектов их не показываем.
    */
   excludeStmProducts?: boolean;
+  /**
+   * Скрыть CRM-комнаты клиента (project_type='crm_client'). По умолчанию true —
+   * это рабочие чат-комнаты по клиенту, а не самостоятельные проекты, поэтому
+   * они не должны попадать в обычные списки проектов / PMO / NPD.
+   */
+  excludeCrmRooms?: boolean;
   /** Доп. фильтр (после стандартных правил). */
   extra?: (g: any) => boolean;
 };
@@ -64,10 +70,12 @@ export function filterRealProjects<T extends { project_type?: string | null; pro
     excludeClosed = true,
     excludeNpdStreamSubprojects = true,
     excludeStmProducts = true,
+    excludeCrmRooms = true,
     extra,
   } = options;
   return (groups || []).filter((g) => {
     if (excludeProtocols && g.project_type === "protocol") return false;
+    if (excludeCrmRooms && g.project_type === "crm_client") return false;
     if (excludeClosed && g.closed_at) return false;
     if (excludeNpdStreamSubprojects && isNpdStreamSubproject(g)) return false;
     if (excludeStmProducts && g.project_subtype === "npd_stm") return false;
