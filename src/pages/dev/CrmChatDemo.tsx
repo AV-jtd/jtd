@@ -342,8 +342,8 @@ function ChatTab() {
                 </div>
               );
             }
-            if (m.kind === "system" || m.kind === "protocol" || m.kind === "task" || m.kind === "assignment" || m.kind === "metric") {
-              const variant = (m as any).variant ?? m.kind;
+            if (m.kind === "system") {
+              const variant = m.variant;
               const s = sysStyles[variant];
               const Icon = s.icon;
               return (
