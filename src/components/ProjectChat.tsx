@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, UserCheck, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,10 +62,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   /** уникальный nonce открытия формы — меняется при каждом открытии,
    *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
   const [taskFormNonce, setTaskFormNonce] = useState(0);
-  /** Какой тип карточки создаём текущей открытой формой. */
-  const [formKind, setFormKind] = useState<ChatCardKind>("task_created");
-  const openTaskForm = (id: string, kind: ChatCardKind = "task_created") => {
-    setFormKind(kind);
+  const openTaskForm = (id: string) => {
     setTaskFormFor(prev => {
       if (prev === id) return null;          // toggle close
       setTaskFormNonce(n => n + 1);          // bump для нового монтирования
@@ -149,11 +146,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
     const text = draft.trim();
     if (!text) return;
 
-    // Слэш-команды: /задача <текст> · /поручение @Кто <текст> — создают
-    // задачу/поручение прямо из композера и постят system-карточку в ленту.
-    const slash = text.match(/^\/(задача|task|поручение|assignment)\s+([\s\S]+)$/i);
+    // Слэш-команда: /задача @Кто <текст> — создаёт задачу прямо из композера
+    // и постит system-карточку в ленту.
+    const slash = text.match(/^\/(задача|task)\s+([\s\S]+)$/i);
     if (slash) {
-      const kind: ChatCardKind = /поручение|assignment/i.test(slash[1]) ? "assignment_created" : "task_created";
       let rest = slash[2].trim();
       let assignee: Profile | null = null;
       const mentionIds = resolveMentionedUserIds(rest, availableUsers);
@@ -161,7 +157,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
         assignee = availableUsers.find((u) => u.id === mentionIds[0]) || null;
         rest = rest.replace(/@([A-Za-zА-Яа-яЁё0-9_.\-]+)/g, "").trim();
       }
-      handleCreateCard(kind, null, { title: rest, assignee, deadline: null });
+      handleCreateCard(null, { title: rest, assignee, deadline: null });
       setDraft("");
       setReplyTo(null);
       mentionedRef.current.clear();
@@ -242,16 +238,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   }, [rootMessages, repliesMap, searchLower]);
 
   /**
-   * Единая точка создания задачи/поручения из чата (из сообщения или из
-   * композера). После создания пишет в `group_messages` персистентную
-   * system-карточку (через реестр chatCards), которая рендерится во всех чатах
-   * и зеркалится в TG/MAX. `msg = null` — создание из слэш-команды композера.
+   * Единая точка создания задачи из чата (из сообщения или из композера).
+   * После создания пишет в `group_messages` персистентную system-карточку
+   * (через реестр chatCards), которая рендерится во всех чатах и зеркалится в
+   * TG/MAX. `msg = null` — создание из слэш-команды композера.
    */
   const handleCreateCard = async (
-    kind: ChatCardKind,
     msg: GroupMessage | null,
     payload: { title: string; assignee: Profile | null; deadline: string | null },
   ) => {
+    const kind: ChatCardKind = "task_created";
     const def = getChatCardDef(kind);
     try {
       const sourceText = msg ? `\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}` : "";
@@ -267,12 +263,6 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
       try {
         await updateTask.mutateAsync({ id: t.id, description: desc });
       } catch (e) { /* non-fatal */ }
-      // Поручение = делегирование 1 уровня: отмечаем delegated_from.
-      if (kind === "assignment_created" && payload.assignee?.id) {
-        try {
-          await updateTask.mutateAsync({ id: t.id, assigned_to: payload.assignee.id, delegated_from: user?.id || null } as any);
-        } catch (e) { /* non-fatal */ }
-      }
 
       const deadlineLabel = payload.deadline
         ? new Date(payload.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
@@ -311,7 +301,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
 
       if (msg) setTaskFormFor(prev => (prev === msg.id ? null : prev));
       setTaskFormNonce(n => n + 1);
-      toast.success(kind === "assignment_created" ? "Поручение создано" : "Задача создана");
+      toast.success("Задача создана");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось создать");
     }
@@ -537,8 +527,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                     isOwn={isOwn}
                     onReply={() => startReply(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
-                    onCreateTask={() => openTaskForm(msg.id, "task_created")}
-                    onCreateAssignment={() => openTaskForm(msg.id, "assignment_created")}
+                    onCreateTask={() => openTaskForm(msg.id)}
                     reactions={reactionsByMsg[msg.id]}
                     users={availableUsers}
                   />
@@ -551,8 +540,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                       availableUsers={availableUsers}
                       defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
                       onCancel={closeTaskForm}
-                      kind={formKind}
-                      onSubmit={(payload) => handleCreateCard(formKind, msg, payload)}
+                      onSubmit={(payload) => handleCreateCard(msg, payload)}
                       isSubmitting={addTask.isPending}
                     />
                   )}
@@ -595,8 +583,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                         isOwn={reply.user_id === user?.id}
                         onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => openTaskForm(reply.id, "task_created")}
-                        onCreateAssignment={() => openTaskForm(reply.id, "assignment_created")}
+                        onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
                         users={availableUsers}
@@ -608,8 +595,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
                           onCancel={closeTaskForm}
-                          kind={formKind}
-                          onSubmit={(payload) => handleCreateCard(formKind, reply, payload)}
+                          onSubmit={(payload) => handleCreateCard(reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
                       )}
@@ -682,7 +668,6 @@ function MessageBubble({
   onReply,
   onDelete,
   onCreateTask,
-  onCreateAssignment,
   isReply,
   reactions,
   users,
@@ -692,14 +677,12 @@ function MessageBubble({
   onReply: () => void;
   onDelete?: () => void;
   onCreateTask?: () => void;
-  onCreateAssignment?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
   users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
-  if (onCreateAssignment) actions.push({ icon: UserCheck, onClick: onCreateAssignment, title: "Создать поручение", tone: "primary" });
   actions.push({ icon: Reply, onClick: onReply, title: "Ответить" });
   if (onDelete) actions.push({ icon: Trash2, onClick: onDelete, title: "Удалить", tone: "danger" });
 
@@ -732,7 +715,6 @@ function InlineTaskForm({
   onCancel,
   onSubmit,
   isSubmitting,
-  kind = "task_created",
 }: {
   message: GroupMessage;
   availableUsers: Profile[];
@@ -740,9 +722,7 @@ function InlineTaskForm({
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
-  kind?: ChatCardKind;
 }) {
-  const isAssignment = kind === "assignment_created";
   const [title, setTitle] = useState(() => message.content.slice(0, 80));
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
@@ -754,7 +734,7 @@ function InlineTaskForm({
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder={isAssignment ? "Что поручить" : "Название задачи"}
+        placeholder="Название задачи"
         className="h-8 text-sm"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -807,7 +787,7 @@ function InlineTaskForm({
             onClick={() => onSubmit({ title, assignee, deadline: deadline || null })}
             className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
           >
-            {isSubmitting ? "..." : isAssignment ? "Поручить" : "Создать"}
+            {isSubmitting ? "..." : "Создать"}
           </button>
         </div>
       </div>
