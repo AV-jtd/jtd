@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, UserCheck, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,10 +62,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   /** уникальный nonce открытия формы — меняется при каждом открытии,
    *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
   const [taskFormNonce, setTaskFormNonce] = useState(0);
-  /** Какой тип карточки создаём текущей открытой формой. */
-  const [formKind, setFormKind] = useState<ChatCardKind>("task_created");
-  const openTaskForm = (id: string, kind: ChatCardKind = "task_created") => {
-    setFormKind(kind);
+  const openTaskForm = (id: string) => {
     setTaskFormFor(prev => {
       if (prev === id) return null;          // toggle close
       setTaskFormNonce(n => n + 1);          // bump для нового монтирования
