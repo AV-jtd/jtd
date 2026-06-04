@@ -583,8 +583,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                         isOwn={reply.user_id === user?.id}
                         onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => openTaskForm(reply.id, "task_created")}
-                        onCreateAssignment={() => openTaskForm(reply.id, "assignment_created")}
+                        onCreateTask={() => openTaskForm(reply.id)}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
                         users={availableUsers}
@@ -596,8 +595,7 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
                           onCancel={closeTaskForm}
-                          kind={formKind}
-                          onSubmit={(payload) => handleCreateCard(formKind, reply, payload)}
+                          onSubmit={(payload) => handleCreateCard(reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
                       )}
