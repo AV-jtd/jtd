@@ -386,9 +386,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
             >
               <Sparkles className="h-4 w-4" />
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            {onToggleFullscreen && (
+              <button
+                onClick={onToggleFullscreen}
+                className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+                title={fullscreen ? "Свернуть" : "Развернуть на весь экран"}
+              >
+                {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            )}
+            {!fullscreen && (
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
-            </button>
+              </button>
+            )}
           </div>
         </div>
       )}
