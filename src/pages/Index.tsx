@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams, useNavigate } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
 import TelegramLinkBanner from "@/components/TelegramLinkBanner";
 import { useTaskGroups } from "@/hooks/useTasks";
