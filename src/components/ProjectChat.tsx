@@ -715,7 +715,6 @@ function InlineTaskForm({
   onCancel,
   onSubmit,
   isSubmitting,
-  kind = "task_created",
 }: {
   message: GroupMessage;
   availableUsers: Profile[];
@@ -723,9 +722,7 @@ function InlineTaskForm({
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
-  kind?: ChatCardKind;
 }) {
-  const isAssignment = kind === "assignment_created";
   const [title, setTitle] = useState(() => message.content.slice(0, 80));
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
@@ -737,7 +734,7 @@ function InlineTaskForm({
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder={isAssignment ? "Что поручить" : "Название задачи"}
+        placeholder="Название задачи"
         className="h-8 text-sm"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -790,7 +787,7 @@ function InlineTaskForm({
             onClick={() => onSubmit({ title, assignee, deadline: deadline || null })}
             className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
           >
-            {isSubmitting ? "..." : isAssignment ? "Поручить" : "Создать"}
+            {isSubmitting ? "..." : "Создать"}
           </button>
         </div>
       </div>
