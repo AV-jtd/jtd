@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check } from "lucide-react";
+import { X, Send, Reply, Trash2, MessageCircle, Sparkles, ArrowLeft, CheckSquare, UserCheck, Calendar as CalendarIcon, User as UserIcon, Search, Link2, Check, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,8 +15,9 @@ import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
 import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
 import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
-import ClosedTaskPill from "./ClosedTaskPill";
 import ChatLinkDialog from "./ChatLinkDialog";
+import SystemCard from "./chat/SystemCard";
+import { parseChatCard, getChatCardDef, chatCardMarker, formatChatCardBody, type ChatCardKind, type ParsedChatCard } from "@/lib/chatCards";
 
 interface ProjectChatProps {
   groupId: string;
@@ -24,6 +25,10 @@ interface ProjectChatProps {
   onClose: () => void;
   /** When true, hides the header (used inside MessengerPanel) */
   embedded?: boolean;
+  /** When true, chat is rendered as a full-screen page. */
+  fullscreen?: boolean;
+  /** Toggle between side panel and full-screen route. */
+  onToggleFullscreen?: () => void;
   /** Navigate to the project detail view */
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
@@ -34,7 +39,7 @@ function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || msg.external_author || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
@@ -57,7 +62,10 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   /** уникальный nonce открытия формы — меняется при каждом открытии,
    *  чтобы InlineTaskForm всегда стартовала с чистым state (через key) */
   const [taskFormNonce, setTaskFormNonce] = useState(0);
-  const openTaskForm = (id: string) => {
+  /** Какой тип карточки создаём текущей открытой формой. */
+  const [formKind, setFormKind] = useState<ChatCardKind>("task_created");
+  const openTaskForm = (id: string, kind: ChatCardKind = "task_created") => {
+    setFormKind(kind);
     setTaskFormFor(prev => {
       if (prev === id) return null;          // toggle close
       setTaskFormNonce(n => n + 1);          // bump для нового монтирования
@@ -65,27 +73,24 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     });
   };
   const closeTaskForm = () => setTaskFormFor(null);
-  /** message.id → созданная задача (для системной карточки) */
-  const [createdTasks, setCreatedTasks] = useState<Record<string, { id: string; title: string; assigneeName?: string; deadline?: string | null }>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
   const { data: reactionsByMsg = {} } = useMessageReactions("group_message", messageIds);
 
-  // Подгружаем актуальный статус задач, ссылки на которые уже есть в чате
-  // (созданные через "Создать задачу из сообщения"). Если задача закрыта —
-  // в карточке отрисуем перечёркнутый заголовок + pill «Закрыта».
+  // Подгружаем актуальный статус задач, на которые ссылаются system-карточки в
+  // ленте (создание задачи/поручения). Закрытые рисуем перечёркнутыми.
   const linkedTaskIds = useMemo(
     () => {
-      const ids = new Set(Object.values(createdTasks).map((t) => t.id));
+      const ids = new Set<string>();
       for (const m of messages) {
-        const parsed = parseTaskCreatedCard(m);
-        if (parsed) ids.add(parsed.id);
+        const card = parseChatCard(m.external_message_id, m.content);
+        if (card && card.def.target === "task") ids.add(card.entityId);
       }
       return [...ids];
     },
-    [createdTasks, messages],
+    [messages],
   );
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
 
@@ -143,6 +148,26 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
+
+    // Слэш-команды: /задача <текст> · /поручение @Кто <текст> — создают
+    // задачу/поручение прямо из композера и постят system-карточку в ленту.
+    const slash = text.match(/^\/(задача|task|поручение|assignment)\s+([\s\S]+)$/i);
+    if (slash) {
+      const kind: ChatCardKind = /поручение|assignment/i.test(slash[1]) ? "assignment_created" : "task_created";
+      let rest = slash[2].trim();
+      let assignee: Profile | null = null;
+      const mentionIds = resolveMentionedUserIds(rest, availableUsers);
+      if (mentionIds.length > 0) {
+        assignee = availableUsers.find((u) => u.id === mentionIds[0]) || null;
+        rest = rest.replace(/@([A-Za-zА-Яа-яЁё0-9_.\-]+)/g, "").trim();
+      }
+      handleCreateCard(kind, null, { title: rest, assignee, deadline: null });
+      setDraft("");
+      setReplyTo(null);
+      mentionedRef.current.clear();
+      return;
+    }
+
     const parent = replyTo;
     sendMessage.mutate({ group_id: groupId, content: text, reply_to: parent?.id || null });
 
@@ -216,33 +241,53 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
     });
   }, [rootMessages, repliesMap, searchLower]);
 
-  const handleCreateTask = async (msg: GroupMessage, payload: { title: string; assignee: Profile | null; deadline: string | null }) => {
+  /**
+   * Единая точка создания задачи/поручения из чата (из сообщения или из
+   * композера). После создания пишет в `group_messages` персистентную
+   * system-карточку (через реестр chatCards), которая рендерится во всех чатах
+   * и зеркалится в TG/MAX. `msg = null` — создание из слэш-команды композера.
+   */
+  const handleCreateCard = async (
+    kind: ChatCardKind,
+    msg: GroupMessage | null,
+    payload: { title: string; assignee: Profile | null; deadline: string | null },
+  ) => {
+    const def = getChatCardDef(kind);
     try {
-      const desc = `Из обсуждения проекта «${groupName}»\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}`;
+      const sourceText = msg ? `\n\n> ${msg.content.slice(0, 500)}\n— ${getAuthorName(msg)}` : "";
+      const desc = `Из обсуждения проекта «${groupName}»${sourceText}`;
+      const title = payload.title.trim() || (msg ? msg.content.slice(0, 80) : def.label);
       const created = await addTask.mutateAsync({
-        title: payload.title.trim() || msg.content.slice(0, 80),
+        title,
         group_id: groupId,
         assigned_to: payload.assignee?.id || null,
         deadline: payload.deadline ? new Date(payload.deadline).toISOString() : null,
       } as any);
       const t = created as unknown as Task;
-      // Patch description through the standard mutation (addTask doesn't accept description)
       try {
         await updateTask.mutateAsync({ id: t.id, description: desc });
       } catch (e) { /* non-fatal */ }
+      // Поручение = делегирование 1 уровня: отмечаем delegated_from.
+      if (kind === "assignment_created" && payload.assignee?.id) {
+        try {
+          await updateTask.mutateAsync({ id: t.id, assigned_to: payload.assignee.id, delegated_from: user?.id || null } as any);
+        } catch (e) { /* non-fatal */ }
+      }
 
-      setCreatedTasks(prev => ({
-        ...prev,
-        [msg.id]: {
-          id: t.id,
-          title: t.title,
-          assigneeName: payload.assignee?.display_name || undefined,
-          deadline: payload.deadline,
-        },
-      }));
+      const deadlineLabel = payload.deadline
+        ? new Date(payload.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+        : null;
 
-      // Send a "task created" card to project members' Telegram chats
-      // (opt-in via telegram_group_chat_message). Fire-and-forget.
+      // Персистентная system-карточка в ленту чата.
+      await supabase.from("group_messages" as any).insert({
+        group_id: groupId,
+        user_id: user!.id,
+        content: formatChatCardBody(kind, t.title, { assigneeName: payload.assignee?.display_name, deadlineLabel }),
+        external_message_id: chatCardMarker(kind, t.id),
+        source: "web",
+      });
+
+      // Зеркало в Telegram/MAX. Fire-and-forget.
       try {
         const { data: s } = await supabase.auth.getSession();
         if (s.session) {
@@ -264,15 +309,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
         }
       } catch { /* non-fatal */ }
 
-      // Гарантированно закрываем форму этого сообщения. Если пользователь
-      // успел открыть форму другого сообщения — её не трогаем.
-      setTaskFormFor(prev => (prev === msg.id ? null : prev));
-      // Bump nonce, чтобы при следующем открытии любой формы InlineTaskForm
-      // смонтировалась заново с дефолтными значениями (title из текста, ассайни-автор, пустой дедлайн).
+      if (msg) setTaskFormFor(prev => (prev === msg.id ? null : prev));
       setTaskFormNonce(n => n + 1);
-      toast.success("Задача создана");
+      toast.success(kind === "assignment_created" ? "Поручение создано" : "Задача создана");
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось создать задачу");
+      toast.error(e?.message || "Не удалось создать");
     }
   };
 
@@ -345,9 +386,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
             >
               <Sparkles className="h-4 w-4" />
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            {onToggleFullscreen && (
+              <button
+                onClick={onToggleFullscreen}
+                className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+                title={fullscreen ? "Свернуть" : "Развернуть на весь экран"}
+              >
+                {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            )}
+            {!fullscreen && (
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
-            </button>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -458,16 +510,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                 : false;
               const expanded = expandedThreads.has(msg.id) || matchedReply;
 
-              // Системная карточка задачи, прилетевшая из Telegram/MAX —
-              // рендерим как богатую CreatedTaskCard, а не как обычный пузырь.
-              const mirroredTask = parseTaskCreatedCard(msg);
-              if (mirroredTask) {
+              // System-карточка (создана задача/поручение/протокол…) — из реестра,
+              // распознаётся по external_message_id, рендерится как разделитель.
+              const card = parseChatCard(msg.external_message_id, msg.content);
+              if (card) {
                 return (
                   <div key={msg.id} className="group">
-                    <CreatedTaskCard
-                      info={mirroredTask}
-                      isCompleted={taskStatusMap?.get(mirroredTask.id) ?? false}
-                      onClick={() => onNavigateToTask?.(mirroredTask.id)}
+                    <SystemCard
+                      card={card}
+                      isCompleted={card.def.target === "task" ? (taskStatusMap?.get(card.entityId) ?? false) : false}
+                      onClick={
+                        card.def.target === "task"
+                          ? () => onNavigateToTask?.(card.entityId)
+                          : undefined
+                      }
                     />
                   </div>
                 );
@@ -481,7 +537,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                     isOwn={isOwn}
                     onReply={() => startReply(msg)}
                     onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
-                    onCreateTask={() => openTaskForm(msg.id)}
+                    onCreateTask={() => openTaskForm(msg.id, "task_created")}
+                    onCreateAssignment={() => openTaskForm(msg.id, "assignment_created")}
                     reactions={reactionsByMsg[msg.id]}
                     users={availableUsers}
                   />
@@ -494,17 +551,9 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                       availableUsers={availableUsers}
                       defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
                       onCancel={closeTaskForm}
-                      onSubmit={(payload) => handleCreateTask(msg, payload)}
+                      kind={formKind}
+                      onSubmit={(payload) => handleCreateCard(formKind, msg, payload)}
                       isSubmitting={addTask.isPending}
-                    />
-                  )}
-
-                  {/* System card: task created from this message */}
-                  {createdTasks[msg.id] && (
-                    <CreatedTaskCard
-                      info={createdTasks[msg.id]}
-                      isCompleted={taskStatusMap?.get(createdTasks[msg.id].id) ?? false}
-                      onClick={() => onNavigateToTask?.(createdTasks[msg.id].id)}
                     />
                   )}
 
@@ -526,14 +575,28 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                       <div className="text-[10px] text-muted-foreground/70 italic truncate">
                         ↳ ответ на «{msg.content.slice(0, 60)}{msg.content.length > 60 ? "…" : ""}»
                       </div>
-                      {replies.map(reply => (
+                      {replies.map(reply => {
+                        const replyCard = parseChatCard(reply.external_message_id, reply.content);
+                        if (replyCard) {
+                          return (
+                            <div key={reply.id}>
+                              <SystemCard
+                                card={replyCard}
+                                isCompleted={replyCard.def.target === "task" ? (taskStatusMap?.get(replyCard.entityId) ?? false) : false}
+                                onClick={replyCard.def.target === "task" ? () => onNavigateToTask?.(replyCard.entityId) : undefined}
+                              />
+                            </div>
+                          );
+                        }
+                        return (
                         <div key={reply.id}>
                           <MessageBubble
                         msg={reply}
                         isOwn={reply.user_id === user?.id}
                         onReply={() => startReply(msg)}
                         onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => openTaskForm(reply.id)}
+                        onCreateTask={() => openTaskForm(reply.id, "task_created")}
+                        onCreateAssignment={() => openTaskForm(reply.id, "assignment_created")}
                         isReply
                         reactions={reactionsByMsg[reply.id]}
                         users={availableUsers}
@@ -545,19 +608,14 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, onN
                           availableUsers={availableUsers}
                           defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
                           onCancel={closeTaskForm}
-                          onSubmit={(payload) => handleCreateTask(reply, payload)}
+                          kind={formKind}
+                          onSubmit={(payload) => handleCreateCard(formKind, reply, payload)}
                           isSubmitting={addTask.isPending}
                         />
                       )}
-                      {createdTasks[reply.id] && (
-                        <CreatedTaskCard
-                          info={createdTasks[reply.id]}
-                          isCompleted={taskStatusMap?.get(createdTasks[reply.id].id) ?? false}
-                          onClick={() => onNavigateToTask?.(createdTasks[reply.id].id)}
-                        />
-                      )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -624,6 +682,7 @@ function MessageBubble({
   onReply,
   onDelete,
   onCreateTask,
+  onCreateAssignment,
   isReply,
   reactions,
   users,
@@ -633,12 +692,14 @@ function MessageBubble({
   onReply: () => void;
   onDelete?: () => void;
   onCreateTask?: () => void;
+  onCreateAssignment?: () => void;
   isReply?: boolean;
   reactions?: ReactionAgg;
   users: Profile[];
 }) {
   const actions: ChatAction[] = [];
   if (onCreateTask) actions.push({ icon: CheckSquare, onClick: onCreateTask, title: "Создать задачу из сообщения", tone: "primary" });
+  if (onCreateAssignment) actions.push({ icon: UserCheck, onClick: onCreateAssignment, title: "Создать поручение", tone: "primary" });
   actions.push({ icon: Reply, onClick: onReply, title: "Ответить" });
   if (onDelete) actions.push({ icon: Trash2, onClick: onDelete, title: "Удалить", tone: "danger" });
 
@@ -671,6 +732,7 @@ function InlineTaskForm({
   onCancel,
   onSubmit,
   isSubmitting,
+  kind = "task_created",
 }: {
   message: GroupMessage;
   availableUsers: Profile[];
@@ -678,7 +740,9 @@ function InlineTaskForm({
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
+  kind?: ChatCardKind;
 }) {
+  const isAssignment = kind === "assignment_created";
   const [title, setTitle] = useState(() => message.content.slice(0, 80));
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
@@ -690,7 +754,7 @@ function InlineTaskForm({
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Название задачи"
+        placeholder={isAssignment ? "Что поручить" : "Название задачи"}
         className="h-8 text-sm"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -743,62 +807,10 @@ function InlineTaskForm({
             onClick={() => onSubmit({ title, assignee, deadline: deadline || null })}
             className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
           >
-            {isSubmitting ? "..." : "Создать"}
+            {isSubmitting ? "..." : isAssignment ? "Поручить" : "Создать"}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-type CreatedTaskInfo = { id: string; title: string; assigneeName?: string; deadline?: string | null };
-
-/**
- * Распознаём системную карточку «📝 Создана задача …», прилетевшую из
- * Telegram/MAX (mirrorTaskCreatedCard). Маркер — external_message_id вида
- * "task-created:<taskId>". Возвращаем данные для рендера CreatedTaskCard.
- */
-function parseTaskCreatedCard(msg: GroupMessage): (CreatedTaskInfo & { deadlineLabel?: string }) | null {
-  const ext = msg.external_message_id || "";
-  if (!ext.startsWith("task-created:")) return null;
-  const id = ext.slice("task-created:".length);
-  if (!id) return null;
-  const content = msg.content || "";
-  const titleMatch = content.match(/«([\s\S]*?)»/);
-  const title = titleMatch?.[1]?.trim() || "Без названия";
-  const assigneeMatch = content.match(/👤\s*([^·\n]+)/);
-  const assigneeName = assigneeMatch?.[1]?.trim() || undefined;
-  const deadlineMatch = content.match(/📅\s*([^·\n]+)/);
-  const deadlineLabel = deadlineMatch?.[1]?.trim() || undefined;
-  return { id, title, assigneeName, deadlineLabel };
-}
-
-function CreatedTaskCard({ info, onClick, isCompleted }: { info: CreatedTaskInfo & { deadlineLabel?: string }; onClick?: () => void; isCompleted?: boolean }) {
-  const content = (
-    <span className="inline-flex min-w-0 max-w-[calc(100vw-5.5rem)] items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary sm:max-w-[280px]">
-      <CheckSquare className="h-2.5 w-2.5 shrink-0" />
-      <span className="shrink-0">Создана задача:</span>
-      <span className={cn("truncate font-semibold", isCompleted && "line-through opacity-70")}>
-        {info.title || "Без названия"}
-      </span>
-      {isCompleted && <ClosedTaskPill className="ml-1" />}
-    </span>
-  );
-
-  return (
-    <div className="mt-2 flex items-center gap-2 py-1">
-      <div className="h-px flex-1 bg-primary/20" />
-      {onClick ? (
-        <button
-          type="button"
-          onClick={onClick}
-          className="min-w-0 hover:opacity-80 transition-opacity"
-          title="Открыть задачу"
-        >
-          {content}
-        </button>
-      ) : content}
-      <div className="h-px flex-1 bg-primary/20" />
     </div>
   );
 }

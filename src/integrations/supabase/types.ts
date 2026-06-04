@@ -1866,6 +1866,7 @@ export type Database = {
           baseline_locked_at: string | null
           baseline_status: string
           chat_mirror_enabled: boolean
+          client_id: string | null
           closed_at: string | null
           color: string | null
           created_at: string
@@ -1894,6 +1895,7 @@ export type Database = {
           baseline_locked_at?: string | null
           baseline_status?: string
           chat_mirror_enabled?: boolean
+          client_id?: string | null
           closed_at?: string | null
           color?: string | null
           created_at?: string
@@ -1922,6 +1924,7 @@ export type Database = {
           baseline_locked_at?: string | null
           baseline_status?: string
           chat_mirror_enabled?: boolean
+          client_id?: string | null
           closed_at?: string | null
           color?: string | null
           created_at?: string
@@ -1944,6 +1947,13 @@ export type Database = {
           view_mode?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_groups_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_groups_linked_tag_id_fkey"
             columns: ["linked_tag_id"]
