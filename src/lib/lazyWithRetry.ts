@@ -1,6 +1,12 @@
 import { lazy, ComponentType } from 'react';
 
 const RELOAD_KEY = 'chunk-reload-attempted';
+const RECOVERY_COOLDOWN_MS = 10_000;
+
+function canAttemptRecovery() {
+  const lastAttempt = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+  return !lastAttempt || Date.now() - lastAttempt > RECOVERY_COOLDOWN_MS;
+}
 
 async function recoverFromStaleChunk() {
   try {
@@ -55,7 +61,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
         msg.includes('Loading CSS chunk') ||
         /Cannot read propert(y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg);
 
-      if (isChunkError && !sessionStorage.getItem(RELOAD_KEY)) {
+      if (isChunkError && canAttemptRecovery()) {
         sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
         void recoverFromStaleChunk();
         // вернём бесконечный промис, чтобы React не показывал ошибку до reload

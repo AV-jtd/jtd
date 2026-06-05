@@ -56,7 +56,8 @@ import "./index.css";
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
   const RELOAD_KEY = 'chunk-reload-attempted';
-  if (!sessionStorage.getItem(RELOAD_KEY)) {
+  const lastAttempt = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+  if (!lastAttempt || Date.now() - lastAttempt > 10_000) {
     sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
     void (async () => {
       try {
