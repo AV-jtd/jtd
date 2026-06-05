@@ -97,6 +97,7 @@ export default function ProjectRoomCenter({
   groupId,
   groupName,
   fullscreen,
+  hideHeader,
   onClose,
   onToggleFullscreen,
   onBack,
@@ -105,6 +106,7 @@ export default function ProjectRoomCenter({
   groupId: string;
   groupName: string;
   fullscreen?: boolean;
+  hideHeader?: boolean;
   onClose: () => void;
   onToggleFullscreen?: () => void;
   onBack?: () => void;
@@ -143,6 +145,7 @@ export default function ProjectRoomCenter({
   return (
     <div className="flex h-full flex-col bg-background">
       {/* header */}
+      {!hideHeader && (
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
         {onBack && (
           <button onClick={onBack} className="-ml-1 shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted md:hidden" aria-label="Назад">
@@ -162,6 +165,7 @@ export default function ProjectRoomCenter({
           )}
         </div>
       </div>
+      )}
 
       {/* tabs */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">
