@@ -16,6 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatMessagePreview } from "@/lib/systemMessages";
 import ClosedTaskPill from "./ClosedTaskPill";
+import TaskClientPicker from "./TaskClientPicker";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MessengerPanelProps {
   onClose: () => void;
