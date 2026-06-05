@@ -13,6 +13,12 @@ interface State {
 }
 
 const CHUNK_RELOAD_KEY = "eb-chunk-reload-attempted";
+const CHUNK_RELOAD_COOLDOWN_MS = 10_000;
+
+function canAttemptChunkRecovery() {
+  const lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) ?? 0);
+  return !lastAttempt || Date.now() - lastAttempt > CHUNK_RELOAD_COOLDOWN_MS;
+}
 
 async function recoverFromStaleChunk() {
   try {
@@ -64,7 +70,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     // a consistent build. Guard against an infinite reload loop.
     if (isStaleChunkError(error)) {
       try {
-        if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        if (canAttemptChunkRecovery()) {
           sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
           void recoverFromStaleChunk();
         }
