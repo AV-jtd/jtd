@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   readAuthMeta,
+  readAuthMetaStale,
   writeAuthMeta,
   clearAuthMeta,
   acquireFetchLock,
