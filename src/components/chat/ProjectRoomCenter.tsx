@@ -311,6 +311,14 @@ export default function ProjectRoomCenter({
                     {getInitials(m.name)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+                  {(m.source === "telegram" || m.source === "max") && (
+                    <span className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold",
+                      m.source === "telegram" ? "bg-tag-blue/15 text-tag-blue" : "bg-tag-purple/15 text-tag-purple",
+                    )}>
+                      {m.source === "telegram" ? "TG" : "MAX"}
+                    </span>
+                  )}
                   {m.role && <span className="shrink-0 text-[10px] text-muted-foreground">{m.role}</span>}
                 </div>
               ))}
