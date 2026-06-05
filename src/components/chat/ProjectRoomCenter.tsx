@@ -22,7 +22,7 @@ type RoomTask = {
   assigneeName: string | null;
 };
 
-type Member = { id: string; name: string; role: string | null };
+type Member = { id: string; name: string; role: string | null; source: "member" | "telegram" | "max" | "web" | "external" };
 
 type RoomData = {
   group: { id: string; name: string; icon: string | null; color: string | null; logo_url: string | null } | null;
@@ -54,16 +54,59 @@ function useProjectRoomData(groupId: string | null) {
         .select("user_id, role")
         .eq("group_id", groupId);
 
+      // Кто реально писал в чате (включая зеркала из Telegram/MAX) — чтобы участники
+      // отражали фактических собеседников, а не только записи в group_members.
+      const { data: msgAuthors } = await supabase
+        .from("group_messages" as any)
+        .select("user_id, external_author, source")
+        .eq("group_id", groupId)
+        .limit(2000);
+
+      // Источник по каждому пишущему JTD-пользователю (telegram/max/web).
+      const authorSource = new Map<string, Member["source"]>();
+      const externalAuthors = new Map<string, Member["source"]>();
+      for (const m of (msgAuthors as any[]) || []) {
+        const src: Member["source"] =
+          m.source === "telegram" ? "telegram" : m.source === "max" ? "max" : "web";
+        if (m.user_id) {
+          if (!authorSource.has(m.user_id) || src !== "web") authorSource.set(m.user_id, src);
+        } else if (m.external_author) {
+          if (!externalAuthors.has(m.external_author)) externalAuthors.set(m.external_author, src === "web" ? "external" : src);
+        }
+      }
+
       const userIds = [
         ...new Set([
           ...((tasks as any[]) || []).map((t) => t.assigned_to).filter(Boolean),
           ...((gm as any[]) || []).map((m) => m.user_id).filter(Boolean),
+          ...authorSource.keys(),
         ]),
       ] as string[];
       const profMap = new Map<string, string>();
       if (userIds.length) {
         const { data: profs } = await supabase.from("profiles").select("id, display_name, email").in("id", userIds);
         for (const p of (profs as any[]) || []) profMap.set(p.id, p.display_name || p.email || "—");
+      }
+
+      // Слияние: участники из group_members + все, кто писал в чате (TG/MAX/web) +
+      // внешние авторы без аккаунта JTD.
+      const memberMap = new Map<string, Member>();
+      for (const m of (gm as any[]) || []) {
+        if (!m.user_id) continue;
+        memberMap.set(m.user_id, {
+          id: m.user_id,
+          name: profMap.get(m.user_id) || "—",
+          role: m.role || null,
+          source: authorSource.get(m.user_id) ?? "member",
+        });
+      }
+      for (const [uid, src] of authorSource) {
+        if (memberMap.has(uid)) continue;
+        memberMap.set(uid, { id: uid, name: profMap.get(uid) || "—", role: "пишет в чате", source: src });
+      }
+      const members: Member[] = [...memberMap.values()];
+      for (const [name, src] of externalAuthors) {
+        members.push({ id: `ext-${name}`, name, role: "из чата (без JTD)", source: src });
       }
 
       return {
@@ -76,9 +119,7 @@ function useProjectRoomData(groupId: string | null) {
           assigned_to: t.assigned_to,
           assigneeName: t.assigned_to ? profMap.get(t.assigned_to) ?? null : null,
         })),
-        members: ((gm as any[]) || [])
-          .filter((m) => m.user_id)
-          .map((m) => ({ id: m.user_id, name: profMap.get(m.user_id) || "—", role: m.role || null })),
+        members,
       };
     },
     enabled: !!groupId,
@@ -270,6 +311,14 @@ export default function ProjectRoomCenter({
                     {getInitials(m.name)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+                  {(m.source === "telegram" || m.source === "max") && (
+                    <span className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold",
+                      m.source === "telegram" ? "bg-tag-blue/15 text-tag-blue" : "bg-tag-purple/15 text-tag-purple",
+                    )}>
+                      {m.source === "telegram" ? "TG" : "MAX"}
+                    </span>
+                  )}
                   {m.role && <span className="shrink-0 text-[10px] text-muted-foreground">{m.role}</span>}
                 </div>
               ))}
