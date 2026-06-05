@@ -141,6 +141,49 @@ export default function TaskChat({
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
+  /**
+   * CRM-контекст задачи: тип задачи, проект и привязанный клиент.
+   * Нужен, чтобы показать кнопку «Привязать к клиенту» только для CRM-задач
+   * (task_type='crm' или задача в CRM-проекте / «Новые клиенты»).
+   */
+  const { data: crmContext } = useQuery({
+    queryKey: ["task-crm-context", taskId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("client_id, task_type, group:task_groups(project_type, name)")
+        .eq("id", taskId)
+        .maybeSingle();
+      if (error) throw error;
+      const group = (data as any)?.group ?? null;
+      const groupName = (group?.name ?? "").trim().toLowerCase();
+      const isCrm =
+        (data as any)?.task_type === "crm" ||
+        group?.project_type === "crm" ||
+        groupName.includes("новые клиенты");
+      return {
+        clientId: (data as any)?.client_id ?? null,
+        isCrm,
+      };
+    },
+  });
+
+  const handleLinkClient = async (clientId: string | null) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ client_id: clientId })
+      .eq("id", taskId);
+    if (error) {
+      toast.error("Не удалось привязать клиента: " + error.message);
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["task-crm-context", taskId] });
+    qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    qc.invalidateQueries({ queryKey: ["crm-partners"] });
+    qc.invalidateQueries({ queryKey: ["tasks"] });
+    toast.success(clientId ? "Задача привязана к клиенту" : "Клиент отвязан");
+  };
+
   /** Сообщение, для которого открыта inline-форма создания задачи. */
   const [taskFormForCommentId, setTaskFormForCommentId] = useState<string | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
