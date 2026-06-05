@@ -49,6 +49,24 @@ export function readAuthMeta(userId: string): AuthMetaSnapshot | null {
   }
 }
 
+/**
+ * Read the snapshot regardless of TTL. Used for stale-while-revalidate on a
+ * cold start: even an expired snapshot lets us paint the app instantly (roles,
+ * approval) while the real network fetch refreshes values in the background.
+ * This avoids the 20–30s "stuck spinner" when the proxy/network is slow.
+ */
+export function readAuthMetaStale(userId: string): AuthMetaSnapshot | null {
+  try {
+    const raw = localStorage.getItem(key(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthMetaSnapshot;
+    if (typeof parsed?.fetchedAt !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export function writeAuthMeta(userId: string, snap: Omit<AuthMetaSnapshot, "fetchedAt">) {
   const full: AuthMetaSnapshot = { ...snap, fetchedAt: Date.now() };
   try { localStorage.setItem(key(userId), JSON.stringify(full)); } catch {}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   readAuthMeta,
+  readAuthMetaStale,
   writeAuthMeta,
   clearAuthMeta,
   acquireFetchLock,
@@ -151,6 +152,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       // Cache is fresh enough — skip the network round-trip entirely.
       return;
+    }
+
+    // 1b. Stale-while-revalidate: a snapshot exists but is past its TTL.
+    //     Paint the app immediately from the stale values so a slow proxy/
+    //     network can never keep the user on a 20–30s spinner, then fall
+    //     through and refresh from the server in the background. Only on the
+    //     first attempt — retries should not re-flash stale data.
+    if (attempt === 0) {
+      const stale = readAuthMetaStale(userId);
+      if (stale && fetchIdRef.current === fetchId && isMounted()) {
+        setIsApproved(stale.isApproved);
+        setApprovalKnown(true);
+        setIsAdmin(stale.isAdmin);
+        setIsConsultant(stale.isConsultant);
+        setAdminModeDisabledState(stale.adminModeDisabled);
+        setLoading(false);
+      }
     }
 
     // 2. Dedup: if another tab is already fetching, wait briefly for its
