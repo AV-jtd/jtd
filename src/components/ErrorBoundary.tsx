@@ -14,6 +14,24 @@ interface State {
 
 const CHUNK_RELOAD_KEY = "eb-chunk-reload-attempted";
 
+async function recoverFromStaleChunk() {
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations();
+    await Promise.allSettled((regs ?? []).map((reg) => reg.unregister()));
+  } catch {}
+
+  try {
+    if ("caches" in window) {
+      const names = await window.caches.keys();
+      await Promise.allSettled(names.map((name) => window.caches.delete(name)));
+    }
+  } catch {}
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("_v", Date.now().toString(36));
+  window.location.replace(url.toString());
+}
+
 function isStaleChunkError(error: unknown): boolean {
   const msg = String((error as any)?.message ?? error ?? "");
   return (
@@ -43,17 +61,21 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (isStaleChunkError(error)) {
       try {
         if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-          sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
-          window.location.reload();
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+          void recoverFromStaleChunk();
         }
       } catch {
-        window.location.reload();
+        void recoverFromStaleChunk();
       }
     }
   }
 
   handleRetry = () => {
     try { sessionStorage.removeItem(CHUNK_RELOAD_KEY); } catch {}
+    if (isStaleChunkError(this.state.error)) {
+      void recoverFromStaleChunk();
+      return;
+    }
     this.setState({ hasError: false, error: null });
   };
 
