@@ -5,9 +5,10 @@ import ModuleLayout from "@/components/ModuleLayout";
 import CrmBoard from "@/modules/crm/pages/CrmBoard";
 import CrmSmartImportDialog from "@/modules/crm/components/CrmSmartImportDialog";
 import CrmAddClientDialog from "@/modules/crm/components/CrmAddClientDialog";
+import CrmClientsList from "@/modules/crm/components/CrmClientsList";
 
 export default function CrmLayout() {
-  const [boardView, setBoardView] = useState<"funnel" | "sales">("funnel");
+  const [boardView, setBoardView] = useState<"funnel" | "sales" | "partners">("funnel");
   const [importOpen, setImportOpen] = useState(false);
   const [addClientOpen, setAddClientOpen] = useState(false);
 
@@ -40,6 +41,18 @@ export default function CrmLayout() {
             >
               Задачи
             </button>
+            <span className="text-muted-foreground/40">|</span>
+            <button
+              onClick={() => setBoardView("partners")}
+              className={cn(
+                "px-2 py-0.5 transition-colors duration-200",
+                boardView === "partners"
+                  ? "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Партнёры
+            </button>
           </div>
           <button
             onClick={() => setAddClientOpen(true)}
@@ -58,7 +71,11 @@ export default function CrmLayout() {
         </>
       )}
     >
-      <CrmBoard boardView={boardView} />
+      {boardView === "partners" ? (
+        <CrmClientsList />
+      ) : (
+        <CrmBoard boardView={boardView} />
+      )}
     </ModuleLayout>
   );
 }
