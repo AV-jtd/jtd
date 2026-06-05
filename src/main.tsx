@@ -57,8 +57,22 @@ window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
   const RELOAD_KEY = 'chunk-reload-attempted';
   if (!sessionStorage.getItem(RELOAD_KEY)) {
-    sessionStorage.setItem(RELOAD_KEY, '1');
-    window.location.reload();
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    void (async () => {
+      try {
+        const regs = await navigator.serviceWorker?.getRegistrations();
+        await Promise.allSettled((regs ?? []).map((reg) => reg.unregister()));
+      } catch {}
+      try {
+        if ('caches' in window) {
+          const names = await window.caches.keys();
+          await Promise.allSettled(names.map((name) => window.caches.delete(name)));
+        }
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set('_v', Date.now().toString(36));
+      window.location.replace(url.toString());
+    })();
   }
 });
 
