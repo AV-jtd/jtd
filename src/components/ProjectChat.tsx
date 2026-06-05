@@ -482,6 +482,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
         )}
       </div>
 
+      {/* Standalone task creation form (from header button) */}
+      {headerTaskOpen && (
+        <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/20">
+          <InlineTaskForm
+            key={`hdr-${taskFormNonce}`}
+            availableUsers={availableUsers}
+            defaultAssignee={null}
+            onCancel={() => setHeaderTaskOpen(false)}
+            onSubmit={async (payload) => { await handleCreateCard(null, payload); setHeaderTaskOpen(false); }}
+            isSubmitting={addTask.isPending}
+          />
+        </div>
+      )}
+
       {/* In-thread search input */}
       {searchOpen && (
         <div className="relative px-4 py-2 border-b border-border shrink-0 bg-muted/20">
