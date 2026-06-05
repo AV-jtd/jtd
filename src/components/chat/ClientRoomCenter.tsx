@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import ProjectChat from "@/components/ProjectChat";
 import ClientAvatar from "@/components/ClientAvatar";
 import TaskItem from "@/components/TaskItem";
@@ -12,8 +14,9 @@ import type { Task } from "@/hooks/useTasks";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Plus,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 type ClientInfo = {
   id: string; name: string; logo_url: string | null;
@@ -100,6 +103,10 @@ export default function ClientRoomCenter({
   /** Какую задачу авто-раскрыть inline (id + nonce для повторного раскрытия). */
   const [expand, setExpand] = useState<{ id: string; nonce: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
   const { data: client } = useClientInfo(clientId);
   const { data: tasks = [] } = useClientTasks(clientId);
@@ -113,11 +120,47 @@ export default function ClientRoomCenter({
   /** Связанная задача = CRM-задача воронки клиента. */
   const funnelTask = tasks.find((t) => (t as any).task_type === "crm") ?? null;
 
+  /** Создать обычную задачу, привязанную к клиенту (без дублирования воронки). */
+  const addTask = useMutation({
+    mutationFn: async (title: string) => {
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          title,
+          user_id: user!.id,
+          client_id: clientId,
+          group_id: (funnelTask as any)?.group_id ?? null,
+          start_at: now,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      await supabase.from("task_participants").insert({ task_id: data.id, user_id: user!.id, role: "creator" });
+      return data;
+    },
+    onSuccess: () => {
+      setNewTitle("");
+      qc.invalidateQueries({ queryKey: ["client_room_tasks", clientId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const submitNewTask = () => {
+    const t = newTitle.trim();
+    if (!t || addTask.isPending) return;
+    addTask.mutate(t);
+  };
+
   /** Открыть задачу прямо в комнате (вкладка «Задачи» + раскрытие inline). */
   const openTaskInline = (id: string) => {
     setTab("tasks");
     setExpand({ id, nonce: Date.now() });
   };
+
+  /** Перейти в «Задачи» для создания новой задачи по клиенту. */
+  const startNewTask = () => setTab("tasks");
 
   /** Ключ для TaskItem: меняется при запросе раскрытия → ремоунт уже раскрытым. */
   const taskKey = (id: string) => `${id}-${expand?.id === id ? expand.nonce : 0}`;
@@ -154,6 +197,15 @@ export default function ClientRoomCenter({
           )}
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={startNewTask}
+            title="Добавить задачу"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
           {funnelTask && (
             <Button
               variant="ghost"
@@ -211,6 +263,26 @@ export default function ClientRoomCenter({
           <ScrollArea className="h-full">
             <div className="mx-auto max-w-2xl space-y-1 p-4 sm:p-5">
               <h3 className="mb-1 text-sm font-semibold">Задачи по клиенту</h3>
+              {/* Быстрое добавление задачи по клиенту */}
+              <form
+                onSubmit={(e) => { e.preventDefault(); submitNewTask(); }}
+                className="mb-3 flex items-center gap-2 rounded-xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20 transition-all"
+              >
+                <button
+                  type="submit"
+                  disabled={!newTitle.trim() || addTask.isPending}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary/30 transition-all hover:border-primary hover:bg-primary/10 disabled:opacity-20"
+                  aria-label="Добавить задачу"
+                >
+                  <Plus className="h-4 w-4 text-primary" />
+                </button>
+                <Input
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Добавить задачу по клиенту..."
+                  className="h-auto border-0 p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60"
+                />
+              </form>
               {tasks.length === 0 && <EmptyState text="По клиенту пока нет задач" />}
               {open.map((t) => (
                 <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
