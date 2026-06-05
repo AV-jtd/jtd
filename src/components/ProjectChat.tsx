@@ -754,14 +754,14 @@ function InlineTaskForm({
   onSubmit,
   isSubmitting,
 }: {
-  message: GroupMessage;
+  message?: GroupMessage | null;
   availableUsers: Profile[];
   defaultAssignee: Profile | null;
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
 }) {
-  const [title, setTitle] = useState(() => message.content.slice(0, 80));
+  const [title, setTitle] = useState(() => message?.content.slice(0, 80) ?? "");
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
   const [pickerOpen, setPickerOpen] = useState(false);
