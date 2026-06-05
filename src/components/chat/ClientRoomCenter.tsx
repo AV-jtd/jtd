@@ -97,16 +97,30 @@ export default function ClientRoomCenter({
   onNavigateToTask?: (taskId: string) => void;
 }) {
   const [tab, setTab] = useState<TabKey>("chat");
-  const { data } = useClientRoomData(clientId);
-  const tasks = data?.tasks ?? [];
-  const client = data?.client;
+  /** Какую задачу авто-раскрыть inline (id + nonce для повторного раскрытия). */
+  const [expand, setExpand] = useState<{ id: string; nonce: number } | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const { data: client } = useClientInfo(clientId);
+  const { data: tasks = [] } = useClientTasks(clientId);
 
   const now = Date.now();
   const open = tasks.filter((t) => !t.is_completed);
   const completed = tasks.filter((t) => t.is_completed);
   const overdue = open.filter((t) => t.deadline && new Date(t.deadline).getTime() < now);
-  const assignments = tasks.filter((t) => t.delegated_from);
+  const assignments = tasks.filter((t) => (t as any).delegated_from);
   const completionRate = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
+  /** Связанная задача = CRM-задача воронки клиента. */
+  const funnelTask = tasks.find((t) => (t as any).task_type === "crm") ?? null;
+
+  /** Открыть задачу прямо в комнате (вкладка «Задачи» + раскрытие inline). */
+  const openTaskInline = (id: string) => {
+    setTab("tasks");
+    setExpand({ id, nonce: Date.now() });
+  };
+
+  /** Ключ для TaskItem: меняется при запросе раскрытия → ремоунт уже раскрытым. */
+  const taskKey = (id: string) => `${id}-${expand?.id === id ? expand.nonce : 0}`;
 
   const TABS: { key: TabKey; label: string; icon: typeof MessageSquare; count?: number }[] = [
     { key: "chat", label: "Обсуждение", icon: MessageSquare },
@@ -140,6 +154,17 @@ export default function ClientRoomCenter({
           )}
         </div>
         <div className="ml-auto flex items-center gap-1">
+          {funnelTask && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => openTaskInline(funnelTask.id)}
+              title="Открыть связанную задачу"
+            >
+              <SquareArrowOutUpRight className="h-4 w-4" />
+            </Button>
+          )}
           {onToggleFullscreen && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFullscreen} title={fullscreen ? "Свернуть" : "Развернуть"}>
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -184,37 +209,35 @@ export default function ClientRoomCenter({
 
         {tab === "tasks" && (
           <ScrollArea className="h-full">
-            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+            <div className="mx-auto max-w-2xl space-y-1 p-4 sm:p-5">
               <h3 className="mb-1 text-sm font-semibold">Задачи по клиенту</h3>
               {tasks.length === 0 && <EmptyState text="По клиенту пока нет задач" />}
-              {tasks.map((t) => {
-                const isOverdue = !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now;
-                return (
+              {open.map((t) => (
+                <TaskItem
+                  key={taskKey(t.id)}
+                  task={t}
+                  initialOpen={expand?.id === t.id}
+                  onProjectClick={onNavigateToTask ? undefined : undefined}
+                />
+              ))}
+              {completed.length > 0 && (
+                <div className="pt-2">
                   <button
-                    key={t.id}
-                    onClick={() => onNavigateToTask?.(t.id)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left hover:bg-muted/50"
+                    onClick={() => setShowCompleted((v) => !v)}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    {t.is_completed ? (
-                      <CheckSquare className="h-4 w-4 shrink-0 text-tag-green" />
-                    ) : (
-                      <CircleDot className={cn("h-4 w-4 shrink-0", isOverdue ? "text-destructive" : "text-muted-foreground")} />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className={cn("truncate text-sm", t.is_completed && "text-muted-foreground line-through")}>{t.title}</div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                        {t.assigneeName && (<><UserCheck className="h-3 w-3" /> {t.assigneeName}</>)}
-                        {t.deadline && (
-                          <>
-                            <CalendarClock className="h-3 w-3" />
-                            <span className={cn(isOverdue && "font-medium text-destructive")}>{isOverdue ? "⚠ " : ""}{fmtDate(t.deadline)}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    {showCompleted ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    Завершённые ({completed.length})
                   </button>
-                );
-              })}
+                  {showCompleted && (
+                    <div className="mt-1 space-y-1 animate-fade-in">
+                      {completed.map((t) => (
+                        <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </ScrollArea>
         )}
@@ -242,7 +265,7 @@ export default function ClientRoomCenter({
 
         {tab === "assignments" && (
           <ScrollArea className="h-full">
-            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+            <div className="mx-auto max-w-2xl space-y-1 p-4 sm:p-5">
               <h3 className="mb-1 text-sm font-semibold">Поручения по клиенту</h3>
               {assignments.length === 0 && (
                 <div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">
@@ -250,28 +273,9 @@ export default function ClientRoomCenter({
                   Делегированные задачи по клиенту появятся здесь
                 </div>
               )}
-              {assignments.map((a) => {
-                const isOverdue = !a.is_completed && a.deadline && new Date(a.deadline).getTime() < now;
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => onNavigateToTask?.(a.id)}
-                    className="block w-full rounded-xl border border-border bg-card px-3 py-3 text-left hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 shrink-0 text-tag-purple" />
-                      <span className="flex-1 truncate text-sm font-medium">{a.title}</span>
-                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px]", a.is_completed ? "bg-tag-green/15 text-tag-green" : "bg-tag-purple/15 text-tag-purple")}>
-                        {a.is_completed ? "Готово" : "В работе"}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2 pl-6 text-[11px] text-muted-foreground">
-                      {a.assigneeName && (<span>Исполнитель: <b className="font-medium text-foreground">{a.assigneeName}</b></span>)}
-                      {a.deadline && (<><Clock className="h-3 w-3" /> <span className={cn(isOverdue && "font-medium text-destructive")}>до {fmtDate(a.deadline)}</span></>)}
-                    </div>
-                  </button>
-                );
-              })}
+              {assignments.map((a) => (
+                <TaskItem key={taskKey(a.id)} task={a} initialOpen={expand?.id === a.id} />
+              ))}
             </div>
           </ScrollArea>
         )}
