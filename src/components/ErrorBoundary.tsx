@@ -12,6 +12,19 @@ interface State {
   error: Error | null;
 }
 
+const CHUNK_RELOAD_KEY = "eb-chunk-reload-attempted";
+
+function isStaleChunkError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "");
+  return (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Importing a module script failed") ||
+    msg.includes("Loading chunk") ||
+    msg.includes("Loading CSS chunk") ||
+    /Cannot read propert(y|ies) of undefined \(reading ['"]default['"]\)/i.test(msg)
+  );
+}
+
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -24,9 +37,23 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ErrorBoundary]", error, errorInfo);
+    // A stale-chunk render error means the served build no longer matches the
+    // cached HTML (new deploy / stale SW / proxy). A single hard reload pulls
+    // a consistent build. Guard against an infinite reload loop.
+    if (isStaleChunkError(error)) {
+      try {
+        if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+          window.location.reload();
+        }
+      } catch {
+        window.location.reload();
+      }
+    }
   }
 
   handleRetry = () => {
+    try { sessionStorage.removeItem(CHUNK_RELOAD_KEY); } catch {}
     this.setState({ hasError: false, error: null });
   };
 

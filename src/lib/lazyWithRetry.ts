@@ -14,6 +14,14 @@ export function lazyWithRetry<T extends ComponentType<any>>(
   return lazy(async () => {
     try {
       const mod = await factory();
+      // Stale-chunk guard: a chunk may resolve "successfully" but with a
+      // missing/undefined default export (corrupted or stale build served by
+      // a SW/proxy). React.lazy would then throw "Cannot read properties of
+      // undefined (reading 'default')" during render — too late for this
+      // try/catch. Detect it here and trigger the same reload path.
+      if (!mod || (mod as any).default === undefined) {
+        throw new Error("Loading chunk failed: missing default export");
+      }
       sessionStorage.removeItem(RELOAD_KEY);
       return mod;
     } catch (err: any) {
