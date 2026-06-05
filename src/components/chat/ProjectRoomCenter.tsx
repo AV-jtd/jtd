@@ -1,0 +1,298 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import ProjectChat from "@/components/ProjectChat";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/initials";
+import {
+  MessageSquare, ListChecks, BarChart3, Users, Maximize2, Minimize2, ArrowLeft,
+  CheckSquare, CircleDot, CalendarClock, UserCheck, ListTodo, AlertTriangle,
+  CheckCircle2, TrendingUp,
+} from "lucide-react";
+
+type RoomTask = {
+  id: string;
+  title: string;
+  is_completed: boolean;
+  deadline: string | null;
+  assigned_to: string | null;
+  assigneeName: string | null;
+};
+
+type Member = { id: string; name: string; role: string | null };
+
+type RoomData = {
+  group: { id: string; name: string; icon: string | null; color: string | null; logo_url: string | null } | null;
+  tasks: RoomTask[];
+  members: Member[];
+};
+
+function useProjectRoomData(groupId: string | null) {
+  return useQuery({
+    queryKey: ["project_room_data", groupId],
+    queryFn: async (): Promise<RoomData> => {
+      if (!groupId) return { group: null, tasks: [], members: [] };
+      const { data: g } = await supabase
+        .from("task_groups")
+        .select("id, name, icon, color, logo_url")
+        .eq("id", groupId)
+        .maybeSingle();
+      if (!g) return { group: null, tasks: [], members: [] };
+
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id, title, is_completed, deadline, assigned_to")
+        .eq("group_id", groupId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      const { data: gm } = await supabase
+        .from("group_members")
+        .select("user_id, role")
+        .eq("group_id", groupId);
+
+      const userIds = [
+        ...new Set([
+          ...((tasks as any[]) || []).map((t) => t.assigned_to).filter(Boolean),
+          ...((gm as any[]) || []).map((m) => m.user_id).filter(Boolean),
+        ]),
+      ] as string[];
+      const profMap = new Map<string, string>();
+      if (userIds.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, display_name, email").in("id", userIds);
+        for (const p of (profs as any[]) || []) profMap.set(p.id, p.display_name || p.email || "—");
+      }
+
+      return {
+        group: { id: g.id, name: g.name, icon: g.icon ?? null, color: g.color ?? null, logo_url: g.logo_url ?? null },
+        tasks: ((tasks as any[]) || []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          is_completed: t.is_completed,
+          deadline: t.deadline,
+          assigned_to: t.assigned_to,
+          assigneeName: t.assigned_to ? profMap.get(t.assigned_to) ?? null : null,
+        })),
+        members: ((gm as any[]) || [])
+          .filter((m) => m.user_id)
+          .map((m) => ({ id: m.user_id, name: profMap.get(m.user_id) || "—", role: m.role || null })),
+      };
+    },
+    enabled: !!groupId,
+    staleTime: 1000 * 60,
+  });
+}
+
+type TabKey = "chat" | "tasks" | "metrics" | "members";
+
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+}
+
+export default function ProjectRoomCenter({
+  groupId,
+  groupName,
+  fullscreen,
+  onClose,
+  onToggleFullscreen,
+  onBack,
+  onNavigateToTask,
+}: {
+  groupId: string;
+  groupName: string;
+  fullscreen?: boolean;
+  onClose: () => void;
+  onToggleFullscreen?: () => void;
+  onBack?: () => void;
+  onNavigateToTask?: (taskId: string) => void;
+}) {
+  const [tab, setTab] = useState<TabKey>("chat");
+  const { data } = useProjectRoomData(groupId);
+  const tasks = data?.tasks ?? [];
+  const group = data?.group;
+  const members = data?.members ?? [];
+
+  const now = Date.now();
+  const open = tasks.filter((t) => !t.is_completed);
+  const completed = tasks.filter((t) => t.is_completed);
+  const overdue = open.filter((t) => t.deadline && new Date(t.deadline).getTime() < now);
+  const completionRate = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
+
+  const TABS: { key: TabKey; label: string; icon: typeof MessageSquare; count?: number }[] = [
+    { key: "chat", label: "Обсуждение", icon: MessageSquare },
+    { key: "tasks", label: "Задачи", icon: ListChecks, count: tasks.length || undefined },
+    { key: "metrics", label: "Показатели", icon: BarChart3 },
+    { key: "members", label: "Участники", icon: Users, count: members.length || undefined },
+  ];
+
+  const avatar = group?.logo_url ? (
+    <img src={group.logo_url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+  ) : (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base"
+      style={{ backgroundColor: (group?.color || "#3b82f6") + "22" }}
+    >
+      {group?.icon || "📁"}
+    </span>
+  );
+
+  return (
+    <div className="flex h-full flex-col bg-background">
+      {/* header */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+        {onBack && (
+          <button onClick={onBack} className="-ml-1 shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted md:hidden" aria-label="Назад">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+        {avatar}
+        <div className="min-w-0">
+          <span className="block truncate font-bold tracking-tight">{group?.name || groupName}</span>
+          <div className="text-xs text-muted-foreground">проектный чат</div>
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          {onToggleFullscreen && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFullscreen} title={fullscreen ? "Свернуть" : "Развернуть"}>
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* tabs */}
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm font-medium transition-colors sm:px-3",
+              tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <t.icon className="h-4 w-4" />
+            {t.label}
+            {t.count ? (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{t.count}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {/* content */}
+      <div className="min-h-0 flex-1">
+        {tab === "chat" && (
+          <ProjectChat
+            key={groupId}
+            groupId={groupId}
+            groupName={group?.name || groupName}
+            embedded
+            fullscreen={fullscreen}
+            onClose={onClose}
+            onNavigateToTask={onNavigateToTask}
+          />
+        )}
+
+        {tab === "tasks" && (
+          <ScrollArea className="h-full">
+            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+              <h3 className="mb-1 text-sm font-semibold">Задачи проекта</h3>
+              {tasks.length === 0 && <EmptyState text="В проекте пока нет задач" />}
+              {tasks.map((t) => {
+                const isOverdue = !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigateToTask?.(t.id)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left hover:bg-muted/50"
+                  >
+                    {t.is_completed ? (
+                      <CheckSquare className="h-4 w-4 shrink-0 text-tag-green" />
+                    ) : (
+                      <CircleDot className={cn("h-4 w-4 shrink-0", isOverdue ? "text-destructive" : "text-muted-foreground")} />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className={cn("truncate text-sm", t.is_completed && "text-muted-foreground line-through")}>{t.title}</div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {t.assigneeName && (<><UserCheck className="h-3 w-3" /> {t.assigneeName}</>)}
+                        {t.deadline && (
+                          <>
+                            <CalendarClock className="h-3 w-3" />
+                            <span className={cn(isOverdue && "font-medium text-destructive")}>{isOverdue ? "⚠ " : ""}{fmtDate(t.deadline)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
+
+        {tab === "metrics" && (
+          <ScrollArea className="h-full">
+            <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-5">
+              <h3 className="text-sm font-semibold">Показатели проекта</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <MetricTile icon={ListTodo} label="В работе" value={open.length} tone="text-tag-blue" />
+                <MetricTile icon={AlertTriangle} label="Просрочено" value={overdue.length} tone="text-destructive" />
+                <MetricTile icon={CheckCircle2} label="Завершено" value={completed.length} tone="text-tag-green" />
+                <MetricTile icon={TrendingUp} label="Всего задач" value={tasks.length} tone="text-primary" />
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between text-sm font-medium">
+                  <span>Выполнено по проекту</span>
+                  <span className="font-bold">{completionRate}%</span>
+                </div>
+                <Progress value={completionRate} className="h-1.5" />
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+
+        {tab === "members" && (
+          <ScrollArea className="h-full">
+            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+              <h3 className="mb-1 text-sm font-semibold">Участники проекта</h3>
+              {members.length === 0 && <EmptyState text="В проекте пока нет участников" />}
+              {members.map((m, i) => (
+                <div key={`${m.id}-${i}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+                    {getInitials(m.name)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+                  {m.role && <span className="shrink-0 text-[10px] text-muted-foreground">{m.role}</span>}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({ icon: Icon, label, value, tone }: { icon: typeof TrendingUp; label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className={cn("h-4 w-4", tone)} />
+        </span>
+      </div>
+      <div className="mt-2 text-2xl font-bold leading-none">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">{text}</div>
+  );
+}
