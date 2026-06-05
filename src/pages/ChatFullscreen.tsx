@@ -122,7 +122,7 @@ export default function ChatFullscreen() {
             onNavigateToTask={openTask}
           />
         ) : (
-          <ProjectChat
+          <ProjectRoomCenter
             key={groupId}
             groupId={groupId}
             groupName={group?.name || "Чат"}
