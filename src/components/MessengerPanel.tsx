@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectChat from "./ProjectChat";
+import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
