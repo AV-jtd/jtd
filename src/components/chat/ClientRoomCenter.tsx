@@ -1,85 +1,49 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import ProjectChat from "@/components/ProjectChat";
 import ClientAvatar from "@/components/ClientAvatar";
+import TaskItem from "@/components/TaskItem";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { getInitials } from "@/lib/initials";
+import type { Task } from "@/hooks/useTasks";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
-  CheckSquare, CircleDot, CalendarClock, Clock, ListTodo, AlertTriangle, CheckCircle2,
-  TrendingUp, MapPin,
+  ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 
-type RoomTask = {
-  id: string;
-  title: string;
-  is_completed: boolean;
-  deadline: string | null;
-  assigned_to: string | null;
-  delegated_from: string | null;
-  assigneeName: string | null;
+type ClientInfo = {
+  id: string; name: string; logo_url: string | null;
+  rankLabel: string | null; territoryLabel: string | null;
 };
 
-type RoomData = {
-  client: { id: string; name: string; logo_url: string | null; rankLabel: string | null; territoryLabel: string | null } | null;
-  tasks: RoomTask[];
-};
-
-function useClientRoomData(clientId: string | null) {
+/** Метаданные клиента для шапки комнаты. */
+function useClientInfo(clientId: string | null) {
   return useQuery({
-    queryKey: ["client_room_data", clientId],
-    queryFn: async (): Promise<RoomData> => {
-      if (!clientId) return { client: null, tasks: [] };
+    queryKey: ["client_room_info", clientId],
+    queryFn: async (): Promise<ClientInfo | null> => {
+      if (!clientId) return null;
       const { data: c } = await supabase
         .from("clients")
         .select("id, name, logo_url, rank_tag_id, territory_tag_id")
         .eq("id", clientId)
         .maybeSingle();
-      if (!c) return { client: null, tasks: [] };
-
+      if (!c) return null;
       const tagIds = [c.rank_tag_id, c.territory_tag_id].filter(Boolean) as string[];
       const tagMap = new Map<string, string>();
       if (tagIds.length) {
         const { data: tags } = await supabase.from("tags").select("id, name").in("id", tagIds);
         for (const t of (tags as any[]) || []) tagMap.set(t.id, t.name);
       }
-
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("id, title, is_completed, deadline, assigned_to, delegated_from")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      const assigneeIds = [...new Set(((tasks as any[]) || []).map((t) => t.assigned_to).filter(Boolean))] as string[];
-      const profMap = new Map<string, string>();
-      if (assigneeIds.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, display_name, email").in("id", assigneeIds);
-        for (const p of (profs as any[]) || []) profMap.set(p.id, p.display_name || p.email || "—");
-      }
-
       return {
-        client: {
-          id: c.id,
-          name: c.name,
-          logo_url: c.logo_url,
-          rankLabel: c.rank_tag_id ? tagMap.get(c.rank_tag_id) ?? null : null,
-          territoryLabel: c.territory_tag_id ? tagMap.get(c.territory_tag_id) ?? null : null,
-        },
-        tasks: ((tasks as any[]) || []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          is_completed: t.is_completed,
-          deadline: t.deadline,
-          assigned_to: t.assigned_to,
-          delegated_from: t.delegated_from,
-          assigneeName: t.assigned_to ? profMap.get(t.assigned_to) ?? null : null,
-        })),
+        id: c.id,
+        name: c.name,
+        logo_url: c.logo_url,
+        rankLabel: c.rank_tag_id ? tagMap.get(c.rank_tag_id) ?? null : null,
+        territoryLabel: c.territory_tag_id ? tagMap.get(c.territory_tag_id) ?? null : null,
       };
     },
     enabled: !!clientId,
@@ -87,12 +51,31 @@ function useClientRoomData(clientId: string | null) {
   });
 }
 
-type TabKey = "chat" | "tasks" | "metrics" | "assignments";
-
-function fmtDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+/**
+ * Полноценные Task-объекты по клиенту (с шагами и тегами) — чтобы рендерить
+ * единый компонент `TaskItem` (раскрытие inline + воркфлоу «Закрыть/Создать
+ * связанную»), а не дублировать карточку задачи в комнате клиента.
+ */
+function useClientTasks(clientId: string | null) {
+  return useQuery({
+    queryKey: ["client_room_tasks", clientId],
+    queryFn: async (): Promise<Task[]> => {
+      if (!clientId) return [];
+      const { data } = await supabase
+        .from("tasks")
+        .select("*, subtasks(*), task_tags(tag_id)")
+        .eq("client_id", clientId)
+        .order("is_completed", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(200);
+      return ((data as any[]) || []) as Task[];
+    },
+    enabled: !!clientId,
+    staleTime: 1000 * 30,
+  });
 }
+
+type TabKey = "chat" | "tasks" | "metrics" | "assignments";
 
 export default function ClientRoomCenter({
   groupId,
