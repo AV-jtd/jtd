@@ -16,6 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatMessagePreview } from "@/lib/systemMessages";
 import ClosedTaskPill from "./ClosedTaskPill";
+import TaskClientPicker from "./TaskClientPicker";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MessengerPanelProps {
   onClose: () => void;
@@ -139,6 +143,47 @@ export default function MessengerPanel({
     setActiveThread(null);
     restoredRef.current = null;
     onActiveThreadChange?.(null);
+  };
+
+  // CRM-контекст активного треда-задачи: нужен, чтобы прямо в шапке чата
+  // CRM-задачи (task_type='crm' / проект «Новые клиенты») показать кнопку
+  // привязки к клиенту. Делит кэш с TaskChat по ключу ["task-crm-context", id].
+  const qc = useQueryClient();
+  const activeTaskId = activeThread?.type === "task" ? activeThread.taskId ?? null : null;
+  const { data: crmContext } = useQuery({
+    queryKey: ["task-crm-context", activeTaskId],
+    enabled: !!activeTaskId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("client_id, task_type, group:task_groups(project_type, name)")
+        .eq("id", activeTaskId)
+        .maybeSingle();
+      if (error) throw error;
+      const group = (data as any)?.group ?? null;
+      const groupName = (group?.name ?? "").trim().toLowerCase();
+      const isCrm =
+        (data as any)?.task_type === "crm" ||
+        group?.project_type === "crm" ||
+        groupName.includes("новые клиенты");
+      return { clientId: (data as any)?.client_id ?? null, isCrm };
+    },
+  });
+  const handleLinkClient = async (clientId: string | null) => {
+    if (!activeTaskId) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ client_id: clientId })
+      .eq("id", activeTaskId);
+    if (error) {
+      toast.error("Не удалось привязать клиента: " + error.message);
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["task-crm-context", activeTaskId] });
+    qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    qc.invalidateQueries({ queryKey: ["crm-partners"] });
+    qc.invalidateQueries({ queryKey: ["tasks"] });
+    toast.success(clientId ? "Задача привязана к клиенту" : "Клиент отвязан");
   };
 
   // Build distinct author / project options from currently loaded threads.
@@ -533,6 +578,14 @@ export default function MessengerPanel({
             </span>
           )}
         </button>
+        {activeThread.type === "task" && crmContext?.isCrm && (
+          <TaskClientPicker
+            clientId={crmContext.clientId ?? null}
+            onChange={handleLinkClient}
+            label="Клиент"
+            buttonClassName="shrink-0"
+          />
+        )}
         {onMinimize && (
           <button
             onClick={onMinimize}
