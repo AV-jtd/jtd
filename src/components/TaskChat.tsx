@@ -638,11 +638,14 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const showActionWrapper = showCloseAction || followUpFormOpen;
+  const showClientLink = !!crmContext?.isCrm;
+  const showActionWrapper = showCloseAction || followUpFormOpen || showClientLink;
   const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
-      {showCloseAction && (
-      <div className="flex items-center gap-2">
+      {(showCloseAction || showClientLink) && (
+      <div className="flex items-center gap-2 flex-wrap">
+        {showCloseAction && (
+        <>
         <button
           type="button"
           onClick={handleToggleClosed}
@@ -669,6 +672,15 @@ export default function TaskChat({
             Связанная задача
             <ArrowRight className="h-3 w-3" />
           </button>
+        )}
+        </>
+        )}
+        {showClientLink && (
+          <TaskClientPicker
+            clientId={crmContext?.clientId ?? null}
+            onChange={handleLinkClient}
+            label="Привязать к клиенту"
+          />
         )}
       </div>
       )}
