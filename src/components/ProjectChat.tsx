@@ -71,6 +71,9 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   };
   const closeTaskForm = () => setTaskFormFor(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** Standalone task form opened from the chat header (not tied to a message). */
+  const [headerTaskOpen, setHeaderTaskOpen] = useState(false);
+  const toggleHeaderTask = () => { setHeaderTaskOpen(v => !v); setTaskFormNonce(n => n + 1); };
 
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
