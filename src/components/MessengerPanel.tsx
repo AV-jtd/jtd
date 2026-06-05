@@ -78,6 +78,7 @@ export default function MessengerPanel({
   initialActiveThreadId,
   onActiveThreadChange,
 }: MessengerPanelProps) {
+  const navigate = useNavigate();
   const [kindFilter, setKindFilter] = useState<ThreadKindFilter>("chat");
   const { data: threads = [], isLoading } = useThreads(kindFilter);
   // Live updates: refresh the thread list when new messages/comments arrive
