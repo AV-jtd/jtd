@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, User as UserIcon, MailWarning } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, Maximize2, User as UserIcon, MailWarning } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,7 @@ export default function MessengerPanel({
   initialActiveThreadId,
   onActiveThreadChange,
 }: MessengerPanelProps) {
+  const navigate = useNavigate();
   const [kindFilter, setKindFilter] = useState<ThreadKindFilter>("chat");
   const { data: threads = [], isLoading } = useThreads(kindFilter);
   // Live updates: refresh the thread list when new messages/comments arrive
@@ -594,6 +596,16 @@ export default function MessengerPanel({
             aria-label="Свернуть чат"
           >
             <Minimize2 className="h-4 w-4" />
+          </button>
+        )}
+        {activeThread.type === "group" && activeThread.groupId && (
+          <button
+            onClick={() => { navigate(`/chat/${activeThread.groupId}`); onClose(); }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+            title="Развернуть на весь экран"
+            aria-label="Развернуть на весь экран"
+          >
+            <Maximize2 className="h-4 w-4" />
           </button>
         )}
         <button
