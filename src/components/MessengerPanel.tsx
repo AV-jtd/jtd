@@ -556,19 +556,12 @@ export default function MessengerPanel({
       {/* Chat content */}
       <div className="flex-1 overflow-hidden">
         {activeThread.type === "group" && activeThread.groupId ? (
-          <ProjectChat
+          <ProjectRoomCenter
+            key={activeThread.groupId}
             groupId={activeThread.groupId}
             groupName={activeThread.name}
+            hideHeader
             onClose={clearActiveThread}
-            embedded
-            onNavigateToProject={(gId) => {
-              if (onOpenProjectDetail) {
-                onOpenProjectDetail(gId);
-              } else {
-                onNavigateToProject?.(gId);
-                onClose();
-              }
-            }}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
