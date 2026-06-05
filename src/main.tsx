@@ -49,36 +49,16 @@ import { createRoot } from "react-dom/client";
 import "./lib/supabaseFetchGuard";
 import "./lib/authRefreshSingleflight";
 import { checkForUpdates } from "./lib/versionCheck";
+import { canAttemptRecovery, recoverFromStaleChunk, resetRecoveryAttempts } from "./lib/chunkRecovery";
 import App from "./App.tsx";
 import "./index.css";
 
 // Vite native hook для ошибок предзагрузки модулей
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
-  const RELOAD_KEY = 'chunk-reload-attempted';
-  const lastAttempt = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
-  if (!lastAttempt || Date.now() - lastAttempt > 10_000) {
-    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
-    void (async () => {
-      try {
-        const regs = await navigator.serviceWorker?.getRegistrations();
-        await Promise.allSettled((regs ?? []).map((reg) => reg.unregister()));
-      } catch {
-        // Continue with cache cleanup and a cache-busted reload.
-      }
-      try {
-        if ('caches' in window) {
-          const names = await window.caches.keys();
-          await Promise.allSettled(names.map((name) => window.caches.delete(name)));
-        }
-      } catch {
-        // Reload even if Cache Storage is unavailable.
-      }
-      const url = new URL(window.location.href);
-      url.searchParams.set('_v', Date.now().toString(36));
-      window.location.replace(url.toString());
-    })();
-  }
+  // Capped recovery (see chunkRecovery.ts) — prevents the reload loop that the
+  // browser reports as ERR_TOO_MANY_REDIRECTS.
+  if (canAttemptRecovery()) void recoverFromStaleChunk();
 });
 
 // Emergency offline reset: production PWA/offline caching is disabled for now.
