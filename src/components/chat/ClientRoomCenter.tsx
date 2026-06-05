@@ -213,12 +213,7 @@ export default function ClientRoomCenter({
               <h3 className="mb-1 text-sm font-semibold">Задачи по клиенту</h3>
               {tasks.length === 0 && <EmptyState text="По клиенту пока нет задач" />}
               {open.map((t) => (
-                <TaskItem
-                  key={taskKey(t.id)}
-                  task={t}
-                  initialOpen={expand?.id === t.id}
-                  onProjectClick={onNavigateToTask ? undefined : undefined}
-                />
+                <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
               ))}
               {completed.length > 0 && (
                 <div className="pt-2">
