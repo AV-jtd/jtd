@@ -578,6 +578,14 @@ export default function MessengerPanel({
             </span>
           )}
         </button>
+        {activeThread.type === "task" && crmContext?.isCrm && (
+          <TaskClientPicker
+            clientId={crmContext.clientId ?? null}
+            onChange={handleLinkClient}
+            label="Клиент"
+            buttonClassName="shrink-0"
+          />
+        )}
         {onMinimize && (
           <button
             onClick={onMinimize}
