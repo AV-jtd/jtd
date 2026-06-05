@@ -411,6 +411,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
       {embedded && (
         <div className="flex justify-end items-center gap-1 px-4 py-1.5 border-b border-border shrink-0">
           <button
+            onClick={toggleHeaderTask}
+            className={cn(
+              "flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors",
+              headerTaskOpen ? "bg-primary/15 text-primary" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+            )}
+            title="Создать задачу"
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+            <span>Задача</span>
+          </button>
+          <button
             onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQ(""); }}
             className={cn(
               "flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors",
