@@ -175,7 +175,21 @@ export function useEnsureClientRoom() {
         } as any)
         .select("id")
         .single();
-      if (error) throw error;
+      if (error) {
+        // Гонка: другой клиент/вкладка успел создать комнату раньше — БД
+        // отклоняет дубль по уникальному индексу (project_type, client_id).
+        // Перечитываем существующую вместо падения.
+        if ((error as any).code === "23505") {
+          const { data: again } = await supabase
+            .from("task_groups")
+            .select("id")
+            .eq("project_type", "crm_client" as any)
+            .eq("client_id", clientId as any)
+            .maybeSingle();
+          if (again?.id) return again.id as string;
+        }
+        throw error;
+      }
       return (created as any).id as string;
     },
     onSuccess: () => {

@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2 } from "lucide-react";
+import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2, MessageCircle } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
+import { useEnsureClientRoom } from "@/hooks/useChatRooms";
 import { cn } from "@/lib/utils";
 
 type PartnerRow = {
@@ -26,7 +28,14 @@ type PartnerRow = {
  */
 export default function CrmClientsList() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const ensureRoom = useEnsureClientRoom();
   const [search, setSearch] = useState("");
+
+  const openClientChat = async (clientId: string) => {
+    const gid = await ensureRoom.mutateAsync(clientId);
+    navigate(`/chat/${gid}`);
+  };
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["crm-partners", user?.id],
@@ -195,6 +204,15 @@ export default function CrmClientsList() {
                   >
                     {deals} {deals === 1 ? "сделка" : "сделок"}
                   </div>
+                  <button
+                    onClick={() => openClientChat(c.id)}
+                    disabled={ensureRoom.isPending}
+                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                    title="Чат клиента"
+                    aria-label="Открыть чат клиента"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </button>
                 </div>
               );
             })}
