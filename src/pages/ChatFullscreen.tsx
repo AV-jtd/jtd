@@ -7,6 +7,7 @@ import ProjectChat from "@/components/ProjectChat";
 import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
+import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
 import { ArrowLeft, PanelLeft, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
