@@ -71,6 +71,9 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   };
   const closeTaskForm = () => setTaskFormFor(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** Standalone task form opened from the chat header (not tied to a message). */
+  const [headerTaskOpen, setHeaderTaskOpen] = useState(false);
+  const toggleHeaderTask = () => { setHeaderTaskOpen(v => !v); setTaskFormNonce(n => n + 1); };
 
   // Подгружаем реакции для всех видимых сообщений группы.
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
@@ -353,6 +356,16 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
           </button>
           <div className="flex items-center gap-1">
             <button
+              onClick={toggleHeaderTask}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                headerTaskOpen ? "bg-primary/15 text-primary" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+              )}
+              title="Создать задачу"
+            >
+              <CheckSquare className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQ(""); }}
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
@@ -397,6 +410,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
       {/* AI button when embedded (no own header) */}
       {embedded && (
         <div className="flex justify-end items-center gap-1 px-4 py-1.5 border-b border-border shrink-0">
+          <button
+            onClick={toggleHeaderTask}
+            className={cn(
+              "flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors",
+              headerTaskOpen ? "bg-primary/15 text-primary" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+            )}
+            title="Создать задачу"
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+            <span>Задача</span>
+          </button>
           <button
             onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQ(""); }}
             className={cn(
@@ -457,6 +481,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
           <span className="text-[10px] text-muted-foreground">не привязан — <button onClick={() => setShowLink(true)} className="text-primary hover:underline">подключить</button></span>
         )}
       </div>
+
+      {/* Standalone task creation form (from header button) */}
+      {headerTaskOpen && (
+        <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/20">
+          <InlineTaskForm
+            key={`hdr-${taskFormNonce}`}
+            availableUsers={availableUsers}
+            defaultAssignee={null}
+            onCancel={() => setHeaderTaskOpen(false)}
+            onSubmit={async (payload) => { await handleCreateCard(null, payload); setHeaderTaskOpen(false); }}
+            isSubmitting={addTask.isPending}
+          />
+        </div>
+      )}
 
       {/* In-thread search input */}
       {searchOpen && (
@@ -716,14 +754,14 @@ function InlineTaskForm({
   onSubmit,
   isSubmitting,
 }: {
-  message: GroupMessage;
+  message?: GroupMessage | null;
   availableUsers: Profile[];
   defaultAssignee: Profile | null;
   onCancel: () => void;
   onSubmit: (payload: { title: string; assignee: Profile | null; deadline: string | null }) => void;
   isSubmitting: boolean;
 }) {
-  const [title, setTitle] = useState(() => message.content.slice(0, 80));
+  const [title, setTitle] = useState(() => message?.content.slice(0, 80) ?? "");
   const [assignee, setAssignee] = useState<Profile | null>(defaultAssignee);
   const [deadline, setDeadline] = useState<string>("");
   const [pickerOpen, setPickerOpen] = useState(false);
