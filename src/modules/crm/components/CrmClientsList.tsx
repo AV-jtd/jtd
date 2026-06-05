@@ -204,6 +204,15 @@ export default function CrmClientsList() {
                   >
                     {deals} {deals === 1 ? "сделка" : "сделок"}
                   </div>
+                  <button
+                    onClick={() => openClientChat(c.id)}
+                    disabled={ensureRoom.isPending}
+                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                    title="Чат клиента"
+                    aria-label="Открыть чат клиента"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </button>
                 </div>
               );
             })}
