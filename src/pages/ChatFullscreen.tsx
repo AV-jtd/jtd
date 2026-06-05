@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import ProjectChat from "@/components/ProjectChat";
 import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
+import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import { ArrowLeft, PanelLeft, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +73,18 @@ export default function ChatFullscreen() {
         </div>
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && <ChatRoomsList activeGroupId={groupId} onSelect={select} />}
-          {mobilePane === "chat" && (
+          {mobilePane === "chat" && (hasClient ? (
+            <ClientRoomCenter
+              key={groupId}
+              groupId={groupId}
+              groupName={group?.name || "Чат"}
+              clientId={group!.client_id!}
+              fullscreen
+              onBack={() => setMobilePane("list")}
+              onClose={() => navigate("/")}
+              onNavigateToTask={openTask}
+            />
+          ) : (
             <ProjectChat
               key={groupId}
               groupId={groupId}
@@ -82,7 +94,7 @@ export default function ChatFullscreen() {
               onClose={() => navigate("/")}
               onNavigateToTask={openTask}
             />
-          )}
+          ))}
           {mobilePane === "info" && hasClient && (
             <ClientContextPanel clientId={group!.client_id} onNavigateToTask={openTask} />
           )}
@@ -97,15 +109,28 @@ export default function ChatFullscreen() {
         <ChatRoomsList activeGroupId={groupId} onSelect={select} />
       </div>
       <div className="min-w-0 flex-1">
-        <ProjectChat
-          key={groupId}
-          groupId={groupId}
-          groupName={group?.name || "Чат"}
-          fullscreen
-          onClose={() => navigate("/")}
-          onToggleFullscreen={() => navigate("/")}
-          onNavigateToTask={openTask}
-        />
+        {hasClient ? (
+          <ClientRoomCenter
+            key={groupId}
+            groupId={groupId}
+            groupName={group?.name || "Чат"}
+            clientId={group!.client_id!}
+            fullscreen
+            onClose={() => navigate("/")}
+            onToggleFullscreen={() => navigate("/")}
+            onNavigateToTask={openTask}
+          />
+        ) : (
+          <ProjectChat
+            key={groupId}
+            groupId={groupId}
+            groupName={group?.name || "Чат"}
+            fullscreen
+            onClose={() => navigate("/")}
+            onToggleFullscreen={() => navigate("/")}
+            onNavigateToTask={openTask}
+          />
+        )}
       </div>
       {hasClient && (
         <div className="w-80 shrink-0 border-l border-border">
