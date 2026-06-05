@@ -143,6 +143,10 @@ try {
     sessionStorage.setItem("jtd_boot_ok", "1");
     sessionStorage.removeItem("jtd_pwa_shell_recovery");
   } catch {}
+  // App mounted successfully. Once it stays stable for a few seconds, clear the
+  // chunk-recovery attempt counter so a future genuine stale deploy can recover
+  // again — without re-enabling an immediate reload loop.
+  window.setTimeout(() => resetRecoveryAttempts(), 8_000);
   // Запускаем фоновый чек версии — он покажет UpdateBanner, когда появится новая сборка.
   void checkForUpdates();
 } catch (err) {
