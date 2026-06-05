@@ -6,14 +6,18 @@ async function recoverFromStaleChunk() {
   try {
     const regs = await navigator.serviceWorker?.getRegistrations();
     await Promise.allSettled((regs ?? []).map((reg) => reg.unregister()));
-  } catch {}
+  } catch {
+    // Continue with cache cleanup and a cache-busted reload.
+  }
 
   try {
     if ('caches' in window) {
       const names = await window.caches.keys();
       await Promise.allSettled(names.map((name) => window.caches.delete(name)));
     }
-  } catch {}
+  } catch {
+    // Reload even if Cache Storage is unavailable.
+  }
 
   const url = new URL(window.location.href);
   url.searchParams.set('_v', Date.now().toString(36));

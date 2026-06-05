@@ -18,14 +18,18 @@ async function recoverFromStaleChunk() {
   try {
     const regs = await navigator.serviceWorker?.getRegistrations();
     await Promise.allSettled((regs ?? []).map((reg) => reg.unregister()));
-  } catch {}
+  } catch {
+    // Continue with cache cleanup and a cache-busted reload.
+  }
 
   try {
     if ("caches" in window) {
       const names = await window.caches.keys();
       await Promise.allSettled(names.map((name) => window.caches.delete(name)));
     }
-  } catch {}
+  } catch {
+    // Reload even if Cache Storage is unavailable.
+  }
 
   const url = new URL(window.location.href);
   url.searchParams.set("_v", Date.now().toString(36));
@@ -71,7 +75,9 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    try { sessionStorage.removeItem(CHUNK_RELOAD_KEY); } catch {}
+    try { sessionStorage.removeItem(CHUNK_RELOAD_KEY); } catch {
+      // Retry should still work if sessionStorage is unavailable.
+    }
     if (isStaleChunkError(this.state.error)) {
       void recoverFromStaleChunk();
       return;
