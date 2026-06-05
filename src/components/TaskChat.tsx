@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UserPicker from "./UserPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,6 +20,7 @@ import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "
 import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
+import TaskClientPicker from "./TaskClientPicker";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
@@ -140,6 +141,49 @@ export default function TaskChat({
   const isCompleted = isCompletedProp ?? taskStatusMap?.get(taskId) ?? false;
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+
+  /**
+   * CRM-контекст задачи: тип задачи, проект и привязанный клиент.
+   * Нужен, чтобы показать кнопку «Привязать к клиенту» только для CRM-задач
+   * (task_type='crm' или задача в CRM-проекте / «Новые клиенты»).
+   */
+  const { data: crmContext } = useQuery({
+    queryKey: ["task-crm-context", taskId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("client_id, task_type, group:task_groups(project_type, name)")
+        .eq("id", taskId)
+        .maybeSingle();
+      if (error) throw error;
+      const group = (data as any)?.group ?? null;
+      const groupName = (group?.name ?? "").trim().toLowerCase();
+      const isCrm =
+        (data as any)?.task_type === "crm" ||
+        group?.project_type === "crm" ||
+        groupName.includes("новые клиенты");
+      return {
+        clientId: (data as any)?.client_id ?? null,
+        isCrm,
+      };
+    },
+  });
+
+  const handleLinkClient = async (clientId: string | null) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ client_id: clientId })
+      .eq("id", taskId);
+    if (error) {
+      toast.error("Не удалось привязать клиента: " + error.message);
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["task-crm-context", taskId] });
+    qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    qc.invalidateQueries({ queryKey: ["crm-partners"] });
+    qc.invalidateQueries({ queryKey: ["tasks"] });
+    toast.success(clientId ? "Задача привязана к клиенту" : "Клиент отвязан");
+  };
 
   /** Сообщение, для которого открыта inline-форма создания задачи. */
   const [taskFormForCommentId, setTaskFormForCommentId] = useState<string | null>(null);
@@ -595,11 +639,14 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const showActionWrapper = showCloseAction || followUpFormOpen;
+  const showClientLink = !!crmContext?.isCrm;
+  const showActionWrapper = showCloseAction || followUpFormOpen || showClientLink;
   const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
-      {showCloseAction && (
-      <div className="flex items-center gap-2">
+      {(showCloseAction || showClientLink) && (
+      <div className="flex items-center gap-2 flex-wrap">
+        {showCloseAction && (
+        <>
         <button
           type="button"
           onClick={handleToggleClosed}
@@ -626,6 +673,15 @@ export default function TaskChat({
             Связанная задача
             <ArrowRight className="h-3 w-3" />
           </button>
+        )}
+        </>
+        )}
+        {showClientLink && (
+          <TaskClientPicker
+            clientId={crmContext?.clientId ?? null}
+            onChange={handleLinkClient}
+            label="Привязать к клиенту"
+          />
         )}
       </div>
       )}

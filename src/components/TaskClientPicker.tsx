@@ -22,6 +22,13 @@ interface Props {
   buttonClassName?: string;
   /** Optional title attribute override */
   title?: string;
+  /**
+   * When provided, renders a labeled bordered button (icon + text) instead of
+   * the bare icon. Useful in toolbars (e.g. CRM task chat header).
+   * The label is shown when no client is linked; once linked, the client name
+   * is shown instead.
+   */
+  label?: string;
 }
 
 /**
@@ -30,7 +37,7 @@ interface Props {
  * - Inline create via RPC `upsert_client_by_name` (dedup-safe).
  * - Detach button when already linked.
  */
-export default function TaskClientPicker({ clientId, onChange, buttonClassName, title }: Props) {
+export default function TaskClientPicker({ clientId, onChange, buttonClassName, title, label }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -97,6 +104,21 @@ export default function TaskClientPicker({ clientId, onChange, buttonClassName, 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
+        {label ? (
+          <button
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
+              linked
+                ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                : "border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted",
+              buttonClassName,
+            )}
+            title={title ?? (linked ? `Клиент: ${linked.name}` : "Привязать к клиенту")}
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            <span className="max-w-[160px] truncate">{linked ? linked.name : label}</span>
+          </button>
+        ) : (
         <button
           className={cn(
             "p-1.5 rounded transition-colors",
@@ -107,6 +129,7 @@ export default function TaskClientPicker({ clientId, onChange, buttonClassName, 
         >
           <Building2 className="h-3.5 w-3.5" />
         </button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2 bg-popover border-border z-50" side="left">
         {linked && (
