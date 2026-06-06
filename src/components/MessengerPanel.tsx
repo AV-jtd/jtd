@@ -426,6 +426,7 @@ export default function MessengerPanel({
               {filtered.map(thread => {
                 const unread = isThreadUnread?.(thread.id, thread.lastMessageAt, thread.lastMessageUserId) ?? false;
                 const isProject = thread.type === "group";
+                const isClientRoom = isProject && thread.groupProjectType === "crm_client";
                 const projectColor = isProject ? thread.groupColor || null : null;
                 const projectEmoji = isProject
                   ? (thread.groupIcon && thread.groupIcon !== "list" ? thread.groupIcon : "📁")
@@ -485,7 +486,11 @@ export default function MessengerPanel({
                           {formatThreadDate(thread.lastMessageAt)}
                         </span>
                       </div>
-                      {isProject ? (
+                      {isClientRoom ? (
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                          Клиент
+                        </span>
+                      ) : isProject ? (
                         <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 truncate">Чат проекта</p>
                       ) : thread.groupName ? (
                         <p className="text-[10px] text-muted-foreground/60 truncate">{thread.groupName}</p>

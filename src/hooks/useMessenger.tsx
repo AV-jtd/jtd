@@ -27,6 +27,8 @@ export type Thread = {
   groupIcon?: string | null;
   groupColor?: string | null;
   groupLogoUrl?: string | null;
+  /** project_type of the group — used to flag CRM client rooms in the list. */
+  groupProjectType?: string | null;
 };
 
 /**
@@ -164,7 +166,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
 
       const [groupsRes, tasksRes, profilesRes] = await Promise.all([
         groupIds.length > 0
-          ? supabase.from("task_groups").select("id, name, icon, color, logo_url").in("id", groupIds)
+          ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
@@ -223,6 +225,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           groupIcon: (g as any).icon ?? null,
           groupColor: (g as any).color ?? null,
           groupLogoUrl: (g as any).logo_url ?? null,
+          groupProjectType: (g as any).project_type ?? null,
         });
       }
 
