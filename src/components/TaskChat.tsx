@@ -21,6 +21,8 @@ import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 import TaskClientPicker from "./TaskClientPicker";
+import ClientAvatar from "./ClientAvatar";
+import { useNavigate } from "react-router-dom";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
@@ -99,6 +101,7 @@ export default function TaskChat({
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
+  const navigate = useNavigate();
   const { addComment, deleteComment } = useCommentMutations();
   const { toggleTask } = useTaskMutations();
   const [draft, setDraft] = useState("");
@@ -162,9 +165,31 @@ export default function TaskChat({
         (data as any)?.task_type === "crm" ||
         group?.project_type === "crm" ||
         groupName.includes("новые клиенты");
+      const clientId = (data as any)?.client_id ?? null;
+
+      // Если задача привязана к клиенту — подтягиваем карточку клиента и
+      // комнату клиента (CRM-room), чтобы показать читаемый chip в шапке.
+      let client: { name: string; logo_url: string | null } | null = null;
+      let clientRoomGroupId: string | null = null;
+      if (clientId) {
+        const [{ data: c }, { data: room }] = await Promise.all([
+          supabase.from("clients").select("name, logo_url").eq("id", clientId).maybeSingle(),
+          supabase
+            .from("task_groups")
+            .select("id")
+            .eq("project_type", "crm_client" as any)
+            .eq("client_id", clientId as any)
+            .maybeSingle(),
+        ]);
+        client = c ? { name: (c as any).name, logo_url: (c as any).logo_url ?? null } : null;
+        clientRoomGroupId = (room as any)?.id ?? null;
+      }
+
       return {
-        clientId: (data as any)?.client_id ?? null,
+        clientId,
         isCrm,
+        client,
+        clientRoomGroupId,
       };
     },
   });
@@ -639,7 +664,10 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const showClientLink = !!crmContext?.isCrm;
+  const linkedClient = crmContext?.clientId ? crmContext.client : null;
+  // Кнопка «Привязать к клиенту» — только для CRM-задач, пока клиент НЕ привязан.
+  // Когда клиент привязан, его роль берёт на себя chip в шапке.
+  const showClientLink = !!crmContext?.isCrm && !crmContext?.clientId;
   const showActionWrapper = showCloseAction || followUpFormOpen || showClientLink;
   const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
@@ -705,6 +733,29 @@ export default function TaskChat({
           isSubmitting={creatingFollowUp}
         />
       )}
+    </div>
+  ) : null;
+
+  /**
+   * Chip принадлежности задачи клиенту — показывает, что эта задача является
+   * частью карточки клиента CRM. Кликом ведёт в комнату клиента.
+   */
+  const clientChip = linkedClient ? (
+    <div className={cn("shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      <button
+        type="button"
+        onClick={() => crmContext?.clientRoomGroupId && navigate(`/chat/${crmContext.clientRoomGroupId}`)}
+        disabled={!crmContext?.clientRoomGroupId}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 py-0.5 pl-0.5 pr-2 text-[11px] font-medium text-primary transition-colors",
+          crmContext?.clientRoomGroupId ? "hover:bg-primary/10 cursor-pointer" : "cursor-default opacity-90",
+        )}
+        title={crmContext?.clientRoomGroupId ? "Открыть комнату клиента" : "Задача клиента"}
+      >
+        <ClientAvatar client={linkedClient} size="xs" />
+        <span className="truncate max-w-[160px]">{linkedClient.name}</span>
+        {crmContext?.clientRoomGroupId && <ArrowRight className="h-3 w-3 opacity-60" />}
+      </button>
     </div>
   ) : null;
 
@@ -779,6 +830,7 @@ export default function TaskChat({
     return (
       <div className="flex flex-col h-full">
         {tabsBar}
+        {clientChip}
         {closeAction}
         <ScrollArea className="flex-1 px-4 py-3">
           {messagesContent}
@@ -800,6 +852,7 @@ export default function TaskChat({
 
       <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
         {tabsBar}
+        {clientChip}
         {closeAction}
         <ScrollArea className="max-h-64 px-3 py-2">
           {messagesContent}
