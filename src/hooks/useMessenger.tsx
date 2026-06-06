@@ -225,6 +225,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           groupIcon: (g as any).icon ?? null,
           groupColor: (g as any).color ?? null,
           groupLogoUrl: (g as any).logo_url ?? null,
+          groupProjectType: (g as any).project_type ?? null,
         });
       }
 
