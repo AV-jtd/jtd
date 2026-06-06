@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/hooks/useTasks";
+import { useAvailableUsers } from "@/hooks/useTasks";
+import { useClientTaskThreads } from "@/hooks/useClientTaskThreads";
+import ClientTaskThreadCard from "@/components/chat/ClientTaskThreadCard";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
