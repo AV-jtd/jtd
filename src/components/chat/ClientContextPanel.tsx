@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriangle,
   ListTodo, ExternalLink, Camera, Loader2, Pencil, Check, X, MessageSquare,
-  FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch,
+  FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch, Globe,
 } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,7 +15,7 @@ import { getInitials } from "@/lib/initials";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type EditableField = "contact_name" | "phone" | "email" | "city";
+type EditableField = "contact_name" | "phone" | "email" | "city" | "website";
 
 type ClientFields = {
   id: string;
@@ -25,6 +25,7 @@ type ClientFields = {
   phone: string | null;
   email: string | null;
   city: string | null;
+  website: string | null;
   rankLabel: string | null;
   territoryLabel: string | null;
   retailLabel: string | null;
@@ -57,7 +58,7 @@ function useClientContext(clientId: string | null) {
       if (!clientId) return EMPTY;
       const { data: c } = await supabase
         .from("clients")
-        .select("id, name, logo_url, contact_name, phone, email, city, manager_id, rank_tag_id, territory_tag_id, retail_type_tag_id")
+        .select("id, name, logo_url, contact_name, phone, email, city, website, manager_id, rank_tag_id, territory_tag_id, retail_type_tag_id")
         .eq("id", clientId)
         .maybeSingle();
       if (!c) return EMPTY;
@@ -171,6 +172,7 @@ function useClientContext(clientId: string | null) {
           phone: c.phone,
           email: c.email,
           city: c.city,
+          website: (c as any).website ?? null,
           rankLabel: c.rank_tag_id ? tagMap.get(c.rank_tag_id) ?? null : null,
           territoryLabel: c.territory_tag_id ? tagMap.get(c.territory_tag_id) ?? null : null,
           retailLabel: c.retail_type_tag_id ? tagMap.get(c.retail_type_tag_id) ?? null : null,
