@@ -27,6 +27,8 @@ export type Thread = {
   groupIcon?: string | null;
   groupColor?: string | null;
   groupLogoUrl?: string | null;
+  /** project_type of the group — used to flag CRM client rooms in the list. */
+  groupProjectType?: string | null;
 };
 
 /**
