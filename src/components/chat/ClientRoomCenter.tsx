@@ -273,6 +273,16 @@ export default function ClientRoomCenter({
         </div>
       </div>
 
+      {/* Сегодня по клиенту — фокус-строка по срочности задач */}
+      <TodayBar
+        overdue={overdueTasks.length}
+        today={todayTasks.length}
+        week={weekTasks.length}
+        nodate={noDateTasks.length}
+        active={tab === "tasks" ? focusFilter : null}
+        onPick={openFocus}
+      />
+
       {/* tabs */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">
         {TABS.map((t) => (
