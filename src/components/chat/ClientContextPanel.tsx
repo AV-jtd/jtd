@@ -437,6 +437,14 @@ export default function ClientContextPanel({
               placeholder="Город"
               onSave={(v) => saveField("city", v)}
             />
+            <EditableContactRow
+              icon={Globe}
+              value={client.website}
+              placeholder="Ссылка / сайт"
+              type="url"
+              href={client.website ? (/^https?:\/\//i.test(client.website) ? client.website : `https://${client.website}`) : undefined}
+              onSave={(v) => saveField("website", v)}
+            />
           </div>
 
           {/* Этап воронки */}
