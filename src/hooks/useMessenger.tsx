@@ -166,7 +166,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
 
       const [groupsRes, tasksRes, profilesRes] = await Promise.all([
         groupIds.length > 0
-          ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type").in("id", groupIds)
+          ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type, client_id").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
@@ -181,6 +181,25 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       const profileMap = new Map(
         ((profilesRes.data as any[]) || []).map((p) => [p.id, p.display_name || ""]),
       );
+
+      // CRM client rooms keep their logo on `clients.logo_url`, NOT on the
+      // chat group, so the group's `logo_url` is usually null. Fetch the
+      // client logos and use them as the room avatar in the list.
+      const clientIds = [
+        ...new Set(
+          groups
+            .filter((g) => g.project_type === "crm_client" && g.client_id)
+            .map((g) => g.client_id as string),
+        ),
+      ];
+      const clientLogoMap = new Map<string, string | null>();
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await supabase
+          .from("clients")
+          .select("id, logo_url")
+          .in("id", clientIds);
+        for (const c of (clientRows as any[]) || []) clientLogoMap.set(c.id, c.logo_url ?? null);
+      }
 
       // Step 4: for task threads we still need parent-group names for the
       // subtitle. Fetch only the groups that aren't already in `groups`
@@ -224,7 +243,10 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           groupId: g.id,
           groupIcon: (g as any).icon ?? null,
           groupColor: (g as any).color ?? null,
-          groupLogoUrl: (g as any).logo_url ?? null,
+          groupLogoUrl:
+            ((g as any).client_id ? clientLogoMap.get((g as any).client_id) : null) ??
+            (g as any).logo_url ??
+            null,
           groupProjectType: (g as any).project_type ?? null,
         });
       }
