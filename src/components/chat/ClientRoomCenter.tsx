@@ -278,7 +278,7 @@ export default function ClientRoomCenter({
                   </span>
                 </button>
                 {!threadsCollapsed && (
-                  <div className="max-h-[40%] space-y-1.5 overflow-y-auto px-3 pb-3 sm:px-4">
+                  <div className="max-h-64 space-y-1.5 overflow-y-auto px-3 pb-3 sm:px-4">
                     {taskThreads.map((th) => (
                       <ClientTaskThreadCard
                         key={th.taskId}
