@@ -111,6 +111,8 @@ export default function ClientRoomCenter({
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
+  /** Активный фокус-фильтр из блока «Сегодня по клиенту». */
+  const [focusFilter, setFocusFilter] = useState<"overdue" | "today" | "week" | "nodate" | null>(null);
 
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -130,6 +132,18 @@ export default function ClientRoomCenter({
   const overdue = open.filter((t) => t.deadline && new Date(t.deadline).getTime() < now);
   const assignments = tasks.filter((t) => (t as any).delegated_from);
   const completionRate = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
+
+  // «Сегодня по клиенту»: ведёрки задач по срочности (на реальных данных).
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  const endToday = new Date(); endToday.setHours(23, 59, 59, 999);
+  const endWeek = new Date(endToday); endWeek.setDate(endWeek.getDate() + 7);
+  const dl = (t: Task) => (t.deadline ? new Date(t.deadline) : null);
+  const overdueTasks = open.filter((t) => { const d = dl(t); return d && d < startToday; });
+  const todayTasks = open.filter((t) => { const d = dl(t); return d && d >= startToday && d <= endToday; });
+  const weekTasks = open.filter((t) => { const d = dl(t); return d && d > endToday && d <= endWeek; });
+  const noDateTasks = open.filter((t) => !t.deadline);
+  const focusBuckets = { overdue: overdueTasks, today: todayTasks, week: weekTasks, nodate: noDateTasks };
+  const focusList = focusFilter ? focusBuckets[focusFilter] : open;
   /** Связанная задача = CRM-задача воронки клиента. */
   const funnelTask = tasks.find((t) => (t as any).task_type === "crm") ?? null;
 
