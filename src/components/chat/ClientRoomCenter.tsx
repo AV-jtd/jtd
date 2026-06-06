@@ -189,6 +189,13 @@ export default function ClientRoomCenter({
   /** Перейти в «Задачи» для создания новой задачи по клиенту. */
   const startNewTask = () => setTab("tasks");
 
+  /** Клик по чипу «Сегодня по клиенту» → вкладка «Задачи» + фокус-фильтр. */
+  const openFocus = (key: "overdue" | "today" | "week" | "nodate") => {
+    setFocusFilter(key);
+    setExpand(null);
+    setTab("tasks");
+  };
+
   /** Ключ для TaskItem: меняется при запросе раскрытия → ремоунт уже раскрытым. */
   const taskKey = (id: string) => `${id}-${expand?.id === id ? expand.nonce : 0}`;
 
