@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/initials";
-import LinkClientDialog from "@/components/chat/LinkClientDialog";
 import {
   MessageSquare, ListChecks, BarChart3, Users, Maximize2, Minimize2, ArrowLeft,
   CheckSquare, CircleDot, CalendarClock, UserCheck, ListTodo, AlertTriangle,
-  CheckCircle2, TrendingUp, Building2,
+  CheckCircle2, TrendingUp,
 } from "lucide-react";
 
 type RoomTask = {
@@ -144,7 +143,6 @@ export default function ProjectRoomCenter({
   onToggleFullscreen,
   onBack,
   onNavigateToTask,
-  onLinked,
 }: {
   groupId: string;
   groupName: string;
@@ -154,10 +152,8 @@ export default function ProjectRoomCenter({
   onToggleFullscreen?: () => void;
   onBack?: () => void;
   onNavigateToTask?: (taskId: string) => void;
-  onLinked?: () => void;
 }) {
   const [tab, setTab] = useState<TabKey>("chat");
-  const [linkOpen, setLinkOpen] = useState(false);
   const { data } = useProjectRoomData(groupId);
   const tasks = data?.tasks ?? [];
   const group = data?.group;
@@ -203,15 +199,6 @@ export default function ProjectRoomCenter({
           <div className="text-xs text-muted-foreground">проектный чат</div>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setLinkOpen(true)}
-            title="Привязать к клиенту"
-          >
-            <Building2 className="h-4 w-4" />
-          </Button>
           {onToggleFullscreen && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFullscreen} title={fullscreen ? "Свернуть" : "Развернуть"}>
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -220,13 +207,6 @@ export default function ProjectRoomCenter({
         </div>
       </div>
       )}
-
-      <LinkClientDialog
-        groupId={groupId}
-        open={linkOpen}
-        onOpenChange={setLinkOpen}
-        onLinked={onLinked}
-      />
 
       {/* tabs */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">

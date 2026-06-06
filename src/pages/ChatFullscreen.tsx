@@ -17,19 +17,16 @@ export default function ChatFullscreen() {
   const [group, setGroup] = useState<{ name: string; client_id: string | null } | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info">("chat");
 
-  const loadGroup = async () => {
-    if (!groupId) return;
-    const { data } = await supabase
-      .from("task_groups")
-      .select("name, client_id")
-      .eq("id", groupId)
-      .maybeSingle();
-    setGroup(data ? { name: (data as any).name, client_id: (data as any).client_id ?? null } : null);
-  };
-
   useEffect(() => {
-    loadGroup();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!groupId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("task_groups")
+        .select("name, client_id")
+        .eq("id", groupId)
+        .maybeSingle();
+      setGroup(data ? { name: (data as any).name, client_id: (data as any).client_id ?? null } : null);
+    })();
   }, [groupId]);
 
   useEffect(() => {
@@ -78,7 +75,6 @@ export default function ChatFullscreen() {
               onBack={() => setMobilePane("list")}
               onClose={() => navigate("/")}
               onNavigateToTask={openTask}
-              onLinked={loadGroup}
             />
           ))}
           {mobilePane === "info" && hasClient && (
@@ -125,7 +121,6 @@ export default function ChatFullscreen() {
             onClose={() => navigate("/")}
             onToggleFullscreen={() => navigate("/")}
             onNavigateToTask={openTask}
-            onLinked={loadGroup}
           />
         )}
       </div>
