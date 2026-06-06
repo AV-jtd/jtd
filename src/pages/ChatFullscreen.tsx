@@ -78,6 +78,7 @@ export default function ChatFullscreen() {
               onBack={() => setMobilePane("list")}
               onClose={() => navigate("/")}
               onNavigateToTask={openTask}
+              onLinked={loadGroup}
             />
           ))}
           {mobilePane === "info" && hasClient && (
@@ -124,6 +125,7 @@ export default function ChatFullscreen() {
             onClose={() => navigate("/")}
             onToggleFullscreen={() => navigate("/")}
             onNavigateToTask={openTask}
+            onLinked={loadGroup}
           />
         )}
       </div>
