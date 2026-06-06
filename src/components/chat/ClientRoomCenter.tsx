@@ -18,7 +18,7 @@ import BulkLinkTasksDialog from "@/components/chat/BulkLinkTasksDialog";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
-  ChevronDown, ChevronRight, Plus, Info, Link2,
+  ChevronDown, ChevronRight, Plus, Info, Link2, X, CalendarClock, CalendarDays, CircleDashed,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -111,6 +111,8 @@ export default function ClientRoomCenter({
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
+  /** Активный фокус-фильтр из блока «Сегодня по клиенту». */
+  const [focusFilter, setFocusFilter] = useState<"overdue" | "today" | "week" | "nodate" | null>(null);
 
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -130,6 +132,18 @@ export default function ClientRoomCenter({
   const overdue = open.filter((t) => t.deadline && new Date(t.deadline).getTime() < now);
   const assignments = tasks.filter((t) => (t as any).delegated_from);
   const completionRate = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
+
+  // «Сегодня по клиенту»: ведёрки задач по срочности (на реальных данных).
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  const endToday = new Date(); endToday.setHours(23, 59, 59, 999);
+  const endWeek = new Date(endToday); endWeek.setDate(endWeek.getDate() + 7);
+  const dl = (t: Task) => (t.deadline ? new Date(t.deadline) : null);
+  const overdueTasks = open.filter((t) => { const d = dl(t); return d && d < startToday; });
+  const todayTasks = open.filter((t) => { const d = dl(t); return d && d >= startToday && d <= endToday; });
+  const weekTasks = open.filter((t) => { const d = dl(t); return d && d > endToday && d <= endWeek; });
+  const noDateTasks = open.filter((t) => !t.deadline);
+  const focusBuckets = { overdue: overdueTasks, today: todayTasks, week: weekTasks, nodate: noDateTasks };
+  const focusList = focusFilter ? focusBuckets[focusFilter] : open;
   /** Связанная задача = CRM-задача воронки клиента. */
   const funnelTask = tasks.find((t) => (t as any).task_type === "crm") ?? null;
 
@@ -174,6 +188,13 @@ export default function ClientRoomCenter({
 
   /** Перейти в «Задачи» для создания новой задачи по клиенту. */
   const startNewTask = () => setTab("tasks");
+
+  /** Клик по чипу «Сегодня по клиенту» → вкладка «Задачи» + фокус-фильтр. */
+  const openFocus = (key: "overdue" | "today" | "week" | "nodate") => {
+    setFocusFilter(key);
+    setExpand(null);
+    setTab("tasks");
+  };
 
   /** Ключ для TaskItem: меняется при запросе раскрытия → ремоунт уже раскрытым. */
   const taskKey = (id: string) => `${id}-${expand?.id === id ? expand.nonce : 0}`;
@@ -251,6 +272,16 @@ export default function ClientRoomCenter({
           )}
         </div>
       </div>
+
+      {/* Сегодня по клиенту — фокус-строка по срочности задач */}
+      <TodayBar
+        overdue={overdueTasks.length}
+        today={todayTasks.length}
+        week={weekTasks.length}
+        nodate={noDateTasks.length}
+        active={tab === "tasks" ? focusFilter : null}
+        onPick={openFocus}
+      />
 
       {/* tabs */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">
@@ -344,8 +375,20 @@ export default function ClientRoomCenter({
                   className="h-auto border-0 p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60"
                 />
               </form>
+              {focusFilter && (
+                <button
+                  onClick={() => setFocusFilter(null)}
+                  className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                >
+                  {FOCUS_LABELS[focusFilter]} · {focusList.length}
+                  <X className="h-3 w-3" />
+                </button>
+              )}
               {tasks.length === 0 && <EmptyState text="По клиенту пока нет задач" />}
-              {open.map((t) => (
+              {tasks.length > 0 && focusList.length === 0 && (
+                <EmptyState text="Нет задач в этой категории" />
+              )}
+              {focusList.map((t) => (
                 <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
               ))}
               {completed.length > 0 && (
@@ -436,5 +479,63 @@ function MetricTile({ icon: Icon, label, value, tone }: { icon: typeof TrendingU
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">{text}</div>
+  );
+}
+
+type FocusKey = "overdue" | "today" | "week" | "nodate";
+
+const FOCUS_LABELS: Record<FocusKey, string> = {
+  overdue: "Просрочено",
+  today: "Сегодня",
+  week: "На неделе",
+  nodate: "Без срока",
+};
+
+/**
+ * «Сегодня по клиенту» — компактная фокус-строка над вкладками. Показывает
+ * задачи по срочности и переводит во вкладку «Задачи» с применённым фильтром.
+ * Если всё под контролем (нет просрочки и задач на сегодня) — спокойное состояние.
+ */
+function TodayBar({
+  overdue, today, week, nodate, active, onPick,
+}: {
+  overdue: number; today: number; week: number; nodate: number;
+  active: FocusKey | null;
+  onPick: (key: FocusKey) => void;
+}) {
+  const allChips: { key: FocusKey; label: string; count: number; icon: typeof CalendarClock; tone: string }[] = [
+    { key: "overdue", label: "Просрочено", count: overdue, icon: AlertTriangle, tone: "text-destructive" },
+    { key: "today", label: "Сегодня", count: today, icon: CalendarClock, tone: "text-tag-blue" },
+    { key: "week", label: "На неделе", count: week, icon: CalendarDays, tone: "text-tag-purple" },
+    { key: "nodate", label: "Без срока", count: nodate, icon: CircleDashed, tone: "text-muted-foreground" },
+  ];
+  const chips = allChips.filter((c) => c.count > 0);
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:px-4">
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Сегодня</span>
+      {chips.length === 0 ? (
+        <span className="flex items-center gap-1 text-xs text-tag-green">
+          <CheckCircle2 className="h-3.5 w-3.5" /> Всё под контролем
+        </span>
+      ) : (
+        chips.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => onPick(c.key)}
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
+              active === c.key
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-foreground hover:bg-muted",
+            )}
+          >
+            <c.icon className={cn("h-3.5 w-3.5", active === c.key ? "text-primary" : c.tone)} />
+            {c.label}
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{c.count}</span>
+          </button>
+        ))
+      )}
+    </div>
   );
 }
