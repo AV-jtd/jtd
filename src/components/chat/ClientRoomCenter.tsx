@@ -408,6 +408,13 @@ export default function ClientRoomCenter({
           </ScrollArea>
         )}
       </div>
+
+      <BulkLinkTasksDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        clientId={clientId}
+        clientName={client?.name || groupName}
+      />
     </div>
   );
 }
