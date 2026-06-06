@@ -155,7 +155,12 @@ export default function CrmClientsList() {
               return (
                 <div
                   key={c.id}
-                  className="flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                  onClick={() => openClientChat(c.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter") openClientChat(c.id); }}
+                  className="flex cursor-pointer items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                  title="Открыть карточку клиента"
                 >
                   <ClientAvatar client={c} size="md" />
                   <div className="min-w-0 flex-1">
@@ -205,7 +210,7 @@ export default function CrmClientsList() {
                     {deals} {deals === 1 ? "сделка" : "сделок"}
                   </div>
                   <button
-                    onClick={() => openClientChat(c.id)}
+                    onClick={(e) => { e.stopPropagation(); openClientChat(c.id); }}
                     disabled={ensureRoom.isPending}
                     className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
                     title="Чат клиента"
