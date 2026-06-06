@@ -339,8 +339,13 @@ export default function ClientContextPanel({
         .upload(path, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
-      const { error } = await supabase.from("clients").update({ logo_url: publicUrl } as any).eq("id", clientId);
+      const { data: updated, error } = await supabase
+        .from("clients")
+        .update({ logo_url: publicUrl } as any)
+        .eq("id", clientId)
+        .select("id");
       if (error) throw error;
+      if (!updated || updated.length === 0) throw new Error("нет прав на изменение карточки клиента");
       invalidate();
       toast.success("Логотип обновлён");
     } catch (e: any) {
