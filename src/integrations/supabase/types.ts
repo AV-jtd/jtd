@@ -248,6 +248,7 @@ export type Database = {
           territory_tag_id: string | null
           updated_at: string
           user_id: string
+          website: string | null
         }
         Insert: {
           city?: string | null
@@ -266,6 +267,7 @@ export type Database = {
           territory_tag_id?: string | null
           updated_at?: string
           user_id: string
+          website?: string | null
         }
         Update: {
           city?: string | null
@@ -284,6 +286,7 @@ export type Database = {
           territory_tag_id?: string | null
           updated_at?: string
           user_id?: string
+          website?: string | null
         }
         Relationships: [
           {
