@@ -503,12 +503,13 @@ function TodayBar({
   active: FocusKey | null;
   onPick: (key: FocusKey) => void;
 }) {
-  const chips: { key: FocusKey; label: string; count: number; icon: typeof CalendarClock; tone: string }[] = [
+  const allChips: { key: FocusKey; label: string; count: number; icon: typeof CalendarClock; tone: string }[] = [
     { key: "overdue", label: "Просрочено", count: overdue, icon: AlertTriangle, tone: "text-destructive" },
     { key: "today", label: "Сегодня", count: today, icon: CalendarClock, tone: "text-tag-blue" },
     { key: "week", label: "На неделе", count: week, icon: CalendarDays, tone: "text-tag-purple" },
     { key: "nodate", label: "Без срока", count: nodate, icon: CircleDashed, tone: "text-muted-foreground" },
-  ].filter((c) => c.count > 0);
+  ];
+  const chips = allChips.filter((c) => c.count > 0);
 
   return (
     <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:px-4">
