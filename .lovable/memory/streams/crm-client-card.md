@@ -11,6 +11,7 @@ type: feature
 ## Реально из данных (clients + связи)
 - **Логотип**: смена через кнопку-камеру на аватаре. Загрузка в публичный bucket `protocol-logos` (новый public-bucket создать нельзя — workspace блокирует), путь `${user.id}/client-<clientId>-<ts>.<ext>`, запись `clients.logo_url`. Подхватывается везде через `ClientAvatar`.
 - **Контакты инлайн-редактируемые**: `contact_name / phone / email / city` (компонент `EditableContactRow`, мутация update clients, инвалидация client_context/client_room_info/clients/crm_clients/chat_rooms).
+- **Ссылка/сайт**: поле `clients.website` (инлайн-редактирование, иконка Globe). Внешние ссылки открываются в новой вкладке; http(s) добавляется автоматически.
 - **Теги-пиллы**: rank (primary), territory, retail_type.
 - **KPI**: В работе / Просрочено / Готово по `tasks.client_id`.
 - **Команда**: `client_assignments` + ответственный `manager_id`.
@@ -27,3 +28,4 @@ type: feature
 ## NB
 - Bucket для лого — `protocol-logos` (public-buckets создавать нельзя). Паттерн как в `ProtocolHeader.handleClientLogoUpload`.
 - В мессенджере CRM-комната = pill «Клиент» (Thread.groupProjectType==='crm_client').
+- **Мобильная шапка (без дублей)**: в `ChatFullscreen` на мобильном НЕТ внешней шапки — единственная шапка это шапка комнаты (`ClientRoomCenter`/`ProjectRoomCenter`). Навигация: back→список, кнопка Info (md:hidden)→карточка клиента, home в шапке списка (`ChatRoomsList onHome`). Панель «Инфо» получает свою лёгкую шапку с back→чат.

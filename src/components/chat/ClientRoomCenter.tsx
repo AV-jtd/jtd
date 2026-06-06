@@ -14,7 +14,7 @@ import type { Task } from "@/hooks/useTasks";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
-  ChevronDown, ChevronRight, Plus,
+  ChevronDown, ChevronRight, Plus, Info,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -88,6 +88,7 @@ export default function ClientRoomCenter({
   onClose,
   onToggleFullscreen,
   onBack,
+  onShowInfo,
   onNavigateToTask,
 }: {
   groupId: string;
@@ -97,6 +98,7 @@ export default function ClientRoomCenter({
   onClose: () => void;
   onToggleFullscreen?: () => void;
   onBack?: () => void;
+  onShowInfo?: () => void;
   onNavigateToTask?: (taskId: string) => void;
 }) {
   const [tab, setTab] = useState<TabKey>("chat");
@@ -220,6 +222,11 @@ export default function ClientRoomCenter({
           {onToggleFullscreen && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFullscreen} title={fullscreen ? "Свернуть" : "Развернуть"}>
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+          )}
+          {onShowInfo && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" onClick={onShowInfo} title="Карточка клиента">
+              <Info className="h-4 w-4" />
             </Button>
           )}
         </div>

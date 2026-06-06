@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, MessageCircle, Plus } from "lucide-react";
+import { Search, MessageCircle, Plus, Home } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
@@ -104,9 +104,11 @@ function NewClientRoomButton({ onOpen }: { onOpen: (groupId: string) => void }) 
 export default function ChatRoomsList({
   activeGroupId,
   onSelect,
+  onHome,
 }: {
   activeGroupId: string | null;
   onSelect: (groupId: string) => void;
+  onHome?: () => void;
 }) {
   const { rooms, isLoading } = useChatRooms();
   const { isThreadUnread } = useUnreadMessages();
@@ -121,7 +123,14 @@ export default function ChatRoomsList({
   return (
     <div className="flex h-full flex-col bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 shrink-0">
-        <span className="text-sm font-semibold">Чаты</span>
+        <div className="flex items-center gap-1.5">
+          {onHome && (
+            <button onClick={onHome} className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-muted" title="На главную" aria-label="На главную">
+              <Home className="h-4 w-4" />
+            </button>
+          )}
+          <span className="text-sm font-semibold">Чаты</span>
+        </div>
         <NewClientRoomButton onOpen={onSelect} />
       </div>
       <div className="px-2 py-2 shrink-0">
