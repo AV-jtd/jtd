@@ -481,3 +481,60 @@ function EmptyState({ text }: { text: string }) {
     <div className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">{text}</div>
   );
 }
+
+type FocusKey = "overdue" | "today" | "week" | "nodate";
+
+const FOCUS_LABELS: Record<FocusKey, string> = {
+  overdue: "Просрочено",
+  today: "Сегодня",
+  week: "На неделе",
+  nodate: "Без срока",
+};
+
+/**
+ * «Сегодня по клиенту» — компактная фокус-строка над вкладками. Показывает
+ * задачи по срочности и переводит во вкладку «Задачи» с применённым фильтром.
+ * Если всё под контролем (нет просрочки и задач на сегодня) — спокойное состояние.
+ */
+function TodayBar({
+  overdue, today, week, nodate, active, onPick,
+}: {
+  overdue: number; today: number; week: number; nodate: number;
+  active: FocusKey | null;
+  onPick: (key: FocusKey) => void;
+}) {
+  const chips: { key: FocusKey; label: string; count: number; icon: typeof CalendarClock; tone: string }[] = [
+    { key: "overdue", label: "Просрочено", count: overdue, icon: AlertTriangle, tone: "text-destructive" },
+    { key: "today", label: "Сегодня", count: today, icon: CalendarClock, tone: "text-tag-blue" },
+    { key: "week", label: "На неделе", count: week, icon: CalendarDays, tone: "text-tag-purple" },
+    { key: "nodate", label: "Без срока", count: nodate, icon: CircleDashed, tone: "text-muted-foreground" },
+  ].filter((c) => c.count > 0);
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:px-4">
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Сегодня</span>
+      {chips.length === 0 ? (
+        <span className="flex items-center gap-1 text-xs text-tag-green">
+          <CheckCircle2 className="h-3.5 w-3.5" /> Всё под контролем
+        </span>
+      ) : (
+        chips.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => onPick(c.key)}
+            className={cn(
+              "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
+              active === c.key
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-foreground hover:bg-muted",
+            )}
+          >
+            <c.icon className={cn("h-3.5 w-3.5", active === c.key ? "text-primary" : c.tone)} />
+            {c.label}
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{c.count}</span>
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
