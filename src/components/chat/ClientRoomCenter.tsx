@@ -375,8 +375,20 @@ export default function ClientRoomCenter({
                   className="h-auto border-0 p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60"
                 />
               </form>
+              {focusFilter && (
+                <button
+                  onClick={() => setFocusFilter(null)}
+                  className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                >
+                  {FOCUS_LABELS[focusFilter]} · {focusList.length}
+                  <X className="h-3 w-3" />
+                </button>
+              )}
               {tasks.length === 0 && <EmptyState text="По клиенту пока нет задач" />}
-              {open.map((t) => (
+              {tasks.length > 0 && focusList.length === 0 && (
+                <EmptyState text="Нет задач в этой категории" />
+              )}
+              {focusList.map((t) => (
                 <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
               ))}
               {completed.length > 0 && (
