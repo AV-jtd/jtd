@@ -8,7 +8,6 @@ import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
 import { ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export default function ChatFullscreen() {
   const { groupId } = useParams<{ groupId: string }>();
