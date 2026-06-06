@@ -21,6 +21,8 @@ import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ClosedTaskPill from "./ClosedTaskPill";
 import TaskClientPicker from "./TaskClientPicker";
+import ClientAvatar from "./ClientAvatar";
+import { useNavigate } from "react-router-dom";
 
 /** Префикс системных сообщений в чате задач/комментариев. */
 const SYS_PREFIX = "__sys_task_created__:";
