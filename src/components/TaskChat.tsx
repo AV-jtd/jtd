@@ -664,7 +664,10 @@ export default function TaskChat({
    * Рендерится в обоих вариантах (inline и full) — даёт единый воркфлоу
    * «закрыл → создал связанную» прямо из чата.
    */
-  const showClientLink = !!crmContext?.isCrm;
+  const linkedClient = crmContext?.clientId ? crmContext.client : null;
+  // Кнопка «Привязать к клиенту» — только для CRM-задач, пока клиент НЕ привязан.
+  // Когда клиент привязан, его роль берёт на себя chip в шапке.
+  const showClientLink = !!crmContext?.isCrm && !crmContext?.clientId;
   const showActionWrapper = showCloseAction || followUpFormOpen || showClientLink;
   const closeAction = showActionWrapper ? (
     <div className={cn("flex flex-col gap-2 shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
