@@ -1,31 +1,68 @@
-import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriangle, ListTodo, ExternalLink } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import {
+  Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriangle,
+  ListTodo, ExternalLink, Camera, Loader2, Pencil, Check, X, MessageSquare,
+  FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch,
+} from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/initials";
+import { formatDistanceToNowStrict } from "date-fns";
+import { ru } from "date-fns/locale";
+
+type EditableField = "contact_name" | "phone" | "email" | "city";
+
+type ClientFields = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  rankLabel: string | null;
+  territoryLabel: string | null;
+  retailLabel: string | null;
+};
+
+type FunnelInfo = { taskId: string; stage: string | null; progress: number } | null;
+type ActivityItem = { id: string; content: string; author: string; createdAt: string };
+type ProtocolItem = { id: string; name: string; date: string | null };
 
 type ClientCtx = {
-  client: { id: string; name: string; logo_url: string | null; contact_name: string | null; phone: string | null; email: string | null; city: string | null; rankLabel: string | null; territoryLabel: string | null } | null;
+  client: ClientFields | null;
   managerName: string | null;
   team: { id: string; name: string; role: string | null }[];
   tasks: { id: string; title: string; is_completed: boolean; deadline: string | null }[];
+  groupId: string | null;
+  funnel: FunnelInfo;
+  activity: ActivityItem[];
+  protocols: ProtocolItem[];
+};
+
+const EMPTY: ClientCtx = {
+  client: null, managerName: null, team: [], tasks: [],
+  groupId: null, funnel: null, activity: [], protocols: [],
 };
 
 function useClientContext(clientId: string | null) {
   return useQuery({
     queryKey: ["client_context", clientId],
     queryFn: async (): Promise<ClientCtx> => {
-      if (!clientId) return { client: null, managerName: null, team: [], tasks: [] };
+      if (!clientId) return EMPTY;
       const { data: c } = await supabase
         .from("clients")
-        .select("id, name, logo_url, contact_name, phone, email, city, manager_id, rank_tag_id, territory_tag_id")
+        .select("id, name, logo_url, contact_name, phone, email, city, manager_id, rank_tag_id, territory_tag_id, retail_type_tag_id")
         .eq("id", clientId)
         .maybeSingle();
-      if (!c) return { client: null, managerName: null, team: [], tasks: [] };
+      if (!c) return EMPTY;
 
-      const tagIds = [c.rank_tag_id, c.territory_tag_id].filter(Boolean) as string[];
+      const tagIds = [c.rank_tag_id, c.territory_tag_id, c.retail_type_tag_id].filter(Boolean) as string[];
       const tagMap = new Map<string, string>();
       if (tagIds.length) {
         const { data: tags } = await supabase.from("tags").select("id, name").in("id", tagIds);
@@ -37,7 +74,78 @@ function useClientContext(clientId: string | null) {
         .from("client_assignments")
         .select("manager_id, notes")
         .eq("client_id", clientId);
-      const managerIds = [...new Set([c.manager_id, ...((assigns as any[]) || []).map((a) => a.manager_id)].filter(Boolean))] as string[];
+
+      // Задачи клиента
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select("id, title, is_completed, deadline, task_type, source_protocol_id")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const tasks = (tasksData as any[]) || [];
+
+      // CRM-комната клиента (для ленты активности)
+      const { data: room } = await supabase
+        .from("task_groups")
+        .select("id")
+        .eq("project_type", "crm_client" as any)
+        .eq("client_id", clientId as any)
+        .maybeSingle();
+      const groupId = (room as any)?.id ?? null;
+
+      // Этап воронки — из шагов CRM-задачи воронки
+      let funnel: FunnelInfo = null;
+      const funnelTask = tasks.find((t) => t.task_type === "crm");
+      if (funnelTask) {
+        const { data: steps } = await supabase
+          .from("subtasks")
+          .select("title, is_completed, position")
+          .eq("task_id", funnelTask.id)
+          .order("position", { ascending: true });
+        const list = (steps as any[]) || [];
+        const done = list.filter((s) => s.is_completed).length;
+        const current = list.find((s) => !s.is_completed);
+        funnel = {
+          taskId: funnelTask.id,
+          stage: current?.title ?? (list.length ? "Завершена" : null),
+          progress: list.length ? Math.round((done / list.length) * 100) : 0,
+        };
+      }
+
+      // Лента активности — сообщения CRM-комнаты
+      let activity: ActivityItem[] = [];
+      const activityAuthorIds = new Set<string>();
+      let rawMsgs: any[] = [];
+      if (groupId) {
+        const { data: msgs } = await supabase
+          .from("group_messages")
+          .select("id, content, created_at, user_id, external_author, kind")
+          .eq("group_id", groupId)
+          .order("created_at", { ascending: false })
+          .limit(6);
+        rawMsgs = ((msgs as any[]) || []).filter((m) => m.kind !== "log");
+        for (const m of rawMsgs) if (m.user_id) activityAuthorIds.add(m.user_id);
+      }
+
+      // Протоколы/встречи — производные от source_protocol_id задач клиента
+      let protocols: ProtocolItem[] = [];
+      const protocolIds = [...new Set(tasks.map((t) => t.source_protocol_id).filter(Boolean))] as string[];
+      if (protocolIds.length) {
+        const { data: protos } = await supabase
+          .from("task_groups")
+          .select("id, name, created_at")
+          .in("id", protocolIds);
+        protocols = ((protos as any[]) || []).map((p) => ({ id: p.id, name: p.name, date: p.created_at }));
+      }
+
+      // Единый словарь профилей: ответственные + команда + авторы ленты
+      const managerIds = [
+        ...new Set([
+          c.manager_id,
+          ...((assigns as any[]) || []).map((a) => a.manager_id),
+          ...activityAuthorIds,
+        ].filter(Boolean)),
+      ] as string[];
       const profMap = new Map<string, string>();
       if (managerIds.length) {
         const { data: profs } = await supabase.from("profiles").select("id, display_name, email").in("id", managerIds);
@@ -47,13 +155,12 @@ function useClientContext(clientId: string | null) {
         .filter((a) => a.manager_id)
         .map((a) => ({ id: a.manager_id, name: profMap.get(a.manager_id) || "—", role: a.notes || null }));
 
-      // Задачи клиента
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("id, title, is_completed, deadline")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false })
-        .limit(100);
+      activity = rawMsgs.map((m) => ({
+        id: m.id,
+        content: m.content || "",
+        author: (m.user_id ? profMap.get(m.user_id) : null) || m.external_author || "—",
+        createdAt: m.created_at,
+      }));
 
       return {
         client: {
@@ -66,10 +173,15 @@ function useClientContext(clientId: string | null) {
           city: c.city,
           rankLabel: c.rank_tag_id ? tagMap.get(c.rank_tag_id) ?? null : null,
           territoryLabel: c.territory_tag_id ? tagMap.get(c.territory_tag_id) ?? null : null,
+          retailLabel: c.retail_type_tag_id ? tagMap.get(c.retail_type_tag_id) ?? null : null,
         },
         managerName: c.manager_id ? profMap.get(c.manager_id) ?? null : null,
         team,
-        tasks: ((tasks as any[]) || []).map((t) => ({ id: t.id, title: t.title, is_completed: t.is_completed, deadline: t.deadline })),
+        tasks: tasks.map((t) => ({ id: t.id, title: t.title, is_completed: t.is_completed, deadline: t.deadline })),
+        groupId,
+        funnel,
+        activity,
+        protocols,
       };
     },
     enabled: !!clientId,
