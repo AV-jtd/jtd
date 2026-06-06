@@ -179,11 +179,15 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
         .upload(path, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("clients")
         .update({ logo_url: publicUrl } as any)
-        .eq("id", clientId);
+        .eq("id", clientId)
+        .select("id");
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        throw new Error("нет прав на изменение карточки клиента");
+      }
       qc.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Лого партнёра обновлено");
     } catch (e) {
