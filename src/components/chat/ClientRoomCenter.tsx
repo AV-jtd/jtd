@@ -14,10 +14,11 @@ import type { Task } from "@/hooks/useTasks";
 import { useAvailableUsers } from "@/hooks/useTasks";
 import { useClientTaskThreads } from "@/hooks/useClientTaskThreads";
 import ClientTaskThreadCard from "@/components/chat/ClientTaskThreadCard";
+import BulkLinkTasksDialog from "@/components/chat/BulkLinkTasksDialog";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
-  ChevronDown, ChevronRight, Plus, Info,
+  ChevronDown, ChevronRight, Plus, Info, Link2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -109,6 +110,7 @@ export default function ClientRoomCenter({
   const [expand, setExpand] = useState<{ id: string; nonce: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -208,6 +210,15 @@ export default function ClientRoomCenter({
           )}
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setBulkOpen(true)}
+            title="Привязать задачи"
+          >
+            <Link2 className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -397,6 +408,13 @@ export default function ClientRoomCenter({
           </ScrollArea>
         )}
       </div>
+
+      <BulkLinkTasksDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        clientId={clientId}
+        clientName={client?.name || groupName}
+      />
     </div>
   );
 }
