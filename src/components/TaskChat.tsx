@@ -830,6 +830,7 @@ export default function TaskChat({
     return (
       <div className="flex flex-col h-full">
         {tabsBar}
+        {clientChip}
         {closeAction}
         <ScrollArea className="flex-1 px-4 py-3">
           {messagesContent}
@@ -851,6 +852,7 @@ export default function TaskChat({
 
       <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
         {tabsBar}
+        {clientChip}
         {closeAction}
         <ScrollArea className="max-h-64 px-3 py-2">
           {messagesContent}
