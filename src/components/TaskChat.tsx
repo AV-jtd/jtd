@@ -101,6 +101,7 @@ export default function TaskChat({
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
+  const navigate = useNavigate();
   const { addComment, deleteComment } = useCommentMutations();
   const { toggleTask } = useTaskMutations();
   const [draft, setDraft] = useState("");
