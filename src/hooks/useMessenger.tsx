@@ -166,7 +166,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
 
       const [groupsRes, tasksRes, profilesRes] = await Promise.all([
         groupIds.length > 0
-          ? supabase.from("task_groups").select("id, name, icon, color, logo_url").in("id", groupIds)
+          ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
