@@ -7,7 +7,7 @@ import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
-import { ArrowLeft, PanelLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ChatFullscreen() {
@@ -51,28 +51,10 @@ export default function ChatFullscreen() {
   if (isMobile) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <div className="flex items-center gap-1 border-b border-border px-2 py-2 shrink-0">
-          <button onClick={() => navigate("/")} className="rounded-lg p-2 hover:bg-muted" title="На главную">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setMobilePane("list")}
-            className={cn("rounded-lg p-2", mobilePane === "list" ? "bg-primary/10 text-primary" : "hover:bg-muted")}
-          >
-            <PanelLeft className="h-4 w-4" />
-          </button>
-          <span className="mx-2 flex-1 truncate text-sm font-semibold">{group?.name || "Чат"}</span>
-          {hasClient && (
-            <button
-              onClick={() => setMobilePane(mobilePane === "info" ? "chat" : "info")}
-              className={cn("rounded-lg p-2", mobilePane === "info" ? "bg-primary/10 text-primary" : "hover:bg-muted")}
-            >
-              <Info className="h-4 w-4" />
-            </button>
-          )}
-        </div>
         <div className="min-h-0 flex-1">
-          {mobilePane === "list" && <ChatRoomsList activeGroupId={groupId} onSelect={select} />}
+          {mobilePane === "list" && (
+            <ChatRoomsList activeGroupId={groupId} onSelect={select} onHome={() => navigate("/")} />
+          )}
           {mobilePane === "chat" && (hasClient ? (
             <ClientRoomCenter
               key={groupId}
@@ -82,6 +64,7 @@ export default function ChatFullscreen() {
               fullscreen
               onBack={() => setMobilePane("list")}
               onClose={() => navigate("/")}
+              onShowInfo={() => setMobilePane("info")}
               onNavigateToTask={openTask}
             />
           ) : (
@@ -96,7 +79,17 @@ export default function ChatFullscreen() {
             />
           ))}
           {mobilePane === "info" && hasClient && (
-            <ClientContextPanel clientId={group!.client_id} onNavigateToTask={openTask} />
+            <div className="flex h-full flex-col">
+              <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
+                <button onClick={() => setMobilePane("chat")} className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Назад к чату" aria-label="Назад к чату">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <span className="truncate text-sm font-semibold">Карточка клиента</span>
+              </div>
+              <div className="min-h-0 flex-1">
+                <ClientContextPanel clientId={group!.client_id} onNavigateToTask={openTask} />
+              </div>
+            </div>
           )}
         </div>
       </div>
