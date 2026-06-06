@@ -18,7 +18,7 @@ import BulkLinkTasksDialog from "@/components/chat/BulkLinkTasksDialog";
 import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
-  ChevronDown, ChevronRight, Plus, Info, Link2,
+  ChevronDown, ChevronRight, Plus, Info, Link2, X, CalendarClock, CalendarDays, CircleDashed,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
