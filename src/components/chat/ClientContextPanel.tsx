@@ -119,11 +119,11 @@ function useClientContext(clientId: string | null) {
       if (groupId) {
         const { data: msgs } = await supabase
           .from("group_messages")
-          .select("id, content, created_at, user_id, external_author, kind")
+          .select("id, content, created_at, user_id, external_author")
           .eq("group_id", groupId)
           .order("created_at", { ascending: false })
           .limit(6);
-        rawMsgs = ((msgs as any[]) || []).filter((m) => m.kind !== "log");
+        rawMsgs = ((msgs as any[]) || []).filter((m) => (m.content || "").trim().length > 0);
         for (const m of rawMsgs) if (m.user_id) activityAuthorIds.add(m.user_id);
       }
 
