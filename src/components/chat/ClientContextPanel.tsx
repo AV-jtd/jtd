@@ -272,7 +272,12 @@ function EditableContactRow({
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       {value ? (
         href ? (
-          <a href={href} className="truncate text-muted-foreground hover:text-foreground">{value}</a>
+          <a
+            href={href}
+            target={/^https?:\/\//i.test(href) ? "_blank" : undefined}
+            rel={/^https?:\/\//i.test(href) ? "noreferrer" : undefined}
+            className="truncate text-muted-foreground hover:text-foreground"
+          >{value}</a>
         ) : (
           <span className="truncate text-muted-foreground">{value}</span>
         )
