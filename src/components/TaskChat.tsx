@@ -162,9 +162,31 @@ export default function TaskChat({
         (data as any)?.task_type === "crm" ||
         group?.project_type === "crm" ||
         groupName.includes("новые клиенты");
+      const clientId = (data as any)?.client_id ?? null;
+
+      // Если задача привязана к клиенту — подтягиваем карточку клиента и
+      // комнату клиента (CRM-room), чтобы показать читаемый chip в шапке.
+      let client: { name: string; logo_url: string | null } | null = null;
+      let clientRoomGroupId: string | null = null;
+      if (clientId) {
+        const [{ data: c }, { data: room }] = await Promise.all([
+          supabase.from("clients").select("name, logo_url").eq("id", clientId).maybeSingle(),
+          supabase
+            .from("task_groups")
+            .select("id")
+            .eq("project_type", "crm_client" as any)
+            .eq("client_id", clientId as any)
+            .maybeSingle(),
+        ]);
+        client = c ? { name: (c as any).name, logo_url: (c as any).logo_url ?? null } : null;
+        clientRoomGroupId = (room as any)?.id ?? null;
+      }
+
       return {
-        clientId: (data as any)?.client_id ?? null,
+        clientId,
         isCrm,
+        client,
+        clientRoomGroupId,
       };
     },
   });
