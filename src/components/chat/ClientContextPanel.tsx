@@ -200,6 +200,96 @@ function Kpi({ icon: Icon, label, value, tone }: { icon: any; label: string; val
   );
 }
 
+/** Заголовок секции карточки. */
+function SectionTitle({ icon: Icon, children, soon }: { icon: any; children: React.ReactNode; soon?: boolean }) {
+  return (
+    <h4 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
+      <Icon className="h-3 w-3" /> {children}
+      {soon && (
+        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium normal-case text-muted-foreground/70">
+          скоро
+        </span>
+      )}
+    </h4>
+  );
+}
+
+/** Инлайн-редактируемая строка контакта. */
+function EditableContactRow({
+  icon: Icon,
+  value,
+  placeholder,
+  href,
+  type = "text",
+  onSave,
+}: {
+  icon: any;
+  value: string | null;
+  placeholder: string;
+  href?: string;
+  type?: string;
+  onSave: (v: string | null) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const begin = () => { setDraft(value ?? ""); setEditing(true); };
+  const commit = async () => {
+    const next = draft.trim() || null;
+    if (next === (value ?? null)) { setEditing(false); return; }
+    setSaving(true);
+    try { await onSave(next); setEditing(false); } finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <input
+          autoFocus
+          type={type}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:border-primary/50"
+        />
+        <button onClick={commit} disabled={saving} className="shrink-0 rounded p-0.5 text-tag-green hover:bg-muted" aria-label="Сохранить">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+        </button>
+        <button onClick={() => setEditing(false)} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted" aria-label="Отмена">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex items-center gap-2 text-xs">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      {value ? (
+        href ? (
+          <a href={href} className="truncate text-muted-foreground hover:text-foreground">{value}</a>
+        ) : (
+          <span className="truncate text-muted-foreground">{value}</span>
+        )
+      ) : (
+        <button onClick={begin} className="truncate text-left text-muted-foreground/50 italic hover:text-foreground">
+          {placeholder}
+        </button>
+      )}
+      <button
+        onClick={begin}
+        className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground/0 transition-colors hover:bg-muted group-hover:text-muted-foreground"
+        aria-label="Редактировать"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 export default function ClientContextPanel({
   clientId,
   onNavigateToTask,
@@ -209,6 +299,49 @@ export default function ClientContextPanel({
 }) {
   const { data, isLoading } = useClientContext(clientId);
   const client = data?.client;
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["client_context", clientId] });
+    qc.invalidateQueries({ queryKey: ["client_room_info", clientId] });
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["crm_clients"] });
+    qc.invalidateQueries({ queryKey: ["chat_rooms"] });
+  };
+
+  const saveField = async (field: EditableField, value: string | null) => {
+    if (!clientId) return;
+    const { error } = await supabase.from("clients").update({ [field]: value } as any).eq("id", clientId);
+    if (error) { toast.error("Не удалось сохранить: " + error.message); throw error; }
+    invalidate();
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!clientId || !user) return;
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/client-${clientId}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      const { error } = await supabase.from("clients").update({ logo_url: publicUrl } as any).eq("id", clientId);
+      if (error) throw error;
+      invalidate();
+      toast.success("Логотип обновлён");
+    } catch (e: any) {
+      toast.error("Ошибка загрузки: " + (e?.message || "не удалось"));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!clientId) return null;
 
@@ -231,7 +364,25 @@ export default function ClientContextPanel({
         <div className="space-y-4 p-4">
           {/* Карточка клиента */}
           <div className="flex items-start gap-3">
-            <ClientAvatar client={client} size="lg" />
+            <div className="relative shrink-0">
+              <ClientAvatar client={client} size="lg" />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                title="Сменить логотип"
+                aria-label="Сменить логотип"
+              >
+                {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.currentTarget.value = ""; }}
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-sm font-semibold">{client.name}</h3>
               <div className="mt-1 flex flex-wrap gap-1">
@@ -245,33 +396,61 @@ export default function ClientContextPanel({
                     {client.territoryLabel}
                   </span>
                 )}
+                {client.retailLabel && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {client.retailLabel}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Контакты */}
-          <div className="space-y-1.5 text-xs">
-            {client.contact_name && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <UserIcon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{client.contact_name}</span>
-              </div>
-            )}
-            {client.phone && (
-              <a href={`tel:${client.phone}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-                <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{client.phone}</span>
-              </a>
-            )}
-            {client.email && (
-              <a href={`mailto:${client.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-                <Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{client.email}</span>
-              </a>
-            )}
-            {client.city && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{client.city}</span>
-              </div>
-            )}
+          {/* Контакты (инлайн-редактирование) */}
+          <div className="space-y-1.5">
+            <EditableContactRow
+              icon={UserIcon}
+              value={client.contact_name}
+              placeholder="Контактное лицо"
+              onSave={(v) => saveField("contact_name", v)}
+            />
+            <EditableContactRow
+              icon={Phone}
+              value={client.phone}
+              placeholder="Телефон"
+              type="tel"
+              href={client.phone ? `tel:${client.phone}` : undefined}
+              onSave={(v) => saveField("phone", v)}
+            />
+            <EditableContactRow
+              icon={Mail}
+              value={client.email}
+              placeholder="Email"
+              type="email"
+              href={client.email ? `mailto:${client.email}` : undefined}
+              onSave={(v) => saveField("email", v)}
+            />
+            <EditableContactRow
+              icon={MapPin}
+              value={client.city}
+              placeholder="Город"
+              onSave={(v) => saveField("city", v)}
+            />
           </div>
+
+          {/* Этап воронки */}
+          {data!.funnel && data!.funnel.stage && (
+            <button
+              onClick={() => onNavigateToTask?.(data!.funnel!.taskId)}
+              className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted"
+            >
+              <GitBranch className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase text-muted-foreground">Этап воронки</div>
+                <div className="truncate text-xs font-medium">{data!.funnel.stage}</div>
+              </div>
+              <span className="shrink-0 text-xs font-bold text-primary">{data!.funnel.progress}%</span>
+            </button>
+          )}
 
           {/* KPI */}
           <div className="grid grid-cols-3 gap-2">
@@ -283,9 +462,7 @@ export default function ClientContextPanel({
           {/* Команда */}
           {(data!.managerName || data!.team.length > 0) && (
             <div>
-              <h4 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
-                <Users className="h-3 w-3" /> Команда по клиенту
-              </h4>
+              <SectionTitle icon={Users}>Команда по клиенту</SectionTitle>
               <div className="space-y-1.5">
                 {data!.managerName && (
                   <div className="flex items-center gap-2 text-xs">
@@ -312,7 +489,7 @@ export default function ClientContextPanel({
           {/* Ключевые задачи */}
           {open.length > 0 && (
             <div>
-              <h4 className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">Ключевые задачи</h4>
+              <SectionTitle icon={ListTodo}>Ключевые задачи</SectionTitle>
               <div className="space-y-1">
                 {open.slice(0, 8).map((t) => {
                   const isOverdue = t.deadline && new Date(t.deadline).getTime() < now;
@@ -331,6 +508,73 @@ export default function ClientContextPanel({
               </div>
             </div>
           )}
+
+          {/* Протоколы / встречи (производные от source_protocol_id) */}
+          <div>
+            <SectionTitle icon={FileText}>Протоколы и встречи</SectionTitle>
+            {data!.protocols.length > 0 ? (
+              <div className="space-y-1">
+                {data!.protocols.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{p.name}</span>
+                    {p.date && (
+                      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                        {formatDistanceToNowStrict(new Date(p.date), { locale: ru, addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+                Пока нет встреч по клиенту
+              </p>
+            )}
+          </div>
+
+          {/* Лента активности — сообщения CRM-комнаты */}
+          {data!.activity.length > 0 && (
+            <div>
+              <SectionTitle icon={MessageSquare}>Лента активности</SectionTitle>
+              <div className="space-y-2">
+                {data!.activity.map((a) => (
+                  <div key={a.id} className="rounded-lg border border-border bg-muted/20 px-2.5 py-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-foreground/80">{a.author}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {formatDistanceToNowStrict(new Date(a.createdAt), { locale: ru })}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-muted-foreground">{a.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Плейсхолдеры на будущее */}
+          <div className="space-y-3 border-t border-dashed border-border pt-3">
+            {([
+              { icon: Handshake, label: "Контактные лица и роли", hint: "ЛПР, закупщик, категорийный менеджер" },
+              { icon: Wallet, label: "Сделки и выручка", hint: "Воронка по деньгам, план-факт" },
+              { icon: FolderArchive, label: "Документы", hint: "Договоры, презентации, файлы" },
+              { icon: History, label: "История взаимодействий", hint: "Звонки, письма, визиты" },
+              { icon: Tags, label: "Бренды и категории", hint: "Связанные SKU и продукты" },
+              { icon: StickyNote, label: "Заметки", hint: "Внутренние комментарии по клиенту" },
+            ] as const).map((s) => (
+              <div key={s.label} className="flex items-start gap-2 opacity-60">
+                <s.icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                    {s.label}
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground/70">скоро</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60">{s.hint}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </ScrollArea>
     </div>
