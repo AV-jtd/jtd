@@ -736,6 +736,29 @@ export default function TaskChat({
     </div>
   ) : null;
 
+  /**
+   * Chip принадлежности задачи клиенту — показывает, что эта задача является
+   * частью карточки клиента CRM. Кликом ведёт в комнату клиента.
+   */
+  const clientChip = linkedClient ? (
+    <div className={cn("shrink-0", isFull ? "px-4 pt-2" : "px-3 pt-2")}>
+      <button
+        type="button"
+        onClick={() => crmContext?.clientRoomGroupId && navigate(`/chat/${crmContext.clientRoomGroupId}`)}
+        disabled={!crmContext?.clientRoomGroupId}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 py-0.5 pl-0.5 pr-2 text-[11px] font-medium text-primary transition-colors",
+          crmContext?.clientRoomGroupId ? "hover:bg-primary/10 cursor-pointer" : "cursor-default opacity-90",
+        )}
+        title={crmContext?.clientRoomGroupId ? "Открыть комнату клиента" : "Задача клиента"}
+      >
+        <ClientAvatar client={linkedClient} size="xs" />
+        <span className="truncate max-w-[160px]">{linkedClient.name}</span>
+        {crmContext?.clientRoomGroupId && <ArrowRight className="h-3 w-3 opacity-60" />}
+      </button>
+    </div>
+  ) : null;
+
   const inputForm = (
     <div className="shrink-0 border-t border-border">
       {replyTo && (
