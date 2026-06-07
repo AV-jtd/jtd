@@ -23,6 +23,7 @@ import {
   FileText,
   TrendingUp,
   Bot,
+  ChevronDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
