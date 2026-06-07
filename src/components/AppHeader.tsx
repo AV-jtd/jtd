@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, Search, Sparkles, MessageCircle, ShieldAlert } from "lucide-react";
+import { Menu, MessageCircle, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +17,7 @@ interface AppHeaderProps {
 }
 
 const modules = [
+  { path: "/chat", label: "ЭФИР", activeStyle: "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent" },
   { path: "/pmo", label: "PMO", activeStyle: "text-primary" },
   { path: "/npd", label: "NPD", activeStyle: "bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent" },
   { path: "/crm", label: "CRM", activeStyle: "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent" },
@@ -140,30 +141,6 @@ export default function AppHeader({
             <ShieldAlert className="h-3.5 w-3.5" />
           </button>
         )}
-        {onSearchOpen && (
-          <ConsultantGuard area="search" mode="faded">
-            <button
-              onClick={onSearchOpen}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Поиск (⌘K)"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </ConsultantGuard>
-        )}
-
-        {onAiOpen && (
-          <ConsultantGuard area="ai-assistant" mode="faded">
-            <button
-              onClick={onAiOpen}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="ИИ-ассистент"
-            >
-              <Sparkles className="h-4 w-4" />
-            </button>
-          </ConsultantGuard>
-        )}
-
         {onMessengerToggle && (
           <ConsultantGuard area="messenger" mode="faded">
             <button
