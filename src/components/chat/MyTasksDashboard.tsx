@@ -431,21 +431,33 @@ export default function MyTasksDashboard({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {summary.map((s) => {
-                  const meta = BLOCK_META[s.key];
-                  const n = blocks[s.key].length;
-                  return (
-                    <button
-                      key={s.key}
-                      onClick={() => { if (n > 0 && !expanded.has(s.key)) toggle(s.key); }}
-                      className={cn("rounded-xl border border-border bg-card px-2 py-2 text-center transition-colors", n > 0 ? "hover:bg-muted/50" : "opacity-60")}
-                    >
-                      <p className={cn("text-lg font-bold tabular-nums", n > 0 ? meta.tone : "text-muted-foreground")}>{n}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">{s.label}</p>
-                    </button>
-                  );
-                })}
+              <div className="-mx-1 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1.5 px-1 pb-0.5">
+                  {pillOrder.map((k) => {
+                    const meta = BLOCK_META[k];
+                    const n = blocks[k].length;
+                    if (n === 0) return null;
+                    const Icon = meta.icon;
+                    const isActive = expanded.has(k);
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => toggle(k)}
+                        title={meta.label}
+                        className={cn(
+                          "inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-transparent px-2 py-1 text-[11px] font-medium transition-all active:scale-95",
+                          meta.ring,
+                          isActive ? "ring-1 ring-primary/30 ring-offset-1" : "hover:brightness-95",
+                        )}
+                      >
+                        <Icon className={cn("h-3 w-3 shrink-0", meta.tone)} />
+                        <span className={cn("font-semibold tabular-nums", meta.tone)}>{n}</span>
+                        <span className="text-[10px] text-muted-foreground">{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {order.map((k) => (
               <Block
