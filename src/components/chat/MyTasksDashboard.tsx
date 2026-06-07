@@ -8,8 +8,6 @@ import {
   MessageSquare,
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronDown,
-  ChevronRight,
   CalendarRange,
   CircleDashed,
   Stamp,
@@ -46,6 +44,14 @@ type Scope = "involved" | "assignee";
 
 const SCOPE_KEY = "mytasks_scope";
 const EXPANDED_KEY = "mytasks_expanded";
+
+// Функциональные ИИ-команды «Моего дня» — кликабельные пресеты вместо пустого инпута.
+const QUICK_COMMANDS: { label: string; prompt: string; icon: typeof AlertTriangle }[] = [
+  { label: "План на день", prompt: "Составь план на сегодня: что сделать в первую очередь и почему, по моим задачам и срокам.", icon: CalendarClock },
+  { label: "Что первым?", prompt: "Что мне сделать в первую очередь прямо сейчас? Дай 3 приоритета с обоснованием.", icon: TrendingUp },
+  { label: "Разобрать просрочку", prompt: "Разбери мою просрочку: какие задачи закрыть, перенести или делегировать.", icon: AlertTriangle },
+  { label: "Итоги протоколов", prompt: "Подведи итоги по моим экшен-айтемам из протоколов: что висит и что срочно.", icon: FileText },
+];
 
 const BLOCK_META: Record<
   BlockKey,
@@ -188,8 +194,6 @@ function Block({
   blockKey,
   tasks,
   users,
-  expanded,
-  onToggle,
   onOpen,
   onComplete,
   onSetDate,
@@ -198,8 +202,6 @@ function Block({
   blockKey: BlockKey;
   tasks: MyTask[];
   users: Profile[];
-  expanded: boolean;
-  onToggle: () => void;
   onOpen: (id: string) => void;
   onComplete: (id: string) => void;
   onSetDate: (id: string, date: Date | null) => void;
@@ -207,40 +209,29 @@ function Block({
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
-  const count = tasks.length;
-  const empty = count === 0;
+  // Слим-секция: рендерится только для раскрытого блока. Заголовок-«таблетка»
+  // (pill) сверху уже выполняет роль переключателя, поэтому здесь — лёгкий
+  // подзаголовок + список задач, без тяжёлой карточки с большой иконкой.
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <button
-        onClick={onToggle}
-        disabled={empty}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-          empty ? "opacity-50" : "hover:bg-muted/50",
-        )}
-      >
-        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", meta.ring)}>
-          <Icon className={cn("h-4 w-4", meta.tone)} />
-        </span>
-        <span className="flex-1 text-sm font-medium">{meta.label}</span>
-        <span className={cn("text-sm font-bold tabular-nums", count > 0 ? meta.tone : "text-muted-foreground")}>{count}</span>
-        {!empty && (expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />)}
-      </button>
-      {expanded && !empty && (
-        <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
-          {tasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              users={users}
-              onOpen={onOpen}
-              onComplete={onComplete}
-              onSetDate={onSetDate}
-              onSetAssignee={onSetAssignee}
-            />
-          ))}
-        </div>
-      )}
+    <div className="rounded-xl border border-border bg-card px-1.5 py-1.5">
+      <div className="flex items-center gap-1.5 px-1.5 pb-1 pt-0.5">
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", meta.tone)} />
+        <span className="flex-1 text-xs font-semibold text-muted-foreground">{meta.label}</span>
+        <span className={cn("text-xs font-bold tabular-nums", meta.tone)}>{tasks.length}</span>
+      </div>
+      <div className="space-y-0.5">
+        {tasks.map((t) => (
+          <TaskRow
+            key={t.id}
+            task={t}
+            users={users}
+            onOpen={onOpen}
+            onComplete={onComplete}
+            onSetDate={onSetDate}
+            onSetAssignee={onSetAssignee}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -270,6 +261,7 @@ export default function MyTasksDashboard({
     } catch { /* ignore */ }
     return new Set(["overdue"]);
   });
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const blocks = useMemo(() => {
     const involved = data?.involved ?? [];
@@ -514,19 +506,24 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2.5">
+              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2">
                 <div className="flex items-start gap-2">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
+                  <button
+                    onClick={() => setSummaryOpen((v) => !v)}
+                    className="min-w-0 flex-1 text-left"
+                    aria-expanded={summaryOpen}
+                  >
                     {aiLoading ? (
-                      <p className="mt-0.5 animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
+                      <p className="animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
                     ) : aiError ? (
-                      <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
+                      <p className="text-sm text-muted-foreground">Не удалось получить сводку.</p>
                     ) : (
-                      <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{aiSummary}</p>
+                      <p className={cn("text-sm leading-relaxed text-foreground/80", !summaryOpen && "line-clamp-2")}>
+                        {aiSummary || "Сводка появится здесь."}
+                      </p>
                     )}
-                  </div>
+                  </button>
                   <button
                     onClick={() => refetchAi()}
                     disabled={aiLoading}
@@ -579,14 +576,12 @@ export default function MyTasksDashboard({
                   })}
                 </div>
               </div>
-              {order.filter((k) => blocks[k].length > 0).map((k) => (
+              {order.filter((k) => blocks[k].length > 0 && expanded.has(k)).map((k) => (
                 <Block
                   key={k}
                   blockKey={k}
                   tasks={blocks[k]}
                   users={users}
-                  expanded={expanded.has(k)}
-                  onToggle={() => toggle(k)}
                   onOpen={onOpenTask}
                   onComplete={completeTask}
                   onSetDate={setDate}
@@ -626,7 +621,23 @@ export default function MyTasksDashboard({
           )}
         </div>
       </ScrollArea>
-      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background p-2">
+      <div className="shrink-0 space-y-1.5 border-t border-border bg-background p-2">
+        {askMessages.length === 0 && !isStreaming && (
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_COMMANDS.map((q) => (
+              <button
+                key={q.label}
+                type="button"
+                onClick={() => ask(q.prompt)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+              >
+                <q.icon className="h-3 w-3 shrink-0" />
+                {q.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
         {askMessages.length > 0 && (
           <button
             onClick={clearConversation}
@@ -654,6 +665,7 @@ export default function MyTasksDashboard({
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );
