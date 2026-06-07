@@ -18,6 +18,7 @@ import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ChatLinkDialog from "./ChatLinkDialog";
 import SystemCard from "./chat/SystemCard";
 import { parseChatCard, getChatCardDef, chatCardMarker, formatChatCardBody, type ChatCardKind, type ParsedChatCard } from "@/lib/chatCards";
+import ThreadedMessages from "./chat/ThreadedMessages";
 
 interface ProjectChatProps {
   groupId: string;
