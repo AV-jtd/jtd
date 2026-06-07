@@ -120,7 +120,7 @@ export default function ChatRoomsList({
   onHome?: () => void;
 }) {
   const { rooms, isLoading } = useChatRooms();
-  const { isThreadUnread } = useUnreadMessages();
+  const { isThreadUnread, getUnreadCount } = useUnreadMessages();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
 
@@ -183,6 +183,7 @@ export default function ChatRoomsList({
           )}
           {filtered.map((room) => {
             const unread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
+            const count = getUnreadCount(room.threadId, room.lastMessageUserId);
             return (
               <button
                 key={room.groupId}
@@ -221,7 +222,13 @@ export default function ChatRoomsList({
                     )}
                   </p>
                 </div>
-                {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                {count > 0 ? (
+                  <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground">
+                    {count > 99 ? "99+" : count}
+                  </span>
+                ) : unread ? (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                ) : null}
               </button>
             );
           })}
