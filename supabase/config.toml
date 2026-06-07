@@ -35,3 +35,5 @@ project_id = "nvfioycpwyzwukvokwql"
     verify_jwt = false
   [functions.max-webhook]
     verify_jwt = false
+  [functions.my-tasks-summary]
+    verify_jwt = false
