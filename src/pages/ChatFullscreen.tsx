@@ -7,6 +7,7 @@ import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
+import TaskDetailSheet from "@/components/chat/TaskDetailSheet";
 import { ArrowLeft } from "lucide-react";
 import ResizableSidebar from "@/components/ui/resizable-sidebar";
 
@@ -17,6 +18,8 @@ export default function ChatFullscreen() {
   const isMobile = useIsMobile();
   const [group, setGroup] = useState<{ name: string; client_id: string | null } | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info">("chat");
+  /** Задача, открытая поверх чата (чат-лист и «Чаты задач» остаются под шторкой). */
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!groupId) return;
@@ -39,7 +42,9 @@ export default function ChatFullscreen() {
     if (isMobile) setMobilePane("chat");
   };
 
-  const openTask = (taskId: string) => navigate(`/?task=${taskId}`);
+  // Открываем задачу как overlay поверх полноэкранного чата — список чатов
+  // по задачам остаётся на месте (кросс-апп консистентность с мессенджером).
+  const openTask = (taskId: string) => setOpenTaskId(taskId);
 
   if (!groupId) {
     navigate("/", { replace: true });
@@ -51,6 +56,7 @@ export default function ChatFullscreen() {
   if (isMobile) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
+        <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
             <ChatRoomsList activeGroupId={groupId} onSelect={select} onHome={() => navigate("/")} />
@@ -98,6 +104,7 @@ export default function ChatFullscreen() {
 
   return (
     <div className="flex h-[100dvh] bg-background">
+      <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
         <ChatRoomsList activeGroupId={groupId} onSelect={select} />
       </ResizableSidebar>
