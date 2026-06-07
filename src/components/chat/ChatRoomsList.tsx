@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
 import { useChatRooms, useEnsureClientRoom, type ChatRoom } from "@/hooks/useChatRooms";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useMyTasksDashboard, todayBounds } from "@/hooks/useMyTasksDashboard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -134,8 +135,16 @@ export default function ChatRoomsList({
 }) {
   const { rooms, isLoading } = useChatRooms();
   const { isThreadUnread, getUnreadCount } = useUnreadMessages();
+  const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
+
+  // «Горящих» = просрочено + сегодня среди задач, где я участник.
+  const hotCount = useMemo(() => {
+    const list = myTasks?.involved ?? [];
+    const { end } = todayBounds();
+    return list.filter((t) => t.deadline && new Date(t.deadline) < end).length;
+  }, [myTasks]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -229,6 +238,11 @@ export default function ChatRoomsList({
                 <p className="truncate text-sm font-semibold">Мои задачи</p>
                 <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
               </div>
+              {hotCount > 0 && (
+                <span className="shrink-0 rounded-full bg-destructive px-2 py-0.5 text-xs font-bold text-destructive-foreground">
+                  {hotCount > 99 ? "99+" : hotCount}
+                </span>
+              )}
             </button>
           )}
           {isLoading && <p className="px-2 py-4 text-xs text-muted-foreground">Загрузка…</p>}

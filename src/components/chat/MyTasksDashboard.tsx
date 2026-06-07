@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -9,6 +11,10 @@ import {
   ChevronDown,
   ChevronRight,
   ListChecks,
+  CalendarRange,
+  CircleDashed,
+  Stamp,
+  Check,
   X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,8 +24,11 @@ import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTask
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type BlockKey = "overdue" | "today" | "unread" | "toMe" | "byMe";
+type BlockKey = "overdue" | "today" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
 type Scope = "involved" | "assignee";
+
+const SCOPE_KEY = "mytasks_scope";
+const EXPANDED_KEY = "mytasks_expanded";
 
 const BLOCK_META: Record<
   BlockKey,
@@ -27,7 +36,10 @@ const BLOCK_META: Record<
 > = {
   overdue: { label: "Просрочено", icon: AlertTriangle, tone: "text-destructive", ring: "bg-destructive/10" },
   today: { label: "Сегодня", icon: CalendarClock, tone: "text-tag-orange", ring: "bg-tag-orange/10" },
+  week: { label: "На этой неделе", icon: CalendarRange, tone: "text-tag-blue", ring: "bg-tag-blue/10" },
+  noDeadline: { label: "Без дедлайна", icon: CircleDashed, tone: "text-muted-foreground", ring: "bg-muted" },
   unread: { label: "Непрочитанные обсуждения", icon: MessageSquare, tone: "text-primary", ring: "bg-primary/10" },
+  approval: { label: "На согласовании", icon: Stamp, tone: "text-tag-purple", ring: "bg-tag-purple/10" },
   toMe: { label: "Делегировано мне", icon: ArrowDownLeft, tone: "text-tag-blue", ring: "bg-tag-blue/10" },
   byMe: { label: "Делегировано мной", icon: ArrowUpRight, tone: "text-tag-green", ring: "bg-tag-green/10" },
 };
@@ -49,18 +61,29 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
   );
 }
 
-function TaskRow({ task, onOpen }: { task: MyTask; onOpen: (id: string) => void }) {
+function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: string) => void; onComplete: (id: string) => void }) {
+  // Задачи на согласовании завершаем не отсюда (нужен флоу approval).
+  const canComplete = !(task.requires_approval && task.approval_status !== "approved");
   return (
-    <button
-      onClick={() => onOpen(task.id)}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm">{task.title}</p>
-        {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
-      </div>
-      <DeadlinePill deadline={task.deadline} />
-    </button>
+    <div className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+      {canComplete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border text-transparent transition-colors hover:border-tag-green hover:text-tag-green"
+          title="Завершить"
+          aria-label="Завершить задачу"
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      )}
+      <button onClick={() => onOpen(task.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm">{task.title}</p>
+          {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
+        </div>
+        <DeadlinePill deadline={task.deadline} />
+      </button>
+    </div>
   );
 }
 
@@ -70,12 +93,14 @@ function Block({
   expanded,
   onToggle,
   onOpen,
+  onComplete,
 }: {
   blockKey: BlockKey;
   tasks: MyTask[];
   expanded: boolean;
   onToggle: () => void;
   onOpen: (id: string) => void;
+  onComplete: (id: string) => void;
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
@@ -101,7 +126,7 @@ function Block({
       {expanded && !empty && (
         <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onOpen={onOpen} />
+            <TaskRow key={t.id} task={t} onOpen={onOpen} onComplete={onComplete} />
           ))}
         </div>
       )}
@@ -120,13 +145,25 @@ export default function MyTasksDashboard({
   const uid = user?.id;
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
-  const [scope, setScope] = useState<Scope>("involved");
-  const [expanded, setExpanded] = useState<Set<BlockKey>>(new Set(["overdue"]));
+  const queryClient = useQueryClient();
+  const [scope, setScope] = useState<Scope>(() => {
+    const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
+    return s === "assignee" ? "assignee" : "involved";
+  });
+  const [expanded, setExpanded] = useState<Set<BlockKey>>(() => {
+    try {
+      const raw = localStorage.getItem(EXPANDED_KEY);
+      if (raw) return new Set(JSON.parse(raw) as BlockKey[]);
+    } catch { /* ignore */ }
+    return new Set(["overdue"]);
+  });
 
   const blocks = useMemo(() => {
     const involved = data?.involved ?? [];
     const byMe = data?.delegatedByMe ?? [];
     const { start, end } = todayBounds();
+    const weekEnd = new Date(start);
+    weekEnd.setDate(weekEnd.getDate() + 7);
     const scoped = scope === "assignee" ? involved.filter((t) => t.assigned_to === uid) : involved;
     const byDeadline = (a: MyTask, b: MyTask) => (a.deadline ?? "") < (b.deadline ?? "") ? -1 : 1;
 
@@ -134,20 +171,40 @@ export default function MyTasksDashboard({
     const today = scoped
       .filter((t) => t.deadline && new Date(t.deadline) >= start && new Date(t.deadline) < end)
       .sort(byDeadline);
+    const week = scoped
+      .filter((t) => t.deadline && new Date(t.deadline) >= end && new Date(t.deadline) < weekEnd)
+      .sort(byDeadline);
+    const noDeadline = scoped.filter((t) => !t.deadline);
     const unread = scoped.filter((t) => isThreadUnread(`task-${t.id}`, null));
+    const approval = scoped.filter((t) => t.requires_approval && t.approval_status === "pending").sort(byDeadline);
     const toMe = involved.filter((t) => t.assigned_to === uid && t.delegated_from && t.delegated_from !== uid).sort(byDeadline);
 
-    return { overdue, today, unread, toMe, byMe: [...byMe].sort(byDeadline) };
+    return { overdue, today, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
   const toggle = (k: BlockKey) =>
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(k) ? next.delete(k) : next.add(k);
+      try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });
 
-  const order: BlockKey[] = ["overdue", "today", "unread", "toMe", "byMe"];
+  const changeScope = (s: Scope) => {
+    setScope(s);
+    try { localStorage.setItem(SCOPE_KEY, s); } catch { /* ignore */ }
+  };
+
+  const completeTask = async (id: string) => {
+    await supabase
+      .from("tasks")
+      .update({ is_completed: true, completed_at: new Date().toISOString() })
+      .eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["my_tasks_dashboard", uid] });
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const order: BlockKey[] = ["overdue", "today", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -163,7 +220,7 @@ export default function MyTasksDashboard({
           ]).map((o) => (
             <button
               key={o.k}
-              onClick={() => setScope(o.k)}
+              onClick={() => changeScope(o.k)}
               className={cn(
                 "rounded-md px-2 py-1 text-xs font-medium transition-colors",
                 scope === o.k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
@@ -192,6 +249,7 @@ export default function MyTasksDashboard({
                 expanded={expanded.has(k)}
                 onToggle={() => toggle(k)}
                 onOpen={onOpenTask}
+                onComplete={completeTask}
               />
             ))
           )}
