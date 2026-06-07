@@ -197,14 +197,18 @@ export default function ChatRoomsList({
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5 shrink-0">
         <button
           onClick={onHome}
-          className="flex items-center shrink-0"
+          className="text-sm font-semibold shrink-0 text-muted-foreground hover:text-foreground transition-colors"
           title="На главную"
           aria-label="На главную"
         >
-          <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-base font-black tracking-tight text-transparent">
+          Just<span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">TODO</span>it
+        </button>
+        <nav className="flex items-center text-xs md:text-sm font-bold tracking-tight gap-0.5 shrink-0">
+          <span className="text-muted-foreground/30 select-none">|</span>
+          <span className="px-1.5 py-0.5 bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">
             ЭФИР
           </span>
-        </button>
+        </nav>
         <div className="relative ml-auto min-w-0 flex-1 max-w-[150px]">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="h-8 pl-7" />
