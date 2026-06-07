@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -12,6 +14,7 @@ import {
   CalendarRange,
   CircleDashed,
   Stamp,
+  Check,
   X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,18 +61,29 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
   );
 }
 
-function TaskRow({ task, onOpen }: { task: MyTask; onOpen: (id: string) => void }) {
+function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: string) => void; onComplete: (id: string) => void }) {
+  // Задачи на согласовании завершаем не отсюда (нужен флоу approval).
+  const canComplete = !(task.requires_approval && task.approval_status !== "approved");
   return (
-    <button
-      onClick={() => onOpen(task.id)}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm">{task.title}</p>
-        {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
-      </div>
-      <DeadlinePill deadline={task.deadline} />
-    </button>
+    <div className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+      {canComplete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border text-transparent transition-colors hover:border-tag-green hover:text-tag-green"
+          title="Завершить"
+          aria-label="Завершить задачу"
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      )}
+      <button onClick={() => onOpen(task.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm">{task.title}</p>
+          {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
+        </div>
+        <DeadlinePill deadline={task.deadline} />
+      </button>
+    </div>
   );
 }
 
@@ -79,12 +93,14 @@ function Block({
   expanded,
   onToggle,
   onOpen,
+  onComplete,
 }: {
   blockKey: BlockKey;
   tasks: MyTask[];
   expanded: boolean;
   onToggle: () => void;
   onOpen: (id: string) => void;
+  onComplete: (id: string) => void;
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
@@ -110,7 +126,7 @@ function Block({
       {expanded && !empty && (
         <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onOpen={onOpen} />
+            <TaskRow key={t.id} task={t} onOpen={onOpen} onComplete={onComplete} />
           ))}
         </div>
       )}
