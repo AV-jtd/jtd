@@ -26,6 +26,8 @@ export type ChatRoom = {
   /** имя родительского проекта (подзаголовок task-комнаты). */
   parentName?: string | null;
   taskCompleted?: boolean;
+  /** имя привязанного CRM-клиента (🏢) для task-комнат. */
+  clientName?: string | null;
   client?: { name: string; logo_url: string | null; rankLabel: string | null } | null;
   groupIcon: string | null;
   groupColor: string | null;
