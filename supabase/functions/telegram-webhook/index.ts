@@ -3203,6 +3203,9 @@ async function createBulkTasks(
   const now = new Date();
   const memberById = new Map(members.map(m => [m.id, m]));
 
+  // Resolve a client once from the linked project's context (client room / parent).
+  const ctxClient = await resolveClientIdFromContext(supabase, groupId, "");
+
   for (const task of tasks) {
     const taskData: Record<string, any> = {
       title: task.title.substring(0, 500),
@@ -3211,6 +3214,9 @@ async function createBulkTasks(
     };
     if (groupId) taskData.group_id = groupId;
     if (task.priority) taskData.priority = task.priority;
+    // Smart client link: project context first, else name match in the title.
+    const bulkClient = ctxClient ?? await resolveClientIdFromContext(supabase, null, task.title);
+    if (bulkClient) taskData.client_id = bulkClient.id;
 
     // Resolve deadline
     let deadlineStr: string | undefined;
