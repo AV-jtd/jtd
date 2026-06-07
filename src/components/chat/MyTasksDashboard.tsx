@@ -515,12 +515,12 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
                   <button
                     onClick={() => setSummaryOpen((v) => !v)}
-                    className="min-w-0 flex-1 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-1 text-left"
                     aria-expanded={summaryOpen}
                   >
                     {aiLoading ? (
@@ -528,10 +528,16 @@ export default function MyTasksDashboard({
                     ) : aiError ? (
                       <p className="text-sm text-muted-foreground">Не удалось получить сводку.</p>
                     ) : (
-                      <p className={cn("text-sm leading-relaxed text-foreground/80", !summaryOpen && "line-clamp-2")}>
+                      <p className={cn("text-sm leading-relaxed text-foreground/80", !summaryOpen && "truncate")}>
                         {aiSummary || "Сводка появится здесь."}
                       </p>
                     )}
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+                        summaryOpen && "rotate-180",
+                      )}
+                    />
                   </button>
                   <button
                     onClick={() => refetchAi()}
