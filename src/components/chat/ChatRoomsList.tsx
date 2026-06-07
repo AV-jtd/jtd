@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Search, MessageCircle, Plus, Home, CheckSquare, ListChecks } from "lucide-react";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
 import { useChatRooms, useEnsureClientRoom, type ChatRoom } from "@/hooks/useChatRooms";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useMyTasksDashboard, todayBounds } from "@/hooks/useMyTasksDashboard";
+import { useAvailableUsers } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
+import QuickCreateForm, { type QuickCreateResult } from "@/components/QuickCreateForm";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ru } from "date-fns/locale";
 
