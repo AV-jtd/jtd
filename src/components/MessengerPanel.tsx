@@ -389,8 +389,7 @@ export default function MessengerPanel({
             {threads.length > 0 && (
               <button
                 onClick={() => {
-                  const first = threads[0];
-                  navigate(first.taskId ? `/chat/${first.groupId}?task=${first.taskId}` : `/chat/${first.groupId}`);
+                  navigate("/chat");
                   onClose();
                 }}
                 title="Открыть на весь экран"
