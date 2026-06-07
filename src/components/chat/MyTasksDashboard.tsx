@@ -238,6 +238,7 @@ export default function MyTasksDashboard({
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
   const { data: users = [] } = useAvailableUsers();
+  const { data: cross } = useMyDayContext();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<Scope>(() => {
     const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
