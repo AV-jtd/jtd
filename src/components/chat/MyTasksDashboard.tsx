@@ -10,7 +10,6 @@ import {
   ArrowUpRight,
   ChevronDown,
   ChevronRight,
-  ListChecks,
   CalendarRange,
   CircleDashed,
   Stamp,
