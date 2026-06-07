@@ -26,8 +26,15 @@ function RankBadge({ label }: { label: string | null }) {
 function RoomAvatar({ room }: { room: ChatRoom }) {
   if (room.isTaskRoom) {
     return (
-      <div className="h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary shrink-0">
-        <CheckSquare className="h-4 w-4" />
+      <div className="relative shrink-0">
+        <div className="h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary">
+          <CheckSquare className="h-4 w-4" />
+        </div>
+        {(room.clientLogoUrl || room.clientName) && (
+          <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-background">
+            <ClientAvatar client={{ name: room.clientName || "", logo_url: room.clientLogoUrl ?? null }} size="xs" />
+          </span>
+        )}
       </div>
     );
   }
