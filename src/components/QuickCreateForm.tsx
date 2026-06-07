@@ -48,6 +48,13 @@ interface QuickCreateFormProps {
   singleType?: QuickCreateType;
   /** Compact mode — just a small + icon */
   compact?: boolean;
+  /**
+   * Optional visible label next to the "+" in the trigger (e.g. "Задача").
+   * When set, the trigger renders as a labeled pill button instead of a bare icon.
+   */
+  triggerLabel?: string;
+  /** Extra classes for the trigger button. */
+  triggerClassName?: string;
   /** Align popover */
   align?: "start" | "center" | "end";
   side?: "top" | "bottom" | "left" | "right";
@@ -67,6 +74,8 @@ export default function QuickCreateForm({
   options = DEFAULT_OPTIONS,
   singleType,
   compact = false,
+  triggerLabel,
+  triggerClassName,
   align = "start",
   side = "bottom",
   startFrom,
@@ -193,13 +202,19 @@ export default function QuickCreateForm({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "inline-flex items-center gap-1 transition-colors",
-            compact
-              ? "p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10"
-              : "rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-primary hover:border-primary/30 w-full justify-center mt-1"
+            triggerLabel
+              ? cn(
+                  "rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10",
+                  triggerClassName,
+                )
+              : compact
+                ? "p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10"
+                : "rounded-md border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-primary hover:border-primary/30 w-full justify-center mt-1"
           )}
-          title="Создать"
+          title={triggerLabel ? `Создать: ${triggerLabel}` : "Создать"}
         >
           <Plus className="h-3.5 w-3.5" />
+          {triggerLabel && <span>{triggerLabel}</span>}
         </button>
       </PopoverTrigger>
       <PopoverContent
