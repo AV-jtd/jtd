@@ -124,6 +124,7 @@ export default function ProjectRoomCenter({
   onToggleFullscreen,
   onBack,
   onNavigateToTask,
+  highlightMessageId,
 }: {
   groupId: string;
   groupName: string;
@@ -133,6 +134,7 @@ export default function ProjectRoomCenter({
   onToggleFullscreen?: () => void;
   onBack?: () => void;
   onNavigateToTask?: (taskId: string) => void;
+  highlightMessageId?: string | null;
 }) {
   const [tab, setTab] = useState<TabKey>("chat");
   const { data } = useProjectRoomData(groupId);
@@ -220,6 +222,7 @@ export default function ProjectRoomCenter({
             fullscreen={fullscreen}
             onClose={onClose}
             onNavigateToTask={onNavigateToTask}
+            highlightMessageId={highlightMessageId}
           />
         )}
 
