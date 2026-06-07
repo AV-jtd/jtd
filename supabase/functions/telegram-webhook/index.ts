@@ -3208,7 +3208,8 @@ async function ensureGroupMembership(
  * Priority:
  *  1) Direct context — the linked project is a CRM client room (task_groups.client_id),
  *     or its parent project is.
- *  2) Name match — a known client name appears verbatim in the task text.
+ *  2) Name match — a known client name appears in the task text. Tolerant to the
+ *     letter ё/е and to Russian case endings (e.g. "по Пятёрочке" → "Пятерочка").
  * Returns the client id + name, or null when nothing reliable is found.
  */
 async function resolveClientIdFromContext(
@@ -3239,19 +3240,33 @@ async function resolveClientIdFromContext(
     }
   }
 
-  // 2) Name match in the text (clients are a global registry)
-  const cleaned = (text || "").toLowerCase();
-  if (cleaned.trim().length >= 3) {
+  // 2) Name match in the text (clients are a global registry).
+  //    Normalise ё→е and tolerate Russian case endings by matching the name
+  //    stem against word prefixes (so "Пятёрочке" still resolves to "Пятерочка").
+  const norm = (s: string) => s.toLowerCase().replace(/ё/g, "е").trim();
+  const cleaned = norm(text || "");
+  if (cleaned.length >= 3) {
+    const tokens = cleaned.split(/[^a-zа-я0-9]+/i).filter(Boolean);
     const { data: clients } = await supabase.from("clients").select("id, name").limit(2000);
-    let best: { id: string; name: string } | null = null;
+    let best: { id: string; name: string; score: number } | null = null;
     for (const c of clients || []) {
-      const n = (c.name || "").trim().toLowerCase();
+      const n = norm(c.name || "");
       if (n.length < 3) continue;
-      if (cleaned.includes(n) && (!best || n.length > best.name.length)) {
-        best = { id: c.id, name: c.name };
+      let matched = false;
+      if (n.includes(" ")) {
+        // Multi-word names: require the whole phrase to appear.
+        matched = cleaned.includes(n);
+      } else {
+        // Single-word names: exact token OR shared stem (drop trailing vowel(s)).
+        const stem = n.replace(/[аеиоуыэюя]+$/u, "");
+        const key = stem.length >= 4 ? stem : n;
+        matched = tokens.some((t) => t === n || (key.length >= 4 && t.startsWith(key)));
+      }
+      if (matched && (!best || n.length > best.score)) {
+        best = { id: c.id, name: c.name, score: n.length };
       }
     }
-    if (best) return best;
+    if (best) return { id: best.id, name: best.name };
   }
 
   return null;
