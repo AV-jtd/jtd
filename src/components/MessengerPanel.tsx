@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
@@ -96,6 +96,43 @@ export default function MessengerPanel({
   const [projectIds, setProjectIds] = useState<string[]>([]);
   // Быстрый фильтр «только непрочитанные».
   const [unreadOnly, setUnreadOnly] = useState(false);
+
+  // In-memory scroll position cache per thread, keyed by "group:<id>" /
+  // "task:<id>". Kept in a ref (not localStorage) so it survives messenger
+  // open/close cycles within the session but resets on a full page reload.
+  const scrollPositions = useRef<Map<string, number>>(new Map());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollWrite = useRef(0);
+
+  const activeThreadKey =
+    activeThread?.type === "group" && activeThread.groupId
+      ? `group:${activeThread.groupId}`
+      : activeThread?.type === "task" && activeThread.taskId
+        ? `task:${activeThread.taskId}`
+        : null;
+
+  // Throttled scroll writer (~every 200ms) — stores scrollTop for the active thread.
+  const handleMessagesScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!activeThreadKey) return;
+    const now = Date.now();
+    if (now - lastScrollWrite.current < 200) return;
+    lastScrollWrite.current = now;
+    scrollPositions.current.set(activeThreadKey, e.currentTarget.scrollTop);
+  };
+
+  // After the active thread changes (or the panel mounts with one), restore the
+  // saved scrollTop. If none was stored yet, jump to the bottom.
+  useLayoutEffect(() => {
+    if (!activeThreadKey) return;
+    const msgs = scrollContainerRef.current;
+    if (!msgs) return;
+    const stored = scrollPositions.current.get(activeThreadKey);
+    if (stored != null) {
+      msgs.scrollTop = stored;
+    } else {
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+  }, [activeThreadKey]);
 
   // Restore the active thread when the parent provides a remembered id and
   // the matching thread is available in the loaded list. Runs once per
@@ -648,7 +685,11 @@ export default function MessengerPanel({
       </div>
 
       {/* Chat content */}
-      <div className="flex-1 overflow-hidden">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-hidden"
+      >
         {activeThread.type === "group" && activeThread.groupId ? (
           <ProjectRoomCenter
             key={activeThread.groupId}
