@@ -238,6 +238,11 @@ export default function ChatRoomsList({
                 <p className="truncate text-sm font-semibold">Мои задачи</p>
                 <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
               </div>
+              {hotCount > 0 && (
+                <span className="shrink-0 rounded-full bg-destructive px-2 py-0.5 text-xs font-bold text-destructive-foreground">
+                  {hotCount > 99 ? "99+" : hotCount}
+                </span>
+              )}
             </button>
           )}
           {isLoading && <p className="px-2 py-4 text-xs text-muted-foreground">Загрузка…</p>}
