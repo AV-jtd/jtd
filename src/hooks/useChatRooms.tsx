@@ -149,6 +149,7 @@ export function useChatRooms() {
       taskId: th.taskId,
       parentName: th.groupName ?? null,
       taskCompleted: th.taskCompleted,
+      clientName: th.clientName ?? null,
       client: null,
       groupIcon: null,
       groupColor: null,
