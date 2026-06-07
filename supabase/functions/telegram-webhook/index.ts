@@ -3192,6 +3192,60 @@ async function ensureGroupMembership(
   return true;
 }
 
+/**
+ * Smart client linking for tasks created via Telegram.
+ * Priority:
+ *  1) Direct context — the linked project is a CRM client room (task_groups.client_id),
+ *     or its parent project is.
+ *  2) Name match — a known client name appears verbatim in the task text.
+ * Returns the client id + name, or null when nothing reliable is found.
+ */
+async function resolveClientIdFromContext(
+  supabase: any,
+  groupId: string | null,
+  text: string,
+): Promise<{ id: string; name: string } | null> {
+  const nameOf = async (id: string): Promise<string> => {
+    const { data } = await supabase.from("clients").select("name").eq("id", id).maybeSingle();
+    return data?.name || "клиент";
+  };
+
+  // 1) Project context
+  if (groupId) {
+    const { data: g } = await supabase
+      .from("task_groups")
+      .select("client_id, parent_id")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (g?.client_id) return { id: g.client_id, name: await nameOf(g.client_id) };
+    if (g?.parent_id) {
+      const { data: parent } = await supabase
+        .from("task_groups")
+        .select("client_id")
+        .eq("id", g.parent_id)
+        .maybeSingle();
+      if (parent?.client_id) return { id: parent.client_id, name: await nameOf(parent.client_id) };
+    }
+  }
+
+  // 2) Name match in the text (clients are a global registry)
+  const cleaned = (text || "").toLowerCase();
+  if (cleaned.trim().length >= 3) {
+    const { data: clients } = await supabase.from("clients").select("id, name").limit(2000);
+    let best: { id: string; name: string } | null = null;
+    for (const c of clients || []) {
+      const n = (c.name || "").trim().toLowerCase();
+      if (n.length < 3) continue;
+      if (cleaned.includes(n) && (!best || n.length > best.name.length)) {
+        best = { id: c.id, name: c.name };
+      }
+    }
+    if (best) return best;
+  }
+
+  return null;
+}
+
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
