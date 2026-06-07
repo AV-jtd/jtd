@@ -561,7 +561,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
               const card = parseChatCard(msg.external_message_id, msg.content);
               if (card) {
                 return (
-                  <div key={msg.id} className="group">
+                  <div
+                    key={msg.id}
+                    id={`pc-msg-${groupId}-${msg.id}`}
+                    className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
+                  >
                     <SystemCard
                       card={card}
                       isCompleted={card.def.target === "task" ? (taskStatusMap?.get(card.entityId) ?? false) : false}
@@ -576,7 +580,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
               }
 
               return (
-                <div key={msg.id} className="group">
+                <div
+                  key={msg.id}
+                  id={`pc-msg-${groupId}-${msg.id}`}
+                  className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
+                >
                   {/* Root message */}
                   <MessageBubble
                     msg={msg}
