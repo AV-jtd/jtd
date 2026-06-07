@@ -22,6 +22,8 @@ export type Thread = {
   /** For task threads — current completion status (closed = strike-through). */
   taskCompleted?: boolean;
   groupName?: string;
+  /** For task threads — id of the parent project (for accordion grouping). */
+  parentGroupId?: string | null;
   /** For task threads — linked CRM client name (🏢), if any. */
   clientName?: string | null;
   /** For task threads — linked CRM client logo url, if any. */
@@ -320,6 +322,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           taskId: t.id,
           taskCompleted: !!(t as any).is_completed,
           groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
+          parentGroupId: (t as any).group_id ?? null,
           clientName: (t as any).client_id
             ? clientNameMap.get((t as any).client_id) ?? null
             : taskTagClientMap.get(t.id)?.name ?? null,

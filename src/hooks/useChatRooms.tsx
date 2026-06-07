@@ -25,6 +25,8 @@ export type ChatRoom = {
   taskId?: string;
   /** имя родительского проекта (подзаголовок task-комнаты). */
   parentName?: string | null;
+  /** id родительского проекта (для аккордеона в списке). */
+  parentGroupId?: string | null;
   taskCompleted?: boolean;
   /** имя привязанного CRM-клиента (🏢) для task-комнат. */
   clientName?: string | null;
@@ -150,6 +152,7 @@ export function useChatRooms() {
       isTaskRoom: true,
       taskId: th.taskId,
       parentName: th.groupName ?? null,
+      parentGroupId: th.parentGroupId ?? null,
       taskCompleted: th.taskCompleted,
       clientName: th.clientName ?? null,
       clientLogoUrl: th.clientLogoUrl ?? null,

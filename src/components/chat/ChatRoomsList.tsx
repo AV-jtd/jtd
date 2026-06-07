@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, CheckSquare, Sparkles } from "lucide-react";
+import { Search, CheckSquare, Sparkles, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -56,6 +56,76 @@ function RoomAvatar({ room }: { room: ChatRoom }) {
     >
       {room.groupIcon || "📁"}
     </div>
+  );
+}
+
+/** Одна строка чата (проект / клиент / задача). Презентационный компонент —
+ *  unread/count считает родитель и передаёт сюда. */
+function RoomRow({
+  room,
+  isActive,
+  unread,
+  count,
+  onClick,
+}: {
+  room: ChatRoom;
+  isActive: boolean;
+  unread: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
+        isActive
+          ? "bg-primary/10"
+          : unread
+            ? "bg-primary/[0.06] hover:bg-primary/10"
+            : "hover:bg-muted",
+      )}
+    >
+      {unread && !isActive && (
+        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+      )}
+      <RoomAvatar room={room} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center">
+          <span className={cn("truncate text-sm", unread ? "font-bold text-foreground" : "font-medium", room.taskCompleted && "line-through opacity-60")}>
+            {room.name}
+          </span>
+          {room.isClientRoom && <RankBadge label={room.client?.rankLabel ?? null} />}
+          {room.lastMessageAt && (
+            <span className={cn("ml-auto pl-2 text-[10px] shrink-0", unread ? "font-medium text-primary" : "text-muted-foreground")}>
+              {formatDistanceToNowStrict(new Date(room.lastMessageAt), { locale: ru })}
+            </span>
+          )}
+        </div>
+        <p className={cn("truncate text-xs", unread ? "text-foreground/80" : "text-muted-foreground")}>
+          {room.isTaskRoom && room.parentName ? (
+            <span className="opacity-70">{room.parentName} · </span>
+          ) : null}
+          {room.lastMessage ? (
+            <>
+              {room.lastMessageAuthor && <span className="opacity-80">{room.lastMessageAuthor}: </span>}
+              {room.lastMessage}
+            </>
+          ) : room.isClientRoom ? (
+            <span className="italic opacity-70">CRM-комната клиента</span>
+          ) : (
+            <span className="italic opacity-70">Нет сообщений</span>
+          )}
+        </p>
+      </div>
+      {count > 0 ? (
+        <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">
+          {count > 99 ? "99+" : count}
+        </span>
+      ) : unread ? (
+        <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+      ) : null}
+    </button>
   );
 }
 
@@ -132,6 +202,14 @@ export default function ChatRoomsList({
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
+  // Свёрнутые по умолчанию проекты: храним id раскрытых.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // «Горящих» = просрочено + сегодня среди задач, где я участник.
   const hotCount = useMemo(() => {
@@ -169,6 +247,41 @@ export default function ChatRoomsList({
       return r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s);
     });
   }, [rooms, q, filter]);
+
+  // Аккордеон: задачи сворачиваются под свой проект. Активен в режимах
+  // «Все» и «Проекты». В «Задачах»/«Клиентах» — плоский список как раньше.
+  const grouped = useMemo(() => {
+    const accordion = filter === "all" || filter === "projects";
+    if (!accordion) return filtered.map((room) => ({ room, children: [] as ChatRoom[] }));
+
+    const parents = filtered.filter((r) => !r.isTaskRoom);
+    const parentById = new Map(parents.map((p) => [p.groupId, p]));
+    const childrenByParent = new Map<string, ChatRoom[]>();
+    const orphans: ChatRoom[] = [];
+    for (const r of filtered) {
+      if (!r.isTaskRoom) continue;
+      if (r.parentGroupId && parentById.has(r.parentGroupId)) {
+        const arr = childrenByParent.get(r.parentGroupId) ?? [];
+        arr.push(r);
+        childrenByParent.set(r.parentGroupId, arr);
+      } else {
+        orphans.push(r);
+      }
+    }
+
+    const items = [
+      ...parents.map((room) => ({ room, children: childrenByParent.get(room.groupId) ?? [] })),
+      ...orphans.map((room) => ({ room, children: [] as ChatRoom[] })),
+    ];
+
+    // Сортировка по самой свежей активности (свою или дочерней задачи).
+    const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
+      [it.room, ...it.children]
+        .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
+        .reduce((a, b) => Math.max(a, b), 0);
+    items.sort((a, b) => freshest(b) - freshest(a));
+    return items;
+  }, [filtered, filter]);
 
   const FILTERS: { key: typeof filter; label: string }[] = [
     { key: "all", label: "Все" },
@@ -286,63 +399,64 @@ export default function ChatRoomsList({
           {!isLoading && filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Нет чатов</p>
           )}
-          {filtered.map((room) => {
-            const unread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
-            const count = getUnreadCount(room.threadId, room.lastMessageUserId);
+          {grouped.map(({ room, children }) => {
+            const hasChildren = children.length > 0;
+            const isOpen = expanded.has(room.groupId) || !!q.trim();
+            const selfUnread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
+            const selfCount = getUnreadCount(room.threadId, room.lastMessageUserId);
+            // Свёрнутый проект показывает суммарный непрочёт (свой + задачи).
+            const childCount = children.reduce(
+              (s, c) => s + getUnreadCount(c.threadId, c.lastMessageUserId),
+              0,
+            );
+            const childUnread = children.some((c) =>
+              isThreadUnread(c.threadId, c.lastMessageAt, c.lastMessageUserId),
+            );
+            const showAgg = hasChildren && !isOpen;
+            const headerCount = showAgg ? selfCount + childCount : selfCount;
+            const headerUnread = showAgg ? selfUnread || childUnread : selfUnread;
             const isActive = room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId;
             return (
-              <button
-                key={room.groupId}
-                onClick={() => (room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId))}
-                className={cn(
-                  "relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
-                  isActive
-                    ? "bg-primary/10"
-                    : unread
-                      ? "bg-primary/[0.06] hover:bg-primary/10"
-                      : "hover:bg-muted",
-                )}
-              >
-                {unread && !isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                )}
-                <RoomAvatar room={room} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center">
-                    <span className={cn("truncate text-sm", unread ? "font-bold text-foreground" : "font-medium", room.taskCompleted && "line-through opacity-60")}>
-                      {room.name}
-                    </span>
-                    {room.isClientRoom && <RankBadge label={room.client?.rankLabel ?? null} />}
-                    {room.lastMessageAt && (
-                      <span className={cn("ml-auto pl-2 text-[10px] shrink-0", unread ? "font-medium text-primary" : "text-muted-foreground")}>
-                        {formatDistanceToNowStrict(new Date(room.lastMessageAt), { locale: ru })}
-                      </span>
-                    )}
+              <div key={room.groupId}>
+                <div className="flex items-center gap-0.5">
+                  {hasChildren ? (
+                    <button
+                      onClick={() => toggleExpand(room.groupId)}
+                      className="grid h-7 w-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={isOpen ? "Свернуть задачи" : "Развернуть задачи"}
+                    >
+                      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-90")} />
+                    </button>
+                  ) : (
+                    <span className="w-5 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <RoomRow
+                      room={room}
+                      isActive={isActive}
+                      unread={headerUnread}
+                      count={headerCount}
+                      onClick={() =>
+                        room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
+                      }
+                    />
                   </div>
-                  <p className={cn("truncate text-xs", unread ? "text-foreground/80" : "text-muted-foreground")}>
-                    {room.isTaskRoom && room.parentName ? (
-                      <span className="opacity-70">{room.parentName} · </span>
-                    ) : null}
-                    {room.lastMessage ? (
-                      <>
-                        {room.lastMessageAuthor && <span className="opacity-80">{room.lastMessageAuthor}: </span>}
-                        {room.lastMessage}
-                      </>
-                    ) : room.isClientRoom ? (
-                      <span className="italic opacity-70">CRM-комната клиента</span>
-                    ) : (
-                      <span className="italic opacity-70">Нет сообщений</span>
-                    )}
-                  </p>
                 </div>
-                {count > 0 ? (
-                  <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">
-                    {count > 99 ? "99+" : count}
-                  </span>
-                ) : unread ? (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                ) : null}
-              </button>
+                {hasChildren && isOpen && (
+                  <div className="ml-5 mt-0.5 space-y-0.5 border-l border-border/60 pl-1">
+                    {children.map((child) => (
+                      <RoomRow
+                        key={child.groupId}
+                        room={child}
+                        isActive={child.taskId === activeTaskId}
+                        unread={isThreadUnread(child.threadId, child.lastMessageAt, child.lastMessageUserId)}
+                        count={getUnreadCount(child.threadId, child.lastMessageUserId)}
+                        onClick={() => (child.taskId ? onSelectTask?.(child.taskId) : onSelect(child.groupId))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
