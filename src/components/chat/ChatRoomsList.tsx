@@ -214,6 +214,9 @@ export default function ChatRoomsList({
                     {room.isTaskRoom && room.parentName ? (
                       <span className="opacity-70">{room.parentName} · </span>
                     ) : null}
+                    {room.isTaskRoom && room.clientName ? (
+                      <span className="font-medium text-primary">🏢 {room.clientName} · </span>
+                    ) : null}
                     {room.lastMessage ? (
                       <>
                         {room.lastMessageAuthor && <span className="opacity-80">{room.lastMessageAuthor}: </span>}
