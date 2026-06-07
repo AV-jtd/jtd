@@ -22,6 +22,8 @@ export type Thread = {
   /** For task threads — current completion status (closed = strike-through). */
   taskCompleted?: boolean;
   groupName?: string;
+  /** For task threads — linked CRM client name (🏢), if any. */
+  clientName?: string | null;
   /** Visual hints for project (group) threads, used by the messenger to
    *  visually distinguish project chats from task chats in the list. */
   groupIcon?: string | null;
