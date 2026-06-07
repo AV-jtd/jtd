@@ -47,6 +47,14 @@ type Scope = "involved" | "assignee";
 const SCOPE_KEY = "mytasks_scope";
 const EXPANDED_KEY = "mytasks_expanded";
 
+// Функциональные ИИ-команды «Моего дня» — кликабельные пресеты вместо пустого инпута.
+const QUICK_COMMANDS: { label: string; prompt: string; icon: typeof AlertTriangle }[] = [
+  { label: "План на день", prompt: "Составь план на сегодня: что сделать в первую очередь и почему, по моим задачам и срокам.", icon: CalendarClock },
+  { label: "Что первым?", prompt: "Что мне сделать в первую очередь прямо сейчас? Дай 3 приоритета с обоснованием.", icon: TrendingUp },
+  { label: "Разобрать просрочку", prompt: "Разбери мою просрочку: какие задачи закрыть, перенести или делегировать.", icon: AlertTriangle },
+  { label: "Итоги протоколов", prompt: "Подведи итоги по моим экшен-айтемам из протоколов: что висит и что срочно.", icon: FileText },
+];
+
 const BLOCK_META: Record<
   BlockKey,
   { label: string; icon: typeof AlertTriangle; tone: string; ring: string }
