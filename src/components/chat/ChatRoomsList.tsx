@@ -60,64 +60,54 @@ function RoomAvatar({ room }: { room: ChatRoom }) {
   );
 }
 
-/** Список клиентов без комнаты — для быстрого создания CRM-комнаты. */
-function NewClientRoomButton({ onOpen }: { onOpen: (groupId: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const ensure = useEnsureClientRoom();
-  const { data: clients = [] } = useQuery({
-    queryKey: ["crm_clients_picker"],
-    queryFn: async () => {
-      const { data } = await supabase.from("clients").select("id, name, logo_url").order("name").limit(500);
-      return (data as any[]) || [];
+/**
+ * Killer GTD-фича в шапке чатов: быстрое создание задачи (@исполнитель, дедлайн,
+ * приоритет — через inline-парсинг QuickCreateForm). Без проекта задача уходит в
+ * Inbox (`group_id = null`). `start_at` всегда = now().
+ */
+function NewTaskButton() {
+  const { user } = useAuth();
+  const { data: users = [] } = useAvailableUsers();
+  const qc = useQueryClient();
+
+  const create = useMutation({
+    mutationFn: async (p: QuickCreateResult) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          title: p.title,
+          user_id: user!.id,
+          group_id: null,
+          start_at: new Date().toISOString(),
+          deadline: p.deadline ? format(p.deadline, "yyyy-MM-dd") : null,
+          assigned_to: p.assigneeId ?? null,
+          department_id: p.assigneeId ? null : p.departmentId ?? null,
+          contractor_id: p.assigneeId ? null : p.contractorId ?? null,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      await supabase.from("task_participants").insert({ task_id: data.id, user_id: user!.id, role: "creator" });
+      return data;
     },
-    enabled: open,
-    staleTime: 1000 * 60,
+    onSuccess: () => {
+      toast.success("Задача создана");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["chat_rooms"] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
-  const filtered = useMemo(
-    () => clients.filter((c) => c.name?.toLowerCase().includes(q.trim().toLowerCase())),
-    [clients, q],
-  );
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          title="Открыть чат по клиенту"
-        >
-          <Plus className="h-3.5 w-3.5" /> Клиент
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Поиск клиента…"
-          className="mb-2 h-8"
-        />
-        <ScrollArea className="max-h-64">
-          <div className="space-y-0.5">
-            {filtered.map((c) => (
-              <button
-                key={c.id}
-                onClick={async () => {
-                  const gid = await ensure.mutateAsync(c.id);
-                  setOpen(false);
-                  onOpen(gid);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-              >
-                <ClientAvatar client={c} size="sm" />
-                <span className="truncate">{c.name}</span>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="px-2 py-4 text-center text-xs text-muted-foreground">Ничего не найдено</p>
-            )}
-          </div>
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
+    <QuickCreateForm
+      users={users}
+      singleType="task"
+      triggerLabel="Задача"
+      align="end"
+      onCreate={async (p) => {
+        await create.mutateAsync(p);
+      }}
+    />
   );
 }
 
