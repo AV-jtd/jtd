@@ -8,7 +8,8 @@ import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
-import TaskDetailSheet from "@/components/chat/TaskDetailSheet";
+import TaskRoomCenter from "@/components/chat/TaskRoomCenter";
+import TaskDetailPanel from "@/components/chat/TaskDetailPanel";
 import { ArrowLeft } from "lucide-react";
 import ResizableSidebar from "@/components/ui/resizable-sidebar";
 
@@ -19,9 +20,11 @@ export default function ChatFullscreen() {
   const isMobile = useIsMobile();
   const { markThreadRead } = useUnreadMessages();
   const [group, setGroup] = useState<{ name: string; client_id: string | null } | null>(null);
-  const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info">("chat");
-  /** Задача, открытая поверх чата (чат-лист и «Чаты задач» остаются под шторкой). */
+  const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info" | "task" | "taskinfo">("chat");
+  /** Задача, открытая в центре чата (чат-лист слева + карточка задачи справа). */
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  /** Показывать ли правый сайдбар с карточкой задачи (desktop). */
+  const [showTaskInfo, setShowTaskInfo] = useState(true);
 
   useEffect(() => {
     if (!groupId) return;
@@ -49,11 +52,17 @@ export default function ChatFullscreen() {
     if (isMobile) setMobilePane("chat");
   };
 
-  // Открываем задачу как overlay поверх полноэкранного чата — список чатов
-  // по задачам остаётся на месте (кросс-апп консистентность с мессенджером).
+  // Клик по чату задачи: открываем чат задачи ПО ЦЕНТРУ, карточка задачи —
+  // в правом сайдбаре. Список чатов слева остаётся на месте.
   const openTask = (taskId: string) => {
     setOpenTaskId(taskId);
+    setShowTaskInfo(true);
     markThreadRead(`task-${taskId}`);
+    if (isMobile) setMobilePane("task");
+  };
+  const closeTask = () => {
+    setOpenTaskId(null);
+    if (isMobile) setMobilePane("chat");
   };
 
   if (!groupId) {
@@ -66,10 +75,32 @@ export default function ChatFullscreen() {
   if (isMobile) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
             <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+          )}
+          {mobilePane === "task" && openTaskId && (
+            <TaskRoomCenter
+              key={openTaskId}
+              taskId={openTaskId}
+              onBack={() => setMobilePane("list")}
+              onClose={closeTask}
+              onShowInfo={() => setMobilePane("taskinfo")}
+              onNavigateToTask={openTask}
+            />
+          )}
+          {mobilePane === "taskinfo" && openTaskId && (
+            <div className="flex h-full flex-col">
+              <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
+                <button onClick={() => setMobilePane("task")} className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Назад к чату" aria-label="Назад к чату">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <span className="truncate text-sm font-semibold">Карточка задачи</span>
+              </div>
+              <div className="min-h-0 flex-1">
+                <TaskDetailPanel taskId={openTaskId} onClose={() => setMobilePane("task")} />
+              </div>
+            </div>
           )}
           {mobilePane === "chat" && (hasClient ? (
             <ClientRoomCenter
@@ -114,12 +145,19 @@ export default function ChatFullscreen() {
 
   return (
     <div className="flex h-[100dvh] bg-background">
-      <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
         <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
-        {hasClient ? (
+        {openTaskId ? (
+          <TaskRoomCenter
+            key={openTaskId}
+            taskId={openTaskId}
+            onClose={closeTask}
+            onShowInfo={() => setShowTaskInfo((v) => !v)}
+            onNavigateToTask={openTask}
+          />
+        ) : hasClient ? (
           <ClientRoomCenter
             key={groupId}
             groupId={groupId}
@@ -142,11 +180,15 @@ export default function ChatFullscreen() {
           />
         )}
       </div>
-      {hasClient && (
+      {openTaskId && showTaskInfo ? (
+        <ResizableSidebar storageKey="sidebar_width_task_detail" defaultWidth={420} minWidth={320} maxWidth={560} side="left" className="border-l border-border">
+          <TaskDetailPanel taskId={openTaskId} onClose={() => setShowTaskInfo(false)} />
+        </ResizableSidebar>
+      ) : !openTaskId && hasClient ? (
         <ResizableSidebar storageKey="sidebar_width_client_panel" defaultWidth={320} minWidth={260} maxWidth={520} side="left" className="border-l border-border">
           <ClientContextPanel clientId={group!.client_id} onNavigateToTask={openTask} />
         </ResizableSidebar>
-      )}
+      ) : null}
     </div>
   );
 }
