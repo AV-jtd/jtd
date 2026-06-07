@@ -171,7 +171,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type, client_id").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
-          ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
+          ? supabase.from("tasks").select("id, title, group_id, is_completed, client_id").in("id", taskIds)
           : Promise.resolve({ data: [] as any[] }),
         authorIds.length > 0
           ? supabase.from("profiles").select("id, display_name, email").in("id", authorIds)
