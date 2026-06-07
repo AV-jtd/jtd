@@ -92,12 +92,14 @@ interface TaskChatProps {
   /** Внешний триггер для открытия inline-формы создания связанной задачи.
    *  Меняется числом (Date.now()) — при изменении форма раскрывается. */
   openFollowUpSignal?: number;
+  /** Сообщение, к которому нужно проскроллить и кратко подсветить (из поиска). */
+  highlightMessageId?: string | null;
 }
 
 export default function TaskChat({
   taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask,
   isCompleted: isCompletedProp, groupId: groupIdProp,
-  showCloseAction = true, openFollowUpSignal,
+  showCloseAction = true, openFollowUpSignal, highlightMessageId,
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
