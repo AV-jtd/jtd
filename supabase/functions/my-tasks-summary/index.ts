@@ -12,12 +12,16 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { counts, topOverdue, topToday, scope } = (await req.json()) as {
-      counts?: Counts;
-      topOverdue?: string[];
-      topToday?: string[];
-      scope?: string;
-    };
+    const { counts, topOverdue, topToday, topImportant, topWeek, topToMe, scope } =
+      (await req.json()) as {
+        counts?: Counts;
+        topOverdue?: string[];
+        topToday?: string[];
+        topImportant?: string[];
+        topWeek?: string[];
+        topToMe?: string[];
+        scope?: string;
+      };
 
     const c = counts ?? {};
     const total = Object.values(c).reduce((a, b) => a + (b || 0), 0);
@@ -39,12 +43,16 @@ serve(async (req) => {
       `Сегодня: ${c.today ?? 0}.`,
       `Важное: ${c.important ?? 0}.`,
       `На неделе: ${c.week ?? 0}.`,
+      `Без дедлайна: ${c.noDeadline ?? 0}.`,
       `На согласовании: ${c.approval ?? 0}.`,
       `Непрочитанные обсуждения: ${c.unread ?? 0}.`,
       `Делегировано мне: ${c.toMe ?? 0}.`,
       `Делегировано мной: ${c.byMe ?? 0}.`,
       topOverdue?.length ? `Примеры просроченных: ${topOverdue.slice(0, 6).join("; ")}.` : "",
       topToday?.length ? `Примеры на сегодня: ${topToday.slice(0, 6).join("; ")}.` : "",
+      topImportant?.length ? `Примеры важных: ${topImportant.slice(0, 6).join("; ")}.` : "",
+      topWeek?.length ? `Примеры на неделе: ${topWeek.slice(0, 6).join("; ")}.` : "",
+      topToMe?.length ? `Поручено мне: ${topToMe.slice(0, 6).join("; ")}.` : "",
     ].filter(Boolean).join("\n");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -56,7 +64,13 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "Ты — ассистент по личной продуктивности (методология GTD). По сводке задач дай ОЧЕНЬ короткую рекомендацию на русском: 1–2 предложения, максимум 30 слов. Скажи, с чего начать и на что обратить внимание. Без приветствий, без списков, без markdown, по делу.",
+              "Ты — проницательный AI-ассистент по личной продуктивности (методология GTD). По сводке задач дай ГЛУБОКУЮ, НЕОЧЕВИДНУЮ рекомендацию на русском.\n" +
+              "Правила:\n" +
+              "1. 2–3 коротких предложения, максимум 55 слов.\n" +
+              "2. ЗАПРЕЩЕНО банальное «у вас N просрочено» или «обратите внимание на дедлайны» — это очевидно.\n" +
+              "3. Найди паттерн, риск или дисбаланс (перегруз, забытые задачи, скрытое узкое место в делегировании/согласовании) и предложи конкретный первый шаг.\n" +
+              "4. Если уместно — ссылайся на конкретную задачу по названию.\n" +
+              "5. Тон — как умный коллега, который видит то, что ты не заметил. Без приветствий, без списков, без markdown.",
           },
           { role: "user", content: facts },
         ],
