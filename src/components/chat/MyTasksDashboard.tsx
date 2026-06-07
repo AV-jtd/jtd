@@ -500,19 +500,24 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2.5">
+              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2">
                 <div className="flex items-start gap-2">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
+                  <button
+                    onClick={() => setSummaryOpen((v) => !v)}
+                    className="min-w-0 flex-1 text-left"
+                    aria-expanded={summaryOpen}
+                  >
                     {aiLoading ? (
-                      <p className="mt-0.5 animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
+                      <p className="animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
                     ) : aiError ? (
-                      <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
+                      <p className="text-sm text-muted-foreground">Не удалось получить сводку.</p>
                     ) : (
-                      <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{aiSummary}</p>
+                      <p className={cn("text-sm leading-relaxed text-foreground/80", !summaryOpen && "line-clamp-2")}>
+                        {aiSummary || "Сводка появится здесь."}
+                      </p>
                     )}
-                  </div>
+                  </button>
                   <button
                     onClick={() => refetchAi()}
                     disabled={aiLoading}
@@ -565,14 +570,12 @@ export default function MyTasksDashboard({
                   })}
                 </div>
               </div>
-              {order.filter((k) => blocks[k].length > 0).map((k) => (
+              {order.filter((k) => blocks[k].length > 0 && expanded.has(k)).map((k) => (
                 <Block
                   key={k}
                   blockKey={k}
                   tasks={blocks[k]}
                   users={users}
-                  expanded={expanded.has(k)}
-                  onToggle={() => toggle(k)}
                   onOpen={onOpenTask}
                   onComplete={completeTask}
                   onSetDate={setDate}
