@@ -145,6 +145,7 @@ export default function MyTasksDashboard({
   const uid = user?.id;
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
+  const queryClient = useQueryClient();
   const [scope, setScope] = useState<Scope>(() => {
     const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
     return s === "assignee" ? "assignee" : "involved";
@@ -194,6 +195,15 @@ export default function MyTasksDashboard({
     try { localStorage.setItem(SCOPE_KEY, s); } catch { /* ignore */ }
   };
 
+  const completeTask = async (id: string) => {
+    await supabase
+      .from("tasks")
+      .update({ is_completed: true, completed_at: new Date().toISOString() })
+      .eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["my_tasks_dashboard", uid] });
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
   const order: BlockKey[] = ["overdue", "today", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
@@ -239,6 +249,7 @@ export default function MyTasksDashboard({
                 expanded={expanded.has(k)}
                 onToggle={() => toggle(k)}
                 onOpen={onOpenTask}
+                onComplete={completeTask}
               />
             ))
           )}
