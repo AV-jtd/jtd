@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import ChatRoomsList from "@/components/chat/ChatRoomsList";
 import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
@@ -16,6 +17,7 @@ export default function ChatFullscreen() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const isMobile = useIsMobile();
+  const { markThreadRead } = useUnreadMessages();
   const [group, setGroup] = useState<{ name: string; client_id: string | null } | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info">("chat");
   /** Задача, открытая поверх чата (чат-лист и «Чаты задач» остаются под шторкой). */
@@ -33,6 +35,11 @@ export default function ChatFullscreen() {
     })();
   }, [groupId]);
 
+  // Открытая комната считается прочитанной — сбрасываем непрочитанные.
+  useEffect(() => {
+    if (groupId) markThreadRead(`group-${groupId}`);
+  }, [groupId, markThreadRead]);
+
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
   }, [loading, user, navigate]);
@@ -44,7 +51,10 @@ export default function ChatFullscreen() {
 
   // Открываем задачу как overlay поверх полноэкранного чата — список чатов
   // по задачам остаётся на месте (кросс-апп консистентность с мессенджером).
-  const openTask = (taskId: string) => setOpenTaskId(taskId);
+  const openTask = (taskId: string) => {
+    setOpenTaskId(taskId);
+    markThreadRead(`task-${taskId}`);
+  };
 
   if (!groupId) {
     navigate("/", { replace: true });
