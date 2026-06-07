@@ -225,37 +225,12 @@ export default function ProjectRoomCenter({
 
         {tab === "tasks" && (
           <ScrollArea className="h-full">
-            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+            <div className="mx-auto max-w-2xl space-y-1 p-4 sm:p-5">
               <h3 className="mb-1 text-sm font-semibold">Задачи проекта</h3>
               {tasks.length === 0 && <EmptyState text="В проекте пока нет задач" />}
-              {tasks.map((t) => {
-                const isOverdue = !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => onNavigateToTask?.(t.id)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left hover:bg-muted/50"
-                  >
-                    {t.is_completed ? (
-                      <CheckSquare className="h-4 w-4 shrink-0 text-tag-green" />
-                    ) : (
-                      <CircleDot className={cn("h-4 w-4 shrink-0", isOverdue ? "text-destructive" : "text-muted-foreground")} />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className={cn("truncate text-sm", t.is_completed && "text-muted-foreground line-through")}>{t.title}</div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                        {t.assigneeName && (<><UserCheck className="h-3 w-3" /> {t.assigneeName}</>)}
-                        {t.deadline && (
-                          <>
-                            <CalendarClock className="h-3 w-3" />
-                            <span className={cn(isOverdue && "font-medium text-destructive")}>{isOverdue ? "⚠ " : ""}{fmtDate(t.deadline)}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              {tasks.map((t) => (
+                <TaskItem key={t.id} task={t} />
+              ))}
             </div>
           </ScrollArea>
         )}
