@@ -255,6 +255,7 @@ export default function MyTasksDashboard({
     } catch { /* ignore */ }
     return new Set(["overdue"]);
   });
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const blocks = useMemo(() => {
     const involved = data?.involved ?? [];
