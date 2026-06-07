@@ -110,11 +110,13 @@ function NewClientRoomButton({ onOpen }: { onOpen: (groupId: string) => void }) 
 
 export default function ChatRoomsList({
   activeGroupId,
+  activeTaskId,
   onSelect,
   onSelectTask,
   onHome,
 }: {
   activeGroupId: string | null;
+  activeTaskId?: string | null;
   onSelect: (groupId: string) => void;
   onSelectTask?: (taskId: string) => void;
   onHome?: () => void;
@@ -190,7 +192,9 @@ export default function ChatRoomsList({
                 onClick={() => (room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId))}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
-                  room.groupId === activeGroupId ? "bg-primary/10" : "hover:bg-muted",
+                  (room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId)
+                    ? "bg-primary/10"
+                    : "hover:bg-muted",
                 )}
               >
                 <RoomAvatar room={room} />
