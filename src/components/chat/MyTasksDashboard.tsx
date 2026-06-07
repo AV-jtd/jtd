@@ -407,6 +407,32 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
+                    {aiLoading ? (
+                      <p className="mt-0.5 animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
+                    ) : aiError ? (
+                      <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
+                    ) : (
+                      <p className="mt-0.5 text-sm leading-snug text-foreground">{aiSummary}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => refetchAi()}
+                    disabled={aiLoading}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+                    title="Обновить сводку"
+                    aria-label="Обновить сводку"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", aiLoading && "animate-spin")} />
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 {summary.map((s) => {
                   const meta = BLOCK_META[s.key];
