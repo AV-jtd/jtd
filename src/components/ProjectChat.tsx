@@ -18,6 +18,7 @@ import { useTaskStatuses } from "@/hooks/useTaskStatuses";
 import ChatLinkDialog from "./ChatLinkDialog";
 import SystemCard from "./chat/SystemCard";
 import { parseChatCard, getChatCardDef, chatCardMarker, formatChatCardBody, type ChatCardKind, type ParsedChatCard } from "@/lib/chatCards";
+import ThreadedMessages from "./chat/ThreadedMessages";
 
 interface ProjectChatProps {
   groupId: string;
@@ -257,6 +258,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
       return replies.some((r) => r.content?.toLowerCase().includes(searchLower));
     });
   }, [rootMessages, repliesMap, searchLower]);
+
+  // При активном поиске авто-раскрываем треды, где совпадение нашлось в ответе.
+  const expandedThreadsEffective = useMemo(() => {
+    if (!searchLower) return expandedThreads;
+    const s = new Set(expandedThreads);
+    for (const m of visibleRoots) {
+      const replies = repliesMap[m.id] || [];
+      if (replies.some((r) => r.content?.toLowerCase().includes(searchLower))) s.add(m.id);
+    }
+    return s;
+  }, [expandedThreads, searchLower, visibleRoots, repliesMap]);
 
   /**
    * Единая точка создания задачи из чата (из сообщения или из композера).
@@ -546,133 +558,64 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {visibleRoots.map(msg => {
-              const replies = repliesMap[msg.id] || [];
-              const isOwn = msg.user_id === user?.id;
-              // When searching, auto-expand threads where reply matched
-              const matchedReply = searchLower
-                ? replies.some((r) => r.content?.toLowerCase().includes(searchLower))
-                : false;
-              const expanded = expandedThreads.has(msg.id) || matchedReply;
-
-              // System-карточка (создана задача/поручение/протокол…) — из реестра,
-              // распознаётся по external_message_id, рендерится как разделитель.
-              const card = parseChatCard(msg.external_message_id, msg.content);
-              if (card) {
-                return (
-                  <div
-                    key={msg.id}
-                    id={`pc-msg-${groupId}-${msg.id}`}
-                    className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
-                  >
+          <>
+            <ThreadedMessages
+              messages={messages}
+              roots={visibleRoots}
+              currentUserId={user?.id || ""}
+              highlightMessageId={highlightId}
+              expandedThreadIds={expandedThreadsEffective}
+              onToggleThread={toggleThread}
+              getMessageDomId={(m) => `pc-msg-${groupId}-${m.id}`}
+              getAuthorName={(m) => getAuthorName(m)}
+              onReply={(id) => { const m = messages.find((x) => x.id === id); if (m) startReply(m); }}
+              onReact={() => {}}
+              onDelete={(id) => deleteMessage.mutate({ id, group_id: groupId })}
+              onCreateTask={(id) => openTaskForm(id)}
+              renderMessage={(msg, ctx) => {
+                // System-карточка (создана задача/поручение/протокол…) рендерится
+                // как разделитель вместо обычного пузыря.
+                const card = parseChatCard(msg.external_message_id, msg.content);
+                if (card) {
+                  return (
                     <SystemCard
                       card={card}
                       isCompleted={card.def.target === "task" ? (taskStatusMap?.get(card.entityId) ?? false) : false}
-                      onClick={
-                        card.def.target === "task"
-                          ? () => onNavigateToTask?.(card.entityId)
-                          : undefined
-                      }
+                      onClick={card.def.target === "task" ? () => onNavigateToTask?.(card.entityId) : undefined}
                     />
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={msg.id}
-                  id={`pc-msg-${groupId}-${msg.id}`}
-                  className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
-                >
-                  {/* Root message */}
+                  );
+                }
+                return (
                   <MessageBubble
                     msg={msg}
-                    isOwn={isOwn}
+                    isOwn={ctx.isOwn}
                     onReply={() => startReply(msg)}
-                    onDelete={isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
+                    onDelete={ctx.isOwn ? () => deleteMessage.mutate({ id: msg.id, group_id: groupId }) : undefined}
                     onCreateTask={() => openTaskForm(msg.id)}
+                    isReply={ctx.isReply}
                     reactions={reactionsByMsg[msg.id]}
                     users={availableUsers}
                   />
-
-                  {/* Inline task form */}
-                  {taskFormFor === msg.id && (
-                    <InlineTaskForm
-                      key={`${msg.id}-${taskFormNonce}`}
-                      message={msg}
-                      availableUsers={availableUsers}
-                      defaultAssignee={availableUsers.find(u => u.id === msg.user_id) || null}
-                      onCancel={closeTaskForm}
-                      onSubmit={(payload) => handleCreateCard(msg, payload)}
-                      isSubmitting={addTask.isPending}
-                    />
-                  )}
-
-                  {/* Thread indicator */}
-                  {replies.length > 0 && (
-                    <button
-                      onClick={() => toggleThread(msg.id)}
-                      className="ml-4 mt-1 text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5"
-                    >
-                      <Reply className="h-3 w-3" />
-                      {expanded ? "Скрыть" : `${replies.length} ${replies.length === 1 ? "ответ" : replies.length < 5 ? "ответа" : "ответов"}`}
-                    </button>
-                  )}
-
-                  {/* Thread replies — visualised as a vertical branch with a
-                      quoted parent reference at the top. */}
-                  {expanded && replies.length > 0 && (
-                    <div className="ml-3 mt-1.5 pl-3 border-l-2 border-primary/30 space-y-1.5">
-                      <div className="text-[10px] text-muted-foreground/70 italic truncate">
-                        ↳ ответ на «{msg.content.slice(0, 60)}{msg.content.length > 60 ? "…" : ""}»
-                      </div>
-                      {replies.map(reply => {
-                        const replyCard = parseChatCard(reply.external_message_id, reply.content);
-                        if (replyCard) {
-                          return (
-                            <div key={reply.id}>
-                              <SystemCard
-                                card={replyCard}
-                                isCompleted={replyCard.def.target === "task" ? (taskStatusMap?.get(replyCard.entityId) ?? false) : false}
-                                onClick={replyCard.def.target === "task" ? () => onNavigateToTask?.(replyCard.entityId) : undefined}
-                              />
-                            </div>
-                          );
-                        }
-                        return (
-                        <div key={reply.id}>
-                          <MessageBubble
-                        msg={reply}
-                        isOwn={reply.user_id === user?.id}
-                        onReply={() => startReply(msg)}
-                        onDelete={reply.user_id === user?.id ? () => deleteMessage.mutate({ id: reply.id, group_id: groupId }) : undefined}
-                        onCreateTask={() => openTaskForm(reply.id)}
-                        isReply
-                        reactions={reactionsByMsg[reply.id]}
-                        users={availableUsers}
-                      />
-                      {taskFormFor === reply.id && (
-                        <InlineTaskForm
-                          key={`${reply.id}-${taskFormNonce}`}
-                          message={reply}
-                          availableUsers={availableUsers}
-                          defaultAssignee={availableUsers.find(u => u.id === reply.user_id) || null}
-                          onCancel={closeTaskForm}
-                          onSubmit={(payload) => handleCreateCard(reply, payload)}
-                          isSubmitting={addTask.isPending}
-                        />
-                      )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              }}
+              renderExtra={(msg) => {
+                const card = parseChatCard(msg.external_message_id, msg.content);
+                if (card || taskFormFor !== msg.id) return null;
+                return (
+                  <InlineTaskForm
+                    key={`${msg.id}-${taskFormNonce}`}
+                    message={msg}
+                    availableUsers={availableUsers}
+                    defaultAssignee={availableUsers.find((u) => u.id === msg.user_id) || null}
+                    onCancel={closeTaskForm}
+                    onSubmit={(payload) => handleCreateCard(msg, payload)}
+                    isSubmitting={addTask.isPending}
+                  />
+                );
+              }}
+            />
             <div ref={bottomRef} />
-          </div>
+          </>
         )}
       </ScrollArea>
 
