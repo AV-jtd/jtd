@@ -121,6 +121,8 @@ export default function ChatRoomsList({
   onSelect,
   onSelectTask,
   onHome,
+  onOpenMyTasks,
+  myTasksActive,
 }: {
   activeGroupId: string | null;
   activeTaskId?: string | null;
