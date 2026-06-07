@@ -202,7 +202,7 @@ export default function ChatRoomsList({
           aria-label="На главную"
         >
           <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-base font-black tracking-tight text-transparent">
-            ЧАТЫ
+            ЭФИР
           </span>
         </button>
         <div className="relative ml-auto min-w-0 flex-1 max-w-[150px]">
