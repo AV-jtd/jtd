@@ -75,6 +75,11 @@ export function useUnreadMessages() {
 
   // Build a Set<string> of unread thread ids for O(1) lookup in render.
   const unreadSet = useMemo(() => new Set(rows.map((r) => r.thread_id)), [rows]);
+  // Map threadId -> unread message count for per-room count badges.
+  const unreadCountMap = useMemo(
+    () => new Map(rows.map((r) => [r.thread_id, r.unread_count])),
+    [rows],
+  );
 
   // Total badge: number of distinct threads with unread messages (matches the
   // historical behaviour of the old per-thread loop).
@@ -148,5 +153,14 @@ export function useUnreadMessages() {
     [unreadSet, user],
   );
 
-  return { unreadCount, markThreadRead, isThreadUnread };
+  /** Number of unread messages for a thread (0 when read/own last message). */
+  const getUnreadCount = useCallback(
+    (threadId: string, lastMessageUserId?: string | null) => {
+      if (lastMessageUserId === user?.id) return 0;
+      return unreadCountMap.get(threadId) ?? 0;
+    },
+    [unreadCountMap, user],
+  );
+
+  return { unreadCount, markThreadRead, isThreadUnread, getUnreadCount };
 }
