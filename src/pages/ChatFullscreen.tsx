@@ -86,6 +86,11 @@ export default function ChatFullscreen() {
     );
     if (isMobile) setMobilePane("chat");
   };
+  // Переход из хлебных крошек задачи в групповой чат проекта.
+  const navigateToGroup = (gid: string) => {
+    navigate(`/chat/${gid}`);
+    if (isMobile) setMobilePane("chat");
+  };
 
   if (!groupId) {
     navigate("/", { replace: true });
