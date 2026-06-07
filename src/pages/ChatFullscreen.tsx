@@ -10,6 +10,7 @@ import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
 import TaskRoomCenter from "@/components/chat/TaskRoomCenter";
 import TaskDetailPanel from "@/components/chat/TaskDetailPanel";
+import MyTasksDashboard from "@/components/chat/MyTasksDashboard";
 import { ArrowLeft } from "lucide-react";
 import ResizableSidebar from "@/components/ui/resizable-sidebar";
 
@@ -25,6 +26,8 @@ export default function ChatFullscreen() {
    *  и шарится ссылкой. */
   const [searchParams, setSearchParams] = useSearchParams();
   const openTaskId = searchParams.get("task");
+  /** Открыт ли мини-дашборд «Мои задачи» (`?view=mytasks`). */
+  const showMyTasks = searchParams.get("view") === "mytasks";
   /** Показывать ли правый сайдбар с карточкой задачи (desktop). */
   const [showTaskInfo, setShowTaskInfo] = useState(true);
 
@@ -69,6 +72,7 @@ export default function ChatFullscreen() {
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set("task", taskId);
+        next.delete("view");
         return next;
       },
       { replace: false },
@@ -92,7 +96,53 @@ export default function ChatFullscreen() {
     if (isMobile) setMobilePane("chat");
   };
 
+  // Открыть/закрыть закреплённый дашборд «Мои задачи».
+  const openMyTasks = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("view", "mytasks");
+        next.delete("task");
+        return next;
+      },
+      { replace: false },
+    );
+  };
+  const closeMyTasks = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        return next;
+      },
+      { replace: false },
+    );
+  };
+
   const hasClient = !!group?.client_id;
+
+  // Закреплённый мини-дашборд «Мои задачи» — единый рендер для всех маршрутов.
+  if (showMyTasks) {
+    if (isMobile) {
+      return (
+        <div className="flex h-[100dvh] flex-col bg-background">
+          <div className="min-h-0 flex-1">
+            <MyTasksDashboard onOpenTask={openTask} onClose={closeMyTasks} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-[100dvh] bg-background">
+        <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
+          <ChatRoomsList activeGroupId={groupId ?? null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive />
+        </ResizableSidebar>
+        <div className="min-w-0 flex-1">
+          <MyTasksDashboard onOpenTask={openTask} onClose={closeMyTasks} />
+        </div>
+      </div>
+    );
+  }
 
   // Общая полноэкранная страница чатов без выбранной комнаты (`/chat`).
   if (!groupId) {
@@ -110,7 +160,7 @@ export default function ChatFullscreen() {
                 onNavigateToGroup={navigateToGroup}
               />
             ) : (
-              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
             )}
           </div>
         </div>
@@ -119,7 +169,7 @@ export default function ChatFullscreen() {
     return (
       <div className="flex h-[100dvh] bg-background">
         <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
         </ResizableSidebar>
         {openTaskId ? (
           <div className="min-w-0 flex-1">
@@ -145,7 +195,7 @@ export default function ChatFullscreen() {
       <div className="flex h-[100dvh] flex-col bg-background">
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
           )}
           {mobilePane === "task" && openTaskId && (
             <TaskRoomCenter
@@ -215,7 +265,7 @@ export default function ChatFullscreen() {
   return (
     <div className="flex h-[100dvh] bg-background">
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-        <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+        <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {openTaskId ? (

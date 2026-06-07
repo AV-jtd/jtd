@@ -26,3 +26,4 @@
 - [features/messenger-auto-join](mem://features/messenger-auto-join) — Пишущие в привязанном чате (TG/MAX) авто-добавляются участниками проекта JTD.
 - [streams/crm-chat-communication](mem://streams/crm-chat-communication) — ⏸ Концепт: CRM через внутренний чат, 1 клиент=1 чат с вкладками (Обсуждение/Задачи/Показатели/Поручения). Макет /dev/crm-chat.
 - [streams/crm-client-card](mem://streams/crm-client-card) — Карточка клиента (ClientContextPanel): смена лого (bucket protocol-logos), инлайн-контакты, этап воронки, протоколы (derive), лента активности, плейсхолдеры «скоро». Открытие из CrmClientsList.
+- [features/chat/my-tasks-dashboard](mem://features/chat/my-tasks-dashboard) — Закреплённый «Мои задачи» дашборд в списке чатов (?view=mytasks): Просрочено/Сегодня/Непрочитанные/Делегировано мне/мной, тумблер охвата.
