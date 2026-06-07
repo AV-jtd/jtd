@@ -178,6 +178,7 @@ export default function MessengerPanel({
     // Always switch to the freshly clicked thread, even if another one is
     // already active. Using a functional updater guarantees the new value is
     // applied even when several clicks land in the same React batch.
+    setHighlightMessageId(null);
     setActiveThread(() => thread);
     onActiveThreadChange?.(thread.id);
     markThreadRead?.(thread.id);
@@ -185,8 +186,51 @@ export default function MessengerPanel({
 
   const clearActiveThread = () => {
     setActiveThread(null);
+    setHighlightMessageId(null);
     restoredRef.current = null;
     onActiveThreadChange?.(null);
+  };
+
+  // Глобальный полнотекстовый поиск по сообщениям (3+ символа, debounce 300ms).
+  const isSearching = search.trim().length > 0;
+  const { data: searchResults = [], isFetching: searchFetching } = useMessageSearch(search);
+  const searchTerm = search.trim();
+
+  const handleOpenSearchResult = (r: MessageSearchResult) => {
+    let thread: Thread | undefined;
+    if (r.source === "group" && r.groupId) {
+      thread =
+        threads.find((t) => t.type === "group" && t.groupId === r.groupId) ?? {
+          id: `group-${r.groupId}`,
+          type: "group",
+          name: r.threadName,
+          lastMessage: null,
+          lastMessageAt: null,
+          lastMessageAuthor: null,
+          lastMessageUserId: null,
+          messageCount: 0,
+          groupId: r.groupId,
+        };
+    } else if (r.source === "task" && r.taskId) {
+      thread =
+        threads.find((t) => t.type === "task" && t.taskId === r.taskId) ?? {
+          id: `task-${r.taskId}`,
+          type: "task",
+          name: r.threadName,
+          lastMessage: null,
+          lastMessageAt: null,
+          lastMessageAuthor: null,
+          lastMessageUserId: null,
+          messageCount: 0,
+          taskId: r.taskId,
+          groupId: r.groupId ?? undefined,
+        };
+    }
+    if (!thread) return;
+    setHighlightMessageId(r.id);
+    setActiveThread(() => thread!);
+    onActiveThreadChange?.(thread.id);
+    markThreadRead?.(thread.id);
   };
 
   // CRM-контекст активного треда-задачи: нужен, чтобы прямо в шапке чата
