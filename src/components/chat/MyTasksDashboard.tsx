@@ -641,20 +641,13 @@ export default function MyTasksDashboard({
                           <Bot className="h-3.5 w-3.5" />
                         </span>
                       )}
-                      <div
-                        className={cn(
-                          "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
-                          m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-                        )}
-                      >
-                        {m.role === "assistant" ? (
-                          <div className="prose prose-sm max-w-none dark:prose-invert [&_p]:my-1">
-                            <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          m.content
-                        )}
-                      </div>
+                      {m.role === "assistant" ? (
+                        <AssistantBubble content={m.content} defaultOpen={i === askMessages.length - 1} />
+                      ) : (
+                        <div className="max-w-[85%] rounded-2xl bg-primary px-3 py-2 text-sm text-primary-foreground">
+                          {m.content}
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div ref={askEndRef} />
