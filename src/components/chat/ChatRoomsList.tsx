@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, MessageCircle, Plus, Home, CheckSquare } from "lucide-react";
+import { Search, MessageCircle, Plus, Home, CheckSquare, ListChecks } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
