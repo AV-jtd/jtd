@@ -308,6 +308,9 @@ export default function MyTasksDashboard({
           scope,
           topOverdue: blocks.overdue.slice(0, 6).map((t) => t.title),
           topToday: blocks.today.slice(0, 6).map((t) => t.title),
+          topImportant: blocks.important.slice(0, 6).map((t) => t.title),
+          topWeek: blocks.week.slice(0, 6).map((t) => t.title),
+          topToMe: blocks.toMe.slice(0, 6).map((t) => t.title),
         },
       });
       if (error) throw error;
