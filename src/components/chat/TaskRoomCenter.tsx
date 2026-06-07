@@ -50,12 +50,12 @@ export default function TaskRoomCenter({
         </span>
         {onShowInfo && (
           <button onClick={onShowInfo} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Карточка задачи" aria-label="Карточка задачи">
-            <PanelRight className="h-4.5 w-4.5" />
+            <PanelRight className="h-4 w-4" />
           </button>
         )}
         {onClose && (
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Закрыть" aria-label="Закрыть">
-            <X className="h-4.5 w-4.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>

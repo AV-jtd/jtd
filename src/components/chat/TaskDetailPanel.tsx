@@ -34,7 +34,7 @@ export default function TaskDetailPanel({
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         <span className="truncate text-sm font-semibold">Карточка задачи</span>
         <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Скрыть" aria-label="Скрыть">
-          <X className="h-4.5 w-4.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
