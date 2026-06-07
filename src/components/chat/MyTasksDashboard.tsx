@@ -462,10 +462,10 @@ export default function MyTasksDashboard({
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-          <ListChecks className="h-4 w-4" />
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-cyan-400/20 to-violet-500/20 text-primary">
+          <Sparkles className="h-4 w-4" />
         </span>
-        <span className="flex-1 truncate text-sm font-semibold">Мои задачи</span>
+        <span className="flex-1 truncate text-sm font-semibold">Мой день</span>
         <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
           {([
             { k: "involved" as Scope, label: "Я участник" },
