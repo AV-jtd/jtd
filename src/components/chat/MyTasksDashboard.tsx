@@ -269,6 +269,52 @@ export default function MyTasksDashboard({
     return { overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
+  // Подпись по числам блоков — ИИ-сводка пересчитывается только когда
+  // изменились количества (агрессивное кэширование, как в Risk Radar).
+  const countsSig = useMemo(
+    () =>
+      [blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
+        .map((b) => b.length)
+        .join("-"),
+    [blocks],
+  );
+
+  const {
+    data: aiSummary,
+    isFetching: aiLoading,
+    error: aiError,
+    refetch: refetchAi,
+  } = useQuery({
+    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig],
+    enabled: !!uid && !isLoading,
+    staleTime: 1000 * 60 * 60 * 2,
+    gcTime: 1000 * 60 * 60 * 6,
+    retry: false,
+    queryFn: async (): Promise<string> => {
+      const counts = {
+        overdue: blocks.overdue.length,
+        today: blocks.today.length,
+        important: blocks.important.length,
+        week: blocks.week.length,
+        noDeadline: blocks.noDeadline.length,
+        unread: blocks.unread.length,
+        approval: blocks.approval.length,
+        toMe: blocks.toMe.length,
+        byMe: blocks.byMe.length,
+      };
+      const { data: res, error } = await supabase.functions.invoke("my-tasks-summary", {
+        body: {
+          counts,
+          scope,
+          topOverdue: blocks.overdue.slice(0, 6).map((t) => t.title),
+          topToday: blocks.today.slice(0, 6).map((t) => t.title),
+        },
+      });
+      if (error) throw error;
+      return (res as { summary?: string })?.summary ?? "";
+    },
+  });
+
   const toggle = (k: BlockKey) =>
     setExpanded((prev) => {
       const next = new Set(prev);
