@@ -516,134 +516,122 @@ export default function TaskChat({
         </p>
       </div>
     ) : (
-      <div className="space-y-2.5">
-        {visibleComments.map(c => {
-          // Лог-запись — компактная серая строка с иконкой.
-          // Доп. защита: некоторые старые записи могут прийти без kind,
-          // но с маркером content="__log__" и meta.changes — их тоже рендерим как лог.
-          const isLogEntry =
-            c.kind === "log" ||
-            c.content === "__log__" ||
-            !!(c.meta && Array.isArray((c.meta as any).changes) && (c.meta as any).changes.length > 0);
-          if (isLogEntry) {
-            return (
-              <LogEntry
-                key={c.id}
-                comment={c}
-                authorName={getProfileName(c.user_id)}
-                availableUsers={availableUsers}
-              />
-            );
-          }
-          const sys = parseAnySystemMessage(c.content);
-
-          // Системное сообщение → тонкая строка-разделитель по центру.
-          if (sys) {
-            return (
-              <SystemDivider
-                key={c.id}
-                kind={sys.kind}
-                title={sys.title}
-                isCompleted={taskStatusMap?.get(sys.taskId) ?? false}
-                onClick={onNavigateToTask ? () => onNavigateToTask(sys.taskId) : undefined}
-              />
-            );
-          }
-
-          const isOwn = c.user_id === user?.id;
-          const name = getProfileName(c.user_id);
-          const actions: ChatAction[] = [
-            {
-              icon: Reply,
-              onClick: () => startReply(c),
-              title: "Ответить",
-              tone: "default",
-            },
-            {
-              icon: CheckSquare,
-              onClick: () => setTaskFormForCommentId(prev => (prev === c.id ? null : c.id)),
-              title: "Создать задачу из сообщения",
-              tone: "primary",
-            },
-          ];
-          if (isOwn) {
-            actions.push({
-              icon: Trash2,
-              onClick: () => deleteComment.mutate({ id: c.id, task_id: taskId }),
-              title: "Удалить",
-              tone: "danger",
-            });
-          }
-          // Цитата исходного сообщения (если это ответ).
-          const parent = c.reply_to ? commentsById.get(c.reply_to) : undefined;
-          const parentQuote = c.reply_to ? (
-            <button
-              type="button"
-              onClick={() => parent && openReplyContext(parent.id)}
-              className={cn(
-                "mb-1 flex items-start gap-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-2 py-1 text-left transition-colors",
-                parent ? "hover:bg-primary/10" : "opacity-60 cursor-default",
-              )}
-              title={parent ? "Открыть исходное сообщение" : undefined}
-            >
-              <CornerDownRight className="h-3 w-3 mt-0.5 shrink-0 text-primary/70" />
-              <span className="min-w-0">
-                <span className="block text-[10px] font-medium text-primary/80">
-                  {parent ? getProfileName(parent.user_id) : "Сообщение удалено"}
-                </span>
-                {parent && (
-                  <span className="block text-[11px] text-muted-foreground truncate max-w-[220px]">
-                    {parent.content}
-                  </span>
-                )}
-              </span>
-            </button>
-          ) : null;
-          return (
-            <div
-              key={c.id}
-              id={`tc-msg-${taskId}-${c.id}`}
-              className={cn(
-                "rounded-md transition-colors",
-                highlightId === c.id && "ring-1 ring-primary/30 animate-msg-flash",
-              )}
-            >
-            <ChatMessageRow
-              authorName={name}
-              isOwn={isOwn}
-              createdAt={c.created_at}
-              content={
-                <>
-                  {parentQuote}
-                  <MentionText
-                    content={c.content}
-                    users={availableUsers}
-                    className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", isOwn ? "text-foreground" : "text-foreground/90")}
-                  />
-                </>
-              }
-              messageType="task_comment"
-              messageId={c.id}
-              reactions={reactionsByMsg[c.id]}
-              actions={actions}
-              isReply={!!c.reply_to}
-            >
-              {taskFormForCommentId === c.id && (
-                <InlineCreateTaskForm
-                  source={c}
-                  availableUsers={availableUsers}
-                  defaultAssigneeId={user?.id || null}
-                  onCancel={() => setTaskFormForCommentId(null)}
-                  onSubmit={(payload) => handleCreateTaskFromComment(c, payload)}
-                  isSubmitting={creatingTask}
+      <>
+        <ThreadedMessages
+          className="space-y-2.5"
+          messages={visibleComments}
+          roots={visibleComments.filter((c) => !c.reply_to)}
+          currentUserId={user?.id || ""}
+          highlightMessageId={highlightId}
+          getMessageDomId={(c) => `tc-msg-${taskId}-${c.id}`}
+          getAuthorName={(c) => getProfileName(c.user_id)}
+          onReply={(id) => { const c = commentsById.get(id); if (c) startReply(c); }}
+          onReact={() => {}}
+          onDelete={(id) => deleteComment.mutate({ id, task_id: taskId })}
+          onCreateTask={(id) => setTaskFormForCommentId((prev) => (prev === id ? null : id))}
+          renderMessage={(c, ctx) => {
+            // Лог-запись — компактная серая строка с иконкой.
+            const isLogEntry =
+              c.kind === "log" ||
+              c.content === "__log__" ||
+              !!(c.meta && Array.isArray((c.meta as any).changes) && (c.meta as any).changes.length > 0);
+            if (isLogEntry) {
+              return (
+                <LogEntry comment={c} authorName={getProfileName(c.user_id)} availableUsers={availableUsers} />
+              );
+            }
+            // Системное сообщение → тонкая строка-разделитель по центру.
+            const sys = parseAnySystemMessage(c.content);
+            if (sys) {
+              return (
+                <SystemDivider
+                  kind={sys.kind}
+                  title={sys.title}
+                  isCompleted={taskStatusMap?.get(sys.taskId) ?? false}
+                  onClick={onNavigateToTask ? () => onNavigateToTask(sys.taskId) : undefined}
                 />
-              )}
-            </ChatMessageRow>
-            </div>
-          );
-        })}
+              );
+            }
+            const name = getProfileName(c.user_id);
+            const actions: ChatAction[] = [
+              { icon: Reply, onClick: () => startReply(c), title: "Ответить", tone: "default" },
+              {
+                icon: CheckSquare,
+                onClick: () => setTaskFormForCommentId((prev) => (prev === c.id ? null : c.id)),
+                title: "Создать задачу из сообщения",
+                tone: "primary",
+              },
+            ];
+            if (ctx.isOwn) {
+              actions.push({
+                icon: Trash2,
+                onClick: () => deleteComment.mutate({ id: c.id, task_id: taskId }),
+                title: "Удалить",
+                tone: "danger",
+              });
+            }
+            // Цитата исходного сообщения (если это ответ) — кликабельна для перехода.
+            const parent = c.reply_to ? commentsById.get(c.reply_to) : undefined;
+            const parentQuote = c.reply_to ? (
+              <button
+                type="button"
+                onClick={() => parent && openReplyContext(parent.id)}
+                className={cn(
+                  "mb-1 flex items-start gap-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-2 py-1 text-left transition-colors",
+                  parent ? "hover:bg-primary/10" : "opacity-60 cursor-default",
+                )}
+                title={parent ? "Открыть исходное сообщение" : undefined}
+              >
+                <CornerDownRight className="h-3 w-3 mt-0.5 shrink-0 text-primary/70" />
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-medium text-primary/80">
+                    {parent ? getProfileName(parent.user_id) : "Сообщение удалено"}
+                  </span>
+                  {parent && (
+                    <span className="block text-[11px] text-muted-foreground truncate max-w-[220px]">
+                      {parent.content}
+                    </span>
+                  )}
+                </span>
+              </button>
+            ) : null;
+            return (
+              <ChatMessageRow
+                authorName={name}
+                isOwn={ctx.isOwn}
+                createdAt={c.created_at}
+                content={
+                  <>
+                    {parentQuote}
+                    <MentionText
+                      content={c.content}
+                      users={availableUsers}
+                      className={cn("text-sm leading-relaxed break-words whitespace-pre-wrap", ctx.isOwn ? "text-foreground" : "text-foreground/90")}
+                    />
+                  </>
+                }
+                messageType="task_comment"
+                messageId={c.id}
+                reactions={reactionsByMsg[c.id]}
+                actions={actions}
+                isReply={ctx.isReply}
+              >
+                {taskFormForCommentId === c.id && (
+                  <InlineCreateTaskForm
+                    source={c}
+                    availableUsers={availableUsers}
+                    defaultAssigneeId={user?.id || null}
+                    onCancel={() => setTaskFormForCommentId(null)}
+                    onSubmit={(payload) => handleCreateTaskFromComment(c, payload)}
+                    isSubmitting={creatingTask}
+                  />
+                )}
+              </ChatMessageRow>
+            );
+          }}
+        />
         <div ref={bottomRef} />
-      </div>
+      </>
     )
   );
 
