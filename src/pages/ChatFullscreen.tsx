@@ -114,7 +114,6 @@ export default function ChatFullscreen() {
     );
     if (isMobile) setMobilePane("task");
   };
-  const openTaskFromMyTasks = openTaskFrom("mytasks");
   const openTaskFromAssistant = openTaskFrom("assistant");
   // Переход из хлебных крошек задачи в групповой чат проекта.
   const navigateToGroup = (gid: string) => {
