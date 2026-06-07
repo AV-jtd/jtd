@@ -106,7 +106,7 @@ export default function ChatFullscreen() {
     <div className="flex h-[100dvh] bg-background">
       <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-        <ChatRoomsList activeGroupId={groupId} onSelect={select} />
+        <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {hasClient ? (
