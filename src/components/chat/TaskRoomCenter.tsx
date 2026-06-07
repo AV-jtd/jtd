@@ -75,11 +75,9 @@ export default function TaskRoomCenter({
             {task?.title || "Чат задачи"}
           </span>
         </div>
-        {onShowInfo && (
-          <button onClick={copyLink} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Скопировать ссылку на чат" aria-label="Скопировать ссылку на чат">
-            <Link2 className="h-4 w-4" />
-          </button>
-        )}
+        <button onClick={copyLink} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Скопировать ссылку на чат" aria-label="Скопировать ссылку на чат">
+          <Link2 className="h-4 w-4" />
+        </button>
         {onShowInfo && (
           <button onClick={onShowInfo} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Карточка задачи" aria-label="Карточка задачи">
             <PanelRight className="h-4 w-4" />
