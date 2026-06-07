@@ -249,6 +249,20 @@ export default function TaskChat({
     window.setTimeout(() => setHighlightId(null), 1800);
   };
 
+  /** Внешняя подсветка из глобального поиска сообщений: ждём пока подгрузятся
+   *  комментарии, затем скроллим к найденному сообщению и подсвечиваем на 2с. */
+  useEffect(() => {
+    if (!highlightMessageId || comments.length === 0) return;
+    setHighlightId(highlightMessageId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tc-msg-${taskId}-${highlightMessageId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const t = window.setTimeout(() => setHighlightId(null), 2000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, comments.length, taskId]);
+
   /**
    * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
    * его автора в начало черновика (если он ещё не упомянут).
