@@ -255,7 +255,7 @@ export default function ChatRoomsList({
                 <Sparkles className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">ИИ-ассистент</p>
+                <p className="truncate text-sm font-semibold">Мой день</p>
                 {myTaskPills.length > 0 ? (
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {myTaskPills.map((p) => (
@@ -272,7 +272,7 @@ export default function ChatRoomsList({
                     ))}
                   </div>
                 ) : (
-                  <p className="truncate text-xs text-muted-foreground">Чат с ИИ • сводка задач и уведомления</p>
+                  <p className="truncate text-xs text-muted-foreground">Сводка дня • задачи и помощь ИИ</p>
                 )}
               </div>
               {hotCount > 0 && (
