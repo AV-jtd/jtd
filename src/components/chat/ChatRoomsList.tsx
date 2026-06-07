@@ -135,8 +135,16 @@ export default function ChatRoomsList({
 }) {
   const { rooms, isLoading } = useChatRooms();
   const { isThreadUnread, getUnreadCount } = useUnreadMessages();
+  const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
+
+  // «Горящих» = просрочено + сегодня среди задач, где я участник.
+  const hotCount = useMemo(() => {
+    const list = myTasks?.involved ?? [];
+    const { end } = todayBounds();
+    return list.filter((t) => t.deadline && new Date(t.deadline) < end).length;
+  }, [myTasks]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
