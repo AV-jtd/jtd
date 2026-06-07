@@ -193,40 +193,39 @@ export default function ChatRoomsList({
           {filtered.map((room) => {
             const unread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
             const count = getUnreadCount(room.threadId, room.lastMessageUserId);
+            const isActive = room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId;
             return (
               <button
                 key={room.groupId}
                 onClick={() => (room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId))}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
-                  (room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId)
+                  "relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
+                  isActive
                     ? "bg-primary/10"
-                    : "hover:bg-muted",
+                    : unread
+                      ? "bg-primary/[0.06] hover:bg-primary/10"
+                      : "hover:bg-muted",
                 )}
               >
+                {unread && !isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
                 <RoomAvatar room={room} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center">
-                    <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium", room.taskCompleted && "line-through opacity-60")}>
+                    <span className={cn("truncate text-sm", unread ? "font-bold text-foreground" : "font-medium", room.taskCompleted && "line-through opacity-60")}>
                       {room.name}
                     </span>
                     {room.isClientRoom && <RankBadge label={room.client?.rankLabel ?? null} />}
                     {room.lastMessageAt && (
-                      <span className="ml-auto pl-2 text-[10px] text-muted-foreground shrink-0">
+                      <span className={cn("ml-auto pl-2 text-[10px] shrink-0", unread ? "font-medium text-primary" : "text-muted-foreground")}>
                         {formatDistanceToNowStrict(new Date(room.lastMessageAt), { locale: ru })}
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className={cn("truncate text-xs", unread ? "text-foreground/80" : "text-muted-foreground")}>
                     {room.isTaskRoom && room.parentName ? (
                       <span className="opacity-70">{room.parentName} · </span>
-                    ) : null}
-                    {room.isTaskRoom && room.clientName ? (
-                      <span className="inline-flex items-center gap-1 align-middle font-medium text-primary">
-                        <ClientAvatar client={{ name: room.clientName, logo_url: room.clientLogoUrl ?? null }} size="xs" />
-                        {room.clientName}
-                        <span className="opacity-70"> · </span>
-                      </span>
                     ) : null}
                     {room.lastMessage ? (
                       <>
@@ -241,7 +240,7 @@ export default function ChatRoomsList({
                   </p>
                 </div>
                 {count > 0 ? (
-                  <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground">
+                  <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">
                     {count > 99 ? "99+" : count}
                   </span>
                 ) : unread ? (
