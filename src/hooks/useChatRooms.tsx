@@ -28,6 +28,8 @@ export type ChatRoom = {
   taskCompleted?: boolean;
   /** имя привязанного CRM-клиента (🏢) для task-комнат. */
   clientName?: string | null;
+  /** логотип привязанного CRM-клиента для task-комнат. */
+  clientLogoUrl?: string | null;
   client?: { name: string; logo_url: string | null; rankLabel: string | null } | null;
   groupIcon: string | null;
   groupColor: string | null;
@@ -150,6 +152,7 @@ export function useChatRooms() {
       parentName: th.groupName ?? null,
       taskCompleted: th.taskCompleted,
       clientName: th.clientName ?? null,
+      clientLogoUrl: th.clientLogoUrl ?? null,
       client: null,
       groupIcon: null,
       groupColor: null,
