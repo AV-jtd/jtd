@@ -129,13 +129,24 @@ export default function MyTasksDashboard({
   const uid = user?.id;
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
-  const [scope, setScope] = useState<Scope>("involved");
-  const [expanded, setExpanded] = useState<Set<BlockKey>>(new Set(["overdue"]));
+  const [scope, setScope] = useState<Scope>(() => {
+    const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
+    return s === "assignee" ? "assignee" : "involved";
+  });
+  const [expanded, setExpanded] = useState<Set<BlockKey>>(() => {
+    try {
+      const raw = localStorage.getItem(EXPANDED_KEY);
+      if (raw) return new Set(JSON.parse(raw) as BlockKey[]);
+    } catch { /* ignore */ }
+    return new Set(["overdue"]);
+  });
 
   const blocks = useMemo(() => {
     const involved = data?.involved ?? [];
     const byMe = data?.delegatedByMe ?? [];
     const { start, end } = todayBounds();
+    const weekEnd = new Date(start);
+    weekEnd.setDate(weekEnd.getDate() + 7);
     const scoped = scope === "assignee" ? involved.filter((t) => t.assigned_to === uid) : involved;
     const byDeadline = (a: MyTask, b: MyTask) => (a.deadline ?? "") < (b.deadline ?? "") ? -1 : 1;
 
@@ -143,20 +154,31 @@ export default function MyTasksDashboard({
     const today = scoped
       .filter((t) => t.deadline && new Date(t.deadline) >= start && new Date(t.deadline) < end)
       .sort(byDeadline);
+    const week = scoped
+      .filter((t) => t.deadline && new Date(t.deadline) >= end && new Date(t.deadline) < weekEnd)
+      .sort(byDeadline);
+    const noDeadline = scoped.filter((t) => !t.deadline);
     const unread = scoped.filter((t) => isThreadUnread(`task-${t.id}`, null));
+    const approval = scoped.filter((t) => t.requires_approval && t.approval_status === "pending").sort(byDeadline);
     const toMe = involved.filter((t) => t.assigned_to === uid && t.delegated_from && t.delegated_from !== uid).sort(byDeadline);
 
-    return { overdue, today, unread, toMe, byMe: [...byMe].sort(byDeadline) };
+    return { overdue, today, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
   const toggle = (k: BlockKey) =>
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(k) ? next.delete(k) : next.add(k);
+      try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });
 
-  const order: BlockKey[] = ["overdue", "today", "unread", "toMe", "byMe"];
+  const changeScope = (s: Scope) => {
+    setScope(s);
+    try { localStorage.setItem(SCOPE_KEY, s); } catch { /* ignore */ }
+  };
+
+  const order: BlockKey[] = ["overdue", "today", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
     <div className="flex h-full flex-col bg-background">
