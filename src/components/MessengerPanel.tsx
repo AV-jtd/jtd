@@ -511,7 +511,15 @@ export default function MessengerPanel({
           </button>
         </div>
 
-        {/* Thread list */}
+        {/* Global message search results — replaces the thread list while typing. */}
+        {isSearching ? (
+          <MessageSearchResults
+            results={searchResults}
+            term={searchTerm}
+            loading={searchFetching}
+            onOpen={handleOpenSearchResult}
+          />
+        ) : (
         <ScrollArea className="flex-1">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Загрузка...</p>
@@ -617,6 +625,7 @@ export default function MessengerPanel({
             </div>
           )}
         </ScrollArea>
+        )}
       </div>
     );
   }
