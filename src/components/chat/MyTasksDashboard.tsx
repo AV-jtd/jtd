@@ -106,6 +106,33 @@ function CrossChip({
   );
 }
 
+// Свёртываемый бабл ассистента: длинные ответы показываются превью (line-clamp),
+// раскрываются по клику. Последнее сообщение раскрыто по умолчанию.
+function AssistantBubble({ content, defaultOpen }: { content: string; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const long = content.length > 220;
+  return (
+    <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-sm text-foreground">
+      <div
+        className={cn(
+          "prose prose-sm max-w-none dark:prose-invert [&_p]:my-1",
+          long && !open && "line-clamp-3",
+        )}
+      >
+        <ReactMarkdown>{content || "…"}</ReactMarkdown>
+      </div>
+      {long && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="mt-1 text-[11px] font-medium text-primary hover:underline"
+        >
+          {open ? "Свернуть" : "Раскрыть"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function TaskRow({
   task,
   users,
