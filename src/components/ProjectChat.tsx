@@ -259,6 +259,17 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
     });
   }, [rootMessages, repliesMap, searchLower]);
 
+  // При активном поиске авто-раскрываем треды, где совпадение нашлось в ответе.
+  const expandedThreadsEffective = useMemo(() => {
+    if (!searchLower) return expandedThreads;
+    const s = new Set(expandedThreads);
+    for (const m of visibleRoots) {
+      const replies = repliesMap[m.id] || [];
+      if (replies.some((r) => r.content?.toLowerCase().includes(searchLower))) s.add(m.id);
+    }
+    return s;
+  }, [expandedThreads, searchLower, visibleRoots, repliesMap]);
+
   /**
    * Единая точка создания задачи из чата (из сообщения или из композера).
    * После создания пишет в `group_messages` персистентную system-карточку
