@@ -127,6 +127,8 @@ export default function ChatRoomsList({
   onSelect: (groupId: string) => void;
   onSelectTask?: (taskId: string) => void;
   onHome?: () => void;
+  onOpenMyTasks?: () => void;
+  myTasksActive?: boolean;
 }) {
   const { rooms, isLoading } = useChatRooms();
   const { isThreadUnread, getUnreadCount } = useUnreadMessages();
