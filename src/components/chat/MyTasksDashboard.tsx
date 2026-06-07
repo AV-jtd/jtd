@@ -23,6 +23,7 @@ import {
   FileText,
   TrendingUp,
   Bot,
+  ChevronDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -198,6 +199,7 @@ function Block({
   onComplete,
   onSetDate,
   onSetAssignee,
+  onToggle,
 }: {
   blockKey: BlockKey;
   tasks: MyTask[];
@@ -206,6 +208,7 @@ function Block({
   onComplete: (id: string) => void;
   onSetDate: (id: string, date: Date | null) => void;
   onSetAssignee: (id: string, sel: AssigneeSelection) => void;
+  onToggle: (k: BlockKey) => void;
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
@@ -214,11 +217,17 @@ function Block({
   // подзаголовок + список задач, без тяжёлой карточки с большой иконкой.
   return (
     <div className="rounded-xl border border-border bg-card px-1.5 py-1.5">
-      <div className="flex items-center gap-1.5 px-1.5 pb-1 pt-0.5">
+      <button
+        type="button"
+        onClick={() => onToggle(blockKey)}
+        className="flex w-full items-center gap-1.5 rounded-md px-1.5 pb-1 pt-0.5 text-left hover:bg-muted/50"
+        title="Свернуть"
+      >
         <Icon className={cn("h-3.5 w-3.5 shrink-0", meta.tone)} />
         <span className="flex-1 text-xs font-semibold text-muted-foreground">{meta.label}</span>
         <span className={cn("text-xs font-bold tabular-nums", meta.tone)}>{tasks.length}</span>
-      </div>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      </button>
       <div className="space-y-0.5">
         {tasks.map((t) => (
           <TaskRow
@@ -586,6 +595,7 @@ export default function MyTasksDashboard({
                   onComplete={completeTask}
                   onSetDate={setDate}
                   onSetAssignee={setAssignee}
+                  onToggle={toggle}
                 />
               ))}
 
