@@ -468,7 +468,8 @@ export default function ChatRoomsList({
           )}
           {grouped.map(({ room, children }) => {
             const hasChildren = children.length > 0;
-            const isOpen = expanded.has(room.groupId) || !!q.trim();
+            const baseOpen = isBaseOpen(room.groupId, children.length);
+            const isOpen = baseOpen || !!q.trim();
             const selfUnread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
             const selfCount = getUnreadCount(room.threadId, room.lastMessageUserId);
             // Свёрнутый проект показывает суммарный непрочёт (свой + задачи).
@@ -488,7 +489,7 @@ export default function ChatRoomsList({
                 <div className="flex items-center gap-0.5">
                   {hasChildren ? (
                     <button
-                      onClick={() => toggleExpand(room.groupId)}
+                      onClick={() => toggleExpand(room.groupId, baseOpen)}
                       className="grid h-7 w-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
                       aria-label={isOpen ? "Свернуть задачи" : "Развернуть задачи"}
                     >
