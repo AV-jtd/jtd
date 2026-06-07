@@ -15,12 +15,14 @@ export default function TaskRoomCenter({
   onClose,
   onShowInfo,
   onNavigateToTask,
+  onNavigateToGroup,
 }: {
   taskId: string;
   onBack?: () => void;
   onClose?: () => void;
   onShowInfo?: () => void;
   onNavigateToTask?: (taskId: string) => void;
+  onNavigateToGroup?: (groupId: string) => void;
 }) {
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: task } = useQuery({
@@ -30,12 +32,13 @@ export default function TaskRoomCenter({
     queryFn: async () => {
       const { data } = await supabase
         .from("tasks")
-        .select("id, title, group_id, is_completed")
+        .select("id, title, group_id, is_completed, task_groups:group_id(name)")
         .eq("id", taskId)
         .maybeSingle();
       return (data as any) ?? null;
     },
   });
+  const groupName: string | null = task?.task_groups?.name ?? null;
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -45,9 +48,23 @@ export default function TaskRoomCenter({
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${task?.is_completed ? "line-through opacity-60" : ""}`}>
-          {task?.title || "Чат задачи"}
-        </span>
+        <div className="flex min-w-0 flex-1 items-center gap-1 text-sm">
+          {groupName && (
+            <>
+              <button
+                onClick={() => task?.group_id && onNavigateToGroup?.(task.group_id)}
+                className="max-w-[40%] truncate text-muted-foreground hover:text-foreground hover:underline"
+                title={`Перейти в чат проекта: ${groupName}`}
+              >
+                {groupName}
+              </button>
+              <span className="text-muted-foreground/60">/</span>
+            </>
+          )}
+          <span className={`min-w-0 flex-1 truncate font-semibold ${task?.is_completed ? "line-through opacity-60" : ""}`}>
+            {task?.title || "Чат задачи"}
+          </span>
+        </div>
         {onShowInfo && (
           <button onClick={onShowInfo} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Карточка задачи" aria-label="Карточка задачи">
             <PanelRight className="h-4 w-4" />
