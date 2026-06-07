@@ -13,6 +13,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 // Lazy-loaded — keep critical bundle small (especially on mobile)
 const AppSidebar = lazyWithRetry(() => import("@/components/AppSidebar"));
+import ResizableSidebar from "@/components/ui/resizable-sidebar";
 const TaskList = lazyWithRetry(() => import("@/components/TaskList"));
 const CalendarView = lazyWithRetry(() => import("@/components/CalendarView"));
 const SubordinatesView = lazyWithRetry(() => import("@/components/SubordinatesView"));
@@ -168,9 +169,11 @@ export default function Index() {
             </SheetContent>
           </Sheet>
         ) : (
-          <Suspense fallback={<ViewFallback />}>
-            <AppSidebar {...sidebarProps} />
-          </Suspense>
+          <ResizableSidebar storageKey="sidebar_width_home" defaultWidth={288} minWidth={240} maxWidth={480} side="right">
+            <Suspense fallback={<ViewFallback />}>
+              <AppSidebar {...sidebarProps} />
+            </Suspense>
+          </ResizableSidebar>
         )}
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

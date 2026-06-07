@@ -38,7 +38,7 @@ export default function AppSidebar({
   onToggleProjectDetail,
 }: AppSidebarProps) {
   return (
-    <aside className="w-72 bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-border max-md:border-r-0">
+    <aside className="w-full bg-sidebar-bg text-sidebar-fg flex flex-col h-full min-h-0 shrink-0 border-r border-border max-md:border-r-0">
       {/* Brand */}
       <div className="p-5 pb-4">
         <div className="flex items-center gap-2.5">

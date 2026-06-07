@@ -8,6 +8,7 @@ import ClientContextPanel from "@/components/chat/ClientContextPanel";
 import ClientRoomCenter from "@/components/chat/ClientRoomCenter";
 import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
 import { ArrowLeft } from "lucide-react";
+import ResizableSidebar from "@/components/ui/resizable-sidebar";
 
 export default function ChatFullscreen() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -97,9 +98,9 @@ export default function ChatFullscreen() {
 
   return (
     <div className="flex h-[100dvh] bg-background">
-      <div className="w-72 shrink-0 border-r border-border">
+      <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
         <ChatRoomsList activeGroupId={groupId} onSelect={select} />
-      </div>
+      </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {hasClient ? (
           <ClientRoomCenter
@@ -125,9 +126,9 @@ export default function ChatFullscreen() {
         )}
       </div>
       {hasClient && (
-        <div className="w-80 shrink-0 border-l border-border">
+        <ResizableSidebar storageKey="sidebar_width_client_panel" defaultWidth={320} minWidth={260} maxWidth={520} side="left" className="border-l border-border">
           <ClientContextPanel clientId={group!.client_id} onNavigateToTask={openTask} />
-        </div>
+        </ResizableSidebar>
       )}
     </div>
   );
