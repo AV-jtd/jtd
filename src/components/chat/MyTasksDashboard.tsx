@@ -580,24 +580,82 @@ export default function MyTasksDashboard({
                   })}
                 </div>
               </div>
-              {order.map((k) => (
-              <Block
-                key={k}
-                blockKey={k}
-                tasks={blocks[k]}
+              {order.filter((k) => blocks[k].length > 0).map((k) => (
+                <Block
+                  key={k}
+                  blockKey={k}
+                  tasks={blocks[k]}
                   users={users}
-                expanded={expanded.has(k)}
-                onToggle={() => toggle(k)}
-                onOpen={onOpenTask}
-                onComplete={completeTask}
+                  expanded={expanded.has(k)}
+                  onToggle={() => toggle(k)}
+                  onOpen={onOpenTask}
+                  onComplete={completeTask}
                   onSetDate={setDate}
                   onSetAssignee={setAssignee}
-              />
+                />
               ))}
+
+              {askMessages.length > 0 && (
+                <div className="space-y-3 pt-1">
+                  {askMessages.map((m, i) => (
+                    <div key={i} className={cn("flex gap-2", m.role === "user" ? "justify-end" : "justify-start")}>
+                      {m.role === "assistant" && (
+                        <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                          <Bot className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <div
+                        className={cn(
+                          "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
+                          m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                        )}
+                      >
+                        {m.role === "assistant" ? (
+                          <div className="prose prose-sm max-w-none dark:prose-invert [&_p]:my-1">
+                            <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          m.content
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={askEndRef} />
+                </div>
+              )}
             </>
           )}
         </div>
       </ScrollArea>
+      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background p-2">
+        {askMessages.length > 0 && (
+          <button
+            onClick={clearConversation}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"
+            title="Очистить диалог"
+            aria-label="Очистить диалог"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+        <form onSubmit={(e) => { e.preventDefault(); ask(); }} className="flex flex-1 items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Спросить ИИ про мой день…"
+            disabled={isStreaming}
+            className="h-9 min-w-0 flex-1 rounded-full border border-border bg-muted/40 px-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <button
+            type="submit"
+            disabled={isStreaming || !draft.trim()}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+            aria-label="Отправить"
+          >
+            {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
