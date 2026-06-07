@@ -51,22 +51,29 @@ export default function CrmClientsList() {
     staleTime: 60_000,
   });
 
-  // Active deal counts per client
-  const { data: dealCounts = {} } = useQuery({
-    queryKey: ["crm-partners-deal-counts", user?.id],
+  // Per-client task stats: открытые и просроченные задачи.
+  // (Раньше тут было «количество сделок» — фактически просто число
+  //  незавершённых задач клиента, что вводило в заблуждение.)
+  const { data: taskStats = {} } = useQuery({
+    queryKey: ["crm-partners-task-stats", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("client_id")
+        .select("client_id, deadline")
         .not("client_id", "is", null)
         .eq("is_completed", false);
       if (error) throw error;
-      const counts: Record<string, number> = {};
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const stats: Record<string, { open: number; overdue: number }> = {};
       for (const row of data ?? []) {
-        const cid = (row as { client_id: string | null }).client_id;
-        if (cid) counts[cid] = (counts[cid] ?? 0) + 1;
+        const r = row as { client_id: string | null; deadline: string | null };
+        if (!r.client_id) continue;
+        const s = (stats[r.client_id] ??= { open: 0, overdue: 0 });
+        s.open += 1;
+        if (r.deadline && new Date(r.deadline) < today) s.overdue += 1;
       }
-      return counts;
+      return stats;
     },
     enabled: !!user,
     staleTime: 60_000,
@@ -150,7 +157,7 @@ export default function CrmClientsList() {
         ) : (
           <div className="divide-y divide-border">
             {filtered.map((c) => {
-              const deals = dealCounts[c.id] ?? 0;
+              const stats = taskStats[c.id] ?? { open: 0, overdue: 0 };
               const manager = c.manager_id ? managers[c.manager_id] : null;
               return (
                 <div
@@ -198,16 +205,26 @@ export default function CrmClientsList() {
                       {manager}
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      "text-[11px] px-2 py-0.5 rounded-full shrink-0 font-medium",
-                      deals > 0
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground",
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={cn(
+                        "text-[11px] px-2 py-0.5 rounded-full font-medium",
+                        stats.open > 0
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                      title="Открытых задач"
+                    >
+                      {stats.open} откр.
+                    </span>
+                    {stats.overdue > 0 && (
+                      <span
+                        className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-destructive/10 text-destructive"
+                        title="Просроченных задач"
+                      >
+                        {stats.overdue} просроч.
+                      </span>
                     )}
-                    title="Активных сделок"
-                  >
-                    {deals} {deals === 1 ? "сделка" : "сделок"}
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); openClientChat(c.id); }}
