@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, MessageCircle, Plus, Home, CheckSquare, ListChecks } from "lucide-react";
+import { Search, CheckSquare, ListChecks } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
-import { useChatRooms, useEnsureClientRoom, type ChatRoom } from "@/hooks/useChatRooms";
+import { useChatRooms, type ChatRoom } from "@/hooks/useChatRooms";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useMyTasksDashboard, todayBounds } from "@/hooks/useMyTasksDashboard";
 import { useAvailableUsers } from "@/hooks/useTasks";
