@@ -405,11 +405,9 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2.5">
                 <div className="flex items-start gap-2">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </span>
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
                     {aiLoading ? (
@@ -417,7 +415,7 @@ export default function MyTasksDashboard({
                     ) : aiError ? (
                       <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
                     ) : (
-                      <p className="mt-0.5 text-sm leading-snug text-foreground">{aiSummary}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{aiSummary}</p>
                     )}
                   </div>
                   <button
