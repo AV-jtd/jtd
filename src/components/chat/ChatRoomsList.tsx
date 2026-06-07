@@ -151,6 +151,20 @@ export default function ChatRoomsList({
     { key: "tasks", label: "Задачи" },
   ];
 
+  // Счётчики непрочитанных по категориям — считаются из уже загруженного
+  // списка комнат и кэша непрочитанных, без новых запросов.
+  const unreadCounts = useMemo(() => {
+    const c = { all: 0, projects: 0, clients: 0, tasks: 0 };
+    for (const r of rooms) {
+      if (!isThreadUnread(r.threadId, r.lastMessageAt, r.lastMessageUserId)) continue;
+      c.all += 1;
+      if (r.isTaskRoom) c.tasks += 1;
+      else if (r.isClientRoom) c.clients += 1;
+      else c.projects += 1;
+    }
+    return c;
+  }, [rooms, isThreadUnread]);
+
   return (
     <div className="flex h-full flex-col bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 shrink-0">
@@ -175,11 +189,21 @@ export default function ChatRoomsList({
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                "relative flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
                 filter === f.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
               )}
             >
-              {f.label}
+              <span>{f.label}</span>
+              {unreadCounts[f.key] > 0 && (
+                <span
+                  className={cn(
+                    "grid h-4 min-w-[16px] place-items-center rounded-full px-1 text-[9px] font-bold leading-none",
+                    filter === f.key ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {unreadCounts[f.key] > 99 ? "99+" : unreadCounts[f.key]}
+                </span>
+              )}
             </button>
           ))}
         </div>
