@@ -188,8 +188,6 @@ function Block({
   blockKey,
   tasks,
   users,
-  expanded,
-  onToggle,
   onOpen,
   onComplete,
   onSetDate,
@@ -198,8 +196,6 @@ function Block({
   blockKey: BlockKey;
   tasks: MyTask[];
   users: Profile[];
-  expanded: boolean;
-  onToggle: () => void;
   onOpen: (id: string) => void;
   onComplete: (id: string) => void;
   onSetDate: (id: string, date: Date | null) => void;
@@ -207,40 +203,29 @@ function Block({
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
-  const count = tasks.length;
-  const empty = count === 0;
+  // Слим-секция: рендерится только для раскрытого блока. Заголовок-«таблетка»
+  // (pill) сверху уже выполняет роль переключателя, поэтому здесь — лёгкий
+  // подзаголовок + список задач, без тяжёлой карточки с большой иконкой.
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <button
-        onClick={onToggle}
-        disabled={empty}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-          empty ? "opacity-50" : "hover:bg-muted/50",
-        )}
-      >
-        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", meta.ring)}>
-          <Icon className={cn("h-4 w-4", meta.tone)} />
-        </span>
-        <span className="flex-1 text-sm font-medium">{meta.label}</span>
-        <span className={cn("text-sm font-bold tabular-nums", count > 0 ? meta.tone : "text-muted-foreground")}>{count}</span>
-        {!empty && (expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />)}
-      </button>
-      {expanded && !empty && (
-        <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
-          {tasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              users={users}
-              onOpen={onOpen}
-              onComplete={onComplete}
-              onSetDate={onSetDate}
-              onSetAssignee={onSetAssignee}
-            />
-          ))}
-        </div>
-      )}
+    <div className="rounded-xl border border-border bg-card px-1.5 py-1.5">
+      <div className="flex items-center gap-1.5 px-1.5 pb-1 pt-0.5">
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", meta.tone)} />
+        <span className="flex-1 text-xs font-semibold text-muted-foreground">{meta.label}</span>
+        <span className={cn("text-xs font-bold tabular-nums", meta.tone)}>{tasks.length}</span>
+      </div>
+      <div className="space-y-0.5">
+        {tasks.map((t) => (
+          <TaskRow
+            key={t.id}
+            task={t}
+            users={users}
+            onOpen={onOpen}
+            onComplete={onComplete}
+            onSetDate={onSetDate}
+            onSetAssignee={onSetAssignee}
+          />
+        ))}
+      </div>
     </div>
   );
 }
