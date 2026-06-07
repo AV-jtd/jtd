@@ -16,11 +16,17 @@ import {
   Stamp,
   Star,
   Check,
+  CalendarPlus,
+  UserPlus,
   X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import { useAuth } from "@/hooks/useAuth";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTasksDashboard";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -63,9 +69,25 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
   );
 }
 
-function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: string) => void; onComplete: (id: string) => void }) {
+function TaskRow({
+  task,
+  users,
+  onOpen,
+  onComplete,
+  onSetDate,
+  onSetAssignee,
+}: {
+  task: MyTask;
+  users: Profile[];
+  onOpen: (id: string) => void;
+  onComplete: (id: string) => void;
+  onSetDate: (id: string, date: Date | null) => void;
+  onSetAssignee: (id: string, sel: AssigneeSelection) => void;
+}) {
   // Задачи на согласовании завершаем не отсюда (нужен флоу approval).
   const canComplete = !(task.requires_approval && task.approval_status !== "approved");
+  const [dateOpen, setDateOpen] = useState(false);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   return (
     <div className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
       {canComplete && (
@@ -79,12 +101,55 @@ function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: stri
         </button>
       )}
       <button onClick={() => onOpen(task.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        {(task.is_important || task.priority === 1) && (
+          <Star className="h-3.5 w-3.5 shrink-0 fill-tag-pink text-tag-pink" />
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm">{task.title}</p>
           {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
         </div>
         <DeadlinePill deadline={task.deadline} />
       </button>
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              title="Назначить дату"
+              aria-label="Назначить дату"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={task.deadline ? new Date(task.deadline) : undefined}
+              onSelect={(d) => { onSetDate(task.id, d ?? null); setDateOpen(false); }}
+              initialFocus
+              className="pointer-events-auto p-3"
+            />
+          </PopoverContent>
+        </Popover>
+        <AssigneePicker
+          users={users}
+          current={task.assigned_to ? { kind: "user", id: task.assigned_to } : { kind: null, id: null }}
+          open={assigneeOpen}
+          onOpenChange={setAssigneeOpen}
+          onSelect={(sel) => { onSetAssignee(task.id, sel); setAssigneeOpen(false); }}
+          trigger={
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              title="Ответственный"
+              aria-label="Назначить ответственного"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+            </button>
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -92,17 +157,23 @@ function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: stri
 function Block({
   blockKey,
   tasks,
+  users,
   expanded,
   onToggle,
   onOpen,
   onComplete,
+  onSetDate,
+  onSetAssignee,
 }: {
   blockKey: BlockKey;
   tasks: MyTask[];
+  users: Profile[];
   expanded: boolean;
   onToggle: () => void;
   onOpen: (id: string) => void;
   onComplete: (id: string) => void;
+  onSetDate: (id: string, date: Date | null) => void;
+  onSetAssignee: (id: string, sel: AssigneeSelection) => void;
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
@@ -128,7 +199,15 @@ function Block({
       {expanded && !empty && (
         <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onOpen={onOpen} onComplete={onComplete} />
+            <TaskRow
+              key={t.id}
+              task={t}
+              users={users}
+              onOpen={onOpen}
+              onComplete={onComplete}
+              onSetDate={onSetDate}
+              onSetAssignee={onSetAssignee}
+            />
           ))}
         </div>
       )}
@@ -147,6 +226,7 @@ export default function MyTasksDashboard({
   const uid = user?.id;
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
+  const { data: users = [] } = useAvailableUsers();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<Scope>(() => {
     const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
@@ -209,6 +289,38 @@ export default function MyTasksDashboard({
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["my_tasks_dashboard", uid] });
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const setDate = async (id: string, date: Date | null) => {
+    await supabase.from("tasks").update({ deadline: date ? date.toISOString() : null }).eq("id", id);
+    invalidate();
+  };
+
+  const setAssignee = async (id: string, sel: AssigneeSelection) => {
+    // assigned_to синкается в task_participants на стороне БД.
+    if (sel.kind === "user") {
+      await supabase.from("tasks").update({ assigned_to: sel.id, department_id: null, contractor_id: null }).eq("id", id);
+    } else if (sel.kind === "department") {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: sel.id, contractor_id: null }).eq("id", id);
+    } else if (sel.kind === "contractor") {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: null, contractor_id: sel.id }).eq("id", id);
+    } else {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: null, contractor_id: null }).eq("id", id);
+    }
+    invalidate();
+  };
+
+  // Сводка сверху: ключевые числа дня.
+  const summary: { key: BlockKey; label: string }[] = [
+    { key: "overdue", label: "Просрочено" },
+    { key: "today", label: "Сегодня" },
+    { key: "important", label: "Важное" },
+    { key: "unread", label: "Непрочитанные" },
+  ];
+
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
@@ -246,17 +358,38 @@ export default function MyTasksDashboard({
           {isLoading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
-            order.map((k) => (
+            <>
+              <div className="grid grid-cols-4 gap-2">
+                {summary.map((s) => {
+                  const meta = BLOCK_META[s.key];
+                  const n = blocks[s.key].length;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => { if (n > 0 && !expanded.has(s.key)) toggle(s.key); }}
+                      className={cn("rounded-xl border border-border bg-card px-2 py-2 text-center transition-colors", n > 0 ? "hover:bg-muted/50" : "opacity-60")}
+                    >
+                      <p className={cn("text-lg font-bold tabular-nums", n > 0 ? meta.tone : "text-muted-foreground")}>{n}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{s.label}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {order.map((k) => (
               <Block
                 key={k}
                 blockKey={k}
                 tasks={blocks[k]}
+                  users={users}
                 expanded={expanded.has(k)}
                 onToggle={() => toggle(k)}
                 onOpen={onOpenTask}
                 onComplete={completeTask}
+                  onSetDate={setDate}
+                  onSetAssignee={setAssignee}
               />
-            ))
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>
