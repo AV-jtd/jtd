@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, LayoutGrid, type LucideIcon } from "lucide-react";
+import { List, Star, Users, Inbox, Clock, Globe, CalendarDays, BarChart3, BookOpen, FileText, Archive, Building2, LayoutGrid, Radio, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyDepartmentId, useDepartmentTasks } from "@/hooks/useDepartmentTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,7 @@ export default function MainNav({ activeView, activeGroupId, onViewChange, onGro
   );
 
   const items: NavItem[] = useMemo(() => [
+    { id: "chat", icon: Radio, label: "ЭФИР", href: "/chat" },
     { id: "all", icon: List, label: "Все задачи" },
     { id: "inbox", icon: Inbox, label: "Входящие" },
     { id: "myday", icon: Star, label: "Мой день" },
