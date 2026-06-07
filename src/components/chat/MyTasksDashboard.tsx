@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,13 @@ import {
   X,
   Sparkles,
   RefreshCw,
+  Send,
+  Loader2,
+  FileText,
+  TrendingUp,
+  Bot,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -30,6 +36,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTasksDashboard";
+import { useMyDayContext } from "@/hooks/useMyDayContext";
+import { useAiConversation } from "@/hooks/useAiConversation";
+import { streamChat, StreamChatError } from "@/lib/streamChat";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
