@@ -613,6 +613,16 @@ export default function MessengerPanel({
             <Maximize2 className="h-4 w-4" />
           </button>
         )}
+        {activeThread.type === "task" && activeThread.taskId && activeThread.groupId && (
+          <button
+            onClick={() => { navigate(`/chat/${activeThread.groupId}?task=${activeThread.taskId}`); onClose(); }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+            title="Развернуть на весь экран"
+            aria-label="Развернуть на весь экран"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={onClose}
           className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
