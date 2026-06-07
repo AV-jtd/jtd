@@ -10,9 +10,12 @@ export type MyTask = {
   assigned_to: string | null;
   delegated_from: string | null;
   groupName: string | null;
+  requires_approval: boolean;
+  approval_status: string | null;
 };
 
-const SELECT = "id, title, deadline, group_id, assigned_to, delegated_from, task_groups:group_id(name)";
+const SELECT =
+  "id, title, deadline, group_id, assigned_to, delegated_from, requires_approval, approval_status, task_groups:group_id(name)";
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -28,6 +31,8 @@ function normalize(rows: any[]): MyTask[] {
     group_id: r.group_id ?? null,
     assigned_to: r.assigned_to ?? null,
     delegated_from: r.delegated_from ?? null,
+    requires_approval: !!r.requires_approval,
+    approval_status: r.approval_status ?? null,
     groupName: r.task_groups?.name ?? null,
   }));
 }
