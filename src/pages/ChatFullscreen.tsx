@@ -80,15 +80,34 @@ export default function ChatFullscreen() {
     if (isMobile) setMobilePane("task");
   };
   const closeTask = () => {
+    const from = searchParams.get("from");
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete("task");
+        next.delete("from");
+        if (from === "mytasks") next.set("view", "mytasks");
         return next;
       },
       { replace: false },
     );
     if (isMobile) setMobilePane("chat");
+  };
+  // Открытие задачи из дашборда «Мои задачи»: помечаем источник (`from=mytasks`),
+  // чтобы кнопка «Назад»/«Закрыть» вернула пользователя именно в дашборд.
+  const openTaskFromMyTasks = (taskId: string) => {
+    setShowTaskInfo(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("task", taskId);
+        next.set("from", "mytasks");
+        next.delete("view");
+        return next;
+      },
+      { replace: false },
+    );
+    if (isMobile) setMobilePane("task");
   };
   // Переход из хлебных крошек задачи в групповой чат проекта.
   const navigateToGroup = (gid: string) => {
