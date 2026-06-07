@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
 import ChatMessageRow, { type ChatAction } from "./chat/ChatMessageRow";
+import ThreadedMessages from "./chat/ThreadedMessages";
 import MentionAutocomplete, { userMentionLabel, resolveMentionedUserIds } from "./chat/MentionAutocomplete";
 import MentionText from "./chat/MentionText";
 import { useTaskStatuses } from "@/hooks/useTaskStatuses";
