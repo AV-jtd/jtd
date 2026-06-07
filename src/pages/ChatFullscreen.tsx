@@ -11,6 +11,7 @@ import ProjectRoomCenter from "@/components/chat/ProjectRoomCenter";
 import TaskRoomCenter from "@/components/chat/TaskRoomCenter";
 import TaskDetailPanel from "@/components/chat/TaskDetailPanel";
 import MyTasksDashboard from "@/components/chat/MyTasksDashboard";
+import AssistantChannel from "@/components/chat/AssistantChannel";
 import { ArrowLeft } from "lucide-react";
 import ResizableSidebar from "@/components/ui/resizable-sidebar";
 
@@ -26,7 +27,10 @@ export default function ChatFullscreen() {
    *  и шарится ссылкой. */
   const [searchParams, setSearchParams] = useSearchParams();
   const openTaskId = searchParams.get("task");
-  /** Открыт ли мини-дашборд «Мои задачи» (`?view=mytasks`). */
+  /** Активный персональный канал «ИИ-ассистент» (`?view=assistant`) — ядро ЭФИРа. */
+  const showAssistant = searchParams.get("view") === "assistant";
+  /** Панель «Мои задачи» (`?view=mytasks`) — на мобильных это вкладка канала
+   *  ассистента, на десктопе дашборд живёт в правом сайдбаре. */
   const showMyTasks = searchParams.get("view") === "mytasks";
   /** Показывать ли правый сайдбар с карточкой задачи (desktop). */
   const [showTaskInfo, setShowTaskInfo] = useState(true);
@@ -87,21 +91,22 @@ export default function ChatFullscreen() {
         next.delete("task");
         next.delete("from");
         if (from === "mytasks") next.set("view", "mytasks");
+        else if (from === "assistant") next.set("view", "assistant");
         return next;
       },
       { replace: false },
     );
     if (isMobile) setMobilePane("chat");
   };
-  // Открытие задачи из дашборда «Мои задачи»: помечаем источник (`from=mytasks`),
-  // чтобы кнопка «Назад»/«Закрыть» вернула пользователя именно в дашборд.
-  const openTaskFromMyTasks = (taskId: string) => {
+  // Открытие задачи из дашборда «Мои задачи». Помечаем источник (`from`),
+  // чтобы кнопка «Назад»/«Закрыть» вернула пользователя в нужную панель.
+  const openTaskFrom = (from: "mytasks" | "assistant") => (taskId: string) => {
     setShowTaskInfo(true);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set("task", taskId);
-        next.set("from", "mytasks");
+        next.set("from", from);
         next.delete("view");
         return next;
       },
@@ -109,13 +114,37 @@ export default function ChatFullscreen() {
     );
     if (isMobile) setMobilePane("task");
   };
+  const openTaskFromMyTasks = openTaskFrom("mytasks");
+  const openTaskFromAssistant = openTaskFrom("assistant");
   // Переход из хлебных крошек задачи в групповой чат проекта.
   const navigateToGroup = (gid: string) => {
     navigate(`/chat/${gid}`);
     if (isMobile) setMobilePane("chat");
   };
 
-  // Открыть/закрыть закреплённый дашборд «Мои задачи».
+  // Открыть персональный канал «ИИ-ассистент» (ядро ЭФИРа).
+  const openAssistant = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("view", "assistant");
+        next.delete("task");
+        return next;
+      },
+      { replace: false },
+    );
+  };
+  const closeAssistant = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        return next;
+      },
+      { replace: false },
+    );
+  };
+  // Открыть/закрыть панель «Мои задачи» (мобильная вкладка канала ассистента).
   const openMyTasks = () => {
     setSearchParams(
       (prev) => {
@@ -131,7 +160,7 @@ export default function ChatFullscreen() {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.delete("view");
+        next.set("view", "assistant");
         return next;
       },
       { replace: false },
