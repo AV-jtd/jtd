@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, MessageCircle, Plus, Home, CheckSquare, ListChecks } from "lucide-react";
+import { Search, CheckSquare, ListChecks } from "lucide-react";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
-import { useChatRooms, useEnsureClientRoom, type ChatRoom } from "@/hooks/useChatRooms";
+import { useChatRooms, type ChatRoom } from "@/hooks/useChatRooms";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useMyTasksDashboard, todayBounds } from "@/hooks/useMyTasksDashboard";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAvailableUsers } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
+import QuickCreateForm, { type QuickCreateResult } from "@/components/QuickCreateForm";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -55,64 +59,54 @@ function RoomAvatar({ room }: { room: ChatRoom }) {
   );
 }
 
-/** Список клиентов без комнаты — для быстрого создания CRM-комнаты. */
-function NewClientRoomButton({ onOpen }: { onOpen: (groupId: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const ensure = useEnsureClientRoom();
-  const { data: clients = [] } = useQuery({
-    queryKey: ["crm_clients_picker"],
-    queryFn: async () => {
-      const { data } = await supabase.from("clients").select("id, name, logo_url").order("name").limit(500);
-      return (data as any[]) || [];
+/**
+ * Killer GTD-фича в шапке чатов: быстрое создание задачи (@исполнитель, дедлайн,
+ * приоритет — через inline-парсинг QuickCreateForm). Без проекта задача уходит в
+ * Inbox (`group_id = null`). `start_at` всегда = now().
+ */
+function NewTaskButton() {
+  const { user } = useAuth();
+  const { data: users = [] } = useAvailableUsers();
+  const qc = useQueryClient();
+
+  const create = useMutation({
+    mutationFn: async (p: QuickCreateResult) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          title: p.title,
+          user_id: user!.id,
+          group_id: null,
+          start_at: new Date().toISOString(),
+          deadline: p.deadline ? format(p.deadline, "yyyy-MM-dd") : null,
+          assigned_to: p.assigneeId ?? null,
+          department_id: p.assigneeId ? null : p.departmentId ?? null,
+          contractor_id: p.assigneeId ? null : p.contractorId ?? null,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      await supabase.from("task_participants").insert({ task_id: data.id, user_id: user!.id, role: "creator" });
+      return data;
     },
-    enabled: open,
-    staleTime: 1000 * 60,
+    onSuccess: () => {
+      toast.success("Задача создана");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["chat_rooms"] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
-  const filtered = useMemo(
-    () => clients.filter((c) => c.name?.toLowerCase().includes(q.trim().toLowerCase())),
-    [clients, q],
-  );
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          title="Открыть чат по клиенту"
-        >
-          <Plus className="h-3.5 w-3.5" /> Клиент
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Поиск клиента…"
-          className="mb-2 h-8"
-        />
-        <ScrollArea className="max-h-64">
-          <div className="space-y-0.5">
-            {filtered.map((c) => (
-              <button
-                key={c.id}
-                onClick={async () => {
-                  const gid = await ensure.mutateAsync(c.id);
-                  setOpen(false);
-                  onOpen(gid);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-              >
-                <ClientAvatar client={c} size="sm" />
-                <span className="truncate">{c.name}</span>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="px-2 py-4 text-center text-xs text-muted-foreground">Ничего не найдено</p>
-            )}
-          </div>
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
+    <QuickCreateForm
+      users={users}
+      singleType="task"
+      triggerLabel="Задача"
+      align="end"
+      onCreate={async (p) => {
+        await create.mutateAsync(p);
+      }}
+    />
   );
 }
 
@@ -199,23 +193,27 @@ export default function ChatRoomsList({
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 shrink-0">
-        <div className="flex items-center gap-1.5">
-          {onHome && (
-            <button onClick={onHome} className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-muted" title="На главную" aria-label="На главную">
-              <Home className="h-4 w-4" />
-            </button>
-          )}
-          <span className="text-sm font-semibold">Чаты</span>
-        </div>
-        <NewClientRoomButton onOpen={onSelect} />
-      </div>
-      <div className="px-2 py-2 shrink-0">
-        <div className="relative">
+      {/* Единая кросс-апп шапка: лого → на главную | «Чаты» … справа поиск + быстрое создание задачи (GTD). */}
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5 shrink-0">
+        <button
+          onClick={onHome}
+          className="flex items-center gap-2 shrink-0"
+          title="На главную"
+          aria-label="На главную"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-sm font-black leading-none text-primary-foreground">
+            ✓
+          </span>
+          <span className="text-sm font-bold tracking-tight">Чаты</span>
+        </button>
+        <div className="relative ml-auto min-w-0 flex-1 max-w-[150px]">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="h-8 pl-7" />
         </div>
-        <div className="mt-2 flex items-center gap-1">
+        <NewTaskButton />
+      </div>
+      <div className="px-2 py-2 shrink-0">
+        <div className="flex items-center gap-1">
           {FILTERS.map((f) => (
             <button
               key={f.key}
