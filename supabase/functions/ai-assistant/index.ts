@@ -1805,7 +1805,20 @@ ${ganttContextBlock}
       const { projectContext, history: chatHistory } = context || {};
       
       let contextInfo = "";
-      if (projectContext?.mode === "general") {
+      if (projectContext?.mode === "myday") {
+        const cc = projectContext.counts || {};
+        contextInfo += `\n\n🗓️ Мой день (срез: ${projectContext.scope === "assignee" ? "я исполнитель" : "я участник"}):`;
+        contextInfo += `\n- Просрочено: ${cc.overdue ?? 0}, Сегодня: ${cc.today ?? 0}, На неделе: ${cc.week ?? 0}, Важное: ${cc.important ?? 0}`;
+        contextInfo += `\n- На согласовании: ${cc.approval ?? 0}, Непрочитанные: ${cc.unread ?? 0}, Делегировано мне: ${cc.toMe ?? 0}, мной: ${cc.byMe ?? 0}, Без срока: ${cc.noDeadline ?? 0}`;
+        if (projectContext.topOverdue?.length) contextInfo += `\nПросроченные: ${projectContext.topOverdue.join("; ")}`;
+        if (projectContext.topToday?.length) contextInfo += `\nНа сегодня: ${projectContext.topToday.join("; ")}`;
+        if (projectContext.topWeek?.length) contextInfo += `\nНа неделе: ${projectContext.topWeek.join("; ")}`;
+        if (projectContext.topToMe?.length) contextInfo += `\nПоручено мне: ${projectContext.topToMe.join("; ")}`;
+        const cr = projectContext;
+        if (cr.protocols?.count) contextInfo += `\n\n📋 Из протоколов совещаний (${cr.protocols.count}): ${cr.protocols.items.map((i: any) => i.ref ? `${i.title} (${i.ref})` : i.title).join("; ")}`;
+        if (cr.drift?.count) contextInfo += `\n\n📈 Сдвиг сроков / drift (${cr.drift.count}): ${cr.drift.items.map((i: any) => i.ref ? `${i.title} (${i.ref})` : i.title).join("; ")}`;
+        if (cr.npd?.count) contextInfo += `\n\n⚠️ NPD-риск, просрочено (${cr.npd.count}): ${cr.npd.items.map((i: any) => i.ref ? `${i.title} (${i.ref})` : i.title).join("; ")}`;
+      } else if (projectContext?.mode === "general") {
         // Cross-project general assistant
         const { projects, totalTasks } = projectContext;
         if (projects?.length) {
@@ -1867,7 +1880,16 @@ ${ganttContextBlock}
       }
 
       const isGeneralMode = projectContext?.mode === "general";
-      const contextSystemPrompt = isGeneralMode
+      const isMyDayMode = projectContext?.mode === "myday";
+      const contextSystemPrompt = isMyDayMode
+        ? `Ты — личный ассистент «Мой день» в приложении JustTODOit с кросс-модульным обзором (задачи, протоколы совещаний, PMO drift, NPD-гейты).
+Помогай пользователю расставить приоритеты на день, находи скрытые риски и узкие места, ссылайся на конкретные задачи по названию.
+
+Текущая дата: ${new Date().toISOString().split("T")[0]}
+${contextInfo}
+
+Отвечай на русском, кратко и по делу. Используй markdown. Будь конкретным — опирайся на реальные данные выше.`
+        : isGeneralMode
         ? `Ты — кросс-проектный AI-помощник в приложении JustTODOit.
 У тебя есть доступ к данным всех проектов пользователя. Ты можешь:
 1. Давать обзор портфеля проектов

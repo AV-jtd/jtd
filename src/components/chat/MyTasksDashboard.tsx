@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,6 @@ import {
   ArrowUpRight,
   ChevronDown,
   ChevronRight,
-  ListChecks,
   CalendarRange,
   CircleDashed,
   Stamp,
@@ -21,7 +20,13 @@ import {
   X,
   Sparkles,
   RefreshCw,
+  Send,
+  Loader2,
+  FileText,
+  TrendingUp,
+  Bot,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -30,6 +35,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTasksDashboard";
+import { useMyDayContext } from "@/hooks/useMyDayContext";
+import { useAiConversation } from "@/hooks/useAiConversation";
+import { streamChat, StreamChatError } from "@/lib/streamChat";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -67,6 +75,26 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
     >
       {overdue ? "⚠ " : ""}
       {formatDistanceToNowStrict(d, { locale: ru, addSuffix: true })}
+    </span>
+  );
+}
+
+function CrossChip({
+  icon: Icon,
+  label,
+  n,
+  cls,
+}: {
+  icon: typeof AlertTriangle;
+  label: string;
+  n: number;
+  cls: string;
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", cls)}>
+      <Icon className="h-3 w-3 shrink-0" />
+      {label}
+      <span className="font-bold tabular-nums">{n}</span>
     </span>
   );
 }
@@ -229,6 +257,7 @@ export default function MyTasksDashboard({
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
   const { data: users = [] } = useAvailableUsers();
+  const { data: cross } = useMyDayContext();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<Scope>(() => {
     const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
@@ -279,13 +308,16 @@ export default function MyTasksDashboard({
     [blocks],
   );
 
+  // Кросс-ап сигнатура — сводка пересчитывается и при изменении протоколов/drift/NPD.
+  const crossSig = `${cross?.protocols.count ?? 0}-${cross?.drift.count ?? 0}-${cross?.npd.count ?? 0}`;
+
   const {
     data: aiSummary,
     isFetching: aiLoading,
     error: aiError,
     refetch: refetchAi,
   } = useQuery({
-    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig],
+    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig, crossSig],
     enabled: !!uid && !isLoading,
     staleTime: 1000 * 60 * 60 * 2,
     gcTime: 1000 * 60 * 60 * 6,
@@ -311,6 +343,7 @@ export default function MyTasksDashboard({
           topImportant: blocks.important.slice(0, 6).map((t) => t.title),
           topWeek: blocks.week.slice(0, 6).map((t) => t.title),
           topToMe: blocks.toMe.slice(0, 6).map((t) => t.title),
+          cross: cross ?? null,
         },
       });
       if (error) throw error;
@@ -364,6 +397,82 @@ export default function MyTasksDashboard({
     invalidate();
   };
 
+  // ── Инлайн «спросить ИИ» — единый кросс-ап контекст «Моего дня» ──
+  const {
+    messages: askMessages, addMessage, updateLastAssistant, clearConversation,
+  } = useAiConversation({ contextType: "assistant", contextId: null });
+  const [draft, setDraft] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const askEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    askEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [askMessages]);
+
+  const buildMyDayContext = useCallback(
+    () => ({
+      mode: "myday",
+      scope,
+      counts: {
+        overdue: blocks.overdue.length, today: blocks.today.length, important: blocks.important.length,
+        week: blocks.week.length, noDeadline: blocks.noDeadline.length, unread: blocks.unread.length,
+        approval: blocks.approval.length, toMe: blocks.toMe.length, byMe: blocks.byMe.length,
+      },
+      topOverdue: blocks.overdue.slice(0, 8).map((t) => t.title),
+      topToday: blocks.today.slice(0, 8).map((t) => t.title),
+      topWeek: blocks.week.slice(0, 8).map((t) => t.title),
+      topImportant: blocks.important.slice(0, 8).map((t) => t.title),
+      topToMe: blocks.toMe.slice(0, 8).map((t) => t.title),
+      protocols: cross?.protocols ?? null,
+      drift: cross?.drift ?? null,
+      npd: cross?.npd ?? null,
+    }),
+    [blocks, scope, cross],
+  );
+
+  const ask = useCallback(
+    async (text?: string) => {
+      const input = (text || draft).trim();
+      if (!input || isStreaming) return;
+      addMessage({ role: "user", content: input });
+      setDraft("");
+      setIsStreaming(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      let acc = "";
+      try {
+        await streamChat({
+          url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
+          body: {
+            message: input,
+            action: "context_chat",
+            context: {
+              projectContext: buildMyDayContext(),
+              history: askMessages.map((m) => ({ role: m.role, content: m.content })),
+            },
+          },
+          onDelta: (chunk) => { acc += chunk; updateLastAssistant(acc); },
+          onDone: () => {},
+          signal: controller.signal,
+        });
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        if (e instanceof StreamChatError && e.status === 429) {
+          addMessage({ role: "assistant", content: "⚠️ Слишком много запросов. Попробуйте через минуту." });
+        } else if (e instanceof StreamChatError && e.status === 402) {
+          addMessage({ role: "assistant", content: "⚠️ ИИ временно недоступен." });
+        } else if (!acc) {
+          addMessage({ role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." });
+        }
+      } finally {
+        setIsStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [draft, isStreaming, askMessages, buildMyDayContext, addMessage, updateLastAssistant],
+  );
+
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
   // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
   // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
@@ -372,10 +481,10 @@ export default function MyTasksDashboard({
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-          <ListChecks className="h-4 w-4" />
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-cyan-400/20 to-violet-500/20 text-primary">
+          <Sparkles className="h-4 w-4" />
         </span>
-        <span className="flex-1 truncate text-sm font-semibold">Мои задачи</span>
+        <span className="flex-1 truncate text-sm font-semibold">Мой день</span>
         <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
           {([
             { k: "involved" as Scope, label: "Я участник" },
@@ -429,6 +538,19 @@ export default function MyTasksDashboard({
                   </button>
                 </div>
               </div>
+              {cross && cross.protocols.count + cross.drift.count + cross.npd.count > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {cross.protocols.count > 0 && (
+                    <CrossChip icon={FileText} label="Протоколы" n={cross.protocols.count} cls="bg-tag-blue/10 text-tag-blue" />
+                  )}
+                  {cross.drift.count > 0 && (
+                    <CrossChip icon={TrendingUp} label="Сдвиг сроков" n={cross.drift.count} cls="bg-tag-orange/10 text-tag-orange" />
+                  )}
+                  {cross.npd.count > 0 && (
+                    <CrossChip icon={AlertTriangle} label="NPD-риск" n={cross.npd.count} cls="bg-destructive/10 text-destructive" />
+                  )}
+                </div>
+              )}
               <div className="-mx-1 overflow-x-auto scrollbar-none">
                 <div className="flex items-center gap-1.5 px-1 pb-0.5">
                   {pillOrder.map((k) => {
@@ -457,24 +579,82 @@ export default function MyTasksDashboard({
                   })}
                 </div>
               </div>
-              {order.map((k) => (
-              <Block
-                key={k}
-                blockKey={k}
-                tasks={blocks[k]}
+              {order.filter((k) => blocks[k].length > 0).map((k) => (
+                <Block
+                  key={k}
+                  blockKey={k}
+                  tasks={blocks[k]}
                   users={users}
-                expanded={expanded.has(k)}
-                onToggle={() => toggle(k)}
-                onOpen={onOpenTask}
-                onComplete={completeTask}
+                  expanded={expanded.has(k)}
+                  onToggle={() => toggle(k)}
+                  onOpen={onOpenTask}
+                  onComplete={completeTask}
                   onSetDate={setDate}
                   onSetAssignee={setAssignee}
-              />
+                />
               ))}
+
+              {askMessages.length > 0 && (
+                <div className="space-y-3 pt-1">
+                  {askMessages.map((m, i) => (
+                    <div key={i} className={cn("flex gap-2", m.role === "user" ? "justify-end" : "justify-start")}>
+                      {m.role === "assistant" && (
+                        <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                          <Bot className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <div
+                        className={cn(
+                          "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
+                          m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                        )}
+                      >
+                        {m.role === "assistant" ? (
+                          <div className="prose prose-sm max-w-none dark:prose-invert [&_p]:my-1">
+                            <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          m.content
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={askEndRef} />
+                </div>
+              )}
             </>
           )}
         </div>
       </ScrollArea>
+      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background p-2">
+        {askMessages.length > 0 && (
+          <button
+            onClick={clearConversation}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"
+            title="Очистить диалог"
+            aria-label="Очистить диалог"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+        <form onSubmit={(e) => { e.preventDefault(); ask(); }} className="flex flex-1 items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Спросить ИИ про мой день…"
+            disabled={isStreaming}
+            className="h-9 min-w-0 flex-1 rounded-full border border-border bg-muted/40 px-3.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <button
+            type="submit"
+            disabled={isStreaming || !draft.trim()}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+            aria-label="Отправить"
+          >
+            {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
