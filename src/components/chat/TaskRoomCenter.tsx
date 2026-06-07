@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import TaskChat from "@/components/TaskChat";
 import { useAvailableUsers } from "@/hooks/useTasks";
-import { ArrowLeft, X, PanelRight } from "lucide-react";
+import { ArrowLeft, X, PanelRight, Link2 } from "lucide-react";
+import { toast } from "sonner";
 
 /**
  * Центр полноэкранного чата для ОТДЕЛЬНОЙ задачи.
@@ -40,6 +41,15 @@ export default function TaskRoomCenter({
   });
   const groupName: string | null = task?.task_groups?.name ?? null;
 
+  const copyLink = () => {
+    if (!task?.group_id) return;
+    const url = `${window.location.origin}/chat/${task.group_id}?task=${taskId}`;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Ссылка на чат скопирована"),
+      () => toast.error("Не удалось скопировать ссылку"),
+    );
+  };
+
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
@@ -65,6 +75,11 @@ export default function TaskRoomCenter({
             {task?.title || "Чат задачи"}
           </span>
         </div>
+        {onShowInfo && (
+          <button onClick={copyLink} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Скопировать ссылку на чат" aria-label="Скопировать ссылку на чат">
+            <Link2 className="h-4 w-4" />
+          </button>
+        )}
         {onShowInfo && (
           <button onClick={onShowInfo} className="rounded-lg p-1 text-muted-foreground hover:bg-muted" title="Карточка задачи" aria-label="Карточка задачи">
             <PanelRight className="h-4 w-4" />
