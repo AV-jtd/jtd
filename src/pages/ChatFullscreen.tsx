@@ -146,7 +146,7 @@ export default function ChatFullscreen() {
       return (
         <div className="flex h-[100dvh] flex-col bg-background">
           <div className="min-h-0 flex-1">
-            <MyTasksDashboard onOpenTask={openTask} onClose={closeMyTasks} />
+            <MyTasksDashboard onOpenTask={openTaskFromMyTasks} onClose={closeMyTasks} />
           </div>
         </div>
       );
@@ -157,7 +157,7 @@ export default function ChatFullscreen() {
           <ChatRoomsList activeGroupId={groupId ?? null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive />
         </ResizableSidebar>
         <div className="min-w-0 flex-1">
-          <MyTasksDashboard onOpenTask={openTask} onClose={closeMyTasks} />
+          <MyTasksDashboard onOpenTask={openTaskFromMyTasks} onClose={closeMyTasks} />
         </div>
       </div>
     );
