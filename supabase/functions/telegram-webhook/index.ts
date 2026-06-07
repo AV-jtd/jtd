@@ -1027,6 +1027,7 @@ Deno.serve(async (req) => {
         }
         if (explicitParticipantNames.length > 0) extras.push(`👥 ${explicitParticipantNames.join(", ")}`);
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
+        if (taskClient) extras.push(`🏢 ${taskClient.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
         if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
         if (autoJoinedNames.length > 0) {
