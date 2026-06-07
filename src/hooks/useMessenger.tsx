@@ -203,6 +203,22 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
         for (const c of (clientRows as any[]) || []) clientLogoMap.set(c.id, c.logo_url ?? null);
       }
 
+      // Task threads may be linked to a CRM client (tasks.client_id). Resolve
+      // those names so the chat list can show a 🏢 client marker on the task.
+      const taskClientIds = [
+        ...new Set(
+          tasks.map((t) => t.client_id as string | null).filter((id): id is string => !!id),
+        ),
+      ];
+      const clientNameMap = new Map<string, string>();
+      if (taskClientIds.length > 0) {
+        const { data: clientNameRows } = await supabase
+          .from("clients")
+          .select("id, name")
+          .in("id", taskClientIds);
+        for (const c of (clientNameRows as any[]) || []) clientNameMap.set(c.id, c.name);
+      }
+
       // Step 4: for task threads we still need parent-group names for the
       // subtitle. Fetch only the groups that aren't already in `groups`
       // (they likely overlap — task often lives in a group that also has its
