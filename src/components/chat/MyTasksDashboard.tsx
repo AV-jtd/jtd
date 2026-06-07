@@ -364,15 +364,10 @@ export default function MyTasksDashboard({
     invalidate();
   };
 
-  // Сводка сверху: ключевые числа дня.
-  const summary: { key: BlockKey; label: string }[] = [
-    { key: "overdue", label: "Просрочено" },
-    { key: "today", label: "Сегодня" },
-    { key: "important", label: "Важное" },
-    { key: "unread", label: "Непрочитанные" },
-  ];
-
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
+  // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
+  // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
+  const pillOrder: BlockKey[] = ["overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
 
   return (
     <div className="flex h-full flex-col bg-background">
