@@ -604,7 +604,7 @@ export default function TaskChat({
               id={`tc-msg-${taskId}-${c.id}`}
               className={cn(
                 "rounded-md transition-colors",
-                highlightId === c.id && "bg-primary/10 ring-1 ring-primary/30",
+                highlightId === c.id && "ring-1 ring-primary/30 animate-msg-flash",
               )}
             >
             <ChatMessageRow
