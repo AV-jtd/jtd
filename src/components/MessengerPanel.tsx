@@ -90,6 +90,9 @@ export default function MessengerPanel({
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+  // Сообщение, к которому нужно проскроллить/подсветить после перехода из
+  // глобального поиска по сообщениям.
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   // Multi-select filters over the thread list. Empty array = no filter.
   // - authorIds: filter by `lastMessageUserId` (last message author).
   // - projectIds: filter by `groupId` (works for both project-chat threads
