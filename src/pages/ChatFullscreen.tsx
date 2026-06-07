@@ -92,12 +92,53 @@ export default function ChatFullscreen() {
     if (isMobile) setMobilePane("chat");
   };
 
-  if (!groupId) {
-    navigate("/", { replace: true });
-    return null;
-  }
-
   const hasClient = !!group?.client_id;
+
+  // Общая полноэкранная страница чатов без выбранной комнаты (`/chat`).
+  if (!groupId) {
+    if (isMobile) {
+      return (
+        <div className="flex h-[100dvh] flex-col bg-background">
+          <div className="min-h-0 flex-1">
+            {openTaskId ? (
+              <TaskRoomCenter
+                key={openTaskId}
+                taskId={openTaskId}
+                onBack={closeTask}
+                onClose={closeTask}
+                onNavigateToTask={openTask}
+                onNavigateToGroup={navigateToGroup}
+              />
+            ) : (
+              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            )}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-[100dvh] bg-background">
+        <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
+          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+        </ResizableSidebar>
+        {openTaskId ? (
+          <div className="min-w-0 flex-1">
+            <TaskRoomCenter
+              key={openTaskId}
+              taskId={openTaskId}
+              onClose={closeTask}
+              onNavigateToTask={openTask}
+              onNavigateToGroup={navigateToGroup}
+            />
+          </div>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+            Выберите чат слева
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
