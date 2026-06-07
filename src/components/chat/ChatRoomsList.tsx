@@ -194,23 +194,27 @@ export default function ChatRoomsList({
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 shrink-0">
-        <div className="flex items-center gap-1.5">
-          {onHome && (
-            <button onClick={onHome} className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-muted" title="На главную" aria-label="На главную">
-              <Home className="h-4 w-4" />
-            </button>
-          )}
-          <span className="text-sm font-semibold">Чаты</span>
-        </div>
-        <NewClientRoomButton onOpen={onSelect} />
-      </div>
-      <div className="px-2 py-2 shrink-0">
-        <div className="relative">
+      {/* Единая кросс-апп шапка: лого → на главную | «Чаты» … справа поиск + быстрое создание задачи (GTD). */}
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5 shrink-0">
+        <button
+          onClick={onHome}
+          className="flex items-center gap-2 shrink-0"
+          title="На главную"
+          aria-label="На главную"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-sm font-black leading-none text-primary-foreground">
+            ✓
+          </span>
+          <span className="text-sm font-bold tracking-tight">Чаты</span>
+        </button>
+        <div className="relative ml-auto min-w-0 flex-1 max-w-[150px]">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="h-8 pl-7" />
         </div>
-        <div className="mt-2 flex items-center gap-1">
+        <NewTaskButton />
+      </div>
+      <div className="px-2 py-2 shrink-0">
+        <div className="flex items-center gap-1">
           {FILTERS.map((f) => (
             <button
               key={f.key}
