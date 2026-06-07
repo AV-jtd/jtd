@@ -146,6 +146,25 @@ export default function ChatRoomsList({
     return list.filter((t) => t.deadline && new Date(t.deadline) < end).length;
   }, [myTasks]);
 
+  // Сводка для pills в превью «Мои задачи» (срез: я участник) — логика
+  // совпадает с дашбордом MyTasksDashboard.
+  const myTaskPills = useMemo(() => {
+    const list = myTasks?.involved ?? [];
+    const { start, end } = todayBounds();
+    const overdue = list.filter((t) => t.deadline && new Date(t.deadline) < start).length;
+    const today = list.filter(
+      (t) => t.deadline && new Date(t.deadline) >= start && new Date(t.deadline) < end,
+    ).length;
+    const important = list.filter((t) => t.is_important || t.priority === 1).length;
+    const approval = list.filter((t) => t.requires_approval && t.approval_status === "pending").length;
+    return [
+      { key: "overdue", label: "Просрочено", count: overdue, cls: "bg-destructive/10 text-destructive" },
+      { key: "today", label: "Сегодня", count: today, cls: "bg-tag-orange/10 text-tag-orange" },
+      { key: "important", label: "Важное", count: important, cls: "bg-tag-pink/10 text-tag-pink" },
+      { key: "approval", label: "Согласование", count: approval, cls: "bg-tag-purple/10 text-tag-purple" },
+    ].filter((p) => p.count > 0);
+  }, [myTasks]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rooms.filter((r) => {
@@ -236,7 +255,24 @@ export default function ChatRoomsList({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">Мои задачи</p>
-                <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
+                {myTaskPills.length > 0 ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {myTaskPills.map((p) => (
+                      <span
+                        key={p.key}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
+                          p.cls,
+                        )}
+                      >
+                        {p.label}
+                        <span className="font-bold tabular-nums">{p.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
+                )}
               </div>
               {hotCount > 0 && (
                 <span className="shrink-0 rounded-full bg-destructive px-2 py-0.5 text-xs font-bold text-destructive-foreground">
