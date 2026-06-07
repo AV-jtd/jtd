@@ -615,7 +615,23 @@ export default function MyTasksDashboard({
           )}
         </div>
       </ScrollArea>
-      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background p-2">
+      <div className="shrink-0 space-y-1.5 border-t border-border bg-background p-2">
+        {askMessages.length === 0 && !isStreaming && (
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_COMMANDS.map((q) => (
+              <button
+                key={q.label}
+                type="button"
+                onClick={() => ask(q.prompt)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+              >
+                <q.icon className="h-3 w-3 shrink-0" />
+                {q.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
         {askMessages.length > 0 && (
           <button
             onClick={clearConversation}
@@ -643,6 +659,7 @@ export default function MyTasksDashboard({
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );
