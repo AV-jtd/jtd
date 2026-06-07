@@ -33,13 +33,15 @@ interface ProjectChatProps {
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
   onNavigateToTask?: (taskId: string) => void;
+  /** Сообщение, к которому нужно проскроллить и кратко подсветить (из поиска). */
+  highlightMessageId?: string | null;
 }
 
 function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || msg.external_author || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask, highlightMessageId }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
@@ -71,6 +73,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   };
   const closeTaskForm = () => setTaskFormFor(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** ID сообщения для кратковременной подсветки из глобального поиска. */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   /** Standalone task form opened from the chat header (not tied to a message). */
   const [headerTaskOpen, setHeaderTaskOpen] = useState(false);
   const toggleHeaderTask = () => { setHeaderTaskOpen(v => !v); setTaskFormNonce(n => n + 1); };
