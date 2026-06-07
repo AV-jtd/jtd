@@ -755,6 +755,7 @@ export default function MessengerPanel({
             groupName={activeThread.name}
             hideHeader
             onClose={clearActiveThread}
+            highlightMessageId={highlightMessageId}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
@@ -770,6 +771,7 @@ export default function MessengerPanel({
             variant="full"
             isCompleted={activeThread.taskCompleted}
             groupId={activeThread.groupId ?? null}
+            highlightMessageId={highlightMessageId}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
