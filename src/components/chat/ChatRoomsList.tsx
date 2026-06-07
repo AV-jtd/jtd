@@ -214,6 +214,23 @@ export default function ChatRoomsList({
       </div>
       <ScrollArea className="flex-1">
         <div className="space-y-0.5 px-2 pb-3">
+          {onOpenMyTasks && (
+            <button
+              onClick={onOpenMyTasks}
+              className={cn(
+                "mb-1 flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
+                myTasksActive ? "bg-primary/10" : "hover:bg-muted",
+              )}
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                <ListChecks className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">Мои задачи</p>
+                <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
+              </div>
+            </button>
+          )}
           {isLoading && <p className="px-2 py-4 text-xs text-muted-foreground">Загрузка…</p>}
           {!isLoading && filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Нет чатов</p>
