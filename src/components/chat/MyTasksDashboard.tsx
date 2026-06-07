@@ -308,6 +308,9 @@ export default function MyTasksDashboard({
           scope,
           topOverdue: blocks.overdue.slice(0, 6).map((t) => t.title),
           topToday: blocks.today.slice(0, 6).map((t) => t.title),
+          topImportant: blocks.important.slice(0, 6).map((t) => t.title),
+          topWeek: blocks.week.slice(0, 6).map((t) => t.title),
+          topToMe: blocks.toMe.slice(0, 6).map((t) => t.title),
         },
       });
       if (error) throw error;
@@ -361,15 +364,10 @@ export default function MyTasksDashboard({
     invalidate();
   };
 
-  // Сводка сверху: ключевые числа дня.
-  const summary: { key: BlockKey; label: string }[] = [
-    { key: "overdue", label: "Просрочено" },
-    { key: "today", label: "Сегодня" },
-    { key: "important", label: "Важное" },
-    { key: "unread", label: "Непрочитанные" },
-  ];
-
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
+  // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
+  // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
+  const pillOrder: BlockKey[] = ["overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -407,11 +405,9 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+              <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-accent/5 px-3 py-2.5">
                 <div className="flex items-start gap-2">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </span>
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
                     {aiLoading ? (
@@ -419,7 +415,7 @@ export default function MyTasksDashboard({
                     ) : aiError ? (
                       <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
                     ) : (
-                      <p className="mt-0.5 text-sm leading-snug text-foreground">{aiSummary}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-foreground/80">{aiSummary}</p>
                     )}
                   </div>
                   <button
@@ -433,21 +429,33 @@ export default function MyTasksDashboard({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {summary.map((s) => {
-                  const meta = BLOCK_META[s.key];
-                  const n = blocks[s.key].length;
-                  return (
-                    <button
-                      key={s.key}
-                      onClick={() => { if (n > 0 && !expanded.has(s.key)) toggle(s.key); }}
-                      className={cn("rounded-xl border border-border bg-card px-2 py-2 text-center transition-colors", n > 0 ? "hover:bg-muted/50" : "opacity-60")}
-                    >
-                      <p className={cn("text-lg font-bold tabular-nums", n > 0 ? meta.tone : "text-muted-foreground")}>{n}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">{s.label}</p>
-                    </button>
-                  );
-                })}
+              <div className="-mx-1 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1.5 px-1 pb-0.5">
+                  {pillOrder.map((k) => {
+                    const meta = BLOCK_META[k];
+                    const n = blocks[k].length;
+                    if (n === 0) return null;
+                    const Icon = meta.icon;
+                    const isActive = expanded.has(k);
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => toggle(k)}
+                        title={meta.label}
+                        className={cn(
+                          "inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-transparent px-2 py-1 text-[11px] font-medium transition-all active:scale-95",
+                          meta.ring,
+                          isActive ? "ring-1 ring-primary/30 ring-offset-1" : "hover:brightness-95",
+                        )}
+                      >
+                        <Icon className={cn("h-3 w-3 shrink-0", meta.tone)} />
+                        <span className={cn("font-semibold tabular-nums", meta.tone)}>{n}</span>
+                        <span className="text-[10px] text-muted-foreground">{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {order.map((k) => (
               <Block
