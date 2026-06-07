@@ -173,6 +173,9 @@ export default function MyTasksDashboard({
     const today = scoped
       .filter((t) => t.deadline && new Date(t.deadline) >= start && new Date(t.deadline) < end)
       .sort(byDeadline);
+    const important = scoped
+      .filter((t) => t.is_important || t.priority === 1)
+      .sort(byDeadline);
     const week = scoped
       .filter((t) => t.deadline && new Date(t.deadline) >= end && new Date(t.deadline) < weekEnd)
       .sort(byDeadline);
@@ -181,7 +184,7 @@ export default function MyTasksDashboard({
     const approval = scoped.filter((t) => t.requires_approval && t.approval_status === "pending").sort(byDeadline);
     const toMe = involved.filter((t) => t.assigned_to === uid && t.delegated_from && t.delegated_from !== uid).sort(byDeadline);
 
-    return { overdue, today, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
+    return { overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
   const toggle = (k: BlockKey) =>
@@ -206,7 +209,7 @@ export default function MyTasksDashboard({
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 
-  const order: BlockKey[] = ["overdue", "today", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
+  const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
     <div className="flex h-full flex-col bg-background">
