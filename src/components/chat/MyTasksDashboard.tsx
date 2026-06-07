@@ -378,6 +378,82 @@ export default function MyTasksDashboard({
     invalidate();
   };
 
+  // ── Инлайн «спросить ИИ» — единый кросс-ап контекст «Моего дня» ──
+  const {
+    messages: askMessages, addMessage, updateLastAssistant, clearConversation,
+  } = useAiConversation({ contextType: "assistant", contextId: null });
+  const [draft, setDraft] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const askEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    askEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [askMessages]);
+
+  const buildMyDayContext = useCallback(
+    () => ({
+      mode: "myday",
+      scope,
+      counts: {
+        overdue: blocks.overdue.length, today: blocks.today.length, important: blocks.important.length,
+        week: blocks.week.length, noDeadline: blocks.noDeadline.length, unread: blocks.unread.length,
+        approval: blocks.approval.length, toMe: blocks.toMe.length, byMe: blocks.byMe.length,
+      },
+      topOverdue: blocks.overdue.slice(0, 8).map((t) => t.title),
+      topToday: blocks.today.slice(0, 8).map((t) => t.title),
+      topWeek: blocks.week.slice(0, 8).map((t) => t.title),
+      topImportant: blocks.important.slice(0, 8).map((t) => t.title),
+      topToMe: blocks.toMe.slice(0, 8).map((t) => t.title),
+      protocols: cross?.protocols ?? null,
+      drift: cross?.drift ?? null,
+      npd: cross?.npd ?? null,
+    }),
+    [blocks, scope, cross],
+  );
+
+  const ask = useCallback(
+    async (text?: string) => {
+      const input = (text || draft).trim();
+      if (!input || isStreaming) return;
+      addMessage({ role: "user", content: input });
+      setDraft("");
+      setIsStreaming(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      let acc = "";
+      try {
+        await streamChat({
+          url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`,
+          body: {
+            message: input,
+            action: "context_chat",
+            context: {
+              projectContext: buildMyDayContext(),
+              history: askMessages.map((m) => ({ role: m.role, content: m.content })),
+            },
+          },
+          onDelta: (chunk) => { acc += chunk; updateLastAssistant(acc); },
+          onDone: () => {},
+          signal: controller.signal,
+        });
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        if (e instanceof StreamChatError && e.status === 429) {
+          addMessage({ role: "assistant", content: "⚠️ Слишком много запросов. Попробуйте через минуту." });
+        } else if (e instanceof StreamChatError && e.status === 402) {
+          addMessage({ role: "assistant", content: "⚠️ ИИ временно недоступен." });
+        } else if (!acc) {
+          addMessage({ role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." });
+        }
+      } finally {
+        setIsStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [draft, isStreaming, askMessages, buildMyDayContext, addMessage, updateLastAssistant],
+  );
+
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
   // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
   // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
