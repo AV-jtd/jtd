@@ -226,6 +226,7 @@ export default function MyTasksDashboard({
   const uid = user?.id;
   const { data, isLoading } = useMyTasksDashboard();
   const { isThreadUnread } = useUnreadMessages();
+  const { data: users = [] } = useAvailableUsers();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<Scope>(() => {
     const s = typeof localStorage !== "undefined" ? localStorage.getItem(SCOPE_KEY) : null;
@@ -288,6 +289,38 @@ export default function MyTasksDashboard({
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   };
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["my_tasks_dashboard", uid] });
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const setDate = async (id: string, date: Date | null) => {
+    await supabase.from("tasks").update({ deadline: date ? date.toISOString() : null }).eq("id", id);
+    invalidate();
+  };
+
+  const setAssignee = async (id: string, sel: AssigneeSelection) => {
+    // assigned_to синкается в task_participants на стороне БД.
+    if (sel.kind === "user") {
+      await supabase.from("tasks").update({ assigned_to: sel.id, department_id: null, contractor_id: null }).eq("id", id);
+    } else if (sel.kind === "department") {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: sel.id, contractor_id: null }).eq("id", id);
+    } else if (sel.kind === "contractor") {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: null, contractor_id: sel.id }).eq("id", id);
+    } else {
+      await supabase.from("tasks").update({ assigned_to: null, department_id: null, contractor_id: null }).eq("id", id);
+    }
+    invalidate();
+  };
+
+  // Сводка сверху: ключевые числа дня.
+  const summary: { key: BlockKey; label: string }[] = [
+    { key: "overdue", label: "Просрочено" },
+    { key: "today", label: "Сегодня" },
+    { key: "important", label: "Важное" },
+    { key: "unread", label: "Непрочитанные" },
+  ];
+
   const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
 
   return (
@@ -325,17 +358,38 @@ export default function MyTasksDashboard({
           {isLoading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
-            order.map((k) => (
+            <>
+              <div className="grid grid-cols-4 gap-2">
+                {summary.map((s) => {
+                  const meta = BLOCK_META[s.key];
+                  const n = blocks[s.key].length;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => { if (n > 0 && !expanded.has(s.key)) toggle(s.key); }}
+                      className={cn("rounded-xl border border-border bg-card px-2 py-2 text-center transition-colors", n > 0 ? "hover:bg-muted/50" : "opacity-60")}
+                    >
+                      <p className={cn("text-lg font-bold tabular-nums", n > 0 ? meta.tone : "text-muted-foreground")}>{n}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{s.label}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {order.map((k) => (
               <Block
                 key={k}
                 blockKey={k}
                 tasks={blocks[k]}
+                  users={users}
                 expanded={expanded.has(k)}
                 onToggle={() => toggle(k)}
                 onOpen={onOpenTask}
                 onComplete={completeTask}
+                  onSetDate={setDate}
+                  onSetAssignee={setAssignee}
               />
-            ))
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>
