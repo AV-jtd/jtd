@@ -12,7 +12,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { counts, topOverdue, topToday, topImportant, topWeek, topToMe, scope } =
+    const { counts, topOverdue, topToday, topImportant, topWeek, topToMe, scope, cross } =
       (await req.json()) as {
         counts?: Counts;
         topOverdue?: string[];
@@ -21,10 +21,16 @@ serve(async (req) => {
         topWeek?: string[];
         topToMe?: string[];
         scope?: string;
+        cross?: {
+          protocols?: { count: number; items: { title: string; ref: string | null }[] };
+          drift?: { count: number; items: { title: string; ref: string | null }[] };
+          npd?: { count: number; items: { title: string; ref: string | null }[] };
+        } | null;
       };
 
     const c = counts ?? {};
-    const total = Object.values(c).reduce((a, b) => a + (b || 0), 0);
+    const crossTotal = (cross?.protocols?.count ?? 0) + (cross?.drift?.count ?? 0) + (cross?.npd?.count ?? 0);
+    const total = Object.values(c).reduce((a, b) => a + (b || 0), 0) + crossTotal;
 
     // Нечего анализировать — отдаём дружелюбную заглушку без обращения к ИИ.
     if (total === 0) {
@@ -53,6 +59,9 @@ serve(async (req) => {
       topImportant?.length ? `Примеры важных: ${topImportant.slice(0, 6).join("; ")}.` : "",
       topWeek?.length ? `Примеры на неделе: ${topWeek.slice(0, 6).join("; ")}.` : "",
       topToMe?.length ? `Поручено мне: ${topToMe.slice(0, 6).join("; ")}.` : "",
+      cross?.protocols?.count ? `Незакрытые задачи из протоколов совещаний: ${cross.protocols.count} (${cross.protocols.items.slice(0, 5).map((i) => i.title).join("; ")}).` : "",
+      cross?.drift?.count ? `Задачи со сдвигом срока (drift) относительно базлайна: ${cross.drift.count} (${cross.drift.items.slice(0, 5).map((i) => i.title).join("; ")}).` : "",
+      cross?.npd?.count ? `NPD-задачи в зоне риска (просрочены): ${cross.npd.count} (${cross.npd.items.slice(0, 5).map((i) => i.title).join("; ")}).` : "",
     ].filter(Boolean).join("\n");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -64,11 +73,11 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "Ты — проницательный AI-ассистент по личной продуктивности (методология GTD). По сводке задач дай ГЛУБОКУЮ, НЕОЧЕВИДНУЮ рекомендацию на русском.\n" +
+              "Ты — проницательный AI-ассистент по личной продуктивности (методология GTD) с кросс-модульным обзором (задачи, протоколы совещаний, PMO drift, NPD-гейты). По сводке дай ГЛУБОКУЮ, НЕОЧЕВИДНУЮ рекомендацию на русском.\n" +
               "Правила:\n" +
               "1. 2–3 коротких предложения, максимум 55 слов.\n" +
               "2. ЗАПРЕЩЕНО банальное «у вас N просрочено» или «обратите внимание на дедлайны» — это очевидно.\n" +
-              "3. Найди паттерн, риск или дисбаланс (перегруз, забытые задачи, скрытое узкое место в делегировании/согласовании) и предложи конкретный первый шаг.\n" +
+              "3. Найди паттерн, риск или дисбаланс (перегруз, забытые задачи из протоколов, drift по проектам, узкое место в делегировании/согласовании) и предложи конкретный первый шаг.\n" +
               "4. Если уместно — ссылайся на конкретную задачу по названию.\n" +
               "5. Тон — как умный коллега, который видит то, что ты не заметил. Без приветствий, без списков, без markdown.",
           },
