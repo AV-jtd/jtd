@@ -243,19 +243,19 @@ export default function ChatRoomsList({
       </div>
       <ScrollArea className="flex-1">
         <div className="space-y-0.5 px-2 pb-3">
-          {onOpenMyTasks && (
+          {onOpenAssistant && (
             <button
-              onClick={onOpenMyTasks}
+              onClick={onOpenAssistant}
               className={cn(
                 "mb-1 flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
-                myTasksActive ? "bg-primary/10" : "hover:bg-muted",
+                assistantActive ? "bg-primary/10" : "hover:bg-muted",
               )}
             >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                <ListChecks className="h-4 w-4" />
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-br from-cyan-400/20 to-violet-500/20 text-primary">
+                <Sparkles className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">Мои задачи</p>
+                <p className="truncate text-sm font-semibold">ИИ-ассистент</p>
                 {myTaskPills.length > 0 ? (
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {myTaskPills.map((p) => (
@@ -272,7 +272,7 @@ export default function ChatRoomsList({
                     ))}
                   </div>
                 ) : (
-                  <p className="truncate text-xs text-muted-foreground">Дашборд: просрочено, сегодня, делегирование</p>
+                  <p className="truncate text-xs text-muted-foreground">Чат с ИИ • сводка задач и уведомления</p>
                 )}
               </div>
               {hotCount > 0 && (
