@@ -22,6 +22,8 @@ export type Thread = {
   /** For task threads — current completion status (closed = strike-through). */
   taskCompleted?: boolean;
   groupName?: string;
+  /** For task threads — linked CRM client name (🏢), if any. */
+  clientName?: string | null;
   /** Visual hints for project (group) threads, used by the messenger to
    *  visually distinguish project chats from task chats in the list. */
   groupIcon?: string | null;
@@ -169,7 +171,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           ? supabase.from("task_groups").select("id, name, icon, color, logo_url, project_type, client_id").in("id", groupIds)
           : Promise.resolve({ data: [] as any[] }),
         taskIds.length > 0
-          ? supabase.from("tasks").select("id, title, group_id, is_completed").in("id", taskIds)
+          ? supabase.from("tasks").select("id, title, group_id, is_completed, client_id").in("id", taskIds)
           : Promise.resolve({ data: [] as any[] }),
         authorIds.length > 0
           ? supabase.from("profiles").select("id, display_name, email").in("id", authorIds)
@@ -199,6 +201,22 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           .select("id, logo_url")
           .in("id", clientIds);
         for (const c of (clientRows as any[]) || []) clientLogoMap.set(c.id, c.logo_url ?? null);
+      }
+
+      // Task threads may be linked to a CRM client (tasks.client_id). Resolve
+      // those names so the chat list can show a 🏢 client marker on the task.
+      const taskClientIds = [
+        ...new Set(
+          tasks.map((t) => t.client_id as string | null).filter((id): id is string => !!id),
+        ),
+      ];
+      const clientNameMap = new Map<string, string>();
+      if (taskClientIds.length > 0) {
+        const { data: clientNameRows } = await supabase
+          .from("clients")
+          .select("id, name")
+          .in("id", taskClientIds);
+        for (const c of (clientNameRows as any[]) || []) clientNameMap.set(c.id, c.name);
       }
 
       // Step 4: for task threads we still need parent-group names for the
@@ -266,6 +284,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           taskId: t.id,
           taskCompleted: !!(t as any).is_completed,
           groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
+          clientName: (t as any).client_id ? clientNameMap.get((t as any).client_id) ?? null : null,
         });
       }
 
