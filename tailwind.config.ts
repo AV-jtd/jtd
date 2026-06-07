@@ -117,6 +117,11 @@ export default {
           "50%": { transform: "scale(1.2)" },
           "100%": { transform: "scale(1)" },
         },
+        "msg-flash": {
+          "0%": { backgroundColor: "hsl(var(--primary) / 0.25)" },
+          "70%": { backgroundColor: "hsl(var(--primary) / 0.18)" },
+          "100%": { backgroundColor: "transparent" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -124,6 +129,7 @@ export default {
         "slide-in": "slide-in 0.3s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
         "check-bounce": "check-bounce 0.3s ease-out",
+        "msg-flash": "msg-flash 2s ease-out",
       },
     },
   },

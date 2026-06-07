@@ -2,12 +2,14 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hooks/useMessenger";
 import { useAvailableUsers } from "@/hooks/useTasks";
+import { useMessageSearch, type MessageSearchResult } from "@/hooks/useMessageSearch";
+import ChatAvatar from "./chat/ChatAvatar";
 import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
 import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, Maximize2, User as UserIcon, MailWarning } from "lucide-react";
-import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { format, isToday, isYesterday, parseISO, formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -88,6 +90,9 @@ export default function MessengerPanel({
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [search, setSearch] = useState("");
+  // Сообщение, к которому нужно проскроллить/подсветить после перехода из
+  // глобального поиска по сообщениям.
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   // Multi-select filters over the thread list. Empty array = no filter.
   // - authorIds: filter by `lastMessageUserId` (last message author).
   // - projectIds: filter by `groupId` (works for both project-chat threads
@@ -173,6 +178,7 @@ export default function MessengerPanel({
     // Always switch to the freshly clicked thread, even if another one is
     // already active. Using a functional updater guarantees the new value is
     // applied even when several clicks land in the same React batch.
+    setHighlightMessageId(null);
     setActiveThread(() => thread);
     onActiveThreadChange?.(thread.id);
     markThreadRead?.(thread.id);
@@ -180,8 +186,51 @@ export default function MessengerPanel({
 
   const clearActiveThread = () => {
     setActiveThread(null);
+    setHighlightMessageId(null);
     restoredRef.current = null;
     onActiveThreadChange?.(null);
+  };
+
+  // Глобальный полнотекстовый поиск по сообщениям (3+ символа, debounce 300ms).
+  const isSearching = search.trim().length > 0;
+  const { data: searchResults = [], isFetching: searchFetching } = useMessageSearch(search);
+  const searchTerm = search.trim();
+
+  const handleOpenSearchResult = (r: MessageSearchResult) => {
+    let thread: Thread | undefined;
+    if (r.source === "group" && r.groupId) {
+      thread =
+        threads.find((t) => t.type === "group" && t.groupId === r.groupId) ?? {
+          id: `group-${r.groupId}`,
+          type: "group",
+          name: r.threadName,
+          lastMessage: null,
+          lastMessageAt: null,
+          lastMessageAuthor: null,
+          lastMessageUserId: null,
+          messageCount: 0,
+          groupId: r.groupId,
+        };
+    } else if (r.source === "task" && r.taskId) {
+      thread =
+        threads.find((t) => t.type === "task" && t.taskId === r.taskId) ?? {
+          id: `task-${r.taskId}`,
+          type: "task",
+          name: r.threadName,
+          lastMessage: null,
+          lastMessageAt: null,
+          lastMessageAuthor: null,
+          lastMessageUserId: null,
+          messageCount: 0,
+          taskId: r.taskId,
+          groupId: r.groupId ?? undefined,
+        };
+    }
+    if (!thread) return;
+    setHighlightMessageId(r.id);
+    setActiveThread(() => thread!);
+    onActiveThreadChange?.(thread.id);
+    markThreadRead?.(thread.id);
   };
 
   // CRM-контекст активного треда-задачи: нужен, чтобы прямо в шапке чата
@@ -462,7 +511,15 @@ export default function MessengerPanel({
           </button>
         </div>
 
-        {/* Thread list */}
+        {/* Global message search results — replaces the thread list while typing. */}
+        {isSearching ? (
+          <MessageSearchResults
+            results={searchResults}
+            term={searchTerm}
+            loading={searchFetching}
+            onOpen={handleOpenSearchResult}
+          />
+        ) : (
         <ScrollArea className="flex-1">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Загрузка...</p>
@@ -568,6 +625,7 @@ export default function MessengerPanel({
             </div>
           )}
         </ScrollArea>
+        )}
       </div>
     );
   }
@@ -697,6 +755,7 @@ export default function MessengerPanel({
             groupName={activeThread.name}
             hideHeader
             onClose={clearActiveThread}
+            highlightMessageId={highlightMessageId}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
@@ -712,6 +771,7 @@ export default function MessengerPanel({
             variant="full"
             isCompleted={activeThread.taskCompleted}
             groupId={activeThread.groupId ?? null}
+            highlightMessageId={highlightMessageId}
             onNavigateToTask={(tId) => {
               if (onNavigateToTask) {
                 onNavigateToTask(tId);
@@ -722,6 +782,110 @@ export default function MessengerPanel({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** Highlights the matched query substring inside a message snippet. */
+function highlightSnippet(content: string, term: string) {
+  const text = content.replace(/\s+/g, " ").trim();
+  const q = term.trim();
+  if (!q) return text.slice(0, 140);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return text.slice(0, 140);
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, idx + q.length + 70);
+  const before = (start > 0 ? "…" : "") + text.slice(start, idx);
+  const match = text.slice(idx, idx + q.length);
+  const after = text.slice(idx + q.length, end) + (end < text.length ? "…" : "");
+  return (
+    <>
+      {before}
+      <mark className="rounded-sm bg-accent/30 px-0.5 text-accent-foreground">{match}</mark>
+      {after}
+    </>
+  );
+}
+
+/**
+ * Global message-search results, grouped by source ("Проекты" / "Задачи").
+ * Each row shows the author avatar, a snippet with the matched word
+ * highlighted, the thread name and a relative timestamp.
+ */
+function MessageSearchResults({
+  results,
+  term,
+  loading,
+  onOpen,
+}: {
+  results: MessageSearchResult[];
+  term: string;
+  loading: boolean;
+  onOpen: (r: MessageSearchResult) => void;
+}) {
+  if (term.trim().length < 3) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-6 py-12 text-center">
+        <p className="text-xs text-muted-foreground">Введите минимум 3 символа для поиска по сообщениям</p>
+      </div>
+    );
+  }
+
+  if (loading && results.length === 0) {
+    return <p className="flex-1 text-sm text-muted-foreground text-center py-8">Поиск…</p>;
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-16 px-6">
+        <Search className="h-10 w-10 text-muted-foreground/20 mb-3" />
+        <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+        <p className="text-xs text-muted-foreground mt-1">Попробуйте изменить запрос</p>
+      </div>
+    );
+  }
+
+  const groups = results.filter((r) => r.source === "group");
+  const tasks = results.filter((r) => r.source === "task");
+
+  const renderRow = (r: MessageSearchResult) => (
+    <button
+      key={`${r.source}-${r.id}`}
+      onClick={() => onOpen(r)}
+      className="w-full flex items-start gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-muted/50"
+    >
+      <ChatAvatar name={r.authorName || "—"} size="sm" className="mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-xs font-semibold text-foreground">{r.threadName}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {formatDistanceToNow(parseISO(r.createdAt), { addSuffix: true, locale: ru })}
+          </span>
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+          {r.authorName && <span className="font-medium text-foreground/60">{r.authorName}: </span>}
+          {highlightSnippet(r.content, term)}
+        </p>
+      </div>
+    </button>
+  );
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="py-1">
+        {groups.length > 0 && (
+          <>
+            <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Проекты</p>
+            {groups.map(renderRow)}
+          </>
+        )}
+        {tasks.length > 0 && (
+          <>
+            <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Задачи</p>
+            {tasks.map(renderRow)}
+          </>
+        )}
+      </div>
+    </ScrollArea>
   );
 }
 

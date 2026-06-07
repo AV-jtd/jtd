@@ -33,13 +33,15 @@ interface ProjectChatProps {
   onNavigateToProject?: (groupId: string) => void;
   /** Open a task by id (from inline-created task card) */
   onNavigateToTask?: (taskId: string) => void;
+  /** Сообщение, к которому нужно проскроллить и кратко подсветить (из поиска). */
+  highlightMessageId?: string | null;
 }
 
 function getAuthorName(msg: GroupMessage) {
   return msg.profile?.display_name || msg.external_author || "Аноним";
 }
 
-export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask }: ProjectChatProps) {
+export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask, highlightMessageId }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
@@ -71,6 +73,8 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   };
   const closeTaskForm = () => setTaskFormFor(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** ID сообщения для кратковременной подсветки из глобального поиска. */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   /** Standalone task form opened from the chat header (not tied to a message). */
   const [headerTaskOpen, setHeaderTaskOpen] = useState(false);
   const toggleHeaderTask = () => { setHeaderTaskOpen(v => !v); setTaskFormNonce(n => n + 1); };
@@ -97,6 +101,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // Внешняя подсветка из глобального поиска: после загрузки сообщений скроллим
+  // к найденному и подсвечиваем на 2 секунды.
+  useEffect(() => {
+    if (!highlightMessageId || messages.length === 0) return;
+    setHighlightId(highlightMessageId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`pc-msg-${groupId}-${highlightMessageId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const t = window.setTimeout(() => setHighlightId(null), 2000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, messages.length, groupId]);
 
   // Load current chat binding + mirror status.
   useEffect(() => {
@@ -543,7 +561,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
               const card = parseChatCard(msg.external_message_id, msg.content);
               if (card) {
                 return (
-                  <div key={msg.id} className="group">
+                  <div
+                    key={msg.id}
+                    id={`pc-msg-${groupId}-${msg.id}`}
+                    className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
+                  >
                     <SystemCard
                       card={card}
                       isCompleted={card.def.target === "task" ? (taskStatusMap?.get(card.entityId) ?? false) : false}
@@ -558,7 +580,11 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
               }
 
               return (
-                <div key={msg.id} className="group">
+                <div
+                  key={msg.id}
+                  id={`pc-msg-${groupId}-${msg.id}`}
+                  className={cn("group rounded-md", highlightId === msg.id && "ring-1 ring-primary/30 animate-msg-flash")}
+                >
                   {/* Root message */}
                   <MessageBubble
                     msg={msg}

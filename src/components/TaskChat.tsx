@@ -92,12 +92,14 @@ interface TaskChatProps {
   /** Внешний триггер для открытия inline-формы создания связанной задачи.
    *  Меняется числом (Date.now()) — при изменении форма раскрывается. */
   openFollowUpSignal?: number;
+  /** Сообщение, к которому нужно проскроллить и кратко подсветить (из поиска). */
+  highlightMessageId?: string | null;
 }
 
 export default function TaskChat({
   taskId, taskTitle, availableUsers, variant = "inline", onNavigateToTask,
   isCompleted: isCompletedProp, groupId: groupIdProp,
-  showCloseAction = true, openFollowUpSignal,
+  showCloseAction = true, openFollowUpSignal, highlightMessageId,
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
@@ -246,6 +248,20 @@ export default function TaskChat({
     });
     window.setTimeout(() => setHighlightId(null), 1800);
   };
+
+  /** Внешняя подсветка из глобального поиска сообщений: ждём пока подгрузятся
+   *  комментарии, затем скроллим к найденному сообщению и подсвечиваем на 2с. */
+  useEffect(() => {
+    if (!highlightMessageId || comments.length === 0) return;
+    setHighlightId(highlightMessageId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tc-msg-${taskId}-${highlightMessageId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const t = window.setTimeout(() => setHighlightId(null), 2000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, comments.length, taskId]);
 
   /**
    * Начать адресный ответ: запоминаем сообщение и подставляем @-упоминание
@@ -588,7 +604,7 @@ export default function TaskChat({
               id={`tc-msg-${taskId}-${c.id}`}
               className={cn(
                 "rounded-md transition-colors",
-                highlightId === c.id && "bg-primary/10 ring-1 ring-primary/30",
+                highlightId === c.id && "ring-1 ring-primary/30 animate-msg-flash",
               )}
             >
             <ChatMessageRow
