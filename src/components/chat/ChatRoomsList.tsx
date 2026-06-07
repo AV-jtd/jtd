@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, MessageCircle, Plus, Home } from "lucide-react";
+import { Search, MessageCircle, Plus, Home, CheckSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ClientAvatar from "@/components/ClientAvatar";
@@ -24,6 +24,13 @@ function RankBadge({ label }: { label: string | null }) {
 }
 
 function RoomAvatar({ room }: { room: ChatRoom }) {
+  if (room.isTaskRoom) {
+    return (
+      <div className="h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary shrink-0">
+        <CheckSquare className="h-4 w-4" />
+      </div>
+    );
+  }
   if (room.isClientRoom) {
     return <ClientAvatar client={{ name: room.name, logo_url: room.groupLogoUrl }} size="md" />;
   }
@@ -104,21 +111,36 @@ function NewClientRoomButton({ onOpen }: { onOpen: (groupId: string) => void }) 
 export default function ChatRoomsList({
   activeGroupId,
   onSelect,
+  onSelectTask,
   onHome,
 }: {
   activeGroupId: string | null;
   onSelect: (groupId: string) => void;
+  onSelectTask?: (taskId: string) => void;
   onHome?: () => void;
 }) {
   const { rooms, isLoading } = useChatRooms();
   const { isThreadUnread } = useUnreadMessages();
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rooms;
-    return rooms.filter((r) => r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s));
-  }, [rooms, q]);
+    return rooms.filter((r) => {
+      if (filter === "projects" && (r.isClientRoom || r.isTaskRoom)) return false;
+      if (filter === "clients" && !r.isClientRoom) return false;
+      if (filter === "tasks" && !r.isTaskRoom) return false;
+      if (!s) return true;
+      return r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s);
+    });
+  }, [rooms, q, filter]);
+
+  const FILTERS: { key: typeof filter; label: string }[] = [
+    { key: "all", label: "Все" },
+    { key: "projects", label: "Проекты" },
+    { key: "clients", label: "Клиенты" },
+    { key: "tasks", label: "Задачи" },
+  ];
 
   return (
     <div className="flex h-full flex-col bg-card">
@@ -138,6 +160,20 @@ export default function ChatRoomsList({
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="h-8 pl-7" />
         </div>
+        <div className="mt-2 flex items-center gap-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                filter === f.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
       <ScrollArea className="flex-1">
         <div className="space-y-0.5 px-2 pb-3">
@@ -150,7 +186,7 @@ export default function ChatRoomsList({
             return (
               <button
                 key={room.groupId}
-                onClick={() => onSelect(room.groupId)}
+                onClick={() => (room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId))}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
                   room.groupId === activeGroupId ? "bg-primary/10" : "hover:bg-muted",
@@ -159,7 +195,7 @@ export default function ChatRoomsList({
                 <RoomAvatar room={room} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center">
-                    <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
+                    <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium", room.taskCompleted && "line-through opacity-60")}>
                       {room.name}
                     </span>
                     {room.isClientRoom && <RankBadge label={room.client?.rankLabel ?? null} />}
@@ -170,6 +206,9 @@ export default function ChatRoomsList({
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
+                    {room.isTaskRoom && room.parentName ? (
+                      <span className="opacity-70">{room.parentName} · </span>
+                    ) : null}
                     {room.lastMessage ? (
                       <>
                         {room.lastMessageAuthor && <span className="opacity-80">{room.lastMessageAuthor}: </span>}

@@ -59,7 +59,7 @@ export default function ChatFullscreen() {
         <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} onSelect={select} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
           )}
           {mobilePane === "chat" && (hasClient ? (
             <ClientRoomCenter
@@ -106,7 +106,7 @@ export default function ChatFullscreen() {
     <div className="flex h-[100dvh] bg-background">
       <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-        <ChatRoomsList activeGroupId={groupId} onSelect={select} />
+        <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {hasClient ? (
