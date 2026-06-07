@@ -9,6 +9,9 @@ import {
   ChevronDown,
   ChevronRight,
   ListChecks,
+  CalendarRange,
+  CircleDashed,
+  Stamp,
   X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,8 +21,11 @@ import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTask
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type BlockKey = "overdue" | "today" | "unread" | "toMe" | "byMe";
+type BlockKey = "overdue" | "today" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
 type Scope = "involved" | "assignee";
+
+const SCOPE_KEY = "mytasks_scope";
+const EXPANDED_KEY = "mytasks_expanded";
 
 const BLOCK_META: Record<
   BlockKey,
@@ -27,7 +33,10 @@ const BLOCK_META: Record<
 > = {
   overdue: { label: "Просрочено", icon: AlertTriangle, tone: "text-destructive", ring: "bg-destructive/10" },
   today: { label: "Сегодня", icon: CalendarClock, tone: "text-tag-orange", ring: "bg-tag-orange/10" },
+  week: { label: "На этой неделе", icon: CalendarRange, tone: "text-tag-blue", ring: "bg-tag-blue/10" },
+  noDeadline: { label: "Без дедлайна", icon: CircleDashed, tone: "text-muted-foreground", ring: "bg-muted" },
   unread: { label: "Непрочитанные обсуждения", icon: MessageSquare, tone: "text-primary", ring: "bg-primary/10" },
+  approval: { label: "На согласовании", icon: Stamp, tone: "text-tag-purple", ring: "bg-tag-purple/10" },
   toMe: { label: "Делегировано мне", icon: ArrowDownLeft, tone: "text-tag-blue", ring: "bg-tag-blue/10" },
   byMe: { label: "Делегировано мной", icon: ArrowUpRight, tone: "text-tag-green", ring: "bg-tag-green/10" },
 };
