@@ -24,6 +24,8 @@ export type Thread = {
   groupName?: string;
   /** For task threads — linked CRM client name (🏢), if any. */
   clientName?: string | null;
+  /** For task threads — linked CRM client logo url, if any. */
+  clientLogoUrl?: string | null;
   /** Visual hints for project (group) threads, used by the messenger to
    *  visually distinguish project chats from task chats in the list. */
   groupIcon?: string | null;
@@ -211,12 +213,16 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
         ),
       ];
       const clientNameMap = new Map<string, string>();
+      const clientLogoMapTask = new Map<string, string | null>();
       if (taskClientIds.length > 0) {
         const { data: clientNameRows } = await supabase
           .from("clients")
-          .select("id, name")
+          .select("id, name, logo_url")
           .in("id", taskClientIds);
-        for (const c of (clientNameRows as any[]) || []) clientNameMap.set(c.id, c.name);
+        for (const c of (clientNameRows as any[]) || []) {
+          clientNameMap.set(c.id, c.name);
+          clientLogoMapTask.set(c.id, c.logo_url ?? null);
+        }
       }
 
       // Step 4: for task threads we still need parent-group names for the
@@ -285,6 +291,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           taskCompleted: !!(t as any).is_completed,
           groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
           clientName: (t as any).client_id ? clientNameMap.get((t as any).client_id) ?? null : null,
+          clientLogoUrl: (t as any).client_id ? clientLogoMapTask.get((t as any).client_id) ?? null : null,
         });
       }
 
