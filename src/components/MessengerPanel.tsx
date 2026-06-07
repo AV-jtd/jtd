@@ -785,6 +785,110 @@ export default function MessengerPanel({
   );
 }
 
+/** Highlights the matched query substring inside a message snippet. */
+function highlightSnippet(content: string, term: string) {
+  const text = content.replace(/\s+/g, " ").trim();
+  const q = term.trim();
+  if (!q) return text.slice(0, 140);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return text.slice(0, 140);
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, idx + q.length + 70);
+  const before = (start > 0 ? "…" : "") + text.slice(start, idx);
+  const match = text.slice(idx, idx + q.length);
+  const after = text.slice(idx + q.length, end) + (end < text.length ? "…" : "");
+  return (
+    <>
+      {before}
+      <mark className="rounded-sm bg-accent/30 px-0.5 text-accent-foreground">{match}</mark>
+      {after}
+    </>
+  );
+}
+
+/**
+ * Global message-search results, grouped by source ("Проекты" / "Задачи").
+ * Each row shows the author avatar, a snippet with the matched word
+ * highlighted, the thread name and a relative timestamp.
+ */
+function MessageSearchResults({
+  results,
+  term,
+  loading,
+  onOpen,
+}: {
+  results: MessageSearchResult[];
+  term: string;
+  loading: boolean;
+  onOpen: (r: MessageSearchResult) => void;
+}) {
+  if (term.trim().length < 3) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-6 py-12 text-center">
+        <p className="text-xs text-muted-foreground">Введите минимум 3 символа для поиска по сообщениям</p>
+      </div>
+    );
+  }
+
+  if (loading && results.length === 0) {
+    return <p className="flex-1 text-sm text-muted-foreground text-center py-8">Поиск…</p>;
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-16 px-6">
+        <Search className="h-10 w-10 text-muted-foreground/20 mb-3" />
+        <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+        <p className="text-xs text-muted-foreground mt-1">Попробуйте изменить запрос</p>
+      </div>
+    );
+  }
+
+  const groups = results.filter((r) => r.source === "group");
+  const tasks = results.filter((r) => r.source === "task");
+
+  const renderRow = (r: MessageSearchResult) => (
+    <button
+      key={`${r.source}-${r.id}`}
+      onClick={() => onOpen(r)}
+      className="w-full flex items-start gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-muted/50"
+    >
+      <ChatAvatar name={r.authorName || "—"} size="sm" className="mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-xs font-semibold text-foreground">{r.threadName}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {formatDistanceToNow(parseISO(r.createdAt), { addSuffix: true, locale: ru })}
+          </span>
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+          {r.authorName && <span className="font-medium text-foreground/60">{r.authorName}: </span>}
+          {highlightSnippet(r.content, term)}
+        </p>
+      </div>
+    </button>
+  );
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="py-1">
+        {groups.length > 0 && (
+          <>
+            <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Проекты</p>
+            {groups.map(renderRow)}
+          </>
+        )}
+        {tasks.length > 0 && (
+          <>
+            <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Задачи</p>
+            {tasks.map(renderRow)}
+          </>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}
+
 /**
  * Compact filter chip that opens a popover with multi-select checkboxes.
  * Active state shows a count badge; clearing happens via the trash button.
