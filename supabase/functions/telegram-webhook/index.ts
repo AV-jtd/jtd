@@ -2280,6 +2280,7 @@ Deno.serve(async (req) => {
       }
     }
     if (groupId) extras.push("📂 в проекте");
+    if (genericClient) extras.push(`🏢 ${genericClient.name}`);
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
     if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
     if (assigneeAutoJoinedName) {
