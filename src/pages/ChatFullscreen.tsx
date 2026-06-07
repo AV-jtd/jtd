@@ -59,7 +59,7 @@ export default function ChatFullscreen() {
         <TaskDetailSheet taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} onSelect={select} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
           )}
           {mobilePane === "chat" && (hasClient ? (
             <ClientRoomCenter
