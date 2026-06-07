@@ -248,6 +248,41 @@ export default function ChatRoomsList({
     });
   }, [rooms, q, filter]);
 
+  // Аккордеон: задачи сворачиваются под свой проект. Активен в режимах
+  // «Все» и «Проекты». В «Задачах»/«Клиентах» — плоский список как раньше.
+  const grouped = useMemo(() => {
+    const accordion = filter === "all" || filter === "projects";
+    if (!accordion) return filtered.map((room) => ({ room, children: [] as ChatRoom[] }));
+
+    const parents = filtered.filter((r) => !r.isTaskRoom);
+    const parentById = new Map(parents.map((p) => [p.groupId, p]));
+    const childrenByParent = new Map<string, ChatRoom[]>();
+    const orphans: ChatRoom[] = [];
+    for (const r of filtered) {
+      if (!r.isTaskRoom) continue;
+      if (r.parentGroupId && parentById.has(r.parentGroupId)) {
+        const arr = childrenByParent.get(r.parentGroupId) ?? [];
+        arr.push(r);
+        childrenByParent.set(r.parentGroupId, arr);
+      } else {
+        orphans.push(r);
+      }
+    }
+
+    const items = [
+      ...parents.map((room) => ({ room, children: childrenByParent.get(room.groupId) ?? [] })),
+      ...orphans.map((room) => ({ room, children: [] as ChatRoom[] })),
+    ];
+
+    // Сортировка по самой свежей активности (свою или дочерней задачи).
+    const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
+      [it.room, ...it.children]
+        .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
+        .reduce((a, b) => Math.max(a, b), 0);
+    items.sort((a, b) => freshest(b) - freshest(a));
+    return items;
+  }, [filtered, filter]);
+
   const FILTERS: { key: typeof filter; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "projects", label: "Проекты" },
