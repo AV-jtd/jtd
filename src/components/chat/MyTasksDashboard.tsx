@@ -289,13 +289,16 @@ export default function MyTasksDashboard({
     [blocks],
   );
 
+  // Кросс-ап сигнатура — сводка пересчитывается и при изменении протоколов/drift/NPD.
+  const crossSig = `${cross?.protocols.count ?? 0}-${cross?.drift.count ?? 0}-${cross?.npd.count ?? 0}`;
+
   const {
     data: aiSummary,
     isFetching: aiLoading,
     error: aiError,
     refetch: refetchAi,
   } = useQuery({
-    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig],
+    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig, crossSig],
     enabled: !!uid && !isLoading,
     staleTime: 1000 * 60 * 60 * 2,
     gcTime: 1000 * 60 * 60 * 6,
@@ -321,6 +324,7 @@ export default function MyTasksDashboard({
           topImportant: blocks.important.slice(0, 6).map((t) => t.title),
           topWeek: blocks.week.slice(0, 6).map((t) => t.title),
           topToMe: blocks.toMe.slice(0, 6).map((t) => t.title),
+          cross: cross ?? null,
         },
       });
       if (error) throw error;
