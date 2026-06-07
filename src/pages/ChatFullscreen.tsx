@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -21,8 +21,10 @@ export default function ChatFullscreen() {
   const { markThreadRead } = useUnreadMessages();
   const [group, setGroup] = useState<{ name: string; client_id: string | null } | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "chat" | "info" | "task" | "taskinfo">("chat");
-  /** Задача, открытая в центре чата (чат-лист слева + карточка задачи справа). */
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  /** Задача в центре чата живёт в URL (`?task=…`) — переживает перезагрузку
+   *  и шарится ссылкой. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openTaskId = searchParams.get("task");
   /** Показывать ли правый сайдбар с карточкой задачи (desktop). */
   const [showTaskInfo, setShowTaskInfo] = useState(true);
 
@@ -43,6 +45,13 @@ export default function ChatFullscreen() {
     if (groupId) markThreadRead(`group-${groupId}`);
   }, [groupId, markThreadRead]);
 
+  // Прочитанность + правильная панель при открытии задачи (в т.ч. из URL).
+  useEffect(() => {
+    if (!openTaskId) return;
+    markThreadRead(`task-${openTaskId}`);
+    if (isMobile) setMobilePane((p) => (p === "task" || p === "taskinfo" ? p : "task"));
+  }, [openTaskId, isMobile, markThreadRead]);
+
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
   }, [loading, user, navigate]);
@@ -55,13 +64,31 @@ export default function ChatFullscreen() {
   // Клик по чату задачи: открываем чат задачи ПО ЦЕНТРУ, карточка задачи —
   // в правом сайдбаре. Список чатов слева остаётся на месте.
   const openTask = (taskId: string) => {
-    setOpenTaskId(taskId);
     setShowTaskInfo(true);
-    markThreadRead(`task-${taskId}`);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("task", taskId);
+        return next;
+      },
+      { replace: false },
+    );
     if (isMobile) setMobilePane("task");
   };
   const closeTask = () => {
-    setOpenTaskId(null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("task");
+        return next;
+      },
+      { replace: false },
+    );
+    if (isMobile) setMobilePane("chat");
+  };
+  // Переход из хлебных крошек задачи в групповой чат проекта.
+  const navigateToGroup = (gid: string) => {
+    navigate(`/chat/${gid}`);
     if (isMobile) setMobilePane("chat");
   };
 
@@ -77,7 +104,7 @@ export default function ChatFullscreen() {
       <div className="flex h-[100dvh] flex-col bg-background">
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
           )}
           {mobilePane === "task" && openTaskId && (
             <TaskRoomCenter
@@ -87,6 +114,7 @@ export default function ChatFullscreen() {
               onClose={closeTask}
               onShowInfo={() => setMobilePane("taskinfo")}
               onNavigateToTask={openTask}
+              onNavigateToGroup={navigateToGroup}
             />
           )}
           {mobilePane === "taskinfo" && openTaskId && (
@@ -146,7 +174,7 @@ export default function ChatFullscreen() {
   return (
     <div className="flex h-[100dvh] bg-background">
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-        <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} />
+        <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {openTaskId ? (
@@ -156,6 +184,7 @@ export default function ChatFullscreen() {
             onClose={closeTask}
             onShowInfo={() => setShowTaskInfo((v) => !v)}
             onNavigateToTask={openTask}
+            onNavigateToGroup={navigateToGroup}
           />
         ) : hasClient ? (
           <ClientRoomCenter
