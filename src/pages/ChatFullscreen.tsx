@@ -100,7 +100,18 @@ export default function ChatFullscreen() {
       return (
         <div className="flex h-[100dvh] flex-col bg-background">
           <div className="min-h-0 flex-1">
-            <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            {openTaskId ? (
+              <TaskRoomCenter
+                key={openTaskId}
+                taskId={openTaskId}
+                onBack={closeTask}
+                onClose={closeTask}
+                onNavigateToTask={openTask}
+                onNavigateToGroup={navigateToGroup}
+              />
+            ) : (
+              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            )}
           </div>
         </div>
       );
@@ -110,9 +121,21 @@ export default function ChatFullscreen() {
         <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
           <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
         </ResizableSidebar>
-        <div className="flex min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
-          Выберите чат слева
-        </div>
+        {openTaskId ? (
+          <div className="min-w-0 flex-1">
+            <TaskRoomCenter
+              key={openTaskId}
+              taskId={openTaskId}
+              onClose={closeTask}
+              onNavigateToTask={openTask}
+              onNavigateToGroup={navigateToGroup}
+            />
+          </div>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+            Выберите чат слева
+          </div>
+        )}
       </div>
     );
   }
