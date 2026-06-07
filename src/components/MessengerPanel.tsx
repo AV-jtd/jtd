@@ -299,9 +299,24 @@ export default function MessengerPanel({
               <span className="text-xs text-muted-foreground">({threads.length})</span>
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {threads.length > 0 && (
+              <button
+                onClick={() => {
+                  const first = threads[0];
+                  navigate(first.taskId ? `/chat/${first.groupId}?task=${first.taskId}` : `/chat/${first.groupId}`);
+                  onClose();
+                }}
+                title="Открыть на весь экран"
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
