@@ -102,6 +102,20 @@ export default function ProjectChat({ groupId, groupName, onClose, embedded, ful
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // Внешняя подсветка из глобального поиска: после загрузки сообщений скроллим
+  // к найденному и подсвечиваем на 2 секунды.
+  useEffect(() => {
+    if (!highlightMessageId || messages.length === 0) return;
+    setHighlightId(highlightMessageId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`pc-msg-${groupId}-${highlightMessageId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const t = window.setTimeout(() => setHighlightId(null), 2000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightMessageId, messages.length, groupId]);
+
   // Load current chat binding + mirror status.
   useEffect(() => {
     (async () => {
