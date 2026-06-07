@@ -269,9 +269,45 @@ export default function ChatRoomsList({
       }
     }
 
+    // Виртуальные родители: задача-чат ссылается на проект (`parentGroupId`),
+    // но в самом обсуждении проекта нет сообщений → его строки в списке нет.
+    // Синтезируем заголовок-аккордеон из метаданных задачи (имя проекта),
+    // чтобы задачи всё равно собирались под своим проектом, а клик открывал
+    // обсуждение проекта (`group-<id>`). Остальные (без проекта) — плоско.
+    const virtualByParent = new Map<string, ChatRoom[]>();
+    const trueOrphans: ChatRoom[] = [];
+    for (const r of orphans) {
+      if (r.parentGroupId && r.parentName) {
+        const arr = virtualByParent.get(r.parentGroupId) ?? [];
+        arr.push(r);
+        virtualByParent.set(r.parentGroupId, arr);
+      } else {
+        trueOrphans.push(r);
+      }
+    }
+    const virtualParents: { room: ChatRoom; children: ChatRoom[] }[] = [];
+    for (const [groupId, children] of virtualByParent) {
+      const virtualRoom: ChatRoom = {
+        groupId,
+        threadId: `group-${groupId}`,
+        name: children[0].parentName || "Проект",
+        isClientRoom: false,
+        client: null,
+        groupIcon: null,
+        groupColor: null,
+        groupLogoUrl: null,
+        lastMessage: null,
+        lastMessageAt: null,
+        lastMessageAuthor: null,
+        lastMessageUserId: null,
+      };
+      virtualParents.push({ room: virtualRoom, children });
+    }
+
     const items = [
       ...parents.map((room) => ({ room, children: childrenByParent.get(room.groupId) ?? [] })),
-      ...orphans.map((room) => ({ room, children: [] as ChatRoom[] })),
+      ...virtualParents,
+      ...trueOrphans.map((room) => ({ room, children: [] as ChatRoom[] })),
     ];
 
     // Сортировка по самой свежей активности (свою или дочерней задачи).
