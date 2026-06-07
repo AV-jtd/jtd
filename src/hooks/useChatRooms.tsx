@@ -19,6 +19,13 @@ export type ChatRoom = {
   threadId: string;
   name: string;
   isClientRoom: boolean;
+  /** Чат-комната задачи (открывается как overlay поверх чата). */
+  isTaskRoom?: boolean;
+  /** id задачи для task-комнат. */
+  taskId?: string;
+  /** имя родительского проекта (подзаголовок task-комнаты). */
+  parentName?: string | null;
+  taskCompleted?: boolean;
   client?: { name: string; logo_url: string | null; rankLabel: string | null } | null;
   groupIcon: string | null;
   groupColor: string | null;
@@ -121,6 +128,29 @@ export function useChatRooms() {
       groupIcon: th.groupIcon ?? null,
       groupColor: th.groupColor ?? null,
       groupLogoUrl: th.groupLogoUrl ?? null,
+      lastMessage: th.lastMessage,
+      lastMessageAt: th.lastMessageAt,
+      lastMessageAuthor: th.lastMessageAuthor,
+      lastMessageUserId: th.lastMessageUserId,
+    });
+  }
+
+  // Task rooms (открываются как overlay поверх чата).
+  for (const th of threads) {
+    if (th.type !== "task" || !th.taskId) continue;
+    rooms.push({
+      groupId: `task-${th.taskId}`,
+      threadId: th.id,
+      name: th.name,
+      isClientRoom: false,
+      isTaskRoom: true,
+      taskId: th.taskId,
+      parentName: th.groupName ?? null,
+      taskCompleted: th.taskCompleted,
+      client: null,
+      groupIcon: null,
+      groupColor: null,
+      groupLogoUrl: null,
       lastMessage: th.lastMessage,
       lastMessageAt: th.lastMessageAt,
       lastMessageAuthor: th.lastMessageAuthor,
