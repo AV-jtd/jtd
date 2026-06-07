@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectChat from "@/components/ProjectChat";
+import TaskItem from "@/components/TaskItem";
+import type { Task } from "@/hooks/useTasks";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -9,24 +11,14 @@ import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/initials";
 import {
   MessageSquare, ListChecks, BarChart3, Users, Maximize2, Minimize2, ArrowLeft,
-  CheckSquare, CircleDot, CalendarClock, UserCheck, ListTodo, AlertTriangle,
-  CheckCircle2, TrendingUp,
+  ListTodo, AlertTriangle, CheckCircle2, TrendingUp,
 } from "lucide-react";
-
-type RoomTask = {
-  id: string;
-  title: string;
-  is_completed: boolean;
-  deadline: string | null;
-  assigned_to: string | null;
-  assigneeName: string | null;
-};
 
 type Member = { id: string; name: string; role: string | null; source: "member" | "telegram" | "max" | "web" | "external" };
 
 type RoomData = {
   group: { id: string; name: string; icon: string | null; color: string | null; logo_url: string | null } | null;
-  tasks: RoomTask[];
+  tasks: Task[];
   members: Member[];
 };
 
@@ -44,8 +36,9 @@ function useProjectRoomData(groupId: string | null) {
 
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, is_completed, deadline, assigned_to")
+        .select("*, subtasks(*), task_tags(tag_id)")
         .eq("group_id", groupId)
+        .order("is_completed", { ascending: true })
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -111,14 +104,7 @@ function useProjectRoomData(groupId: string | null) {
 
       return {
         group: { id: g.id, name: g.name, icon: g.icon ?? null, color: g.color ?? null, logo_url: g.logo_url ?? null },
-        tasks: ((tasks as any[]) || []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          is_completed: t.is_completed,
-          deadline: t.deadline,
-          assigned_to: t.assigned_to,
-          assigneeName: t.assigned_to ? profMap.get(t.assigned_to) ?? null : null,
-        })),
+        tasks: ((tasks as any[]) || []) as Task[],
         members,
       };
     },
@@ -128,11 +114,6 @@ function useProjectRoomData(groupId: string | null) {
 }
 
 type TabKey = "chat" | "tasks" | "metrics" | "members";
-
-function fmtDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
-}
 
 export default function ProjectRoomCenter({
   groupId,
