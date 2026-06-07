@@ -519,6 +519,19 @@ export default function MyTasksDashboard({
                   </button>
                 </div>
               </div>
+              {cross && cross.protocols.count + cross.drift.count + cross.npd.count > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {cross.protocols.count > 0 && (
+                    <CrossChip icon={FileText} label="Протоколы" n={cross.protocols.count} cls="bg-tag-blue/10 text-tag-blue" />
+                  )}
+                  {cross.drift.count > 0 && (
+                    <CrossChip icon={TrendingUp} label="Сдвиг сроков" n={cross.drift.count} cls="bg-tag-orange/10 text-tag-orange" />
+                  )}
+                  {cross.npd.count > 0 && (
+                    <CrossChip icon={AlertTriangle} label="NPD-риск" n={cross.npd.count} cls="bg-destructive/10 text-destructive" />
+                  )}
+                </div>
+              )}
               <div className="-mx-1 overflow-x-auto scrollbar-none">
                 <div className="flex items-center gap-1.5 px-1 pb-0.5">
                   {pillOrder.map((k) => {
