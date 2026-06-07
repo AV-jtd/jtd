@@ -202,6 +202,14 @@ export default function ChatRoomsList({
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
+  // Свёрнутые по умолчанию проекты: храним id раскрытых.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // «Горящих» = просрочено + сегодня среди задач, где я участник.
   const hotCount = useMemo(() => {
