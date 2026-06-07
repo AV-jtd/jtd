@@ -69,9 +69,25 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
   );
 }
 
-function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: string) => void; onComplete: (id: string) => void }) {
+function TaskRow({
+  task,
+  users,
+  onOpen,
+  onComplete,
+  onSetDate,
+  onSetAssignee,
+}: {
+  task: MyTask;
+  users: Profile[];
+  onOpen: (id: string) => void;
+  onComplete: (id: string) => void;
+  onSetDate: (id: string, date: Date | null) => void;
+  onSetAssignee: (id: string, sel: AssigneeSelection) => void;
+}) {
   // Задачи на согласовании завершаем не отсюда (нужен флоу approval).
   const canComplete = !(task.requires_approval && task.approval_status !== "approved");
+  const [dateOpen, setDateOpen] = useState(false);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   return (
     <div className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
       {canComplete && (
@@ -85,12 +101,55 @@ function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: stri
         </button>
       )}
       <button onClick={() => onOpen(task.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        {(task.is_important || task.priority === 1) && (
+          <Star className="h-3.5 w-3.5 shrink-0 fill-tag-pink text-tag-pink" />
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm">{task.title}</p>
           {task.groupName && <p className="truncate text-[11px] text-muted-foreground">{task.groupName}</p>}
         </div>
         <DeadlinePill deadline={task.deadline} />
       </button>
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              title="Назначить дату"
+              aria-label="Назначить дату"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={task.deadline ? new Date(task.deadline) : undefined}
+              onSelect={(d) => { onSetDate(task.id, d ?? null); setDateOpen(false); }}
+              initialFocus
+              className="pointer-events-auto p-3"
+            />
+          </PopoverContent>
+        </Popover>
+        <AssigneePicker
+          users={users}
+          current={task.assigned_to ? { kind: "user", id: task.assigned_to } : { kind: null, id: null }}
+          open={assigneeOpen}
+          onOpenChange={setAssigneeOpen}
+          onSelect={(sel) => { onSetAssignee(task.id, sel); setAssigneeOpen(false); }}
+          trigger={
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              title="Ответственный"
+              aria-label="Назначить ответственного"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+            </button>
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -98,17 +157,23 @@ function TaskRow({ task, onOpen, onComplete }: { task: MyTask; onOpen: (id: stri
 function Block({
   blockKey,
   tasks,
+  users,
   expanded,
   onToggle,
   onOpen,
   onComplete,
+  onSetDate,
+  onSetAssignee,
 }: {
   blockKey: BlockKey;
   tasks: MyTask[];
+  users: Profile[];
   expanded: boolean;
   onToggle: () => void;
   onOpen: (id: string) => void;
   onComplete: (id: string) => void;
+  onSetDate: (id: string, date: Date | null) => void;
+  onSetAssignee: (id: string, sel: AssigneeSelection) => void;
 }) {
   const meta = BLOCK_META[blockKey];
   const Icon = meta.icon;
@@ -134,7 +199,15 @@ function Block({
       {expanded && !empty && (
         <div className="space-y-0.5 border-t border-border px-1.5 py-1.5">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onOpen={onOpen} onComplete={onComplete} />
+            <TaskRow
+              key={t.id}
+              task={t}
+              users={users}
+              onOpen={onOpen}
+              onComplete={onComplete}
+              onSetDate={onSetDate}
+              onSetAssignee={onSetAssignee}
+            />
           ))}
         </div>
       )}
