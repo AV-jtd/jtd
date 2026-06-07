@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -19,6 +19,8 @@ import {
   CalendarPlus,
   UserPlus,
   X,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -267,6 +269,52 @@ export default function MyTasksDashboard({
     return { overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
+  // Подпись по числам блоков — ИИ-сводка пересчитывается только когда
+  // изменились количества (агрессивное кэширование, как в Risk Radar).
+  const countsSig = useMemo(
+    () =>
+      [blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
+        .map((b) => b.length)
+        .join("-"),
+    [blocks],
+  );
+
+  const {
+    data: aiSummary,
+    isFetching: aiLoading,
+    error: aiError,
+    refetch: refetchAi,
+  } = useQuery({
+    queryKey: ["my_tasks_ai_summary", uid, scope, countsSig],
+    enabled: !!uid && !isLoading,
+    staleTime: 1000 * 60 * 60 * 2,
+    gcTime: 1000 * 60 * 60 * 6,
+    retry: false,
+    queryFn: async (): Promise<string> => {
+      const counts = {
+        overdue: blocks.overdue.length,
+        today: blocks.today.length,
+        important: blocks.important.length,
+        week: blocks.week.length,
+        noDeadline: blocks.noDeadline.length,
+        unread: blocks.unread.length,
+        approval: blocks.approval.length,
+        toMe: blocks.toMe.length,
+        byMe: blocks.byMe.length,
+      };
+      const { data: res, error } = await supabase.functions.invoke("my-tasks-summary", {
+        body: {
+          counts,
+          scope,
+          topOverdue: blocks.overdue.slice(0, 6).map((t) => t.title),
+          topToday: blocks.today.slice(0, 6).map((t) => t.title),
+        },
+      });
+      if (error) throw error;
+      return (res as { summary?: string })?.summary ?? "";
+    },
+  });
+
   const toggle = (k: BlockKey) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -359,6 +407,32 @@ export default function MyTasksDashboard({
             <p className="py-8 text-center text-sm text-muted-foreground">Загрузка…</p>
           ) : (
             <>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold text-primary">ИИ-сводка</p>
+                    {aiLoading ? (
+                      <p className="mt-0.5 animate-pulse text-sm text-muted-foreground">Анализирую ваши задачи…</p>
+                    ) : aiError ? (
+                      <p className="mt-0.5 text-sm text-muted-foreground">Не удалось получить сводку.</p>
+                    ) : (
+                      <p className="mt-0.5 text-sm leading-snug text-foreground">{aiSummary}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => refetchAi()}
+                    disabled={aiLoading}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+                    title="Обновить сводку"
+                    aria-label="Обновить сводку"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", aiLoading && "animate-spin")} />
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 {summary.map((s) => {
                   const meta = BLOCK_META[s.key];
