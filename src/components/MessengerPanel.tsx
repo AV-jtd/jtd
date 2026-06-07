@@ -685,7 +685,11 @@ export default function MessengerPanel({
       </div>
 
       {/* Chat content */}
-      <div className="flex-1 overflow-hidden">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-hidden"
+      >
         {activeThread.type === "group" && activeThread.groupId ? (
           <ProjectRoomCenter
             key={activeThread.groupId}
