@@ -16,11 +16,17 @@ import {
   Stamp,
   Star,
   Check,
+  CalendarPlus,
+  UserPlus,
   X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import { useAuth } from "@/hooks/useAuth";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useAvailableUsers, type Profile } from "@/hooks/useTasks";
 import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTasksDashboard";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
