@@ -320,8 +320,12 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
           taskId: t.id,
           taskCompleted: !!(t as any).is_completed,
           groupName: t.group_id ? knownGroupNames.get(t.group_id) || undefined : undefined,
-          clientName: (t as any).client_id ? clientNameMap.get((t as any).client_id) ?? null : null,
-          clientLogoUrl: (t as any).client_id ? clientLogoMapTask.get((t as any).client_id) ?? null : null,
+          clientName: (t as any).client_id
+            ? clientNameMap.get((t as any).client_id) ?? null
+            : taskTagClientMap.get(t.id)?.name ?? null,
+          clientLogoUrl: (t as any).client_id
+            ? clientLogoMapTask.get((t as any).client_id) ?? null
+            : taskTagClientMap.get(t.id)?.logo_url ?? null,
         });
       }
 
