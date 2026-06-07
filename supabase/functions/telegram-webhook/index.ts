@@ -929,6 +929,11 @@ Deno.serve(async (req) => {
         if (assignedTo) taskData.assigned_to = assignedTo;
         if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
+        // Smart client link: inherit from the linked project (client room / parent)
+        // or detect a known client name in the task text.
+        const taskClient = await resolveClientIdFromContext(supabase, groupId, taskText);
+        if (taskClient) taskData.client_id = taskClient.id;
+
         const { data: newTask, error: taskError } = await supabase
           .from("tasks")
           .insert(taskData)
@@ -1022,6 +1027,7 @@ Deno.serve(async (req) => {
         }
         if (explicitParticipantNames.length > 0) extras.push(`👥 ${explicitParticipantNames.join(", ")}`);
         extras.push(`📂 ${linkedGroup.icon || "📁"} ${linkedGroup.name}`);
+        if (taskClient) extras.push(`🏢 ${taskClient.name}`);
         if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
         if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
         if (autoJoinedNames.length > 0) {
@@ -2170,6 +2176,10 @@ Deno.serve(async (req) => {
     if (assignedTo) taskData.assigned_to = assignedTo;
     if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
+    // Smart client link: project context first, else client name detected in text.
+    const genericClient = await resolveClientIdFromContext(supabase, groupId, text);
+    if (genericClient) taskData.client_id = genericClient.id;
+
     const { data: newTask, error: taskError } = await supabase
       .from("tasks")
       .insert(taskData)
@@ -2270,6 +2280,7 @@ Deno.serve(async (req) => {
       }
     }
     if (groupId) extras.push("📂 в проекте");
+    if (genericClient) extras.push(`🏢 ${genericClient.name}`);
     if (extras.length > 0) confirmation += "\n" + extras.join(" | ");
     if (aiApplied.length > 0) confirmation += "\n🤖 ИИ: " + aiApplied.join(", ");
     if (assigneeAutoJoinedName) {
@@ -3192,6 +3203,60 @@ async function ensureGroupMembership(
   return true;
 }
 
+/**
+ * Smart client linking for tasks created via Telegram.
+ * Priority:
+ *  1) Direct context — the linked project is a CRM client room (task_groups.client_id),
+ *     or its parent project is.
+ *  2) Name match — a known client name appears verbatim in the task text.
+ * Returns the client id + name, or null when nothing reliable is found.
+ */
+async function resolveClientIdFromContext(
+  supabase: any,
+  groupId: string | null,
+  text: string,
+): Promise<{ id: string; name: string } | null> {
+  const nameOf = async (id: string): Promise<string> => {
+    const { data } = await supabase.from("clients").select("name").eq("id", id).maybeSingle();
+    return data?.name || "клиент";
+  };
+
+  // 1) Project context
+  if (groupId) {
+    const { data: g } = await supabase
+      .from("task_groups")
+      .select("client_id, parent_id")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (g?.client_id) return { id: g.client_id, name: await nameOf(g.client_id) };
+    if (g?.parent_id) {
+      const { data: parent } = await supabase
+        .from("task_groups")
+        .select("client_id")
+        .eq("id", g.parent_id)
+        .maybeSingle();
+      if (parent?.client_id) return { id: parent.client_id, name: await nameOf(parent.client_id) };
+    }
+  }
+
+  // 2) Name match in the text (clients are a global registry)
+  const cleaned = (text || "").toLowerCase();
+  if (cleaned.trim().length >= 3) {
+    const { data: clients } = await supabase.from("clients").select("id, name").limit(2000);
+    let best: { id: string; name: string } | null = null;
+    for (const c of clients || []) {
+      const n = (c.name || "").trim().toLowerCase();
+      if (n.length < 3) continue;
+      if (cleaned.includes(n) && (!best || n.length > best.name.length)) {
+        best = { id: c.id, name: c.name };
+      }
+    }
+    if (best) return best;
+  }
+
+  return null;
+}
+
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
@@ -3203,6 +3268,9 @@ async function createBulkTasks(
   const now = new Date();
   const memberById = new Map(members.map(m => [m.id, m]));
 
+  // Resolve a client once from the linked project's context (client room / parent).
+  const ctxClient = await resolveClientIdFromContext(supabase, groupId, "");
+
   for (const task of tasks) {
     const taskData: Record<string, any> = {
       title: task.title.substring(0, 500),
@@ -3211,6 +3279,9 @@ async function createBulkTasks(
     };
     if (groupId) taskData.group_id = groupId;
     if (task.priority) taskData.priority = task.priority;
+    // Smart client link: project context first, else name match in the title.
+    const bulkClient = ctxClient ?? await resolveClientIdFromContext(supabase, null, task.title);
+    if (bulkClient) taskData.client_id = bulkClient.id;
 
     // Resolve deadline
     let deadlineStr: string | undefined;
