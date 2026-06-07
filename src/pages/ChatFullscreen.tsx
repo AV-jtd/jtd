@@ -160,7 +160,7 @@ export default function ChatFullscreen() {
                 onNavigateToGroup={navigateToGroup}
               />
             ) : (
-              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+              <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
             )}
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function ChatFullscreen() {
     return (
       <div className="flex h-[100dvh] bg-background">
         <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
         </ResizableSidebar>
         {openTaskId ? (
           <div className="min-w-0 flex-1">
@@ -195,7 +195,7 @@ export default function ChatFullscreen() {
       <div className="flex h-[100dvh] flex-col bg-background">
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
           )}
           {mobilePane === "task" && openTaskId && (
             <TaskRoomCenter
@@ -265,7 +265,7 @@ export default function ChatFullscreen() {
   return (
     <div className="flex h-[100dvh] bg-background">
       <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-        <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+        <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive={false} />
       </ResizableSidebar>
       <div className="min-w-0 flex-1">
         {openTaskId ? (
