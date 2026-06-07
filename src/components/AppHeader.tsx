@@ -141,30 +141,6 @@ export default function AppHeader({
             <ShieldAlert className="h-3.5 w-3.5" />
           </button>
         )}
-        {onSearchOpen && (
-          <ConsultantGuard area="search" mode="faded">
-            <button
-              onClick={onSearchOpen}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Поиск (⌘K)"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </ConsultantGuard>
-        )}
-
-        {onAiOpen && (
-          <ConsultantGuard area="ai-assistant" mode="faded">
-            <button
-              onClick={onAiOpen}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="ИИ-ассистент"
-            >
-              <Sparkles className="h-4 w-4" />
-            </button>
-          </ConsultantGuard>
-        )}
-
         {onMessengerToggle && (
           <ConsultantGuard area="messenger" mode="faded">
             <button
