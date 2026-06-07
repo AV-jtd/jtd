@@ -3195,7 +3195,6 @@ async function ensureGroupMembership(
 async function createBulkTasks(
   supabase: any,
   tasks: BulkParsedTask[],
-  // (helper defined above)
   userId: string,
   groupId: string | null,
   members: { id: string; name: string; telegram_username: string | null }[],
