@@ -14,6 +14,7 @@ import {
   CalendarRange,
   CircleDashed,
   Stamp,
+  Star,
   Check,
   X,
 } from "lucide-react";
@@ -24,7 +25,7 @@ import { useMyTasksDashboard, todayBounds, type MyTask } from "@/hooks/useMyTask
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type BlockKey = "overdue" | "today" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
+type BlockKey = "overdue" | "today" | "important" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
 type Scope = "involved" | "assignee";
 
 const SCOPE_KEY = "mytasks_scope";
@@ -36,6 +37,7 @@ const BLOCK_META: Record<
 > = {
   overdue: { label: "Просрочено", icon: AlertTriangle, tone: "text-destructive", ring: "bg-destructive/10" },
   today: { label: "Сегодня", icon: CalendarClock, tone: "text-tag-orange", ring: "bg-tag-orange/10" },
+  important: { label: "Важное", icon: Star, tone: "text-tag-pink", ring: "bg-tag-pink/10" },
   week: { label: "На этой неделе", icon: CalendarRange, tone: "text-tag-blue", ring: "bg-tag-blue/10" },
   noDeadline: { label: "Без дедлайна", icon: CircleDashed, tone: "text-muted-foreground", ring: "bg-muted" },
   unread: { label: "Непрочитанные обсуждения", icon: MessageSquare, tone: "text-primary", ring: "bg-primary/10" },
