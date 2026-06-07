@@ -268,7 +268,7 @@ export default function MyTasksDashboard({
       const raw = localStorage.getItem(EXPANDED_KEY);
       if (raw) return new Set(JSON.parse(raw) as BlockKey[]);
     } catch { /* ignore */ }
-    return new Set(["overdue"]);
+    return new Set();
   });
   const [summaryOpen, setSummaryOpen] = useState(false);
 
