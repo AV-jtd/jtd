@@ -80,6 +80,26 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
   );
 }
 
+function CrossChip({
+  icon: Icon,
+  label,
+  n,
+  cls,
+}: {
+  icon: typeof AlertTriangle;
+  label: string;
+  n: number;
+  cls: string;
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", cls)}>
+      <Icon className="h-3 w-3 shrink-0" />
+      {label}
+      <span className="font-bold tabular-nums">{n}</span>
+    </span>
+  );
+}
+
 function TaskRow({
   task,
   users,
