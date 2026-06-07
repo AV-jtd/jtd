@@ -17,6 +17,7 @@ interface AppHeaderProps {
 }
 
 const modules = [
+  { path: "/chat", label: "ЭФИР", activeStyle: "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent" },
   { path: "/pmo", label: "PMO", activeStyle: "text-primary" },
   { path: "/npd", label: "NPD", activeStyle: "bg-gradient-to-r from-violet-400 to-fuchsia-500 bg-clip-text text-transparent" },
   { path: "/crm", label: "CRM", activeStyle: "bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent" },
