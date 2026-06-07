@@ -26,8 +26,15 @@ function RankBadge({ label }: { label: string | null }) {
 function RoomAvatar({ room }: { room: ChatRoom }) {
   if (room.isTaskRoom) {
     return (
-      <div className="h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary shrink-0">
-        <CheckSquare className="h-4 w-4" />
+      <div className="relative shrink-0">
+        <div className="h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary">
+          <CheckSquare className="h-4 w-4" />
+        </div>
+        {(room.clientLogoUrl || room.clientName) && (
+          <span className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">
+            <ClientAvatar client={{ name: room.clientName || "", logo_url: room.clientLogoUrl ?? null }} size="xs" className="rounded-full" />
+          </span>
+        )}
       </div>
     );
   }
@@ -215,7 +222,11 @@ export default function ChatRoomsList({
                       <span className="opacity-70">{room.parentName} · </span>
                     ) : null}
                     {room.isTaskRoom && room.clientName ? (
-                      <span className="font-medium text-primary">🏢 {room.clientName} · </span>
+                      <span className="inline-flex items-center gap-1 align-middle font-medium text-primary">
+                        <ClientAvatar client={{ name: room.clientName, logo_url: room.clientLogoUrl ?? null }} size="xs" />
+                        {room.clientName}
+                        <span className="opacity-70"> · </span>
+                      </span>
                     ) : null}
                     {room.lastMessage ? (
                       <>
