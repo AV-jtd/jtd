@@ -8,8 +8,6 @@ import {
   MessageSquare,
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronDown,
-  ChevronRight,
   CalendarRange,
   CircleDashed,
   Stamp,
