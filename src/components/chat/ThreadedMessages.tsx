@@ -151,17 +151,11 @@ export default function ThreadedMessages<M extends ThreadableMessage>({
     onCreateTask,
   });
 
-  const Wrapper = ({ message, children }: { message: M; children: ReactNode }) => (
-    <div
-      id={getMessageDomId?.(message)}
-      className={cn(
-        "group rounded-md transition-colors",
-        highlightMessageId === message.id && "ring-1 ring-primary/30 animate-msg-flash",
-      )}
-    >
-      {children}
-    </div>
-  );
+  const wrapperClass = (id: string) =>
+    cn(
+      "group rounded-md transition-colors",
+      highlightMessageId === id && "ring-1 ring-primary/30 animate-msg-flash",
+    );
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -170,7 +164,7 @@ export default function ThreadedMessages<M extends ThreadableMessage>({
         const isExpanded = expanded.has(root.id);
 
         return (
-          <Wrapper key={root.id} message={root}>
+          <div key={root.id} id={getMessageDomId?.(root)} className={wrapperClass(root.id)}>
             {renderMessage(root, ctxFor(root, false, true))}
             {renderExtra?.(root, { isReply: false })}
 
@@ -198,7 +192,7 @@ export default function ThreadedMessages<M extends ThreadableMessage>({
                   const parent = parentId ? byId.get(parentId) : undefined;
                   const parentName = parent && getAuthorName ? getAuthorName(parent) : null;
                   return (
-                    <Wrapper key={reply.id} message={reply}>
+                    <div key={reply.id} id={getMessageDomId?.(reply)} className={wrapperClass(reply.id)}>
                       {isSecondLevel && parentName && (
                         <div className="mb-0.5 truncate text-[10px] text-muted-foreground/70">
                           ↩ ответ <span className="text-primary/80">@{parentName}</span>
@@ -206,12 +200,12 @@ export default function ThreadedMessages<M extends ThreadableMessage>({
                       )}
                       {renderMessage(reply, ctxFor(reply, true, false))}
                       {renderExtra?.(reply, { isReply: true })}
-                    </Wrapper>
+                    </div>
                   );
                 })}
               </div>
             )}
-          </Wrapper>
+          </div>
         );
       })}
     </div>
