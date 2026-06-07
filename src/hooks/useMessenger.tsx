@@ -225,6 +225,36 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
         }
       }
 
+      // Fallback: many task chats are tied to a CRM client only through the
+      // client's system tag (clients.tag_id) rather than tasks.client_id. Resolve
+      // those so EVERY task chat linked to a client shows its mini-logo, not just
+      // the ones that happen to have tasks.client_id populated.
+      const taskTagClientMap = new Map<string, { name: string; logo_url: string | null }>();
+      const tasksWithoutClient = tasks.filter((t) => !t.client_id).map((t) => t.id);
+      if (tasksWithoutClient.length > 0) {
+        const { data: ttRows } = await supabase
+          .from("task_tags")
+          .select("task_id, tag_id")
+          .in("task_id", tasksWithoutClient);
+        const rows = (ttRows as any[]) || [];
+        const tagIds = [...new Set(rows.map((r) => r.tag_id))];
+        if (tagIds.length > 0) {
+          const { data: clientByTag } = await supabase
+            .from("clients")
+            .select("id, name, logo_url, tag_id")
+            .in("tag_id", tagIds);
+          const tagToClient = new Map<string, { name: string; logo_url: string | null }>();
+          for (const c of (clientByTag as any[]) || []) {
+            if (c.tag_id) tagToClient.set(c.tag_id, { name: c.name, logo_url: c.logo_url ?? null });
+          }
+          for (const r of rows) {
+            if (taskTagClientMap.has(r.task_id)) continue;
+            const cl = tagToClient.get(r.tag_id);
+            if (cl) taskTagClientMap.set(r.task_id, cl);
+          }
+        }
+      }
+
       // Step 4: for task threads we still need parent-group names for the
       // subtitle. Fetch only the groups that aren't already in `groups`
       // (they likely overlap — task often lives in a group that also has its
