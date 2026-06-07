@@ -169,13 +169,15 @@ export default function ChatFullscreen() {
 
   const hasClient = !!group?.client_id;
 
-  // Закреплённый мини-дашборд «Мои задачи» — единый рендер для всех маршрутов.
-  if (showMyTasks) {
+  // Канал «ИИ-ассистент» — ядро ЭФИРа. Десктоп: список | чат с ИИ | «Мои задачи» справа.
+  // На десктопе вкладка «Мои задачи» (showMyTasks) показывается в той же раскладке
+  // (дашборд — правый сайдбар), отдельный мобильный экран — ниже.
+  if (showAssistant || (showMyTasks && !isMobile)) {
     if (isMobile) {
       return (
         <div className="flex h-[100dvh] flex-col bg-background">
           <div className="min-h-0 flex-1">
-            <MyTasksDashboard onOpenTask={openTaskFromMyTasks} onClose={closeMyTasks} />
+            <AssistantChannel onShowTasks={openMyTasks} onBack={closeAssistant} />
           </div>
         </div>
       );
@@ -183,10 +185,24 @@ export default function ChatFullscreen() {
     return (
       <div className="flex h-[100dvh] bg-background">
         <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-          <ChatRoomsList activeGroupId={groupId ?? null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenMyTasks={openMyTasks} myTasksActive />
+          <ChatRoomsList activeGroupId={groupId ?? null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenAssistant={openAssistant} assistantActive />
         </ResizableSidebar>
         <div className="min-w-0 flex-1">
-          <MyTasksDashboard onOpenTask={openTaskFromMyTasks} onClose={closeMyTasks} />
+          <AssistantChannel />
+        </div>
+        <ResizableSidebar storageKey="sidebar_width_mytasks" defaultWidth={360} minWidth={300} maxWidth={520} side="left" className="border-l border-border">
+          <MyTasksDashboard onOpenTask={openTaskFromAssistant} />
+        </ResizableSidebar>
+      </div>
+    );
+  }
+
+  // Панель «Мои задачи» как отдельная вкладка канала ассистента (мобильные).
+  if (showMyTasks) {
+    return (
+      <div className="flex h-[100dvh] flex-col bg-background">
+        <div className="min-h-0 flex-1">
+          <MyTasksDashboard onOpenTask={openTaskFromAssistant} onClose={closeMyTasks} />
         </div>
       </div>
     );
