@@ -104,7 +104,7 @@ export default function ChatFullscreen() {
       <div className="flex h-[100dvh] flex-col bg-background">
         <div className="min-h-0 flex-1">
           {mobilePane === "list" && (
-            <ChatRoomsList activeGroupId={groupId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
+            <ChatRoomsList activeGroupId={groupId} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} />
           )}
           {mobilePane === "task" && openTaskId && (
             <TaskRoomCenter
@@ -114,6 +114,7 @@ export default function ChatFullscreen() {
               onClose={closeTask}
               onShowInfo={() => setMobilePane("taskinfo")}
               onNavigateToTask={openTask}
+              onNavigateToGroup={navigateToGroup}
             />
           )}
           {mobilePane === "taskinfo" && openTaskId && (
