@@ -929,6 +929,11 @@ Deno.serve(async (req) => {
         if (assignedTo) taskData.assigned_to = assignedTo;
         if (aiEnrichment?.priority && !isImportant) taskData.priority = aiEnrichment.priority;
 
+        // Smart client link: inherit from the linked project (client room / parent)
+        // or detect a known client name in the task text.
+        const taskClient = await resolveClientIdFromContext(supabase, groupId, taskText);
+        if (taskClient) taskData.client_id = taskClient.id;
+
         const { data: newTask, error: taskError } = await supabase
           .from("tasks")
           .insert(taskData)
