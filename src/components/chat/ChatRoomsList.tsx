@@ -241,18 +241,51 @@ export default function ChatRoomsList({
     const s = q.trim().toLowerCase();
     return rooms.filter((r) => {
       if (filter === "projects" && (r.isClientRoom || r.isTaskRoom)) return false;
-      if (filter === "clients" && !r.isClientRoom) return false;
+      // В «Клиентах» показываем CRM-комнаты клиентов И задачи-чаты, привязанные
+      // к клиенту (чтобы их можно было собрать под комнатой клиента).
+      if (filter === "clients" && !r.isClientRoom && !(r.isTaskRoom && r.clientName)) return false;
       if (filter === "tasks" && !r.isTaskRoom) return false;
       if (!s) return true;
       return r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s);
     });
   }, [rooms, q, filter]);
 
-  // Аккордеон: задачи сворачиваются под свой проект. Активен в режимах
-  // «Все» и «Проекты». В «Задачах»/«Клиентах» — плоский список как раньше.
+  // Сортировка групп по самой свежей активности (своей или дочерней).
+  const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
+    [it.room, ...it.children]
+      .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
+      .reduce((a, b) => Math.max(a, b), 0);
+
+  // Аккордеон: задачи сворачиваются под свой проект («Все»/«Проекты») или под
+  // комнату клиента («Клиенты»). В «Задачах» — плоский список.
   const grouped = useMemo(() => {
-    const accordion = filter === "all" || filter === "projects";
-    if (!accordion) return filtered.map((room) => ({ room, children: [] as ChatRoom[] }));
+    const projectAccordion = filter === "all" || filter === "projects";
+    const clientAccordion = filter === "clients";
+    if (!projectAccordion && !clientAccordion) {
+      return filtered.map((room) => ({ room, children: [] as ChatRoom[] }));
+    }
+
+    // «Клиенты»: группируем задачи-чаты под комнатой клиента (матч по имени —
+    // имена клиентов уникальны). Сироты (клиент без CRM-комнаты) не показываем.
+    if (clientAccordion) {
+      const clientRooms = filtered.filter((r) => r.isClientRoom);
+      const byName = new Map(clientRooms.map((c) => [c.name.trim().toLowerCase(), c]));
+      const childrenByClient = new Map<string, ChatRoom[]>();
+      for (const r of filtered) {
+        if (!r.isTaskRoom || !r.clientName) continue;
+        const key = r.clientName.trim().toLowerCase();
+        if (!byName.has(key)) continue;
+        const arr = childrenByClient.get(key) ?? [];
+        arr.push(r);
+        childrenByClient.set(key, arr);
+      }
+      const items = clientRooms.map((room) => ({
+        room,
+        children: childrenByClient.get(room.name.trim().toLowerCase()) ?? [],
+      }));
+      items.sort((a, b) => freshest(b) - freshest(a));
+      return items;
+    }
 
     const parents = filtered.filter((r) => !r.isTaskRoom);
     const parentById = new Map(parents.map((p) => [p.groupId, p]));
@@ -309,12 +342,6 @@ export default function ChatRoomsList({
       ...virtualParents,
       ...trueOrphans.map((room) => ({ room, children: [] as ChatRoom[] })),
     ];
-
-    // Сортировка по самой свежей активности (свою или дочерней задачи).
-    const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
-      [it.room, ...it.children]
-        .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
-        .reduce((a, b) => Math.max(a, b), 0);
     items.sort((a, b) => freshest(b) - freshest(a));
     return items;
   }, [filtered, filter]);
