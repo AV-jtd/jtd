@@ -194,7 +194,7 @@ export default function MyTasksDashboard({
           ]).map((o) => (
             <button
               key={o.k}
-              onClick={() => setScope(o.k)}
+              onClick={() => changeScope(o.k)}
               className={cn(
                 "rounded-md px-2 py-1 text-xs font-medium transition-colors",
                 scope === o.k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
