@@ -671,13 +671,10 @@ export default function MyTasksDashboard({
                           <Bot className="h-3.5 w-3.5" />
                         </span>
                       )}
-                      {m.role === "assistant" ? (
-                        <AssistantBubble content={m.content} defaultOpen={i === askMessages.length - 1} />
-                      ) : (
-                        <div className="max-w-[85%] rounded-2xl bg-primary px-3 py-2 text-sm text-primary-foreground">
-                          {m.content}
-                        </div>
-                      )}
+                      <CollapsibleBubble
+                        content={m.content}
+                        variant={m.role === "assistant" ? "assistant" : "user"}
+                      />
                     </div>
                   ))}
                   <div ref={askEndRef} />
