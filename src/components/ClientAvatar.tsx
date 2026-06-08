@@ -37,7 +37,7 @@ export default function ClientAvatar({ client, size = "sm", className }: Props) 
       <img
         src={client.logo_url}
         alt={client.name}
-        className={cn(s, "rounded-md object-cover ring-1 ring-border shrink-0", className)}
+        className={cn(s, "rounded-md object-contain bg-white ring-1 ring-border shrink-0", className)}
       />
     );
   }

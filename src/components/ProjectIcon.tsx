@@ -46,7 +46,7 @@ export default function ProjectIcon({
       <img
         src={group.logo_url}
         alt={group.name ?? ""}
-        className={cn(s.img, "object-cover ring-1 ring-border shrink-0", className)}
+        className={cn(s.img, "object-contain bg-white ring-1 ring-border shrink-0", className)}
       />
     );
   }

@@ -47,7 +47,7 @@ function RoomAvatar({ room }: { room: ChatRoom }) {
     return <ClientAvatar client={{ name: room.name, logo_url: room.groupLogoUrl }} size="md" />;
   }
   if (room.groupLogoUrl) {
-    return <img src={room.groupLogoUrl} alt="" className="h-7 w-7 rounded-md object-cover ring-1 ring-border shrink-0" />;
+    return <img src={room.groupLogoUrl} alt="" className="h-7 w-7 rounded-md object-contain bg-white ring-1 ring-border shrink-0" />;
   }
   return (
     <div

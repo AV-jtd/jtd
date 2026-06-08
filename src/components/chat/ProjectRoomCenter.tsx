@@ -166,7 +166,7 @@ export default function ProjectRoomCenter({
   ];
 
   const avatar = group?.logo_url ? (
-    <img src={group.logo_url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+    <img src={group.logo_url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-contain bg-white" />
   ) : (
     <span
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base"
