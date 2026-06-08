@@ -3008,6 +3008,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: undefined
       }
+      sync_client_room_members: {
+        Args: { _group_id: string }
+        Returns: undefined
+      }
       task_has_tag_access: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
