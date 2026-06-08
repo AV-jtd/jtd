@@ -54,7 +54,7 @@ export default function ClientTeamManager({
               title="Добавить участника"
             >
               {addMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
-              <span className="hidden sm:inline">Добавить</span>
+              Добавить
             </button>
           }
         />
