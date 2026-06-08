@@ -85,6 +85,31 @@ function useClientContext(clientId: string | null) {
         .limit(200);
       const tasks = (tasksData as any[]) || [];
 
+      // Протоколы, напрямую помеченные этим клиентом (protocol_meta.client_id)
+      const { data: directProtos } = await supabase
+        .from("task_groups")
+        .select("id, name, created_at, protocol_meta")
+        .eq("project_type", "protocol" as any)
+        .eq("protocol_meta->>client_id", clientId as any)
+        .order("created_at", { ascending: false });
+      const directProtocols = (directProtos as any[]) || [];
+
+      // Задачи из напрямую привязанных протоколов — чтобы они тоже сразу появлялись
+      if (directProtocols.length) {
+        const directGroupIds = directProtocols.map((p) => p.id);
+        const { data: protoTasks } = await supabase
+          .from("tasks")
+          .select("id, title, is_completed, deadline, task_type, source_protocol_id")
+          .in("group_id", directGroupIds)
+          .neq("task_type", "protocol_review")
+          .order("created_at", { ascending: false })
+          .limit(200);
+        const seen = new Set(tasks.map((t) => t.id));
+        for (const t of (protoTasks as any[]) || []) {
+          if (!seen.has(t.id)) { tasks.push(t); seen.add(t.id); }
+        }
+      }
+
       // CRM-комната клиента (для ленты активности)
       const { data: room } = await supabase
         .from("task_groups")
@@ -128,16 +153,23 @@ function useClientContext(clientId: string | null) {
         for (const m of rawMsgs) if (m.user_id) activityAuthorIds.add(m.user_id);
       }
 
-      // Протоколы/встречи — производные от source_protocol_id задач клиента
-      let protocols: ProtocolItem[] = [];
-      const protocolIds = [...new Set(tasks.map((t) => t.source_protocol_id).filter(Boolean))] as string[];
-      if (protocolIds.length) {
+      // Протоколы/встречи: напрямую привязанные + производные от source_protocol_id задач
+      const protocolMap = new Map<string, ProtocolItem>();
+      for (const p of directProtocols) {
+        protocolMap.set(p.id, { id: p.id, name: p.name, date: p.created_at });
+      }
+      const derivedIds = [...new Set(tasks.map((t) => t.source_protocol_id).filter(Boolean))]
+        .filter((id) => !protocolMap.has(id as string)) as string[];
+      if (derivedIds.length) {
         const { data: protos } = await supabase
           .from("task_groups")
           .select("id, name, created_at")
-          .in("id", protocolIds);
-        protocols = ((protos as any[]) || []).map((p) => ({ id: p.id, name: p.name, date: p.created_at }));
+          .in("id", derivedIds);
+        for (const p of (protos as any[]) || []) {
+          if (!protocolMap.has(p.id)) protocolMap.set(p.id, { id: p.id, name: p.name, date: p.created_at });
+        }
       }
+      const protocols: ProtocolItem[] = [...protocolMap.values()];
 
       // Единый словарь профилей: ответственные + команда + авторы ленты
       const managerIds = [
