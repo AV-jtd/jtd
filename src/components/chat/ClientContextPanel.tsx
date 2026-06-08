@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -339,6 +340,7 @@ export default function ClientContextPanel({
   const { data, isLoading } = useClientContext(clientId);
   const client = data?.client;
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -545,7 +547,12 @@ export default function ClientContextPanel({
             {data!.protocols.length > 0 ? (
               <div className="space-y-1">
                 {data!.protocols.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs">
+                  <button
+                    key={p.id}
+                    onClick={() => navigate(`/protocols/${p.id}`)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+                    title="Открыть протокол"
+                  >
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{p.name}</span>
                     {p.date && (
@@ -553,7 +560,8 @@ export default function ClientContextPanel({
                         {formatDistanceToNowStrict(new Date(p.date), { locale: ru, addSuffix: true })}
                       </span>
                     )}
-                  </div>
+                    <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  </button>
                 ))}
               </div>
             ) : (
