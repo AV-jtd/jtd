@@ -9,9 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/initials";
+import { useAvailableUsers } from "@/hooks/useTasks";
+import { useProjectTaskThreads } from "@/hooks/useProjectTaskThreads";
+import ClientTaskThreadCard from "@/components/chat/ClientTaskThreadCard";
 import {
   MessageSquare, ListChecks, BarChart3, Users, Maximize2, Minimize2, ArrowLeft,
-  ListTodo, AlertTriangle, CheckCircle2, TrendingUp,
+  ListTodo, AlertTriangle, CheckCircle2, TrendingUp, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 type Member = { id: string; name: string; role: string | null; source: "member" | "telegram" | "max" | "web" | "external" };
@@ -142,6 +145,13 @@ export default function ProjectRoomCenter({
   const group = data?.group;
   const members = data?.members ?? [];
 
+  const { data: taskThreads = [] } = useProjectTaskThreads(groupId);
+  const { data: availableUsers = [] } = useAvailableUsers();
+  /** Какая ветка чата задачи раскрыта в ленте «Обсуждение». */
+  const [expandedThread, setExpandedThread] = useState<string | null>(null);
+  /** Свёрнут ли весь блок «Чаты задач» над лентой комнаты. */
+  const [threadsCollapsed, setThreadsCollapsed] = useState(false);
+
   const now = Date.now();
   const open = tasks.filter((t) => !t.is_completed);
   const completed = tasks.filter((t) => t.is_completed);
@@ -214,16 +224,50 @@ export default function ProjectRoomCenter({
       {/* content */}
       <div className="min-h-0 flex-1">
         {tab === "chat" && (
-          <ProjectChat
-            key={groupId}
-            groupId={groupId}
-            groupName={group?.name || groupName}
-            embedded
-            fullscreen={fullscreen}
-            onClose={onClose}
-            onNavigateToTask={onNavigateToTask}
-            highlightMessageId={highlightMessageId}
-          />
+          <div className="flex h-full flex-col">
+            {taskThreads.length > 0 && (
+              <div className="shrink-0 border-b border-border bg-muted/20">
+                <button
+                  onClick={() => setThreadsCollapsed((v) => !v)}
+                  className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-semibold text-muted-foreground hover:text-foreground sm:px-4"
+                >
+                  {threadsCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  Чаты задач
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">
+                    {taskThreads.length}
+                  </span>
+                </button>
+                {!threadsCollapsed && (
+                  <div className="max-h-64 space-y-1.5 overflow-y-auto px-3 pb-3 sm:px-4">
+                    {taskThreads.map((th) => (
+                      <ClientTaskThreadCard
+                        key={th.taskId}
+                        thread={th}
+                        availableUsers={availableUsers}
+                        expanded={expandedThread === th.taskId}
+                        onToggle={() =>
+                          setExpandedThread((cur) => (cur === th.taskId ? null : th.taskId))
+                        }
+                        onOpen={() => onNavigateToTask?.(th.taskId)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="min-h-0 flex-1">
+              <ProjectChat
+                key={groupId}
+                groupId={groupId}
+                groupName={group?.name || groupName}
+                embedded
+                fullscreen={fullscreen}
+                onClose={onClose}
+                onNavigateToTask={onNavigateToTask}
+                highlightMessageId={highlightMessageId}
+              />
+            </div>
+          </div>
         )}
 
         {tab === "tasks" && (
