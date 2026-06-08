@@ -35,3 +35,12 @@ type: feature
 Чат клиента виден и доступен **только участникам комнаты** (членам `group_members` / владельцу), как обычный чат проекта. Решение «открыть чаты клиентов всем не-консультантам» было **откатано** (08.06.2026): сотрудники не должны видеть чужие клиентские комнаты. Соответствующие RLS-политики удалены, функция `is_crm_client_group` тоже удалена:
 - удалены `task_groups` «Non-consultants view client rooms», `group_messages` «Non-consultants view client room messages» + «Non-consultants post in client rooms», `group_members` «Non-consultants view client room members».
 Доступ к комнате клиента даёт только членство в ней.
+
+## Команда по клиенту (управление)
+Команда клиента = таблица **`client_team`** (`client_id`, `user_id`, `role`, `added_by`, UNIQUE(client_id,user_id)). RLS: SELECT для всех не-консультантов; прямой write только админам. Обычные пользователи меняют команду через RPC **`manage_client_team(_client_id, _member_id, _action 'add'|'remove', _role)`** (SECURITY DEFINER), который:
+- находит/создаёт чат-комнату клиента (`task_groups` crm_client);
+- add → upsert в `client_team` + upsert в `group_members` (даёт доступ к чату);
+- remove → удаляет из обеих таблиц (снимает доступ к чату).
+Внешние консультанты заблокированы. **Важно:** `client_assignments` НЕ используется как команда (там UNIQUE(user_id,client_id) и user_id=создатель — конфликтует с мультикомандой).
+
+UI: компонент `ClientTeamManager` (`src/components/ClientTeamManager.tsx`) + хук `useClientTeam`/`useManageClientTeam`. Встроен в правый сайдбар чата клиента (`ClientContextPanel`, блок «Команда по клиенту») и в карточку CRM (`CrmClientsList`, иконка Users → Popover). Пикер — `MultiAssigneePicker` (Сотрудник/Отдел/Подрядчик). Ответственный (`clients.manager_id`) показывается отдельной строкой «ответственный».
