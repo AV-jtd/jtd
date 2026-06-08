@@ -75,7 +75,31 @@ function useClientTasks(clientId: string | null) {
         .order("is_completed", { ascending: true })
         .order("created_at", { ascending: false })
         .limit(200);
-      return ((data as any[]) || []) as Task[];
+      const tasks = ((data as any[]) || []) as Task[];
+
+      // Плюс задачи из протоколов, напрямую помеченных этим клиентом
+      // (protocol_meta.client_id), даже если у самих задач client_id не проставлен.
+      const { data: directProtos } = await supabase
+        .from("task_groups")
+        .select("id")
+        .eq("project_type", "protocol" as any)
+        .eq("protocol_meta->>client_id", clientId as any);
+      const directGroupIds = ((directProtos as any[]) || []).map((p) => p.id);
+      if (directGroupIds.length) {
+        const { data: protoTasks } = await supabase
+          .from("tasks")
+          .select("*, subtasks(*), task_tags(tag_id)")
+          .in("group_id", directGroupIds)
+          .neq("task_type", "protocol_review")
+          .order("is_completed", { ascending: true })
+          .order("created_at", { ascending: false })
+          .limit(200);
+        const seen = new Set(tasks.map((t) => t.id));
+        for (const t of ((protoTasks as any[]) || []) as Task[]) {
+          if (!seen.has(t.id)) { tasks.push(t); seen.add(t.id); }
+        }
+      }
+      return tasks;
     },
     enabled: !!clientId,
     staleTime: 1000 * 30,
