@@ -31,9 +31,9 @@ export default function ClientTeamManager({
 
   return (
     <div className={className}>
-      <div className="mb-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <Users className="h-3.5 w-3.5" /> Команда по клиенту
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Users className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Команда по клиенту</span>
         </div>
         <MultiAssigneePicker
           users={users}
@@ -50,11 +50,11 @@ export default function ClientTeamManager({
           trigger={
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10"
               title="Добавить участника"
             >
               {addMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
-              Добавить
+              <span className="hidden sm:inline">Добавить</span>
             </button>
           }
         />
