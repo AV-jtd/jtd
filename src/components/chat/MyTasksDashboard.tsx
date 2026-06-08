@@ -121,12 +121,14 @@ function CollapsibleBubble({
   const [overflowing, setOverflowing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Высота, эквивалентная ~3 строкам текста. Используем max-height вместо
+  // line-clamp, т.к. line-clamp не сворачивает markdown с блочными <p>.
+  const COLLAPSED_PX = 72;
+
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // При line-clamp-3 clientHeight ограничен 3 строками, а scrollHeight равен
-    // полной высоте контента — так ловим переполнение в строках.
-    setOverflowing(el.scrollHeight > el.clientHeight + 1);
+    setOverflowing(el.scrollHeight > COLLAPSED_PX + 4);
   }, [content]);
 
   return (
@@ -143,8 +145,9 @@ function CollapsibleBubble({
         className={cn(
           variant === "assistant" && "prose prose-sm max-w-none dark:prose-invert [&_p]:my-1",
           variant === "user" && "whitespace-pre-wrap break-words",
-          !open && "line-clamp-3",
+          !open && overflowing && "overflow-hidden",
         )}
+        style={!open && overflowing ? { maxHeight: COLLAPSED_PX } : undefined}
       >
         {variant === "assistant" ? <ReactMarkdown>{content || "…"}</ReactMarkdown> : content}
       </div>
