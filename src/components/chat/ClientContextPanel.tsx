@@ -9,6 +9,7 @@ import {
   FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch, Globe,
 } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
+import ClientTeamManager from "@/components/ClientTeamManager";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/initials";
