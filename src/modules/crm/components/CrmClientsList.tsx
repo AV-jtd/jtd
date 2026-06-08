@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2, MessageCircle } from "lucide-react";
+import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2, MessageCircle, Users } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
+import ClientTeamManager from "@/components/ClientTeamManager";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEnsureClientRoom } from "@/hooks/useChatRooms";
 import { cn } from "@/lib/utils";
 
@@ -226,6 +228,25 @@ export default function CrmClientsList() {
                       </span>
                     )}
                   </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                        title="Команда клиента"
+                        aria-label="Команда клиента"
+                      >
+                        <Users className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      className="w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ClientTeamManager clientId={c.id} managerName={manager} />
+                    </PopoverContent>
+                  </Popover>
                   <button
                     onClick={(e) => { e.stopPropagation(); openClientChat(c.id); }}
                     disabled={ensureRoom.isPending}

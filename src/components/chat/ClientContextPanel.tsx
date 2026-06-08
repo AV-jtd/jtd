@@ -4,14 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriangle,
+  Phone, Mail, MapPin, User as UserIcon, CheckCircle2, AlertTriangle,
   ListTodo, ExternalLink, Camera, Loader2, Pencil, Check, X, MessageSquare,
   FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch, Globe,
 } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
+import ClientTeamManager from "@/components/ClientTeamManager";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { getInitials } from "@/lib/initials";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -480,30 +480,8 @@ export default function ClientContextPanel({
           </div>
 
           {/* Команда */}
-          {(data!.managerName || data!.team.length > 0) && (
-            <div>
-              <SectionTitle icon={Users}>Команда по клиенту</SectionTitle>
-              <div className="space-y-1.5">
-                {data!.managerName && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                      {getInitials(data!.managerName)}
-                    </span>
-                    <span className="truncate">{data!.managerName}</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground">ответственный</span>
-                  </div>
-                )}
-                {data!.team.map((m, i) => (
-                  <div key={`${m.id}-${i}`} className="flex items-center gap-2 text-xs">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[9px] font-semibold">
-                      {getInitials(m.name)}
-                    </span>
-                    <span className="truncate">{m.name}</span>
-                    {m.role && <span className="ml-auto truncate text-[10px] text-muted-foreground">{m.role}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {data!.client && (
+            <ClientTeamManager clientId={data!.client.id} managerName={data!.managerName} />
           )}
 
           {/* Ключевые задачи */}
