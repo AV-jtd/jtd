@@ -228,6 +228,25 @@ export default function CrmClientsList() {
                       </span>
                     )}
                   </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                        title="Команда клиента"
+                        aria-label="Команда клиента"
+                      >
+                        <Users className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      className="w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ClientTeamManager clientId={c.id} managerName={manager} />
+                    </PopoverContent>
+                  </Popover>
                   <button
                     onClick={(e) => { e.stopPropagation(); openClientChat(c.id); }}
                     disabled={ensureRoom.isPending}
