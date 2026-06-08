@@ -2825,7 +2825,6 @@ export type Database = {
         Returns: boolean
       }
       is_consultant: { Args: { _user_id: string }; Returns: boolean }
-      is_crm_client_group: { Args: { _group_id: string }; Returns: boolean }
       is_delegatee_in_group: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
