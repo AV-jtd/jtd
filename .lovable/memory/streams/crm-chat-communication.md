@@ -31,9 +31,7 @@ type: feature
 
 Осталось до C: агрегация событий задач/протоколов system-карточками в ленту комнаты, вкладки Обсуждение/Задачи/Показатели/Поручения, правый сайдбар по клиенту.
 
-## Видимость чатов клиентов (общий доступ)
-Чаты клиентов — общий ресурс, как и справочник `clients`. **Все не-консультанты** (включая руководителей) видят и могут писать в чат-комнату ЛЮБОГО клиента, а не только там, где они участники. Реализовано RLS-политиками поверх `is_crm_client_group(_group_id)` (SECURITY DEFINER, проверяет `task_groups.project_type='crm_client'`):
-- `task_groups` SELECT «Non-consultants view client rooms»;
-- `group_messages` SELECT «Non-consultants view client room messages» + INSERT «Non-consultants post in client rooms» (with_check `auth.uid()=user_id`);
-- `group_members` SELECT «Non-consultants view client room members».
-Консультанты по-прежнему заблокированы (`NOT is_consultant`).
+## Видимость чатов клиентов (только участники)
+Чат клиента виден и доступен **только участникам комнаты** (членам `group_members` / владельцу), как обычный чат проекта. Решение «открыть чаты клиентов всем не-консультантам» было **откатано** (08.06.2026): сотрудники не должны видеть чужие клиентские комнаты. Соответствующие RLS-политики удалены, функция `is_crm_client_group` тоже удалена:
+- удалены `task_groups` «Non-consultants view client rooms», `group_messages` «Non-consultants view client room messages» + «Non-consultants post in client rooms», `group_members` «Non-consultants view client room members».
+Доступ к комнате клиента даёт только членство в ней.
