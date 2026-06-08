@@ -106,25 +106,55 @@ function CrossChip({
   );
 }
 
-// Свёртываемый бабл ассистента: длинные ответы показываются превью (line-clamp),
-// раскрываются по клику. Последнее сообщение раскрыто по умолчанию.
-function AssistantBubble({ content, defaultOpen }: { content: string; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const long = content.length > 220;
+// Свёртываемый бабл сообщения: любое сообщение длиннее 3 строк автоматически
+// сворачивается (превью через line-clamp) и раскрывается по клику. Признак
+// «длинного» сообщения определяется по реальной высоте контента (>3 строк),
+// а не по числу символов.
+function CollapsibleBubble({
+  content,
+  variant,
+}: {
+  content: string;
+  variant: "assistant" | "user";
+}) {
+  const [open, setOpen] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // При line-clamp-3 clientHeight ограничен 3 строками, а scrollHeight равен
+    // полной высоте контента — так ловим переполнение в строках.
+    setOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, [content]);
+
   return (
-    <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-sm text-foreground">
+    <div
+      className={cn(
+        "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
+        variant === "assistant"
+          ? "bg-muted text-foreground"
+          : "bg-primary text-primary-foreground",
+      )}
+    >
       <div
+        ref={ref}
         className={cn(
-          "prose prose-sm max-w-none dark:prose-invert [&_p]:my-1",
-          long && !open && "line-clamp-3",
+          variant === "assistant" && "prose prose-sm max-w-none dark:prose-invert [&_p]:my-1",
+          variant === "user" && "whitespace-pre-wrap break-words",
+          !open && "line-clamp-3",
         )}
       >
-        <ReactMarkdown>{content || "…"}</ReactMarkdown>
+        {variant === "assistant" ? <ReactMarkdown>{content || "…"}</ReactMarkdown> : content}
       </div>
-      {long && (
+      {(overflowing || open) && (
         <button
           onClick={() => setOpen((v) => !v)}
-          className="mt-1 text-[11px] font-medium text-primary hover:underline"
+          className={cn(
+            "mt-1 text-[11px] font-medium hover:underline",
+            variant === "assistant" ? "text-primary" : "text-primary-foreground/80",
+          )}
         >
           {open ? "Свернуть" : "Раскрыть"}
         </button>
