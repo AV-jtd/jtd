@@ -230,6 +230,41 @@ export type Database = {
           },
         ]
       }
+      client_team: {
+        Row: {
+          added_by: string | null
+          client_id: string
+          created_at: string
+          id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_team_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           city: string | null
@@ -2926,6 +2961,15 @@ export type Database = {
       is_user_in_task_department: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
+      }
+      manage_client_team: {
+        Args: {
+          _action: string
+          _client_id: string
+          _member_id: string
+          _role?: string
+        }
+        Returns: string
       }
       mark_thread_read: { Args: { _thread_id: string }; Returns: string }
       move_to_dlq: {
