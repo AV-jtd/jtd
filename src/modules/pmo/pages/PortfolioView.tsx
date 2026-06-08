@@ -127,13 +127,19 @@ export default function PortfolioView({ onOpenGantt }: PortfolioViewProps) {
   // appear as standalone projects in the PMO portfolio (they have their own
   // top-level task_group with project_type === "protocol").
   const isProtocol = useCallback((g: TaskGroup) => (g as any).project_type === "protocol", []);
+  // CRM entities (sales pipelines and client/partner records) belong to the /crm
+  // module and must not appear in the PMO portfolio.
+  const isCrm = useCallback(
+    (g: TaskGroup) => (g as any).project_type === "crm" || (g as any).project_type === "crm_client",
+    [],
+  );
   const rootProjects = useMemo(
-    () => groups.filter((g) => !g.parent_id && !(g as any).closed_at && !isStm(g) && !isProtocol(g)),
-    [groups, isStm, isProtocol],
+    () => groups.filter((g) => !g.parent_id && !(g as any).closed_at && !isStm(g) && !isProtocol(g) && !isCrm(g)),
+    [groups, isStm, isProtocol, isCrm],
   );
   const archivedProjects = useMemo(
-    () => groups.filter((g) => !g.parent_id && (g as any).closed_at && !isStm(g) && !isProtocol(g)),
-    [groups, isStm, isProtocol],
+    () => groups.filter((g) => !g.parent_id && (g as any).closed_at && !isStm(g) && !isProtocol(g) && !isCrm(g)),
+    [groups, isStm, isProtocol, isCrm],
   );
   const [showArchived, setShowArchived] = useState(false);
 
