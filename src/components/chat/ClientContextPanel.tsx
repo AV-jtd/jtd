@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  Phone, Mail, MapPin, User as UserIcon, Users, CheckCircle2, AlertTriangle,
+  Phone, Mail, MapPin, User as UserIcon, CheckCircle2, AlertTriangle,
   ListTodo, ExternalLink, Camera, Loader2, Pencil, Check, X, MessageSquare,
   FileText, Handshake, Wallet, FolderArchive, History, Tags, StickyNote, GitBranch, Globe,
 } from "lucide-react";
@@ -12,7 +12,6 @@ import ClientAvatar from "@/components/ClientAvatar";
 import ClientTeamManager from "@/components/ClientTeamManager";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { getInitials } from "@/lib/initials";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ru } from "date-fns/locale";
 
