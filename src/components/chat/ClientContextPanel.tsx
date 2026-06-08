@@ -340,6 +340,7 @@ export default function ClientContextPanel({
   const { data, isLoading } = useClientContext(clientId);
   const client = data?.client;
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
