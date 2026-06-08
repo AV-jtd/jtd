@@ -243,7 +243,11 @@ export default function ChatRoomsList({
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rooms.filter((r) => {
-      if (filter === "projects" && (r.isClientRoom || r.isTaskRoom)) return false;
+      // В «Проектах» показываем чаты проектов И задачи-чаты, привязанные к
+      // проекту (parentGroupId) — чтобы они сворачивались под своим проектом,
+      // зеркально логике «Клиентов».
+      if (filter === "projects" && r.isClientRoom) return false;
+      if (filter === "projects" && r.isTaskRoom && !r.parentGroupId) return false;
       // В «Клиентах» показываем CRM-комнаты клиентов И задачи-чаты, привязанные
       // к клиенту (чтобы их можно было собрать под комнатой клиента).
       if (filter === "clients" && !r.isClientRoom && !(r.isTaskRoom && r.clientName)) return false;
