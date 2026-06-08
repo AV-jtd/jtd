@@ -202,12 +202,11 @@ export default function ChatRoomsList({
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
-  // Умное сопоставление: проект/клиент с >2 задачами авто-раскрыт по умолчанию,
-  // остальные свёрнуты. `overrides` хранит ручной выбор пользователя (перекрывает
-  // автоповедение).
+  // Списки по умолчанию свёрнуты. `overrides` хранит ручной выбор пользователя
+  // (перекрывает автоповедение).
   const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map());
-  const isBaseOpen = (id: string, childCount: number) =>
-    overrides.has(id) ? (overrides.get(id) as boolean) : childCount > 2;
+  const isBaseOpen = (id: string, _childCount: number) =>
+    overrides.has(id) ? (overrides.get(id) as boolean) : false;
   const toggleExpand = (id: string, current: boolean) =>
     setOverrides((prev) => {
       const next = new Map(prev);
