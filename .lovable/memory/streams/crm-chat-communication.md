@@ -30,3 +30,10 @@ type: feature
 - вход в комнату из CRM: кнопка «Чат клиента» (MessageCircle) в `CrmClientsList` → `ensureRoom` → `/chat/:groupId`.
 
 Осталось до C: агрегация событий задач/протоколов system-карточками в ленту комнаты, вкладки Обсуждение/Задачи/Показатели/Поручения, правый сайдбар по клиенту.
+
+## Видимость чатов клиентов (общий доступ)
+Чаты клиентов — общий ресурс, как и справочник `clients`. **Все не-консультанты** (включая руководителей) видят и могут писать в чат-комнату ЛЮБОГО клиента, а не только там, где они участники. Реализовано RLS-политиками поверх `is_crm_client_group(_group_id)` (SECURITY DEFINER, проверяет `task_groups.project_type='crm_client'`):
+- `task_groups` SELECT «Non-consultants view client rooms»;
+- `group_messages` SELECT «Non-consultants view client room messages» + INSERT «Non-consultants post in client rooms» (with_check `auth.uid()=user_id`);
+- `group_members` SELECT «Non-consultants view client room members».
+Консультанты по-прежнему заблокированы (`NOT is_consultant`).
