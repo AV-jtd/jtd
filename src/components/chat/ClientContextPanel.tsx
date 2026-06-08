@@ -372,7 +372,7 @@ export default function ClientContextPanel({
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 [&>div>div]:!block">
         <div className="space-y-4 p-4">
           {/* Карточка клиента */}
           <div className="flex items-start gap-3">
