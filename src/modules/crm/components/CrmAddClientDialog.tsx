@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, User as UserIcon, X } from "lucide-react";
 import { useTaskMutations, useAvailableUsers } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePicker";
 import { toast } from "sonner";
 
@@ -16,12 +19,17 @@ import { toast } from "sonner";
 export default function CrmAddClientDialog({
   open,
   onOpenChange,
+  partnerOnly = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Если true — создаётся только запись клиента в справочнике, без воронки и шагов. */
+  partnerOnly?: boolean;
 }) {
   const { addTask } = useTaskMutations();
   const { data: users = [] } = useAvailableUsers();
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState<string | null>(null);
@@ -47,6 +55,24 @@ export default function CrmAddClientDialog({
     }
     setSaving(true);
     try {
+      if (partnerOnly) {
+        // Только справочник: создаём/находим клиента, назначаем менеджера. Без воронки и шагов.
+        const { data: clientId, error: upsertErr } = await supabase
+          .rpc("upsert_client_by_name", { _name: trimmed, _user_id: user!.id });
+        if (upsertErr) throw upsertErr;
+        if (clientId && managerId) {
+          await supabase.from("client_assignments").upsert(
+            { user_id: user!.id, client_id: clientId as string, manager_id: managerId } as any,
+            { onConflict: "user_id,client_id" },
+          );
+          await supabase.from("clients").update({ manager_id: managerId }).eq("id", clientId as string);
+        }
+        await qc.invalidateQueries({ queryKey: ["crm-partners"] });
+        toast.success("Партнёр добавлен");
+        reset();
+        onOpenChange(false);
+        return;
+      }
       await addTask.mutateAsync({
         title: trimmed,
         task_type: "crm",
@@ -73,11 +99,15 @@ export default function CrmAddClientDialog({
     >
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-base">Добавить клиента</DialogTitle>
+          <DialogTitle className="text-base">
+            {partnerOnly ? "Добавить партнёра" : "Добавить клиента"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Имя клиента</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              {partnerOnly ? "Название партнёра" : "Имя клиента"}
+            </label>
             <Input
               autoFocus
               value={name}

@@ -67,7 +67,11 @@ export default function CrmLayout() {
       extraOverlays={() => (
         <>
           <CrmSmartImportDialog open={importOpen} onOpenChange={setImportOpen} />
-          <CrmAddClientDialog open={addClientOpen} onOpenChange={setAddClientOpen} />
+          <CrmAddClientDialog
+            open={addClientOpen}
+            onOpenChange={setAddClientOpen}
+            partnerOnly={boardView === "partners"}
+          />
         </>
       )}
     >
