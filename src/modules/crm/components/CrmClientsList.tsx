@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2, MessageCircle } from "lucide-react";
+import { Loader2, Search, X, Phone, Mail, MapPin, User, Building2, MessageCircle, Users } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
+import ClientTeamManager from "@/components/ClientTeamManager";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEnsureClientRoom } from "@/hooks/useChatRooms";
 import { cn } from "@/lib/utils";
 
