@@ -208,6 +208,40 @@ export default function StmMatrixView() {
     0,
   );
 
+  // ---- Flattened item list (group headers + rows) for virtualization ----
+  type FlatItem =
+    | { kind: "group"; key: string; group: (typeof grouped)[number] }
+    | { kind: "row"; key: string; project: (typeof visible)[number] };
+  const flatItems = useMemo<FlatItem[]>(() => {
+    const items: FlatItem[] = [];
+    grouped.forEach(g => {
+      if (g.label) items.push({ kind: "group", key: `g:${g.key}`, group: g });
+      if (!g.label || !collapsedGroups.has(g.key)) {
+        g.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
+      }
+    });
+    return items;
+  }, [grouped, collapsedGroups]);
+
+  const matrixWidth = 320 + stages.length * 80 + 260;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (i) => {
+      const it = flatItems[i];
+      if (it.kind === "group") return 34;
+      if (expandedSku === it.project.group.id) return density === "compact" ? 380 : 440;
+      return density === "compact" ? 37 : 97;
+    },
+    overscan: 8,
+    getItemKey: (i) => flatItems[i].key,
+  });
+  // Re-measure when density or the expanded row changes (estimate shifts).
+  useEffect(() => { rowVirtualizer.measure(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [density, expandedSku]);
+
   return (
     <div className="stm-matrix flex flex-col h-full bg-background text-foreground">
       {/* NPD / STM workflow switcher */}
