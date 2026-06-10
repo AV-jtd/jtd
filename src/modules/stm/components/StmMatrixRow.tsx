@@ -9,6 +9,7 @@ import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lu
 import { StmExpandedRow } from "./StmExpandedRow";
 import StmArchiveDialog from "./StmArchiveDialog";
 import { Button } from "@/components/ui/button";
+import { stmRowState } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
@@ -27,6 +28,20 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
   const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment } = project;
   const isArchived = !!archivedAt;
   const [archiveOpen, setArchiveOpen] = useState(false);
+
+  // Row state drives the left status strip + progress bar color.
+  const state = stmRowState(project);
+  const currentStage = currentStageKey ? stages.find(s => s.key === currentStageKey) : null;
+  const stripClass =
+    state === "overdue" ? "bg-destructive"
+    : state === "done" ? "bg-success"
+    : state === "active" ? "bg-primary"
+    : "bg-border";
+  const barClass =
+    state === "overdue" ? "bg-destructive"
+    : state === "done" ? "bg-success"
+    : state === "active" ? "bg-primary"
+    : "bg-muted-foreground/30";
 
   // Inline-editable SKU comment. Same field as in StmExpandedRow → changes
   // here are mirrored to the expanded card automatically (single source of truth).
@@ -82,9 +97,11 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
         <button
           type="button"
           onClick={() => onToggleExpand?.(group.id)}
-          className="sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 px-3 py-2.5 text-left bg-card border-r border-border hover:bg-muted/40 transition-colors"
+          className="group/sku relative sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 pl-4 pr-3 py-2.5 text-left bg-card border-r border-border hover:bg-muted/40 transition-colors"
           aria-expanded={!!expanded}
         >
+          {/* Left state strip */}
+          <span className={cn("absolute left-0 top-0 bottom-0 w-1", stripClass)} aria-hidden />
           <div className="flex items-center gap-2">
             {expanded
               ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -109,8 +126,29 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
               <div className="text-[11px] text-muted-foreground truncate">
                 {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
               </div>
+              {/* Progress bar + current stage badge */}
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full transition-all", barClass)}
+                    style={{ width: `${Math.max(progress, progress > 0 ? 4 : 0)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] tabular-nums text-muted-foreground font-mono w-8 text-right">{progress}%</span>
+              </div>
+              {!isArchived && currentStage && progress < 100 && (
+                <div className="mt-1">
+                  <span className={cn(
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium",
+                    state === "overdue"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-primary/10 text-primary",
+                  )}>
+                    сейчас: {currentStage.short}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="text-[10px] tabular-nums text-muted-foreground font-mono">{progress}%</div>
           </div>
         </button>
 
