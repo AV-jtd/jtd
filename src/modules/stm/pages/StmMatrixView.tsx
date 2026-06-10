@@ -286,6 +286,34 @@ export default function StmMatrixView() {
             </div>
           )}
 
+          {/* Density toggle: comfortable / compact heat-map */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border">
+            <button
+              type="button"
+              onClick={() => setDensity("comfortable")}
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+                density === "comfortable" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={density === "comfortable"}
+              title="Комфортный режим"
+            >
+              <Rows3 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity("compact")}
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+                density === "compact" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={density === "compact"}
+              title="Плотный режим (тепловая карта)"
+            >
+              <Rows2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <Button
             size="sm"
             variant="outline"
