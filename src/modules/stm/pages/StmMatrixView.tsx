@@ -37,6 +37,14 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Row density: comfortable (full) or compact (single-line dot heat-map).
+  const [density, setDensity] = useState<"comfortable" | "compact">(() => {
+    if (typeof window === "undefined") return "comfortable";
+    return window.localStorage.getItem("stm:density") === "compact" ? "compact" : "comfortable";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:density", density); } catch { /* ignore */ }
+  }, [density]);
   // Dashboard funnel filter: show only SKUs whose current stage matches.
   const [focusStage, setFocusStage] = useState<string | null>(null);
   // Persist collapsed groups per groupBy mode in localStorage so that the
