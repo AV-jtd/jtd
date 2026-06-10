@@ -8,6 +8,8 @@ import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
+import { StmDashboardBar } from "../components/StmDashboardBar";
+import { computeStmAnalytics } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,8 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Dashboard funnel filter: show only SKUs whose current stage matches.
+  const [focusStage, setFocusStage] = useState<string | null>(null);
   // Persist collapsed groups per groupBy mode in localStorage so that the
   // layout survives reloads and tab navigation.
   const storageKey = `stm:collapsedGroups:${groupBy}`;
@@ -131,6 +135,18 @@ export default function StmMatrixView() {
       });
   }, [projects, flow, search, statusFilter]);
 
+  // Analytics are computed on the search/status-filtered set (before the
+  // funnel focus filter) so the dashboard always reflects the full portfolio.
+  const analytics = useMemo(() => computeStmAnalytics(visible, flow), [visible, flow]);
+
+  // Reset funnel focus when the flow changes (stage keys differ between flows).
+  useEffect(() => { setFocusStage(null); }, [flow]);
+
+  const focused = useMemo(
+    () => (focusStage ? visible.filter(p => p.currentStageKey === focusStage) : visible),
+    [visible, focusStage],
+  );
+
   // Counts per status for the tab labels (within current flow).
   const statusCounts = useMemo(() => {
     const inFlow = projects.filter(p => p.flow === flow);
@@ -142,9 +158,9 @@ export default function StmMatrixView() {
   }, [projects, flow]);
 
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: visible }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused }];
     const map = new Map<string, typeof visible>();
-    visible.forEach(p => {
+    focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
@@ -152,7 +168,7 @@ export default function StmMatrixView() {
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
       .map(([key, items]) => ({ key, label: key, items }));
-  }, [visible, groupBy]);
+  }, [focused, groupBy]);
 
   const totalProgress = visible.length
     ? Math.round(visible.reduce((s, p) => s + p.progress, 0) / visible.length)
