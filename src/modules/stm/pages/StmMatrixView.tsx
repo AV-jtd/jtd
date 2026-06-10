@@ -311,15 +311,34 @@ export default function StmMatrixView() {
         </div>
       </div>
 
+      {/* Dashboard summary band */}
+      <StmDashboardBar
+        analytics={analytics}
+        focusStage={focusStage}
+        onFocusStage={setFocusStage}
+        onPickGroup={(term) => { setGroupBy(groupBy === "brand" ? "brand" : "retailer"); setSearch(term); }}
+        groupMode={groupBy === "brand" ? "brand" : "retailer"}
+      />
+
       {/* Matrix scroll area */}
       <div className="flex-1 overflow-auto">
-        {visible.length === 0 ? (
+        {focused.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 py-16">
             <LayoutGrid className="h-10 w-10 opacity-40" />
-            <div className="text-sm">Нет SKU в потоке «{flow === "in" ? "Ввод" : "Вывод"}»</div>
-            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Создать первый SKU
-            </Button>
+            <div className="text-sm">
+              {focusStage
+                ? "Нет SKU на выбранном этапе"
+                : `Нет SKU в потоке «${flow === "in" ? "Ввод" : "Вывод"}»`}
+            </div>
+            {focusStage ? (
+              <Button size="sm" variant="outline" onClick={() => setFocusStage(null)}>
+                Сбросить фильтр по этапу
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Создать первый SKU
+              </Button>
+            )}
           </div>
         ) : (
           <div className="min-w-fit">
