@@ -495,7 +495,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
             <img
               src={protocol.logo_url}
               alt="Логотип"
-              className="h-12 w-12 rounded-lg object-cover ring-1 ring-border sm:h-14 sm:w-14"
+              className="h-12 w-12 rounded-lg object-contain bg-white ring-1 ring-border sm:h-14 sm:w-14"
             />
           ) : (
             <div
@@ -795,7 +795,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
             <img
               src={ourLogoUrl ?? ourLogoDefault}
               alt={sides?.ours ?? "Наша сторона"}
-              className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
+              className="h-12 w-12 rounded-lg object-contain bg-white ring-1 ring-border"
             />
             <button
               type="button"
@@ -903,7 +903,7 @@ export default function ProtocolHeader({ protocol, isDraft, internalAttendeeIds 
               <img
                 src={linkedClient.logo_url}
                 alt={linkedClient.name}
-                className="h-12 w-12 rounded-lg object-cover ring-1 ring-border"
+                className="h-12 w-12 rounded-lg object-contain bg-white ring-1 ring-border"
               />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500/10 text-sm font-bold text-purple-600 dark:text-purple-300">

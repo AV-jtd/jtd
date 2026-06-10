@@ -367,7 +367,7 @@ function ProtocolRow({
         <img
           src={group.logo_url}
           alt={group.name}
-          className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-border"
+          className="h-10 w-10 shrink-0 rounded-md object-contain bg-white ring-1 ring-border"
         />
       ) : (
         <div
