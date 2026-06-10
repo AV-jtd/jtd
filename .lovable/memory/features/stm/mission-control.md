@@ -40,6 +40,12 @@ type: feature
 - Поиск по имени SKU + meta полям.
 - Клик по ячейке = toggle complete у задачи. Клик по SKU = переход на `/pmo/project/:id`.
 
+## Масштаб (под сотни SKU)
+
+- **Виртуализация** строк через `@tanstack/react-virtual` (`useVirtualizer` в `StmMatrixView`): плоский список `flatItems` (group-header | row), абсолютное позиционирование внутри обёртки фикс. ширины `matrixWidth = 320 + stages*80 + 260`, sticky-колонки SKU/комментарий работают через scroll-container. `measureElement` для динамических высот (раскрытые строки).
+- **Плотность** (`stm:density` в localStorage): «Комфортный» (полная строка) ↔ «Плотный» (одна строка ~37px, тепловая карта статус-точек: синяя=текущий, серые=ожидание, зелёная=готово, красная=просрочено, ромб=веха). Тумблер Rows3/Rows2 в верхнем баре. Компактные точки — `StmMatrixCell compact`.
+- **Агрегаты-первыми**: при группировке группы по умолчанию свёрнуты (auto-collapse при отсутствии сохранённого `stm:collapsedGroups:<mode>`). Шапка группы показывает метрики: count SKU + бар ср.прогресса + ⚠ кол-во просроченных. Метрики считает `stat()` в `StmMatrixView` (использует `isStmProjectOverdue`).
+
 ## Файлы
 
 - `src/modules/stm/lib/stages.ts` — этапы и helpers.

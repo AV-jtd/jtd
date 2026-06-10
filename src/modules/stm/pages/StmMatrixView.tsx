@@ -1,15 +1,16 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import { StmDashboardBar } from "../components/StmDashboardBar";
-import { computeStmAnalytics } from "../lib/stmAnalytics";
+import { computeStmAnalytics, isStmProjectOverdue } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,14 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Row density: comfortable (full) or compact (single-line dot heat-map).
+  const [density, setDensity] = useState<"comfortable" | "compact">(() => {
+    if (typeof window === "undefined") return "comfortable";
+    return window.localStorage.getItem("stm:density") === "compact" ? "compact" : "comfortable";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:density", density); } catch { /* ignore */ }
+  }, [density]);
   // Dashboard funnel filter: show only SKUs whose current stage matches.
   const [focusStage, setFocusStage] = useState<string | null>(null);
   // Persist collapsed groups per groupBy mode in localStorage so that the
@@ -157,8 +166,14 @@ export default function StmMatrixView() {
     };
   }, [projects, flow]);
 
+  const stat = (items: typeof visible) => {
+    const count = items.length;
+    const avgProgress = count ? Math.round(items.reduce((s, p) => s + p.progress, 0) / count) : 0;
+    const overdueCount = items.filter(isStmProjectOverdue).length;
+    return { count, avgProgress, overdueCount };
+  };
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
@@ -167,8 +182,23 @@ export default function StmMatrixView() {
     });
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
-      .map(([key, items]) => ({ key, label: key, items }));
+      .map(([key, items]) => ({ key, label: key, items, ...stat(items) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focused, groupBy]);
+
+  // Aggregates-first: when grouping is on and the user has no saved preference
+  // for this mode yet, start with every group collapsed (portfolio "from above").
+  const autoCollapsedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (groupBy === "none") return;
+    if (autoCollapsedRef.current.has(storageKey)) return;
+    let raw: string | null = null;
+    try { raw = window.localStorage.getItem(storageKey); } catch { /* ignore */ }
+    if (raw) { autoCollapsedRef.current.add(storageKey); return; }
+    if (grouped.length === 0) return; // wait for data
+    setCollapsedGroups(new Set(grouped.map(g => g.key)));
+    autoCollapsedRef.current.add(storageKey);
+  }, [groupBy, grouped, storageKey]);
 
   const totalProgress = visible.length
     ? Math.round(visible.reduce((s, p) => s + p.progress, 0) / visible.length)
@@ -177,6 +207,40 @@ export default function StmMatrixView() {
     (n, p) => n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length,
     0,
   );
+
+  // ---- Flattened item list (group headers + rows) for virtualization ----
+  type FlatItem =
+    | { kind: "group"; key: string; group: (typeof grouped)[number] }
+    | { kind: "row"; key: string; project: (typeof visible)[number] };
+  const flatItems = useMemo<FlatItem[]>(() => {
+    const items: FlatItem[] = [];
+    grouped.forEach(g => {
+      if (g.label) items.push({ kind: "group", key: `g:${g.key}`, group: g });
+      if (!g.label || !collapsedGroups.has(g.key)) {
+        g.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
+      }
+    });
+    return items;
+  }, [grouped, collapsedGroups]);
+
+  const matrixWidth = 320 + stages.length * 80 + 260;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (i) => {
+      const it = flatItems[i];
+      if (it.kind === "group") return 34;
+      if (expandedSku === it.project.group.id) return density === "compact" ? 380 : 440;
+      return density === "compact" ? 37 : 97;
+    },
+    overscan: 8,
+    getItemKey: (i) => flatItems[i].key,
+  });
+  // Re-measure when density or the expanded row changes (estimate shifts).
+  useEffect(() => { rowVirtualizer.measure(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [density, expandedSku]);
 
   return (
     <div className="stm-matrix flex flex-col h-full bg-background text-foreground">
@@ -256,6 +320,34 @@ export default function StmMatrixView() {
             </div>
           )}
 
+          {/* Density toggle: comfortable / compact heat-map */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border">
+            <button
+              type="button"
+              onClick={() => setDensity("comfortable")}
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+                density === "comfortable" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={density === "comfortable"}
+              title="Комфортный режим"
+            >
+              <Rows3 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity("compact")}
+              className={cn(
+                "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+                density === "compact" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={density === "compact"}
+              title="Плотный режим (тепловая карта)"
+            >
+              <Rows2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <Button
             size="sm"
             variant="outline"
@@ -321,7 +413,7 @@ export default function StmMatrixView() {
       />
 
       {/* Matrix scroll area */}
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         {focused.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 py-16">
             <LayoutGrid className="h-10 w-10 opacity-40" />
@@ -341,42 +433,68 @@ export default function StmMatrixView() {
             )}
           </div>
         ) : (
-          <div className="min-w-fit">
+          <div style={{ width: matrixWidth }} className="relative">
             <StmMatrixHeader stages={stages} />
-            {grouped.map(g => (
-              <div key={g.key}>
-                {g.label && (
-                  <button
-                    type="button"
-                    onClick={() => setCollapsedGroups(prev => {
-                      const next = new Set(prev);
-                      next.has(g.key) ? next.delete(g.key) : next.add(g.key);
-                      return next;
-                    })}
-                    className="sticky left-0 z-[1] w-full flex items-center gap-1.5 px-4 py-1.5 bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
-                    aria-expanded={!collapsedGroups.has(g.key)}
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map(vi => {
+                const it = flatItems[vi.index];
+                return (
+                  <div
+                    key={vi.key}
+                    data-index={vi.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                   >
-                    {collapsedGroups.has(g.key)
-                      ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
-                    <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">{g.label}</span>
-                    <span className="ml-2 text-[10px] text-muted-foreground/70">{g.items.length}</span>
-                  </button>
-                )}
-                {!collapsedGroups.has(g.key) && g.items.map(p => (
-                  <StmMatrixRow
-                    key={p.group.id}
-                    project={p}
-                    stages={stages}
-                    expanded={expandedSku === p.group.id}
-                    onToggleExpand={toggleExpand}
-                    onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
-                    activeStageKey={expandedSku === p.group.id ? activeStage : null}
-                    onActiveStageChange={setActiveStage}
-                  />
-                ))}
-              </div>
-            ))}
+                    {it.kind === "group" ? (
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedGroups(prev => {
+                          const next = new Set(prev);
+                          next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
+                        aria-expanded={!collapsedGroups.has(it.group.key)}
+                      >
+                        {collapsedGroups.has(it.group.key)
+                          ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate">{it.group.label}</span>
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{it.group.count} SKU</span>
+                        <span className="ml-auto flex items-center gap-3 shrink-0">
+                          {/* avg progress mini bar */}
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <span
+                                className="block h-full rounded-full bg-primary/60"
+                                style={{ width: `${Math.max(it.group.avgProgress, it.group.avgProgress > 0 ? 4 : 0)}%` }}
+                              />
+                            </span>
+                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{it.group.avgProgress}%</span>
+                          </span>
+                          {it.group.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
+                              <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ) : (
+                      <StmMatrixRow
+                        project={it.project}
+                        stages={stages}
+                        density={density}
+                        expanded={expandedSku === it.project.group.id}
+                        onToggleExpand={toggleExpand}
+                        onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
+                        activeStageKey={expandedSku === it.project.group.id ? activeStage : null}
+                        onActiveStageChange={setActiveStage}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

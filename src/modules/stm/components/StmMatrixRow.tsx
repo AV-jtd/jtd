@@ -22,9 +22,11 @@ interface Props {
   onOpenGantt?: (groupId: string) => void;
   activeStageKey?: string | null;
   onActiveStageChange?: (stageKey: string | null) => void;
+  /** Row density. "compact" renders a single-line dot row. */
+  density?: "comfortable" | "compact";
 }
 
-function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange }: Props) {
+function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange, density = "comfortable" }: Props) {
   const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment } = project;
   const isArchived = !!archivedAt;
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -42,6 +44,8 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-muted-foreground/30";
+
+  const isCompact = density === "compact";
 
   // Inline-editable SKU comment. Same field as in StmExpandedRow → changes
   // here are mirrored to the expanded card automatically (single source of truth).
@@ -88,6 +92,79 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
 
   return (
     <>
+      {isCompact ? (
+        <div className={cn(
+          "flex border-b border-border/60 transition-colors",
+          expanded ? "bg-muted/40" : "hover:bg-muted/30",
+          isArchived && "opacity-60",
+        )}>
+          {/* Sticky SKU column — single line */}
+          <button
+            type="button"
+            onClick={() => onToggleExpand?.(group.id)}
+            className="relative sticky left-0 z-[1] min-w-[320px] w-[320px] shrink-0 pl-4 pr-3 h-9 flex items-center gap-2 text-left bg-card border-r border-border hover:bg-muted/40 transition-colors"
+            aria-expanded={!!expanded}
+          >
+            <span className={cn("absolute left-0 top-0 bottom-0 w-1", stripClass)} aria-hidden />
+            {expanded
+              ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              : <ChevronRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />}
+            <span className="text-xs">{group.icon || "🏷️"}</span>
+            <span className={cn(
+              "text-[12px] font-medium text-foreground truncate flex-1 min-w-0",
+              isArchived && "line-through decoration-muted-foreground",
+            )}>{group.name}</span>
+            {!isArchived && currentStage && progress < 100 && (
+              <span className={cn(
+                "shrink-0 text-[9px] px-1 py-0.5 rounded leading-none",
+                state === "overdue" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
+              )}>{currentStage.short}</span>
+            )}
+            <span className="shrink-0 w-7 text-right text-[10px] tabular-nums font-mono text-muted-foreground">{progress}%</span>
+          </button>
+
+          {/* Stage dots */}
+          {stages.map(stage => {
+            const task = stageTasks.find(t => (t as any).stage_key === stage.key) ?? null;
+            const isMilestone = !!stage.milestoneKey;
+            return (
+              <div
+                key={stage.key}
+                className={cn(
+                  "min-w-[80px] w-[80px] shrink-0 h-9 border-r border-border/40",
+                  stage.key === currentStageKey && "bg-primary/[0.04]",
+                  isMilestone && "bg-primary/[0.03]",
+                )}
+              >
+                <StmMatrixCell
+                  compact
+                  task={task}
+                  isCurrent={stage.key === currentStageKey}
+                  isMilestone={isMilestone}
+                  groupId={group.id}
+                  stageKey={stage.key}
+                  stageTitle={stage.title}
+                  flow={(meta?.flow === "out" ? "out" : "in")}
+                />
+              </div>
+            );
+          })}
+
+          {/* Comment column — compact indicator */}
+          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2">
+            <MessageSquare className={cn(
+              "h-3 w-3 shrink-0",
+              group.description ? "text-primary" : "text-muted-foreground/30",
+            )} />
+            <span className={cn(
+              "text-[11px] truncate flex-1 min-w-0",
+              group.description ? "text-foreground/70" : "text-muted-foreground/40 italic",
+            )}>
+              {group.description || "—"}
+            </span>
+          </div>
+        </div>
+      ) : (
       <div className={cn(
         "flex border-b border-border transition-colors",
         expanded ? "bg-muted/40" : "hover:bg-muted/30",
@@ -245,6 +322,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           )}
         </div>
       </div>
+      )}
 
       {/* Expanded panel: each stage = a task with steps/deadlines/assignees */}
       {expanded && (
