@@ -413,7 +413,7 @@ export default function StmMatrixView() {
       />
 
       {/* Matrix scroll area */}
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         {focused.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 py-16">
             <LayoutGrid className="h-10 w-10 opacity-40" />
@@ -433,42 +433,68 @@ export default function StmMatrixView() {
             )}
           </div>
         ) : (
-          <div className="min-w-fit">
+          <div style={{ width: matrixWidth }} className="relative">
             <StmMatrixHeader stages={stages} />
-            {grouped.map(g => (
-              <div key={g.key}>
-                {g.label && (
-                  <button
-                    type="button"
-                    onClick={() => setCollapsedGroups(prev => {
-                      const next = new Set(prev);
-                      next.has(g.key) ? next.delete(g.key) : next.add(g.key);
-                      return next;
-                    })}
-                    className="sticky left-0 z-[1] w-full flex items-center gap-1.5 px-4 py-1.5 bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
-                    aria-expanded={!collapsedGroups.has(g.key)}
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map(vi => {
+                const it = flatItems[vi.index];
+                return (
+                  <div
+                    key={vi.key}
+                    data-index={vi.index}
+                    ref={rowVirtualizer.measureElement}
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                   >
-                    {collapsedGroups.has(g.key)
-                      ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
-                    <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">{g.label}</span>
-                    <span className="ml-2 text-[10px] text-muted-foreground/70">{g.items.length}</span>
-                  </button>
-                )}
-                {!collapsedGroups.has(g.key) && g.items.map(p => (
-                  <StmMatrixRow
-                    key={p.group.id}
-                    project={p}
-                    stages={stages}
-                    expanded={expandedSku === p.group.id}
-                    onToggleExpand={toggleExpand}
-                    onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
-                    activeStageKey={expandedSku === p.group.id ? activeStage : null}
-                    onActiveStageChange={setActiveStage}
-                  />
-                ))}
-              </div>
-            ))}
+                    {it.kind === "group" ? (
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedGroups(prev => {
+                          const next = new Set(prev);
+                          next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
+                        aria-expanded={!collapsedGroups.has(it.group.key)}
+                      >
+                        {collapsedGroups.has(it.group.key)
+                          ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate">{it.group.label}</span>
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{it.group.count} SKU</span>
+                        <span className="ml-auto flex items-center gap-3 shrink-0">
+                          {/* avg progress mini bar */}
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <span
+                                className="block h-full rounded-full bg-primary/60"
+                                style={{ width: `${Math.max(it.group.avgProgress, it.group.avgProgress > 0 ? 4 : 0)}%` }}
+                              />
+                            </span>
+                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{it.group.avgProgress}%</span>
+                          </span>
+                          {it.group.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
+                              <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ) : (
+                      <StmMatrixRow
+                        project={it.project}
+                        stages={stages}
+                        density={density}
+                        expanded={expandedSku === it.project.group.id}
+                        onToggleExpand={toggleExpand}
+                        onOpenGantt={(id) => navigate(`/pmo/project/${id}`)}
+                        activeStageKey={expandedSku === it.project.group.id ? activeStage : null}
+                        onActiveStageChange={setActiveStage}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
