@@ -493,7 +493,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             <img
                               src={protocol.logo_url}
                               alt=""
-                              className="h-12 w-12 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                              className="h-12 w-12 rounded-lg object-contain bg-white ring-1 ring-neutral-200 shrink-0"
                               crossOrigin="anonymous"
                             />
                           ) : (
@@ -554,7 +554,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                             <img
                               src={ourLogo}
                               alt={ourSideName}
-                              className="h-10 w-10 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                              className="h-10 w-10 rounded-lg object-contain bg-white ring-1 ring-neutral-200 shrink-0"
                               crossOrigin="anonymous"
                             />
                             <div className="min-w-0 flex-1">
@@ -585,7 +585,7 @@ export default function ProtocolPreviewDialog({ protocolId, open, onOpenChange }
                               <img
                                 src={clientLogoUrl}
                                 alt={partnerName ?? ""}
-                                className="h-10 w-10 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
+                                className="h-10 w-10 rounded-lg object-contain bg-white ring-1 ring-neutral-200 shrink-0"
                                 crossOrigin="anonymous"
                               />
                             ) : (
