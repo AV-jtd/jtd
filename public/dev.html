@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STM Dashboard — варианты</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;background:#05070a;font-family:system-ui,sans-serif}
+.bar{position:sticky;top:0;z-index:50;display:flex;gap:8px;padding:12px 16px;background:#0b0e14;border-bottom:1px solid #1e293b;flex-wrap:wrap}
+.tab{padding:8px 14px;border-radius:8px;border:1px solid #1e293b;background:#161a23;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer}
+.tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.pane{display:none}
+.pane.active{display:block}
+</style></head><body>
+<div class="bar">
+<span style="color:#fff;font-weight:700;padding:8px 4px">STM варианты дашборда:</span>
+<button class="tab active" data-t="v1">V1 · Dark mission control</button>
+<button class="tab " data-t="v2">V2 · Data-dense cockpit</button>
+<button class="tab " data-t="v3">V3 · Cyber-tactical command</button>
+
+</div>
+<div class="pane active" data-p="v1"><div class="min-h-screen bg-[#0b0e14] text-slate-300 font-sans p-6 selection:bg-blue-500/30">
+  <!-- Portfolio Summary Band -->
+  <div class="max-w-[1600px] mx-auto space-y-6">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+          <span class="text-blue-500">●</span> STM Mission Control
+        </h1>
+        <span class="text-xs text-slate-500 font-medium uppercase tracking-widest">290 SKU • 0% Avg Progress</span>
+      </div>
+      <div class="flex gap-2">
+        <button class="px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700 text-xs font-semibold rounded border border-slate-700 transition-colors">Export Excel</button>
+        <button class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded transition-colors shadow-lg shadow-blue-900/20">+ SKU</button>
+      </div>
+    </div>
+
+    <!-- KPI Grid -->
+    <div class="grid grid-cols-5 gap-4">
+      <div class="bg-[#161a23] border border-slate-800 p-4 rounded-xl shadow-inner">
+        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Всего SKU
+        </div>
+        <div class="text-3xl font-light text-white">290</div>
+      </div>
+      <div class="bg-[#161a23] border border-blue-900/30 p-4 rounded-xl">
+        <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          В работе
+        </div>
+        <div class="text-3xl font-light text-blue-400">0</div>
+      </div>
+      <div class="bg-[#161a23] border border-emerald-900/30 p-4 rounded-xl">
+        <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Ср. прогресс
+        </div>
+        <div class="text-3xl font-light text-emerald-400">0%</div>
+      </div>
+      <div class="bg-[#161a23] border border-red-900/30 p-4 rounded-xl">
+        <div class="text-[10px] text-red-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Просрочено
+        </div>
+        <div class="text-3xl font-light text-red-400">0</div>
+      </div>
+      <div class="bg-[#161a23] border border-slate-800 p-4 rounded-xl">
+        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          К запуску
+        </div>
+        <div class="text-3xl font-light text-white">0</div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-12 gap-6">
+      <div class="col-span-8 bg-[#161a23] border border-slate-800 rounded-xl p-5">
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">Распределение по текущему этапу</div>
+        <div class="flex items-end gap-2 h-24">
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div class="w-full bg-blue-500/20 border-t-2 border-blue-500 h-20 relative group">
+              <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white">290</span>
+            </div>
+            <span class="text-[9px] uppercase text-slate-600 font-bold">Бриф</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30">
+            <div class="w-full bg-slate-800 h-1"></div>
+            <span class="text-[9px] uppercase text-slate-600">Запрос</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Отправка</span></div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Дегу #1</span></div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Расчет</span></div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Дораб.</span></div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Утвержд.</span></div>
+          <div class="flex-1 flex flex-col items-center gap-2 opacity-30"><div class="w-full bg-slate-800 h-1"></div><span class="text-[9px] uppercase text-slate-600">Ветка</span></div>
+        </div>
+      </div>
+      <div class="col-span-4 bg-[#161a23] border border-slate-800 rounded-xl p-5">
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Топ сетей</div>
+        <div class="space-y-3">
+          <div class="flex items-center gap-3">
+            <span class="text-[11px] w-20 text-slate-400 truncate">Лента</span>
+            <div class="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="w-[85%] h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div></div>
+            <span class="text-[10px] font-mono text-slate-500">85</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[11px] w-20 text-slate-400 truncate">X5 Group</span>
+            <div class="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="w-[73%] h-full bg-blue-500/80"></div></div>
+            <span class="text-[10px] font-mono text-slate-500">73</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[11px] w-20 text-slate-400 truncate">ВкусВилл</span>
+            <div class="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="w-[41%] h-full bg-blue-500/60"></div></div>
+            <span class="text-[10px] font-mono text-slate-500">41</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Matrix -->
+    <div class="bg-[#0f1219] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-[#161a23] border-b border-slate-800">
+              <th class="p-4 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky left-0 bg-[#161a23] z-10 w-80">SKU / Проект</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">01<br/>Бриф</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">02<br/>Запрос</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">03<br/>Отпр.</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">04<br/>Дегу</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">05<br/>Расчёт</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">06<br/>Дораб.</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-blue-400 min-w-[80px] bg-blue-500/5">07<br/>Утв.</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">...</th>
+              <th class="p-4 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[80px]">12<br/>Заказ</th>
+              <th class="p-4 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 min-w-[200px]">Комментарий</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/50">
+            <!-- Row 1 -->
+            <tr class="hover:bg-slate-800/20 transition-colors group">
+              <td class="p-4 sticky left-0 bg-[#0f1219] group-hover:bg-[#161a23] transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="mt-1 p-1 bg-amber-500/10 rounded">
+                    <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-sm font-semibold text-white">Пшенная каша с тыквой</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">Бренд • Бережное томление • Осень 2026</div>
+                    <div class="mt-2 w-32 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="w-[0%] h-full bg-blue-500"></div></div>
+                  </div>
+                </div>
+              </td>
+              <td class="p-4 border-l border-slate-800/50 text-center">
+                <div class="text-[10px] text-blue-500 font-bold uppercase">Сейчас</div>
+              </td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center bg-blue-500/5">
+                <div class="flex flex-col items-center gap-1 opacity-40">
+                  <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                  <span class="text-[8px] text-blue-400 uppercase font-bold">Нет даты</span>
+                </div>
+              </td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">...</td>
+              <td class="p-4 border-l border-slate-800/50 text-center">
+                 <div class="flex flex-col items-center gap-1 opacity-20">
+                  <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                  <span class="text-[8px] text-blue-400 uppercase font-bold">Нет даты</span>
+                </div>
+              </td>
+              <td class="p-4 border-l border-slate-800/50">
+                <input type="text" placeholder="Добавить комментарий..." class="w-full bg-transparent border-none text-[11px] text-slate-500 focus:text-slate-300 focus:ring-0 placeholder-slate-700">
+              </td>
+            </tr>
+            <!-- Row 2 -->
+            <tr class="hover:bg-slate-800/20 transition-colors group">
+              <td class="p-4 sticky left-0 bg-[#0f1219] group-hover:bg-[#161a23] transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="mt-1 p-1 bg-amber-500/10 rounded">
+                    <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-sm font-semibold text-white">Грузинский томатный суп с харчо</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">Бренд • Бережное томление • Осень 2026</div>
+                    <div class="mt-2 w-32 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="w-[0%] h-full bg-blue-500"></div></div>
+                  </div>
+                </div>
+              </td>
+              <td class="p-4 border-l border-slate-800/50 text-center"><div class="text-[10px] text-blue-500 font-bold uppercase">Сейчас</div></td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td class="p-4 border-l border-slate-800/50 text-center text-slate-700">—</td>
+              <td colspan="7" class="p-4 border-l border-slate-800/50"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div></div>
+<div class="pane " data-p="v2"><div class="min-h-screen w-full bg-[#05070a] text-slate-300 font-sans p-6">
+  <!-- Header Navigation & Actions -->
+  <div class="flex flex-col gap-6 mb-8">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="p-2 bg-blue-500/10 rounded-lg">
+          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            STM Mission Control
+            <span class="text-xs font-normal text-slate-500 uppercase tracking-widest bg-slate-800/50 px-2 py-0.5 rounded">290 SKU • 0% Progress</span>
+          </h1>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <input type="text" placeholder="Поиск SKU, сеть, бренд..." class="bg-slate-900 border border-slate-800 rounded-md px-4 py-1.5 text-sm w-64 focus:outline-none focus:border-blue-500/50 transition-colors">
+        </div>
+        <button class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-md text-sm hover:bg-slate-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+          Свернуть всё
+        </button>
+        <button class="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-medium transition-colors shadow-lg shadow-blue-900/20">
+          <span class="text-lg leading-none">+</span> SKU
+        </button>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between border-b border-slate-800/50 pb-2">
+      <div class="flex gap-6">
+        <button class="text-sm font-semibold text-white border-b-2 border-blue-500 pb-2">Ввод SKU <span class="text-slate-500 ml-1">290</span></button>
+        <button class="text-sm font-semibold text-slate-500 hover:text-slate-300 pb-2">Вывод SKU <span class="text-slate-700 ml-1">20</span></button>
+      </div>
+      <div class="flex gap-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+        <span class="text-blue-400 cursor-pointer">Активные 290</span>
+        <span class="hover:text-slate-300 cursor-pointer">Архив 0</span>
+        <span class="hover:text-slate-300 cursor-pointer">Все 290</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio Summary Band -->
+  <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-slate-900/40 border border-slate-800 p-4 rounded-xl">
+      <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Всего SKU</div>
+      <div class="text-3xl font-light text-white">290</div>
+    </div>
+    <div class="bg-slate-900/40 border border-slate-800 p-4 rounded-xl">
+      <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">В работе</div>
+      <div class="text-3xl font-light text-blue-400">0</div>
+    </div>
+    <div class="bg-slate-900/40 border border-blue-500/30 p-4 rounded-xl ring-1 ring-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.05)]">
+      <div class="text-[10px] font-bold text-blue-400/80 uppercase tracking-widest mb-1">Ср. прогресс</div>
+      <div class="text-3xl font-light text-green-400">0%</div>
+    </div>
+    <div class="bg-slate-900/40 border border-red-500/20 p-4 rounded-xl">
+      <div class="text-[10px] font-bold text-red-400/60 uppercase tracking-widest mb-1">Просрочено</div>
+      <div class="text-3xl font-light text-red-500/80">0</div>
+    </div>
+    <div class="bg-slate-900/40 border border-slate-800 p-4 rounded-xl">
+      <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">К запуску</div>
+      <div class="text-3xl font-light text-slate-400">0</div>
+    </div>
+  </div>
+
+  <!-- Charts Grid -->
+  <div class="grid grid-cols-12 gap-4 mb-8">
+    <!-- Funnel Chart -->
+    <div class="col-span-8 bg-slate-900/30 border border-slate-800 p-5 rounded-xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Распределение по текущему этапу</h3>
+      </div>
+      <div class="flex items-end gap-1 h-32">
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-blue-500/80 rounded-t-sm h-full flex items-center justify-center text-[10px] font-bold text-white">290</div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">БРИФ</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2 group cursor-help">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px] group-hover:bg-slate-700 transition-colors"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">ЗАПРОС</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px]"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">ОТПРАВКА</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px]"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">ДЕГУ</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px]"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">РАСЧЕТ</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px]"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">УТВЕРЖД.</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-slate-800/40 rounded-t-sm h-[2px]"></div>
+          <div class="text-[9px] uppercase text-slate-600 truncate w-full text-center">ЗАКАЗ</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Top Retailers -->
+    <div class="col-span-4 bg-slate-900/30 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+      <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4">Топ сетей</h3>
+      <div class="space-y-3">
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">Лента</span>
+            <span class="text-slate-500 font-mono">85</span>
+          </div>
+          <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500 w-[85%]"></div>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">X5 Group</span>
+            <span class="text-slate-500 font-mono">73</span>
+          </div>
+          <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500/80 w-[73%]"></div>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-300">ВкусВилл</span>
+            <span class="text-slate-500 font-mono">41</span>
+          </div>
+          <div class="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500/60 w-[41%]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Matrix Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-slate-800">
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest min-w-[280px]">SKU / Проект</th>
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20">
+            <span class="block text-[8px] opacity-50">01</span>
+            Бриф
+          </th>
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20">
+            <span class="block text-[8px] opacity-50">02</span>
+            Запрос
+          </th>
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20">
+            <span class="block text-[8px] opacity-50">03</span>
+            Отправ.
+          </th>
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20 text-blue-400 border-b border-blue-500/50 bg-blue-500/5">
+            <span class="block text-[8px] opacity-50">07</span>
+            Утвержд.
+          </th>
+          <th class="py-4 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20">
+            <span class="block text-[8px] opacity-50">12</span>
+            Заказ
+          </th>
+          <th class="py-4 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Комментарий</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/30">
+        <tr class="group hover:bg-slate-800/20">
+          <td class="py-4 px-2">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-slate-600">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.707 9.293l-5-5a1 1 0 00-1.414 1.414L14.586 9H3a1 1 0 100 2h11.586l-3.293 3.293a1 1 0 001.414 1.414l5-5a1 1 0 000-1.414z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">Пшенная каша с тыквой</div>
+                <div class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Бренд • Бережное томление • Осень 2026</div>
+                <div class="w-full max-w-[120px] bg-slate-800 h-1 mt-2 rounded-full">
+                  <div class="bg-slate-700 h-full w-[0%] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30">
+            <div class="w-full h-full flex items-center justify-center">
+              <div class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+            </div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center text-[10px] text-slate-700 font-mono">—</td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center text-[10px] text-slate-700 font-mono">—</td>
+          <td class="py-4 px-2 border-x border-slate-800/30 bg-blue-500/5 text-center">
+            <div class="text-[9px] text-blue-500/50 uppercase font-bold">Нет даты</div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center">
+            <div class="text-[9px] text-slate-700 uppercase font-bold">Заказ</div>
+          </td>
+          <td class="py-4 px-4">
+            <textarea class="w-full bg-transparent border border-slate-800 rounded p-2 text-[11px] text-slate-500 resize-none focus:outline-none focus:border-slate-600 transition-colors" placeholder="Добавить комментарий..."></textarea>
+          </td>
+        </tr>
+
+        <tr class="group hover:bg-slate-800/20">
+          <td class="py-4 px-2">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-slate-600">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.707 9.293l-5-5a1 1 0 00-1.414 1.414L14.586 9H3a1 1 0 100 2h11.586l-3.293 3.293a1 1 0 001.414 1.414l5-5a1 1 0 000-1.414z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">Грузинский томатный суп...</div>
+                <div class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Бренд • Бережное томление • Осень 2026</div>
+                <div class="w-full max-w-[120px] bg-slate-800 h-1 mt-2 rounded-full">
+                  <div class="bg-slate-700 h-full w-[0%] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30">
+            <div class="w-full h-full flex items-center justify-center">
+              <div class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+            </div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center text-[10px] text-slate-700 font-mono">—</td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center text-[10px] text-slate-700 font-mono">—</td>
+          <td class="py-4 px-2 border-x border-slate-800/30 bg-blue-500/5 text-center font-bold">
+             <div class="text-[9px] text-blue-500/50 uppercase">Нет даты</div>
+          </td>
+          <td class="py-4 px-2 border-x border-slate-800/30 text-center">
+            <div class="text-[9px] text-slate-700 uppercase font-bold">Заказ</div>
+          </td>
+          <td class="py-4 px-4">
+            <textarea class="w-full bg-transparent border border-slate-800 rounded p-2 text-[11px] text-slate-500 resize-none focus:outline-none focus:border-slate-600 transition-colors" placeholder="Добавить комментарий..."></textarea>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div></div>
+<div class="pane " data-p="v3"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<div class="min-h-screen w-full bg-[#08090d] text-slate-300 p-6 font-['Inter']">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Header & KPI Band -->
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-baseline gap-4">
+          <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <div class="w-2 h-6 bg-blue-500 rounded-full"></div>
+            STM Mission Control
+          </h1>
+          <span class="text-xs text-slate-500 font-medium uppercase tracking-widest">290 SKU &bull; 0% Progress</span>
+        </div>
+        <div class="flex items-center gap-3">
+           <div class="flex bg-[#12141c] rounded-lg p-1 border border-slate-800">
+              <button class="px-4 py-1.5 text-xs font-semibold bg-[#1e2230] text-white rounded-md shadow-sm">Ввод SKU <span class="opacity-50 ml-1">290</span></button>
+              <button class="px-4 py-1.5 text-xs font-semibold text-slate-500">Вывод SKU <span class="opacity-50 ml-1">20</span></button>
+           </div>
+           <button class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+             <span class="text-lg leading-none">+</span> SKU
+           </button>
+        </div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="grid grid-cols-5 gap-3">
+        <div class="bg-[#0f111a] border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> ВСЕГО SKU
+          </div>
+          <div class="text-3xl font-light text-white font-['JetBrains_Mono']">290</div>
+        </div>
+        <div class="bg-[#0f111a] border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> В РАБОТЕ
+          </div>
+          <div class="text-3xl font-light text-white font-['JetBrains_Mono']">0</div>
+        </div>
+        <div class="bg-[#0f111a] border border-green-900/30 p-4 rounded-xl bg-gradient-to-br from-[#0f111a] to-[#0d2118]">
+          <div class="text-[10px] text-green-500/70 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> СР. ПРОГРЕСС
+          </div>
+          <div class="text-3xl font-light text-green-400 font-['JetBrains_Mono']">0%</div>
+        </div>
+        <div class="bg-[#0f111a] border border-red-900/30 p-4 rounded-xl bg-gradient-to-br from-[#0f111a] to-[#210d0d]">
+          <div class="text-[10px] text-red-500/70 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-red-500"></div> ПРОСРОЧЕНО
+          </div>
+          <div class="text-3xl font-light text-red-400 font-['JetBrains_Mono']">0</div>
+        </div>
+        <div class="bg-[#0f111a] border border-slate-800 p-4 rounded-xl">
+          <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div> К ЗАПУСКУ
+          </div>
+          <div class="text-3xl font-light text-white font-['JetBrains_Mono']">0</div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2 bg-[#0f111a] border border-slate-800 rounded-xl p-5">
+          <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-6">Распределение по этапам</h3>
+          <div class="flex items-end justify-between h-32 gap-1">
+            <div class="flex flex-col items-center flex-1 group">
+              <div class="w-full bg-blue-500/20 group-hover:bg-blue-500/30 rounded-t h-full relative">
+                <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-blue-400 font-['JetBrains_Mono']">290</div>
+              </div>
+              <span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">БРИФ</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ЗАПРОС ОБР.</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ОТПРАВКА</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ДЕГУ №1</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">РАСЧЕТ</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ДОРАБОТКА</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">УТВЕРЖД.</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ВЕТКА</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ПР-ВО</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ЦЕНА FIN</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">МАКЕТ/ШК</span></div>
+            <div class="flex flex-col items-center flex-1 group"><div class="w-full bg-slate-800/40 rounded-t h-1"></div><span class="text-[9px] text-slate-600 mt-2 rotate-[-45deg] origin-top-right whitespace-nowrap">ЗАКАЗ</span></div>
+          </div>
+        </div>
+        <div class="bg-[#0f111a] border border-slate-800 rounded-xl p-5">
+          <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4">Топ сетей</h3>
+          <div class="space-y-3">
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-bold"><span class="text-slate-300">Лента</span><span class="text-slate-500">85</span></div>
+              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 w-[85%]"></div></div>
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-bold"><span class="text-slate-300">X5 Group</span><span class="text-slate-500">73</span></div>
+              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 w-[73%]"></div></div>
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-bold"><span class="text-slate-300">ВкусВилл</span><span class="text-slate-500">41</span></div>
+              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 w-[41%]"></div></div>
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[10px] font-bold"><span class="text-slate-300">X5 Пятерочка</span><span class="text-slate-500">29</span></div>
+              <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 w-[29%]"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Matrix Section -->
+    <div class="bg-[#0f111a] border border-slate-800 rounded-xl overflow-hidden">
+      <div class="grid grid-cols-[320px_repeat(12,1fr)_280px] border-b border-slate-800 bg-[#141721]">
+        <div class="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-r border-slate-800">SKU / Проект</div>
+        <div class="p-3 text-center border-r border-slate-800/50">
+          <span class="block text-[8px] text-slate-600 mb-0.5">01</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">БРИФ</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60">
+          <span class="block text-[8px] text-slate-600 mb-0.5">02</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ЗАПРОС</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60">
+          <span class="block text-[8px] text-slate-600 mb-0.5">03</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ОТПР</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60">
+          <span class="block text-[8px] text-slate-600 mb-0.5">04</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ДЕГУ</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60">
+          <span class="block text-[8px] text-slate-600 mb-0.5">05</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">РАСЧ</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60">
+          <span class="block text-[8px] text-slate-600 mb-0.5">06</span>
+          <span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ДОРАБ</span>
+        </div>
+        <div class="p-3 text-center border-r border-blue-500/50 bg-blue-500/5">
+          <span class="block text-[8px] text-blue-500/70 mb-0.5">07</span>
+          <span class="text-[9px] font-black text-blue-400 leading-tight uppercase">УТВЕР</span>
+        </div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60"><span class="block text-[8px] text-slate-600 mb-0.5">08</span><span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ВЕТКА</span></div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60"><span class="block text-[8px] text-slate-600 mb-0.5">09</span><span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ПР-ВО</span></div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60"><span class="block text-[8px] text-slate-600 mb-0.5">10</span><span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ЦЕНА</span></div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60"><span class="block text-[8px] text-slate-600 mb-0.5">11</span><span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">МАКЕТ</span></div>
+        <div class="p-3 text-center border-r border-slate-800/50 opacity-60"><span class="block text-[8px] text-slate-600 mb-0.5">12</span><span class="text-[9px] font-bold text-slate-400 leading-tight uppercase">ЗАКАЗ</span></div>
+        <div class="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Комментарий</div>
+      </div>
+
+      <!-- Group Header -->
+      <div class="flex items-center gap-2 px-4 py-2 bg-[#1a1e2b] border-y border-slate-800">
+        <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        <span class="text-[11px] font-bold text-slate-400">БРЕНД</span>
+        <span class="text-[11px] font-mono text-slate-600">21</span>
+      </div>
+
+      <!-- Rows -->
+      <div class="divide-y divide-slate-800/50">
+        <!-- Row 1 -->
+        <div class="grid grid-cols-[320px_repeat(12,1fr)_280px] hover:bg-slate-800/20 transition-colors group">
+          <div class="p-4 border-r border-slate-800">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-amber-500">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.707 9.293l-5-5a1 1 0 00-1.414 0l-5 5a1 1 0 000 1.414l5 5a1 1 0 001.414 0l5-5a1 1 0 000-1.414z"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white leading-tight mb-1">Пшенная каша с тыквой</h4>
+                <p class="text-[10px] text-slate-500">Бренд &middot; Бережное томление &middot; Осень 2026</p>
+                <div class="mt-2 flex items-center gap-2">
+                   <div class="h-1 w-20 bg-slate-800 rounded-full overflow-hidden"><div class="w-[5%] h-full bg-blue-500"></div></div>
+                   <span class="text-[9px] font-mono text-slate-600">0%</span>
+                   <span class="text-[9px] font-bold text-blue-500 uppercase ml-2">сейчас: Бриф</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Matrix Progress Cells -->
+          <div class="bg-blue-500/10 border-r border-slate-800/50 relative group-hover:bg-blue-500/20">
+             <div class="absolute inset-0 flex items-center justify-center">
+               <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+             </div>
+          </div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          
+          <!-- Phase Indicator Cell -->
+          <div class="border-r border-slate-800/50 bg-blue-500/5 flex flex-col items-center justify-center p-2">
+             <span class="text-[8px] font-bold text-blue-500/70 uppercase leading-none mb-1">нет даты</span>
+             <span class="text-[9px] font-black text-blue-400 uppercase leading-none tracking-tighter">УТВ.</span>
+          </div>
+
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          <div class="border-r border-slate-800/50 opacity-20"></div>
+          
+          <!-- End Phase Cell -->
+          <div class="border-r border-slate-800/50 flex flex-col items-center justify-center p-2">
+             <span class="text-[8px] font-bold text-slate-700 uppercase leading-none mb-1">нет даты</span>
+             <span class="text-[9px] font-bold text-slate-600 uppercase leading-none">ЗАКАЗ</span>
+          </div>
+
+          <!-- Comments -->
+          <div class="p-3">
+            <div class="bg-slate-900/50 border border-slate-800/50 rounded-lg p-2 min-h-[60px] group-hover:border-slate-700 transition-colors">
+              <span class="text-[10px] text-slate-600">Добавить комментарий...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="grid grid-cols-[320px_repeat(12,1fr)_280px] hover:bg-slate-800/20 transition-colors group">
+          <div class="p-4 border-r border-slate-800">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-amber-500">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.707 9.293l-5-5a1 1 0 00-1.414 0l-5 5a1 1 0 000 1.414l5 5a1 1 0 001.414 0l5-5a1 1 0 000-1.414z"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white leading-tight mb-1">Грузинский томатный суп</h4>
+                <p class="text-[10px] text-slate-500">Бренд &middot; Бережное томление &middot; Осень 2026</p>
+                <div class="mt-2 flex items-center gap-2">
+                   <div class="h-1 w-20 bg-slate-800 rounded-full overflow-hidden"><div class="w-[5%] h-full bg-blue-500"></div></div>
+                   <span class="text-[9px] font-mono text-slate-600">0%</span>
+                   <span class="text-[9px] font-bold text-blue-500 uppercase ml-2">сейчас: Бриф</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-blue-500/10 border-r border-slate-800/50 relative group-hover:bg-blue-500/20">
+             <div class="absolute inset-0 flex items-center justify-center">
+               <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+             </div>
+          </div>
+          <div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div>
+          
+          <div class="border-r border-slate-800/50 bg-blue-500/5 flex flex-col items-center justify-center p-2">
+             <span class="text-[8px] font-bold text-blue-500/70 mb-1">нет даты</span>
+             <span class="text-[9px] font-black text-blue-400">УТВ.</span>
+          </div>
+
+          <div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div><div class="border-r border-slate-800/50 opacity-20"></div>
+          
+          <div class="border-r border-slate-800/50 flex flex-col items-center justify-center p-2 opacity-50">
+             <span class="text-[8px] font-bold text-slate-700 mb-1">нет даты</span>
+             <span class="text-[9px] font-bold text-slate-600">ЗАКАЗ</span>
+          </div>
+
+          <div class="p-3">
+            <div class="bg-slate-900/50 border border-slate-800/50 rounded-lg p-2 min-h-[60px] group-hover:border-slate-700 transition-colors">
+              <span class="text-[10px] text-slate-600">Добавить комментарий...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex items-center justify-center pt-2">
+      <div class="flex items-center gap-1.5">
+         <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+         <span class="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em]">System Live &bull; Perf Optimized</span>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelector('.pane[data-p="'+b.dataset.t+'"]').classList.add('active');
+});
+</script>
+</body></html>
