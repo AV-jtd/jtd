@@ -1,54 +1,53 @@
 @echo off
-chcp 65001 >nul
 title JTD Proxy Server
 
 echo.
-echo  ╔══════════════════════════════════════╗
-echo  ║       JTD Mail AI — Proxy Server     ║
-echo  ╚══════════════════════════════════════╝
+echo  ========================================
+echo   JTD Mail AI - Proxy Server
+echo  ========================================
 echo.
 
-:: Проверяем Node.js
+:: Check Node.js
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo  ✗ Node.js не найден!
+    echo  ERROR: Node.js not found!
     echo.
-    echo  Установите Node.js с сайта: https://nodejs.org
-    echo  Выберите версию LTS, запустите установщик, перезапустите этот файл.
+    echo  Please install Node.js from: https://nodejs.org
+    echo  Choose LTS version, run installer, then restart this file.
     echo.
     pause
     exit /b 1
 )
 
-:: Проверяем .env
+:: Check .env
 if not exist ".env" (
-    echo  ✗ Файл .env не найден!
+    echo  ERROR: .env file not found!
     echo.
-    echo  Создайте файл .env рядом с этим файлом.
-    echo  Пример содержимого скопируйте из .env.example
+    echo  Create a .env file next to this bat file with these contents:
     echo.
-    echo  Минимальное содержимое .env:
     echo    AI_PROVIDER=openrouter
-    echo    OPENROUTER_API_KEY=sk-or-ВАШ_КЛЮЧ
+    echo    OPENROUTER_API_KEY=sk-or-YOUR_KEY_HERE
+    echo.
+    echo  See .env.example for more options.
     echo.
     pause
     exit /b 1
 )
 
-:: Устанавливаем зависимости если нужно
+:: Install dependencies if needed
 if not exist "node_modules" (
-    echo  Первый запуск — устанавливаем зависимости...
+    echo  First run - installing dependencies...
     call npm install
     echo.
 )
 
-echo  Запускаем сервер...
-echo  Для проверки откройте в браузере: http://localhost:3000/health
-echo  Для остановки закройте это окно.
+echo  Starting server...
+echo  Check status at: http://localhost:3000/health
+echo  Close this window to stop.
 echo.
 
 node index.js
 
 echo.
-echo  Сервер остановлен.
+echo  Server stopped.
 pause
