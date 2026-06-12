@@ -1,5 +1,8 @@
+export type Category = "action" | "info" | "newsletter" | "auto" | "trash";
+
 export interface EmailItem {
   id: string;
+  changeKey?: string;
   subject: string;
   from: string;
   fromName: string;
@@ -10,6 +13,10 @@ export interface EmailItem {
   isRead: boolean;
   hasAttachments: boolean;
   importance: "Low" | "Normal" | "High";
+  // AI-категоризация
+  category?: Category;
+  aiPriority?: "low" | "medium" | "high";
+  gist?: string;
 }
 
 export interface Thread {
@@ -27,7 +34,6 @@ export interface PersonSummary {
   emailCount: number;
   lastContact: string;
   topics: string[];
-  aiInsight?: string;
 }
 
 export interface AiAnalysis {
@@ -49,8 +55,41 @@ export interface DaySummary {
   byProject: { project: string; count: number; summary: string }[];
 }
 
-export interface Credentials {
-  server: string;
-  username: string;
-  password: string;
+export interface PromisesReport {
+  openPromises: {
+    from: string;
+    email: string;
+    promise: string;
+    promisedDate: string;
+    daysSince: number;
+    subject: string;
+    urgency: "low" | "medium" | "high";
+  }[];
+  openQuestions: {
+    askedBy: string;
+    to: string;
+    question: string;
+    daysSince: number;
+    subject: string;
+  }[];
+  summary: string;
+}
+
+export interface PersonDossier {
+  name: string;
+  email: string;
+  relationship: string;
+  totalEmails: number;
+  openItems: string[];
+  recentTopics: string[];
+  promises: { direction: "they" | "you"; text: string; status: "open" | "done" }[];
+  recommendedAction: string;
+}
+
+export interface SyncState {
+  phase: "idle" | "unread" | "all" | "done";
+  offset: number;
+  totalEstimate: number;
+  loaded: number;
+  lastSyncDate: string | null;
 }

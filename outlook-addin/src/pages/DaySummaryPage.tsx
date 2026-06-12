@@ -1,17 +1,19 @@
-import { useState } from "react";
-import type { DaySummary } from "../lib/types";
-import { getToday, stats } from "../lib/store";
+import { useEffect, useState } from "react";
+import type { DaySummary, EmailItem } from "../lib/types";
+import { getEmailsSince } from "../lib/db";
 import { buildDaySummary } from "../lib/ai";
 import { Spinner } from "../components/Spinner";
 import { Badge } from "../components/Badge";
 
-export function DaySummaryPage({ storeVersion }: { storeVersion: number }) {
+export function DaySummaryPage() {
+  const [todayEmails, setTodayEmails] = useState<EmailItem[]>([]);
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const storeStats = stats();
-  const todayEmails = getToday();
+  useEffect(() => {
+    getEmailsSince(1).then(setTodayEmails);
+  }, []);
 
   async function handleBuild() {
     if (todayEmails.length === 0) return;
@@ -28,12 +30,11 @@ export function DaySummaryPage({ storeVersion }: { storeVersion: number }) {
 
   if (todayEmails.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 px-4 text-center">
+      <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
         <div className="text-4xl">📬</div>
-        <p className="text-sm font-medium text-gray-700">Писем за сегодня пока нет</p>
-        <p className="text-xs text-gray-400 max-w-52">
-          Откройте несколько писем в Outlook — аддин автоматически их запомнит.
-          Всего в архиве: {storeStats.total} писем.
+        <p className="text-sm font-medium text-gray-700">Писем за сегодня в базе нет</p>
+        <p className="max-w-52 text-xs text-gray-400">
+          Синхронизируй почту на вкладке «Разбор» — дайджест появится здесь
         </p>
       </div>
     );
@@ -43,29 +44,21 @@ export function DaySummaryPage({ storeVersion }: { storeVersion: number }) {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
         <Spinner size="lg" />
-        <p className="text-sm text-gray-500">
-          ИИ анализирует {todayEmails.length} писем...
-        </p>
-        <p className="text-xs text-gray-400">Займёт 15–30 секунд</p>
+        <p className="text-sm text-gray-500">ИИ анализирует {todayEmails.length} писем...</p>
       </div>
     );
   }
 
   if (!summary) {
     return (
-      <div className="flex flex-col items-center gap-4 py-10 px-4">
+      <div className="flex flex-col items-center gap-4 px-4 py-10">
         <div className="text-4xl">📅</div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-700">
-            {todayEmails.length} писем за сегодня
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Всего в архиве: {storeStats.total}
-          </p>
-        </div>
+        <p className="text-sm font-medium text-gray-700">
+          {todayEmails.length} писем за сегодня
+        </p>
         <button
           onClick={handleBuild}
-          className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+          className="rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
         >
           Создать дайджест дня
         </button>
@@ -129,22 +122,6 @@ export function DaySummaryPage({ storeVersion }: { storeVersion: number }) {
         </div>
       )}
 
-      {summary.topPeople?.length > 0 && (
-        <div className="rounded-lg border bg-white p-3 shadow-sm">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Активные участники
-          </p>
-          <div className="space-y-1.5">
-            {summary.topPeople.map((p, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">{p.name}</span>
-                <Badge variant="default">{p.count} писем</Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {summary.byProject?.length > 0 && (
         <div className="rounded-lg border bg-white p-3 shadow-sm">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -166,7 +143,7 @@ export function DaySummaryPage({ storeVersion }: { storeVersion: number }) {
 
       <button
         onClick={handleBuild}
-        className="w-full rounded-lg border border-gray-200 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+        className="w-full rounded-lg border border-gray-200 py-2 text-sm text-gray-500 hover:bg-gray-50"
       >
         Обновить анализ
       </button>

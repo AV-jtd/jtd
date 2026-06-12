@@ -1,22 +1,26 @@
 import type { EmailItem } from "./types";
-import { upsert } from "./store";
+import { getEmail, putEmails } from "./db";
 
-export function captureCurrentItem(): Promise<{ email: EmailItem; isNew: boolean } | null> {
+export async function captureCurrentItem(): Promise<{ email: EmailItem; isNew: boolean } | null> {
   const item = Office?.context?.mailbox?.item;
-  if (!item || !item.itemId) return Promise.resolve(null);
+  if (!item || !item.itemId) return null;
 
   return new Promise((resolve) => {
     item.body.getAsync(
       Office.CoercionType.Text,
       { asyncContext: item },
-      (result) => {
+      async (result) => {
         const ctx = result.asyncContext as Office.OutlookItem;
         const body =
           result.status === Office.AsyncResultStatus.Succeeded
             ? (result.value as string).trim().substring(0, 3000)
             : "";
 
+        const existing = await getEmail(ctx.itemId || "");
+
         const email: EmailItem = {
+          // Сохраняем категорию, если письмо уже было категоризировано
+          ...(existing || {}),
           id: ctx.itemId || "",
           subject: ctx.subject || "(без темы)",
           from: ctx.from?.emailAddress || "",
@@ -30,8 +34,8 @@ export function captureCurrentItem(): Promise<{ email: EmailItem; isNew: boolean
           importance: "Normal",
         };
 
-        const { isNew } = upsert(email);
-        resolve({ email, isNew });
+        await putEmails([email]);
+        resolve({ email, isNew: !existing });
       }
     );
   });

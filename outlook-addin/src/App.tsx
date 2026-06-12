@@ -1,78 +1,32 @@
 import { useState, useCallback } from "react";
 import { cn } from "./lib/utils";
-import { stats, clear } from "./lib/store";
 import { CurrentEmailPage } from "./pages/CurrentEmailPage";
+import { TriagePage } from "./pages/TriagePage";
 import { DaySummaryPage } from "./pages/DaySummaryPage";
-import { ThreadsPage } from "./pages/ThreadsPage";
 import { PeoplePage } from "./pages/PeoplePage";
+import { PendingPage } from "./pages/PendingPage";
 
-type Tab = "current" | "day" | "threads" | "people";
+type Tab = "current" | "triage" | "day" | "people" | "pending";
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
   { id: "current", label: "Письмо", icon: "✉️" },
+  { id: "triage", label: "Разбор", icon: "📥" },
   { id: "day", label: "День", icon: "📅" },
-  { id: "threads", label: "Ветки", icon: "💬" },
   { id: "people", label: "Люди", icon: "👥" },
+  { id: "pending", label: "Висит", icon: "⏳" },
 ];
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("current");
-  // Increment to force re-render of store-dependent pages after capture
-  const [storeVersion, setStoreVersion] = useState(0);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-
-  const handleCapture = useCallback(() => {
-    setStoreVersion((v) => v + 1);
-  }, []);
-
-  function handleClear() {
-    clear();
-    setStoreVersion((v) => v + 1);
-    setShowClearConfirm(false);
-  }
-
-  const storeStats = stats();
+  const [activeTab, setActiveTab] = useState<Tab>("triage");
+  const handleCapture = useCallback(() => {}, []);
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 font-sans">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b bg-white px-3 py-2 shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
-          <h1 className="text-sm font-semibold text-gray-700">JTD Mail AI</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">
-            📦 {storeStats.total} писем
-          </span>
-          {showClearConfirm ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleClear}
-                className="rounded px-1.5 py-0.5 text-xs text-red-500 hover:bg-red-50"
-              >
-                Да, очистить
-              </button>
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="rounded px-1.5 py-0.5 text-xs text-gray-400 hover:bg-gray-100"
-              >
-                Отмена
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              className="rounded px-1.5 py-0.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-100"
-              title="Очистить архив"
-            >
-              🗑
-            </button>
-          )}
-        </div>
+      <div className="flex items-center gap-2 border-b bg-white px-3 py-2 shadow-sm">
+        <span className="text-base">🤖</span>
+        <h1 className="text-sm font-semibold text-gray-700">JTD Mail AI</h1>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b bg-white">
         {tabs.map((tab) => (
           <button
@@ -91,12 +45,12 @@ export function App() {
         ))}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "current" && <CurrentEmailPage onCapture={handleCapture} />}
-        {activeTab === "day" && <DaySummaryPage storeVersion={storeVersion} />}
-        {activeTab === "threads" && <ThreadsPage storeVersion={storeVersion} />}
-        {activeTab === "people" && <PeoplePage storeVersion={storeVersion} />}
+        {activeTab === "triage" && <TriagePage />}
+        {activeTab === "day" && <DaySummaryPage />}
+        {activeTab === "people" && <PeoplePage />}
+        {activeTab === "pending" && <PendingPage />}
       </div>
     </div>
   );
