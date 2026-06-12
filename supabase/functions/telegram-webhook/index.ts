@@ -76,6 +76,24 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // ── Authenticate genuine Telegram updates via the secret token Telegram
+    // echoes back in the `X-Telegram-Bot-Api-Secret-Token` header. Internal
+    // actions (cron flush / admin setup) are not Telegram updates and are
+    // exempt; they arrive with a Supabase auth header instead.
+    const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET_TOKEN");
+    const isInternalAction =
+      body.action === "setup_webhook" ||
+      body.action === "internal_flush_protocol_buffer";
+    if (WEBHOOK_SECRET && !isInternalAction) {
+      const receivedToken = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+      if (receivedToken !== WEBHOOK_SECRET) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+    }
+
     // Internal action: auto-flush stale protocol buffers (called by cron)
     if (body.action === "internal_flush_protocol_buffer" && body.chat_id) {
       const supabaseInt = createClient(
@@ -106,7 +124,11 @@ Deno.serve(async (req) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: webhookUrl }),
+          body: JSON.stringify(
+            WEBHOOK_SECRET
+              ? { url: webhookUrl, secret_token: WEBHOOK_SECRET }
+              : { url: webhookUrl },
+          ),
         }
       );
       const result = await res.json();
