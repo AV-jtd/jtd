@@ -25,6 +25,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Authenticate the caller. This endpoint must never be callable
+    // anonymously: it can post messages into project-linked Telegram chats.
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    const authUser = authData?.user;
+    if (authError || !authUser) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -35,7 +58,6 @@ Deno.serve(async (req) => {
       group_id,
       content,
       sender_name,
-      sender_user_id,
       // optional: structured task-created card
       kind,                 // "message" (default) | "task_created"
       task_id,
@@ -43,6 +65,9 @@ Deno.serve(async (req) => {
       assignee_name,
       deadline,             // ISO string or null
     } = body || {};
+
+    // Never trust a client-supplied sender id — always use the verified user.
+    const sender_user_id = authUser.id;
 
     if (!group_id) {
       return new Response(JSON.stringify({ error: "Missing group_id" }), {
@@ -53,6 +78,35 @@ Deno.serve(async (req) => {
     if (kind !== "task_created" && !content) {
       return new Response(JSON.stringify({ error: "Missing content" }), {
         status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    // Authorize: the caller must own or belong to the group they post into.
+    const { data: accessGroup } = await supabase
+      .from("task_groups")
+      .select("id, user_id")
+      .eq("id", group_id)
+      .single();
+    if (!accessGroup) {
+      return new Response(JSON.stringify({ error: "Group not found" }), {
+        status: 404,
+        headers: corsHeaders,
+      });
+    }
+    let isMember = accessGroup.user_id === authUser.id;
+    if (!isMember) {
+      const { data: membership } = await supabase
+        .from("group_members")
+        .select("user_id")
+        .eq("group_id", group_id)
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+      isMember = !!membership;
+    }
+    if (!isMember) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
         headers: corsHeaders,
       });
     }
