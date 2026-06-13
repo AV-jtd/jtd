@@ -13,10 +13,10 @@
 |---|---|---|
 | IP VPS | `__________` | ⬜ |
 | SSH-доступ (user@host) | `__________` | ⬜ |
-| S3 endpoint | `__________` | ⬜ |
-| S3 bucket (файлы) | `jtd-storage` | ⬜ |
-| S3 bucket (бэкапы) | `jtd-backups` | ⬜ |
-| S3 Access Key / Secret | в менеджере паролей | ⬜ |
+| S3 endpoint | `https://s3.regru.cloud` | ✅ |
+| S3 bucket (файлы) | `jtd-storage` | ⬜ создать |
+| S3 bucket (бэкапы) | `jtd-backups` | ⬜ создать |
+| S3 Access Key / Secret | в менеджере паролей (получены) | ✅ |
 | Connection string облака | `__________` | ⬜ |
 | Домен / поддомен staging | `stage.justtodoit.ru` | ⬜ |
 | TTL домена снижен до 60с | — | ⬜ |
