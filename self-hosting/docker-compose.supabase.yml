@@ -98,6 +98,11 @@ services:
       ERL_AFLAGS: -proto_dist inet_tcp
       ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
 
   storage:
     image: supabase/storage-api:v1.11.13
