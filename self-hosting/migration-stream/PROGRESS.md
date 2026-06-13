@@ -20,7 +20,8 @@
 | S3 bucket (файлы) | `jtd-storage` | ✅ |
 | S3 bucket (бэкапы) | `jtd-backups` | ✅ |
 | S3 Access Key / Secret | в менеджере паролей (получены) | ✅ |
-| Connection string облака | `__________` | ⬜ |
+| Connection string облака | Lovable (нет прямого доступа) | ⚠️ |
+| Новый личный Supabase | `https://qavpvelhrgfccfymevdi.supabase.co` | ✅ |
 | Домен / поддомен staging | `stage.justtodoit.ru` | ⬜ |
 | TTL домена снижен до 60с | в поддержке Sweb | 🔄 |
 
