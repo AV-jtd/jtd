@@ -15,6 +15,8 @@ services:
     restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql/data
+      # Init-скрипт задаёт пароли внутренних пользователей Supabase
+      - ./db-init/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql:ro
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
