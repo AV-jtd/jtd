@@ -25,13 +25,27 @@ echo "================================================"
 step "Системные пакеты"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq \
-  curl git ufw \
-  docker.io docker-compose-v2 \
-  postgresql-client \
-  awscli \
-  certbot \
-  jq
+
+# Базовые утилиты (всегда)
+apt-get install -y -qq curl git ufw jq certbot postgresql-client awscli
+
+# Docker — пропустить если уже установлен (избежать конфликта)
+if command -v docker &>/dev/null; then
+  ok "Docker уже установлен ($(docker --version | awk '{print $3}' | tr -d ,)) — пропускаем"
+else
+  apt-get install -y -qq docker.io
+fi
+
+# docker-compose — проверить v1 и v2
+if docker compose version &>/dev/null; then
+  ok "docker compose уже доступен — пропускаем"
+elif command -v docker-compose &>/dev/null; then
+  ok "docker-compose v1 найден — пропускаем"
+else
+  apt-get install -y -qq docker-compose-v2 || \
+    apt-get install -y -qq docker-compose
+fi
+
 ok "Пакеты установлены"
 
 # ---------- 2. Node.js 20 ----------
