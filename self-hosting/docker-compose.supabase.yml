@@ -192,6 +192,29 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ../dist:/usr/share/nginx/html:ro
 
+  # ---------- Бэкапы ----------
+  # Ежедневный бэкап PostgreSQL с автоматической ротацией.
+  # Для включения раскомментируй и задай BACKUP_DIR в .env.supabase
+  pg-backup:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_DIR: ${BACKUP_DIR:-/backups}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS:-4}
+      BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-6}
+    volumes:
+      - backup_data:${BACKUP_DIR:-/backups}
+      - ./backup/backup-entrypoint.sh:/backup-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/backup-entrypoint.sh"]
+    # Примонтировать внешний диск вместо тома для реального продакшна:
+    # - /mnt/backup-disk/jtd:/backups
+
 volumes:
   db_data:
   storage_data:
+  backup_data:
