@@ -99,6 +99,9 @@ services:
       ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
       RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      FLY_ALLOC_ID: fly123
+      FLY_APP_NAME: realtime
     ulimits:
       nofile:
         soft: 10000
