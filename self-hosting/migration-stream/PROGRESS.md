@@ -17,12 +17,12 @@
 | IP VPS | `77.222.53.183` | ✅ |
 | SSH-доступ (user@host) | `root@77.222.53.183` | ⬜ проверить |
 | S3 endpoint | `https://s3.regru.cloud` | ✅ |
-| S3 bucket (файлы) | `jtd-storage` | ⬜ создать |
-| S3 bucket (бэкапы) | `jtd-backups` | ⬜ создать |
+| S3 bucket (файлы) | `jtd-storage` | ✅ |
+| S3 bucket (бэкапы) | `jtd-backups` | ✅ |
 | S3 Access Key / Secret | в менеджере паролей (получены) | ✅ |
 | Connection string облака | `__________` | ⬜ |
 | Домен / поддомен staging | `stage.justtodoit.ru` | ⬜ |
-| TTL домена снижен до 60с | — | ⬜ |
+| TTL домена снижен до 60с | в поддержке Sweb | 🔄 |
 
 > ⚠️ Секреты (ключи, пароли, connection strings) НЕ коммитить в репозиторий.
 > Хранить в менеджере паролей. В этом файле — только пометки «получено».
