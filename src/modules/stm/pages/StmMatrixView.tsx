@@ -25,6 +25,14 @@ export default function StmMatrixView() {
   const projects = useStmProjects();
   const [flow, setFlow] = useState<StmFlow>("in");
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  // Secondary grouping: within a brand/retailer group, split rows by project.
+  const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("stm:subGroupProject") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:subGroupProject", subGroupProject ? "1" : "0"); } catch { /* ignore */ }
+  }, [subGroupProject]);
   // Default = active only ("чтобы лишнего не показывать"). Persist to localStorage.
   const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">(() => {
     if (typeof window === "undefined") return "active";
