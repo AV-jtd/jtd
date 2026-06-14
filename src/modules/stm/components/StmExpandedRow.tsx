@@ -11,6 +11,91 @@ import { StmOpsTasks } from "./StmOpsTasks";
 import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
 import { stmTimeInStage, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 
+/**
+ * Inline-editable STM meta chip (Сеть / Бренд / Проект / Дроп).
+ * Click to edit → updates task_groups.stm_meta[field] with optimistic cache patch,
+ * so existing SKUs can be (re)grouped without recreating them.
+ */
+function StmMetaChip({
+  group,
+  meta,
+  field,
+  label,
+  placeholder,
+}: {
+  group: StmProject["group"];
+  meta: StmProject["meta"];
+  field: "retailer" | "brand" | "project" | "drop";
+  label: string;
+  placeholder: string;
+}) {
+  const qc = useQueryClient();
+  const current = (meta?.[field] as string | undefined) ?? "";
+  const [draft, setDraft] = useState(current);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setDraft(current); }, [group.id, current]);
+
+  const save = useMutation({
+    mutationFn: async (text: string) => {
+      const nextMeta: any = { ...(meta || {}) };
+      if (text) nextMeta[field] = text; else delete nextMeta[field];
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ stm_meta: nextMeta })
+        .eq("id", group.id);
+      if (error) throw error;
+      return nextMeta;
+    },
+    onMutate: async (text: string) => {
+      const nextMeta: any = { ...(meta || {}) };
+      if (text) nextMeta[field] = text; else delete nextMeta[field];
+      const snapshots = patchGroupInCache(qc, group.id, { stm_meta: nextMeta } as any);
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
+    },
+  });
+
+  const commit = () => {
+    setEditing(false);
+    if (draft.trim() !== current) save.mutate(draft.trim());
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">{label}</span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { setDraft(current); setEditing(false); }
+            if (e.key === "Enter") commit();
+          }}
+          placeholder={placeholder}
+          className="h-6 bg-stm-glass/30 border border-stm-accent/40 rounded px-2 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 w-40"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className={cn(
+            "text-xs px-2 py-0.5 rounded border transition-colors",
+            current
+              ? "text-stm-accent border-stm-accent/30 bg-stm-accent/10 hover:bg-stm-accent/20"
+              : "text-stm-fg/40 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/30 italic",
+          )}
+        >
+          {current || "не задан"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   project: StmProject;
   stages: StmStage[];
@@ -103,38 +188,6 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     }
   };
 
-  // ---- Inline-editable "Проект" (stored in task_groups.stm_meta.project) ----
-  const [projectDraft, setProjectDraft] = useState<string>(meta.project ?? "");
-  const [editingProject, setEditingProject] = useState(false);
-  useEffect(() => { setProjectDraft(meta.project ?? ""); }, [group.id, meta.project]);
-  const saveProject = useMutation({
-    mutationFn: async (text: string) => {
-      const nextMeta = { ...(meta || {}), project: text || undefined };
-      if (!text) delete (nextMeta as any).project;
-      const { error } = await supabase
-        .from("task_groups")
-        .update({ stm_meta: nextMeta as any })
-        .eq("id", group.id);
-      if (error) throw error;
-      return nextMeta;
-    },
-    onMutate: async (text: string) => {
-      const nextMeta = { ...(meta || {}), project: text || undefined };
-      if (!text) delete (nextMeta as any).project;
-      const snapshots = patchGroupInCache(qc, group.id, { stm_meta: nextMeta } as any);
-      return { snapshots };
-    },
-    onError: (_e, _v, ctx: any) => {
-      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
-    },
-  });
-  const commitProject = () => {
-    setEditingProject(false);
-    if ((projectDraft.trim() || "") !== (meta.project || "")) {
-      saveProject.mutate(projectDraft.trim());
-    }
-  };
-
   // ---- Profiles cache for assignee initials ----
   const assigneeIds = useMemo(() => {
     const set = new Set<string>();
@@ -201,38 +254,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
               {project.flow === "in" ? "ВВОД" : "ВЫВОД"}
             </span>
           </div>
-          <div className="text-sm font-light text-stm-fg/80 truncate">
-            {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
-          </div>
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Проект</span>
-            {editingProject ? (
-              <input
-                autoFocus
-                value={projectDraft}
-                onChange={(e) => setProjectDraft(e.target.value)}
-                onBlur={commitProject}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") { setProjectDraft(meta.project ?? ""); setEditingProject(false); }
-                  if (e.key === "Enter") commitProject();
-                }}
-                placeholder="Название проекта…"
-                className="h-6 bg-stm-glass/30 border border-stm-accent/40 rounded px-2 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 w-48"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditingProject(true)}
-                className={cn(
-                  "text-xs px-2 py-0.5 rounded border transition-colors",
-                  meta.project
-                    ? "text-stm-accent border-stm-accent/30 bg-stm-accent/10 hover:bg-stm-accent/20"
-                    : "text-stm-fg/40 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/30 italic",
-                )}
-              >
-                {meta.project || "не задан"}
-              </button>
-            )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+            <StmMetaChip group={group} meta={meta} field="retailer" label="Сеть" placeholder="X5, Лента…" />
+            <StmMetaChip group={group} meta={meta} field="brand" label="Бренд" placeholder="Бережное томление…" />
+            <StmMetaChip group={group} meta={meta} field="project" label="Проект" placeholder="Чистые составы…" />
+            <StmMetaChip group={group} meta={meta} field="drop" label="Дроп" placeholder="Q2 2026…" />
           </div>
         </div>
 
