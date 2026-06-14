@@ -331,17 +331,13 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   {group.description || "Добавить комментарий…"}
                 </span>
               </button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setArchiveOpen(true)}
-                className="h-auto w-7 shrink-0 text-muted-foreground/60 hover:text-warning hover:bg-warning/10"
-                title={isArchived ? "Вернуть из архива" : "В архив"}
-              >
-                {isArchived
-                  ? <RotateCcw className="h-3.5 w-3.5" />
-                  : <Archive className="h-3.5 w-3.5" />}
-              </Button>
+              <StmStatusControl
+                groupId={group.id}
+                groupName={group.name}
+                meta={meta}
+                current={lifecycle}
+                archivedAt={archivedAt}
+              />
             </div>
           )}
         </div>
