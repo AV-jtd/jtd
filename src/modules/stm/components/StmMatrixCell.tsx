@@ -132,40 +132,43 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
         />
       );
     }
-    const cOverdue = !task.is_completed && task.deadline && new Date(task.deadline) < new Date();
-    const cStatus: "done" | "overdue" | "current" | "open" =
-      task.is_completed ? "done" : cOverdue ? "overdue" : isCurrent ? "current" : "open";
+    const cStatus = deriveCellStatus(task, isCurrent);
     const dotClass =
       cStatus === "done" ? "bg-success"
       : cStatus === "overdue" ? "bg-destructive"
+      : cStatus === "blocked" ? "bg-warning"
+      : cStatus === "in_progress" ? "bg-primary"
       : cStatus === "current" ? "bg-primary"
       : "bg-muted-foreground/30";
-    const cTip =
-      cStatus === "done" ? "Готово" : cStatus === "overdue" ? "Просрочено" : cStatus === "current" ? "В работе" : "Ожидает";
+    const cTip = STATUS_LABEL[cStatus];
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
-            className="h-full w-full flex items-center justify-center"
-            aria-label={`${task.title}: ${cTip}`}
-          >
-            <span className={cn(
-              "h-2.5 w-2.5 rounded-full transition-transform hover:scale-125",
-              dotClass,
-              cStatus === "current" && "ring-2 ring-primary/30",
-              isMilestone && "rounded-[2px] rotate-45",
-            )} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          <div className="font-medium">{isMilestone && "🚩 "}{task.title}</div>
-          <div className="text-muted-foreground">
-            {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
-          </div>
-        </TooltipContent>
-      </Tooltip>
+      <StageStatusMenu task={task}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
+              className="h-full w-full flex items-center justify-center"
+              aria-label={`${task.title}: ${cTip}`}
+            >
+              <span className={cn(
+                "h-2.5 w-2.5 rounded-full transition-transform hover:scale-125",
+                dotClass,
+                (cStatus === "current" || cStatus === "in_progress" || cStatus === "blocked") && "ring-2 ring-primary/30",
+                (cStatus === "in_progress" || cStatus === "blocked") && "animate-pulse",
+                isMilestone && "rounded-[2px] rotate-45",
+              )} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            <div className="font-medium">{isMilestone && "🚩 "}{task.title}</div>
+            <div className="text-muted-foreground">
+              {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
+            </div>
+            <div className="text-[10px] text-muted-foreground/70 mt-0.5 italic">ПКМ — статус</div>
+          </TooltipContent>
+        </Tooltip>
+      </StageStatusMenu>
     );
   }
 
