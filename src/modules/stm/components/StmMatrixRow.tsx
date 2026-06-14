@@ -356,14 +356,6 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           />
         </div>
       )}
-
-      <StmArchiveDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        groupId={group.id}
-        groupName={group.name}
-        unarchive={isArchived}
-      />
     </>
   );
 }
