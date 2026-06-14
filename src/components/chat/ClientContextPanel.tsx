@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
 import ClientTeamManager from "@/components/ClientTeamManager";
+import ClientStmBlock from "@/components/chat/ClientStmBlock";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNowStrict } from "date-fns";
