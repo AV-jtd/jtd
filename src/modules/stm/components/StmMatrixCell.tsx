@@ -334,6 +334,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 ↗+{driftDays}д
               </div>
             )}
+            {(task as any).stage_key === "rework" && <ReworkCounter task={task} />}
             {isMilestone && milestoneLabel && (
               <div className="text-[8px] uppercase tracking-wider text-primary/80 font-semibold leading-none">
                 {milestoneLabel}
