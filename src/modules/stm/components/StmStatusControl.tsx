@@ -53,6 +53,8 @@ interface Props {
   archivedAt: string | null;
   /** Compact: icon-sized trigger (just the dot). */
   compact?: boolean;
+  /** Full-width pill trigger (label + chevron pushed to the right). */
+  fullWidth?: boolean;
 }
 
 /**
@@ -61,7 +63,7 @@ interface Props {
  * - Only "Стоп от сети" requires a mandatory comment (captured via dialog).
  * - Switching to a non-archiving status clears closed_at and the comment.
  */
-export default function StmStatusControl({ groupId, groupName, meta, current, archivedAt, compact }: Props) {
+export default function StmStatusControl({ groupId, groupName, meta, current, archivedAt, compact, fullWidth }: Props) {
   const qc = useQueryClient();
   const [commentOpen, setCommentOpen] = useState(false);
   const [comment, setComment] = useState("");
@@ -123,8 +125,9 @@ export default function StmStatusControl({ groupId, groupName, meta, current, ar
             type="button"
             title={`Статус: ${currentOpt.label}`}
             className={cn(
-              "shrink-0 inline-flex items-center gap-1 rounded border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors",
-              compact ? "h-6 px-1.5" : "h-7 px-2",
+              "inline-flex items-center gap-1.5 rounded-md border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors",
+              compact ? "h-6 px-1.5 shrink-0" : "h-7 px-2",
+              fullWidth ? "w-full justify-start" : "shrink-0",
             )}
           >
             <span className={cn("h-2 w-2 rounded-full", TONE_DOT[currentOpt.tone])} aria-hidden />
@@ -133,7 +136,7 @@ export default function StmStatusControl({ groupId, groupName, meta, current, ar
                 {currentOpt.label}
               </span>
             )}
-            <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
+            <ChevronDown className={cn("h-3 w-3 text-muted-foreground/60", fullWidth && "ml-auto")} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
