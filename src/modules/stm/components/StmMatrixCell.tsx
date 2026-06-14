@@ -1,15 +1,53 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuLabel, ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import type { Task } from "@/hooks/useTasks";
-import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus } from "../hooks/useStmProjects";
+import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus, useSetReworkCount } from "../hooks/useStmProjects";
 import StmStageDatePopover from "./StmStageDatePopover";
-import type { StmFlow, StmStageStatus } from "../lib/stages";
+import { REWORK_RISK_THRESHOLD, type StmFlow, type StmStageStatus } from "../lib/stages";
+
+/** Inline +/- counter for sample rework iterations (only on the "rework" stage). */
+function ReworkCounter({ task }: { task: Task }) {
+  const setCount = useSetReworkCount();
+  const count = ((task as any).rework_count as number | null | undefined) ?? 0;
+  const risk = count >= REWORK_RISK_THRESHOLD;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-0.5 rounded px-0.5 leading-none",
+        risk ? "text-warning" : "text-muted-foreground",
+      )}
+      onClick={(e) => e.stopPropagation()}
+      title={`Доработок образца: ${count}${risk ? " · много итераций" : ""}`}
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: -1 }); }}
+        className="hover:text-foreground disabled:opacity-30"
+        disabled={count <= 0}
+        aria-label="Минус доработка"
+      >
+        <Minus className="h-2.5 w-2.5" />
+      </button>
+      <span className={cn("inline-flex items-center gap-0.5 text-[9px] font-mono tabular-nums", risk && "font-bold")}>
+        <RotateCcw className="h-2.5 w-2.5" />{count}
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: 1 }); }}
+        className="hover:text-foreground"
+        aria-label="Плюс доработка"
+      >
+        <Plus className="h-2.5 w-2.5" />
+      </button>
+    </div>
+  );
+}
 
 type CellStatus = "done" | "overdue" | "blocked" | "in_progress" | "current" | "open";
 
@@ -141,6 +179,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
       : cStatus === "current" ? "bg-primary"
       : "bg-muted-foreground/30";
     const cTip = STATUS_LABEL[cStatus];
+    const reworkCount = ((task as any).rework_count as number | null | undefined) ?? 0;
+    const reworkRisk = reworkCount >= REWORK_RISK_THRESHOLD;
     return (
       <StageStatusMenu task={task}>
         <Tooltip>
@@ -148,7 +188,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
-              className="h-full w-full flex items-center justify-center"
+              className="relative h-full w-full flex items-center justify-center"
               aria-label={`${task.title}: ${cTip}`}
             >
               <span className={cn(
@@ -158,6 +198,14 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 (cStatus === "in_progress" || cStatus === "blocked") && "animate-pulse",
                 isMilestone && "rounded-[2px] rotate-45",
               )} />
+              {(task as any).stage_key === "rework" && reworkCount > 0 && (
+                <span className={cn(
+                  "absolute -top-0.5 -right-0.5 text-[7px] font-mono font-bold leading-none",
+                  reworkRisk ? "text-warning" : "text-muted-foreground",
+                )}>
+                  {reworkCount}
+                </span>
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
@@ -165,6 +213,11 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             <div className="text-muted-foreground">
               {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
             </div>
+            {(task as any).stage_key === "rework" && (
+              <div className={cn(reworkRisk ? "text-warning" : "text-muted-foreground")}>
+                🔁 Доработок образца: {reworkCount}{reworkRisk ? " — много" : ""}
+              </div>
+            )}
             <div className="text-[10px] text-muted-foreground/70 mt-0.5 italic">ПКМ — статус</div>
           </TooltipContent>
         </Tooltip>
@@ -296,6 +349,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 ↗+{driftDays}д
               </div>
             )}
+            {(task as any).stage_key === "rework" && <ReworkCounter task={task} />}
             {isMilestone && milestoneLabel && (
               <div className="text-[8px] uppercase tracking-wider text-primary/80 font-semibold leading-none">
                 {milestoneLabel}

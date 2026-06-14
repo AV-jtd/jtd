@@ -2142,6 +2142,7 @@ export type Database = {
           recurrence: string | null
           recurrence_end_date: string | null
           requires_approval: boolean
+          rework_count: number
           source_protocol_id: string | null
           stage_key: string | null
           stage_status: string | null
@@ -2183,6 +2184,7 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          rework_count?: number
           source_protocol_id?: string | null
           stage_key?: string | null
           stage_status?: string | null
@@ -2224,6 +2226,7 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          rework_count?: number
           source_protocol_id?: string | null
           stage_key?: string | null
           stage_status?: string | null

@@ -19,6 +19,12 @@ export const STM_STUCK_THRESHOLD_DAYS: Record<StmFlow, number> = {
   out: 3,
 };
 
+/**
+ * Number of sample rework iterations (rework_count on the "rework" stage task)
+ * at or above which a SKU is flagged as problematic (amber badge + KPI).
+ */
+export const REWORK_RISK_THRESHOLD = 3;
+
 export interface StmStage {
   key: string;
   short: string;
