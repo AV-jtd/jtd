@@ -34,6 +34,40 @@ const STATUS_LABEL: Record<CellStatus, string> = {
   open: "Ожидает",
 };
 
+/** Right-click menu to set a stage's workflow status. */
+function StageStatusMenu({ task, children }: { task: Task; children: React.ReactNode }) {
+  const setStatus = useSetStmStageStatus();
+  const cur = (task as any).stage_status as StmStageStatus | null | undefined;
+  const pick = (status: StmStageStatus) => setStatus.mutate({ taskId: task.id, status });
+  const Item = ({ status, icon: Icon, label, tone }: { status: StmStageStatus; icon: React.ElementType; label: string; tone?: string }) => (
+    <ContextMenuItem
+      onClick={() => pick(status)}
+      className={cn("gap-2 text-xs", tone)}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      {(cur === status || (status === "done" && task.is_completed)) && (
+        <Check className="h-3 w-3 ml-auto text-primary" />
+      )}
+    </ContextMenuItem>
+  );
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Статус этапа
+        </ContextMenuLabel>
+        <ContextMenuSeparator />
+        <Item status="pending" icon={Minus} label="Ожидает" />
+        <Item status="in_progress" icon={Loader} label="В работе" tone="text-primary" />
+        <Item status="blocked" icon={Ban} label="Заблокирован" tone="text-warning" />
+        <Item status="done" icon={Check} label="Готово" tone="text-success" />
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
 interface Props {
   task: Task | null;
   isCurrent: boolean;
