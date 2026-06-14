@@ -48,11 +48,6 @@ function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) 
         </span>
         <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{s.avgProgress}%</span>
       </span>
-      {s.notStartedCount > 0 && (
-        <span className={cn(badge, "text-muted-foreground/60")} title="Не начато">
-          <CircleDashed className={ic} />{s.notStartedCount}
-        </span>
-      )}
       {s.activeCount > 0 && (
         <span className={cn(badge, "text-primary/80")} title="В работе">
           <Clock className={ic} />{s.activeCount}
@@ -70,7 +65,7 @@ function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) 
       )}
       {s.riskCount > 0 && (
         <span className={cn(badge, "text-warning")} title="Зависли / заблокированы">
-          ⏳{s.riskCount}
+          <AlertTriangle className={ic} />{s.riskCount}
         </span>
       )}
       {s.overdueCount > 0 && (
