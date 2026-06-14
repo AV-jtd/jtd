@@ -9,7 +9,7 @@ import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lu
 import { StmExpandedRow } from "./StmExpandedRow";
 import StmArchiveDialog from "./StmArchiveDialog";
 import { Button } from "@/components/ui/button";
-import { stmRowState } from "../lib/stmAnalytics";
+import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
@@ -34,13 +34,18 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
   // Row state drives the left status strip + progress bar color.
   const state = stmRowState(project);
   const currentStage = currentStageKey ? stages.find(s => s.key === currentStageKey) : null;
+  const timeInStage = stmTimeInStage(project);
   const stripClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/60"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-border";
   const barClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/70"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-muted-foreground/30";
@@ -119,6 +124,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 "shrink-0 text-[9px] px-1 py-0.5 rounded leading-none",
                 state === "overdue" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
               )}>{currentStage.short}</span>
+            )}
+            {!isArchived && progress < 100 && (state === "blocked" || state === "stuck") && (
+              <span className={cn(
+                "shrink-0 text-[9px] px-1 py-0.5 rounded leading-none font-medium whitespace-nowrap",
+                state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+              )} title={state === "blocked" ? "Этап заблокирован" : `Завис ${timeInStage} дн на этапе`}>
+                {state === "blocked" ? "⛔" : `⏳${timeInStage ?? ""}`}
+              </span>
             )}
             <span className="shrink-0 w-7 text-right text-[10px] tabular-nums font-mono text-muted-foreground">{progress}%</span>
           </button>
@@ -223,6 +236,16 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   )}>
                     сейчас: {currentStage.short}
                   </span>
+                  {(state === "blocked" || state === "stuck") && (
+                    <span className={cn(
+                      "ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium",
+                      state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+                    )} title={state === "blocked" ? "Этап заблокирован" : "Завис на этапе"}>
+                      {state === "blocked"
+                        ? "⛔ заблокирован"
+                        : `⏳ ${timeInStage} дн на этапе`}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

@@ -9,6 +9,7 @@ import type { StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
 import { StmOpsTasks } from "./StmOpsTasks";
 import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
+import { stmTimeInStage, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 
 interface Props {
   project: StmProject;
@@ -150,6 +151,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     ? stageTasks.find(t => (t as any).stage_key === activeStageKey) ?? null
     : null;
 
+  // ---- Stage-level risk telemetry (time-in-stage / blocked) ----
+  const timeInStage = stmTimeInStage(project);
+  const blocked = isStmProjectBlocked(project);
+  const stuck = isStmProjectStuck(project);
+
   return (
     <div className="bg-stm-bg/95 border-b border-stm-border/40 px-4 py-4 space-y-4">
       {/* HEADER — Total telemetry */}
@@ -190,6 +196,17 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Прогресс</div>
             <div className="text-sm font-mono text-stm-fg tabular-nums">{progress}%</div>
           </div>
+          {progress < 100 && timeInStage != null && (
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">На этапе</div>
+              <div className={cn(
+                "text-sm font-mono tabular-nums",
+                blocked || stuck ? "text-stm-warn" : "text-stm-fg/70",
+              )}>
+                {blocked ? `⛔ ${timeInStage} дн` : stuck ? `⏳ ${timeInStage} дн` : `${timeInStage} дн`}
+              </div>
+            </div>
+          )}
           {globalDrift > 0 && (
             <div className="text-right">
               <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Дрифт</div>
@@ -280,6 +297,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             const isCurrent = stage.key === currentStageKey;
             const isActive = stage.key === activeStageKey;
             const overdue = !isDone && task?.deadline && new Date(task.deadline) < new Date();
+            const stageStatus = (task as any)?.stage_status as string | null | undefined;
+            const isBlocked = !isDone && stageStatus === "blocked";
+            const isInProgress = !isDone && !overdue && !isBlocked && stageStatus === "in_progress";
             const drift = calcDrift(task);
             const assigneeName = task?.assigned_to ? profileMap.get(task.assigned_to) : null;
             const dueLabel = RU_DATE(task?.deadline);
@@ -321,6 +341,8 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
                       "size-1.5 rounded-full",
                       isDone ? "bg-stm-success" :
                       overdue ? "bg-stm-danger animate-pulse" :
+                      isBlocked ? "bg-stm-warn animate-pulse" :
+                      isInProgress ? "bg-stm-accent animate-pulse" :
                       isCurrent ? "bg-stm-accent animate-pulse" : "bg-stm-fg/20",
                     )} />
                   </div>

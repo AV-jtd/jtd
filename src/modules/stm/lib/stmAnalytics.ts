@@ -1,5 +1,5 @@
 import type { StmProject } from "../hooks/useStmProjects";
-import { getStmStages, type StmFlow, type StmStage } from "./stages";
+import { getStmStages, STM_STUCK_THRESHOLD_DAYS, type StmFlow, type StmStage } from "./stages";
 
 /** Bucket: how many SKUs currently sit at a given stage. */
 export interface StmStageBucket {
@@ -27,6 +27,10 @@ export interface StmAnalytics {
   completed: number;
   /** SKUs that have no completed stage yet (not started). */
   notStarted: number;
+  /** SKUs whose current stage is explicitly marked blocked. */
+  blockedSkus: number;
+  /** SKUs stuck on the current stage beyond the threshold (not overdue/blocked). */
+  stuckSkus: number;
   stageBuckets: StmStageBucket[];
   byRetailer: StmGroupStat[];
   byBrand: StmGroupStat[];
@@ -40,12 +44,58 @@ export function isStmProjectOverdue(p: StmProject): boolean {
   );
 }
 
-export type StmRowState = "archived" | "overdue" | "done" | "active" | "idle";
+/** True if the current (first not-done) stage task is explicitly blocked. */
+export function isStmProjectBlocked(p: StmProject): boolean {
+  if (!p.currentStageKey) return false;
+  const cur = p.stageTasks.find(t => (t as any).stage_key === p.currentStageKey);
+  return !!cur && !cur.is_completed && (cur as any).stage_status === "blocked";
+}
+
+/**
+ * Days the SKU has been sitting on its current (first not-done) stage.
+ * Measured from the previous stage's completion (or the current stage's
+ * start_at when there is no completed predecessor). Returns null when the
+ * SKU is finished or has no current stage / anchor date.
+ */
+export function stmTimeInStage(p: StmProject): number | null {
+  if (!p.currentStageKey) return null;
+  const stages = getStmStages(p.flow);
+  const idx = stages.findIndex(s => s.key === p.currentStageKey);
+  if (idx < 0) return null;
+  // Anchor: latest completed predecessor's completed_at, else current start_at.
+  let anchor: number | null = null;
+  for (let i = idx - 1; i >= 0; i--) {
+    const prev = p.stageTasks.find(t => (t as any).stage_key === stages[i].key);
+    if (prev?.is_completed && prev.completed_at) {
+      anchor = new Date(prev.completed_at).getTime();
+      break;
+    }
+  }
+  if (anchor == null) {
+    const cur = p.stageTasks.find(t => (t as any).stage_key === p.currentStageKey);
+    if (cur?.start_at) anchor = new Date(cur.start_at).getTime();
+  }
+  if (anchor == null) return null;
+  const days = Math.floor((Date.now() - anchor) / 86_400_000);
+  return days >= 0 ? days : null;
+}
+
+/** True if the SKU is stuck on the current stage beyond the flow threshold. */
+export function isStmProjectStuck(p: StmProject): boolean {
+  if (p.progress >= 100) return false;
+  const t = stmTimeInStage(p);
+  if (t == null) return false;
+  return t > STM_STUCK_THRESHOLD_DAYS[p.flow];
+}
+
+export type StmRowState = "archived" | "overdue" | "blocked" | "stuck" | "done" | "active" | "idle";
 
 /** High-level row state used for the left status strip / coloring. */
 export function stmRowState(p: StmProject): StmRowState {
   if (p.archivedAt) return "archived";
   if (isStmProjectOverdue(p)) return "overdue";
+  if (isStmProjectBlocked(p)) return "blocked";
+  if (isStmProjectStuck(p)) return "stuck";
   if (p.progress >= 100) return "done";
   if (p.progress > 0) return "active";
   return "idle";
@@ -65,6 +115,8 @@ export function computeStmAnalytics(projects: StmProject[], flow: StmFlow): StmA
   let readyToLaunch = 0;
   let completed = 0;
   let notStarted = 0;
+  let blockedSkus = 0;
+  let stuckSkus = 0;
   const stageCount = new Map<string, number>();
 
   projects.forEach(p => {
@@ -75,6 +127,11 @@ export function computeStmAnalytics(projects: StmProject[], flow: StmFlow): StmA
     if (od.length) overdueSkus++;
     if (p.progress >= 100) completed++;
     if (p.progress === 0) notStarted++;
+    // Risk buckets are mutually exclusive in priority order, mirroring stmRowState.
+    if (!p.archivedAt && !od.length && p.progress < 100) {
+      if (isStmProjectBlocked(p)) blockedSkus++;
+      else if (isStmProjectStuck(p)) stuckSkus++;
+    }
     const approvalDone = p.stageTasks.some(
       t => (t as any).stage_key === "approval" && t.is_completed,
     );
@@ -115,6 +172,8 @@ export function computeStmAnalytics(projects: StmProject[], flow: StmFlow): StmA
     readyToLaunch,
     completed,
     notStarted,
+    blockedSkus,
+    stuckSkus,
     stageBuckets,
     byRetailer: groupBy(p => p.meta.retailer || ""),
     byBrand: groupBy(p => p.meta.brand || ""),

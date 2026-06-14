@@ -2144,6 +2144,7 @@ export type Database = {
           requires_approval: boolean
           source_protocol_id: string | null
           stage_key: string | null
+          stage_status: string | null
           start_at: string | null
           status_meta: Json
           stm_flow: string | null
@@ -2184,6 +2185,7 @@ export type Database = {
           requires_approval?: boolean
           source_protocol_id?: string | null
           stage_key?: string | null
+          stage_status?: string | null
           start_at?: string | null
           status_meta?: Json
           stm_flow?: string | null
@@ -2224,6 +2226,7 @@ export type Database = {
           requires_approval?: boolean
           source_protocol_id?: string | null
           stage_key?: string | null
+          stage_status?: string | null
           start_at?: string | null
           status_meta?: Json
           stm_flow?: string | null
