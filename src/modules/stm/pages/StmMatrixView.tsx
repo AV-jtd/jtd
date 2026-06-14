@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
@@ -14,6 +14,73 @@ import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmPro
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import { cn } from "@/lib/utils";
+
+/** Aggregate stats shape shared by group + subgroup headers. */
+interface GroupStat {
+  count: number;
+  avgProgress: number;
+  overdueCount: number;
+  doneCount: number;
+  activeCount: number;
+  notStartedCount: number;
+  riskCount: number;
+  readyCount: number;
+}
+
+/**
+ * Left-aligned portfolio metrics for a (sub)group header.
+ * Order = funnel health: progress → not started → in progress → ready →
+ * done → risk → overdue. Zero-value badges are hidden to keep it scannable.
+ */
+function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) {
+  const bar = size === "md" ? "w-16 h-1.5" : "w-12 h-1";
+  const ic = size === "md" ? "h-3 w-3" : "h-2.5 w-2.5";
+  const badge = "inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums";
+  return (
+    <span className="flex items-center gap-2.5 shrink-0">
+      {/* avg progress */}
+      <span className="flex items-center gap-1.5">
+        <span className={cn("rounded-full bg-muted overflow-hidden", bar)}>
+          <span
+            className="block h-full rounded-full bg-primary/60"
+            style={{ width: `${Math.max(s.avgProgress, s.avgProgress > 0 ? 4 : 0)}%` }}
+          />
+        </span>
+        <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{s.avgProgress}%</span>
+      </span>
+      {s.notStartedCount > 0 && (
+        <span className={cn(badge, "text-muted-foreground/60")} title="Не начато">
+          <CircleDashed className={ic} />{s.notStartedCount}
+        </span>
+      )}
+      {s.activeCount > 0 && (
+        <span className={cn(badge, "text-primary/80")} title="В работе">
+          <Clock className={ic} />{s.activeCount}
+        </span>
+      )}
+      {s.readyCount > 0 && (
+        <span className={cn(badge, "text-primary")} title="Готовы к запуску (вкус утверждён)">
+          <Rocket className={ic} />{s.readyCount}
+        </span>
+      )}
+      {s.doneCount > 0 && (
+        <span className={cn(badge, "text-success")} title="Завершено">
+          <CheckCircle2 className={ic} />{s.doneCount}
+        </span>
+      )}
+      {s.riskCount > 0 && (
+        <span className={cn(badge, "text-warning")} title="Зависли / заблокированы">
+          ⏳{s.riskCount}
+        </span>
+      )}
+      {s.overdueCount > 0 && (
+        <span className={cn(badge, "font-semibold text-destructive")} title="Просрочено">
+          <AlertTriangle className={ic} />{s.overdueCount}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * STM (Private Label) Mission Control matrix.
