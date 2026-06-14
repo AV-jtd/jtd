@@ -265,6 +265,7 @@ export default function StmMatrixView() {
     estimateSize: (i) => {
       const it = flatItems[i];
       if (it.kind === "group") return 34;
+      if (it.kind === "subgroup") return 28;
       if (expandedSku === it.project.group.id) return density === "compact" ? 380 : 440;
       return density === "compact" ? 37 : 97;
     },
