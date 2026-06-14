@@ -1394,6 +1394,7 @@ export function useTaskMutations() {
         protocol_scope: task.protocol_scope ?? 'external',
         stage_key: null,
         stm_flow: null,
+        stage_status: null,
         subtasks: [],
         task_tags: [],
         follow_up_of: (task as any).follow_up_of ?? null,
