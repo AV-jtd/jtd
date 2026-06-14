@@ -1,11 +1,38 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus, Flag, Plus } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader, CircleDot } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
+  ContextMenuLabel, ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import type { Task } from "@/hooks/useTasks";
-import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate } from "../hooks/useStmProjects";
+import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus } from "../hooks/useStmProjects";
 import StmStageDatePopover from "./StmStageDatePopover";
-import type { StmFlow } from "../lib/stages";
+import type { StmFlow, StmStageStatus } from "../lib/stages";
+
+type CellStatus = "done" | "overdue" | "blocked" | "in_progress" | "current" | "open";
+
+/** Derive the visual status of a stage cell from completion + stage_status. */
+function deriveCellStatus(task: Task, isCurrent: boolean): CellStatus {
+  const overdue = !task.is_completed && !!task.deadline && new Date(task.deadline) < new Date();
+  const ss = (task as any).stage_status as StmStageStatus | null | undefined;
+  if (task.is_completed) return "done";
+  if (overdue) return "overdue";
+  if (ss === "blocked") return "blocked";
+  if (ss === "in_progress") return "in_progress";
+  if (isCurrent) return "current";
+  return "open";
+}
+
+const STATUS_LABEL: Record<CellStatus, string> = {
+  done: "Готово",
+  overdue: "Просрочено",
+  blocked: "Заблокирован",
+  in_progress: "В работе",
+  current: "Текущий этап",
+  open: "Ожидает",
+};
 
 interface Props {
   task: Task | null;
