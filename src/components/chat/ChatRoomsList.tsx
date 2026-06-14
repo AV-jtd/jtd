@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, CheckSquare, Sparkles } from "lucide-react";
+import { Search, CheckSquare, Sparkles, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -202,6 +202,15 @@ export default function ChatRoomsList({
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "groups">("all");
+  const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map());
+  const isBaseOpen = (id: string, _childCount: number) =>
+    overrides.has(id) ? (overrides.get(id) as boolean) : false;
+  const toggleExpand = (id: string, current: boolean) =>
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(id, !current);
+      return next;
+    });
 
   // «Горящих» = просрочено + сегодня среди задач, где я участник.
   const hotCount = useMemo(() => {
@@ -236,11 +245,68 @@ export default function ChatRoomsList({
     return rooms.filter((r) => {
       if (filter === "projects" && (r.isClientRoom || r.isTaskRoom)) return false;
       if (filter === "clients" && !r.isClientRoom) return false;
-      if (filter === "groups" && !r.isTaskRoom) return false;
       if (!s) return true;
       return r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s);
     });
   }, [rooms, q, filter]);
+
+  const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
+    [it.room, ...it.children]
+      .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
+      .reduce((a, b) => Math.max(a, b), 0);
+
+  const grouped = useMemo(() => {
+    const parents = filtered.filter((r) => !r.isTaskRoom);
+    const parentById = new Map(parents.map((p) => [p.groupId, p]));
+    const childrenByParent = new Map<string, ChatRoom[]>();
+    const orphans: ChatRoom[] = [];
+    for (const r of filtered) {
+      if (!r.isTaskRoom) continue;
+      if (r.parentGroupId && parentById.has(r.parentGroupId)) {
+        const arr = childrenByParent.get(r.parentGroupId) ?? [];
+        arr.push(r);
+        childrenByParent.set(r.parentGroupId, arr);
+      } else {
+        orphans.push(r);
+      }
+    }
+    const virtualByParent = new Map<string, ChatRoom[]>();
+    const trueOrphans: ChatRoom[] = [];
+    for (const r of orphans) {
+      if (r.parentGroupId && r.parentName) {
+        const arr = virtualByParent.get(r.parentGroupId) ?? [];
+        arr.push(r);
+        virtualByParent.set(r.parentGroupId, arr);
+      } else {
+        trueOrphans.push(r);
+      }
+    }
+    const virtualParents: { room: ChatRoom; children: ChatRoom[] }[] = [];
+    for (const [groupId, children] of virtualByParent) {
+      const virtualRoom: ChatRoom = {
+        groupId,
+        threadId: `group-${groupId}`,
+        name: children[0].parentName || "Проект",
+        isClientRoom: false,
+        client: null,
+        groupIcon: null,
+        groupColor: null,
+        groupLogoUrl: null,
+        lastMessage: null,
+        lastMessageAt: null,
+        lastMessageAuthor: null,
+        lastMessageUserId: null,
+      };
+      virtualParents.push({ room: virtualRoom, children });
+    }
+    const items = [
+      ...parents.map((room) => ({ room, children: childrenByParent.get(room.groupId) ?? [] })),
+      ...virtualParents,
+      ...trueOrphans.map((room) => ({ room, children: [] as ChatRoom[] })),
+    ];
+    items.sort((a, b) => freshest(b) - freshest(a));
+    return items;
+  }, [filtered]);
 
   const FILTERS: { key: typeof filter; label: string }[] = [
     { key: "all", label: "Все" },
