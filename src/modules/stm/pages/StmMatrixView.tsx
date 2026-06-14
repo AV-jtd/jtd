@@ -235,12 +235,21 @@ export default function StmMatrixView() {
   // ---- Flattened item list (group headers + rows) for virtualization ----
   type FlatItem =
     | { kind: "group"; key: string; group: (typeof grouped)[number] }
+    | { kind: "subgroup"; key: string; subgroup: SubGroup }
     | { kind: "row"; key: string; project: (typeof visible)[number] };
   const flatItems = useMemo<FlatItem[]>(() => {
     const items: FlatItem[] = [];
     grouped.forEach(g => {
       if (g.label) items.push({ kind: "group", key: `g:${g.key}`, group: g });
-      if (!g.label || !collapsedGroups.has(g.key)) {
+      if (g.label && collapsedGroups.has(g.key)) return;
+      if (g.subgroups) {
+        g.subgroups.forEach(sg => {
+          items.push({ kind: "subgroup", key: `sg:${sg.key}`, subgroup: sg });
+          if (!collapsedGroups.has(sg.key)) {
+            sg.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
+          }
+        });
+      } else {
         g.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
       }
     });
