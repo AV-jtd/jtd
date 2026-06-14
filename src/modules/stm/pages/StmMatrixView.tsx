@@ -507,6 +507,40 @@ export default function StmMatrixView() {
                           )}
                         </span>
                       </button>
+                    ) : it.kind === "subgroup" ? (
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedGroups(prev => {
+                          const next = new Set(prev);
+                          next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors text-left"
+                        aria-expanded={!collapsedGroups.has(it.subgroup.key)}
+                      >
+                        {collapsedGroups.has(it.subgroup.key)
+                          ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                          : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
+                        <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
+                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate">{it.subgroup.label}</span>
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0">{it.subgroup.count} SKU</span>
+                        <span className="ml-auto flex items-center gap-3 shrink-0">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-12 h-1 rounded-full bg-muted overflow-hidden">
+                              <span
+                                className="block h-full rounded-full bg-primary/50"
+                                style={{ width: `${Math.max(it.subgroup.avgProgress, it.subgroup.avgProgress > 0 ? 4 : 0)}%` }}
+                              />
+                            </span>
+                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground/80 w-8 text-right">{it.subgroup.avgProgress}%</span>
+                          </span>
+                          {it.subgroup.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
+                              <AlertTriangle className="h-3 w-3" />{it.subgroup.overdueCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
                     ) : (
                       <StmMatrixRow
                         project={it.project}
