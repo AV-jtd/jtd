@@ -54,7 +54,7 @@ function Kpi({
 }
 
 function StmDashboardBarInner({
-  analytics, focusStage, onFocusStage, onPickGroup, groupMode,
+  analytics,
 }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
