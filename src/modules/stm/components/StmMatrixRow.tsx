@@ -125,6 +125,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 state === "overdue" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
               )}>{currentStage.short}</span>
             )}
+            {!isArchived && progress < 100 && (state === "blocked" || state === "stuck") && (
+              <span className={cn(
+                "shrink-0 text-[9px] px-1 py-0.5 rounded leading-none font-medium whitespace-nowrap",
+                state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+              )} title={state === "blocked" ? "Этап заблокирован" : `Завис ${timeInStage} дн на этапе`}>
+                {state === "blocked" ? "⛔" : `⏳${timeInStage ?? ""}`}
+              </span>
+            )}
             <span className="shrink-0 w-7 text-right text-[10px] tabular-nums font-mono text-muted-foreground">{progress}%</span>
           </button>
 
