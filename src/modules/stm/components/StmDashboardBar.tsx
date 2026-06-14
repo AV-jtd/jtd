@@ -7,10 +7,6 @@ import type { StmAnalytics } from "../lib/stmAnalytics";
 
 interface Props {
   analytics: StmAnalytics;
-  focusStage: string | null;
-  onFocusStage: (stageKey: string | null) => void;
-  onPickGroup: (term: string) => void;
-  groupMode: "retailer" | "brand";
 }
 
 /** KPI tile. */
