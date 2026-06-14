@@ -519,6 +519,9 @@ export default function ClientContextPanel({
             <ClientTeamManager clientId={data!.client.id} managerName={data!.managerName} />
           )}
 
+          {/* СТМ в работе — привязка к СТМ Mission Control */}
+          <ClientStmBlock clientName={client.name} />
+
           {/* Ключевые задачи */}
           {open.length > 0 && (
             <div>
