@@ -10,7 +10,7 @@ import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import { StmDashboardBar } from "../components/StmDashboardBar";
-import { computeStmAnalytics, isStmProjectOverdue } from "../lib/stmAnalytics";
+import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import { cn } from "@/lib/utils";
