@@ -292,15 +292,13 @@ export default function StmMatrixView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focused, groupBy, subGroupProject]);
 
-  // Aggregates-first: when grouping is on and the user has no saved preference
-  // for this mode yet, start with every group collapsed (portfolio "from above").
+  // Aggregates-first: on every page entry start with every group collapsed
+  // (portfolio "from above") regardless of saved preference. The user can
+  // expand groups afterwards within the same session.
   const autoCollapsedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (groupBy === "none") return;
     if (autoCollapsedRef.current.has(storageKey)) return;
-    let raw: string | null = null;
-    try { raw = window.localStorage.getItem(storageKey); } catch { /* ignore */ }
-    if (raw) { autoCollapsedRef.current.add(storageKey); return; }
     if (grouped.length === 0) return; // wait for data
     setCollapsedGroups(new Set(grouped.map(g => g.key)));
     autoCollapsedRef.current.add(storageKey);
