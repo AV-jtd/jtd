@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
-import { getStmStages, type StmFlow, type StmMeta, type StmStage } from "../lib/stages";
+import { getStmStages, type StmFlow, type StmMeta, type StmStage, type StmStageStatus } from "../lib/stages";
 import { STM_KEYS, invalidateStmCaches, patchStageTaskInCache } from "../lib/stmCache";
 import { toast } from "sonner";
 
