@@ -8,7 +8,6 @@ import type { StmStage } from "../lib/stages";
 import { ChevronRight, ChevronDown, MessageSquare, Archive } from "lucide-react";
 import { StmExpandedRow } from "./StmExpandedRow";
 import StmStatusControl from "./StmStatusControl";
-import { Button } from "@/components/ui/button";
 import { getStmLifecycleOption } from "../lib/stages";
 import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
