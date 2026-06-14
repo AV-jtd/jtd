@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
-  Boxes, Activity, TrendingUp, AlertTriangle, Rocket, ChevronDown, ChevronUp,
+  Boxes, Activity, TrendingUp, AlertTriangle, Rocket, Ban, ChevronDown, ChevronUp,
 } from "lucide-react";
 import type { StmAnalytics } from "../lib/stmAnalytics";
 
@@ -20,7 +20,7 @@ function Kpi({
   icon: React.ElementType;
   label: string;
   value: number | string;
-  tone?: "default" | "primary" | "success" | "destructive";
+  tone?: "default" | "primary" | "success" | "destructive" | "warning";
   onClick?: () => void;
   active?: boolean;
 }) {
@@ -28,11 +28,13 @@ function Kpi({
     tone === "primary" ? "text-primary"
     : tone === "success" ? "text-success"
     : tone === "destructive" ? "text-destructive"
+    : tone === "warning" ? "text-warning"
     : "text-foreground";
   const ring =
     tone === "destructive" ? "border-destructive/30"
     : tone === "success" ? "border-success/30"
     : tone === "primary" ? "border-primary/30"
+    : tone === "warning" ? "border-warning/30"
     : "border-border";
   return (
     <button
@@ -101,6 +103,12 @@ function StmDashboardBarInner({
               label="Просрочено"
               value={a.overdueSkus}
               tone="destructive"
+            />
+            <Kpi
+              icon={Ban}
+              label="Завис / блок"
+              value={a.blockedSkus + a.stuckSkus}
+              tone="warning"
             />
             <Kpi icon={Rocket} label="К запуску" value={a.readyToLaunch} tone="primary" />
           </div>
