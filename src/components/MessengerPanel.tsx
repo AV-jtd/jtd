@@ -4,6 +4,7 @@ import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hook
 import { useAvailableUsers } from "@/hooks/useTasks";
 import { useMessageSearch, type MessageSearchResult } from "@/hooks/useMessageSearch";
 import ChatAvatar from "./chat/ChatAvatar";
+import ClientAvatar from "./ClientAvatar";
 import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
