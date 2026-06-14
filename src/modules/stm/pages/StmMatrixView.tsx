@@ -586,25 +586,9 @@ export default function StmMatrixView() {
                         {collapsedGroups.has(it.group.key)
                           ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                           : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate">{it.group.label}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{it.group.count} SKU</span>
-                        <span className="ml-auto flex items-center gap-3 shrink-0">
-                          {/* avg progress mini bar */}
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <span
-                                className="block h-full rounded-full bg-primary/60"
-                                style={{ width: `${Math.max(it.group.avgProgress, it.group.avgProgress > 0 ? 4 : 0)}%` }}
-                              />
-                            </span>
-                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{it.group.avgProgress}%</span>
-                          </span>
-                          {it.group.overdueCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
-                              <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                        <GroupMetrics s={it.group} />
                       </button>
                     ) : it.kind === "subgroup" ? (
                       <button
@@ -621,24 +605,9 @@ export default function StmMatrixView() {
                           ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
                           : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
                         <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
-                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate">{it.subgroup.label}</span>
-                        <span className="text-[10px] text-muted-foreground/60 shrink-0">{it.subgroup.count} SKU</span>
-                        <span className="ml-auto flex items-center gap-3 shrink-0">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-12 h-1 rounded-full bg-muted overflow-hidden">
-                              <span
-                                className="block h-full rounded-full bg-primary/50"
-                                style={{ width: `${Math.max(it.subgroup.avgProgress, it.subgroup.avgProgress > 0 ? 4 : 0)}%` }}
-                              />
-                            </span>
-                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground/80 w-8 text-right">{it.subgroup.avgProgress}%</span>
-                          </span>
-                          {it.subgroup.overdueCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
-                              <AlertTriangle className="h-3 w-3" />{it.subgroup.overdueCount}
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
+                        <GroupMetrics s={it.subgroup} size="sm" />
                       </button>
                     ) : (
                       <StmMatrixRow
