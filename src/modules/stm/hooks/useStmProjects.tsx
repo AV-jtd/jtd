@@ -538,3 +538,43 @@ export function useSetStmStageStatus() {
     },
   });
 }
+
+/**
+ * Manually adjust the rework iteration counter (rework_count) on the
+ * "Доработка образцов" stage task. Each +1 = one new reworked sample sent.
+ * Clamped to >= 0. Does not affect progress %, it's a quality/risk signal.
+ */
+export function useSetReworkCount() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { taskId: string; delta?: number; value?: number }) => {
+      const cached = qc.getQueryData<Task[]>(STM_KEYS.stageTasks(user?.id)) ?? [];
+      const task = cached.find(t => t.id === input.taskId) ?? null;
+      const current = ((task as any)?.rework_count as number | null | undefined) ?? 0;
+      const next = Math.max(0, input.value !== undefined ? input.value : current + (input.delta ?? 0));
+      const { error } = await supabase
+        .from("tasks")
+        .update({ rework_count: next } as any)
+        .eq("id", input.taskId);
+      if (error) throw error;
+      return { next };
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: STM_KEYS.stageTasks(user?.id) });
+      const cached = qc.getQueryData<Task[]>(STM_KEYS.stageTasks(user?.id)) ?? [];
+      const task = cached.find(t => t.id === input.taskId) ?? null;
+      const current = ((task as any)?.rework_count as number | null | undefined) ?? 0;
+      const next = Math.max(0, input.value !== undefined ? input.value : current + (input.delta ?? 0));
+      const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
+        rework_count: next,
+      } as Partial<Task>);
+      return { prev };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.prev) qc.setQueryData(STM_KEYS.stageTasks(user?.id), ctx.prev);
+      toast.error("Не удалось обновить счётчик доработок");
+    },
+  });
+}
