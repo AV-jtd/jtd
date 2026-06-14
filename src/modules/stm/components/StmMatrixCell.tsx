@@ -179,6 +179,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
       : cStatus === "current" ? "bg-primary"
       : "bg-muted-foreground/30";
     const cTip = STATUS_LABEL[cStatus];
+    const reworkCount = ((task as any).rework_count as number | null | undefined) ?? 0;
+    const reworkRisk = reworkCount >= REWORK_RISK_THRESHOLD;
     return (
       <StageStatusMenu task={task}>
         <Tooltip>
@@ -186,7 +188,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
-              className="h-full w-full flex items-center justify-center"
+              className="relative h-full w-full flex items-center justify-center"
               aria-label={`${task.title}: ${cTip}`}
             >
               <span className={cn(
@@ -196,6 +198,14 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 (cStatus === "in_progress" || cStatus === "blocked") && "animate-pulse",
                 isMilestone && "rounded-[2px] rotate-45",
               )} />
+              {(task as any).stage_key === "rework" && reworkCount > 0 && (
+                <span className={cn(
+                  "absolute -top-0.5 -right-0.5 text-[7px] font-mono font-bold leading-none",
+                  reworkRisk ? "text-warning" : "text-muted-foreground",
+                )}>
+                  {reworkCount}
+                </span>
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
@@ -203,6 +213,11 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             <div className="text-muted-foreground">
               {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
             </div>
+            {(task as any).stage_key === "rework" && (
+              <div className={cn(reworkRisk ? "text-warning" : "text-muted-foreground")}>
+                🔁 Доработок образца: {reworkCount}{reworkRisk ? " — много" : ""}
+              </div>
+            )}
             <div className="text-[10px] text-muted-foreground/70 mt-0.5 italic">ПКМ — статус</div>
           </TooltipContent>
         </Tooltip>
