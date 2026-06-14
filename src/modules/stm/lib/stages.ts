@@ -95,4 +95,47 @@ export interface StmMeta {
   target_price?: number;
   shelf_life?: string;
   purpose?: string;
+  /** SKU lifecycle status (see STM_LIFECYCLE). */
+  lifecycle?: StmLifecycle;
+}
+
+/**
+ * SKU lifecycle status — drives the status menu in the matrix.
+ * "stop" and "withdrawn" move the SKU to the archive (task_groups.closed_at).
+ * Only "stop" requires a mandatory comment.
+ */
+export type StmLifecycle = "working" | "approved" | "introduced" | "stop" | "withdrawn";
+
+export interface StmLifecycleOption {
+  key: StmLifecycle;
+  label: string;
+  /** Archives the SKU (hides it from the active list). */
+  archives: boolean;
+  /** Requires a non-empty comment before it can be set. */
+  requiresComment: boolean;
+  /** Semantic tone for badges/dots. */
+  tone: "muted" | "primary" | "success" | "warning" | "destructive";
+}
+
+export const STM_LIFECYCLE: StmLifecycleOption[] = [
+  { key: "working",    label: "В работе / доработка", archives: false, requiresComment: false, tone: "primary" },
+  { key: "approved",   label: "Согласовано к вводу",  archives: false, requiresComment: false, tone: "success" },
+  { key: "introduced", label: "Введено",             archives: false, requiresComment: false, tone: "success" },
+  { key: "stop",       label: "Стоп от сети",         archives: true,  requiresComment: true,  tone: "destructive" },
+  { key: "withdrawn",  label: "Выведено",            archives: true,  requiresComment: false, tone: "muted" },
+];
+
+/**
+ * Resolve the effective lifecycle status for a SKU.
+ * Falls back for legacy rows that predate the lifecycle field:
+ * archived → "stop", active → "working".
+ */
+export function resolveStmLifecycle(meta: StmMeta | undefined, archived: boolean): StmLifecycle {
+  const explicit = meta?.lifecycle;
+  if (explicit && STM_LIFECYCLE.some(o => o.key === explicit)) return explicit;
+  return archived ? "stop" : "working";
+}
+
+export function getStmLifecycleOption(key: StmLifecycle): StmLifecycleOption {
+  return STM_LIFECYCLE.find(o => o.key === key) ?? STM_LIFECYCLE[0];
 }

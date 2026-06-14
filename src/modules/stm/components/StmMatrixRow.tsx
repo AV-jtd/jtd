@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 import { StmMatrixCell } from "./StmMatrixCell";
 import type { StmProject } from "../hooks/useStmProjects";
 import type { StmStage } from "../lib/stages";
-import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronDown, MessageSquare, Archive } from "lucide-react";
 import { StmExpandedRow } from "./StmExpandedRow";
-import StmArchiveDialog from "./StmArchiveDialog";
-import { Button } from "@/components/ui/button";
+import StmStatusControl from "./StmStatusControl";
+import { getStmLifecycleOption } from "../lib/stages";
 import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
@@ -27,9 +27,9 @@ interface Props {
 }
 
 function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange, density = "comfortable" }: Props) {
-  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment } = project;
+  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment, lifecycle } = project;
   const isArchived = !!archivedAt;
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const lifecycleOpt = getStmLifecycleOption(lifecycle);
 
   // Row state drives the left status strip + progress bar color.
   const state = stmRowState(project);
@@ -164,7 +164,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           })}
 
           {/* Comment column — compact indicator */}
-          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2">
+          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <MessageSquare className={cn(
               "h-3 w-3 shrink-0",
               group.description ? "text-primary" : "text-muted-foreground/30",
@@ -175,6 +175,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
             )}>
               {group.description || "—"}
             </span>
+            <StmStatusControl
+              compact
+              groupId={group.id}
+              groupName={group.name}
+              meta={meta}
+              current={lifecycle}
+              archivedAt={archivedAt}
+            />
           </div>
         </div>
       ) : (
@@ -206,10 +214,10 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 {isArchived && (
                   <span
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/15 border border-warning/40 text-[9px] font-semibold uppercase tracking-wider text-warning"
-                    title={archiveComment || "Архив"}
+                    title={archiveComment || lifecycleOpt.label}
                   >
                     <Archive className="h-2.5 w-2.5" />
-                    Архив · {RU_DATE_SHORT(archivedAt)}
+                    {lifecycleOpt.label} · {RU_DATE_SHORT(archivedAt)}
                   </span>
                 )}
               </div>
@@ -330,17 +338,13 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   {group.description || "Добавить комментарий…"}
                 </span>
               </button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setArchiveOpen(true)}
-                className="h-auto w-7 shrink-0 text-muted-foreground/60 hover:text-warning hover:bg-warning/10"
-                title={isArchived ? "Вернуть из архива" : "В архив"}
-              >
-                {isArchived
-                  ? <RotateCcw className="h-3.5 w-3.5" />
-                  : <Archive className="h-3.5 w-3.5" />}
-              </Button>
+              <StmStatusControl
+                groupId={group.id}
+                groupName={group.name}
+                meta={meta}
+                current={lifecycle}
+                archivedAt={archivedAt}
+              />
             </div>
           )}
         </div>
@@ -359,14 +363,6 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           />
         </div>
       )}
-
-      <StmArchiveDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        groupId={group.id}
-        groupName={group.name}
-        unarchive={isArchived}
-      />
     </>
   );
 }

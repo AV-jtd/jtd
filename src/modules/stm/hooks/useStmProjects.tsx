@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
-import { getStmStages, type StmFlow, type StmMeta, type StmStage, type StmStageStatus } from "../lib/stages";
+import { getStmStages, resolveStmLifecycle, type StmFlow, type StmLifecycle, type StmMeta, type StmStage, type StmStageStatus } from "../lib/stages";
 import { STM_KEYS, invalidateStmCaches, patchStageTaskInCache } from "../lib/stmCache";
 import { toast } from "sonner";
 
@@ -62,6 +62,8 @@ export interface StmProject {
   archivedAt: string | null;
   /** Mandatory comment captured at the moment of archiving. */
   archiveComment: string | null;
+  /** Effective SKU lifecycle status. */
+  lifecycle: StmLifecycle;
 }
 
 /**
@@ -85,6 +87,7 @@ export function useStmProjects() {
       const total = stages.length;
       const done = stages.filter(s => filtered.some(t => (t as any).stage_key === s.key && t.is_completed)).length;
       const currentStage = stages.find(s => !filtered.some(t => (t as any).stage_key === s.key && t.is_completed));
+      const archivedAt = g.closed_at ?? null;
       return {
         group: g,
         meta,
@@ -92,8 +95,9 @@ export function useStmProjects() {
         stageTasks: filtered,
         progress: total ? Math.round((done / total) * 100) : 0,
         currentStageKey: currentStage?.key ?? null,
-        archivedAt: g.closed_at ?? null,
+        archivedAt,
         archiveComment: (g as any).archive_comment ?? null,
+        lifecycle: resolveStmLifecycle(meta, !!archivedAt),
       };
     });
   }, [groups, allTasks]);
