@@ -567,6 +567,20 @@ export default function MessengerPanel({
                             <span className="leading-none">{projectEmoji}</span>
                           </div>
                         )
+                      ) : thread.clientLogoUrl ? (
+                        <img
+                          src={thread.clientLogoUrl}
+                          alt={thread.clientName || ""}
+                          title={thread.clientName || undefined}
+                          className="h-9 w-9 rounded-xl object-contain bg-white shrink-0 mt-0.5 ring-1 ring-border"
+                        />
+                      ) : thread.clientName ? (
+                        <div
+                          className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-primary/15 text-primary text-sm font-semibold ring-1 ring-border/40"
+                          title={thread.clientName}
+                        >
+                          {thread.clientName.charAt(0).toUpperCase()}
+                        </div>
                       ) : (
                         <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-accent">
                           <CheckSquare className="h-4 w-4 text-muted-foreground" />
