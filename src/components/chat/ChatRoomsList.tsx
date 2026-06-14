@@ -358,65 +358,19 @@ export default function ChatRoomsList({
           {!isLoading && filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Нет чатов</p>
           )}
-          {grouped.map(({ room, children }) => {
-            const hasChildren = children.length > 0;
-            const baseOpen = isBaseOpen(room.groupId, children.length);
-            const isOpen = baseOpen || !!q.trim();
-            const selfUnread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
-            const selfCount = getUnreadCount(room.threadId, room.lastMessageUserId);
-            // Свёрнутый проект показывает суммарный непрочёт (свой + задачи).
-            const childCount = children.reduce(
-              (s, c) => s + getUnreadCount(c.threadId, c.lastMessageUserId),
-              0,
-            );
-            const childUnread = children.some((c) =>
-              isThreadUnread(c.threadId, c.lastMessageAt, c.lastMessageUserId),
-            );
-            const showAgg = hasChildren && !isOpen;
-            const headerCount = showAgg ? selfCount + childCount : selfCount;
-            const headerUnread = showAgg ? selfUnread || childUnread : selfUnread;
+          {filtered.map((room) => {
             const isActive = room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId;
             return (
-              <div key={room.groupId}>
-                <div className="flex items-center gap-0.5">
-                  {hasChildren ? (
-                    <button
-                      onClick={() => toggleExpand(room.groupId, baseOpen)}
-                      className="grid h-7 w-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
-                      aria-label={isOpen ? "Свернуть задачи" : "Развернуть задачи"}
-                    >
-                      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-90")} />
-                    </button>
-                  ) : (
-                    <span className="w-5 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <RoomRow
-                      room={room}
-                      isActive={isActive}
-                      unread={headerUnread}
-                      count={headerCount}
-                      onClick={() =>
-                        room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
-                      }
-                    />
-                  </div>
-                </div>
-                {hasChildren && isOpen && (
-                  <div className="ml-5 mt-0.5 space-y-0.5 border-l border-border/60 pl-1">
-                    {children.map((child) => (
-                      <RoomRow
-                        key={child.groupId}
-                        room={child}
-                        isActive={child.taskId === activeTaskId}
-                        unread={isThreadUnread(child.threadId, child.lastMessageAt, child.lastMessageUserId)}
-                        count={getUnreadCount(child.threadId, child.lastMessageUserId)}
-                        onClick={() => (child.taskId ? onSelectTask?.(child.taskId) : onSelect(child.groupId))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <RoomRow
+                key={room.threadId}
+                room={room}
+                isActive={isActive}
+                unread={isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId)}
+                count={getUnreadCount(room.threadId, room.lastMessageUserId)}
+                onClick={() =>
+                  room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
+                }
+              />
             );
           })}
         </div>
