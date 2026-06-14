@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader, CircleDot } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
