@@ -207,10 +207,10 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 {isArchived && (
                   <span
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/15 border border-warning/40 text-[9px] font-semibold uppercase tracking-wider text-warning"
-                    title={archiveComment || "Архив"}
+                    title={archiveComment || lifecycleOpt.label}
                   >
                     <Archive className="h-2.5 w-2.5" />
-                    Архив · {RU_DATE_SHORT(archivedAt)}
+                    {lifecycleOpt.label} · {RU_DATE_SHORT(archivedAt)}
                   </span>
                 )}
               </div>
