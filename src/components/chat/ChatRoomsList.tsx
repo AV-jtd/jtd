@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, CheckSquare, Sparkles, ChevronRight } from "lucide-react";
+import { Search, CheckSquare, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -201,18 +201,7 @@ export default function ChatRoomsList({
   const { isThreadUnread, getUnreadCount } = useUnreadMessages();
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "projects" | "clients" | "tasks">("all");
-  // Списки по умолчанию свёрнуты. `overrides` хранит ручной выбор пользователя
-  // (перекрывает автоповедение).
-  const [overrides, setOverrides] = useState<Map<string, boolean>>(new Map());
-  const isBaseOpen = (id: string, _childCount: number) =>
-    overrides.has(id) ? (overrides.get(id) as boolean) : false;
-  const toggleExpand = (id: string, current: boolean) =>
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      next.set(id, !current);
-      return next;
-    });
+  const [filter, setFilter] = useState<"all" | "projects" | "clients" | "groups">("all");
 
   // «Горящих» = просрочено + сегодня среди задач, где я участник.
   const hotCount = useMemo(() => {
@@ -240,134 +229,34 @@ export default function ChatRoomsList({
     ].filter((p) => p.count > 0);
   }, [myTasks]);
 
+  // Плоская лента: фильтр по типу комнаты + поиск. Сортировка — по времени
+  // активности (rooms приходят уже отсортированными из useChatRooms).
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rooms.filter((r) => {
-      // В «Проектах» показываем чаты проектов И задачи-чаты, привязанные к
-      // проекту (parentGroupId) — чтобы они сворачивались под своим проектом,
-      // зеркально логике «Клиентов».
-      if (filter === "projects" && r.isClientRoom) return false;
-      if (filter === "projects" && r.isTaskRoom && !r.parentGroupId) return false;
-      // В «Клиентах» показываем CRM-комнаты клиентов И задачи-чаты, привязанные
-      // к клиенту (чтобы их можно было собрать под комнатой клиента).
-      if (filter === "clients" && !r.isClientRoom && !(r.isTaskRoom && r.clientName)) return false;
-      if (filter === "tasks" && !r.isTaskRoom) return false;
+      if (filter === "projects" && (r.isClientRoom || r.isTaskRoom)) return false;
+      if (filter === "clients" && !r.isClientRoom) return false;
+      if (filter === "groups" && !r.isTaskRoom) return false;
       if (!s) return true;
       return r.name.toLowerCase().includes(s) || r.lastMessage?.toLowerCase().includes(s);
     });
   }, [rooms, q, filter]);
 
-  // Сортировка групп по самой свежей активности (своей или дочерней).
-  const freshest = (it: { room: ChatRoom; children: ChatRoom[] }) =>
-    [it.room, ...it.children]
-      .map((r) => (r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0))
-      .reduce((a, b) => Math.max(a, b), 0);
-
-  // Аккордеон: задачи сворачиваются под свой проект («Все»/«Проекты») или под
-  // комнату клиента («Клиенты»). В «Задачах» — плоский список.
-  const grouped = useMemo(() => {
-    const projectAccordion = filter === "all" || filter === "projects";
-    const clientAccordion = filter === "clients";
-    if (!projectAccordion && !clientAccordion) {
-      return filtered.map((room) => ({ room, children: [] as ChatRoom[] }));
-    }
-
-    // «Клиенты»: группируем задачи-чаты под комнатой клиента (матч по имени —
-    // имена клиентов уникальны). Сироты (клиент без CRM-комнаты) не показываем.
-    if (clientAccordion) {
-      const clientRooms = filtered.filter((r) => r.isClientRoom);
-      const byName = new Map(clientRooms.map((c) => [c.name.trim().toLowerCase(), c]));
-      const childrenByClient = new Map<string, ChatRoom[]>();
-      for (const r of filtered) {
-        if (!r.isTaskRoom || !r.clientName) continue;
-        const key = r.clientName.trim().toLowerCase();
-        if (!byName.has(key)) continue;
-        const arr = childrenByClient.get(key) ?? [];
-        arr.push(r);
-        childrenByClient.set(key, arr);
-      }
-      const items = clientRooms.map((room) => ({
-        room,
-        children: childrenByClient.get(room.name.trim().toLowerCase()) ?? [],
-      }));
-      items.sort((a, b) => freshest(b) - freshest(a));
-      return items;
-    }
-
-    const parents = filtered.filter((r) => !r.isTaskRoom);
-    const parentById = new Map(parents.map((p) => [p.groupId, p]));
-    const childrenByParent = new Map<string, ChatRoom[]>();
-    const orphans: ChatRoom[] = [];
-    for (const r of filtered) {
-      if (!r.isTaskRoom) continue;
-      if (r.parentGroupId && parentById.has(r.parentGroupId)) {
-        const arr = childrenByParent.get(r.parentGroupId) ?? [];
-        arr.push(r);
-        childrenByParent.set(r.parentGroupId, arr);
-      } else {
-        orphans.push(r);
-      }
-    }
-
-    // Виртуальные родители: задача-чат ссылается на проект (`parentGroupId`),
-    // но в самом обсуждении проекта нет сообщений → его строки в списке нет.
-    // Синтезируем заголовок-аккордеон из метаданных задачи (имя проекта),
-    // чтобы задачи всё равно собирались под своим проектом, а клик открывал
-    // обсуждение проекта (`group-<id>`). Остальные (без проекта) — плоско.
-    const virtualByParent = new Map<string, ChatRoom[]>();
-    const trueOrphans: ChatRoom[] = [];
-    for (const r of orphans) {
-      if (r.parentGroupId && r.parentName) {
-        const arr = virtualByParent.get(r.parentGroupId) ?? [];
-        arr.push(r);
-        virtualByParent.set(r.parentGroupId, arr);
-      } else {
-        trueOrphans.push(r);
-      }
-    }
-    const virtualParents: { room: ChatRoom; children: ChatRoom[] }[] = [];
-    for (const [groupId, children] of virtualByParent) {
-      const virtualRoom: ChatRoom = {
-        groupId,
-        threadId: `group-${groupId}`,
-        name: children[0].parentName || "Проект",
-        isClientRoom: false,
-        client: null,
-        groupIcon: null,
-        groupColor: null,
-        groupLogoUrl: null,
-        lastMessage: null,
-        lastMessageAt: null,
-        lastMessageAuthor: null,
-        lastMessageUserId: null,
-      };
-      virtualParents.push({ room: virtualRoom, children });
-    }
-
-    const items = [
-      ...parents.map((room) => ({ room, children: childrenByParent.get(room.groupId) ?? [] })),
-      ...virtualParents,
-      ...trueOrphans.map((room) => ({ room, children: [] as ChatRoom[] })),
-    ];
-    items.sort((a, b) => freshest(b) - freshest(a));
-    return items;
-  }, [filtered, filter]);
-
   const FILTERS: { key: typeof filter; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "projects", label: "Проекты" },
     { key: "clients", label: "Клиенты" },
-    { key: "tasks", label: "Задачи" },
+    { key: "groups", label: "Группы" },
   ];
 
   // Счётчики непрочитанных по категориям — считаются из уже загруженного
   // списка комнат и кэша непрочитанных, без новых запросов.
   const unreadCounts = useMemo(() => {
-    const c = { all: 0, projects: 0, clients: 0, tasks: 0 };
+    const c = { all: 0, projects: 0, clients: 0, groups: 0 };
     for (const r of rooms) {
       if (!isThreadUnread(r.threadId, r.lastMessageAt, r.lastMessageUserId)) continue;
       c.all += 1;
-      if (r.isTaskRoom) c.tasks += 1;
+      if (r.isTaskRoom) c.groups += 1;
       else if (r.isClientRoom) c.clients += 1;
       else c.projects += 1;
     }
@@ -469,65 +358,19 @@ export default function ChatRoomsList({
           {!isLoading && filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Нет чатов</p>
           )}
-          {grouped.map(({ room, children }) => {
-            const hasChildren = children.length > 0;
-            const baseOpen = isBaseOpen(room.groupId, children.length);
-            const isOpen = baseOpen || !!q.trim();
-            const selfUnread = isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId);
-            const selfCount = getUnreadCount(room.threadId, room.lastMessageUserId);
-            // Свёрнутый проект показывает суммарный непрочёт (свой + задачи).
-            const childCount = children.reduce(
-              (s, c) => s + getUnreadCount(c.threadId, c.lastMessageUserId),
-              0,
-            );
-            const childUnread = children.some((c) =>
-              isThreadUnread(c.threadId, c.lastMessageAt, c.lastMessageUserId),
-            );
-            const showAgg = hasChildren && !isOpen;
-            const headerCount = showAgg ? selfCount + childCount : selfCount;
-            const headerUnread = showAgg ? selfUnread || childUnread : selfUnread;
+          {filtered.map((room) => {
             const isActive = room.isTaskRoom ? room.taskId === activeTaskId : room.groupId === activeGroupId;
             return (
-              <div key={room.groupId}>
-                <div className="flex items-center gap-0.5">
-                  {hasChildren ? (
-                    <button
-                      onClick={() => toggleExpand(room.groupId, baseOpen)}
-                      className="grid h-7 w-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
-                      aria-label={isOpen ? "Свернуть задачи" : "Развернуть задачи"}
-                    >
-                      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-90")} />
-                    </button>
-                  ) : (
-                    <span className="w-5 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <RoomRow
-                      room={room}
-                      isActive={isActive}
-                      unread={headerUnread}
-                      count={headerCount}
-                      onClick={() =>
-                        room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
-                      }
-                    />
-                  </div>
-                </div>
-                {hasChildren && isOpen && (
-                  <div className="ml-5 mt-0.5 space-y-0.5 border-l border-border/60 pl-1">
-                    {children.map((child) => (
-                      <RoomRow
-                        key={child.groupId}
-                        room={child}
-                        isActive={child.taskId === activeTaskId}
-                        unread={isThreadUnread(child.threadId, child.lastMessageAt, child.lastMessageUserId)}
-                        count={getUnreadCount(child.threadId, child.lastMessageUserId)}
-                        onClick={() => (child.taskId ? onSelectTask?.(child.taskId) : onSelect(child.groupId))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <RoomRow
+                key={room.threadId}
+                room={room}
+                isActive={isActive}
+                unread={isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId)}
+                count={getUnreadCount(room.threadId, room.lastMessageUserId)}
+                onClick={() =>
+                  room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
+                }
+              />
             );
           })}
         </div>

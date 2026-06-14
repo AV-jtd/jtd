@@ -190,7 +190,7 @@ export default function ChatFullscreen() {
     return (
       <div className="flex h-[100dvh] bg-background">
         <ResizableSidebar storageKey="sidebar_width_chat_rooms" defaultWidth={288} minWidth={220} maxWidth={460} side="right" className="border-r border-border">
-          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenAssistant={openAssistant} assistantActive={false} />
+          <ChatRoomsList activeGroupId={null} activeTaskId={openTaskId} onSelect={select} onSelectTask={openTask} onHome={() => navigate("/")} onOpenAssistant={openAssistant} assistantActive={!openTaskId} />
         </ResizableSidebar>
         {openTaskId ? (
           <div className="min-w-0 flex-1">
@@ -203,8 +203,8 @@ export default function ChatFullscreen() {
             />
           </div>
         ) : (
-          <div className="flex min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
-            Выберите чат слева
+          <div className="min-w-0 flex-1">
+            <MyTasksDashboard onOpenTask={openTask} />
           </div>
         )}
       </div>
