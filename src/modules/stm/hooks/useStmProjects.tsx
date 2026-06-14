@@ -494,3 +494,45 @@ export function useShiftStmStageDate() {
     onSuccess: () => toast.success("Дата перенесена"),
   });
 }
+
+/**
+ * Set the workflow status of a single stage cell (pending / in_progress /
+ * blocked / done). "done" keeps is_completed in sync so progress, cascades
+ * and the Gantt stay consistent — stage_status is a layer on top, not a
+ * replacement for the completion flag.
+ */
+export function useSetStmStageStatus() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { taskId: string; status: StmStageStatus }) => {
+      const isDone = input.status === "done";
+      const patch: Record<string, unknown> = {
+        stage_status: input.status,
+        is_completed: isDone,
+        completed_at: isDone ? new Date().toISOString() : null,
+      };
+      const { error } = await supabase
+        .from("tasks")
+        .update(patch as any)
+        .eq("id", input.taskId);
+      if (error) throw error;
+      return input;
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: STM_KEYS.stageTasks(user?.id) });
+      const isDone = input.status === "done";
+      const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
+        stage_status: input.status,
+        is_completed: isDone,
+        completed_at: isDone ? new Date().toISOString() : null,
+      } as Partial<Task>);
+      return { prev };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.prev) qc.setQueryData(STM_KEYS.stageTasks(user?.id), ctx.prev);
+      toast.error("Не удалось обновить статус этапа");
+    },
+  });
+}
