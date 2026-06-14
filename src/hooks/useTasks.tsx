@@ -1395,6 +1395,7 @@ export function useTaskMutations() {
         stage_key: null,
         stm_flow: null,
         stage_status: null,
+        rework_count: 0,
         subtasks: [],
         task_tags: [],
         follow_up_of: (task as any).follow_up_of ?? null,
