@@ -9,6 +9,7 @@ import type { StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
 import { StmOpsTasks } from "./StmOpsTasks";
 import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
+import { stmTimeInStage, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 
 interface Props {
   project: StmProject;
@@ -150,6 +151,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     ? stageTasks.find(t => (t as any).stage_key === activeStageKey) ?? null
     : null;
 
+  // ---- Stage-level risk telemetry (time-in-stage / blocked) ----
+  const timeInStage = stmTimeInStage(project);
+  const blocked = isStmProjectBlocked(project);
+  const stuck = isStmProjectStuck(project);
+
   return (
     <div className="bg-stm-bg/95 border-b border-stm-border/40 px-4 py-4 space-y-4">
       {/* HEADER — Total telemetry */}
@@ -190,6 +196,17 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Прогресс</div>
             <div className="text-sm font-mono text-stm-fg tabular-nums">{progress}%</div>
           </div>
+          {progress < 100 && timeInStage != null && (
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">На этапе</div>
+              <div className={cn(
+                "text-sm font-mono tabular-nums",
+                blocked || stuck ? "text-stm-warn" : "text-stm-fg/70",
+              )}>
+                {blocked ? `⛔ ${timeInStage} дн` : stuck ? `⏳ ${timeInStage} дн` : `${timeInStage} дн`}
+              </div>
+            </div>
+          )}
           {globalDrift > 0 && (
             <div className="text-right">
               <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Дрифт</div>
