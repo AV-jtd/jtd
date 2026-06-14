@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 import { StmMatrixCell } from "./StmMatrixCell";
 import type { StmProject } from "../hooks/useStmProjects";
 import type { StmStage } from "../lib/stages";
-import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronDown, MessageSquare, Archive } from "lucide-react";
 import { StmExpandedRow } from "./StmExpandedRow";
-import StmArchiveDialog from "./StmArchiveDialog";
+import StmStatusControl from "./StmStatusControl";
 import { Button } from "@/components/ui/button";
+import { getStmLifecycleOption } from "../lib/stages";
 import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
@@ -27,9 +28,9 @@ interface Props {
 }
 
 function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange, density = "comfortable" }: Props) {
-  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment } = project;
+  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment, lifecycle } = project;
   const isArchived = !!archivedAt;
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const lifecycleOpt = getStmLifecycleOption(lifecycle);
 
   // Row state drives the left status strip + progress bar color.
   const state = stmRowState(project);
