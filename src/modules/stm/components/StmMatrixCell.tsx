@@ -220,14 +220,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
     );
   }
 
-  const overdue = !task.is_completed && task.deadline && new Date(task.deadline) < new Date();
-  const status: "done" | "overdue" | "current" | "open" =
-    task.is_completed ? "done" : overdue ? "overdue" : isCurrent ? "current" : "open";
-
-  const tipLabel =
-    status === "done" ? "Готово" :
-    status === "overdue" ? "Просрочено" :
-    status === "current" ? "В работе" : "Ожидает";
+  const status = deriveCellStatus(task, isCurrent);
+  const tipLabel = STATUS_LABEL[status];
 
   // Drift: positive shift in days from original_deadline
   const driftDays = task.deadline && (task as any).original_deadline
@@ -243,6 +237,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
 
   return (
     <>
+      <StageStatusMenu task={task}>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
@@ -251,6 +246,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               "border",
               status === "done" && "bg-success/10 border-success/30 text-success",
               status === "overdue" && "bg-destructive/10 border-destructive/30 text-destructive",
+              status === "blocked" && "bg-warning/10 border-warning/40 text-warning",
+              status === "in_progress" && "bg-primary/10 border-primary/50 text-primary ring-1 ring-primary/20",
               status === "current" && "bg-primary/10 border-primary/40 text-primary",
               status === "open" && "bg-card border-border hover:bg-muted/50 text-muted-foreground",
               isMilestone && "ring-1 ring-primary/30",
@@ -270,6 +267,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               {isMilestone && <Flag className="h-2.5 w-2.5 text-primary" />}
               {status === "done" && <Check className="h-3.5 w-3.5" />}
               {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
+              {status === "blocked" && <Ban className="h-3.5 w-3.5" />}
+              {status === "in_progress" && <Loader className="h-3.5 w-3.5 animate-spin-slow" />}
               {status === "current" && <Clock className="h-3.5 w-3.5" />}
               {status === "open" && !isMilestone && <Minus className="h-3 w-3 opacity-50" />}
             </button>
@@ -283,6 +282,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                   isMilestone && "text-primary font-semibold bg-primary/10",
                   !isMilestone && status === "done" && "text-success font-medium",
                   !isMilestone && status === "overdue" && "text-destructive font-semibold",
+                  !isMilestone && status === "blocked" && "text-warning font-semibold",
+                  !isMilestone && status === "in_progress" && "text-primary font-medium",
                   !isMilestone && status === "current" && "text-primary font-medium",
                   !isMilestone && status === "open" && "text-muted-foreground font-medium",
                 )}
@@ -310,13 +311,14 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             {tipLabel}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
           </div>
           <div className="text-[10px] text-muted-foreground mt-1 italic">
-            Иконка — статус, дата — перенос (каскад)
+            Клик — готово · ПКМ — статус · дата — перенос
           </div>
           {driftDays > 0 && (
             <div className="text-warning">Смещение: +{driftDays} дн от плана</div>
           )}
         </TooltipContent>
       </Tooltip>
+      </StageStatusMenu>
       {/* Shift-date popover; uses an invisible anchor positioned over the cell. */}
       <StmStageDatePopover
         open={shiftOpen}
