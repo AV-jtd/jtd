@@ -364,6 +364,14 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
                   )}>
                     {dueLabel ?? "—"}
                   </p>
+                  {stage.key === "rework" && task && (((task as any).rework_count as number) ?? 0) > 0 && (
+                    <p className={cn(
+                      "text-[10px] font-mono tabular-nums",
+                      (((task as any).rework_count as number) ?? 0) >= REWORK_RISK_THRESHOLD ? "text-stm-warn" : "text-stm-fg/50",
+                    )}>
+                      🔁 доработок: {(task as any).rework_count}
+                    </p>
+                  )}
                 </div>
 
                 {!task && (
