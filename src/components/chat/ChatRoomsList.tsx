@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, CheckSquare, Sparkles, ChevronRight } from "lucide-react";
+import { Search, CheckSquare, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
