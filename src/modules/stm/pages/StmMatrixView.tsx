@@ -178,9 +178,24 @@ export default function StmMatrixView() {
     const count = items.length;
     const avgProgress = count ? Math.round(items.reduce((s, p) => s + p.progress, 0) / count) : 0;
     const overdueCount = items.filter(isStmProjectOverdue).length;
-    return { count, avgProgress, overdueCount };
+    // Завершённые SKU (100%).
+    const doneCount = items.filter(p => p.progress >= 100).length;
+    // В работе (начаты, но не закрыты и не просрочены).
+    const activeCount = items.filter(p => p.progress > 0 && p.progress < 100 && !isStmProjectOverdue(p)).length;
+    // Ещё не начаты.
+    const notStartedCount = items.filter(p => p.progress === 0).length;
+    // Риск: завис/заблокирован (без учёта уже просроченных — те идут в overdue).
+    const riskCount = items.filter(p =>
+      !p.archivedAt && p.progress < 100 && !isStmProjectOverdue(p) &&
+      (isStmProjectBlocked(p) || isStmProjectStuck(p)),
+    ).length;
+    // Готовы к запуску: вкус утверждён, но SKU ещё не закрыт.
+    const readyCount = items.filter(p =>
+      p.progress < 100 && p.stageTasks.some(t => (t as any).stage_key === "approval" && t.is_completed),
+    ).length;
+    return { count, avgProgress, overdueCount, doneCount, activeCount, notStartedCount, riskCount, readyCount };
   };
-  type SubGroup = { key: string; label: string; items: typeof visible; count: number; avgProgress: number; overdueCount: number };
+  type SubGroup = { key: string; label: string; items: typeof visible } & ReturnType<typeof stat>;
   const grouped = useMemo(() => {
     if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
     const map = new Map<string, typeof visible>();
