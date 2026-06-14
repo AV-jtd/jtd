@@ -236,6 +236,16 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   )}>
                     сейчас: {currentStage.short}
                   </span>
+                  {(state === "blocked" || state === "stuck") && (
+                    <span className={cn(
+                      "ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium",
+                      state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+                    )} title={state === "blocked" ? "Этап заблокирован" : "Завис на этапе"}>
+                      {state === "blocked"
+                        ? "⛔ заблокирован"
+                        : `⏳ ${timeInStage} дн на этапе`}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
