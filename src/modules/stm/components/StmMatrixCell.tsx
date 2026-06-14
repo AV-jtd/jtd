@@ -1,15 +1,53 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
   ContextMenuLabel, ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import type { Task } from "@/hooks/useTasks";
-import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus } from "../hooks/useStmProjects";
+import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus, useSetReworkCount } from "../hooks/useStmProjects";
 import StmStageDatePopover from "./StmStageDatePopover";
-import type { StmFlow, StmStageStatus } from "../lib/stages";
+import { REWORK_RISK_THRESHOLD, type StmFlow, type StmStageStatus } from "../lib/stages";
+
+/** Inline +/- counter for sample rework iterations (only on the "rework" stage). */
+function ReworkCounter({ task }: { task: Task }) {
+  const setCount = useSetReworkCount();
+  const count = ((task as any).rework_count as number | null | undefined) ?? 0;
+  const risk = count >= REWORK_RISK_THRESHOLD;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-0.5 rounded px-0.5 leading-none",
+        risk ? "text-warning" : "text-muted-foreground",
+      )}
+      onClick={(e) => e.stopPropagation()}
+      title={`Доработок образца: ${count}${risk ? " · много итераций" : ""}`}
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: -1 }); }}
+        className="hover:text-foreground disabled:opacity-30"
+        disabled={count <= 0}
+        aria-label="Минус доработка"
+      >
+        <Minus className="h-2.5 w-2.5" />
+      </button>
+      <span className={cn("inline-flex items-center gap-0.5 text-[9px] font-mono tabular-nums", risk && "font-bold")}>
+        <RotateCcw className="h-2.5 w-2.5" />{count}
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: 1 }); }}
+        className="hover:text-foreground"
+        aria-label="Плюс доработка"
+      >
+        <Plus className="h-2.5 w-2.5" />
+      </button>
+    </div>
+  );
+}
 
 type CellStatus = "done" | "overdue" | "blocked" | "in_progress" | "current" | "open";
 
