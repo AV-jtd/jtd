@@ -17,18 +17,24 @@ export default function StmCreateSkuDialog({ open, onOpenChange, defaultFlow = "
   const [name, setName] = useState("");
   const [retailer, setRetailer] = useState("");
   const [brand, setBrand] = useState("");
+  const [project, setProject] = useState("");
   const [drop, setDrop] = useState("");
   const [flow, setFlow] = useState<StmFlow>(defaultFlow);
   const create = useCreateStmSku();
 
-  const reset = () => { setName(""); setRetailer(""); setBrand(""); setDrop(""); };
+  const reset = () => { setName(""); setRetailer(""); setBrand(""); setProject(""); setDrop(""); };
 
   const submit = async () => {
     if (!name.trim()) return;
     await create.mutateAsync({
       name: name.trim(),
       flow,
-      meta: { retailer: retailer.trim() || undefined, brand: brand.trim() || undefined, drop: drop.trim() || undefined },
+      meta: {
+        retailer: retailer.trim() || undefined,
+        brand: brand.trim() || undefined,
+        project: project.trim() || undefined,
+        drop: drop.trim() || undefined,
+      },
     });
     reset();
     onOpenChange(false);
@@ -66,6 +72,10 @@ export default function StmCreateSkuDialog({ open, onOpenChange, defaultFlow = "
           <div>
             <Label htmlFor="stm-drop">Дроп / контракт</Label>
             <Input id="stm-drop" value={drop} onChange={e => setDrop(e.target.value)} placeholder="Q2 2026, Контракт #123" />
+          </div>
+          <div>
+            <Label htmlFor="stm-project">Проект</Label>
+            <Input id="stm-project" value={project} onChange={e => setProject(e.target.value)} placeholder="Бережное томление, Чистые составы..." />
           </div>
         </div>
 
