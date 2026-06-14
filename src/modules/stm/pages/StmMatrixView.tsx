@@ -3,17 +3,84 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import { StmDashboardBar } from "../components/StmDashboardBar";
-import { computeStmAnalytics, isStmProjectOverdue } from "../lib/stmAnalytics";
+import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import { cn } from "@/lib/utils";
+
+/** Aggregate stats shape shared by group + subgroup headers. */
+interface GroupStat {
+  count: number;
+  avgProgress: number;
+  overdueCount: number;
+  doneCount: number;
+  activeCount: number;
+  notStartedCount: number;
+  riskCount: number;
+  readyCount: number;
+}
+
+/**
+ * Left-aligned portfolio metrics for a (sub)group header.
+ * Order = funnel health: progress → not started → in progress → ready →
+ * done → risk → overdue. Zero-value badges are hidden to keep it scannable.
+ */
+function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) {
+  const bar = size === "md" ? "w-16 h-1.5" : "w-12 h-1";
+  const ic = size === "md" ? "h-3 w-3" : "h-2.5 w-2.5";
+  const badge = "inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums";
+  return (
+    <span className="flex items-center gap-2.5 shrink-0">
+      {/* avg progress */}
+      <span className="flex items-center gap-1.5">
+        <span className={cn("rounded-full bg-muted overflow-hidden", bar)}>
+          <span
+            className="block h-full rounded-full bg-primary/60"
+            style={{ width: `${Math.max(s.avgProgress, s.avgProgress > 0 ? 4 : 0)}%` }}
+          />
+        </span>
+        <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{s.avgProgress}%</span>
+      </span>
+      {s.notStartedCount > 0 && (
+        <span className={cn(badge, "text-muted-foreground/60")} title="Не начато">
+          <CircleDashed className={ic} />{s.notStartedCount}
+        </span>
+      )}
+      {s.activeCount > 0 && (
+        <span className={cn(badge, "text-foreground/70")} title="В работе">
+          <Clock className={ic} />{s.activeCount}
+        </span>
+      )}
+      {s.readyCount > 0 && (
+        <span className={cn(badge, "text-primary")} title="Готовы к запуску (вкус утверждён)">
+          <Rocket className={ic} />{s.readyCount}
+        </span>
+      )}
+      {s.doneCount > 0 && (
+        <span className={cn(badge, "text-success")} title="Завершено">
+          <CheckCircle2 className={ic} />{s.doneCount}
+        </span>
+      )}
+      {s.riskCount > 0 && (
+        <span className={cn(badge, "text-warning")} title="Зависли / заблокированы">
+          ⏳<span>{s.riskCount}</span>
+        </span>
+      )}
+      {s.overdueCount > 0 && (
+        <span className={cn(badge, "font-semibold text-destructive")} title="Просрочено">
+          <AlertTriangle className={ic} />{s.overdueCount}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * STM (Private Label) Mission Control matrix.
@@ -178,9 +245,24 @@ export default function StmMatrixView() {
     const count = items.length;
     const avgProgress = count ? Math.round(items.reduce((s, p) => s + p.progress, 0) / count) : 0;
     const overdueCount = items.filter(isStmProjectOverdue).length;
-    return { count, avgProgress, overdueCount };
+    // Завершённые SKU (100%).
+    const doneCount = items.filter(p => p.progress >= 100).length;
+    // В работе (начаты, но не закрыты и не просрочены).
+    const activeCount = items.filter(p => p.progress > 0 && p.progress < 100 && !isStmProjectOverdue(p)).length;
+    // Ещё не начаты.
+    const notStartedCount = items.filter(p => p.progress === 0).length;
+    // Риск: завис/заблокирован (без учёта уже просроченных — те идут в overdue).
+    const riskCount = items.filter(p =>
+      !p.archivedAt && p.progress < 100 && !isStmProjectOverdue(p) &&
+      (isStmProjectBlocked(p) || isStmProjectStuck(p)),
+    ).length;
+    // Готовы к запуску: вкус утверждён, но SKU ещё не закрыт.
+    const readyCount = items.filter(p =>
+      p.progress < 100 && p.stageTasks.some(t => (t as any).stage_key === "approval" && t.is_completed),
+    ).length;
+    return { count, avgProgress, overdueCount, doneCount, activeCount, notStartedCount, riskCount, readyCount };
   };
-  type SubGroup = { key: string; label: string; items: typeof visible; count: number; avgProgress: number; overdueCount: number };
+  type SubGroup = { key: string; label: string; items: typeof visible } & ReturnType<typeof stat>;
   const grouped = useMemo(() => {
     if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
     const map = new Map<string, typeof visible>();
@@ -504,25 +586,9 @@ export default function StmMatrixView() {
                         {collapsedGroups.has(it.group.key)
                           ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                           : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate">{it.group.label}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{it.group.count} SKU</span>
-                        <span className="ml-auto flex items-center gap-3 shrink-0">
-                          {/* avg progress mini bar */}
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <span
-                                className="block h-full rounded-full bg-primary/60"
-                                style={{ width: `${Math.max(it.group.avgProgress, it.group.avgProgress > 0 ? 4 : 0)}%` }}
-                              />
-                            </span>
-                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{it.group.avgProgress}%</span>
-                          </span>
-                          {it.group.overdueCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
-                              <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                        <GroupMetrics s={it.group} />
                       </button>
                     ) : it.kind === "subgroup" ? (
                       <button
@@ -539,24 +605,9 @@ export default function StmMatrixView() {
                           ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
                           : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
                         <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
-                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate">{it.subgroup.label}</span>
-                        <span className="text-[10px] text-muted-foreground/60 shrink-0">{it.subgroup.count} SKU</span>
-                        <span className="ml-auto flex items-center gap-3 shrink-0">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-12 h-1 rounded-full bg-muted overflow-hidden">
-                              <span
-                                className="block h-full rounded-full bg-primary/50"
-                                style={{ width: `${Math.max(it.subgroup.avgProgress, it.subgroup.avgProgress > 0 ? 4 : 0)}%` }}
-                              />
-                            </span>
-                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground/80 w-8 text-right">{it.subgroup.avgProgress}%</span>
-                          </span>
-                          {it.subgroup.overdueCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
-                              <AlertTriangle className="h-3 w-3" />{it.subgroup.overdueCount}
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
+                        <GroupMetrics s={it.subgroup} size="sm" />
                       </button>
                     ) : (
                       <StmMatrixRow
