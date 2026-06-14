@@ -268,7 +268,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               {status === "done" && <Check className="h-3.5 w-3.5" />}
               {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
               {status === "blocked" && <Ban className="h-3.5 w-3.5" />}
-              {status === "in_progress" && <Loader className="h-3.5 w-3.5 animate-spin-slow" />}
+              {status === "in_progress" && <Loader className="h-3.5 w-3.5 animate-pulse" />}
               {status === "current" && <Clock className="h-3.5 w-3.5" />}
               {status === "open" && !isMilestone && <Minus className="h-3 w-3 opacity-50" />}
             </button>
