@@ -180,6 +180,7 @@ export default function StmMatrixView() {
     const overdueCount = items.filter(isStmProjectOverdue).length;
     return { count, avgProgress, overdueCount };
   };
+  type SubGroup = { key: string; label: string; items: typeof visible; count: number; avgProgress: number; overdueCount: number };
   const grouped = useMemo(() => {
     if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
     const map = new Map<string, typeof visible>();
