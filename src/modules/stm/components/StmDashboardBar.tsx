@@ -65,11 +65,6 @@ function StmDashboardBarInner({
   }, [collapsed]);
 
   const a = analytics;
-  const maxBucket = Math.max(1, ...a.stageBuckets.map(b => b.count));
-  const groups = (groupMode === "brand" ? a.byBrand : a.byRetailer)
-    .filter(g => g.key !== "Без группы")
-    .slice(0, 5);
-  const maxGroup = Math.max(1, ...groups.map(g => g.count));
 
   return (
     <div className="px-4 py-3 border-b border-border bg-muted/20">

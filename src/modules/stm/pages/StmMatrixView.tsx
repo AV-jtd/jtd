@@ -404,13 +404,7 @@ export default function StmMatrixView() {
       </div>
 
       {/* Dashboard summary band */}
-      <StmDashboardBar
-        analytics={analytics}
-        focusStage={focusStage}
-        onFocusStage={setFocusStage}
-        onPickGroup={(term) => { setGroupBy(groupBy === "brand" ? "brand" : "retailer"); setSearch(term); }}
-        groupMode={groupBy === "brand" ? "brand" : "retailer"}
-      />
+      <StmDashboardBar analytics={analytics} />
 
       {/* Matrix scroll area */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
