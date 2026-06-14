@@ -33,7 +33,7 @@ export const STM_IN_STAGES: StmStage[] = [
   { key: "sample_request", short: "Запрос обр.", title: "Запрос образцов",          description: "Запрос пробных образцов у поставщика" },
   { key: "sample_send",    short: "Отправка",   title: "Отправка образцов",        description: "Отгрузка образцов клиенту/в сеть" },
   { key: "calc_initial",   short: "Расчёт пред.", title: "Расчёт предварительный",  description: "Первичная калькуляция и оффер" },
-  { key: "rework",         short: "Доработка",  title: "Доработка образцов",        description: "Доработка образцов по обратной связи" },
+  { key: "rework",         short: "Доработка",  title: "Доработка образцов",        description: "Дегустация и доработка образцов по обратной связи" },
   { key: "approval",       short: "Утв. вкуса", title: "Утверждение вкуса",         description: "Утверждение вкуса / органолептики сетью", milestoneKey: "approved" },
   { key: "production_run", short: "Пр. отработка", title: "Производственная отработка", description: "Производственная отработка партии" },
   { key: "calc_final",     short: "Расчёт fin", title: "Финальный расчёт",          description: "Финальная цена с учётом всех затрат" },
