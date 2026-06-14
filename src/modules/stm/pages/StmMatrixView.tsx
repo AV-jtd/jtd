@@ -109,7 +109,8 @@ export default function StmMatrixView() {
   useEffect(() => {
     try { window.localStorage.setItem("stm:statusFilter", statusFilter); } catch { /* ignore */ }
   }, [statusFilter]);
-  const [search, setSearch] = useState("");
+  // Поддержка ?q= из карточки клиента («Открыть в СТМ Mission Control»).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // Row density: comfortable (full) or compact (single-line dot heat-map).
