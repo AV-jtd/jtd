@@ -297,6 +297,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             const isCurrent = stage.key === currentStageKey;
             const isActive = stage.key === activeStageKey;
             const overdue = !isDone && task?.deadline && new Date(task.deadline) < new Date();
+            const stageStatus = (task as any)?.stage_status as string | null | undefined;
+            const isBlocked = !isDone && stageStatus === "blocked";
+            const isInProgress = !isDone && !overdue && !isBlocked && stageStatus === "in_progress";
             const drift = calcDrift(task);
             const assigneeName = task?.assigned_to ? profileMap.get(task.assigned_to) : null;
             const dueLabel = RU_DATE(task?.deadline);
@@ -338,6 +341,8 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
                       "size-1.5 rounded-full",
                       isDone ? "bg-stm-success" :
                       overdue ? "bg-stm-danger animate-pulse" :
+                      isBlocked ? "bg-stm-warn animate-pulse" :
+                      isInProgress ? "bg-stm-accent animate-pulse" :
                       isCurrent ? "bg-stm-accent animate-pulse" : "bg-stm-fg/20",
                     )} />
                   </div>
