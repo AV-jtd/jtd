@@ -254,38 +254,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
               {project.flow === "in" ? "ВВОД" : "ВЫВОД"}
             </span>
           </div>
-          <div className="text-sm font-light text-stm-fg/80 truncate">
-            {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
-          </div>
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Проект</span>
-            {editingProject ? (
-              <input
-                autoFocus
-                value={projectDraft}
-                onChange={(e) => setProjectDraft(e.target.value)}
-                onBlur={commitProject}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") { setProjectDraft(meta.project ?? ""); setEditingProject(false); }
-                  if (e.key === "Enter") commitProject();
-                }}
-                placeholder="Название проекта…"
-                className="h-6 bg-stm-glass/30 border border-stm-accent/40 rounded px-2 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 w-48"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditingProject(true)}
-                className={cn(
-                  "text-xs px-2 py-0.5 rounded border transition-colors",
-                  meta.project
-                    ? "text-stm-accent border-stm-accent/30 bg-stm-accent/10 hover:bg-stm-accent/20"
-                    : "text-stm-fg/40 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/30 italic",
-                )}
-              >
-                {meta.project || "не задан"}
-              </button>
-            )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+            <StmMetaChip group={group} meta={meta} field="retailer" label="Сеть" placeholder="X5, Лента…" />
+            <StmMetaChip group={group} meta={meta} field="brand" label="Бренд" placeholder="Бережное томление…" />
+            <StmMetaChip group={group} meta={meta} field="project" label="Проект" placeholder="Чистые составы…" />
+            <StmMetaChip group={group} meta={meta} field="drop" label="Дроп" placeholder="Q2 2026…" />
           </div>
         </div>
 
