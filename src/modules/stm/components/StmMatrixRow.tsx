@@ -164,7 +164,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           })}
 
           {/* Comment column — compact indicator */}
-          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2">
+          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <MessageSquare className={cn(
               "h-3 w-3 shrink-0",
               group.description ? "text-primary" : "text-muted-foreground/30",
@@ -175,6 +175,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
             )}>
               {group.description || "—"}
             </span>
+            <StmStatusControl
+              compact
+              groupId={group.id}
+              groupName={group.name}
+              meta={meta}
+              current={lifecycle}
+              archivedAt={archivedAt}
+            />
           </div>
         </div>
       ) : (
