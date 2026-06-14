@@ -181,18 +181,33 @@ export default function StmMatrixView() {
     return { count, avgProgress, overdueCount };
   };
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, ...stat(focused) }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
+    const canSub = subGroupProject && (groupBy === "brand" || groupBy === "retailer");
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
-      .map(([key, items]) => ({ key, label: key, items, ...stat(items) }));
+      .map(([key, items]) => {
+        let subgroups: SubGroup[] | null = null;
+        if (canSub) {
+          const sm = new Map<string, typeof visible>();
+          items.forEach(p => {
+            const sk = p.meta.project?.trim() || "Без проекта";
+            if (!sm.has(sk)) sm.set(sk, []);
+            sm.get(sk)!.push(p);
+          });
+          subgroups = Array.from(sm.entries())
+            .sort(([a], [b]) => a.localeCompare(b, "ru"))
+            .map(([sk, sitems]) => ({ key: `${key}//${sk}`, label: sk, items: sitems, ...stat(sitems) }));
+        }
+        return { key, label: key, items, subgroups, ...stat(items) };
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy]);
+  }, [focused, groupBy, subGroupProject]);
 
   // Aggregates-first: when grouping is on and the user has no saved preference
   // for this mode yet, start with every group collapsed (portfolio "from above").
