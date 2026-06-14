@@ -103,6 +103,38 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     }
   };
 
+  // ---- Inline-editable "Проект" (stored in task_groups.stm_meta.project) ----
+  const [projectDraft, setProjectDraft] = useState<string>(meta.project ?? "");
+  const [editingProject, setEditingProject] = useState(false);
+  useEffect(() => { setProjectDraft(meta.project ?? ""); }, [group.id, meta.project]);
+  const saveProject = useMutation({
+    mutationFn: async (text: string) => {
+      const nextMeta = { ...(meta || {}), project: text || undefined };
+      if (!text) delete (nextMeta as any).project;
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ stm_meta: nextMeta as any })
+        .eq("id", group.id);
+      if (error) throw error;
+      return nextMeta;
+    },
+    onMutate: async (text: string) => {
+      const nextMeta = { ...(meta || {}), project: text || undefined };
+      if (!text) delete (nextMeta as any).project;
+      const snapshots = patchGroupInCache(qc, group.id, { stm_meta: nextMeta } as any);
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
+    },
+  });
+  const commitProject = () => {
+    setEditingProject(false);
+    if ((projectDraft.trim() || "") !== (meta.project || "")) {
+      saveProject.mutate(projectDraft.trim());
+    }
+  };
+
   // ---- Profiles cache for assignee initials ----
   const assigneeIds = useMemo(() => {
     const set = new Set<string>();
@@ -171,6 +203,36 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
           </div>
           <div className="text-sm font-light text-stm-fg/80 truncate">
             {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
+          </div>
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Проект</span>
+            {editingProject ? (
+              <input
+                autoFocus
+                value={projectDraft}
+                onChange={(e) => setProjectDraft(e.target.value)}
+                onBlur={commitProject}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { setProjectDraft(meta.project ?? ""); setEditingProject(false); }
+                  if (e.key === "Enter") commitProject();
+                }}
+                placeholder="Название проекта…"
+                className="h-6 bg-stm-glass/30 border border-stm-accent/40 rounded px-2 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 w-48"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditingProject(true)}
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded border transition-colors",
+                  meta.project
+                    ? "text-stm-accent border-stm-accent/30 bg-stm-accent/10 hover:bg-stm-accent/20"
+                    : "text-stm-fg/40 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/30 italic",
+                )}
+              >
+                {meta.project || "не задан"}
+              </button>
+            )}
           </div>
         </div>
 

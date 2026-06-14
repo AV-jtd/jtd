@@ -25,6 +25,14 @@ export default function StmMatrixView() {
   const projects = useStmProjects();
   const [flow, setFlow] = useState<StmFlow>("in");
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  // Secondary grouping: within a brand/retailer group, split rows by project.
+  const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("stm:subGroupProject") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:subGroupProject", subGroupProject ? "1" : "0"); } catch { /* ignore */ }
+  }, [subGroupProject]);
   // Default = active only ("чтобы лишнего не показывать"). Persist to localStorage.
   const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">(() => {
     if (typeof window === "undefined") return "active";
@@ -172,19 +180,35 @@ export default function StmMatrixView() {
     const overdueCount = items.filter(isStmProjectOverdue).length;
     return { count, avgProgress, overdueCount };
   };
+  type SubGroup = { key: string; label: string; items: typeof visible; count: number; avgProgress: number; overdueCount: number };
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, ...stat(focused) }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
+    const canSub = subGroupProject && (groupBy === "brand" || groupBy === "retailer");
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
-      .map(([key, items]) => ({ key, label: key, items, ...stat(items) }));
+      .map(([key, items]) => {
+        let subgroups: SubGroup[] | null = null;
+        if (canSub) {
+          const sm = new Map<string, typeof visible>();
+          items.forEach(p => {
+            const sk = p.meta.project?.trim() || "Без проекта";
+            if (!sm.has(sk)) sm.set(sk, []);
+            sm.get(sk)!.push(p);
+          });
+          subgroups = Array.from(sm.entries())
+            .sort(([a], [b]) => a.localeCompare(b, "ru"))
+            .map(([sk, sitems]) => ({ key: `${key}//${sk}`, label: sk, items: sitems, ...stat(sitems) }));
+        }
+        return { key, label: key, items, subgroups, ...stat(items) };
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy]);
+  }, [focused, groupBy, subGroupProject]);
 
   // Aggregates-first: when grouping is on and the user has no saved preference
   // for this mode yet, start with every group collapsed (portfolio "from above").
@@ -211,12 +235,21 @@ export default function StmMatrixView() {
   // ---- Flattened item list (group headers + rows) for virtualization ----
   type FlatItem =
     | { kind: "group"; key: string; group: (typeof grouped)[number] }
+    | { kind: "subgroup"; key: string; subgroup: SubGroup }
     | { kind: "row"; key: string; project: (typeof visible)[number] };
   const flatItems = useMemo<FlatItem[]>(() => {
     const items: FlatItem[] = [];
     grouped.forEach(g => {
       if (g.label) items.push({ kind: "group", key: `g:${g.key}`, group: g });
-      if (!g.label || !collapsedGroups.has(g.key)) {
+      if (g.label && collapsedGroups.has(g.key)) return;
+      if (g.subgroups) {
+        g.subgroups.forEach(sg => {
+          items.push({ kind: "subgroup", key: `sg:${sg.key}`, subgroup: sg });
+          if (!collapsedGroups.has(sg.key)) {
+            sg.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
+          }
+        });
+      } else {
         g.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
       }
     });
@@ -232,6 +265,7 @@ export default function StmMatrixView() {
     estimateSize: (i) => {
       const it = flatItems[i];
       if (it.kind === "group") return 34;
+      if (it.kind === "subgroup") return 28;
       if (expandedSku === it.project.group.id) return density === "compact" ? 380 : 440;
       return density === "compact" ? 37 : 97;
     },
@@ -296,6 +330,23 @@ export default function StmMatrixView() {
               <option value="drop">По дропу</option>
             </select>
           </div>
+
+          {(groupBy === "brand" || groupBy === "retailer") && (
+            <button
+              type="button"
+              onClick={() => setSubGroupProject(v => !v)}
+              className={cn(
+                "inline-flex items-center gap-1.5 h-8 px-2.5 rounded text-xs border transition-colors",
+                subGroupProject
+                  ? "bg-primary/15 text-primary border-primary/40"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground",
+              )}
+              aria-pressed={subGroupProject}
+              title="Группировать внутри по проектам"
+            >
+              ↳ по проектам
+            </button>
+          )}
 
           {groupBy !== "none" && grouped.length > 0 && (
             <div className="flex items-center gap-1">
@@ -469,6 +520,40 @@ export default function StmMatrixView() {
                           {it.group.overdueCount > 0 && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
                               <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ) : it.kind === "subgroup" ? (
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedGroups(prev => {
+                          const next = new Set(prev);
+                          next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors text-left"
+                        aria-expanded={!collapsedGroups.has(it.subgroup.key)}
+                      >
+                        {collapsedGroups.has(it.subgroup.key)
+                          ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                          : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
+                        <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
+                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate">{it.subgroup.label}</span>
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0">{it.subgroup.count} SKU</span>
+                        <span className="ml-auto flex items-center gap-3 shrink-0">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-12 h-1 rounded-full bg-muted overflow-hidden">
+                              <span
+                                className="block h-full rounded-full bg-primary/50"
+                                style={{ width: `${Math.max(it.subgroup.avgProgress, it.subgroup.avgProgress > 0 ? 4 : 0)}%` }}
+                              />
+                            </span>
+                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground/80 w-8 text-right">{it.subgroup.avgProgress}%</span>
+                          </span>
+                          {it.subgroup.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
+                              <AlertTriangle className="h-3 w-3" />{it.subgroup.overdueCount}
                             </span>
                           )}
                         </span>
