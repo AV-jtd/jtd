@@ -9,7 +9,7 @@ import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lu
 import { StmExpandedRow } from "./StmExpandedRow";
 import StmArchiveDialog from "./StmArchiveDialog";
 import { Button } from "@/components/ui/button";
-import { stmRowState } from "../lib/stmAnalytics";
+import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
@@ -34,13 +34,18 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
   // Row state drives the left status strip + progress bar color.
   const state = stmRowState(project);
   const currentStage = currentStageKey ? stages.find(s => s.key === currentStageKey) : null;
+  const timeInStage = stmTimeInStage(project);
   const stripClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/60"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-border";
   const barClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/70"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-muted-foreground/30";
