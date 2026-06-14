@@ -6,6 +6,19 @@
 
 export type StmFlow = "in" | "out";
 
+/** Stage workflow status (stored in tasks.stage_status). */
+export type StmStageStatus = "pending" | "in_progress" | "blocked" | "done";
+
+/**
+ * "Stuck" threshold in days: how long a SKU may sit on its current stage
+ * before it is flagged as a risk. The withdrawal flow is short, so its
+ * threshold is tighter.
+ */
+export const STM_STUCK_THRESHOLD_DAYS: Record<StmFlow, number> = {
+  in: 7,
+  out: 3,
+};
+
 export interface StmStage {
   key: string;
   short: string;
