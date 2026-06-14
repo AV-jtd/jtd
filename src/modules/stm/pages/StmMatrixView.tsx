@@ -331,6 +331,23 @@ export default function StmMatrixView() {
             </select>
           </div>
 
+          {(groupBy === "brand" || groupBy === "retailer") && (
+            <button
+              type="button"
+              onClick={() => setSubGroupProject(v => !v)}
+              className={cn(
+                "inline-flex items-center gap-1.5 h-8 px-2.5 rounded text-xs border transition-colors",
+                subGroupProject
+                  ? "bg-primary/15 text-primary border-primary/40"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground",
+              )}
+              aria-pressed={subGroupProject}
+              title="Группировать внутри по проектам"
+            >
+              ↳ по проектам
+            </button>
+          )}
+
           {groupBy !== "none" && grouped.length > 0 && (
             <div className="flex items-center gap-1">
               <Button
