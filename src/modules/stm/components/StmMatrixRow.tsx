@@ -294,7 +294,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
 
         {/* Right-side comment column — duplicates the SKU comment in the expanded card */}
         <div
-          className="min-w-[260px] w-[260px] shrink-0 p-1.5 border-l border-border bg-card flex flex-col gap-1"
+          className="min-w-[260px] w-[260px] shrink-0 p-2 border-l border-border bg-card flex flex-col gap-1.5"
           onClick={(e) => e.stopPropagation()}
         >
           {isArchived && archiveComment && (
@@ -320,11 +320,11 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
               className="w-full flex-1 min-h-[40px] bg-background border border-primary/40 rounded px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/60 resize-none"
             />
           ) : (
-            <div className="flex items-stretch gap-1 flex-1 min-h-[40px]">
+            <>
               <button
                 type="button"
                 onClick={() => setEditingComment(true)}
-                className="group/cmt flex-1 min-w-0 flex items-start gap-1.5 text-left px-2 py-1 rounded border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors"
+                className="group/cmt w-full flex-1 min-h-[40px] flex items-start gap-1.5 text-left px-2 py-1.5 rounded-md border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors"
                 title={group.description || "Добавить комментарий по SKU"}
               >
                 <MessageSquare className={cn(
@@ -339,13 +339,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 </span>
               </button>
               <StmStatusControl
+                fullWidth
                 groupId={group.id}
                 groupName={group.name}
                 meta={meta}
                 current={lifecycle}
                 archivedAt={archivedAt}
               />
-            </div>
+            </>
           )}
         </div>
       </div>
