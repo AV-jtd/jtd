@@ -246,17 +246,17 @@ export default function ChatRoomsList({
     { key: "all", label: "Все" },
     { key: "projects", label: "Проекты" },
     { key: "clients", label: "Клиенты" },
-    { key: "tasks", label: "Задачи" },
+    { key: "groups", label: "Группы" },
   ];
 
   // Счётчики непрочитанных по категориям — считаются из уже загруженного
   // списка комнат и кэша непрочитанных, без новых запросов.
   const unreadCounts = useMemo(() => {
-    const c = { all: 0, projects: 0, clients: 0, tasks: 0 };
+    const c = { all: 0, projects: 0, clients: 0, groups: 0 };
     for (const r of rooms) {
       if (!isThreadUnread(r.threadId, r.lastMessageAt, r.lastMessageUserId)) continue;
       c.all += 1;
-      if (r.isTaskRoom) c.tasks += 1;
+      if (r.isTaskRoom) c.groups += 1;
       else if (r.isClientRoom) c.clients += 1;
       else c.projects += 1;
     }
