@@ -82,6 +82,8 @@ export interface StmMeta {
   flow?: StmFlow;
   retailer?: string;
   brand?: string;
+  /** Project / collection grouping (e.g. "Бережное томление", "Чистые составы"). */
+  project?: string;
   contract_id?: string;
   drop?: string;
   weight_kg?: number;
