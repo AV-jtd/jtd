@@ -103,6 +103,38 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     }
   };
 
+  // ---- Inline-editable "Проект" (stored in task_groups.stm_meta.project) ----
+  const [projectDraft, setProjectDraft] = useState<string>(meta.project ?? "");
+  const [editingProject, setEditingProject] = useState(false);
+  useEffect(() => { setProjectDraft(meta.project ?? ""); }, [group.id, meta.project]);
+  const saveProject = useMutation({
+    mutationFn: async (text: string) => {
+      const nextMeta = { ...(meta || {}), project: text || undefined };
+      if (!text) delete (nextMeta as any).project;
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ stm_meta: nextMeta as any })
+        .eq("id", group.id);
+      if (error) throw error;
+      return nextMeta;
+    },
+    onMutate: async (text: string) => {
+      const nextMeta = { ...(meta || {}), project: text || undefined };
+      if (!text) delete (nextMeta as any).project;
+      const snapshots = patchGroupInCache(qc, group.id, { stm_meta: nextMeta } as any);
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
+    },
+  });
+  const commitProject = () => {
+    setEditingProject(false);
+    if ((projectDraft.trim() || "") !== (meta.project || "")) {
+      saveProject.mutate(projectDraft.trim());
+    }
+  };
+
   // ---- Profiles cache for assignee initials ----
   const assigneeIds = useMemo(() => {
     const set = new Set<string>();
