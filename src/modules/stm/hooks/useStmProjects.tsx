@@ -261,6 +261,7 @@ export function useToggleStmStage() {
         .update({
           is_completed: input.isCompleted,
           completed_at: input.isCompleted ? new Date().toISOString() : null,
+          stage_status: input.isCompleted ? "done" : "in_progress",
         })
         .eq("id", input.taskId);
       if (error) throw error;
@@ -292,7 +293,8 @@ export function useToggleStmStage() {
       const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
         is_completed: input.isCompleted,
         completed_at: input.isCompleted ? new Date().toISOString() : null,
-      });
+        stage_status: input.isCompleted ? "done" : "in_progress",
+      } as Partial<Task>);
       return { prev };
     },
     onError: (_err, _input, ctx) => {
