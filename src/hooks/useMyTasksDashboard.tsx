@@ -6,6 +6,7 @@ export type MyTask = {
   id: string;
   title: string;
   deadline: string | null;
+  user_id: string | null;
   group_id: string | null;
   assigned_to: string | null;
   delegated_from: string | null;
@@ -17,7 +18,7 @@ export type MyTask = {
 };
 
 const SELECT =
-  "id, title, deadline, group_id, assigned_to, delegated_from, requires_approval, approval_status, is_important, priority, task_groups:group_id(name)";
+  "id, title, deadline, user_id, group_id, assigned_to, delegated_from, requires_approval, approval_status, is_important, priority, task_groups:group_id(name)";
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -30,6 +31,7 @@ function normalize(rows: any[]): MyTask[] {
     id: r.id,
     title: r.title,
     deadline: r.deadline ?? null,
+    user_id: r.user_id ?? null,
     group_id: r.group_id ?? null,
     assigned_to: r.assigned_to ?? null,
     delegated_from: r.delegated_from ?? null,
@@ -60,9 +62,8 @@ async function fetchAll<T>(
 /**
  * Загружает активные задачи текущего пользователя для мини-дашборда «Мои задачи».
  * Возвращает два массива:
- *  - involved: задачи, где я исполнитель или участник (assigned_to синкается в
- *    task_participants, поэтому достаточно одного среза по участникам);
- *  - delegatedByMe: задачи, которые я делегировал другим (delegated_from = я).
+ *  - involved: задачи, где я автор, исполнитель или участник;
+ *  - delegatedByMe: задачи, которые я делегировал другим.
  */
 export function useMyTasksDashboard() {
   const { user } = useAuth();
@@ -107,6 +108,19 @@ export function useMyTasksDashboard() {
       );
       for (const t of normalize(assigned)) byId.set(t.id, t);
 
+      // 1c) Старые/импортированные задачи могли не иметь строки creator в
+      //     task_participants. Автор задачи всё равно должен видеть её в «Мой день».
+      const createdByMe = await fetchAll<any>((from, to) =>
+        supabase
+          .from("tasks")
+          .select(SELECT)
+          .eq("user_id", uid)
+          .eq("is_completed", false)
+          .eq("is_draft", false)
+          .range(from, to),
+      );
+      for (const t of normalize(createdByMe)) byId.set(t.id, t);
+
       const involved = [...byId.values()];
 
       // 2) Задачи, делегированные мной другим.
@@ -121,7 +135,13 @@ export function useMyTasksDashboard() {
       );
       const delegatedByMe = normalize(deleg).filter((t) => t.assigned_to !== uid);
 
-      return { involved, delegatedByMe };
+      for (const t of normalize(createdByMe)) {
+        if (t.assigned_to && t.assigned_to !== uid) delegatedByMe.push(t);
+      }
+
+      const delegatedUnique = [...new Map(delegatedByMe.map((t) => [t.id, t])).values()];
+
+      return { involved, delegatedByMe: delegatedUnique };
     },
   });
 }

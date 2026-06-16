@@ -40,7 +40,7 @@ import { streamChat, StreamChatError } from "@/lib/streamChat";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type BlockKey = "overdue" | "today" | "important" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
+type BlockKey = "all" | "overdue" | "today" | "important" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
 type Scope = "involved" | "assignee";
 
 const SCOPE_KEY = "mytasks_scope";
@@ -58,6 +58,7 @@ const BLOCK_META: Record<
   BlockKey,
   { label: string; icon: typeof AlertTriangle; tone: string; ring: string }
 > = {
+  all: { label: "Все", icon: Check, tone: "text-primary", ring: "bg-primary/10" },
   overdue: { label: "Просрочено", icon: AlertTriangle, tone: "text-destructive", ring: "bg-destructive/10" },
   today: { label: "Сегодня", icon: CalendarClock, tone: "text-tag-orange", ring: "bg-tag-orange/10" },
   important: { label: "Важное", icon: Star, tone: "text-tag-pink", ring: "bg-tag-pink/10" },
@@ -356,14 +357,14 @@ export default function MyTasksDashboard({
     const approval = scoped.filter((t) => t.requires_approval && t.approval_status === "pending").sort(byDeadline);
     const toMe = involved.filter((t) => t.assigned_to === uid && t.delegated_from && t.delegated_from !== uid).sort(byDeadline);
 
-    return { overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
+    return { all: [...scoped].sort(byDeadline), overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
   // Подпись по числам блоков — ИИ-сводка пересчитывается только когда
   // изменились количества (агрессивное кэширование, как в Risk Radar).
   const countsSig = useMemo(
     () =>
-      [blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
+      [blocks.all, blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
         .map((b) => b.length)
         .join("-"),
     [blocks],
@@ -385,6 +386,7 @@ export default function MyTasksDashboard({
     retry: false,
     queryFn: async (): Promise<string> => {
       const counts = {
+        all: blocks.all.length,
         overdue: blocks.overdue.length,
         today: blocks.today.length,
         important: blocks.important.length,
@@ -476,6 +478,7 @@ export default function MyTasksDashboard({
       mode: "myday",
       scope,
       counts: {
+        all: blocks.all.length,
         overdue: blocks.overdue.length, today: blocks.today.length, important: blocks.important.length,
         week: blocks.week.length, noDeadline: blocks.noDeadline.length, unread: blocks.unread.length,
         approval: blocks.approval.length, toMe: blocks.toMe.length, byMe: blocks.byMe.length,
@@ -534,10 +537,10 @@ export default function MyTasksDashboard({
     [draft, isStreaming, askMessages, buildMyDayContext, addMessage, updateLastAssistant],
   );
 
-  const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
+  const order: BlockKey[] = ["all", "overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
   // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
   // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
-  const pillOrder: BlockKey[] = ["overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
+  const pillOrder: BlockKey[] = ["all", "overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
 
   return (
     <div className="flex h-full flex-col bg-background">
