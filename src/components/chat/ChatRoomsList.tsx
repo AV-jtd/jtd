@@ -224,6 +224,7 @@ export default function ChatRoomsList({
   const myTaskPills = useMemo(() => {
     const list = myTasks?.involved ?? [];
     const { start, end } = todayBounds();
+    const all = list.length;
     const overdue = list.filter((t) => t.deadline && new Date(t.deadline) < start).length;
     const today = list.filter(
       (t) => t.deadline && new Date(t.deadline) >= start && new Date(t.deadline) < end,
@@ -231,6 +232,7 @@ export default function ChatRoomsList({
     const important = list.filter((t) => t.is_important || t.priority === 1).length;
     const approval = list.filter((t) => t.requires_approval && t.approval_status === "pending").length;
     return [
+      { key: "all", label: "Все", count: all, cls: "bg-primary/10 text-primary" },
       { key: "overdue", label: "Просрочено", count: overdue, cls: "bg-destructive/10 text-destructive" },
       { key: "today", label: "Сегодня", count: today, cls: "bg-tag-orange/10 text-tag-orange" },
       { key: "important", label: "Важное", count: important, cls: "bg-tag-pink/10 text-tag-pink" },
