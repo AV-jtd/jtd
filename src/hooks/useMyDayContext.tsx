@@ -19,6 +19,18 @@ const EMPTY: MyDayContext = {
   npd: { count: 0, items: [] },
 };
 
+async function fetchAll<T>(build: (from: number, to: number) => any, page = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await build(from, from + page - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < page) break;
+  }
+  return out;
+}
+
 /**
  * Кросс-ап сигналы для экрана «Мой день» — одним запросом:
  *  - protocols: незакрытые экшен-айтемы из протоколов совещаний (source_protocol_id);
@@ -36,17 +48,19 @@ export function useMyDayContext() {
     staleTime: 1000 * 60 * 2,
     queryFn: async (): Promise<MyDayContext> => {
       if (!uid) return EMPTY;
-      const { data } = await supabase
-        .from("tasks")
-        .select(
-          "id, title, deadline, original_deadline, source_protocol_id, group:task_groups!tasks_group_id_fkey(name, project_type), protocol:task_groups!tasks_source_protocol_id_fkey(name)",
-        )
-        .eq("is_completed", false)
-        .eq("is_draft", false)
-        .or("source_protocol_id.not.is.null,original_deadline.not.is.null")
-        .limit(400);
+      const data = await fetchAll<any>((from, to) =>
+        supabase
+          .from("tasks")
+          .select(
+            "id, title, deadline, original_deadline, source_protocol_id, group:task_groups!tasks_group_id_fkey(name, project_type), protocol:task_groups!tasks_source_protocol_id_fkey(name)",
+          )
+          .eq("is_completed", false)
+          .eq("is_draft", false)
+          .or("source_protocol_id.not.is.null,original_deadline.not.is.null")
+          .range(from, to),
+      );
 
-      const rows = (data ?? []) as any[];
+      const rows = data as any[];
       const now = new Date();
 
       const protocols = rows.filter((r) => r.source_protocol_id);
