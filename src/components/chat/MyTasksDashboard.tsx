@@ -386,6 +386,7 @@ export default function MyTasksDashboard({
     retry: false,
     queryFn: async (): Promise<string> => {
       const counts = {
+        all: blocks.all.length,
         overdue: blocks.overdue.length,
         today: blocks.today.length,
         important: blocks.important.length,
@@ -477,6 +478,7 @@ export default function MyTasksDashboard({
       mode: "myday",
       scope,
       counts: {
+        all: blocks.all.length,
         overdue: blocks.overdue.length, today: blocks.today.length, important: blocks.important.length,
         week: blocks.week.length, noDeadline: blocks.noDeadline.length, unread: blocks.unread.length,
         approval: blocks.approval.length, toMe: blocks.toMe.length, byMe: blocks.byMe.length,
