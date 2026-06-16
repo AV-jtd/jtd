@@ -40,7 +40,7 @@ import { streamChat, StreamChatError } from "@/lib/streamChat";
 import { formatDistanceToNowStrict, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 
-type BlockKey = "overdue" | "today" | "important" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
+type BlockKey = "all" | "overdue" | "today" | "important" | "week" | "noDeadline" | "unread" | "approval" | "toMe" | "byMe";
 type Scope = "involved" | "assignee";
 
 const SCOPE_KEY = "mytasks_scope";
@@ -58,6 +58,7 @@ const BLOCK_META: Record<
   BlockKey,
   { label: string; icon: typeof AlertTriangle; tone: string; ring: string }
 > = {
+  all: { label: "Все", icon: Check, tone: "text-primary", ring: "bg-primary/10" },
   overdue: { label: "Просрочено", icon: AlertTriangle, tone: "text-destructive", ring: "bg-destructive/10" },
   today: { label: "Сегодня", icon: CalendarClock, tone: "text-tag-orange", ring: "bg-tag-orange/10" },
   important: { label: "Важное", icon: Star, tone: "text-tag-pink", ring: "bg-tag-pink/10" },
