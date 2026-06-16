@@ -357,14 +357,14 @@ export default function MyTasksDashboard({
     const approval = scoped.filter((t) => t.requires_approval && t.approval_status === "pending").sort(byDeadline);
     const toMe = involved.filter((t) => t.assigned_to === uid && t.delegated_from && t.delegated_from !== uid).sort(byDeadline);
 
-    return { overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
+    return { all: [...scoped].sort(byDeadline), overdue, today, important, week, noDeadline, unread, approval, toMe, byMe: [...byMe].sort(byDeadline) };
   }, [data, scope, uid, isThreadUnread]);
 
   // Подпись по числам блоков — ИИ-сводка пересчитывается только когда
   // изменились количества (агрессивное кэширование, как в Risk Radar).
   const countsSig = useMemo(
     () =>
-      [blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
+      [blocks.all, blocks.overdue, blocks.today, blocks.important, blocks.week, blocks.noDeadline, blocks.unread, blocks.approval, blocks.toMe, blocks.byMe]
         .map((b) => b.length)
         .join("-"),
     [blocks],
@@ -535,10 +535,10 @@ export default function MyTasksDashboard({
     [draft, isStreaming, askMessages, buildMyDayContext, addMessage, updateLastAssistant],
   );
 
-  const order: BlockKey[] = ["overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
+  const order: BlockKey[] = ["all", "overdue", "today", "important", "week", "noDeadline", "unread", "approval", "toMe", "byMe"];
   // Pills сводки — оформление как на главном «Все задачи» (StatChipRow):
   // горизонтально-скроллящийся ряд кликабельных «таблеток» (icon + count + label).
-  const pillOrder: BlockKey[] = ["overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
+  const pillOrder: BlockKey[] = ["all", "overdue", "today", "important", "week", "approval", "unread", "toMe", "byMe", "noDeadline"];
 
   return (
     <div className="flex h-full flex-col bg-background">
