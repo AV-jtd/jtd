@@ -82,17 +82,57 @@ LOVABLE_API_KEY=<скопировать из Supabase Dashboard → Project Sett
 
 ## Шаг 5 — Миграция данных
 
-```bash
-# На старом Supabase (облако) — выгрузка
-# В Supabase Dashboard → Settings → Database → Connection string
-pg_dump "postgresql://postgres:[DB_PASSWORD]@db.nvfioycpwyzwukvokwql.supabase.co:5432/postgres" \
-  --no-owner --no-privileges \
-  -f backup.sql
+> **Вариант 1 — пользователи переезжают вместе с БД.** Дампим схему `auth`
+> целиком (структура + данные), поэтому переносятся `auth.users` с хешами
+> паролей и `auth.identities` (привязки Google/email). Пользователи входят со
+> **своими старыми паролями** — сбрасывать ничего не нужно.
+>
+> Схемы `storage`, `realtime`, `vault`, `supabase_functions` НЕ дампим — их
+> создаёт сам стек при первом запуске, иначе будут конфликты "уже существует".
 
-# На новом сервере — загрузка (после запуска стека)
-docker compose -f self-hosting/docker-compose.supabase.yml exec db \
-  psql -U postgres postgres < backup.sql
+### 5.1 Выгрузка со старого облака
+
+```bash
+# Connection string: Supabase Dashboard → Settings → Database
+SRC="postgresql://postgres:[DB_PASSWORD]@db.nvfioycpwyzwukvokwql.supabase.co:5432/postgres"
+
+# auth — структура + данные (пользователи и пароли)
+pg_dump "$SRC" --no-owner --no-privileges \
+  --schema=auth -f auth.sql
+
+# public — вся бизнес-логика (структура + данные)
+pg_dump "$SRC" --no-owner --no-privileges \
+  --schema=public -f public.sql
 ```
+
+### 5.2 Загрузка на новый сервер
+
+Порядок важен: сначала `auth` (на него ссылаются FK из `public`), затем `public`.
+Выполнять **после** запуска стека (Шаг 6), когда GoTrue уже поднял роль
+`supabase_auth_admin`.
+
+```bash
+docker compose -f self-hosting/docker-compose.supabase.yml exec -T db \
+  psql -U postgres postgres < auth.sql
+
+docker compose -f self-hosting/docker-compose.supabase.yml exec -T db \
+  psql -U postgres postgres < public.sql
+```
+
+### 5.3 Проверка переноса пользователей
+
+```bash
+docker compose -f self-hosting/docker-compose.supabase.yml exec -T db \
+  psql -U postgres postgres -c \
+  "SELECT count(*) AS users,
+          count(*) FILTER (WHERE encrypted_password IS NOT NULL) AS with_password,
+          count(*) FILTER (WHERE email_confirmed_at IS NOT NULL) AS confirmed
+   FROM auth.users;"
+```
+
+Числа должны совпадать с облаком. Если `confirmed` меньше `users` — это те
+аккаунты, у кого email не подтверждён (как было у Дениса); подтверди их через
+админ-панель после миграции.
 
 ---
 
