@@ -46,7 +46,7 @@ SELECT format(
     recovery_token, recovery_sent_at, email_change_token_new, email_change,
     email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
     is_super_admin, created_at, updated_at, phone, phone_confirmed_at,
-    confirmation_token, email_change_token_current, email_change_confirm_status,
+    email_change_token_current, email_change_confirm_status,
     banned_until, is_sso_user, deleted_at
   ) OVERRIDING SYSTEM VALUE VALUES (
     %L, %L, %L, %L, %L, %L,
@@ -54,7 +54,7 @@ SELECT format(
     %L, %L, %L, %L,
     %L, %L, %L::jsonb, %L::jsonb,
     %L, %L, %L, %L, %L,
-    %L, %L, %L,
+    %L, %L,
     %L, %L, %L
   ) ON CONFLICT (id) DO NOTHING;$i$,
   u.instance_id, u.id, u.aud, u.role, u.email, u.encrypted_password,
@@ -62,7 +62,7 @@ SELECT format(
   COALESCE(u.recovery_token, ''), u.recovery_sent_at, COALESCE(u.email_change_token_new, ''), COALESCE(u.email_change, ''),
   u.email_change_sent_at, u.last_sign_in_at, u.raw_app_meta_data, u.raw_user_meta_data,
   u.is_super_admin, u.created_at, u.updated_at, u.phone, u.phone_confirmed_at,
-  COALESCE(u.confirmation_token, ''), COALESCE(u.email_change_token_current, ''), COALESCE(u.email_change_confirm_status, 0),
+  COALESCE(u.email_change_token_current, ''), COALESCE(u.email_change_confirm_status, 0),
   u.banned_until, COALESCE(u.is_sso_user, false), u.deleted_at
 )
 FROM auth.users u
