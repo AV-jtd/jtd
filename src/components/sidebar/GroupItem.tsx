@@ -58,6 +58,9 @@ function GroupItemImpl(props: GroupItemProps) {
   const { updateGroupAppearance, deleteGroup, addGroupMember, addGroup, moveProjectToFolder, renameGroup } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: folders = [] } = useProjectFolders();
+  const { user } = useAuth();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Hover-prefetch: warm the cache for this project's tasks before the click.
   // The hook is internally debounced (120ms) and dedupes per-id, so it's safe
@@ -91,6 +94,29 @@ function GroupItemImpl(props: GroupItemProps) {
       addGroup.mutate({ name: newSubName.trim(), parent_id: group.id });
       setNewSubName("");
       setShowNewSubgroup(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/group-${group.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      await updateGroupAppearance.mutateAsync({ id: group.id, logo_url: publicUrl });
+      toast.success("Логотип обновлён");
+      setEmojiOpen(false);
+    } catch (e: any) {
+      toast.error("Ошибка загрузки: " + (e?.message || "не удалось"));
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
