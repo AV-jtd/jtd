@@ -1,10 +1,13 @@
-import { memo, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, Expand, FolderOpen, GripVertical, Plus, Send, Trash2, UserPlus } from "lucide-react";
+import { memo, useRef, useState, type FormEvent } from "react";
+import { Camera, ChevronDown, ChevronRight, Expand, FolderOpen, GripVertical, Loader2, Plus, Send, Trash2, UserPlus } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { TaskGroup, useTaskMutations, useAvailableUsers, useProjectFolders } from "@/hooks/useTasks";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
@@ -55,6 +58,9 @@ function GroupItemImpl(props: GroupItemProps) {
   const { updateGroupAppearance, deleteGroup, addGroupMember, addGroup, moveProjectToFolder, renameGroup } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();
   const { data: folders = [] } = useProjectFolders();
+  const { user } = useAuth();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Hover-prefetch: warm the cache for this project's tasks before the click.
   // The hook is internally debounced (120ms) and dedupes per-id, so it's safe
@@ -88,6 +94,29 @@ function GroupItemImpl(props: GroupItemProps) {
       addGroup.mutate({ name: newSubName.trim(), parent_id: group.id });
       setNewSubName("");
       setShowNewSubgroup(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) { toast.error("Только изображения"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Максимум 2 МБ"); return; }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/group-${group.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("protocol-logos")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from("protocol-logos").getPublicUrl(path);
+      await updateGroupAppearance.mutateAsync({ id: group.id, logo_url: publicUrl });
+      toast.success("Логотип обновлён");
+      setEmojiOpen(false);
+    } catch (e: any) {
+      toast.error("Ошибка загрузки: " + (e?.message || "не удалось"));
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -180,6 +209,39 @@ function GroupItemImpl(props: GroupItemProps) {
               >
                 Убрать эмодзи
               </button>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Логотип</p>
+              <div className="flex items-center gap-2 mb-3">
+                {(group as any).logo_url && (
+                  <img
+                    src={(group as any).logo_url}
+                    alt=""
+                    className="h-7 w-7 rounded object-cover ring-1 ring-border shrink-0"
+                  />
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
+                  disabled={uploadingLogo}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {(group as any).logo_url ? "Заменить" : "Загрузить"}
+                </button>
+                {(group as any).logo_url && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); updateGroupAppearance.mutate({ id: group.id, logo_url: null }); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Убрать
+                  </button>
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.currentTarget.value = ""; }}
+                />
+              </div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Цвет</p>
               <div className="flex gap-1 mb-2 flex-wrap">
                 {COLOR_PRESETS.map((p) => (
