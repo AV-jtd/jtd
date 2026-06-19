@@ -613,6 +613,125 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+/** Заголовок секции-источника во вкладке «Задачи». */
+function OriginHeader({ origin, count }: { origin: { type: "direct" | "project" | "protocol"; label: string }; count: number }) {
+  const Icon = origin.type === "protocol" ? FileText : origin.type === "project" ? FolderKanban : ListPlus;
+  return (
+    <div className="mb-1 mt-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <Icon className="h-3.5 w-3.5" />
+      <span className="truncate">{origin.label}</span>
+      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{count}</span>
+    </div>
+  );
+}
+
+/** Человекочитаемое относительное время. */
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.round(diff / 60000);
+  if (m < 1) return "только что";
+  if (m < 60) return `${m} мин назад`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ч назад`;
+  const d = Math.round(h / 24);
+  if (d < 7) return `${d} дн назад`;
+  return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
+type LiveEvent = {
+  id: string;
+  taskId: string;
+  time: string;
+  kind: "created" | "completed" | "drift" | "step";
+  actorId: string | null;
+  title: string;
+  detail?: string;
+};
+
+/**
+ * Лента активности по клиенту «в эфире». Строится из уже загруженных задач
+ * (без отдельных запросов): создание, выполнение, дрейф срока и шаги.
+ * Авто-обновляется вместе с realtime-инвалидацией списка задач.
+ */
+function ActivityFeed({
+  tasks, users, onOpenTask,
+}: {
+  tasks: Task[];
+  users: { id: string; display_name?: string | null; email?: string | null; username?: string | null }[];
+  onOpenTask: (id: string) => void;
+}) {
+  const nameOf = (id: string | null) => {
+    if (!id) return "—";
+    const u = users.find((x) => x.id === id);
+    return u?.display_name || u?.username || u?.email?.split("@")[0] || "Сотрудник";
+  };
+
+  const events: LiveEvent[] = [];
+  for (const t of tasks) {
+    const anyT = t as any;
+    if (anyT.created_at) {
+      events.push({ id: `c-${t.id}`, taskId: t.id, time: anyT.created_at, kind: "created", actorId: anyT.user_id ?? null, title: t.title });
+    }
+    if (t.is_completed && anyT.completed_at) {
+      events.push({ id: `d-${t.id}`, taskId: t.id, time: anyT.completed_at, kind: "completed", actorId: anyT.assigned_to ?? anyT.user_id ?? null, title: t.title });
+    }
+    if (anyT.original_deadline && anyT.deadline && anyT.original_deadline !== anyT.deadline) {
+      events.push({
+        id: `drift-${t.id}`, taskId: t.id,
+        time: anyT.updated_at || anyT.deadline,
+        kind: "drift", actorId: anyT.assigned_to ?? anyT.user_id ?? null, title: t.title,
+        detail: `срок → ${new Date(anyT.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`,
+      });
+    }
+    for (const s of (anyT.subtasks || [])) {
+      if (s.is_completed && (s as any).completed_at) {
+        events.push({ id: `s-${s.id}`, taskId: t.id, time: (s as any).completed_at, kind: "step", actorId: (s as any).assigned_to ?? null, title: t.title, detail: s.title });
+      }
+    }
+  }
+  events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  const list = events.slice(0, 60);
+
+  if (list.length === 0) return <EmptyState text="Пока нет активности по клиенту" />;
+
+  const META: Record<LiveEvent["kind"], { icon: typeof CheckCircle2; tone: string; verb: string }> = {
+    created: { icon: Plus, tone: "text-tag-blue", verb: "создал(а) задачу" },
+    completed: { icon: CheckCircle2, tone: "text-tag-green", verb: "выполнил(а)" },
+    drift: { icon: ArrowUpRight, tone: "text-tag-orange", verb: "перенёс(ла)" },
+    step: { icon: CheckCircle2, tone: "text-tag-green", verb: "закрыл(а) шаг" },
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {list.map((e) => {
+        const m = META[e.kind];
+        return (
+          <button
+            key={e.id}
+            onClick={() => onOpenTask(e.taskId)}
+            className="flex w-full items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <span className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-muted", m.tone)}>
+              <m.icon className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm">
+                <span className="font-medium">{nameOf(e.actorId)}</span>{" "}
+                <span className="text-muted-foreground">{m.verb}</span>{" "}
+                <span className="font-medium">{e.detail ?? e.title}</span>
+              </div>
+              {e.detail && (
+                <div className="truncate text-xs text-muted-foreground">{e.title}</div>
+              )}
+            </div>
+            <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(e.time)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type FocusKey = "overdue" | "today" | "week" | "nodate";
 
 const FOCUS_LABELS: Record<FocusKey, string> = {
