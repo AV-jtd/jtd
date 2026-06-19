@@ -42,7 +42,7 @@ export function useRealtimeSubscriptions() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "subtasks" },
-        () => debouncedInvalidate(tasksTimer, [["tasks"]])
+        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"]])
       )
       .subscribe();
 
@@ -54,7 +54,7 @@ export function useRealtimeSubscriptions() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks" },
-        () => debouncedInvalidate(tasksTimer, [["tasks"]])
+        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"]])
       )
       .subscribe();
 
@@ -73,6 +73,8 @@ export function useRealtimeSubscriptions() {
           debouncedInvalidate(groupsTimer, [
             ["task_groups"],
             ["group_members"],
+            ["client_room_tasks"],
+            ["client_room_info"],
           ])
       )
       .subscribe();
