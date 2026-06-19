@@ -209,6 +209,39 @@ function GroupItemImpl(props: GroupItemProps) {
               >
                 Убрать эмодзи
               </button>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Логотип</p>
+              <div className="flex items-center gap-2 mb-3">
+                {(group as any).logo_url && (
+                  <img
+                    src={(group as any).logo_url}
+                    alt=""
+                    className="h-7 w-7 rounded object-cover ring-1 ring-border shrink-0"
+                  />
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
+                  disabled={uploadingLogo}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {(group as any).logo_url ? "Заменить" : "Загрузить"}
+                </button>
+                {(group as any).logo_url && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); updateGroupAppearance.mutate({ id: group.id, logo_url: null }); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Убрать
+                  </button>
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.currentTarget.value = ""; }}
+                />
+              </div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Цвет</p>
               <div className="flex gap-1 mb-2 flex-wrap">
                 {COLOR_PRESETS.map((p) => (
