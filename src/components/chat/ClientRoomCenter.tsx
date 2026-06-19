@@ -182,7 +182,7 @@ function groupTasksByOrigin(tasks: Task[]) {
   );
 }
 
-type TabKey = "chat" | "tasks" | "metrics" | "assignments";
+type TabKey = "chat" | "tasks" | "live" | "metrics" | "assignments";
 
 export default function ClientRoomCenter({
   groupId,
