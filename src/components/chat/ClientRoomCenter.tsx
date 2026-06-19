@@ -19,6 +19,7 @@ import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
   ChevronDown, ChevronRight, Plus, Info, Link2, X, CalendarClock, CalendarDays, CircleDashed,
+  Radio, FolderKanban, FileText, ListPlus, ArrowUpRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -58,55 +59,130 @@ function useClientInfo(clientId: string | null) {
   });
 }
 
+/** Источник, из которого задача попала в комнату клиента. */
+type TaskOrigin = {
+  type: "direct" | "project" | "protocol";
+  key: string;
+  label: string;
+};
+
 /**
  * Полноценные Task-объекты по клиенту (с шагами и тегами) — чтобы рендерить
  * единый компонент `TaskItem` (раскрытие inline + воркфлоу «Закрыть/Создать
  * связанную»), а не дублировать карточку задачи в комнате клиента.
+ *
+ * Собирает три источника:
+ *  1) задачи с `tasks.client_id = clientId` («Прямые задачи»);
+ *  2) задачи проектов (и их подпроектов рекурсивно) с `task_groups.client_id`;
+ *  3) задачи протоколов, помеченных клиентом (`protocol_meta.client_id`).
+ * К каждой задаче прикрепляется `__origin` для группировки в UI.
  */
 function useClientTasks(clientId: string | null) {
   return useQuery({
     queryKey: ["client_room_tasks", clientId],
     queryFn: async (): Promise<Task[]> => {
       if (!clientId) return [];
-      const { data } = await supabase
-        .from("tasks")
-        .select("*, subtasks(*), task_tags(tag_id)")
-        .eq("client_id", clientId)
-        .order("is_completed", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(200);
-      const tasks = ((data as any[]) || []) as Task[];
+      const sel = "*, subtasks(*), task_tags(tag_id)";
 
-      // Плюс задачи из протоколов, напрямую помеченных этим клиентом
-      // (protocol_meta.client_id), даже если у самих задач client_id не проставлен.
+      // --- Источник 2: проекты клиента + их подпроекты (BFS) ---
+      const { data: rootGroups } = await supabase
+        .from("task_groups")
+        .select("id, name, project_type")
+        .eq("client_id", clientId as any);
+      const projectGroupLabel = new Map<string, string>(); // groupId -> ярлык корня
+      for (const g of ((rootGroups as any[]) || [])) {
+        if (g.project_type === "protocol" || g.project_type === "crm_client") continue;
+        projectGroupLabel.set(g.id, g.name);
+      }
+      let frontier = [...projectGroupLabel.keys()];
+      let guard = 0;
+      while (frontier.length && guard++ < 15) {
+        const { data: children } = await supabase
+          .from("task_groups")
+          .select("id, name, parent_id")
+          .in("parent_id", frontier);
+        const next: string[] = [];
+        for (const c of ((children as any[]) || [])) {
+          if (!projectGroupLabel.has(c.id)) {
+            projectGroupLabel.set(c.id, projectGroupLabel.get(c.parent_id) || c.name);
+            next.push(c.id);
+          }
+        }
+        frontier = next;
+      }
+
+      // --- Источник 3: протоколы клиента ---
       const { data: directProtos } = await supabase
         .from("task_groups")
-        .select("id")
+        .select("id, name")
         .eq("project_type", "protocol" as any)
         .eq("protocol_meta->>client_id", clientId as any);
-      const directGroupIds = ((directProtos as any[]) || []).map((p) => p.id);
-      if (directGroupIds.length) {
-        const { data: protoTasks } = await supabase
-          .from("tasks")
-          .select("*, subtasks(*), task_tags(tag_id)")
-          .in("group_id", directGroupIds)
-          .neq("task_type", "protocol_review")
+      const protoLabel = new Map<string, string>();
+      for (const p of ((directProtos as any[]) || [])) protoLabel.set(p.id, p.name);
+
+      const projectIds = [...projectGroupLabel.keys()];
+      const protoIds = [...protoLabel.keys()];
+
+      // --- Параллельные запросы по трём источникам ---
+      const [directRes, projectRes, protoRes] = await Promise.all([
+        supabase
+          .from("tasks").select(sel)
+          .eq("client_id", clientId)
           .order("is_completed", { ascending: true })
           .order("created_at", { ascending: false })
-          .limit(200);
-        const seen = new Set(tasks.map((t) => t.id));
-        for (const t of ((protoTasks as any[]) || []) as Task[]) {
-          if (!seen.has(t.id)) { tasks.push(t); seen.add(t.id); }
+          .limit(300),
+        projectIds.length
+          ? supabase.from("tasks").select(sel).in("group_id", projectIds).limit(500)
+          : Promise.resolve({ data: [] as any[] }),
+        protoIds.length
+          ? supabase.from("tasks").select(sel).in("group_id", protoIds).neq("task_type", "protocol_review").limit(300)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const out: Task[] = [];
+      const seen = new Set<string>();
+      const push = (rows: any[], origin: (t: any) => TaskOrigin) => {
+        for (const t of rows || []) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          (t as any).__origin = origin(t);
+          out.push(t as Task);
         }
-      }
-      return tasks;
+      };
+      // Приоритет источника: протокол > проект > прямая привязка.
+      push((protoRes as any).data, (t) => ({
+        type: "protocol", key: `proto:${t.group_id}`,
+        label: `Протокол: ${protoLabel.get(t.group_id) || "встреча"}`,
+      }));
+      push((projectRes as any).data, (t) => {
+        const label = projectGroupLabel.get(t.group_id) || "Проект";
+        return { type: "project", key: `proj:${label}`, label: `Проект: ${label}` };
+      });
+      push((directRes as any).data, () => ({
+        type: "direct", key: "direct", label: "Прямые задачи",
+      }));
+      return out;
     },
     enabled: !!clientId,
     staleTime: 1000 * 30,
   });
 }
 
-type TabKey = "chat" | "tasks" | "metrics" | "assignments";
+/** Группировка задач по источнику для отображения секциями. */
+function groupTasksByOrigin(tasks: Task[]) {
+  const order: Record<TaskOrigin["type"], number> = { direct: 0, project: 1, protocol: 2 };
+  const map = new Map<string, { origin: TaskOrigin; items: Task[] }>();
+  for (const t of tasks) {
+    const o: TaskOrigin = (t as any).__origin ?? { type: "direct", key: "direct", label: "Прямые задачи" };
+    if (!map.has(o.key)) map.set(o.key, { origin: o, items: [] });
+    map.get(o.key)!.items.push(t);
+  }
+  return [...map.values()].sort(
+    (a, b) => order[a.origin.type] - order[b.origin.type] || a.origin.label.localeCompare(b.origin.label),
+  );
+}
+
+type TabKey = "chat" | "tasks" | "live" | "metrics" | "assignments";
 
 export default function ClientRoomCenter({
   groupId,
@@ -226,6 +302,7 @@ export default function ClientRoomCenter({
   const TABS: { key: TabKey; label: string; icon: typeof MessageSquare; count?: number }[] = [
     { key: "chat", label: "Обсуждение", icon: MessageSquare },
     { key: "tasks", label: "Задачи", icon: ListChecks, count: tasks.length || undefined },
+    { key: "live", label: "Эфир", icon: Radio },
     { key: "metrics", label: "Показатели", icon: BarChart3 },
     { key: "assignments", label: "Поручения", icon: UserCheck, count: assignments.length || undefined },
   ];
@@ -260,7 +337,7 @@ export default function ClientRoomCenter({
             size="icon"
             className="h-8 w-8"
             onClick={() => setBulkOpen(true)}
-            title="Привязать задачи"
+            title="Привязать к клиенту"
           >
             <Link2 className="h-4 w-4" />
           </Button>
@@ -412,9 +489,24 @@ export default function ClientRoomCenter({
               {tasks.length > 0 && focusList.length === 0 && (
                 <EmptyState text="Нет задач в этой категории" />
               )}
-              {focusList.map((t) => (
-                <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
-              ))}
+              {(() => {
+                const groups = groupTasksByOrigin(focusList);
+                if (groups.length <= 1) {
+                  return focusList.map((t) => (
+                    <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
+                  ));
+                }
+                return groups.map((g) => (
+                  <div key={g.origin.key} className="pt-1">
+                    <OriginHeader origin={g.origin} count={g.items.length} />
+                    <div className="space-y-1">
+                      {g.items.map((t) => (
+                        <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
               {completed.length > 0 && (
                 <div className="pt-2">
                   <button
@@ -433,6 +525,21 @@ export default function ClientRoomCenter({
                   )}
                 </div>
               )}
+            </div>
+          </ScrollArea>
+        )}
+
+        {tab === "live" && (
+          <ScrollArea className="h-full">
+            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="text-sm font-semibold">В эфире</h3>
+                <span className="inline-flex items-center gap-1 rounded-full bg-tag-green/10 px-1.5 py-0.5 text-[10px] font-semibold text-tag-green">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-tag-green" />
+                  live
+                </span>
+              </div>
+              <ActivityFeed tasks={tasks} users={availableUsers} onOpenTask={openTaskInline} />
             </div>
           </ScrollArea>
         )}
@@ -503,6 +610,125 @@ function MetricTile({ icon: Icon, label, value, tone }: { icon: typeof TrendingU
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">{text}</div>
+  );
+}
+
+/** Заголовок секции-источника во вкладке «Задачи». */
+function OriginHeader({ origin, count }: { origin: { type: "direct" | "project" | "protocol"; label: string }; count: number }) {
+  const Icon = origin.type === "protocol" ? FileText : origin.type === "project" ? FolderKanban : ListPlus;
+  return (
+    <div className="mb-1 mt-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <Icon className="h-3.5 w-3.5" />
+      <span className="truncate">{origin.label}</span>
+      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{count}</span>
+    </div>
+  );
+}
+
+/** Человекочитаемое относительное время. */
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.round(diff / 60000);
+  if (m < 1) return "только что";
+  if (m < 60) return `${m} мин назад`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ч назад`;
+  const d = Math.round(h / 24);
+  if (d < 7) return `${d} дн назад`;
+  return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
+type LiveEvent = {
+  id: string;
+  taskId: string;
+  time: string;
+  kind: "created" | "completed" | "drift" | "step";
+  actorId: string | null;
+  title: string;
+  detail?: string;
+};
+
+/**
+ * Лента активности по клиенту «в эфире». Строится из уже загруженных задач
+ * (без отдельных запросов): создание, выполнение, дрейф срока и шаги.
+ * Авто-обновляется вместе с realtime-инвалидацией списка задач.
+ */
+function ActivityFeed({
+  tasks, users, onOpenTask,
+}: {
+  tasks: Task[];
+  users: { id: string; display_name?: string | null; email?: string | null; username?: string | null }[];
+  onOpenTask: (id: string) => void;
+}) {
+  const nameOf = (id: string | null) => {
+    if (!id) return "—";
+    const u = users.find((x) => x.id === id);
+    return u?.display_name || u?.username || u?.email?.split("@")[0] || "Сотрудник";
+  };
+
+  const events: LiveEvent[] = [];
+  for (const t of tasks) {
+    const anyT = t as any;
+    if (anyT.created_at) {
+      events.push({ id: `c-${t.id}`, taskId: t.id, time: anyT.created_at, kind: "created", actorId: anyT.user_id ?? null, title: t.title });
+    }
+    if (t.is_completed && anyT.completed_at) {
+      events.push({ id: `d-${t.id}`, taskId: t.id, time: anyT.completed_at, kind: "completed", actorId: anyT.assigned_to ?? anyT.user_id ?? null, title: t.title });
+    }
+    if (anyT.original_deadline && anyT.deadline && anyT.original_deadline !== anyT.deadline) {
+      events.push({
+        id: `drift-${t.id}`, taskId: t.id,
+        time: anyT.updated_at || anyT.deadline,
+        kind: "drift", actorId: anyT.assigned_to ?? anyT.user_id ?? null, title: t.title,
+        detail: `срок → ${new Date(anyT.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`,
+      });
+    }
+    for (const s of (anyT.subtasks || [])) {
+      if (s.is_completed && (s as any).completed_at) {
+        events.push({ id: `s-${s.id}`, taskId: t.id, time: (s as any).completed_at, kind: "step", actorId: (s as any).assigned_to ?? null, title: t.title, detail: s.title });
+      }
+    }
+  }
+  events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  const list = events.slice(0, 60);
+
+  if (list.length === 0) return <EmptyState text="Пока нет активности по клиенту" />;
+
+  const META: Record<LiveEvent["kind"], { icon: typeof CheckCircle2; tone: string; verb: string }> = {
+    created: { icon: Plus, tone: "text-tag-blue", verb: "создал(а) задачу" },
+    completed: { icon: CheckCircle2, tone: "text-tag-green", verb: "выполнил(а)" },
+    drift: { icon: ArrowUpRight, tone: "text-tag-orange", verb: "перенёс(ла)" },
+    step: { icon: CheckCircle2, tone: "text-tag-green", verb: "закрыл(а) шаг" },
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {list.map((e) => {
+        const m = META[e.kind];
+        return (
+          <button
+            key={e.id}
+            onClick={() => onOpenTask(e.taskId)}
+            className="flex w-full items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <span className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-muted", m.tone)}>
+              <m.icon className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm">
+                <span className="font-medium">{nameOf(e.actorId)}</span>{" "}
+                <span className="text-muted-foreground">{m.verb}</span>{" "}
+                <span className="font-medium">{e.detail ?? e.title}</span>
+              </div>
+              {e.detail && (
+                <div className="truncate text-xs text-muted-foreground">{e.title}</div>
+              )}
+            </div>
+            <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(e.time)}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

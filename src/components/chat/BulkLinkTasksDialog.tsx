@@ -11,24 +11,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Search, Loader2, Link2 } from "lucide-react";
+import { Search, Loader2, Link2, ListChecks, FolderKanban, FileText } from "lucide-react";
 
-type Scope = "unlinked" | "mine" | "all";
+type EntityKind = "tasks" | "projects" | "protocols";
 
-type TaskRow = {
+type Row = {
   id: string;
   title: string;
-  client_id: string | null;
-  user_id: string;
-  is_completed: boolean;
-  group_id: string | null;
-  deadline: string | null;
+  linked: boolean;
+  ownedByMe?: boolean;
+  hint?: string | null;
+  meta?: any;
 };
 
 /**
- * Массовая привязка существующих задач к клиенту прямо из комнаты клиента.
- * Источник истины — `tasks.client_id` (без новых сущностей). Уже привязанные
- * к этому клиенту задачи показаны отмеченными; снятие галочки = отвязка.
+ * Единый диалог привязки сущностей к клиенту прямо из комнаты клиента.
+ * Три вкладки:
+ *  - Задачи     → `tasks.client_id`
+ *  - Проекты    → `task_groups.client_id` (подпроекты подтягиваются автоматически)
+ *  - Протоколы  → `protocol_meta.client_id`
+ * Уже привязанные элементы отмечены; снятие галочки = отвязка.
  */
 export default function BulkLinkTasksDialog({
   open,
@@ -41,51 +43,135 @@ export default function BulkLinkTasksDialog({
   clientId: string;
   clientName: string;
 }) {
+  const [kind, setKind] = useState<EntityKind>("tasks");
+
+  const TABS: { key: EntityKind; label: string; icon: typeof ListChecks }[] = [
+    { key: "tasks", label: "Задачи", icon: ListChecks },
+    { key: "projects", label: "Проекты", icon: FolderKanban },
+    { key: "protocols", label: "Протоколы", icon: FileText },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg gap-3">
+        <DialogHeader>
+          <DialogTitle className="text-base">Привязать к «{clientName}»</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex items-center gap-1.5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setKind(t.key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                kind === t.key
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <t.icon className="h-3.5 w-3.5" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <LinkPanel
+          key={kind}
+          kind={kind}
+          clientId={clientId}
+          open={open}
+          onDone={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LinkPanel({
+  kind, clientId, open, onDone,
+}: {
+  kind: EntityKind;
+  clientId: string;
+  open: boolean;
+  onDone: () => void;
+}) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [scope, setScope] = useState<Scope>("unlinked");
   const [search, setSearch] = useState("");
+  const [onlyLinked, setOnlyLinked] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["bulk_link_tasks", clientId, open],
-    queryFn: async (): Promise<TaskRow[]> => {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["link_panel", kind, clientId, open],
+    queryFn: async (): Promise<Row[]> => {
+      if (kind === "tasks") {
+        const { data } = await supabase
+          .from("tasks")
+          .select("id, title, client_id, user_id, is_completed, deadline")
+          .eq("is_completed", false)
+          .order("created_at", { ascending: false })
+          .limit(500);
+        return ((data as any[]) || []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          linked: t.client_id === clientId,
+          ownedByMe: t.user_id === user?.id,
+          hint: t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : null,
+        }));
+      }
+      if (kind === "projects") {
+        const { data } = await supabase
+          .from("task_groups")
+          .select("id, name, client_id, project_type")
+          .not("project_type", "in", "(protocol,crm_client)")
+          .order("name")
+          .limit(500);
+        return ((data as any[]) || []).map((g) => ({
+          id: g.id,
+          title: g.name,
+          linked: g.client_id === clientId,
+          hint: g.client_id && g.client_id !== clientId ? "у др. клиента" : null,
+        }));
+      }
+      // protocols
       const { data } = await supabase
-        .from("tasks")
-        .select("id, title, client_id, user_id, is_completed, group_id, deadline")
-        .eq("is_completed", false)
+        .from("task_groups")
+        .select("id, name, protocol_meta")
+        .eq("project_type", "protocol" as any)
         .order("created_at", { ascending: false })
         .limit(500);
-      return ((data as any[]) || []) as TaskRow[];
+      return ((data as any[]) || []).map((g) => ({
+        id: g.id,
+        title: g.name,
+        linked: (g.protocol_meta as any)?.client_id === clientId,
+        meta: g.protocol_meta ?? {},
+      }));
     },
     enabled: open && !!clientId,
     staleTime: 1000 * 15,
   });
 
-  // Изначально отмечаем задачи, уже привязанные к этому клиенту.
   const initialLinked = useMemo(
-    () => new Set(tasks.filter((t) => t.client_id === clientId).map((t) => t.id)),
-    [tasks, clientId],
+    () => new Set(rows.filter((r) => r.linked).map((r) => r.id)),
+    [rows],
   );
 
-  // Синхронизируем выбор с актуальными данными при открытии/загрузке.
   const [syncedKey, setSyncedKey] = useState("");
-  const key = `${open}-${tasks.length}`;
-  if (open && key !== syncedKey && tasks.length >= 0) {
-    setSyncedKey(key);
+  const syncKey = `${open}-${rows.length}`;
+  if (open && syncKey !== syncedKey) {
+    setSyncedKey(syncKey);
     setSelected(new Set(initialLinked));
   }
 
   const q = search.trim().toLowerCase();
   const visible = useMemo(() => {
-    return tasks.filter((t) => {
-      if (scope === "unlinked" && t.client_id && t.client_id !== clientId) return false;
-      if (scope === "unlinked" && !t.client_id) { /* ok */ }
-      if (scope === "mine" && t.user_id !== user?.id) return false;
-      if (q && !t.title.toLowerCase().includes(q)) return false;
+    return rows.filter((r) => {
+      if (onlyLinked && !initialLinked.has(r.id)) return false;
+      if (q && !r.title.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [tasks, scope, q, user?.id, clientId]);
+  }, [rows, onlyLinked, q, initialLinked]);
 
   const toggle = (id: string) =>
     setSelected((cur) => {
@@ -98,13 +184,39 @@ export default function BulkLinkTasksDialog({
     mutationFn: async () => {
       const toLink = [...selected].filter((id) => !initialLinked.has(id));
       const toUnlink = [...initialLinked].filter((id) => !selected.has(id));
-      if (toLink.length) {
-        const { error } = await supabase.from("tasks").update({ client_id: clientId }).in("id", toLink);
-        if (error) throw error;
-      }
-      if (toUnlink.length) {
-        const { error } = await supabase.from("tasks").update({ client_id: null }).in("id", toUnlink);
-        if (error) throw error;
+
+      if (kind === "tasks") {
+        if (toLink.length) {
+          const { error } = await supabase.from("tasks").update({ client_id: clientId }).in("id", toLink);
+          if (error) throw error;
+        }
+        if (toUnlink.length) {
+          const { error } = await supabase.from("tasks").update({ client_id: null }).in("id", toUnlink);
+          if (error) throw error;
+        }
+      } else if (kind === "projects") {
+        if (toLink.length) {
+          const { error } = await supabase.from("task_groups").update({ client_id: clientId } as any).in("id", toLink);
+          if (error) throw error;
+        }
+        if (toUnlink.length) {
+          const { error } = await supabase.from("task_groups").update({ client_id: null } as any).in("id", toUnlink);
+          if (error) throw error;
+        }
+      } else {
+        // protocols: merge protocol_meta.client_id per row
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        for (const id of toLink) {
+          const meta = { ...(byId.get(id)?.meta ?? {}), client_id: clientId };
+          const { error } = await supabase.from("task_groups").update({ protocol_meta: meta } as any).eq("id", id);
+          if (error) throw error;
+        }
+        for (const id of toUnlink) {
+          const meta = { ...(byId.get(id)?.meta ?? {}) };
+          delete meta.client_id;
+          const { error } = await supabase.from("task_groups").update({ protocol_meta: meta } as any).eq("id", id);
+          if (error) throw error;
+        }
       }
       return { linked: toLink.length, unlinked: toUnlink.length };
     },
@@ -112,11 +224,12 @@ export default function BulkLinkTasksDialog({
       qc.invalidateQueries({ queryKey: ["client_room_tasks", clientId] });
       qc.invalidateQueries({ queryKey: ["client_task_threads", clientId] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
-      const parts = [];
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      const parts: string[] = [];
       if (r.linked) parts.push(`привязано: ${r.linked}`);
       if (r.unlinked) parts.push(`отвязано: ${r.unlinked}`);
       toast.success(parts.length ? parts.join(", ") : "Без изменений");
-      onOpenChange(false);
+      onDone();
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -125,102 +238,95 @@ export default function BulkLinkTasksDialog({
     [...selected].filter((id) => !initialLinked.has(id)).length +
     [...initialLinked].filter((id) => !selected.has(id)).length;
 
-  const SCOPES: { key: Scope; label: string }[] = [
-    { key: "unlinked", label: "Без клиента" },
-    { key: "mine", label: "Мои" },
-    { key: "all", label: "Все" },
-  ];
+  const emptyText =
+    kind === "projects" ? "Проекты не найдены"
+      : kind === "protocols" ? "Протоколы не найдены"
+      : "Задачи не найдены";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-3">
-        <DialogHeader>
-          <DialogTitle className="text-base">
-            Привязать задачи к «{clientName}»
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по названию…"
+          className="h-9 pl-8"
+          autoFocus
+        />
+      </div>
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по названию…"
-            className="h-9 pl-8"
-            autoFocus
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {SCOPES.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setScope(s.key)}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                scope === s.key
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        <ScrollArea className="h-72 rounded-lg border border-border">
-          {isLoading ? (
-            <div className="flex h-72 items-center justify-center text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : visible.length === 0 ? (
-            <div className="flex h-72 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-              Нет задач по выбранному фильтру
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {visible.map((t) => {
-                const checked = selected.has(t.id);
-                const wasLinked = initialLinked.has(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => toggle(t.id)}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/50"
-                  >
-                    <Checkbox checked={checked} className="pointer-events-none" />
-                    <span className="min-w-0 flex-1 truncate text-sm">{t.title}</span>
-                    {wasLinked && (
-                      <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                        привязана
-                      </span>
-                    )}
-                    {t.deadline && (
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {new Date(t.deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => setOnlyLinked(false)}
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+            !onlyLinked ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
           )}
-        </ScrollArea>
+        >
+          Все
+        </button>
+        <button
+          onClick={() => setOnlyLinked(true)}
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+            onlyLinked ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Привязанные
+        </button>
+      </div>
 
-        <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
-          <span className="text-xs text-muted-foreground">
-            {changes ? `Изменений: ${changes}` : "Выберите задачи"}
-          </span>
-          <Button onClick={() => save.mutate()} disabled={!changes || save.isPending} size="sm">
-            {save.isPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Link2 className="mr-1.5 h-4 w-4" />
-            )}
-            Сохранить
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <ScrollArea className="h-72 rounded-lg border border-border">
+        {isLoading ? (
+          <div className="flex h-72 items-center justify-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="flex h-72 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+            {emptyText}
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {visible.map((r) => {
+              const checked = selected.has(r.id);
+              const wasLinked = initialLinked.has(r.id);
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => toggle(r.id)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-muted/50"
+                >
+                  <Checkbox checked={checked} className="pointer-events-none" />
+                  <span className="min-w-0 flex-1 truncate text-sm">{r.title}</span>
+                  {wasLinked && (
+                    <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                      привязан
+                    </span>
+                  )}
+                  {r.hint && (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{r.hint}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
+
+      <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
+        <span className="text-xs text-muted-foreground">
+          {changes ? `Изменений: ${changes}` : "Выберите элементы"}
+        </span>
+        <Button onClick={() => save.mutate()} disabled={!changes || save.isPending} size="sm">
+          {save.isPending ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Link2 className="mr-1.5 h-4 w-4" />
+          )}
+          Сохранить
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
