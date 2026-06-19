@@ -337,7 +337,7 @@ export default function ClientRoomCenter({
             size="icon"
             className="h-8 w-8"
             onClick={() => setBulkOpen(true)}
-            title="Привязать задачи"
+            title="Привязать к клиенту"
           >
             <Link2 className="h-4 w-4" />
           </Button>
