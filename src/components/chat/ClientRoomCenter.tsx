@@ -58,52 +58,127 @@ function useClientInfo(clientId: string | null) {
   });
 }
 
+/** Источник, из которого задача попала в комнату клиента. */
+type TaskOrigin = {
+  type: "direct" | "project" | "protocol";
+  key: string;
+  label: string;
+};
+
 /**
  * Полноценные Task-объекты по клиенту (с шагами и тегами) — чтобы рендерить
  * единый компонент `TaskItem` (раскрытие inline + воркфлоу «Закрыть/Создать
  * связанную»), а не дублировать карточку задачи в комнате клиента.
+ *
+ * Собирает три источника:
+ *  1) задачи с `tasks.client_id = clientId` («Прямые задачи»);
+ *  2) задачи проектов (и их подпроектов рекурсивно) с `task_groups.client_id`;
+ *  3) задачи протоколов, помеченных клиентом (`protocol_meta.client_id`).
+ * К каждой задаче прикрепляется `__origin` для группировки в UI.
  */
 function useClientTasks(clientId: string | null) {
   return useQuery({
     queryKey: ["client_room_tasks", clientId],
     queryFn: async (): Promise<Task[]> => {
       if (!clientId) return [];
-      const { data } = await supabase
-        .from("tasks")
-        .select("*, subtasks(*), task_tags(tag_id)")
-        .eq("client_id", clientId)
-        .order("is_completed", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(200);
-      const tasks = ((data as any[]) || []) as Task[];
+      const sel = "*, subtasks(*), task_tags(tag_id)";
 
-      // Плюс задачи из протоколов, напрямую помеченных этим клиентом
-      // (protocol_meta.client_id), даже если у самих задач client_id не проставлен.
+      // --- Источник 2: проекты клиента + их подпроекты (BFS) ---
+      const { data: rootGroups } = await supabase
+        .from("task_groups")
+        .select("id, name, project_type")
+        .eq("client_id", clientId as any);
+      const projectGroupLabel = new Map<string, string>(); // groupId -> ярлык корня
+      for (const g of ((rootGroups as any[]) || [])) {
+        if (g.project_type === "protocol" || g.project_type === "crm_client") continue;
+        projectGroupLabel.set(g.id, g.name);
+      }
+      let frontier = [...projectGroupLabel.keys()];
+      let guard = 0;
+      while (frontier.length && guard++ < 15) {
+        const { data: children } = await supabase
+          .from("task_groups")
+          .select("id, name, parent_id")
+          .in("parent_id", frontier);
+        const next: string[] = [];
+        for (const c of ((children as any[]) || [])) {
+          if (!projectGroupLabel.has(c.id)) {
+            projectGroupLabel.set(c.id, projectGroupLabel.get(c.parent_id) || c.name);
+            next.push(c.id);
+          }
+        }
+        frontier = next;
+      }
+
+      // --- Источник 3: протоколы клиента ---
       const { data: directProtos } = await supabase
         .from("task_groups")
-        .select("id")
+        .select("id, name")
         .eq("project_type", "protocol" as any)
         .eq("protocol_meta->>client_id", clientId as any);
-      const directGroupIds = ((directProtos as any[]) || []).map((p) => p.id);
-      if (directGroupIds.length) {
-        const { data: protoTasks } = await supabase
-          .from("tasks")
-          .select("*, subtasks(*), task_tags(tag_id)")
-          .in("group_id", directGroupIds)
-          .neq("task_type", "protocol_review")
+      const protoLabel = new Map<string, string>();
+      for (const p of ((directProtos as any[]) || [])) protoLabel.set(p.id, p.name);
+
+      const projectIds = [...projectGroupLabel.keys()];
+      const protoIds = [...protoLabel.keys()];
+
+      // --- Параллельные запросы по трём источникам ---
+      const [directRes, projectRes, protoRes] = await Promise.all([
+        supabase
+          .from("tasks").select(sel)
+          .eq("client_id", clientId)
           .order("is_completed", { ascending: true })
           .order("created_at", { ascending: false })
-          .limit(200);
-        const seen = new Set(tasks.map((t) => t.id));
-        for (const t of ((protoTasks as any[]) || []) as Task[]) {
-          if (!seen.has(t.id)) { tasks.push(t); seen.add(t.id); }
+          .limit(300),
+        projectIds.length
+          ? supabase.from("tasks").select(sel).in("group_id", projectIds).limit(500)
+          : Promise.resolve({ data: [] as any[] }),
+        protoIds.length
+          ? supabase.from("tasks").select(sel).in("group_id", protoIds).neq("task_type", "protocol_review").limit(300)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const out: Task[] = [];
+      const seen = new Set<string>();
+      const push = (rows: any[], origin: (t: any) => TaskOrigin) => {
+        for (const t of rows || []) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          (t as any).__origin = origin(t);
+          out.push(t as Task);
         }
-      }
-      return tasks;
+      };
+      // Приоритет источника: протокол > проект > прямая привязка.
+      push((protoRes as any).data, (t) => ({
+        type: "protocol", key: `proto:${t.group_id}`,
+        label: `Протокол: ${protoLabel.get(t.group_id) || "встреча"}`,
+      }));
+      push((projectRes as any).data, (t) => {
+        const label = projectGroupLabel.get(t.group_id) || "Проект";
+        return { type: "project", key: `proj:${label}`, label: `Проект: ${label}` };
+      });
+      push((directRes as any).data, () => ({
+        type: "direct", key: "direct", label: "Прямые задачи",
+      }));
+      return out;
     },
     enabled: !!clientId,
     staleTime: 1000 * 30,
   });
+}
+
+/** Группировка задач по источнику для отображения секциями. */
+function groupTasksByOrigin(tasks: Task[]) {
+  const order: Record<TaskOrigin["type"], number> = { direct: 0, project: 1, protocol: 2 };
+  const map = new Map<string, { origin: TaskOrigin; items: Task[] }>();
+  for (const t of tasks) {
+    const o: TaskOrigin = (t as any).__origin ?? { type: "direct", key: "direct", label: "Прямые задачи" };
+    if (!map.has(o.key)) map.set(o.key, { origin: o, items: [] });
+    map.get(o.key)!.items.push(t);
+  }
+  return [...map.values()].sort(
+    (a, b) => order[a.origin.type] - order[b.origin.type] || a.origin.label.localeCompare(b.origin.label),
+  );
 }
 
 type TabKey = "chat" | "tasks" | "metrics" | "assignments";
