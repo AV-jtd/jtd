@@ -302,6 +302,7 @@ export default function ClientRoomCenter({
   const TABS: { key: TabKey; label: string; icon: typeof MessageSquare; count?: number }[] = [
     { key: "chat", label: "Обсуждение", icon: MessageSquare },
     { key: "tasks", label: "Задачи", icon: ListChecks, count: tasks.length || undefined },
+    { key: "live", label: "Эфир", icon: Radio },
     { key: "metrics", label: "Показатели", icon: BarChart3 },
     { key: "assignments", label: "Поручения", icon: UserCheck, count: assignments.length || undefined },
   ];
