@@ -529,6 +529,21 @@ export default function ClientRoomCenter({
           </ScrollArea>
         )}
 
+        {tab === "live" && (
+          <ScrollArea className="h-full">
+            <div className="mx-auto max-w-2xl space-y-2 p-4 sm:p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="text-sm font-semibold">В эфире</h3>
+                <span className="inline-flex items-center gap-1 rounded-full bg-tag-green/10 px-1.5 py-0.5 text-[10px] font-semibold text-tag-green">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-tag-green" />
+                  live
+                </span>
+              </div>
+              <ActivityFeed tasks={tasks} users={availableUsers} onOpenTask={openTaskInline} />
+            </div>
+          </ScrollArea>
+        )}
+
         {tab === "metrics" && (
           <ScrollArea className="h-full">
             <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-5">
