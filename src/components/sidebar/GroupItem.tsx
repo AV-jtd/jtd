@@ -1,10 +1,13 @@
-import { memo, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, Expand, FolderOpen, GripVertical, Plus, Send, Trash2, UserPlus } from "lucide-react";
+import { memo, useRef, useState, type FormEvent } from "react";
+import { Camera, ChevronDown, ChevronRight, Expand, FolderOpen, GripVertical, Loader2, Plus, Send, Trash2, UserPlus } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { TaskGroup, useTaskMutations, useAvailableUsers, useProjectFolders } from "@/hooks/useTasks";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import ConfirmDelete from "@/components/ConfirmDelete";
