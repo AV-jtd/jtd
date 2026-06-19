@@ -489,9 +489,24 @@ export default function ClientRoomCenter({
               {tasks.length > 0 && focusList.length === 0 && (
                 <EmptyState text="Нет задач в этой категории" />
               )}
-              {focusList.map((t) => (
-                <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
-              ))}
+              {(() => {
+                const groups = groupTasksByOrigin(focusList);
+                if (groups.length <= 1) {
+                  return focusList.map((t) => (
+                    <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
+                  ));
+                }
+                return groups.map((g) => (
+                  <div key={g.origin.key} className="pt-1">
+                    <OriginHeader origin={g.origin} count={g.items.length} />
+                    <div className="space-y-1">
+                      {g.items.map((t) => (
+                        <TaskItem key={taskKey(t.id)} task={t} initialOpen={expand?.id === t.id} />
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
               {completed.length > 0 && (
                 <div className="pt-2">
                   <button
