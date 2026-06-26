@@ -2592,6 +2592,33 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_send_log: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          recipient_id: string | null
+          report_type: string
+          week_start: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          recipient_id?: string | null
+          report_type: string
+          week_start: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          recipient_id?: string | null
+          report_type?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       wiki_pages: {
         Row: {
           content: string | null
