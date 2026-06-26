@@ -56,6 +56,8 @@ Deno.serve(async () => {
 
   let sentCount = 0;
 
+  const weekStart = weekStartMoscow();
+
   for (const profile of eligibleProfiles) {
     try {
       const weekData = await gatherWeekData(supabase, profile.id, profileMap);
@@ -64,7 +66,16 @@ Deno.serve(async () => {
       const aiReview = await generateAiReview(weekData, profile.display_name || "Коллега");
       if (!aiReview) continue;
 
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      // Idempotency guard: claim this (report, chat, week). If it already exists,
+      // a report was already sent this week — skip to avoid duplicate/triple sends.
+      const { error: claimErr } = await supabase
+        .from("weekly_send_log")
+        .insert({ report_type: "ai_review", chat_id: profile.telegram_chat_id, recipient_id: profile.id, week_start: weekStart });
+      if (claimErr) {
+        continue; // unique violation → already sent this week
+      }
+
+      const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -74,6 +85,13 @@ Deno.serve(async () => {
         }),
       });
 
+      if (!tgResp.ok) {
+        // Release the claim so a later run can retry
+        await supabase.from("weekly_send_log").delete()
+          .match({ report_type: "ai_review", chat_id: profile.telegram_chat_id, week_start: weekStart });
+        continue;
+      }
+
       sentCount++;
     } catch (e) {
       console.error(`Error for user ${profile.id}:`, e);
@@ -82,6 +100,14 @@ Deno.serve(async () => {
 
   return new Response(JSON.stringify({ ok: true, sent: sentCount }));
 });
+
+function weekStartMoscow(): string {
+  const m = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const day = m.getDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day; // back to Monday
+  m.setDate(m.getDate() + diff);
+  return m.toISOString().slice(0, 10);
+}
 
 async function gatherWeekData(supabase: any, userId: string, profileMap: Record<string, string>) {
   const now = new Date();
