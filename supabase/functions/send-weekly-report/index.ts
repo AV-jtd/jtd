@@ -271,7 +271,15 @@ Deno.serve(async (req) => {
       }
       text += `\n` + lines.slice(1).join("\n");
 
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      // Idempotency guard: claim this (report, chat, week) before sending.
+      const { error: claimErr } = await supabase
+        .from("weekly_send_log")
+        .insert({ report_type: "weekly_report", chat_id: profile.telegram_chat_id, recipient_id: profile.id, week_start: weekStart });
+      if (claimErr) {
+        continue; // already sent this week
+      }
+
+      const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -281,6 +289,12 @@ Deno.serve(async (req) => {
         }),
       });
 
+      if (!tgResp.ok) {
+        await supabase.from("weekly_send_log").delete()
+          .match({ report_type: "weekly_report", chat_id: profile.telegram_chat_id, week_start: weekStart });
+        continue;
+      }
+
       sentCount++;
     } catch (e) {
       console.error(`Error for user ${profile.id}:`, e);
@@ -289,6 +303,14 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ ok: true, sent: sentCount }));
 });
+
+function weekStartMoscow(): string {
+  const m = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const day = m.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  m.setDate(m.getDate() + diff);
+  return m.toISOString().slice(0, 10);
+}
 
 async function generateAiBlock(d: {
   userName: string;
