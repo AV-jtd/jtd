@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
 
   let sentCount = 0;
 
+  const weekStart = weekStartMoscow();
+
   for (const profile of eligibleProfiles) {
     try {
       // Get all groups: owned + member-of (top-level only)
