@@ -94,8 +94,10 @@ export default function StmMatrixView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projects = useStmProjects();
+  const { data: structureNodes = [] } = useStmStructureNodes();
+  const deleteNode = useDeleteStmStructureNode();
   const [flow, setFlow] = useState<StmFlow>("in");
-  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand" | "project">("retailer");
   // Secondary grouping: within a brand/retailer group, split rows by project.
   const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
