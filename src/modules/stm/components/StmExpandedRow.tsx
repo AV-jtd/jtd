@@ -513,7 +513,7 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             <span>Чат SKU · {group.name}</span>
           </div>
           <div className="h-[380px]">
-            <ProjectChat groupId={group.id} groupName={group.name} embedded />
+            <ProjectChat groupId={group.id} groupName={group.name} embedded onClose={() => setShowChat(false)} />
           </div>
         </div>
       )}
