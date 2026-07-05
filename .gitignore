@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Секреты self-hosting стека
+self-hosting/.env.supabase
+self-hosting/kong.yml
