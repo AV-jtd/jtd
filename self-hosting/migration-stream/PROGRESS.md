@@ -37,7 +37,7 @@
 | Данные (все 59 таблиц) | ✅ | 87 615 строк, FK-целостность OK |
 | Фронтенд собран | ✅ | `dist/` 7.0M, proxy URL `https://justtodoit.ru/sb` |
 | nginx + домен | ✅ | контейнер отдаёт dist/, проксирует /sb/ → Kong, UFW 80/443 открыт |
-| SSL | ⬜ | сертификат есть только для `77-222-53-183.swtest.ru`; для justtodoit.ru — после DNS |
+| SSL | ✅ | Let's Encrypt для justtodoit.ru выпущен (до 2026-10-03), auto-renew настроен |
 | DNS переключён | 🟡 | justtodoit.ru (корень) → 189.74.120.232 через SpaceWeb API; www.justtodoit.ru остался на 185.158.133.1 (canChange:false, нужна заявка в поддержку SpaceWeb); распространение кеша в процессе |
 
 ---
@@ -64,7 +64,11 @@
   - Через официальный API SpaceWeb (`api.sweb.ru/domains/dns`, метод `editMain`): justtodoit.ru (root, index 0) → 189.74.120.232
   - ⚠️ `www.justtodoit.ru` не переключён — запись `canChange:false`, нужна заявка в поддержку SpaceWeb на её редактирование
   - TTL снизить не удалось (пользователь предупредил заранее) — пропагация идёт с исходным TTL (~381с на момент переключения)
-- [ ] **Шаг 6** — SSL (`certbot --nginx -d justtodoit.ru`)
+- [x] **Шаг 6** — SSL
+  - `certbot certonly --webroot -w /opt/jtd/dist -d justtodoit.ru` (сработало сразу — Let's Encrypt резолвит домен напрямую, не через кешированные резолверы, поэтому не пришлось ждать пропагации TTL)
+  - nginx-full.conf: добавлен блок 443 ssl + редирект 80→443, location для acme-challenge
+  - ⚠️ Важно: bind-mount `nginx-full.conf` — при редактировании файла с хоста нужен `docker restart self-hosting-nginx-1` (не просто `nginx -s reload`), иначе контейнер держит старый inode
+  - Проверено: редирект 80→301→443, /sb/ проксирование по HTTPS — 200
 - [ ] **Шаг 7** — Сброс паролей 55 пользователей + smoke-test
 
 ---
@@ -79,3 +83,4 @@
 | 2026-07-05 | **Шаг 3 завершён**: фронтенд собран (`dist/`, proxy URL `/sb`) |
 | 2026-07-05 | **Шаг 4 завершён**: nginx отдаёт фронтенд и проксирует Kong, проверено локально и внешне |
 | 2026-07-05 | **Шаг 5**: DNS justtodoit.ru → VPS через SpaceWeb API (root only, www требует поддержки), ждём пропагации TTL |
+| 2026-07-05 | **Шаг 6 завершён**: SSL для justtodoit.ru выпущен, nginx настроен на 443 + редирект с 80 |
