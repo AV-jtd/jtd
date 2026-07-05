@@ -21,6 +21,7 @@ import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 import MaxLinkCard from "@/components/MaxLinkCard";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
+import ChangePasswordSection from "@/components/settings/ChangePasswordSection";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
