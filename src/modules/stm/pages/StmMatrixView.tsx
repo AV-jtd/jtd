@@ -455,6 +455,7 @@ export default function StmMatrixView() {
               <option value="retailer">По сети</option>
               <option value="brand">По бренду</option>
               <option value="drop">По дропу</option>
+              <option value="project">По проекту</option>
             </select>
           </div>
 
