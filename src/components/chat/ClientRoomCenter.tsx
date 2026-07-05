@@ -221,6 +221,7 @@ export default function ClientRoomCenter({
   const { data: client } = useClientInfo(clientId);
   const { data: tasks = [] } = useClientTasks(clientId);
   const { data: taskThreads = [] } = useClientTaskThreads(clientId);
+  const { data: chatEvents = [] } = useClientChatEvents(clientId);
   const { data: availableUsers = [] } = useAvailableUsers();
   /** Какая ветка чата задачи раскрыта в ленте «Обсуждение». */
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
