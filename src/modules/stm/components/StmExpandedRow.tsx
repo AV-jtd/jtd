@@ -2,8 +2,9 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { GanttChart, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { GanttChart, ChevronDown, ChevronRight, MessageSquare, MessagesSquare } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
+import ProjectChat from "@/components/ProjectChat";
 import type { Task } from "@/hooks/useTasks";
 import { REWORK_RISK_THRESHOLD, type StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
@@ -141,6 +142,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
   // Active stage is controlled via URL (?stage=...). Fall back to current stage when nothing is set.
   const activeStageKey = controlledStageKey ?? currentStageKey;
   const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
+
+  // ---- Per-SKU chat toggle (group_messages backed via ProjectChat) ----
+  const [showChat, setShowChat] = useState(false);
 
   // ---- Auto-advance: when the active stage gets completed, jump to the next open stage. ----
   useEffect(() => {
@@ -301,6 +305,19 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
               <div className="text-sm font-mono text-stm-danger tabular-nums">↗ +{globalDrift} дн</div>
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setShowChat(v => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 text-[11px] transition-colors px-2 py-1 rounded border",
+              showChat
+                ? "text-stm-accent border-stm-accent/50 bg-stm-accent/10"
+                : "text-stm-fg/60 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/40",
+            )}
+            aria-pressed={showChat}
+          >
+            <MessagesSquare className="h-3 w-3" /> Чат
+          </button>
           <button
             type="button"
             onClick={() => onOpenGantt?.(group.id)}
@@ -485,6 +502,19 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
         <div className="text-[11px] text-stm-fg/40 px-2 italic flex items-center gap-2">
           <ChevronRight className="h-3 w-3" />
           Выберите этап, чтобы открыть детали (шаги, дедлайн, ответственный)
+        </div>
+      )}
+
+      {/* Per-SKU chat (group_messages) */}
+      {showChat && (
+        <div className="rounded-xl border border-stm-border/40 bg-stm-glass/20 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-stm-border/30 text-[10px] font-mono uppercase tracking-widest text-stm-fg/50">
+            <MessagesSquare className="h-3 w-3 text-stm-accent" />
+            <span>Чат SKU · {group.name}</span>
+          </div>
+          <div className="h-[380px]">
+            <ProjectChat groupId={group.id} groupName={group.name} embedded onClose={() => setShowChat(false)} />
+          </div>
         </div>
       )}
 
