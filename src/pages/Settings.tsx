@@ -134,6 +134,7 @@ type SectionMeta = {
 
 const SECTION_META: Record<string, SectionMeta> = {
   profile:        { id: "profile",        label: "Профиль",     keywords: "имя организация email telegram" },
+  security:       { id: "security",       label: "Пароль",      keywords: "пароль безопасность смена сменить password" },
   appearance:     { id: "appearance",     label: "Оформление",  keywords: "тема цвет акцент темная светлая палитра" },
   notifications:  { id: "notifications",  label: "Уведомления", keywords: "push web telegram бот матрица отчёт" },
   max_channel:    { id: "max_channel",    label: "MAX",         keywords: "max мессенджер бот уведомления канал альтернатива" },
