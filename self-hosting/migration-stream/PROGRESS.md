@@ -79,6 +79,14 @@
   - SMTP для reset-password писем НЕ работает: `SMTP_PASS=ЗАМЕНИТЬ_ПОЗЖЕ` (плейсхолдер) в .env.supabase — нужен реальный пароль от noreply@justtodoit.ru (smtp.yandex.ru) для варианта A
   - Ждём подтверждения пользователя (вход + проверка задач/проектов), затем решаем по варианту сброса паролей для остальных 54
 
+## Инцидент: массовые 502 на /rest/v1/ (2026-07-05, устранён)
+
+- Симптом: 502 на task_comments/task_participants/subtasks/task_tags при запросах вида `task_id=in.(...много UUID...)`
+- Причина: внешний nginx (self-hosting-nginx-1), настроенный при выпуске SSL, не имел тюнинга буферов — дефолтные 4-8k не вмещали большие заголовки ответа PostgREST/Kong для запросов с сотнями UUID. Ошибка в логе: `upstream sent too big header while reading response header from upstream`. Kong сам уже был настроен на 160k (KONG_NGINX_PROXY_BUFFER_SIZE), но это не было продублировано во внешнем nginx.
+- Фикс: в `nginx-full.conf` location `/sb/` добавлены `proxy_buffer_size 160k`, `proxy_buffers 64 160k`, `proxy_busy_buffers_size 160k`; на уровне server — `large_client_header_buffers 4 160k`. nginx перезапущен (restart, не reload — см. заметку про bind-mount выше).
+- Проверено: воспроизведён тот же запрос с 150 UUID — 200 OK, 502 в логах после фикса не наблюдается.
+- Побочно замечено (не устранялось): `/sb/realtime/v1/websocket` отдаёт 403 — отдельная проблема авторизации realtime.
+
 ---
 
 ## Журнал сессий
