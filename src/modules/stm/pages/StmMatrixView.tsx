@@ -552,7 +552,7 @@ export default function StmMatrixView() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+              <DropdownMenuItem onClick={() => openCreateSku(null)}>
                 <Package className="h-4 w-4 mr-2" /> SKU
               </DropdownMenuItem>
               <DropdownMenuSeparator />
