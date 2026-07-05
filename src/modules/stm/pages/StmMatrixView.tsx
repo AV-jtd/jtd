@@ -119,6 +119,8 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
+  const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
   // Group-header editor (rename/merge + manager + participants).
   const [editGroup, setEditGroup] = useState<{
     field: StmGroupField;
