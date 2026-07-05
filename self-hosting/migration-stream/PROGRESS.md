@@ -87,6 +87,38 @@
 - Проверено: воспроизведён тот же запрос с 150 UUID — 200 OK, 502 в логах после фикса не наблюдается.
 - Побочно замечено (не устранялось): `/sb/realtime/v1/websocket` отдаёт 403 — отдельная проблема авторизации realtime.
 
+## Инцидент: расхождение схемы с живой Lovable БД (2026-07-06, устранён)
+
+При аудите по `schema_live_full.sql` (получен от Lovable, 66 таблиц, 5589 строк
+DDL из pg_catalog живой БД) обнаружено и устранено:
+
+- **15 недостающих функций**: `can_see_task`, `can_view_profile`, `can_view_tag`,
+  `consultant_can_see_group/tag/task/user`, `consultant_company`,
+  `email_queue_dispatch/wake`, `is_protocol_draft`,
+  `is_protocol_internal_attendee`, `is_task_in_protocol_attendee_scope`,
+  `user_protocol_groups_arr`, `user_visible_group_ids` — докатили в порядке
+  зависимостей (топологическая сортировка, т.к. SQL-функции валидируют
+  вызываемые функции при CREATE)
+- **49 недостающих RLS-политик** на 27 таблицах (в основном "Consultant block
+  on X" и "Internal attendees can ... protocol ...") — докатили дословно
+- **2 неверные политики** на `task_step_templates` (мои реконструкции по
+  аналогии) — заменены на точные из живой схемы
+- **3 недостающих индекса**: `idx_task_groups_project_type`,
+  `uniq_npd_stream_subproject_per_parent`, `idx_tasks_client_id`
+- **`task_groups.project_type`**: не было `DEFAULT 'standard' NOT NULL` —
+  добавлено с бэкфиллом 1334 строк
+- **`wiki_pages.group_id`**: у нас был лишний `NOT NULL`, в живой схеме
+  nullable — снято
+- **`task_dependencies`**: добавлены `predecessor_entity_type`/
+  `successor_entity_type`, восстановлены все 307 значений из CSV-бэкапа
+
+Итог полной сверки после патча: 0 расхождений по колонкам (66/66 таблиц),
+политикам (295/295), функциям (118/118), индексам (106/106).
+Скрипты: `migration-stream/full_patch.sql`, `missing_functions.sql`,
+`missing_policies.sql`.
+
+⚠️ Данные всё ещё из бэкапа от 15 июня — свежий экспорт нужен отдельным шагом.
+
 ---
 
 ## Журнал сессий
