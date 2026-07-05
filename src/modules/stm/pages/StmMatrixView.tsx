@@ -121,6 +121,8 @@ export default function StmMatrixView() {
   const [importOpen, setImportOpen] = useState(false);
   // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
   const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
+  // "+ SKU" from a group/project header → pre-filled create-SKU dialog.
+  const [createSkuPrefill, setCreateSkuPrefill] = useState<Partial<Record<StmGroupField, string>> | null>(null);
   // Group-header editor (rename/merge + manager + participants).
   const [editGroup, setEditGroup] = useState<{
     field: StmGroupField;
