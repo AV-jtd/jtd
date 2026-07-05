@@ -2820,6 +2820,7 @@ export type Database = {
         Returns: boolean
       }
       department_depth: { Args: { _dept_id: string }; Returns: number }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
