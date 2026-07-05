@@ -679,6 +679,17 @@ export default function StmMatrixView() {
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
+      {editGroup && (
+        <StmEditGroupDialog
+          open={!!editGroup}
+          onOpenChange={(v) => { if (!v) setEditGroup(null); }}
+          field={editGroup.field}
+          currentValue={editGroup.value === "Без группы" || editGroup.value === "Без проекта" ? "" : editGroup.value}
+          groupIds={editGroup.groupIds}
+          existingValues={distinctValues[editGroup.field]}
+          currentManagerId={editGroup.managerId}
+        />
+      )}
     </div>
   );
 }
