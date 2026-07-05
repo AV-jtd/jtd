@@ -269,6 +269,13 @@ export default function StmMatrixView() {
     setEditGroup({ field, value, groupIds, managerId });
   };
 
+  const NO_GROUP = new Set(["Без группы", "Без проекта"]);
+  // Open the create-SKU dialog pre-filled with a group/project's structure context.
+  const openCreateSku = (meta: Partial<Record<StmGroupField, string>> | null) => {
+    setCreateSkuPrefill(meta && Object.keys(meta).length ? meta : null);
+    setCreateOpen(true);
+  };
+
   // Counts per status for the tab labels (within current flow).
   const statusCounts = useMemo(() => {
     const inFlow = projects.filter(p => p.flow === flow);
