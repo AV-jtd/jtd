@@ -672,6 +672,17 @@ export default function StmMatrixView() {
                             </>
                           )}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openCreateSku(NO_GROUP.has(it.group.label) ? null : { [groupBy as StmGroupField]: it.group.label })}
+                          className={cn(
+                            "shrink-0 inline-flex items-center gap-0.5 h-6 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 transition-colors",
+                            it.group.placeholder ? "opacity-100" : "opacity-0 group-hover/hdr:opacity-100",
+                          )}
+                          title="Добавить SKU в эту группу"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
                         {it.group.placeholder && it.group.nodeId ? (
                           <button
                             type="button"
