@@ -486,6 +486,19 @@ export default function Settings() {
               </div>
             </SettingsSection>
 
+            {/* Смена пароля */}
+            <SettingsSection
+              icon={KeyRound}
+              title="Пароль"
+              description="Смена пароля от аккаунта"
+              sectionId="security"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("security", "Пароль", "пароль безопасность смена сменить password")}
+            >
+              <ChangePasswordSection />
+            </SettingsSection>
+
             {/* Notifications — matrix view, collapsed by default */}
             <SettingsSection
               icon={Bell}
